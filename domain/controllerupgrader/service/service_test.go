@@ -66,9 +66,9 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -107,9 +107,9 @@ func (s *serviceSuite) TestUpgradeControllerNodeBlocker(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: oldNodeVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: oldNodeVersion},
+			{ID: "1", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -208,9 +208,9 @@ func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -245,9 +245,9 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: oldNodeVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: oldNodeVersion},
+			{ID: "1", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -334,9 +334,9 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -370,7 +370,7 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -455,7 +455,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
@@ -510,7 +510,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionMissingBinaries(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
@@ -542,9 +542,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNodeBlocker(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: oldNodeVersion},
-			{ID: "2", Version: oldNodeVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -589,9 +589,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	// running the current controller version.
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -619,9 +619,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	// upgrade.
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: upgradeVersion},
-			{ID: "3", Version: upgradeVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: upgradeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: upgradeVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -657,9 +657,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -755,7 +755,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 	).Return(true, nil)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().SetModelTargetAgentVersionAndStream(
@@ -821,7 +821,7 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
@@ -879,9 +879,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: oldNodeVersion},
-			{ID: "2", Version: oldNodeVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: oldNodeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 
@@ -933,9 +933,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	// running the current controller version.
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -970,9 +970,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	// upgrade.
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: upgradeVersion},
-			{ID: "3", Version: upgradeVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: upgradeVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: upgradeVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -1018,9 +1018,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	)
 	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
 		[]internal.ControllerNode{
-			{ID: "1", Version: currentControllerVersion},
-			{ID: "2", Version: currentControllerVersion},
-			{ID: "3", Version: currentControllerVersion},
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -1043,4 +1043,94 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 		domainagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestUpgradeControllerWithMultipleArchitectures tests that the service correctly
+// identifies all required architectures from controller nodes, sorts them, and
+// deduplicates them before checking for binary existence.
+func (s *serviceSuite) TestUpgradeControllerWithMultipleArchitectures(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	highestVersion, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.4")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
+		Return(highestVersion, nil)
+	// Architectures should be sorted: ARM64, then PPC64EL.
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
+		gomock.Any(), highestVersion, []domainagentbinary.Architecture{
+			domainagentbinary.ARM64,
+			domainagentbinary.PPC64EL,
+		},
+	).Return(true, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.PPC64EL},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.ARM64},
+			{ID: "3", Version: currentControllerVersion, Architecture: domainagentbinary.ARM64},
+		}, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersion(
+		gomock.Any(), currentControllerVersion, highestVersion,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	upgradedVer, err := svc.UpgradeController(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(upgradedVer, tc.Equals, highestVersion)
+}
+
+// TestUpgradeControllerWithStreamAndMultipleArchitectures tests that the
+// service correctly identifies all required architectures from controller
+// nodes, sorts them, and deduplicates them before checking for binary
+// existence when a stream is also provided.
+func (s *serviceSuite) TestUpgradeControllerWithStreamAndMultipleArchitectures(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	highestVersion, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.4")
+	c.Assert(err, tc.ErrorIsNil)
+	stream := domainagentbinary.AgentStreamProposed
+
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailableForStream(
+		gomock.Any(), stream,
+	).Return(highestVersion, nil)
+	// Architectures should be sorted: AMD64, then ARM64.
+	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
+		gomock.Any(), highestVersion, stream, []domainagentbinary.Architecture{
+			domainagentbinary.AMD64,
+			domainagentbinary.ARM64,
+		},
+	).Return(true, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion, Architecture: domainagentbinary.AMD64},
+			{ID: "2", Version: currentControllerVersion, Architecture: domainagentbinary.ARM64},
+		}, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersionAndStream(
+		gomock.Any(), currentControllerVersion, highestVersion, stream,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	upgradedVer, err := svc.UpgradeControllerWithStream(c.Context(), stream)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(upgradedVer, tc.Equals, highestVersion)
 }
