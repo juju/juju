@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// unitUUID identifies a unit.
-type unitUUID struct {
+// entityUUID identifies a unit.
+type entityUUID struct {
 	// UUID is the universally unique identifier for a unit.
 	UUID string `db:"uuid"`
 }
@@ -110,7 +110,7 @@ type unitStateKeyVal[T comparable] struct {
 type unitCharmStateKeyVal unitStateKeyVal[string]
 type unitRelationStateKeyVal unitStateKeyVal[int]
 
-func makeUnitCharmStateKeyVals(unitUUID unitUUID, kv map[string]string) []unitCharmStateKeyVal {
+func makeUnitCharmStateKeyVals(unitUUID entityUUID, kv map[string]string) []unitCharmStateKeyVal {
 	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitCharmStateKeyVal{
@@ -122,7 +122,7 @@ func makeUnitCharmStateKeyVals(unitUUID unitUUID, kv map[string]string) []unitCh
 	return keyVals
 }
 
-func makeUnitRelationStateKeyVals(unitUUID unitUUID, kv map[int]string) []unitRelationStateKeyVal {
+func makeUnitRelationStateKeyVals(unitUUID entityUUID, kv map[int]string) []unitRelationStateKeyVal {
 	keyVals := make([]unitRelationStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitRelationStateKeyVal{
