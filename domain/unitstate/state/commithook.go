@@ -35,7 +35,7 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("update ports: %v", err)
 		}
 
-		if err := st.updateCharmState(ctx, tx, unitUUID{UUID: arg.UnitUUID.String()}, arg.CharmState); err != nil {
+		if err := st.updateCharmState(ctx, tx, entityUUID{UUID: arg.UnitUUID.String()}, arg.CharmState); err != nil {
 			return errors.Errorf("update charm state: %v", err)
 		}
 
@@ -77,7 +77,7 @@ func (st *State) updateRelationSettings(ctx context.Context, tx *sqlair.TX, sett
 	return nil
 }
 
-func (st *State) updateCharmState(ctx context.Context, tx *sqlair.TX, unit unitUUID, charmState *map[string]string) error {
+func (st *State) updateCharmState(ctx context.Context, tx *sqlair.TX, unit entityUUID, charmState *map[string]string) error {
 	if charmState == nil {
 		return nil
 	}
@@ -117,7 +117,7 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 		return "", errors.Capture(err)
 	}
 
-	var result unitUUID
+	var result entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result, err = st.getUnitUUIDForName(ctx, tx, string(name))
 		return err
