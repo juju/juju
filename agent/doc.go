@@ -12,7 +12,7 @@
 //
 // See github.com/juju/juju/api for establishing API connections using agent
 // configuration. See github.com/juju/juju/controller for controller-specific
-// settings that agents must handle. See the sections below for package-level
+// settings that agents should handle. See the sections below for package-level
 // concerns that span multiple interfaces.
 //
 // # Configuration persistence
