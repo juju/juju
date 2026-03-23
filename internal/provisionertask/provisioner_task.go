@@ -183,11 +183,12 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 }
 
 // The list of events that are passed into the eventProcessed callback by the
-// main loop.
+// provisioner task.
 const (
 	eventTypeProcessedMachines         = "processed-machines"
 	eventTypeRetriedMachinesWithErrors = "retried-machines-with-errors"
 	eventTypeResizedWorkerPool         = "resized-worker-pool"
+	eventTypeQueuedStopInstances       = "queued-stop-instances"
 )
 
 type provisionerTask struct {
@@ -594,29 +595,32 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	// Collect the list of machines to stop.
 	dead = task.lockedCollectStopListAndMark(dead)
 	// Collect the instances for all provisioned machines that are dead.
-	stopping, orphaned, redefer := task.lockedInstancesForDeadMachines(ctx, dead)
-	task.lockedDeferAlreadyStopping(redefer)
+	instanceClassification := task.lockedInstancesForDeadMachines(ctx, dead)
+	task.lockedForgetMissingMachines(instanceClassification.missing)
+	task.lockedDeferAlreadyStopping(instanceClassification.redefer)
 	task.machinesMutex.Unlock()
 
 	// Don't remove machines that need deferring again.
-	redeferIDs := transform.Slice(redefer, apiprovisioner.MachineProvisioner.Id)
+	redeferIDs := transform.Slice(instanceClassification.redefer, apiprovisioner.MachineProvisioner.Id)
+	missingIDs := transform.Slice(instanceClassification.missing, apiprovisioner.MachineProvisioner.Id)
 	dead = slices.DeleteFunc(dead, func(m apiprovisioner.MachineProvisioner) bool {
-		return slices.Contains(redeferIDs, m.Id())
+		id := m.Id()
+		return slices.Contains(redeferIDs, id) || slices.Contains(missingIDs, id)
 	})
 
 	// We know that there are dead machines, but none of them have an
 	// assigned instance, so there is nothing to stop in terms of an
 	// instance, but we still need to mark the machines for removal.
-	for _, machine := range orphaned {
+	for _, machine := range instanceClassification.orphaned {
 		task.logger.Infof(ctx, "removing dead machine with no machine ID")
 		if err := machine.MarkForRemoval(ctx); err != nil {
 			task.logger.Errorf(ctx, "failed to remove dead machine %q: %v", machine.Id(), err)
 		}
 	}
 
-	if len(stopping) == 0 &&
+	if len(instanceClassification.instances) == 0 &&
 		len(dead) == 0 &&
-		len(redefer) == 0 {
+		len(instanceClassification.redefer) == 0 {
 		// Nothing to do.
 		return nil
 	}
@@ -624,15 +628,15 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	provTask := workerpool.Task{
 		Type: "stop-instances",
 		Process: func() error {
-			if len(stopping) > 0 {
-				task.logger.Infof(ctx, "stopping known instances %v", instanceIds(stopping))
+			if len(instanceClassification.instances) > 0 {
+				task.logger.Infof(ctx, "stopping known instances %v", instanceIds(instanceClassification.instances))
 			}
 
 			// It is important that we stop unknown instances before starting
 			// pending ones, because if we start an instance and then fail to
 			// set its InstanceId on the machine.
 			// We don't want to start a new instance for the same machine ID.
-			if err := task.doStopInstances(ctx, stopping); err != nil {
+			if err := task.doStopInstances(ctx, instanceClassification.instances); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -654,13 +658,13 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			}
 			task.machinesMutex.Unlock()
 
-			if len(redefer) > 0 {
+			if len(instanceClassification.redefer) > 0 {
 				// Re-trigger machines that failed to prepare for removal.
 				task.logger.Debugf(
 					ctx, "triggering removal of deferred machines %v",
 					redeferIDs,
 				)
-				return task.queueRemovalOfDeadMachines(ctx, redefer)
+				return task.queueRemovalOfDeadMachines(ctx, instanceClassification.redefer)
 			}
 
 			return nil
@@ -670,6 +674,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	select {
 	case task.wp.Queue() <- provTask:
 		// successfully enqueued removal request
+		task.notifyEventProcessedCallback(eventTypeQueuedStopInstances)
 		return nil
 	case <-task.catacomb.Dying():
 		return task.catacomb.ErrDying()
@@ -711,6 +716,17 @@ func (task *provisionerTask) lockedCollectStopListAndMark(dead []apiprovisioner.
 	return deadMachines
 }
 
+func (task *provisionerTask) lockedForgetMissingMachines(missing []apiprovisioner.MachineProvisioner) {
+	for _, machine := range missing {
+		task.lockedRemoveMachineFromAZMap(machine)
+		machID := machine.Id()
+		delete(task.machines, machID)
+		delete(task.machinesStopping, machID)
+		delete(task.machinesStopped, machID)
+		delete(task.machinesStopDeferred, machID)
+	}
+}
+
 // lockedDeferAlreadyStopping puts a machine back into the deferred stop.
 func (task *provisionerTask) lockedDeferAlreadyStopping(
 	redefer []apiprovisioner.MachineProvisioner,
@@ -733,21 +749,37 @@ func (task *provisionerTask) lockedDeferStopForNotYetStartedMachines(dead []apip
 	}
 }
 
+type machineInstancesClassification struct {
+	// missing are machines that have been removed entirely from state.
+	missing []apiprovisioner.MachineProvisioner
+	// orphaned are machines that do not have an instance associated with them.
+	orphaned []apiprovisioner.MachineProvisioner
+	// redefer are machines that failed to be classified for some misc reason,
+	// so we will try again later.
+	redefer []apiprovisioner.MachineProvisioner
+	// instances are the instances for the input machines which can be stopped.
+	instances []instances.Instance
+}
+
 // instancesForDeadMachines returns a list of instances that correspond to
 // machines with a life of "dead" in state. Missing machines and machines that
 // have not finished starting are omitted from the list.
 func (task *provisionerTask) lockedInstancesForDeadMachines(
 	ctx context.Context, dead []apiprovisioner.MachineProvisioner,
-) ([]instances.Instance, []apiprovisioner.MachineProvisioner, []apiprovisioner.MachineProvisioner) {
-	var (
-		deadInstances []instances.Instance
-		orphaned      []apiprovisioner.MachineProvisioner
-		redefer       []apiprovisioner.MachineProvisioner
-	)
+) machineInstancesClassification {
+	var ret machineInstancesClassification
 	for _, machine := range dead {
-		instId, err := machine.InstanceId(ctx)
-		if params.IsCodeNotProvisioned(err) {
-			orphaned = append(orphaned, machine)
+		instID, err := machine.InstanceId(ctx)
+		if params.IsCodeNotFound(err) {
+			// A NotFound error indicates that the machine itself does not exist.
+			// This means there is nothing to remove, so we should ignore this
+			// machine.
+			// This can happen in circumstances such as when a machine is removed
+			// without ever having an instance provisioned.
+			ret.missing = append(ret.missing, machine)
+			continue
+		} else if params.IsCodeNotProvisioned(err) {
+			ret.orphaned = append(ret.orphaned, machine)
 			continue
 		} else if err == nil {
 			keep, err := machine.KeepInstance(ctx)
@@ -756,27 +788,27 @@ func (task *provisionerTask) lockedInstancesForDeadMachines(
 					ctx, "cannot fetch machine %s keep-instance status from controller: %v",
 					machine.Id(), err,
 				)
-				redefer = append(redefer, machine)
+				ret.redefer = append(ret.redefer, machine)
 				continue
 			}
 			if keep {
-				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instId)
+				task.logger.Debugf(ctx, "machine %v is dead but keep-instance is true", instID)
 				continue
 			}
 			// If the instance is not found we can't stop it.
-			if inst, found := task.instances[instId]; found {
-				deadInstances = append(deadInstances, inst)
+			if inst, found := task.instances[instID]; found {
+				ret.instances = append(ret.instances, inst)
 			}
 		} else if err != nil {
 			task.logger.Errorf(
 				ctx, "cannot fetch machine %s instance ID from controller: %v",
 				machine.Id(), err,
 			)
-			redefer = append(redefer, machine)
+			ret.redefer = append(ret.redefer, machine)
 			continue
 		}
 	}
-	return deadInstances, orphaned, redefer
+	return ret
 }
 
 func (task *provisionerTask) doStopInstances(ctx context.Context, instances []instances.Instance) error {
