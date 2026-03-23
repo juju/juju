@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -93,12 +94,10 @@ FROM (
 	return retVal, nil
 }
 
-// GetControllerNodeVersions returns the current version that is running for
-// each controller in the cluster. This is the version that each controller
-// reports when it starts up.
-func (s *ControllerState) GetControllerNodeVersions(
-	ctx context.Context,
-) (map[string]semversion.Number, error) {
+// GetControllerNodes returns the current version and architecture of nodes
+// running for each controller in the cluster.
+// The version is the one that each controller reports when it starts up.
+func (s *ControllerState) GetControllerNodes(ctx context.Context) ([]internal.ControllerNode, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -127,7 +126,7 @@ FROM   controller_node_agent_version
 		return nil, errors.Capture(err)
 	}
 
-	rval := make(map[string]semversion.Number, len(dbValues))
+	result := make([]internal.ControllerNode, 0, len(dbValues))
 	for _, v := range dbValues {
 		version, err := semversion.Parse(v.Version)
 		if err != nil {
@@ -137,10 +136,14 @@ FROM   controller_node_agent_version
 			)
 		}
 
-		rval[v.ControllerID] = version
+		result = append(result, internal.ControllerNode{
+			ID:           v.ControllerID,
+			Version:      version,
+			Architecture: agentbinary.Architecture(v.ArchitectureID),
+		})
 	}
 
-	return rval, nil
+	return result, nil
 }
 
 // GetControllerTargetVersion returns the target controller version in use by the

@@ -15,6 +15,7 @@ import (
 
 	semversion "github.com/juju/juju/core/semversion"
 	agentbinary "github.com/juju/juju/domain/agentbinary"
+	internal "github.com/juju/juju/domain/controllerupgrader/internal"
 	environs "github.com/juju/juju/environs"
 	tools "github.com/juju/juju/environs/tools"
 	tools0 "github.com/juju/juju/internal/tools"
@@ -223,41 +224,41 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
-// GetControllerNodeVersions mocks base method.
-func (m *MockControllerState) GetControllerNodeVersions(arg0 context.Context) (map[string]semversion.Number, error) {
+// GetControllerNodes mocks base method.
+func (m *MockControllerState) GetControllerNodes(arg0 context.Context) ([]internal.ControllerNode, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerNodeVersions", arg0)
-	ret0, _ := ret[0].(map[string]semversion.Number)
+	ret := m.ctrl.Call(m, "GetControllerNodes", arg0)
+	ret0, _ := ret[0].([]internal.ControllerNode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetControllerNodeVersions indicates an expected call of GetControllerNodeVersions.
-func (mr *MockControllerStateMockRecorder) GetControllerNodeVersions(arg0 any) *MockControllerStateGetControllerNodeVersionsCall {
+// GetControllerNodes indicates an expected call of GetControllerNodes.
+func (mr *MockControllerStateMockRecorder) GetControllerNodes(arg0 any) *MockControllerStateGetControllerNodesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerNodeVersions", reflect.TypeOf((*MockControllerState)(nil).GetControllerNodeVersions), arg0)
-	return &MockControllerStateGetControllerNodeVersionsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerNodes", reflect.TypeOf((*MockControllerState)(nil).GetControllerNodes), arg0)
+	return &MockControllerStateGetControllerNodesCall{Call: call}
 }
 
-// MockControllerStateGetControllerNodeVersionsCall wrap *gomock.Call
-type MockControllerStateGetControllerNodeVersionsCall struct {
+// MockControllerStateGetControllerNodesCall wrap *gomock.Call
+type MockControllerStateGetControllerNodesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerNodeVersionsCall) Return(arg0 map[string]semversion.Number, arg1 error) *MockControllerStateGetControllerNodeVersionsCall {
+func (c *MockControllerStateGetControllerNodesCall) Return(arg0 []internal.ControllerNode, arg1 error) *MockControllerStateGetControllerNodesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerNodeVersionsCall) Do(f func(context.Context) (map[string]semversion.Number, error)) *MockControllerStateGetControllerNodeVersionsCall {
+func (c *MockControllerStateGetControllerNodesCall) Do(f func(context.Context) ([]internal.ControllerNode, error)) *MockControllerStateGetControllerNodesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerNodeVersionsCall) DoAndReturn(f func(context.Context) (map[string]semversion.Number, error)) *MockControllerStateGetControllerNodeVersionsCall {
+func (c *MockControllerStateGetControllerNodesCall) DoAndReturn(f func(context.Context) ([]internal.ControllerNode, error)) *MockControllerStateGetControllerNodesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

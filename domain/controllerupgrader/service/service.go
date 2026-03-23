@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -52,10 +53,10 @@ type AgentBinaryFinder interface {
 // ControllerState defines the interface for interacting with the underlying
 // controller version.
 type ControllerState interface {
-	// GetControllerNodeVersions returns the current version that is running for
-	// each controller in the cluster. This is the version that each controller
-	// reports when it starts up.
-	GetControllerNodeVersions(ctx context.Context) (map[string]semversion.Number, error)
+	// GetControllerNodes returns the current version and architecture of nodes
+	// running for each controller in the cluster.
+	// The version is the one that each controller reports when it starts up.
+	GetControllerNodes(ctx context.Context) ([]internal.ControllerNode, error)
 
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
@@ -398,7 +399,7 @@ func (s *Service) validateControllerCanBeUpgraded(
 	ctx context.Context,
 	currentVersion semversion.Number,
 ) error {
-	controllerNodeVersions, err := s.ctrlSt.GetControllerNodeVersions(ctx)
+	controllerNodeVersions, err := s.ctrlSt.GetControllerNodes(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting controller version for each node in cluster: %w", err,
@@ -408,7 +409,7 @@ func (s *Service) validateControllerCanBeUpgraded(
 	// blockedNodes is the set of nodes that are blocking the controller
 	// upgrade.
 	blockedNodes := []string{}
-	for node, version := range controllerNodeVersions {
+	for _, node := range controllerNodeVersions {
 		// if the current version for controllers is greater than that of this
 		// node, then this node still needs to be upgraded.
 		//
@@ -417,8 +418,8 @@ func (s *Service) validateControllerCanBeUpgraded(
 		// controller version it is possible for the controller nodes to be
 		// running a version higher than the current version. This is ok and
 		// permissible.
-		if currentVersion.Compare(version) > 0 {
-			blockedNodes = append(blockedNodes, node)
+		if currentVersion.Compare(node.Version) > 0 {
+			blockedNodes = append(blockedNodes, node.ID)
 		}
 	}
 

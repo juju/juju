@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -63,11 +64,11 @@ func (s *serviceSuite) TestUpgradeController(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -104,11 +105,11 @@ func (s *serviceSuite) TestUpgradeControllerNodeBlocker(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": oldNodeVersion,
-			"2": currentControllerVersion,
-			"3": oldNodeVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: oldNodeVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: oldNodeVersion},
 		}, nil,
 	)
 
@@ -205,11 +206,11 @@ func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 
@@ -242,11 +243,11 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamNodeBlocker(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": oldNodeVersion,
-			"2": currentControllerVersion,
-			"3": oldNodeVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: oldNodeVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: oldNodeVersion},
 		}, nil,
 	)
 
@@ -331,11 +332,11 @@ func (s *serviceSuite) TestUpgradeControllerWithStreamMissingControllerBinaries(
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 
@@ -367,9 +368,9 @@ func (s *serviceSuite) TestUpgradeControllerWithStream(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -452,9 +453,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNoChange(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
 		gomock.Any(), upgradeVersion, []domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().SetModelTargetAgentVersion(
@@ -507,9 +508,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionMissingBinaries(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionAndArchitectures(
@@ -539,11 +540,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNodeBlocker(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": oldNodeVersion,
-			"2": oldNodeVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: oldNodeVersion},
+			{ID: "2", Version: oldNodeVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 
@@ -586,11 +587,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	)
 	// This part is important. We want to show that all controller nodes are
 	// running the current controller version.
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -616,11 +617,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionPartialFail(c *tc.C) {
 	// time between a failed call and a retry two controllers have upgrade to
 	// the new version. This should not stop the model from completing the
 	// upgrade.
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": upgradeVersion,
-			"3": upgradeVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: upgradeVersion},
+			{ID: "3", Version: upgradeVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -654,11 +655,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersion(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -752,9 +753,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNoChange(c *tc.C) 
 		domainagentbinary.AgentStreamDevel,
 		[]domainagentbinary.Architecture{domainagentbinary.AMD64},
 	).Return(true, nil)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().SetModelTargetAgentVersionAndStream(
@@ -818,9 +819,9 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersionStreamAndArchitectures(
@@ -876,11 +877,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamNodeBlocker(c *tc.
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": oldNodeVersion,
-			"2": oldNodeVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: oldNodeVersion},
+			{ID: "2", Version: oldNodeVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 
@@ -930,11 +931,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	)
 	// This part is important. We want to show that all controller nodes are
 	// running the current controller version.
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -967,11 +968,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionStreamPartialFail(c *tc.C) 
 	// time between a failed call and a retry two controllers have upgrade to
 	// the new version. This should not stop the model from completing the
 	// upgrade.
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": upgradeVersion,
-			"3": upgradeVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: upgradeVersion},
+			{ID: "3", Version: upgradeVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
@@ -1015,11 +1016,11 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStream(c *tc.C) {
 	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
 		currentControllerVersion, nil,
 	)
-	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
-		map[string]semversion.Number{
-			"1": currentControllerVersion,
-			"2": currentControllerVersion,
-			"3": currentControllerVersion,
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{
+			{ID: "1", Version: currentControllerVersion},
+			{ID: "2", Version: currentControllerVersion},
+			{ID: "3", Version: currentControllerVersion},
 		}, nil,
 	)
 	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
