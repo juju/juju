@@ -26,7 +26,6 @@ reference/index
 **Step-by-step guides** covering key operations and common tasks
 ```
 
-
 ```{grid-item-card} [Reference](/index)
 :link: reference/index
 :link-type: doc
@@ -35,5 +34,4 @@ reference/index
 ```
 
 ````
-
 

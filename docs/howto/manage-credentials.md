@@ -150,10 +150,6 @@ juju default-credential aws
 ```
 This should display the default credential.
 
-<!--
-By running the same with the `--reset` flag  you can reset the default.
--->
-
 ```{ibnote}
 See more: {ref}`command-juju-default-credential`
 ```

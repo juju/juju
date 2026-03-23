@@ -9,140 +9,12 @@ myst:
 
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
-
 For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events, specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
 Invocations of associated handlers should be idempotent and should not make changes to the environment, or restart services, unless there is a material change to the charm's configuration, such as a change in the port exposed by the charm, addition or removal of a relation which may require a database migration or a "scale out" event for high availability, or similar.
 
 Handlers must not assume that the underlying applications or services have been started and should not assume anything about order of hook execution, except in limited situations described below.
-
-<!--
-(charm-lifecycle)=
-## Charm lifecycle
-
-This document is about the lifecycle of a charm, specifically the Juju events that are used to keep track of it. These events are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the Juju model.
-
-It is common wisdom that event ordering should not be generally relied upon when coding a charm, to ensure resilience. It can be however useful to understand the logic behind the timing of events, so as to avoid common mistakes and have a better picture of what is happening in your charm. In this document we'll learn how:
-
-* A charm's lifecycle can be seen to consist of three **phases**, each one with characteristic events and sequences thereof. The fuzziest of the three being the Operation phase, where pretty much anything can happen short of setup events.
-* Not all events can be reliably be assumed to occur in specific temporal orders, but some can.
-
-In this document we will *not* learn:
-
-* What each event means or is typically used to represent about a workload status. For that see [the SDK docs](https://juju.is/docs/sdk/events).
-* What event cascades are triggered by a human administrator running commands through the Juju CLI. For that see [this other doc](https://discourse.charmhub.io/t/core-lifecycle-events/4455/3).
-
-```{note}
-
-The graphs are screenshots of mermaid sources currently available [here](https://github.com/PietroPasotti/charm-events), pending mermaid support to be available on discourse.
-
-```
-
-
-### The graph
-
-![The graph](hook-charm-lifecycle-1.png)
-
-#### Legend
-
-* `(start)` and `(end)` are 'meta' nodes and represent the beginning and end of the lifecycle of a Charm/juju unit. All other nodes represent hooks (events) that can occur during said lifecycle.
-* Hard arrows represent strict temporal ordering which is enforced by the Juju state machine and respected by the Operator Framework, which mediates between the Juju controller and the Charm code.
-* Dotted arrows represent a 1:1 relationship between relation events, explained in more detail down in the Operation section.
-* The large yellow boxes represent broad phases in the lifecycle. You can read the graph as follows: when you fire up a unit, there is first a setup phase, when that is done the unit enters a operation phase, and when the unit goes there will be a sequence of teardown events. Generally speaking, this guarantees some sort of ordering of the events: events that are unique to the teardown phase can be guaranteed not to be fired during the setup phase. So a `stop` will never be fired before a `start`.
-* The colours of the event nodes represent a logical but practically meaningless grouping of the events.
-  * green for leadership events
-  * red for storage events
-  * purple for relation events
-  * blue for generic lifecycle events
-
-#### Workload and substrate-specific events
-
-Note the `[workload events] (Kubernetes only)` node in the operation phase. That represents all events meant to communicate information about the workload container on kubernetes charms. At the time of writing the only such events are:
-
-* [`*-pebble-ready` <event-container-pebble-ready>`
-* {ref}``*-pebble-custom-notice` <event-container-pebble-custom-notice>`
-* [`*-pebble-check-failed`](https://ops.readthedocs.io/en/latest/#ops.PebbleCheckFailedEvent)
-* [`*-pebble-check-recovered`](https://ops.readthedocs.io/en/latest/#ops.PebbleCheckRecoveredEvent)
-
-All of these can fire at any time whatsoever during the lifecycle of a charm.
-
-Similarly, the `{ref}`pre/post]-series-upgrade (lxd only)` events can only occur on machine charms at any time during the operation phase.
-
-## Notes on the setup phase
-* The only events that are guaranteed to always occur during Setup are [`start`], [`config-changed`] and [`install`]. The other events only happen if the charm happens to have (peer) relations at install time (e.g. if a charm that already is related to another gets scaled up) or it has storage. Same goes for leadership events. For that reason they are styled with dashed borders.
-* [`config-changed`] occurs between [`install`] and [`start`] regardless of whether any leadership (or relation) event fires.
-* Any [`*-relation-created`] event can occur at Setup time, but if X is a peer relation, then `X-relation-created` can **only** occur at Setup, while for non-peer relations, they can occur also during Operation. The reason for this is that a peer relation cannot be created or destroyed 'manually' at arbitrary times, they either exist or not, and if they do exist, then we know it from the start.
-
-### Notes on the operation phase
-
-* [`update-status` <event-update-status>` is fired automatically and periodically, at a configurable regular interval (default is 5m) which can be configured by `juju model-config update-status-hook-interval`.
-`collect-metrics` is fired automatically and periodically in older Juju versions, at a regular interval of 5m, AND whenever the user runs `juju collect-metrics`.
-* [`leader-elected`] and [`leader-settings-changed`] only fire on the leader unit and the non-leader unit(s) respectively, just like at startup.
-* There is a square of symmetries between the `*-relation-[joined/departed/created/broken]` events:
-  * Temporal ordering: a `X-relation-joined` cannot *follow* a `X-relation-departed` for the same relation ID. Same goes for [`*-relation-created`] and [`*-relation-broken`], as well as [`*-relation-created`] and [`*-relation-changed`].
-  * Ownership: `joined/departed` are unit-level events: they fire when an application has a (peer) relation and a new unit joins or leaves. All units (including the newly created or leaving unit), will receive the event. `created/broken` are relation-level events, in that they fire when two applications become related or a relation is removed (e.g. via `juju remove-relation` or because an application is destroyed).
-  * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X [`*-relation-joined`] events will be fired. When a unit leaves, all units will receive a [`*-relation-departed`] event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken. Find in appendix 1 a somewhat more elaborate example.
-* Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
-* A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of [`*-relation-changed`] events can be fired at any time during operation, and they need not be preceded by a [`*-relation-joined`] event.
-* There are more temporal orderings than the one displayed here; event chains can be initiated by human operation as detailed [in the SDK docs](https://juju.is/docs/sdk/events) and [the leadership docs](https://juju.is/docs/sdk/leadership). For example, it is guaranteed that a [`leader-elected`] is always followed by a [`settings-changed`], and that if you remove the leader unit, you should get [`*-relation-departed`] and a [`leader-settings-changed`] on the remaining units (although no specific ordering can be guaranteed [cfr this bug...](https://bugs.launchpad.net/juju/+bug/1964582)).
-* Secret events (in purple) can technically occur at any time, provided your charm either has created a secret, or consumes a secret that some other charm has created. Only the owner of a secret can receive `secret-rotate`, `secret-remove` and `secret-expire` for that secret, and only a consumer of a secret can receive `secret-changed`.
-
-### Notes on the teardown phase
-
-* Both relation and storage events are guaranteed to fire before [`stop`]/[`remove`] if they will fire at all. They are optional, in that a departing unit (or application) might have no storage or relations.
-* [`*-relation-broken`] events in the Teardown phase are fired in case an application is being torn down. These events can also occur at Operation time, if the relation is removed by e.g. a charm or a controller.
-* The entire teardown phase is **skipped** if the cloud is killed. The next event the charm will see in this case would be a `start` event. This would happen, for example, on `microk8s stop; microk8s start`.
-
-### Caveats
-
-* Events can be deferred by charm code by calling `Event.defer()`. That means that the event is put in a queue of deferred events which will get flushed by the operator framework as soon as the next event comes in, and *before* firing that new event in turn. See Appendix 2 for a visual representation. What this means in practice is that deferring an event can break the temporal ordering of the events as outlined in this graph; `defer()`ring an event twice will break the ordering guarantees we outlined here. Cf. the appendix for an UML-y representation. Cfr [this document on defer](https://discourse.charmhub.io/t/deferring-events-details-and-dilemmas/5930) for more.
-* The events in the Operation phase can interleave in arbitrary ways. For this reason it's essential that hook handlers make *no assumptions* about each other -- each handler should check its preconditions independently and operate under the assumption that the relative ordering is totally arbitrary -- except relation events, which have some partial ordering as explained above.
-
-### Deprecation notices
-
-* `leader-deposed` is a Juju hook that was planned but never actually implemented. You may see a WARNING mentioning it in the `juju debug-log` but you can ignore it.
-* [`collect-metrics`](https://discourse.charmhub.io/t/charm-hooks/1040#heading--collect-metrics) is no longer being fired in recent Juju versions.
-
-### Event semantics and data
-
-This document is only about the timing of the events; for the 'meaning' of the events, other sources are more appropriate; e.g. [juju-events](https://juju.is/docs/sdk/events).
-For the data attached to an event, one should refer to the docstrings in the ops.charm.HookEvent subclass that the event you're expecting in your handler inherits from.
-
-
-## Appendices
-
-### Appendix 1: scenario example
-
-
-This is a representation of the relation events a deployment will receive in a simple scenario that goes as follows:
-* We start with two unrelated applications, `applicationA` and `applicationB`, with one unit each.
-* `applicationA` and `applicationB` become related via a relation called `R`.
-* `applicationA` is scaled up to 2 units.
-* `applicationA` is scaled down to 1 unit.
-* `applicationA` touches the `R` databag (e.g. during an `update-status` hook, or as a result of a `config-changed`, an action, a custom event...).
-* The relation `R` is removed.
-
-Note that many event sequences are marked as 'par' for *parallel*, which means that the events can be dispatched to the units arbitrarily interleaved.
-
-![Charm lifecycle](hook-charm-lifecycle-2a.png)
-![Charm lifecycle](hook-charm-lifecycle-2b.png)
-
-### Appendix 2: deferring an event
-
- > {ref}`jhack tail <explore-event-emission-with-jhack-tail>` offers functionality to visualize the deferral status of events in real time.
-
-This is the 'normal' way of using `defer()`: an event `event1` comes in but we are not ready to process it; we `defer()` it; when `event2` comes in, the operator framework will first flush the queue and fire `event1`, then fire `event2`. The ordering is preserved: `event1` is consumed before `event2` by the charm.
-
-![Charm lifecycle](hook-charm-lifecycle-3.png)
-
-Suppose now that the charm defers `event1` again; then `event2` will be processed by the charm before `event1` is. `event1` will only be fired again once another event, `event3`, comes in in turn.
-The result is that the events are consumed in the order: `2-1-3`. Beware.
-
-![Charm lifecycle](hook-charm-lifecycle-4.png)
-
-
--->
 
 ## Hook kinds
 
@@ -249,7 +121,6 @@ information or advice before signalling the error.
 
 (list-of-hooks)=
 ## List of hooks
-<!-- > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go) -->
 
 This section gives the complete list of hooks.
 
@@ -308,20 +179,9 @@ Note that, unless there's only one unit left, it is impossible to predict or con
 | :-------: | -------------------------- | ------------------------------------ |
 |  Current leader loses leadership   | `juju remove-unit foo`  | (new leader): `leader-elected` <br> (all other foo units): `leader-settings-changed`|
 
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
--->
-
 *Who gets it*?
 
 The leader unit, each time Juju elects one.
-
 
 (hook-leader-settings-changed)=
 #### `leader-settings-changed`
@@ -336,7 +196,6 @@ During startup sequence, for all non-leader units:
 | :-------: | -------------------------- | ------------------------------------ |
 |  Create unit   | `juju deploy foo -n 2`  | `install -> leader-settings-changed -> config-changed -> start` (non-leader)|
 
-
 If the leader unit is rescheduled, or removed entirely. When the new leader is elected:
 
 |  Scenario   | Example Command                          | Resulting Events                     |
@@ -344,16 +203,6 @@ If the leader unit is rescheduled, or removed entirely. When the new leader is e
 |  Removal of leader   | `juju remove-unit foo/0` (foo/0 being leader)  | `leader-settings-changed` (for all non leaders) |
 
 Since this event needs leadership changes to trigger, check out the triggers for the {ref}`hook-leader-elected`, as the same situations apply for the {ref}`hook-leader-settings-changed` too.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
--->
 
 *Who gets it*?
 
@@ -401,11 +250,6 @@ As related applications are scaled up, each unit will receive `<endpoint>-relati
 The `relation-changed` hook for a given unit always runs once immediately following the `relation-joined` hook for that unit,
 and subsequently whenever any related unit for which this unit has read access changes its settings (by calling the `relation-set` hook command and exiting without error).
 
-<!--
-TODO - confirm this:
-For example, if the `wordpress/0*` leader uses `relation-set` to write to its local *unit* databag, its peers and the `mysql/0*` leader will receive `http-relation-changed`, because they can access that data (by calling `relation-get`), but the other mysql units will not be notified.
--->
-
 ```{note}
 "Immediately" only applies within the context of this particular relation --that is, when
 `foo-relation-joined` is run for unit `bar/99` in relation ID `foo:123`, the only guarantee is that
@@ -448,27 +292,11 @@ This hook is fired only once per unit per relation and is the exact inverse of `
 
 The hook indicates that the relation under consideration is no longer valid, and that the charm’s software must be configured as though the relation had never existed. It will only be called after every hook bound to `<endpoint>-relation-departed` has been run. If a hook bound to this event is being executed, it is guaranteed that no remote units are currently known locally.
 
-
 It is important to note that the `relation-broken` hook might run even if no other units have ever joined the relation. This is not a bug: even if no remote units have ever joined, the fact of the unit’s participation can be detected in other hooks via the `relation-ids` hook command, and the `-broken` hook needs to execute to allow the charm to clean up any optimistically-generated configuration.
 
 Also, it’s important to internalise the fact that there may be multiple relations in play with the same name, and that they’re independent: one `relation-broken` hook does not mean that *every* such relation is broken.
 
 For a peer relation, `<peer endpoint name>-relation-broken` will never fire, not even during the teardown phase.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
-
--->
 
 (hook-relation-changed)=
 #### `<endpoint>-relation-changed`
@@ -504,24 +332,8 @@ When the hook returns, `bar` will receive a `relation-changed` event.
 
 Note that units only receive `relation-changed` events for **other** units' changes. This can matter in a peer relation, where the application leader will not receive a `relation-changed` event for the changes that it writes to the peer relation's application data bag. If all units, including the leader, need to react to a change in that application data, charm authors may include an inline `.emit()` for the `<name>_relation_changed` event on the leader.
 
-
 > **When is data synchronized?** <br>
 > Relation data is sent to the controller at the end of the hook's execution. If a charm author writes to local relation data multiple times during the a single hook run, the net change will be sent to the controller after the local code has finished executing. The controller inspects the data and determines whether the relation data has been changed. Related units then get the `relation-changed` event the next time they check in with the controller.
-
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (hook-relation-created)=
 #### `<endpoint>-relation-created`
@@ -534,12 +346,10 @@ If Juju is aware of the existence of the relation "early enough", before the app
 
 Similarly, if an application is being scaled up, the new unit will see `relation-created` events for all relations the application already has during the Setup phase.
 
-
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
 | Integrate  | `juju integrate foo bar` | (all foo & bar units): `*-relation-created --> *-relation-joined -> *-relation-changed` |
 |  Scale up an integrated app | `juju add-unit -n1 foo` | (new foo unit): `install -> *-relation-created -> leader-settings-changed -> config-changed -> start` |
-
 
 In the following scenario, one deploys two applications and relates them "very early on". For example, in a single command.
 |   Scenario  | Example Command                          | Resulting Events                     |
@@ -547,21 +357,6 @@ In the following scenario, one deploys two applications and relates them "very e
 |  Deploy and quickly integrate | `juju deploy foo; juju deploy bar; juju integrate foo bar` | (all units): same as previous case. |
 
 Starting from when `*-relation-created` is received, relation data can be read-written by units, up until when the corresponding `*-relation-broken` is received.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
-
--->
 
 (hook-relation-departed)=
 #### `<endpoint>-relation-departed`
@@ -573,10 +368,8 @@ Emitted when a unit departs from an existing relation.
 The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run,
 no further notifications will be received from that unit; however, its settings will remain accessible via the `relation-get` hook command for the complete lifetime of the relation.
 
-
 `relation-departed` is a {ref}`teardown <teardown-phase>` hook, emitted when a remote unit departs a relation.
 This event is the exact inverse of `relation-joined`.
-
 
 `*-relation-broken` events are emitted on a unit when a related application is scaled down. Suppose you have two related applications, `foo` and `bar`.
 If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown phase <teardown-phase>`.
@@ -613,26 +406,11 @@ During a `relation-departed` hook, relation settings can still be read (with rel
 
 If any affected unit publishes new data on the relation during the `relation-departed` hooks, the new data will *not* be seen by the departing unit (it will *not* receive a `relation-changed` hook; only the remaining units will).
 
-
 ```{note}
 
 (Juju internals) When a unit's own participation in a relation is known to be ending, the unit agent continues to uphold the guaranteed event ordering, but within those constraints, it will run the fewest possible hooks to notify the charm of the departure of each individual remote unit.
 
 ```
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (hook-relation-joined)=
 #### `<endpoint>-relation-joined`
@@ -643,7 +421,6 @@ TBA
 
 The "relation-joined" hook always runs once when a related unit is first seen.
 
-
 `relation-joined` is emitted when a unit joins in an existing relation. The unit will be a local one in the case of peer relations, a remote one otherwise.
 
 By the time this event is emitted, the only available data concerning the relation is
@@ -652,8 +429,6 @@ By the time this event is emitted, the only available data concerning the relati
 
 In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
-
-
 From the perspective of an application called `foo`, which can relate to an application called `bar`:
 
 |   Scenario   | Example Command                          | Resulting Events                     |
@@ -661,30 +436,13 @@ From the perspective of an application called `foo`, which can relate to an appl
 |  Create unit   | `juju integrate foo bar` |  `*-relation-created -> *-relation-joined -> *-relation-changed` |
 |  Create unit   | `juju add-unit bar -n 1`  |  `*-relation-joined -> *-relation-changed`|
 
-
 For a peer relation, `<peer relation name>-relation-joined` will be received by peers some time after a new peer unit appears. (And during its setup, that new unit will receive a  `<peer relation name>-relation-created`).
-
 
 For a peer relation, `<peer relation name>-relation-joined` will only be emitted if the scale is larger than 1. In other words, applications with a scale of 1 do not see peer relation joined/departed events.
 **If you are using peer data as a means for persistent storage, then use peer `relation-created` instead**.
 
 `relation-joined` can fire multiple times per relation, as multiple units can join, and is the exact inverse of `relation-departed`.
 That means that if you consider the full lifecycle of an application, a unit, or a model, the net difference of the number of `*-relation-joined` events and the number of `*-relation-departed` events will be zero.
-
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (secret-hooks)=
 ### Secret hooks
@@ -796,7 +554,6 @@ In short, the purpose of this event is to notify the owner of a secret that a sp
 
 All the {ref}`generic environment variables <generic-environment-variables>` and:
 
-
 * `JUJU_SECRET_ID` holds the ID of the secret that is expiring.
 * `JUJU_SECRET_REVISION` holds the revision that can be removed.
 * `JUJU_SECRET_LABEL` holds the label given to the secret by the owner.
@@ -851,7 +608,6 @@ Storage hooks operate in an environment with additional environment variables av
 
 The `storage-attached` hook is triggered when new storage is available for the charm to use.
 
-
 For machine charms, all `storage-attached` hooks will be run before the `install` event fires.
 This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
 not receive the `install` event until such errors have been resolved.
@@ -867,45 +623,12 @@ The `storage-detaching` hook is triggered after the `stop` hook has completed an
 
 A storage volume having been attached to the charm's host machine or container and being ready to be interacted with.
 
-<!--
-| `<name>_storage_attached`  | [`StorageAttachedEvents`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageAttachedEvent)  | This event is triggered when new storage is available for the charm to use. Callback methods bound to this event allow the charm to run code when storage has been added.<br/><br/>Such methods will be run before the `install` event fires, so that the installation routine may use the storage. The name prefix of this hook will depend on the storage key defined in the `metadata.yaml` file.                            |
-| `<name>_storage_detaching` | [`StorageDetachingEvent`](https://ops.readthedocs.io/en/latest/reference/ops.html#ops.StorageDetachingEvent) | Callback methods bound to this event allow the charm to run code before storage is removed.<br/><br/>Such methods will be run before storage is detached, and always before the `stop` event fires, thereby allowing the charm to gracefully release resources before they are removed and before the unit terminates.<br/><br/>The name prefix of the hook will depend on the storage key defined in the `metadata.yaml` file. |
--->
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
 (hook-storage-detaching)=
 #### `<storage>-storage-detaching`
 
 *What triggers it?*
 
 A request to detach storage having been processed.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (upgrade-series-hooks)=
 ### Upgrade series hooks
@@ -925,21 +648,6 @@ Upgrade series hooks operate in an environment with additional environment varia
 
 Fired after the series upgrade has taken place.
 
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
-
--->
-
 (hook-pre-series-upgrade)=
 #### `pre-series-upgrade`
 
@@ -953,25 +661,9 @@ This event is triggered when an operator runs `juju upgrade-series <machine> pre
 
  Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
 
-
-
 ```{caution}
  Leadership is pinned during the series upgrade process.  Even if the current leader dies or is removed, re-election will not occur for applications on the upgrading machine until the series upgrade operation completes.
 ```
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
 
 (workload-hooks)=
 ### Workload (Pebble) hooks
@@ -1076,7 +768,6 @@ Moreover, as pod churn can occur at any moment, `pebble-ready` events can be rec
 
 This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://ops.readthedocs.io/en/latest/explanation/holistic-vs-delta-charms.html).
 
-
 *Which environment variables is it executed with?*
 
 * `$JUJU_WORKLOAD_NAME` holds the name of the container to which the hook pertains.
@@ -1084,33 +775,6 @@ This feature of `pebble-ready` events make them especially suitable for a [holis
 *Who gets it*?
 
 The charm responsible for the container to which the hook pertains.
-
-<!--
-
-<a href="#heading--relation-event-triggers"><h2 id="heading--relation-event-triggers">Relation event triggers</h2></a>
-
-Relation events trigger as a response to changes in the Juju model relation topology. When a new relation is created or removed, events are fired on all units of both involved applications.
-
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | ---------------------------------------- | ------------------------------------ |
-|  Relate   | `juju integrate foo:a bar:b`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-created -> b-relation-changed` |
-|  Remove relation   | `juju remove-relation foo:a bar:b`     | `(foo): a-relation-broken`<br> `(bar): b-relation-broken` |
-
-If you have two already related applications, and one of them gains or loses a unit, then the newly added unit will receive the same event sequences as if it had just been related (from its point of view, the relation is 'brand new'), while the units that were there already receive a `-relation-joined` event.
-Similarly if a unit is removed, that unit will receive `-relation-broken`, while the ones that remain will see a `-relation-departed`.
-
-|  Scenario   | Example Command                          | Resulting Events                     |
-| :-------: | ---------------------------------------- | ------------------------------------ |
-|  Add unit   | `juju add-unit foo -n 1`     | `(foo): a-relation-created -> a-relation-changed`<br> `(bar): b-relation-joined -> b-relation-changed` |
-|  Remove relation   | `juju remove-unit foo:a --num-units 1`     | `(foo): a-relation-broken`<br> `(bar): b-relation-departed` |
-
-```{note}
-
-`-relation-changed` events are not only fired as part of these event sequences, but also whenever a unit touches the relation data.
-As such, contrary to many other events, `-relation-changed` events are mostly triggered by charm code (and not by the cloud admin doing things on the Juju model).
-
-```
--->
 
 (other-hooks)=
 ### Other hooks
@@ -1137,14 +801,6 @@ All the {ref}`generic environment variables <generic-environment-variables>`.
 When application config or trust has changed, all the units of an application for which the config has changed.
 When the networking on a machine has changed, any units deployed to that machine.
 
-
-<!--
-#### Pebble hooks
-> These hooks require an associated workload/container, and the name of the workload/container whose change triggered the hook. The hook file names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
--->
-
-
-
 (hook-install)=
 #### `install`
 
@@ -1161,7 +817,6 @@ Therefore, ways to cause `install` to occur are:
 | :-------: | -------------------------- | ------------------------------------ |
 |  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
 
-
 Note:
 - Typically, operations performed on {ref}`hook-install` should also be considered for {ref}`hook-upgrade-charm`.
 - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
@@ -1173,25 +828,9 @@ Therefore, ways to cause `install` to occur are:
 | :-------: | -------------------------- | ------------------------------------ |
 |  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
 
-
 Note:
 - Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
 - In some cases, {ref}`hook-config-changed` can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
 
 (hook-remove)=
 #### `remove`
@@ -1211,23 +850,6 @@ Of course, removing an application altogether will result in these events firing
 If the unit has any relations active or any storage attached at the time the removal occurs, these will be cleaned up (in no specific order) between `stop` and `remove`. This means the unit will receive `stop -> (*-relation-broken | *-storage-detaching) -> remove`.
 
 The `remove` event is the last event a unit will ever see before going down, right after {ref}`hook-stop`. It is exclusively fired when the unit is in the {ref}`teardown phase <teardown-phase>`.
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
-
-
 
 (hook-start)=
 #### `start`
@@ -1271,7 +893,6 @@ This can occur:
 - when the unit is being removed (whether explicitly or through the application as a whole being removed)
 - (Kubernetes:) on pod churn
 
-
 The `stop` hook is the  one-before-last  hook the unit will receive before being destroyed (the last one being `remove`).
 
 ```{note}
@@ -1279,22 +900,9 @@ The `stop` hook is the  one-before-last  hook the unit will receive before being
 
 ```
 
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-TBA
--->
-
 *Who gets it*?
 
 Any unit.
-
-
-
-
 
 (hook-update-status)=
 #### `update-status`
@@ -1317,23 +925,12 @@ As it is triggered periodically, the `update-status`  can happen in-between any 
 
 By default, the `update-status` event is triggered by the Juju controller at 5-minute intervals.
 
-<!--
-*Which environment variables is it executed with?*
-
-TBA
-
-*Who gets it*?
-
-TBA
--->
-
 (hook-upgrade-charm)=
 #### `upgrade-charm`
 
 *What triggers it?*
 
 The `upgrade-charm` hook always runs once immediately after the charm directory contents have been changed by an unforced charm upgrade operation, and *may* do so after a forced upgrade; but will *not* be run after a forced upgrade from an existing error state. (Consequently, neither will the `config-changed` hook that would ordinarily follow the `upgrade-charm`.
-
 
 The event is emitted after the new charm code has been unpacked - therefore this event is handled by the callback method bound to the event in the new codebase.
 
@@ -1357,16 +954,6 @@ The associated callback should be used to reconcile the current state written by
 
 An upgrade does NOT trigger any relation hooks (unless relation data is intentionally modified in one of the upgrade sequence hooks).
 ```
-
-<!--
-*Which hooks can be guaranteed to have fired before it, if any?*?
-
-TBA
-
-*Which environment variables is it executed with?*
-
-TBA
--->
 
 *Who gets it*?
 

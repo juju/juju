@@ -5,7 +5,6 @@
 See also: {ref}`manage-juju`
 ```
 
-
 ```{toctree}
 :hidden:
 juju-cli/list-of-juju-cli-commands/index
@@ -13,18 +12,7 @@ juju-cli/juju-environment-variables
 juju-cli/plugin-juju-metadata
 ```
 
-<!--HARRY SAYS: THIS DOC IS MISSING A LOT OF DETAIL-->
-
-
-<!--The Juju CLI is the client for bootstrapping Juju controllers, creating Juju models, deploying applications and managing these entities.-->
-
 `juju` is the main CLI client of Juju that you can use to manage Juju {ref}`controllers <controller>`, whether as an administrator or as a regular user.
-
-<!--This software connects to Juju controllers and is used to issue commands that deploy and manage application units running on cloud instances.-->
-
-<!-- Commented out because it uses "cloud" as the collection of resources provided by what we would call a cloud.
-![machine](https://assets.ubuntu.com/v1/865acefc-juju-client-2.png)
--->
 
 ## Directory
 
@@ -42,18 +30,13 @@ On Microsoft Windows, the directory is in a different place (usually `C:\Users\{
 
 `juju` has been designed to be backward compatible and can talk to older or newer existing controllers if the controller and the client are on the same major version (2.x and 3.x). As such, performing simple commands can be achieved without upgrading the client. At the same time, it is always recommended to be up-to-date with the client and controller where possible.
 
-
-
 ## Working locally
-
-<!-- should cover LXD as well as MicroK8s-->
 
 In the case of the localhost cloud (LXD), the cloud is a local LXD daemon housed within the same system as the Juju client:
 
 ![machine](https://assets.ubuntu.com/v1/1f5ba83e-juju-client-3.png)
 
 LXD itself can operate over the network and Juju does support this (`v.2.5.0`).
-
 
 ## Environment variables
 

@@ -7,14 +7,7 @@ myst:
 (cloud-lxd)=
 # The LXD cloud and Juju
 
-<!--To see the older HTG-style doc, see version 39. Note that it may be out-of-date. -->
-
-<!--
-LXD is a hypervisor that provides system containers that are secure, lightweight, and easy to use. When your computer has LXD installed, Juju can operate the `localhost` cloud.
--->
-
 This document describes details specific to using your existing LXD cloud with Juju.
-
 
 ````{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
 
@@ -76,7 +69,6 @@ Attributes:
 <br>(Added in Juju 3.6.4)
 - `trust-password`: the LXD server trust password (optional, required if trust-token is not set)
 
-
 ## Notes on `juju bootstrap`
 
 If `juju bootstrap` hangs, it could be due to a firewall issue. See more: [LXD | UFW: Add rules for the bridge](https://documentation.ubuntu.com/lxd/latest/howto/network_bridge_firewalld/#ufw-add-rules-for-the-bridge).
@@ -118,7 +110,6 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 | - {ref}`constraint-tags`               | &#10005;                                                                                                                                                |
 | - {ref}`constraint-virt-type`          | &#10003; <br> Valid values: `[container, virtual-machine]`. <br> Default value: `container`.                                                                                                                                               |
 | - {ref}`constraint-zones`              | &#10003;  <br> `zones` are the LXD node name(s).                                                                                                        |
-
 
 ## Supported placement directives
 

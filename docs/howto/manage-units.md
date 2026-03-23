@@ -152,7 +152,6 @@ It is also possible to remove multiple units at a time by passing instead a spac
 juju remove-unit mediawiki/1 mediawiki/3 mediawiki/5 mysql/2
 ```
 
-<!--Why is this necessary? Doesn't removing a unit automatically destroy the storage?-->
 To also destroy the storage attached to the units, add the `--destroy-storage` option.
 
 As a last resort, use the `--force` option.

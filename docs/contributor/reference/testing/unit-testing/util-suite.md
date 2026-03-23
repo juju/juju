@@ -6,12 +6,6 @@ myst:
 
 (util-suite)=
 # Util suite
-<!--TODO:
-- Include more base test suites. E.g., LoggingCleanupSuite, OsEnvSuite:
-https://github.com/juju/testing
--
--->
-
 
 A **util suite** is a struct which provides specific setup and teardown behavior as well as useful variables and
 functions to write {ref}`unit test suites <unit-test-suite>` suites with.

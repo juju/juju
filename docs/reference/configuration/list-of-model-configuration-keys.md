@@ -1,7 +1,6 @@
 (list-of-model-configuration-keys)=
 # List of model configuration keys
 
-
 This document gives a list of all the configuration keys that can be applied to a Juju model.
 
 ```{important}
@@ -131,7 +130,6 @@ The `apt-mirror` option is often used to point to a local mirror.
 (model-config-apt-no-proxy)=
 ## `apt-no-proxy`
 
-
 `apt-no-proxy` is the list of domain addresses not to be proxied for APT (comma-separated).
 
 **Type:** string
@@ -175,7 +173,6 @@ Even with the automatic retry enabled, it is still possible to use the `juju res
 
 **Default value:** ""
 
-
 ## `charmhub-url`
 
 `charmhub-url`  is the url for Charmhub API calls.
@@ -200,16 +197,12 @@ This is a sharp knife feature - be careful with it.
 
 **Details:**
 
-<!--It was added to Juju in version 2.3.1.-->
-
-
 The `cloudinit-userdata` allows the user to provide additional cloudinit data to be included in the cloudinit data created by Juju.
 
 Specifying a key will overwrite what juju puts in the cloudinit file with the following caveats:
 1. `users` and `bootcmd` keys will cause an error
 2. The `packages` key will be appended to the packages listed by juju
 3. The `runcmds` key will cause an error.  You can specify `preruncmd` and `postruncmd` keys to prepend and append the runcmd created by Juju.
-
 
 ### Use cases
 
@@ -241,7 +234,6 @@ cloudinit-userdata: |
 ```
 
 Provide the path your file to the `model-config` command:
-
 
 ```text
 juju model-config --file cloudinit-userdata.yaml
@@ -331,44 +323,6 @@ For example:
 ```text
 juju model-config container-inherit-properties="ca-certs, apt-sources"
 ```
-
-<!--Old content of this doc. It seems to have been incorporated into the one above, copied from the list of model configs.
-
-
-This key allows the user to specify cloudinit keys to be copied from host machines to containers on the host from the vendor files.
-
-Included in juju 2.4-beta1 as of early Feb.
-
-Using:
---
-Caveats related to series: If using a Trusty machine, only Trusty containers will use this feature.  OS type must be the same between machine and container.
-
-Allowed keys are: ca-certs, apt-primary, apt-security, apt-sources.  In xenial and other series (not trusty):
-* apt-primary finds:
-    apt:
-      primary:
-        …
-* apt-security finds:
-    apt:
-      security:
-        …
-* apt-sources finds:
-    apt:
-      sources:
-        …
-
-In trusty apt-security is ignored (unless someone can provide a map):
-
-* apt-primary finds:
-    apt_mirror: ...
-    apt_mirror_search: ...
-    apt_mirror_search_dns: ...
-* apt-sources finds:
-    apt_sources: ...
-
-
-`juju model-config container-inherit-properties=”ca-certs, apt-primary”`
--->
 
 ## `container-networking-method`
 
@@ -482,7 +436,6 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Valid values:** `overlay_CIDR<par>=<par>underlay_CIDR`
 
-
 ## `firewall-mode`
 
 `firewall-mode` is the mode to use for network firewalling. It's useful for clouds without support for either global or per instance security groups.
@@ -526,7 +479,6 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Valid values:** url
 
-
 ## `ignore-machine-addresses`
 
 `ignore-machine-addresses` determines whether the machine worker should discover machine addresses on startup.
@@ -557,7 +509,6 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Valid values:** url
 
-
 ## `image-stream`
 
 `image-stream` is the simplestreams stream used to identify which image ids to search when starting an instance.
@@ -582,13 +533,11 @@ Juju, by default, uses the slow-changing 'released' images when provisioning mac
 (model-config-juju-http-proxy)=
 ## `juju-http-proxy`
 
-
 `juju-http-proxy` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
 **Type:** string
 
 **Default value:** ""
-
 
 (model-config-juju-https-proxy)=
 ## `juju-https-proxy`
@@ -609,7 +558,6 @@ Juju, by default, uses the slow-changing 'released' images when provisioning mac
 **Default value:** `127.0.0.1,localhost,::1`
 
 **Valid values:**
-
 
 ## `logforward-enabled`
 
@@ -670,7 +618,6 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 
 When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
 
-
 ```{ibnote}
 See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
 ```
@@ -704,7 +651,6 @@ To view details about each API request:
 juju model-config -m controller logging-config="juju.apiserver=TRACE"
 ```
 
-
 ## `logging-output`
 
 `logging-output` is the logging output destination: database and/or syslog.
@@ -716,7 +662,6 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 **Valid values:**
 
 ## `lxd-snap-channel`
-
 
 `lxd-snap-channel` is the  channel to use when installing LXD from a snap (cosmic and later).
 
@@ -746,7 +691,6 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
 **Valid values:** 72h, etc.
 
-
 ## `max-status-history-size`
 
 `max-status-history-size` is the maximum size for the status history collection, in human-readable memory format.
@@ -756,7 +700,6 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 **Default value:** 5G
 
 **Valid values:** 400M, 5G, etc.
-
 
 ## `net-bond-reconfigure-delay`
 
@@ -779,13 +722,11 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
 **Default value:** 4
 
-
 ## `num-provision-workers`
 
 `num-provision-workers` is the number of provisioning workers to use per model.
 
 **Default value:** 16
-
 
 ## `provisioner-harvest-mode`
 
@@ -823,7 +764,6 @@ Below, the harvest mode key for the current model is set to 'none':
 juju model-config provisioner-harvest-mode=none
 ```
 
-
 ## `proxy-ssh`
 
 `proxy-ssh` determines whether SSH commands should be proxied through the API server.
@@ -854,7 +794,6 @@ juju model-config provisioner-harvest-mode=none
 
 (model-config-snap-http-proxy)=
 ## `snap-http-proxy`
-
 
 `snap-http-proxy`  is the HTTP proxy value to for installing snaps.
 
@@ -897,7 +836,6 @@ juju model-config provisioner-harvest-mode=none
 
 **Default value:** ""
 
-
 ## `ssl-hostname-verification`
 
 `ssl-hostname-verification` determines whether SSL hostname verification is enabled.
@@ -927,7 +865,6 @@ juju model-config provisioner-harvest-mode=none
 **Default value:** -
 
 **Valid values:** any storage provider (Juju will adjust)
-
 
 ## `transmit-vendor-metrics`
 

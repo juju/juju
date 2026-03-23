@@ -31,7 +31,6 @@ Type in Juju: `azure`.
 
 Name in Juju: `azure`.
 
-
 ## Notes on `juju add-credential`
 
 ```{note}
@@ -142,7 +141,6 @@ If set, use the specified virtual network for all model machines instead of crea
 | - {ref}`constraint-virt-type`          | &#10005;                                       |
 | - {ref}`constraint-zones`              | &#10003;                                       |
 
-
 ## Supported placement directives
 
 | {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
@@ -215,7 +213,6 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
          - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
     - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
 2. Bootstrap as usual.
-
 
 (azure-appendix-create-a-managed-identity)=
 ## Appendix: How to create a managed identity

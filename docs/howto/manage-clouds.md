@@ -44,10 +44,6 @@ juju add-cloud
 
 This will start an interactive session where you'll be asked to choose a cloud type (from a given list), the name that you want to use for your cloud, the API endpoint, the authentication type, etc. Juju will use this to create a cloud definition.
 
-<!--
-, which it will save to the directory defined in the `JUJU_DATA` environment variable (default path: `~/.local/share/juju/`), in a file called `clouds.yaml`
--->
-
 The command also has a manual mode where you can specify the desired cloud name and cloud definition file in-line; whether you want this definition to be known just to the Juju client or also to an existing controller (the latter creates what is known as a multi-cloud controller); etc.
 
 ```{ibnote}
@@ -243,38 +239,6 @@ The command also allows you to indicate whether the update should happen on the 
 ```{ibnote}
 See more: {ref}`command-juju-update-cloud`
 ```
-
-<!--
-The definition of an existing cloud can be done locally or, since `v.2.5.3`, remotely (on a controller).
-
-For the 'oracle' cloud, for instance, create a [YAML-formatted](http://www.yaml.org/spec/1.2/spec.html) file, say `oracle.yaml`, with contents like:
-
-```yaml
-clouds:
-   oracle:
-      type: oci
-      config:
-         compartment-id: <some value>
-```
-
-Here, the local (client cache) definition is modified:
-
-```text
-juju update-cloud --local oracle -f oracle.yaml
-```
-
-This will avoid having to include `--config compartment-id=<value` at controller-creation time (`bootstrap`).
-
-Here, the remote definition is updated by specifying the controller:
-
-```bash
-juju update-cloud oracle -f oracle.yaml -c oracle-controller
-```
-
-If you specify a controller without supplying a YAML file then the remote cloud will be updated according to the client's current knowledge of that cloud.
-
--->
-
 
 ## Remove a cloud
 

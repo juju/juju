@@ -7,9 +7,6 @@ myst:
 (cloud-kubernetes-gke)=
 # The Google GKE cloud and Juju
 
-<!--To see the older HTG-style doc, see version 21. Note that it may be out-of-date. -->
-
-
 This document describes details specific to using your existing Google GKE cloud with Juju.
 
 ```{ibnote}

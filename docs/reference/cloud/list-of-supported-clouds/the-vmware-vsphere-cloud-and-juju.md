@@ -7,7 +7,6 @@ myst:
 (cloud-vsphere)=
 # The VMware vSphere cloud and Juju
 
-
 This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
 ```{ibnote}
@@ -109,7 +108,6 @@ An external network that VMs will be connected to. The resulting IP address for 
 | immutable | false |
 | mandatory | false |
 
-
 ## Supported constraints
 
 | {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                                                                                                                                                                                                      |
@@ -131,7 +129,6 @@ An external network that VMs will be connected to. The resulting IP address for 
 | - {ref}`constraint-tags`               | &#10005;                                                                                                                                                                                                                                                                                                                             |
 | - {ref}`constraint-virt-type`          | &#10005;                                                                                                                                                                                                                                                                                                                             |
 | - {ref}`constraint-zones`              | &#10003;  <p> Use to specify  resurce pools within a host or cluster, e.g. <p> `juju deploy myapp --constraints zones=myhost` <p> `juju deploy myapp --constraints zones=myfolder/myhost`<p> `juju deploy myapp --constraints zones=mycluster/mypool` <p> `juju deploy myapp --constraints zones=mycluster/myparent/mypool` |
-
 
 ## Supported placement directives
 

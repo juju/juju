@@ -77,28 +77,10 @@ Example threats:
 
 Controls: {ref}`controls-secrets`, {ref}`controls-secret-backends-can-be-external`, {ref}`controls-charm-development-best-practices`
 
-<!--TBA
-(assets-charmhub)=
-### Charmhub
-
-Charmhub is the charm repository where the charms deployed by Juju are by default retrieved from.
-
-Example threats:
-- {ref}`threats-availability`:
-- {ref}`threats-confidentiality`:
-- {ref}`threats-integrity`:
-
-Controls: {ref}`controls-`
--->
-
 (assets-clients)=
 ### Clients
 
 Overview: Juju {ref}`clients <client>` interact with the API server via client interfaces.
-
-<!-- The `juju` CLI can be installed from a strictly confined snap. The strict confinement means the client cannot do malicious things. The snap means the client updates by itself.
-
-When you install the `juju` CLI you also get the agent binaries necessary for deploying Juju agents during controller bootstrap, infrastructure provisioning, or application deployment. -->
 
 Owned by: Client, controller.
 
@@ -158,16 +140,6 @@ Example threats:
 
 Controls: {ref}`controls-tls-encryption`
 
-<!--?TODO?
-### Cloud resources
-
-Cloud resources are any machines or containers provisioned implicitly or explicitly through Juju for the purpose of hosting a Juju controller or other applications.
-
-By default, these resources run Ubuntu.
-
-For the controller, this is always the latest Ubuntu LTS.
--->
-
 (assets-container-registry)=
 ### Container registry
 
@@ -186,12 +158,6 @@ Controls: {ref}`controls-tls-encryption`
 ### Controller
 
 Overview: A Juju controller is the central management entity that handles state management, event processing, and coordination of operations across models and units. The controller provides a RESTful API for external interactions with the Juju system, including CLI operations and third-party integrations.
-
-<!-- A Juju controller unit consists of a Juju unit agent, `juju-controller` charm code, a controller agent, and `juju-db` -- Juju's database and occupies a machine or containers in a pod.
-
-A controller on a machine cloud can operate in high availability mode.
-
-For machine controllers, Juju also provides tools to help with controller backups. This can help restore healthy state in the case of an attack affecting data integrity. -->
 
 Owned by: Controller.
 
@@ -281,19 +247,6 @@ Example threats:
 - {ref}`threats-confidentiality`: Juju's logging and monitoring system might inadvertently capture sensitive information, such as passwords, API keys, or personally identifiable information (PII), within log files. If these logs are not properly secured, unauthorized users could access them, leading to a confidentiality breach.
 
 Controls: {ref}`controls-no-sensitive-information-in-logs`
-
-<!-- TODO
-(assets-pebble)=
-### Pebble
-
-
-Example threats:
-- {ref}`threats-availability`:
-- {ref}`threats-confidentiality`:
-- {ref}`threats-integrity`:
-
-Controls: {ref}`controls-`
--->
 
 (assets-secrets)=
 ### Secrets
@@ -424,7 +377,6 @@ Example threats:
 - {ref}`threats-integrity`: If there is no mechanism in place to verify the integrity of the data flow between Juju agents and secrets, an attacker who gains access to the communication channel could tamper with the secrets data. For example, an attacker could modify API keys, certificates, or configuration settings being fetched by an agent, causing the agent to use compromised or incorrect data, leading to a breach or operational failure.
 
 Controls: {ref}`controls-tls-encryption`
-
 
 (data-flows-agent-charms)=
 ### Agent - Charm
@@ -730,7 +682,6 @@ User authentication with the controller, machines provisioned by the controller,
 * (for Juju with [JAAS](https://jaas.ai/); added in Juju 3.5) JWTs
 * SSH keys
 * passwords
-
 
 (controls-vpn)=
 ### Virtual Private Network (VPN)

@@ -14,7 +14,6 @@ updated, or at least the tests that already exist that cover the refactored
 code should be identified when requesting a review to show that there is already
 test coverage, and that the refactoring didn't break anything.
 
-
 ## go test and gocheck
 
 The `go test` command is used to run the tests.  Juju uses the `gocheck` package
@@ -34,7 +33,6 @@ import (
 )
 ```
 
-
 ## Setting up tests for new packages
 
 Let's say we are creating a new provider for "magic" cloud, and we have a package
@@ -44,7 +42,6 @@ Continuing with this example the tests would be in a package called "magic_test"
 
 A common idiom that has occurred in juju is to setup to gocheck hooks in a special
 file called `package_test.go` that would look like this:
-
 
 ```go
 // Copyright 2014 Canonical Ltd.
@@ -88,7 +85,6 @@ sure that there is a mongo available for the duration of the package tests.
 
 A general rule is not to setup mongo for a package unless you really
 need to as it is extra overhead.
-
 
 ## Writing the test files
 
@@ -210,7 +206,6 @@ network access in it, it is a good idea to use the BaseSuite as a base:
  * if someone does add logging later, it is captured and doesn't pollute
    the logging output
 
-
 ## Patching variables and the environment
 
 Inside a test, and assuming that the Suite has a CleanupSuite somewhere
@@ -231,7 +226,6 @@ func (s *someTest) TestFubar(c *gc.C) {
 ```
 
 PatchValue works with any matching type. This includes function variables.
-
 
 ## Checkers
 
@@ -269,7 +263,6 @@ The key checkers in the `gocheck` module that juju uses most frequently are:
     * `HasLen` - the expected value is an integer, and works happily on nil
       slices or maps
 
-
 Over time in the juju project there were repeated patterns of testing that
 were then encoded into new and more complicated checkers.  These are found
 in `github.com/juju/testing/checkers`, and are normally imported with the
@@ -300,8 +293,6 @@ The matchers there include (not an exclusive list):
 	  the path element is a directory
 	* `DoesNotExist` - also works with a string or `Stringer`, and passes if
 	  the path element does not exist
-
-
 
 ## Good tests
 

@@ -7,7 +7,6 @@ myst:
 (cloud-kubernetes-aks)=
 # The Microsoft AKS cloud and Juju
 
-
 This document describes details specific to using your existing Microsoft AKS cloud with Juju.
 
 ```{ibnote}

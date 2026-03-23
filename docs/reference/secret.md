@@ -92,7 +92,6 @@ The `controller` backend is the Juju model database.
 
 It is the default secret backend for machine (VM) models.
 
-
 #### `kubernetes`
 
 The `kubernetes` backend is the model's Kubernetes namespace.
@@ -101,7 +100,6 @@ It is the default secret backend for container (Kubernetes) models.
 
 Available starting with Juju 3.1.
 
-
 #### `vault`
 
 The `vault` backend refers to the Hashicorp Vault.
@@ -109,7 +107,6 @@ The `vault` backend refers to the Hashicorp Vault.
 It is available as an opt-in to both machine  and Kubernetes models.
 
 Available starting with Juju 3.1.
-
 
 (secret-backend-configuration-options)=
 ### Configuration options
@@ -177,33 +174,7 @@ kubectl create clusterrolebinding juju-secrets --clusterrole=juju-secrets --serv
 
 An entity -- unit/app or user -- that has created / owns the secret can **manage** it (call `secret-set, secret-grant, secret-revoke, secret-info-get`, etc.).
 
-<!--HERE THERE ARE SOME DIFFERENCES BETWEEN A UNIT/APP AND A USER -- IN THE USER CASE NOT ALL THE HOOKS ARE SUPPORTED. E.G., ?NO SECRET-ROTATE?-->
-
 An entity that does not own the secret can only **view** it (call `secret-get`), and only if it has been granted access to it -- except for peer units or a model admin user, who get view access automatically.
-
-<!--
-`app` secrets can only be created by the leader unit of an application and can henceforth only be managed by the leader. This means that if the leader creates an `app` secret, only the leader will have `manage` permissions. Peer units will automatically have `view` permissions.
-Also, whatever remote units/apps the secret owner grants the secret to, will also obtain `view` permissions.
-
-```{note}
- If the leader changes, the `manage` permissions for all `app`-owned secrets will be carried over to the new leader.
-```
-
-`unit` secrets are owned by the specific unit who creates them. None of the peers (not even the leader) will automatically obtain `view` permissions of this secret. The owner unit will  have `view` and `manage`, and will be able to grant `view` permissions to any (remote) unit it wishes.
-
-`user` secrets are owned by the model and can only be managed by Juju admins. No units (not even the leader) can ever have `manage` permissions of these secrets. The Juju `grant-secret` CLI tool can be used to provide `view` access to an application, and all units in that application will then have `view` permissions. The ID for these secrets is typically provided to the charm via a configuration option of `type: secret`.
-
-
-
-|||leader||follower|||remote||
-|---|---|---|---|---|---|---|---|---|
-|||`app`|`unit`|`app`|`unit`||granted|not granted|
-||||||||||
-|permission|hook tool||||||||
-|`view`|secret-get|yes|no|yes|yes||yes|no|
-|`manage`|secret-set (-rotate, -revoke, -info-get ...)|yes|no|no|yes||no|no|
-
--->
 
 ## Secret lifecycle
 
@@ -240,6 +211,4 @@ Juju maintains a list of which observers are tracking each revision of each secr
 Charms that create secrets should _always_ handle the `secret-remove` event. That is because secret revisions, even if obsolete, remain until removed by the charm; if a charm does not remove them, they accumulate indefinitely.
 
 ```
-
-
 

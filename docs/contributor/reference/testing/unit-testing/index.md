@@ -29,25 +29,5 @@ consists of:
   files. In this way, for the tests and only the tests, additional variables and functions can be defined for the
   package and used in the tests.
 
-<!--Even though it's part of the `magic` package rather than the `test` package, we call it `_test` because Juju ignores all files with `_test`. This file acts like a bridge between the two packages.
--->
-
 - Test files of the form `<code filename>_test.go`, which are collections of {ref}`unit test suites <unit-test-suite>`.
 
-<!--
-github.com/juju/juju/internal/provider/magic:
-
-- magic1.go
-
-- magic1_test.go
-
-- magic2.go
-
-- magic2_test.go
-
-- magic3.go
-
-- magic3_test.go
-
--->
-<!-- to provide a checkers and assert methods for the test writers.**-->

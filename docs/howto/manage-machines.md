@@ -7,12 +7,6 @@ myst:
 (manage-machines)=
 # How to manage machines
 
-<!--FIGURE OUT A GOOD PLACE FOR THIS:
-An interactive pseudo-terminal (pty) is enabled by default. For the OpenSSH client, this corresponds to the `-t` option ("force pseudo-terminal allocation").
-
-Remote commands can be run as expected. For example: `juju ssh 1 lsb_release -c`. For complex commands the recommended method is by way of the `run` command.
--->
-
 ```{ibnote}
 See also: {ref}`machine`
 ```
@@ -291,21 +285,6 @@ First, make sure you have `admin` access to the model and your public SSH key ha
 If you are the model creator, your public SSH key is already known to `juju` and you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
 ```
 
-<!--
-<h3 id="heading--providing-access-to-non-initial-controller-admin-juju-users">Providing access to non-initial controller admin Juju users</h3>
-
-In order for a non-initial controller admin user to connect with `juju ssh` that user must:
-
-- be created (`add-user`)
-- have registered the controller (`register`)
-- be logged in (`login`)
-- have 'admin' access to the model
-- have their public SSH key reside within the model
-- be in possession of the corresponding private SSH key
-
-As previously explained, 'admin' model access and installed model keys can be obtained by creating the model. Otherwise access needs to be granted (`grant`) by a controller admin and keys need to be added (`add-ssh-key` or `import-ssh-key`) by a controller admin or the model admin.
--->
-
 Then, to initiate an SSH session or execute a command on a Juju machine (or container), use the `juju ssh` command followed by the target machine (or container). This target can be specified using a machine (or container) ID or using the ID of the unit that it hosts. Both can be retrieved from the output of `juju status`. For example, below we `ssh` into machine 0 and inside of it run `echo hello`:
 
 ```text
@@ -317,20 +296,6 @@ By passing further arguments and options, you can also run this on behalf of a d
 ```{ibnote}
 See more: {ref}`command-juju-ssh`
 ```
-
-<!--
-Alternatively, you can pass a private key. The easiest way to ensure it is used is to have it stored as `~/.ssh/id_rsa`. Otherwise, you can do one of two things:
-
-1. Use `ssh-agent`
-
-1. Specify the key manually
-
-The second option above, applied to the previous example, will look like this:
-
-```text
-juju ssh 0 -i ~/.ssh/my-private-key
-```
--->
 
 ### Use the OpenSSH `ssh` command
 
@@ -503,45 +468,3 @@ By using various options, you can also customize various other things, for examp
 ```{ibnote}
 See more: {ref}`command-juju-remove-machine`
 ```
-
-<!--
-By default, when a machine is removed, the backing system, typically a cloud instance, is also destroyed. The for example, `--keep-instance` option overrides this; it allows the instance to be left running.
--->
-
-<!--DETAILS FOR ADD-MACHINE, originally from https://discourse.charmhub.io/t/how-to-set-constraints-for-a-machine/5884
-Constraints at the machine level can be set when adding a machine with the `add-machine` command. Doing so provides a way to override defaults at the all-units, application, model, and all-models levels.
-
-Once such a machine has been provisioned, it can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`). See {ref}`Deploying to specific machines <5886md` for the command syntax to use.
-
-A machine with a constraint can be added in this way:
-
-``` text
-juju add-machine --constraints arch=arm
-```
-
-To add a machine that is connected to a space, for example `storage`, run:
-
-``` text
-juju add-machine --constraints spaces=storage
-```
-
-If a space constraint is prefixed by '^', then the machine will **not** be connected to that space. For example, the command below will result in an instance that is connected to both the `db-space` and `internal` spaces but not connected to either the `storage` or `dmz` spaces.
-
-``` text
---constraints spaces=db-space,^storage,^dmz,internal
-```
-
-See the {ref}`network spaces <space` page for details on spaces.
-
-For a LXD cloud, to create a machine limited to two CPUs:
-
-``` text
-juju add-machine --constraints cores=2
-```
-
-To add eight Xenial machines such that they are evenly distributed among four availability zones:
-
-``` text
-juju add-machine -n 8 --series xenial --constraints zones=us-east-1a,us-east-1b,us-east-1c,us-east-1d
-```
--->

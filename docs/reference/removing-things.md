@@ -23,13 +23,11 @@ There is a distinction between the similar sounding commands `unregister`, `deta
 
 *   `Kill` means to forcibly tear down an unresponsive logical entity, along with everything within it. This is a very destructive process that does not guarantee associated resources are cleaned up.
 
-<!--REPLACE THIS NOTE WITH SEE ALSO'S FROM THE SPECIFIC DOCS TO THIS DOC.-->
 ```{note}
 
 These command terms/prefixes do not apply to all commands in a generic way. The explanations above are merely intended to convey how a command generally operates and what its severity level is.
 
 ```
-
 
 ## Forcing removals
 

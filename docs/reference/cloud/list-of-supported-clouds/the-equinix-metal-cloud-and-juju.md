@@ -7,7 +7,6 @@ myst:
 (cloud-equinix)=
 # The Equinix Metal cloud and Juju
 
-
 This document describes details specific to using your existing Equinix Metal cloud with Juju.
 
 ```{ibnote}
@@ -22,7 +21,6 @@ See more: {ref}`cloud-differences`
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
 
-
 ## Notes on `juju add-cloud`
 
 Type in Juju: `equinix`
@@ -31,21 +29,12 @@ Name in Juju: `equinix`
 
 ## Notes on `juju add-credential`
 
-
 ### Authentication types
 
 #### `access-key`
 Attributes:
 - `project-id`: Packet project ID (required)
 - `api-token`: Packet API token (required)
-
-<!--
-## Notes on `juju bootstrap`
-
-
-## Cloud-specific model configuration keys
--->
-
 
 ## Supported constraints
 
@@ -77,7 +66,6 @@ Attributes:
 | {ref}`placement-directive-subnet`                | &#10005; |
 | {ref}`placement-directive-system-id`             | &#10005; |
 | {ref}`placement-directive-zone`                  | TBA      |
-
 
 ## Other notes
 

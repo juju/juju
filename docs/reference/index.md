@@ -7,8 +7,6 @@ myst:
 (reference)=
 # Reference
 
-<!--Technical information on APIs, specifications, command reference, internals.-->
-
 ```{toctree}
 :titlesonly:
 :glob:
