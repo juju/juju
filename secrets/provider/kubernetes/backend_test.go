@@ -254,7 +254,7 @@ func (s *backendSuite) TestDeleteContentRetries(c *gc.C) {
 	c.Check(list.Items, gc.HasLen, 0)
 }
 
-// TestDeleteContentError checks that DeleteContent does not retry on unkown
+// TestDeleteContentError checks that DeleteContent does not retry on unknown
 // errors.
 func (s *backendSuite) TestDeleteContentError(c *gc.C) {
 	ctx := context.Background()

@@ -21,6 +21,19 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
+const (
+	transientFailureRetryCount = 10
+	transientFailureRetryDelay = time.Second
+)
+
+var (
+	// transientFailureBackoff is a slow growing exponential back-off capped at
+	// one minute retries.
+	// 1.6, 2.6, 4.2, 6.9, 11.0, 17.9, 29.0, 47.0, 60.0, 60.0
+	transientFailureBackoff = retry.ExpBackoff(
+		transientFailureRetryDelay, time.Minute, math.Phi, true)
+)
+
 type k8sBackend struct {
 	serviceAccount string
 	namespace      string
@@ -76,9 +89,9 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*resourc
 				attempt, lastError.Error(),
 			)
 		},
-		Attempts:    10,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, time.Minute, math.Phi, true),
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
 		Clock:       k.clock,
 		Stop:        ctx.Done(),
 	})
@@ -144,9 +157,9 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revi
 				attempt, lastError.Error(),
 			)
 		},
-		Attempts:    10,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, time.Minute, math.Phi, true),
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
 		Clock:       k.clock,
 		Stop:        ctx.Done(),
 	})
@@ -186,9 +199,9 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 				attempt, lastError.Error(),
 			)
 		},
-		Attempts:    10,
-		Delay:       time.Second,
-		BackoffFunc: retry.ExpBackoff(time.Second, time.Minute, math.Phi, true),
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
 		Clock:       k.clock,
 		Stop:        ctx.Done(),
 	})
