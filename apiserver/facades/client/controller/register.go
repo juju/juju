@@ -25,20 +25,37 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ControllerAPIV12)(nil)))
 	// v13 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegisterForMultiModel("Controller", 13, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		api, err := makeControllerAPI(stdCtx, ctx)
+		api, err := makeControllerAPIV13(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v13: %w", err)
+		}
+		return api, nil
+	}, reflect.TypeOf((*ControllerAPIV13)(nil)))
+	registry.MustRegisterForMultiModel("Controller", 14, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		api, err := makeControllerAPI(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating Controller facade v14: %w", err)
 		}
 		return api, nil
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
 func makeControllerAPIV12(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV12, error) {
-	api, err := makeControllerAPI(stdCtx, ctx)
+	api, err := makeControllerAPIV13(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ControllerAPIV12{
+		ControllerAPIV13: api,
+	}, nil
+}
+
+func makeControllerAPIV13(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV13, error) {
+	api, err := makeControllerAPI(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIV13{
 		ControllerAPI: api,
 	}, nil
 }
