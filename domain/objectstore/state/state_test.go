@@ -1202,6 +1202,19 @@ func (s *stateSuite) TestGetObjectStoreBackendNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendNotFound)
 }
 
+func (s *stateSuite) TestDefaultFileBackendUUID(c *tc.C) {
+	var backendUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT uuid FROM object_store_backend
+WHERE type_id = 0`)
+		return row.Scan(&backendUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(backendUUID, tc.Equals, defaultFileBackendUUID)
+}
+
 func (s *stateSuite) markBackendAsDead(c *tc.C, uuid string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

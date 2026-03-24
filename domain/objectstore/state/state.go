@@ -22,6 +22,14 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	// defaultFileBackendUUID is the default uuid for the file backend.
+	// Although, this is only used for testing, it's here to ensure that
+	// we have a consistent uuid for all file based backends. This must not be
+	// changed.
+	defaultFileBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
+)
+
 // State implements the domain objectstore state.
 type State struct {
 	*domain.StateBase
