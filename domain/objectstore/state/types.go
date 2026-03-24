@@ -78,3 +78,7 @@ type dbSetPhaseInfo struct {
 type backendUUID struct {
 	UUID string `db:"uuid"`
 }
+
+type count struct {
+	Count int `db:"count"`
+}

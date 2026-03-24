@@ -516,6 +516,12 @@ WHERE uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath)
 }
 
 // StartDraining initiates the draining process for the object store.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrBackendNotFound]: if it cannot find the active
+//     backend or the to backend.
+//   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
+//     active draining phase.
 func (s *State) StartDraining(ctx context.Context, uuid string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -525,6 +531,14 @@ func (s *State) StartDraining(ctx context.Context, uuid string) error {
 	phaseTypeID, err := encodePhaseTypeID(coreobjectstore.PhaseDraining)
 	if err != nil {
 		return errors.Errorf("encoding phase type id: %w", err)
+	}
+
+	checkStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM object_store_drain_info
+WHERE phase_type_id <= 1`, count{})
+	if err != nil {
+		return errors.Errorf("preparing check active draining phase statement: %w", err)
 	}
 
 	fromBackendStmt, err := s.Prepare(`
@@ -538,8 +552,7 @@ WHERE b.life_id = 1`, backendUUID{})
 	toBackendStmt, err := s.Prepare(`
 SELECT b.uuid AS &backendUUID.uuid
 FROM object_store_backend AS b
-WHERE b.life_id = 0
-ORDER BY b.updated_at DESC`, backendUUID{})
+WHERE b.life_id = 0`, backendUUID{})
 	if err != nil {
 		return errors.Errorf("preparing to object store backend statement: %w", err)
 	}
@@ -553,10 +566,18 @@ VALUES ($dbSetPhaseInfo.*);
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var activeDrainingCount count
+		err := tx.Query(ctx, checkStmt).Get(&activeDrainingCount)
+		if err != nil {
+			return errors.Errorf("checking active draining phase: %w", err)
+		} else if activeDrainingCount.Count > 0 {
+			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		}
+
 		// Find the active backend. We'll need to set this backend as dying
 		// if the phase is set to draining.
 		var fromBackend backendUUID
-		err := tx.Query(ctx, fromBackendStmt).Get(&fromBackend)
+		err = tx.Query(ctx, fromBackendStmt).Get(&fromBackend)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("migrating from: %w", objectstoreerrors.ErrBackendNotFound)
 		} else if err != nil {
@@ -579,9 +600,7 @@ VALUES ($dbSetPhaseInfo.*);
 		}
 
 		err = tx.Query(ctx, insertStmt, args).Run()
-		if database.IsErrConstraintUnique(err) {
-			return objectstoreerrors.ErrDrainingAlreadyInProgress
-		} else if err != nil {
+		if err != nil {
 			return errors.Errorf("inserting draining phase: %w", err)
 		}
 		return nil
@@ -595,6 +614,12 @@ VALUES ($dbSetPhaseInfo.*);
 // SetDrainingPhase sets the phase of the object store to draining. Returns an
 // error if it cannot find the active backend, the to backend, or if there is
 // already an active draining phase.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrBackendNotFound]: if it cannot find the active
+//     backend or the to backend.
+//   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
+//     active draining phase.
 func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobjectstore.Phase) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -642,6 +667,10 @@ WHERE uuid = $dbSetPhaseInfo.uuid;
 // phase, and if so, which phase it is in, and the uuid of the draining
 // information, which can be used to correlate with logs and other information
 // about the draining process.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrDrainingPhaseNotFound]: if there is no active
+//     draining phase.
 func (s *State) GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -682,7 +711,14 @@ WHERE di.phase_type_id <= 1;
 	}, nil
 }
 
-// GetObjectStoreBackend returns the current object store backend information. This is used to determine which backend the object store is currently using, and if it is using S3, then it will return the credentials for the S3 backend.
+// GetObjectStoreBackend returns the current object store backend information.
+// This is used to determine which backend the object store is currently using,
+// and if it is using S3, then it will return the credentials for the S3
+// backend.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrBackendNotFound]: if it cannot find the backend with
+//     the specified uuid.
 func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -739,6 +775,10 @@ WHERE uuid = $backendInfo.uuid`, backendInfo{})
 // information. This is used to determine which backend the object store is
 // currently using, and if it is using S3, then it will return the credentials
 // for the S3 backend.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrBackendNotFound]: if it cannot find the active
+//     backend.
 func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -794,6 +834,13 @@ WHERE life_id = 0`, backendInfo{})
 // SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
+//     active draining phase, as we don't want to update the backend information
+//     while we're in the middle of a draining process.
+//   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a backend
+//     with the specified uuid.
 func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -918,6 +965,13 @@ VALUES ($s3Credentials.*)
 // This is used to mark the object store backend as drained after the draining
 // process has completed. If the s3 backend has been drained, then this will
 // remove the credentials.
+//
+// This method returns the following errors:
+//   - [objectstoreerrors.ErrBackendNotFound]: if it cannot find the backend with
+//     the specified uuid.
+//   - [objectstoreerrors.ErrNoDrainingBackendFound]: if there is no draining
+//     backend found with the specified uuid, which indicates that the draining
+//     process has not been initiated for the specified backend.
 func (s *State) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
