@@ -105,6 +105,7 @@ func (s *importSuite) prepareModel(c *tc.C) description.Model {
 
 	// Add a secret backend to handle secrets.
 	s.addSecretBackend(c, "internal", "controller")
+	s.addSecretBackend(c, "kubernetes", "kubernetes")
 
 	return description.NewModel(description.ModelArgs{
 		Type:  string(model.IAAS),
