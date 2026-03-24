@@ -568,36 +568,37 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 // UnitContext contains context information required for the construction of a
 // context factory.
 type UnitContext struct {
-	APIAddresses                      []string
-	CloudAPIVersion                   string
-	LegacyProxySettings               proxy.Settings
-	JujuProxySettings                 proxy.Settings
-	PrivateAddress                    *string
+	// APIAddresses contains the addresses of the API server that the unit can
+	// use to connect to it.
+	APIAddresses []string
+	// CloudAPIVersion contains the API version of the cloud, if known.
+	CloudAPIVersion string
+	// LegacyProxySettings contains the proxy settings from the model config
+	// under the legacy keys (e.g. http-proxy).
+	LegacyProxySettings proxy.Settings
+	// JujuProxySettings contains the proxy settings from the model config under
+	// the juju keys (e.g. juju-http-proxy).
+	JujuProxySettings proxy.Settings
+	// PrivateAddress contains the private address of the unit, if known.
+	PrivateAddress *string
+	// OpenedMachinePortRangesByEndpoint returns all port ranges currently open
+	// on the given machine, grouped by unit tag and application endpoint.
 	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
-	OpenedPortRangesByEndpoint        map[names.UnitTag]network.GroupedPortRanges
+	// OpenedPortRangesByEndpoint returns all port ranges currently opened
+	// grouped by unit tag and application endpoint.
+	OpenedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
 }
 
 // GetUnitContext returns context information required for the construction of a
 // context factory.
 func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (UnitContext, error) {
-	var result params.UnitContextsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-	err := client.facade.FacadeCall(ctx, "GetUnitContexts", args, &result)
+	var result params.UnitContext
+	args := params.Entity{Tag: tag.String()}
+	err := client.facade.FacadeCall(ctx, "GetUnitContext", args, &result)
 	if err != nil {
 		return UnitContext{}, errors.Trace(apiservererrors.RestoreError(err))
 	}
-	if len(result.Results) != 1 {
-		return UnitContext{}, fmt.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	resultUnitContext := result.Results[0]
-	if resultUnitContext.Error != nil {
-		return UnitContext{}, resultUnitContext.Error
-	} else if resultUnitContext.Result == nil {
-		return UnitContext{}, fmt.Errorf("no context returned for unit %q", tag.Id())
-	}
-	return decodeUnitContext(*resultUnitContext.Result)
+	return decodeUnitContext(result)
 }
 
 func decodeUnitContext(paramsUnitContext params.UnitContext) (UnitContext, error) {
@@ -637,12 +638,13 @@ func decodeOpenedPortRangesByEndpoint(encoded map[string]map[string][]params.Por
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		portRangeMap[unitTag] = make(network.GroupedPortRanges)
+		unitPortRange := make(network.GroupedPortRanges)
 		for endpoint, portRanges := range unitPortRanges {
-			portRangeMap[unitTag][endpoint] = transform.Slice(portRanges, func(pr params.PortRange) network.PortRange {
+			unitPortRange[endpoint] = transform.Slice(portRanges, func(pr params.PortRange) network.PortRange {
 				return pr.NetworkPortRange()
 			})
 		}
+		portRangeMap[unitTag] = unitPortRange
 	}
 	return portRangeMap, nil
 }

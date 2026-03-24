@@ -1445,19 +1445,6 @@ type VirtualHostnameTargetArg struct {
 	Container *string `json:"container,omitempty"`
 }
 
-// UnitContextsResults holds the result of a UnitContext API call.
-type UnitContextsResults struct {
-	Results []UnitContextsResult `json:"results,omitempty"`
-}
-
-// UnitContextsResult holds the result of a UnitContext API call, which contains
-// the context information required for the construction of a context factory,
-// or an error if the context information could not be retrieved.
-type UnitContextsResult struct {
-	Result *UnitContext `json:"result,omitempty"`
-	Error  *Error       `json:"error,omitempty"`
-}
-
 // ProxySettings contains the proxy settings for a model, which may be used by
 // agents in the model.
 type ProxySettings struct {

@@ -1528,43 +1528,28 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	})
 }
 
-func (s *uniterSuite) TestGetUnitContextsUnauthorized(c *tc.C) {
+func (s *uniterSuite) TestGetUnitContextUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
 	s.badTag = names.NewUnitTag("foo/0")
 
-	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: s.badTag.String()}},
-	})
-
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Check(res.Results[0].Result, tc.IsNil)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: s.badTag.String()})
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterSuite) TestGetUnitContextsInvalidTag(c *tc.C) {
+func (s *uniterSuite) TestGetUnitContextInvalidTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: "application-mysql"}},
-	})
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: "application-mysql"})
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Check(res.Results[0].Result, tc.IsNil)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
+func (s *uniterSuite) TestGetUnitContextIAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
 	unitName := coreunit.Name("mysql/0")
 	unitTag := names.NewUnitTag(unitName.String())
 	privateAddress := "10.10.10.10"
@@ -1591,17 +1576,10 @@ func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
 		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
 	}, nil)
 
-	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: unitTag.String()}},
-	})
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
 
-	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, tc.IsNil)
-	c.Assert(res.Results[0].Result, tc.NotNil)
-	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
+	c.Check(res, tc.DeepEquals, params.UnitContext{
 		APIAddresses:                      []string{"10.0.0.1:17070", "10.0.0.2:17070"},
 		CloudAPIVersion:                   "v1.2.3",
 		LegacyProxySettings:               encodeProxySettings(legacyProxySettings),
@@ -1611,32 +1589,23 @@ func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
 	})
 }
 
-func (s *uniterSuite) TestGetUnitContextsIAASUnitNotFound(c *tc.C) {
+func (s *uniterSuite) TestGetUnitContextIAASUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
 	unitName := coreunit.Name("mysql/0")
 	unitTag := names.NewUnitTag(unitName.String())
 	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(
 		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
 	)
 
-	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: unitTag.String()}},
-	})
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
 
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Check(res.Results[0].Result, tc.IsNil)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *uniterSuite) TestGetUnitContextsCAAS(c *tc.C) {
+func (s *uniterSuite) TestGetUnitContextCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
 	s.uniter.modelType = coremodel.CAAS
 	unitName := coreunit.Name("mysql/0")
 	unitTag := names.NewUnitTag(unitName.String())
@@ -1662,76 +1631,16 @@ func (s *uniterSuite) TestGetUnitContextsCAAS(c *tc.C) {
 		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
 	}, nil)
 
-	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: unitTag.String()}},
-	})
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
 
-	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Assert(res.Results[0].Error, tc.IsNil)
-	c.Assert(res.Results[0].Result, tc.NotNil)
-	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
+	c.Check(res, tc.DeepEquals, params.UnitContext{
 		APIAddresses:               []string{"10.0.0.1:17070"},
 		CloudAPIVersion:            "v2.0.0",
 		LegacyProxySettings:        encodeProxySettings(legacyProxySettings),
 		JujuProxySettings:          encodeProxySettings(jujuProxySettings),
 		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint),
 	})
-}
-
-func (s *uniterSuite) TestGetUnitContextsMultipleEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange
-	forbiddenTag := names.NewUnitTag("foo/0")
-	validUnitName := coreunit.Name("mysql/0")
-	validTag := names.NewUnitTag(validUnitName.String())
-	notFoundUnitName := coreunit.Name("postgresql/0")
-	notFoundTag := names.NewUnitTag(notFoundUnitName.String())
-	privateAddress := "10.10.10.11"
-	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
-	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
-
-	s.badTag = forbiddenTag
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
-		[]string{"10.0.0.1:17070"}, nil,
-	)
-	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), validUnitName).Return(service.IAASUnitContext{
-		CloudAPIVersion:     "v1.2.3",
-		LegacyProxySettings: legacyProxySettings,
-		JujuProxySettings:   jujuProxySettings,
-		PrivateAddress:      &privateAddress,
-	}, nil)
-	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), notFoundUnitName).Return(
-		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
-	)
-
-	// Act
-	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: forbiddenTag.String()},
-			{Tag: validTag.String()},
-			{Tag: notFoundTag.String()},
-		},
-	})
-
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(res.Results, tc.HasLen, 3)
-	c.Check(res.Results[0].Result, tc.IsNil)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
-	c.Check(res.Results[1].Error, tc.IsNil)
-	c.Check(res.Results[1].Result, tc.DeepEquals, &params.UnitContext{
-		APIAddresses:        []string{"10.0.0.1:17070"},
-		CloudAPIVersion:     "v1.2.3",
-		LegacyProxySettings: encodeProxySettings(legacyProxySettings),
-		JujuProxySettings:   encodeProxySettings(jujuProxySettings),
-		PrivateAddress:      &privateAddress,
-	})
-	c.Check(res.Results[2].Result, tc.IsNil)
-	c.Check(res.Results[2].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {

@@ -26,9 +26,6 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*UniterAPIv20)(nil)))
 	registry.MustRegister("Uniter", 21, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPIv21(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPI)(nil)))
-	registry.MustRegister("Uniter", 22, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPIv21)(nil)))
 	registry.MustRegister("Uniter", 22, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPI(stdCtx, ctx)

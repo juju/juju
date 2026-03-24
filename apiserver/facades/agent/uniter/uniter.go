@@ -3274,73 +3274,60 @@ func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
 func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
 
 // GetUnitContexts returns the contexts of the units specified in the request.
-func (u *UniterAPI) GetUnitContexts(ctx context.Context, args params.Entities) (params.UnitContextsResults, error) {
-	result := params.UnitContextsResults{
-		Results: make([]params.UnitContextsResult, len(args.Entities)),
-	}
+func (u *UniterAPI) GetUnitContext(ctx context.Context, args params.Entity) (params.UnitContext, error) {
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
-		return params.UnitContextsResults{}, errors.Trace(err)
+		return params.UnitContext{}, errors.Trace(err)
 	}
 
-	for i, entity := range args.Entities {
-		info, err := u.getOneUnitContext(ctx, entity, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		result.Results[i].Result = info
-	}
-
-	return result, nil
-}
-
-func (u *UniterAPI) getOneUnitContext(ctx context.Context, entity params.Entity, canAccess common.AuthFunc) (*params.UnitContext, error) {
-	tag, err := names.ParseUnitTag(entity.Tag)
+	tag, err := names.ParseUnitTag(args.Tag)
 	if err != nil {
-		return nil, apiservererrors.ErrPerm
+		return params.UnitContext{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	if !canAccess(tag) {
-		return nil, apiservererrors.ErrPerm
+		return params.UnitContext{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	unitName, err := coreunit.NewName(tag.Id())
 	if err != nil {
-		return nil, errors.BadRequestf("parsing unit name: %s", tag.Id())
+		return params.UnitContext{}, apiservererrors.ServerError(
+			errors.BadRequestf("parsing unit name: %s", tag.Id()),
+		)
 	}
 
 	unitContext, err := u.getUnitContext(ctx, unitName)
 	if err != nil {
-		return nil, err
+		return params.UnitContext{}, apiservererrors.ServerError(err)
 	}
 
 	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err)
+		return params.UnitContext{}, apiservererrors.ServerError(
+			internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err),
+		)
 	}
 	unitContext.APIAddresses = apiAddresses
 
 	return unitContext, nil
 }
 
-func (u *UniterAPI) getUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+func (u *UniterAPI) getUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
 	if u.modelType == model.CAAS {
 		return u.getCAASUnitContext(ctx, unitName)
 	}
 	return u.getIAASUnitContext(ctx, unitName)
 }
 
-func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
 	unitContext, err := u.applicationService.GetCAASUnitContext(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.NotFoundf("getting unit %q", unitName)
+		return params.UnitContext{}, errors.NotFoundf("getting unit %q", unitName)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return params.UnitContext{}, errors.Trace(err)
 	}
 
-	return &params.UnitContext{
+	return params.UnitContext{
 		CloudAPIVersion:            unitContext.CloudAPIVersion,
 		LegacyProxySettings:        encodeProxySettings(unitContext.LegacyProxySettings),
 		JujuProxySettings:          encodeProxySettings(unitContext.JujuProxySettings),
@@ -3348,15 +3335,15 @@ func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Na
 	}, nil
 }
 
-func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
 	unitContext, err := u.applicationService.GetIAASUnitContext(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.NotFoundf("getting unit %q", unitName)
+		return params.UnitContext{}, errors.NotFoundf("getting unit %q", unitName)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return params.UnitContext{}, errors.Trace(err)
 	}
 
-	return &params.UnitContext{
+	return params.UnitContext{
 		CloudAPIVersion:                   unitContext.CloudAPIVersion,
 		LegacyProxySettings:               encodeProxySettings(unitContext.LegacyProxySettings),
 		JujuProxySettings:                 encodeProxySettings(unitContext.JujuProxySettings),
