@@ -41,11 +41,11 @@ func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name coremac
 }
 
 func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name coremachine.Name) (string, error) {
-	machine := machineNameWithNetNode{Name: name}
+	machine := nameWithNetNode{Name: name.String()}
 	query := `
-SELECT &machineNameWithNetNode.net_node_uuid
+SELECT &nameWithNetNode.net_node_uuid
 FROM machine
-WHERE name = $machineNameWithNetNode.name
+WHERE name = $nameWithNetNode.name
 `
 	stmt, err := st.Prepare(query, machine)
 	if err != nil {

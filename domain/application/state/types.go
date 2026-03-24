@@ -9,7 +9,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -1141,9 +1140,15 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
-type machineNameWithNetNode struct {
-	Name        coremachine.Name `db:"name"`
-	NetNodeUUID string           `db:"net_node_uuid"`
+type nameWithNetNode struct {
+	Name        string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
+type nameWithNetNodeAndLife struct {
+	Name        string    `db:"name"`
+	NetNodeUUID string    `db:"net_node_uuid"`
+	LifeID      life.Life `db:"life_id"`
 }
 
 // machineUUIDWithNetNode represents the uuid and net node uuid columns from the
