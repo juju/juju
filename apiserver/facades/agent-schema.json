@@ -10224,14 +10224,14 @@
                         }
                     }
                 },
-                "GetUnitContexts": {
+                "GetUnitContext": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/UnitContextsResults"
+                            "$ref": "#/definitions/UnitContext"
                         }
                     }
                 },
@@ -13017,30 +13017,6 @@
                         "legacy-proxy-settings",
                         "juju-proxy-settings"
                     ]
-                },
-                "UnitContextsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/UnitContext"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "UnitContextsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/UnitContextsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "UnitRefreshResult": {
                     "type": "object",
