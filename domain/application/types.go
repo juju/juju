@@ -510,8 +510,8 @@ type ApplicationDetails struct {
 	IsApplicationSynthetic bool
 }
 
-// ApplicationStorageDirectiveOverride represents override instructions in the application
-// domain for application storage directives to alter the default
+// ApplicationStorageDirectiveOverride represents override instructions in the
+// application domain for application storage directives to alter the default
 // values a new application will receive.
 type ApplicationStorageDirectiveOverride struct {
 	// Count is the number of storage instances to create for each unit. This
@@ -540,16 +540,29 @@ type ProxySettings struct {
 // IAASUnitContext contains the IAAS context information required for the
 // construction of a context factory for a unit.
 type IAASUnitContext struct {
-	LegacyProxySettings               ProxySettings
-	JujuProxySettings                 ProxySettings
-	PrivateAddress                    []network.SpaceAddress
+	// LegacyProxySettings contains the proxy settings for a unit context that
+	// are set in the model config, using the legacy proxy configuration keys.
+	LegacyProxySettings ProxySettings
+	// JujuProxySettings contains the proxy settings for a unit context that are
+	// set in the model config, using the Juju proxy configuration keys.
+	JujuProxySettings ProxySettings
+	/// PrivateAddress contains the private address for a unit context.
+	PrivateAddress []network.SpaceAddress
+	// OpenedMachinePortRangesByEndpoint contains the opened machine port ranges
+	// by endpoint for a unit context.
 	OpenedMachinePortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
 }
 
 // CAASUnitContext contains the CAAS context information required for the
 // construction of a context factory for a unit.
 type CAASUnitContext struct {
-	LegacyProxySettings        ProxySettings
-	JujuProxySettings          ProxySettings
+	// LegacyProxySettings contains the proxy settings for a unit context that
+	// are set in the model config, using the legacy proxy configuration keys.
+	LegacyProxySettings ProxySettings
+	// JujuProxySettings contains the proxy settings for a unit context that are
+	// set in the model config, using the Juju proxy configuration keys.
+	JujuProxySettings ProxySettings
+	// OpenedPortRangesByEndpoint contains the opened port ranges by endpoint
+	// for a unit context.
 	OpenedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
 }

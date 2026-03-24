@@ -833,7 +833,7 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 
 	cloudAPIVersion, err := s.getCloudAPIVersion(ctx)
 	if err != nil {
-		return IAASUnitContext{}, errors.Errorf("getting cloud api version: %w", err)
+		s.logger.Warningf(ctx, "getting cloud api version: %v", err)
 	}
 
 	return IAASUnitContext{
@@ -886,6 +886,7 @@ func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreu
 	}, nil
 }
 
+// getUnitPrivateAddress returns the private address for a unit, if any.
 func (s *ProviderService) getUnitPrivateAddress(addrs network.SpaceAddresses) *string {
 	if len(addrs) == 0 {
 		return nil

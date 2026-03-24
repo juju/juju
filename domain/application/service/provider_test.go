@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
@@ -45,6 +46,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type providerServiceSuite struct {
@@ -2446,8 +2448,38 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, providerNotSupported, providerNotSupported, providerNotSupported)
+	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
+	s.state = NewMockState(ctrl)
+
+	c.Cleanup(func() {
+		s.agentVersionGetter = nil
+		s.state = nil
+	})
+
+	modelUUID := tc.Must(c, model.NewUUID)
+
+	s.service = NewProviderService(
+		s.state,
+		nil, nil,
+		s.agentVersionGetter,
+		func(ctx context.Context) (Provider, error) {
+			return nil, nil
+		},
+		func(ctx context.Context) (CAASProvider, error) {
+			return nil, coreerrors.NotSupported
+		},
+		func(ctx context.Context) (CloudInfoProvider, error) {
+			return nil, nil
+		},
+		nil,
+		nil,
+		modelUUID,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
@@ -2479,8 +2511,34 @@ func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *tc.C
 }
 
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, providerNotSupported, providerNotSupported, providerNotSupported)
+	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+
+	c.Cleanup(func() {
+		s.state = nil
+	})
+
+	modelUUID := tc.Must(c, model.NewUUID)
+
+	s.service = NewProviderService(
+		s.state,
+		nil, nil, nil,
+		func(ctx context.Context) (Provider, error) {
+			return nil, coreerrors.NotSupported
+		},
+		func(ctx context.Context) (CAASProvider, error) {
+			return nil, nil
+		},
+		func(ctx context.Context) (CloudInfoProvider, error) {
+			return nil, nil
+		},
+		nil, nil,
+		modelUUID,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 
@@ -2489,7 +2547,7 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	id := tc.Must(c, coreapplication.NewUUID)
@@ -2501,7 +2559,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	id := tc.Must(c, coreapplication.NewUUID)
@@ -2515,7 +2573,7 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	id := tc.Must(c, coreapplication.NewUUID)
@@ -2531,7 +2589,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	defer s.setupMocks(c).Finish()
@@ -2548,7 +2606,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2599,7 +2657,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2669,7 +2727,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2732,7 +2790,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2784,7 +2842,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	_, _, err := s.service.AddIAASUnits(c.Context(), "!!!", AddIAASUnitArg{})
@@ -2792,7 +2850,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidName(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	units, _, err := s.service.AddIAASUnits(c.Context(), "foo")
@@ -2801,7 +2859,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsNoUnits(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -2813,7 +2871,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2846,7 +2904,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 // and that the machine uuid and netnode uuid that are used for the machine
 // match the already existing machine.
 func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	setAddUnitNoopStorageExpects(s.storageService)
 
@@ -2929,7 +2987,7 @@ func (s *providerServiceSuite) TestResolveApplicationConstraintsNilValidator(c *
 }
 
 func (s *providerServiceSuite) TestResolveApplicationConstraintsConstraintsNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
@@ -2946,7 +3004,7 @@ func (s *providerServiceSuite) TestResolveApplicationConstraintsConstraintsNotFo
 }
 
 func (s *providerServiceSuite) TestResolveApplicationConstraintsWithArch(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
@@ -3063,7 +3121,7 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 }
 
 func (s *providerServiceSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3076,7 +3134,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidUUID(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
@@ -3087,7 +3145,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidUUID(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidName(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3099,7 +3157,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidName(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3143,7 +3201,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3217,7 +3275,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForCAASUnitNotFound(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3230,7 +3288,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitNotFound(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidUUID(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
@@ -3241,7 +3299,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidUUID(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidName(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3253,7 +3311,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidName(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -3297,7 +3355,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 }
 
 func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)

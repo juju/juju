@@ -1875,7 +1875,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		machineOpenedPortRanges                []unitEndpointOpenedPortRange
 		unitAddresses                          []unitSpaceAddress
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
 			return errors.Capture(err)
 		}
@@ -1907,7 +1907,8 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		}
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return application.IAASUnitContext{}, errors.Capture(err)
 	}
 
@@ -1940,7 +1941,7 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 		legacyProxySettings, jujuProxySettings application.ProxySettings
 		unitOpenedPortRanges                   []unitEndpointOpenedPortRange
 	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
 			return errors.Capture(err)
 		}
@@ -1961,7 +1962,8 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 		}
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return application.CAASUnitContext{}, errors.Capture(err)
 	}
 
