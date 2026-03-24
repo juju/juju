@@ -768,10 +768,9 @@ func (s *stateSuite) TestStartDraining(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -789,10 +788,9 @@ func (s *stateSuite) TestStartDrainingAndSetDrainingPhase(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -810,10 +808,9 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3CalledTwice(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -834,10 +831,9 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3MultipleTimes(c *tc.C) {
 	backendUUID2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID0, creds)
@@ -872,10 +868,9 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3WithActiveDrainingBackend(c *t
 	backendUUID1 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	// This backend is ignored, as the draining phase is not active.
@@ -906,10 +901,9 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -917,7 +911,7 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
 
 	var lifeID, typeID int
 	var dyingTypeID int
-	var endpoint, accessKey, secretKey, sessionToken string
+	var endpoint, accessKey, secretKey string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id, type_id FROM object_store_backend
@@ -934,10 +928,10 @@ WHERE life_id = 1`)
 		}
 
 		row = tx.QueryRowContext(ctx, `
-SELECT endpoint, static_key, static_secret, session_token
+SELECT endpoint, static_key, static_secret
 FROM object_store_backend_s3_credential
 WHERE object_store_backend_uuid = ?`, backendUUID)
-		if err := row.Scan(&endpoint, &accessKey, &secretKey, &sessionToken); err != nil {
+		if err := row.Scan(&endpoint, &accessKey, &secretKey); err != nil {
 			return errors.Errorf("querying backend credentials: %w", err)
 		}
 
@@ -953,7 +947,6 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 	c.Check(endpoint, tc.Equals, creds.Endpoint)
 	c.Check(accessKey, tc.Equals, creds.AccessKey)
 	c.Check(secretKey, tc.Equals, creds.SecretKey)
-	c.Check(sessionToken, tc.Equals, creds.SessionToken)
 }
 
 func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
@@ -1093,7 +1086,6 @@ WHERE life_id = 0`)
 	c.Check(info.Endpoint, tc.IsNil)
 	c.Check(info.AccessKey, tc.IsNil)
 	c.Check(info.SecretKey, tc.IsNil)
-	c.Check(info.SessionToken, tc.IsNil)
 }
 
 func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
@@ -1101,10 +1093,9 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "session-token",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -1121,8 +1112,6 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 	c.Check(*info.AccessKey, tc.Equals, creds.AccessKey)
 	c.Assert(info.SecretKey, tc.NotNil)
 	c.Check(*info.SecretKey, tc.Equals, creds.SecretKey)
-	c.Assert(info.SessionToken, tc.NotNil)
-	c.Check(*info.SessionToken, tc.Equals, creds.SessionToken)
 }
 
 func (s *stateSuite) TestGetActiveObjectStoreBackendNotFound(c *tc.C) {
@@ -1160,7 +1149,6 @@ WHERE life_id = 0`)
 	c.Check(info.Endpoint, tc.IsNil)
 	c.Check(info.AccessKey, tc.IsNil)
 	c.Check(info.SecretKey, tc.IsNil)
-	c.Check(info.SessionToken, tc.IsNil)
 }
 
 func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
@@ -1168,10 +1156,9 @@ func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
-		Endpoint:     "https://s3.example.com",
-		AccessKey:    "access-key",
-		SecretKey:    "secret-key",
-		SessionToken: "foo",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
@@ -1189,8 +1176,6 @@ func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
 	c.Check(*info.AccessKey, tc.Equals, creds.AccessKey)
 	c.Assert(info.SecretKey, tc.NotNil)
 	c.Check(*info.SecretKey, tc.Equals, creds.SecretKey)
-	c.Check(info.SessionToken, tc.NotNil)
-	c.Check(*info.SessionToken, tc.Equals, creds.SessionToken)
 }
 
 func (s *stateSuite) TestGetObjectStoreBackendNotFound(c *tc.C) {

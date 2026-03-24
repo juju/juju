@@ -79,7 +79,6 @@ CREATE TABLE object_store_backend_s3_credential (
     endpoint TEXT NOT NULL,
     static_key TEXT NOT NULL,
     static_secret TEXT NOT NULL,
-    session_token TEXT,
     CONSTRAINT fk_object_store_backend_uuid_s3_credential_object_store_uuid
     FOREIGN KEY (object_store_backend_uuid)
     REFERENCES object_store_backend (uuid)

@@ -29,8 +29,6 @@ type S3Credentials struct {
 	AccessKey string
 	// SecretKey is the secret key for the object store.
 	SecretKey string
-	// SessionToken is the session token for the object store.
-	SessionToken string
 }
 
 // Validate validates the S3Credentials.
@@ -85,9 +83,4 @@ type BackendInfo struct {
 	// in the state when the backend is S3, and it will be used to create the
 	// S3 client for the draining process.
 	SecretKey *string
-
-	// SessionToken is the session token for the S3 backend. It is expected to be
-	// set in the state when the backend is S3, and it will be used to create
-	// the S3 client for the draining process
-	SessionToken *string
 }

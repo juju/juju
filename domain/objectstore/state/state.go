@@ -734,14 +734,13 @@ func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domaino
 	}
 
 	type backendInfo struct {
-		UUID         string           `db:"uuid"`
-		TypeID       int              `db:"type_id"`
-		TypeValue    string           `db:"type"`
-		LifeID       life.Life        `db:"life_id"`
-		Endpoint     sql.Null[string] `db:"endpoint"`
-		AccessKey    sql.Null[string] `db:"static_key"`
-		SecretKey    sql.Null[string] `db:"static_secret"`
-		SessionToken sql.Null[string] `db:"session_token"`
+		UUID      string           `db:"uuid"`
+		TypeID    int              `db:"type_id"`
+		TypeValue string           `db:"type"`
+		LifeID    life.Life        `db:"life_id"`
+		Endpoint  sql.Null[string] `db:"endpoint"`
+		AccessKey sql.Null[string] `db:"static_key"`
+		SecretKey sql.Null[string] `db:"static_secret"`
 	}
 
 	stmt, err := s.Prepare(`
@@ -775,7 +774,6 @@ WHERE uuid = $backendInfo.uuid`, backendInfo{})
 		Endpoint:        nullableOrNil(info.Endpoint),
 		AccessKey:       nullableOrNil(info.AccessKey),
 		SecretKey:       nullableOrNil(info.SecretKey),
-		SessionToken:    nullableOrNil(info.SessionToken),
 	}, nil
 }
 
@@ -794,14 +792,13 @@ func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (domainobjectst
 	}
 
 	type backendInfo struct {
-		UUID         string           `db:"uuid"`
-		TypeID       int              `db:"type_id"`
-		TypeValue    string           `db:"type"`
-		LifeID       life.Life        `db:"life_id"`
-		Endpoint     sql.Null[string] `db:"endpoint"`
-		AccessKey    sql.Null[string] `db:"static_key"`
-		SecretKey    sql.Null[string] `db:"static_secret"`
-		SessionToken sql.Null[string] `db:"session_token"`
+		UUID      string           `db:"uuid"`
+		TypeID    int              `db:"type_id"`
+		TypeValue string           `db:"type"`
+		LifeID    life.Life        `db:"life_id"`
+		Endpoint  sql.Null[string] `db:"endpoint"`
+		AccessKey sql.Null[string] `db:"static_key"`
+		SecretKey sql.Null[string] `db:"static_secret"`
 	}
 
 	stmt, err := s.Prepare(`
@@ -835,7 +832,6 @@ WHERE life_id = 0`, backendInfo{})
 		Endpoint:        nullableOrNil(info.Endpoint),
 		AccessKey:       nullableOrNil(info.AccessKey),
 		SecretKey:       nullableOrNil(info.SecretKey),
-		SessionToken:    nullableOrNil(info.SessionToken),
 	}, nil
 }
 
@@ -856,11 +852,10 @@ func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, cred
 	}
 
 	type s3Credentials struct {
-		UUID         string `db:"object_store_backend_uuid"`
-		Endpoint     string `db:"endpoint"`
-		AccessKey    string `db:"static_key"`
-		SecretKey    string `db:"static_secret"`
-		SessionToken string `db:"session_token"`
+		UUID      string `db:"object_store_backend_uuid"`
+		Endpoint  string `db:"endpoint"`
+		AccessKey string `db:"static_key"`
+		SecretKey string `db:"static_secret"`
 	}
 	type newBackend struct {
 		UUID      string    `db:"uuid"`
@@ -871,11 +866,10 @@ func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, cred
 	}
 
 	s3Creds := s3Credentials{
-		UUID:         uuid,
-		Endpoint:     credential.Endpoint,
-		AccessKey:    credential.AccessKey,
-		SecretKey:    credential.SecretKey,
-		SessionToken: credential.SessionToken,
+		UUID:      uuid,
+		Endpoint:  credential.Endpoint,
+		AccessKey: credential.AccessKey,
+		SecretKey: credential.SecretKey,
 	}
 	backend := newBackend{
 		UUID:      uuid,
@@ -914,8 +908,7 @@ INSERT INTO object_store_backend_s3_credential (
     object_store_backend_uuid, 
     endpoint, 
     static_key, 
-    static_secret, 
-    session_token
+    static_secret
 )
 VALUES ($s3Credentials.*)
 `, s3Creds)
