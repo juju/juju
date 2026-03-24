@@ -1555,8 +1555,8 @@ func (s *uniterSuite) TestGetUnitContextIAAS(c *tc.C) {
 	privateAddress := "10.10.10.10"
 	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
 	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
-	openedMachinePortRangesByEndpoint := map[names.UnitTag]network.GroupedPortRanges{
-		names.NewUnitTag("mysql/1"): {
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
 			"db": []network.PortRange{{
 				FromPort: 3306,
 				ToPort:   3306,
@@ -1611,8 +1611,8 @@ func (s *uniterSuite) TestGetUnitContextCAAS(c *tc.C) {
 	unitTag := names.NewUnitTag(unitName.String())
 	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
 	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
-	openedPortRangesByEndpoint := map[names.UnitTag]network.GroupedPortRanges{
-		names.NewUnitTag("mysql/0"): {
+	openedPortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/0"): {
 			"": []network.PortRange{{
 				FromPort: 8080,
 				ToPort:   8080,

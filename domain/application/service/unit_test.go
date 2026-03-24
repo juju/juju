@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -680,12 +679,11 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 	c.Check(*result.PrivateAddress, tc.Equals, "192.168.1.1")
 	// Verify port ranges are correctly encoded with names.UnitTag keys
 	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.HasLen, 1)
-	subordinateTag := names.NewUnitTag(subordinateUnit.String())
-	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag], tc.HasLen, 2)
-	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag]["endpoint1"], tc.DeepEquals, []network.PortRange{
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateUnit], tc.HasLen, 2)
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateUnit]["endpoint1"], tc.DeepEquals, []network.PortRange{
 		{FromPort: 8080, ToPort: 8090, Protocol: "tcp"},
 	})
-	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag]["endpoint2"], tc.DeepEquals, []network.PortRange{
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateUnit]["endpoint2"], tc.DeepEquals, []network.PortRange{
 		{FromPort: 3000, ToPort: 3010, Protocol: "udp"},
 	})
 }
@@ -775,9 +773,8 @@ func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
 	c.Check(result.JujuProxySettings.Http, tc.Equals, "http://juju-proxy:3128")
 	// Verify port ranges are correctly encoded with names.UnitTag keys
 	c.Check(result.OpenedPortRangesByEndpoint, tc.HasLen, 1)
-	principalTag := names.NewUnitTag(principalUnit.String())
-	c.Check(result.OpenedPortRangesByEndpoint[principalTag], tc.HasLen, 1)
-	c.Check(result.OpenedPortRangesByEndpoint[principalTag][""], tc.DeepEquals, []network.PortRange{
+	c.Check(result.OpenedPortRangesByEndpoint[principalUnit], tc.HasLen, 1)
+	c.Check(result.OpenedPortRangesByEndpoint[principalUnit][""], tc.DeepEquals, []network.PortRange{
 		{FromPort: 80, ToPort: 80, Protocol: "tcp"},
 		{FromPort: 443, ToPort: 443, Protocol: "tcp"},
 	})
@@ -813,6 +810,8 @@ func (s *unitServiceSuite) TestGetCAASUnitContextStateError(c *tc.C) {
 func (s *unitServiceSuite) TestGetCAASUnitContextCloudAPIVersionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// We ignore the fact that the cloud API version might error out here.
+
 	unitName := coreunit.Name("foo/666")
 	stateResult := application.CAASUnitContext{}
 
@@ -820,5 +819,5 @@ func (s *unitServiceSuite) TestGetCAASUnitContextCloudAPIVersionError(c *tc.C) {
 	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))
 
 	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
-	c.Assert(err, tc.ErrorMatches, ".*cloud error")
+	c.Assert(err, tc.ErrorIsNil)
 }

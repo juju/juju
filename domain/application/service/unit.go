@@ -7,7 +7,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -810,7 +809,7 @@ type IAASUnitContext struct {
 	LegacyProxySettings               proxy.Settings
 	JujuProxySettings                 proxy.Settings
 	PrivateAddress                    *string
-	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	OpenedMachinePortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
 }
 
 // GetIAASUnitContext returns IAAS context information required for the
@@ -842,7 +841,7 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 		LegacyProxySettings:               encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:                 encodeProxySettings(result.JujuProxySettings),
 		PrivateAddress:                    s.getUnitPrivateAddress(result.PrivateAddress),
-		OpenedMachinePortRangesByEndpoint: encodePortRangesByEndpoint(result.OpenedMachinePortRangesByEndpoint),
+		OpenedMachinePortRangesByEndpoint: result.OpenedMachinePortRangesByEndpoint,
 	}, nil
 }
 
@@ -852,7 +851,7 @@ type CAASUnitContext struct {
 	CloudAPIVersion            string
 	LegacyProxySettings        proxy.Settings
 	JujuProxySettings          proxy.Settings
-	OpenedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	OpenedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
 }
 
 // GetCAASUnitContext returns CAAS context information required for the
@@ -876,14 +875,14 @@ func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreu
 
 	cloudAPIVersion, err := s.getCloudAPIVersion(ctx)
 	if err != nil {
-		return CAASUnitContext{}, errors.Errorf("getting cloud api version: %w", err)
+		s.logger.Warningf(ctx, "getting cloud api version: %v", err)
 	}
 
 	return CAASUnitContext{
 		CloudAPIVersion:            cloudAPIVersion,
 		LegacyProxySettings:        encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:          encodeProxySettings(result.JujuProxySettings),
-		OpenedPortRangesByEndpoint: encodePortRangesByEndpoint(result.OpenedPortRangesByEndpoint),
+		OpenedPortRangesByEndpoint: result.OpenedPortRangesByEndpoint,
 	}, nil
 }
 
@@ -924,12 +923,4 @@ func encodeProxySettings(settings application.ProxySettings) proxy.Settings {
 		NoProxy: settings.NoProxy,
 		Ftp:     settings.FTP,
 	}
-}
-
-func encodePortRangesByEndpoint(grouped map[coreunit.Name]network.GroupedPortRanges) map[names.UnitTag]network.GroupedPortRanges {
-	encoded := make(map[names.UnitTag]network.GroupedPortRanges, len(grouped))
-	for name, groupedPortRanges := range grouped {
-		encoded[names.NewUnitTag(name.String())] = groupedPortRanges
-	}
-	return encoded
 }

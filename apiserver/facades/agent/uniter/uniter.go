@@ -3361,20 +3361,22 @@ func encodeProxySettings(settings proxy.Settings) params.ProxySettings {
 	}
 }
 
-func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges) map[string]map[string][]params.PortRange {
+func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges) map[string]map[string][]params.PortRange {
 	result := map[string]map[string][]params.PortRange{}
-	for tag, groupedPortRanges := range openedPortRangesByEndpoint {
-		unitID := tag.Id()
-		result[unitID] = map[string][]params.PortRange{}
+	for unitName, groupedPortRanges := range openedPortRangesByEndpoint {
+		unitTag := names.NewUnitTag(unitName.String())
+
+		unitPortRanges := make(map[string][]params.PortRange, len(groupedPortRanges))
 		for endpoint, portRanges := range groupedPortRanges {
 			for _, portRange := range portRanges {
-				result[unitID][endpoint] = append(result[unitID][endpoint], params.PortRange{
+				unitPortRanges[endpoint] = append(unitPortRanges[endpoint], params.PortRange{
 					FromPort: portRange.FromPort,
 					ToPort:   portRange.ToPort,
 					Protocol: portRange.Protocol,
 				})
 			}
 		}
+		result[unitTag.String()] = unitPortRanges
 	}
 	return result
 }
