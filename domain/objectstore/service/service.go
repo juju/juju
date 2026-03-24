@@ -428,16 +428,19 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
+	hasPhase := true
 	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
-	if err != nil && !errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		hasPhase = false
+	} else if err != nil {
 		return errors.Errorf("getting active draining phase: %w", err)
 	}
 
 	// If there is no active draining phase, we consider the current phase to be
 	// unknown, otherwise we use the active draining phase.
-	current := objectstore.Phase(phaseInfo.Phase)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		current = objectstore.PhaseUnknown
+	current := objectstore.PhaseUnknown
+	if hasPhase {
+		current = objectstore.Phase(phaseInfo.Phase)
 	}
 
 	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
