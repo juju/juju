@@ -74,6 +74,8 @@ type StoreResourceArgs struct {
 	Fingerprint charmresource.Fingerprint
 }
 
+// Validate ensures that all values in StoreResourceArgs
+// are valid for their types and the method where used.
 func (a StoreResourceArgs) Validate() error {
 	if err := a.ResourceUUID.Validate(); err != nil {
 		return errors.Errorf("resource uuid: %w", err)

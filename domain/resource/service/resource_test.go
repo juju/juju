@@ -292,7 +292,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
-		"", resourceType, nil,
+		"", resourceType.String(), nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
@@ -359,7 +359,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
-		"", resourceType, nil,
+		"", resourceType.String(), nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
@@ -411,7 +411,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContain
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
-		"", charmresource.TypeContainerImage, nil,
+		"", charmresource.TypeContainerImage.String(), nil,
 	)
 
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
@@ -448,7 +448,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
-		"", charmresource.TypeFile, nil,
+		"", charmresource.TypeFile.String(), nil,
 	)
 
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
@@ -604,7 +604,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
 	s.state.EXPECT().VerifyApplicationExistsForResource(gomock.Any(), resourceUUID).Return(nil)
 	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
-		"", resourceType, nil,
+		"", resourceType.String(), nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(

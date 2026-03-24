@@ -355,11 +355,11 @@ func (c *MockStateGetResourceCall) DoAndReturn(f func(context.Context, resource.
 }
 
 // GetResourceNameAndType mocks base method.
-func (m *MockState) GetResourceNameAndType(arg0 context.Context, arg1 resource.UUID) (string, resource0.Type, error) {
+func (m *MockState) GetResourceNameAndType(arg0 context.Context, arg1 resource.UUID) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceNameAndType", arg0, arg1)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(resource0.Type)
+	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -377,19 +377,19 @@ type MockStateGetResourceNameAndTypeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetResourceNameAndTypeCall) Return(arg0 string, arg1 resource0.Type, arg2 error) *MockStateGetResourceNameAndTypeCall {
+func (c *MockStateGetResourceNameAndTypeCall) Return(arg0, arg1 string, arg2 error) *MockStateGetResourceNameAndTypeCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetResourceNameAndTypeCall) Do(f func(context.Context, resource.UUID) (string, resource0.Type, error)) *MockStateGetResourceNameAndTypeCall {
+func (c *MockStateGetResourceNameAndTypeCall) Do(f func(context.Context, resource.UUID) (string, string, error)) *MockStateGetResourceNameAndTypeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetResourceNameAndTypeCall) DoAndReturn(f func(context.Context, resource.UUID) (string, resource0.Type, error)) *MockStateGetResourceNameAndTypeCall {
+func (c *MockStateGetResourceNameAndTypeCall) DoAndReturn(f func(context.Context, resource.UUID) (string, string, error)) *MockStateGetResourceNameAndTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

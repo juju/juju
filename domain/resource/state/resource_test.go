@@ -1816,7 +1816,7 @@ func (s *resourceSuite) TestGetResourceNameAndTypeFile(c *tc.C) {
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
 	c.Check(name, tc.Equals, input.Name)
-	c.Check(resourceType, tc.Equals, charmresource.TypeFile)
+	c.Check(resourceType, tc.Equals, charmresource.TypeFile.String())
 }
 
 // TestGetResourceNameAndTypeContainerImage verifies that the resource name and
@@ -1842,7 +1842,7 @@ func (s *resourceSuite) TestGetResourceNameAndTypeContainerImage(c *tc.C) {
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
 	c.Check(name, tc.Equals, input.Name)
-	c.Check(resourceType, tc.Equals, charmresource.TypeContainerImage)
+	c.Check(resourceType, tc.Equals, charmresource.TypeContainerImage.String())
 }
 
 // TestGetResourceNameAndTypeNotFound verifies that requesting a missing

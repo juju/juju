@@ -2613,10 +2613,10 @@ FROM (
 
 // GetResourceNameAndType returns the name and resource type for the given
 // resource UUID.
-func (st *State) GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, charmresource.Type, error) {
+func (st *State) GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", 0, errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	res := localUUID{
@@ -2631,7 +2631,7 @@ JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
 WHERE  r.uuid = $localUUID.uuid
 `, res, resourceNameAndKind{})
 	if err != nil {
-		return "", 0, errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	var output resourceNameAndKind
@@ -2645,11 +2645,7 @@ WHERE  r.uuid = $localUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return "", 0, errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
-	kind, err := charmresource.ParseType(output.Kind)
-	if err != nil {
-		return "", 0, errors.Errorf("parsing resource type %q: %w", output.Kind, err)
-	}
-	return output.ResourceName, kind, nil
+	return output.ResourceName, output.Kind, nil
 }

@@ -88,7 +88,7 @@ type State interface {
 	// The following error types can be expected to be returned:
 	//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
 	//     given application.
-	GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, charmresource.Type, error)
+	GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, string, error)
 
 	// GetResourcesByApplicationUUID returns the list of resource for the given
 	// application.
@@ -451,9 +451,14 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource: %w", err)
 	}
 
-	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
+	resourceType, err := charmresource.ParseType(resType)
 	if err != nil {
-		return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
+		return errors.Errorf("parsing resource type %q: %w", resType, err)
+	}
+
+	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resourceType)
+	if err != nil {
+		return errors.Errorf("getting resource store for %s: %w", resourceType.String(), err)
 	}
 
 	path := args.ResourceUUID.String()
@@ -487,7 +492,7 @@ func (s *Service) storeResource(
 			StorageID:                     storageUUID,
 			RetrievedBy:                   args.RetrievedBy,
 			RetrievedByType:               args.RetrievedByType,
-			ResourceType:                  resType,
+			ResourceType:                  resourceType,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 			Size:                          size,
 			SHA384:                        fingerprint.String(),
