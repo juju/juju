@@ -1214,11 +1214,6 @@ type unitMachineUUID struct {
 	MachineUUID string `db:"uuid"`
 }
 
-type unitMachineUUIDByUnitName struct {
-	UnitName    string `db:"name"`
-	MachineUUID string `db:"uuid"`
-}
-
 type lifeID struct {
 	LifeID life.Life `db:"life_id"`
 }

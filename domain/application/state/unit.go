@@ -1909,7 +1909,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 			return errors.Errorf("getting machine opened port ranges: %w", err)
 		}
 
-		unitAddresses, err = st.getUnitPrivateAddress(ctx, tx, unitName)
+		unitAddresses, err = st.getUnitPrivateAddress(ctx, tx, netNodeUUID)
 		if err != nil {
 			return errors.Errorf("getting private address for unit: %w", err)
 		}

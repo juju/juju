@@ -1788,6 +1788,57 @@ func (s *unitStateSuite) TestGetIAASUnitContextWithPortRanges(c *tc.C) {
 	c.Check(len(result.OpenedMachinePortRangesByEndpoint) > 0, tc.IsTrue)
 }
 
+func (s *unitStateSuite) TestGetIAASUnitContextWithPrivateAddress(c *tc.C) {
+	// Arrange: Create an IAAS unit and add a private address via a
+	// link-layer device on the unit's net node.
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", netNodeUUID, "eth0", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		// type_id=0 (ipv4), scope_id=2 (local-cloud), origin_id=0 (machine), config_type_id=1 (dhcp)
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-uuid", "lld-uuid", "10.0.0.1/24", netNodeUUID, 0, 2, 0, 1)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Get the IAAS unit context
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+
+	// Assert: private address is populated
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.HasLen, 1)
+	c.Check(result.PrivateAddress[0], tc.DeepEquals, network.SpaceAddress{
+		SpaceID: network.AlphaSpaceId,
+		Origin:  network.OriginMachine,
+		MachineAddress: network.MachineAddress{
+			Value:      "10.0.0.1",
+			CIDR:       "10.0.0.0/24",
+			Type:       network.IPv4Address,
+			Scope:      network.ScopeCloudLocal,
+			ConfigType: network.ConfigDHCP,
+		},
+	})
+}
+
 func (s *unitStateSuite) TestGetCAASUnitContext(c *tc.C) {
 	// Arrange: Create a CAAS unit
 	unitName, _ := s.createNamedCAASUnit(c)
