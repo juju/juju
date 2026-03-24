@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -115,7 +114,7 @@ func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 	spaceUUID := s.addSpace(c)
 
 	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	appUUID := s.addApplication(c, charmUUID, "testname", spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	// Act
@@ -131,13 +130,6 @@ func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *commitHookSuite) addCharm(c *tc.C) string {
-	charmUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
-		charmUUID, charmUUID, time.Now())
-	return charmUUID
-}
-
 func (s *commitHookSuite) addNetNode(c *tc.C) string {
 	netNodeUUID := uuid.MustNewUUID().String()
 	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
@@ -149,13 +141,6 @@ func (s *commitHookSuite) addSpace(c *tc.C) string {
 	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
 		spaceUUID, spaceUUID)
 	return spaceUUID
-}
-
-func (s *commitHookSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
-	appUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
-		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
-	return appUUID
 }
 
 func (s *commitHookSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {

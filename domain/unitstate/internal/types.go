@@ -4,9 +4,8 @@
 package internal
 
 import (
-	"github.com/juju/collections/transform"
-
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 )
@@ -15,7 +14,7 @@ import (
 // app-level settings, represented by scalar types.
 type RelationSettings struct {
 	// RelationUUID is the UUID of the relation.
-	RelationUUID string
+	RelationUUID relation.UUID
 
 	// Settings represent the settings of the unit.
 	Settings unitstate.Settings
@@ -73,18 +72,12 @@ type CommitHookChangesArg struct {
 }
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
-// struct and return an internal package CommitHookChangesArg struct.
+// struct and return an internal package CommitHookChangesArg struct. Does not
+// include RelationSettings
 func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID unit.UUID) CommitHookChangesArg {
 	return CommitHookChangesArg{
-		UnitUUID:          unitUUID,
-		UpdateNetworkInfo: in.UpdateNetworkInfo,
-		RelationSettings: transform.Slice(in.RelationSettings, func(in unitstate.RelationSettings) RelationSettings {
-			return RelationSettings{
-				RelationUUID:        in.RelationUUID.String(),
-				Settings:            in.Settings,
-				ApplicationSettings: in.ApplicationSettings,
-			}
-		}),
+		UnitUUID:           unitUUID,
+		UpdateNetworkInfo:  in.UpdateNetworkInfo,
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,
 		CharmState:         in.CharmState,
