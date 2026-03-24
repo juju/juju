@@ -555,6 +555,104 @@ func (s *serviceSuite) TestUpgradeControllerToVersionNodeBlocker(c *tc.C) {
 	c.Check(blocker.Reason, tc.Matches, "controller nodes \\[(2 1|1 2)\\] are not running controller version \"4\\.0\\.8\"")
 }
 
+// TestUpgradeControllerToVersionNoControllerNodes tests the case where a
+// controller upgrade is requested but no controller nodes are found in the
+// cluster.
+func (s *serviceSuite) TestUpgradeControllerToVersionNoControllerNodes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.UpgradeControllerToVersion(c.Context(), upgradeVersion)
+	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "no controller nodes found")
+}
+
+// TestUpgradeControllerToVersionWithStreamNoControllerNodes tests the case where
+// a controller upgrade to a specific version and stream is requested but no
+// controller nodes are found in the cluster.
+func (s *serviceSuite) TestUpgradeControllerToVersionWithStreamNoControllerNodes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	stream := domainagentbinary.AgentStreamProposed
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.UpgradeControllerToVersionWithStream(c.Context(), upgradeVersion, stream)
+	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "no controller nodes found")
+}
+
+// TestRunPreUpgradeChecksToVersionNoControllerNodes tests the case where a
+// controller upgrade check is performed for a specific version but no
+// controller nodes are found in the cluster.
+func (s *serviceSuite) TestRunPreUpgradeChecksToVersionNoControllerNodes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.RunPreUpgradeChecksToVersion(c.Context(), upgradeVersion)
+	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "no controller nodes found")
+}
+
+// TestRunPreUpgradeChecksToVersionWithStreamNoControllerNodes tests the case
+// where a controller upgrade check is performed for a specific version and
+// stream but no controller nodes are found in the cluster.
+func (s *serviceSuite) TestRunPreUpgradeChecksToVersionWithStreamNoControllerNodes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.3")
+	c.Assert(err, tc.ErrorIsNil)
+	stream := domainagentbinary.AgentStreamProposed
+
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodes(gomock.Any()).Return(
+		[]internal.ControllerNode{}, nil,
+	)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.RunPreUpgradeChecksToVersionWithStream(c.Context(), upgradeVersion, stream)
+	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, "no controller nodes found")
+}
+
 // TestUpgradeControllerToVersionPartialFail tests the case where a controller
 // upgrade is performed to a specific version but there is a failure and the
 // model and controller databases end up at different versions.

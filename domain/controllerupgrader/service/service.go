@@ -473,6 +473,10 @@ func (s *Service) validateControllerCanBeUpgradedTo(ctx context.Context, desired
 		)
 	}
 
+	if len(controllerNodes) == 0 {
+		return errors.New("no controller nodes found")
+	}
+
 	err = s.validateControllerCanBeUpgraded(ctx, currentVersion, controllerNodes)
 	if err != nil {
 		return errors.Capture(err)
