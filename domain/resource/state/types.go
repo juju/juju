@@ -154,6 +154,12 @@ type charmResource struct {
 	Kind         string `db:"kind"`
 }
 
+// resourceNameAndKind pairs a resource name and it's charm resource kind.
+type resourceNameAndKind struct {
+	ResourceName string `db:"name"`
+	Kind         string `db:"kind"`
+}
+
 // getApplicationAndCharmID gets the application and charm ID from the
 // application table using the application name.
 type getApplicationAndCharmID struct {

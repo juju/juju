@@ -606,22 +606,22 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGet
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
-// TestGetResourceNotFound verifies that attempting to retrieve a non-existent
+// TestGetApplicationResourceNotFound verifies that attempting to retrieve a non-existent
 // resource results in a ResourceNotFound error.
-func (s *resourceSuite) TestGetResourceNotFound(c *tc.C) {
+func (s *resourceSuite) TestApplicationGetResourceNotFound(c *tc.C) {
 	// Arrange : no resource
 	resID := coreresource.UUID("resource-id")
 
 	// Act
-	_, err := s.state.GetResource(c.Context(), resID)
+	_, err := s.state.GetApplicationResource(c.Context(), resID)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Assert) unexpected error"))
 }
 
-// TestGetResource verifies the successful retrieval of a resource from the
+// TestGetApplicationResource verifies the successful retrieval of a resource from the
 // database by its ID.
-func (s *resourceSuite) TestGetResource(c *tc.C) {
+func (s *resourceSuite) TestGetApplicationResource(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
@@ -661,17 +661,17 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(c.Context(), resID)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	obtained, err := s.state.GetApplicationResource(c.Context(), resID)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	c.Assert(obtained, tc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
-// TestGetResourcePending verifies the successful retrieval of a resource
-// from the database by its ID, even if the application does not yet exist.
-// Required to add a pending resource.
-func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
+// TestGetResource verifies the successful retrieval of a resource from the
+// database by its ID, even if the application does not yet exist. Required
+// when adding a pending resource.
+func (s *resourceSuite) TestGetResource(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
@@ -713,6 +713,20 @@ func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
 	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
+// TestGetResourceNotFound verifies the successful retrieval of a resource
+// from the database by its ID, even if the application does not yet exist.
+// Required when adding a pending resource.
+func (s *resourceSuite) TestGetResourceNotFound(c *tc.C) {
+	// Arrange : a simple resource
+	resID := coreresource.UUID("resource-id")
+
+	// Act
+	_, err := s.state.GetResource(c.Context(), resID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
 func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
@@ -746,8 +760,8 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(c.Context(), resID)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	obtained, err := s.state.GetApplicationResource(c.Context(), resID)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	c.Assert(obtained, tc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
@@ -786,8 +800,8 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	// Act
-	obtained, err := s.state.GetResource(c.Context(), resID)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetResource: %v", errors.ErrorStack(err)))
+	obtained, err := s.state.GetApplicationResource(c.Context(), resID)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute GetApplicationResource: %v", errors.ErrorStack(err)))
 
 	// Assert
 	c.Assert(obtained, tc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
@@ -1686,7 +1700,7 @@ func (s *resourceSuite) TestGetResourceTypeContainerImage(c *tc.C) {
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resourceType, tc.Equals, charmresource.TypeContainerImage)
+	c.Check(resourceType, tc.Equals, charmresource.TypeContainerImage)
 }
 
 func (s *resourceSuite) TestGetResourceTypeFile(c *tc.C) {
@@ -1711,7 +1725,7 @@ func (s *resourceSuite) TestGetResourceTypeFile(c *tc.C) {
 		coreresource.UUID(resID),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resourceType, tc.Equals, charmresource.TypeFile)
+	c.Check(resourceType, tc.Equals, charmresource.TypeFile)
 }
 
 func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
@@ -1723,6 +1737,121 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 		c.Context(),
 		coreresource.UUID(resID),
 	)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
+// TestVerifyApplicationExistsForResource verifies that no error is returned when
+// the resource is linked to an application.
+func (s *resourceSuite) TestVerifyApplicationExistsForResource(c *tc.C) {
+	// Arrange: insert a resource linked to an application.
+	input := resourceData{
+		UUID:            "resource-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	err = s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID(input.UUID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestVerifyApplicationExistsForResourceApplicationNotFound verifies that
+// ApplicationNotFound is returned when the resource is not linked to any
+// application.
+func (s *resourceSuite) TestVerifyApplicationExistsForResourceApplicationNotFound(c *tc.C) {
+	// Arrange: insert a resource without linking it to an application.
+	input := resourceData{
+		UUID: "resource-id",
+		Name: "resource-name",
+		Type: charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	err = s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID(input.UUID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestVerifyApplicationExistsForResourceMissingResource verifies that
+// ApplicationNotFound is returned when the resource does not exist at all.
+func (s *resourceSuite) TestVerifyApplicationExistsForResourceMissingResource(c *tc.C) {
+	// Act.
+	err := s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID("missing-resource-id"))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestGetResourceNameAndTypeFile verifies that the resource name and file type
+// are returned for a file resource.
+func (s *resourceSuite) TestGetResourceNameAndTypeFile(c *tc.C) {
+	// Arrange: insert a file resource.
+	resID := "resource-id"
+	input := resourceData{
+		UUID:            resID,
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	name, resourceType, err := s.state.GetResourceNameAndType(c.Context(), coreresource.UUID(resID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
+	c.Check(name, tc.Equals, input.Name)
+	c.Check(resourceType, tc.Equals, charmresource.TypeFile.String())
+}
+
+// TestGetResourceNameAndTypeContainerImage verifies that the resource name and
+// container image type are returned for a container image resource.
+func (s *resourceSuite) TestGetResourceNameAndTypeContainerImage(c *tc.C) {
+	// Arrange: insert a container image resource.
+	resID := "resource-id"
+	input := resourceData{
+		UUID:            resID,
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeContainerImage,
+	}
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return input.insert(ctx, tx)
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	name, resourceType, err := s.state.GetResourceNameAndType(c.Context(), coreresource.UUID(resID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
+	c.Check(name, tc.Equals, input.Name)
+	c.Check(resourceType, tc.Equals, charmresource.TypeContainerImage.String())
+}
+
+// TestGetResourceNameAndTypeNotFound verifies that requesting a missing
+// resource returns ResourceNotFound.
+func (s *resourceSuite) TestGetResourceNameAndTypeNotFound(c *tc.C) {
+	// Act.
+	_, _, err := s.state.GetResourceNameAndType(c.Context(), "missing-resource-id")
+
+	// Assert.
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
@@ -1902,7 +2031,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationUUIDNoResources(c *tc.C) {
 	results, err := s.state.GetResourcesByApplicationUUID(c.Context(), application.UUID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, tc.HasLen, 0)
+	c.Check(results, tc.HasLen, 0)
 }
 
 // TestGetResourcesByApplicationUUID tests the retrieval and organization of
@@ -1968,7 +2097,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationUUID(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, tc.DeepEquals, []coreresource.Resource{
+	c.Check(results, tc.DeepEquals, []coreresource.Resource{
 		simpleRes.toResource(s, c),
 		polledRes.toResource(s, c),
 		unitRes.toResource(s, c),
@@ -2017,7 +2146,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationUUIDWithStatePotential(c *t
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, tc.DeepEquals, []coreresource.Resource{
+	c.Check(results, tc.DeepEquals, []coreresource.Resource{
 		availableRes.toResource(s, c),
 		// potential resources are not returned
 	})

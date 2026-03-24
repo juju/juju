@@ -29,6 +29,14 @@ type State interface {
 	// charm and resource metadata must exist.
 	AddResourcesBeforeApplication(ctx context.Context, arg resource.AddResourcesBeforeApplicationArgs) ([]coreresource.UUID, error)
 
+	// VerifyApplicationExistsForResource returns whether an application
+	// exists for the given resource UUID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ApplicationNotFound] is returned if the
+	//     application is not found.
+	VerifyApplicationExistsForResource(ctx context.Context, resourceUUID coreresource.UUID) error
+
 	// DeleteApplicationResources removes all associated resources of a given
 	// application identified by its UUID.
 	DeleteApplicationResources(ctx context.Context, applicationID coreapplication.UUID) error
@@ -60,8 +68,27 @@ type State interface {
 	// ListResources returns the list of resource for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
-	// GetResource returns the identified resource.
+	// GetApplicationResource returns the identified resource linked to
+	// an application.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource is found.
+	GetApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
+
+	// GetResource returns the identified resource without requiring it to be
+	// linked to an application. The application name will be included if
+	// available.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource is found.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
+
+	// GetResourceNameAndType returns the name and resource type for the given
+	// resource UUID.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
+	//     given application.
+	GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, string, error)
 
 	// GetResourcesByApplicationUUID returns the list of resource for the given
 	// application.
@@ -72,7 +99,10 @@ type State interface {
 	//
 	// If the application exists but doesn't have any resources, no error are
 	// returned, the result just contains an empty list.
-	GetResourcesByApplicationUUID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource, error)
+	GetResourcesByApplicationUUID(
+		ctx context.Context,
+		applicationID coreapplication.UUID,
+	) ([]coreresource.Resource, error)
 
 	// ExportResources returns the list of application and unit resources to
 	// export for the given application.
@@ -329,8 +359,8 @@ func (s *Service) ExportResources(ctx context.Context, appName string) (
 // GetResource returns the identified application resource.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ApplicationNotFound] if the specified application does
-//     not exist.
+//   - [resourceerrors.ResourceNotFound] if resource does
+//     exist, or does not have a linked application.
 func (s *Service) GetResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
@@ -338,11 +368,13 @@ func (s *Service) GetResource(
 	if err := resourceUUID.Validate(); err != nil {
 		return coreresource.Resource{}, errors.Errorf("resource id: %w", err)
 	}
-	return s.st.GetResource(ctx, resourceUUID)
+	return s.st.GetApplicationResource(ctx, resourceUUID)
 }
 
-// StoreResource adds the application resource to blob storage and updates the
-// metadata. It also sets the retrieval information for the resource.
+// StoreResource adds the resource to blob storage and updates the metadata.
+// It also sets the retrieval information for the resource. The identified
+// resource is returned. An application is not required, as it may not
+// exist yet, e.g. when uploading a local resource during deploy.
 //
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
@@ -357,14 +389,23 @@ func (s *Service) GetResource(
 func (s *Service) StoreResource(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
-) error {
-	return s.storeResource(ctx, args, false)
+) (coreresource.Resource, error) {
+	if err := args.Validate(); err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	err := s.storeResource(ctx, args, false)
+	if err != nil {
+		return coreresource.Resource{}, err
+	}
+
+	return s.st.GetResource(ctx, args.ResourceUUID)
 }
 
 // StoreResourceAndIncrementCharmModifiedVersion adds the application resource
-// to blob storage and updates the metadata. It sets the retrival information
+// to blob storage and updates the metadata. It sets the retrieval information
 // for the resource and also increments the charm modified version for the
-// resources' application.
+// resources' application. The identified resource is returned.
 //
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
@@ -373,6 +414,8 @@ func (s *Service) StoreResource(
 // will be replaced and removed from the store.
 //
 // The following error types can be expected to be returned:
+//   - [applicationerrors.ApplicationNotFound] if the application UUID is not an
+//     existing one.
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
 //   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
@@ -380,8 +423,21 @@ func (s *Service) StoreResource(
 func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
-) error {
-	return s.storeResource(ctx, args, true)
+) (coreresource.Resource, error) {
+	if err := args.Validate(); err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	if err := s.st.VerifyApplicationExistsForResource(ctx, args.ResourceUUID); err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	err := s.storeResource(ctx, args, true)
+	if err != nil {
+		return coreresource.Resource{}, err
+	}
+
+	return s.st.GetApplicationResource(ctx, args.ResourceUUID)
 }
 
 func (s *Service) storeResource(
@@ -389,32 +445,20 @@ func (s *Service) storeResource(
 	args resource.StoreResourceArgs,
 	incrementCharmModifiedVersion bool,
 ) (err error) {
-	if err = args.ResourceUUID.Validate(); err != nil {
-		return errors.Errorf("resource uuid: %w", err)
-	}
 
-	if args.Reader == nil {
-		return errors.Errorf("cannot have nil reader")
-	}
-	if args.Size < 0 {
-		return errors.Errorf("invalid size: %d", args.Size)
-	}
-	if args.Fingerprint.IsZero() {
-		return errors.Errorf("invalid fingerprint")
-	}
-
-	if args.RetrievedBy != "" && args.RetrievedByType == coreresource.Unknown {
-		return resourceerrors.RetrievedByTypeNotValid
-	}
-
-	res, err := s.st.GetResource(ctx, args.ResourceUUID)
+	resName, resType, err := s.st.GetResourceNameAndType(ctx, args.ResourceUUID)
 	if err != nil {
 		return errors.Errorf("getting resource: %w", err)
 	}
 
-	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
+	resourceType, err := charmresource.ParseType(resType)
 	if err != nil {
-		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
+		return errors.Errorf("parsing resource type %q: %w", resType, err)
+	}
+
+	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resourceType)
+	if err != nil {
+		return errors.Errorf("getting resource store for %s: %w", resourceType.String(), err)
 	}
 
 	path := args.ResourceUUID.String()
@@ -429,7 +473,7 @@ func (s *Service) storeResource(
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored) {
 		return resourceerrors.StoredResourceAlreadyExists
 	} else if err != nil {
-		return errors.Errorf("putting resource %q in store: %w", res.Name, err)
+		return errors.Errorf("putting resource %q in store: %w", resName, err)
 	}
 	defer func() {
 		// If any subsequent operation fails, remove the resource blob.
@@ -448,14 +492,14 @@ func (s *Service) storeResource(
 			StorageID:                     storageUUID,
 			RetrievedBy:                   args.RetrievedBy,
 			RetrievedByType:               args.RetrievedByType,
-			ResourceType:                  res.Type,
+			ResourceType:                  resourceType,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 			Size:                          size,
 			SHA384:                        fingerprint.String(),
 		},
 	)
 	if err != nil {
-		return errors.Errorf("recording stored resource %q: %w", res.Name, err)
+		return errors.Errorf("recording stored resource %q: %w", resName, err)
 	}
 
 	return err
@@ -476,7 +520,7 @@ func (s *Service) OpenResource(
 		return coreresource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 
-	res, err := s.st.GetResource(ctx, resourceUUID)
+	res, err := s.st.GetApplicationResource(ctx, resourceUUID)
 	if err != nil {
 		return coreresource.Resource{}, nil, err
 	}

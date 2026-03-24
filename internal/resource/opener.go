@@ -254,7 +254,7 @@ func (ro ResourceOpener) store(
 	size int64,
 	fingerprint charmresource.Fingerprint,
 ) (_ coreresource.Resource, _ io.ReadCloser, err error) {
-	err = ro.resourceService.StoreResource(
+	_, err = ro.resourceService.StoreResource(
 		ctx, resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
 			Reader:          reader,
