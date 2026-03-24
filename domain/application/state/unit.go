@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
@@ -1876,14 +1877,14 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
-func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error) {
+func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (applicationinternal.IAASUnitContext, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.IAASUnitContext{}, errors.Capture(err)
+		return applicationinternal.IAASUnitContext{}, errors.Capture(err)
 	}
 
 	var (
-		legacyProxySettings, jujuProxySettings application.ProxySettings
+		legacyProxySettings, jujuProxySettings applicationinternal.ProxySettings
 		machineOpenedPortRanges                []unitEndpointOpenedPortRange
 		unitAddresses                          []unitSpaceAddress
 	)
@@ -1916,12 +1917,12 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		return nil
 	})
 	if err != nil {
-		return application.IAASUnitContext{}, errors.Capture(err)
+		return applicationinternal.IAASUnitContext{}, errors.Capture(err)
 	}
 
 	encodedAddresses, err := encodeIPAddresses(unitAddresses)
 	if err != nil {
-		return application.IAASUnitContext{}, errors.Errorf("encoding unit addresses: %w", err)
+		return applicationinternal.IAASUnitContext{}, errors.Errorf("encoding unit addresses: %w", err)
 	}
 
 	decoded := port.UnitEndpointPortRanges(
@@ -1932,7 +1933,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		),
 	)
 
-	return application.IAASUnitContext{
+	return applicationinternal.IAASUnitContext{
 		LegacyProxySettings:               legacyProxySettings,
 		JujuProxySettings:                 jujuProxySettings,
 		OpenedMachinePortRangesByEndpoint: decoded.ByUnitByEndpoint(),
@@ -1945,14 +1946,14 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
-func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (application.CAASUnitContext, error) {
+func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.CAASUnitContext{}, errors.Capture(err)
+		return applicationinternal.CAASUnitContext{}, errors.Capture(err)
 	}
 
 	var (
-		legacyProxySettings, jujuProxySettings application.ProxySettings
+		legacyProxySettings, jujuProxySettings applicationinternal.ProxySettings
 		unitOpenedPortRanges                   []unitEndpointOpenedPortRange
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1978,7 +1979,7 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 		return nil
 	})
 	if err != nil {
-		return application.CAASUnitContext{}, errors.Capture(err)
+		return applicationinternal.CAASUnitContext{}, errors.Capture(err)
 	}
 
 	decoded := port.UnitEndpointPortRanges(
@@ -1988,14 +1989,14 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 			}),
 	)
 
-	return application.CAASUnitContext{
+	return applicationinternal.CAASUnitContext{
 		LegacyProxySettings:        legacyProxySettings,
 		JujuProxySettings:          jujuProxySettings,
 		OpenedPortRangesByEndpoint: decoded.ByUnitByEndpoint(),
 	}, nil
 }
 
-func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (application.ProxySettings, error) {
+func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (applicationinternal.ProxySettings, error) {
 	type modelConfig struct {
 		Key   string `db:"key"`
 		Value string `db:"value"`
@@ -2007,16 +2008,16 @@ FROM model_config
 WHERE key IN ('http-proxy', 'https-proxy', 'ftp-proxy', 'no-proxy')
 `, modelConfig{})
 	if err != nil {
-		return application.ProxySettings{}, errors.Capture(err)
+		return applicationinternal.ProxySettings{}, errors.Capture(err)
 	}
 
 	var configs []modelConfig
 	err = tx.Query(ctx, stmt).GetAll(&configs)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return application.ProxySettings{}, err
+		return applicationinternal.ProxySettings{}, err
 	}
 
-	proxySettings := application.ProxySettings{}
+	proxySettings := applicationinternal.ProxySettings{}
 	for _, config := range configs {
 		switch config.Key {
 		case "http-proxy":
@@ -2032,7 +2033,7 @@ WHERE key IN ('http-proxy', 'https-proxy', 'ftp-proxy', 'no-proxy')
 	return proxySettings, nil
 }
 
-func (st *State) getJujuProxySettings(ctx context.Context, tx *sqlair.TX) (application.ProxySettings, error) {
+func (st *State) getJujuProxySettings(ctx context.Context, tx *sqlair.TX) (applicationinternal.ProxySettings, error) {
 	type modelConfig struct {
 		Key   string `db:"key"`
 		Value string `db:"value"`
@@ -2044,16 +2045,16 @@ FROM model_config
 WHERE key IN ('juju-http-proxy', 'juju-https-proxy', 'juju-ftp-proxy', 'juju-no-proxy')
 `, modelConfig{})
 	if err != nil {
-		return application.ProxySettings{}, errors.Capture(err)
+		return applicationinternal.ProxySettings{}, errors.Capture(err)
 	}
 
 	var configs []modelConfig
 	err = tx.Query(ctx, stmt).GetAll(&configs)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return application.ProxySettings{}, err
+		return applicationinternal.ProxySettings{}, err
 	}
 
-	proxySettings := application.ProxySettings{}
+	proxySettings := applicationinternal.ProxySettings{}
 	for _, config := range configs {
 		switch config.Key {
 		case "juju-http-proxy":

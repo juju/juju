@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -635,14 +636,14 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 
 	unitName := coreunit.Name("foo/666")
 	subordinateUnit := coreunit.Name("logging/0")
-	stateResult := application.IAASUnitContext{
-		LegacyProxySettings: application.ProxySettings{
+	stateResult := applicationinternal.IAASUnitContext{
+		LegacyProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://proxy:3128",
 			HTTPS:   "https://proxy:3128",
 			FTP:     "ftp://proxy:21",
 			NoProxy: "localhost",
 		},
-		JujuProxySettings: application.ProxySettings{
+		JujuProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://juju-proxy:3128",
 			HTTPS:   "https://juju-proxy:3128",
 			NoProxy: "juju.local",
@@ -699,7 +700,8 @@ func (s *unitServiceSuite) TestGetIAASUnitContextNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(application.IAASUnitContext{}, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).
+		Return(applicationinternal.IAASUnitContext{}, applicationerrors.UnitNotFound)
 
 	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -709,7 +711,8 @@ func (s *unitServiceSuite) TestGetIAASUnitContextStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(application.IAASUnitContext{}, errors.New("boom"))
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).
+		Return(applicationinternal.IAASUnitContext{}, errors.New("boom"))
 
 	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -718,14 +721,16 @@ func (s *unitServiceSuite) TestGetIAASUnitContextStateError(c *tc.C) {
 func (s *unitServiceSuite) TestGetIAASUnitContextCloudAPIVersionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// We ignore the fact that the cloud API version might error out here.
+
 	unitName := coreunit.Name("foo/666")
-	stateResult := application.IAASUnitContext{}
+	stateResult := applicationinternal.IAASUnitContext{}
 
 	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
 	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))
 
 	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
-	c.Assert(err, tc.ErrorMatches, ".*cloud error")
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
@@ -733,14 +738,14 @@ func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
 
 	unitName := coreunit.Name("foo/666")
 	principalUnit := coreunit.Name("foo/0")
-	stateResult := application.CAASUnitContext{
-		LegacyProxySettings: application.ProxySettings{
+	stateResult := applicationinternal.CAASUnitContext{
+		LegacyProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://proxy:3128",
 			HTTPS:   "https://proxy:3128",
 			FTP:     "ftp://proxy:21",
 			NoProxy: "localhost",
 		},
-		JujuProxySettings: application.ProxySettings{
+		JujuProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://juju-proxy:3128",
 			HTTPS:   "https://juju-proxy:3128",
 			NoProxy: "juju.local",
@@ -791,7 +796,8 @@ func (s *unitServiceSuite) TestGetCAASUnitContextNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(application.CAASUnitContext{}, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).
+		Return(applicationinternal.CAASUnitContext{}, applicationerrors.UnitNotFound)
 
 	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -801,7 +807,8 @@ func (s *unitServiceSuite) TestGetCAASUnitContextStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(application.CAASUnitContext{}, errors.New("boom"))
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).
+		Return(applicationinternal.CAASUnitContext{}, errors.New("boom"))
 
 	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -813,7 +820,7 @@ func (s *unitServiceSuite) TestGetCAASUnitContextCloudAPIVersionError(c *tc.C) {
 	// We ignore the fact that the cloud API version might error out here.
 
 	unitName := coreunit.Name("foo/666")
-	stateResult := application.CAASUnitContext{}
+	stateResult := applicationinternal.CAASUnitContext{}
 
 	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
 	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))

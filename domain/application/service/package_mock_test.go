@@ -2075,10 +2075,10 @@ func (c *MockStateGetAvailableCharmArchiveSHA256Call) DoAndReturn(f func(context
 }
 
 // GetCAASUnitContext mocks base method.
-func (m *MockState) GetCAASUnitContext(arg0 context.Context, arg1 string) (application0.CAASUnitContext, error) {
+func (m *MockState) GetCAASUnitContext(arg0 context.Context, arg1 string) (internal.CAASUnitContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCAASUnitContext", arg0, arg1)
-	ret0, _ := ret[0].(application0.CAASUnitContext)
+	ret0, _ := ret[0].(internal.CAASUnitContext)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2096,19 +2096,19 @@ type MockStateGetCAASUnitContextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetCAASUnitContextCall) Return(arg0 application0.CAASUnitContext, arg1 error) *MockStateGetCAASUnitContextCall {
+func (c *MockStateGetCAASUnitContextCall) Return(arg0 internal.CAASUnitContext, arg1 error) *MockStateGetCAASUnitContextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetCAASUnitContextCall) Do(f func(context.Context, string) (application0.CAASUnitContext, error)) *MockStateGetCAASUnitContextCall {
+func (c *MockStateGetCAASUnitContextCall) Do(f func(context.Context, string) (internal.CAASUnitContext, error)) *MockStateGetCAASUnitContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetCAASUnitContextCall) DoAndReturn(f func(context.Context, string) (application0.CAASUnitContext, error)) *MockStateGetCAASUnitContextCall {
+func (c *MockStateGetCAASUnitContextCall) DoAndReturn(f func(context.Context, string) (internal.CAASUnitContext, error)) *MockStateGetCAASUnitContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2978,10 +2978,10 @@ func (c *MockStateGetExposedEndpointsCall) DoAndReturn(f func(context.Context, a
 }
 
 // GetIAASUnitContext mocks base method.
-func (m *MockState) GetIAASUnitContext(arg0 context.Context, arg1 string) (application0.IAASUnitContext, error) {
+func (m *MockState) GetIAASUnitContext(arg0 context.Context, arg1 string) (internal.IAASUnitContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIAASUnitContext", arg0, arg1)
-	ret0, _ := ret[0].(application0.IAASUnitContext)
+	ret0, _ := ret[0].(internal.IAASUnitContext)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2999,19 +2999,19 @@ type MockStateGetIAASUnitContextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetIAASUnitContextCall) Return(arg0 application0.IAASUnitContext, arg1 error) *MockStateGetIAASUnitContextCall {
+func (c *MockStateGetIAASUnitContextCall) Return(arg0 internal.IAASUnitContext, arg1 error) *MockStateGetIAASUnitContextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetIAASUnitContextCall) Do(f func(context.Context, string) (application0.IAASUnitContext, error)) *MockStateGetIAASUnitContextCall {
+func (c *MockStateGetIAASUnitContextCall) Do(f func(context.Context, string) (internal.IAASUnitContext, error)) *MockStateGetIAASUnitContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetIAASUnitContextCall) DoAndReturn(f func(context.Context, string) (application0.IAASUnitContext, error)) *MockStateGetIAASUnitContextCall {
+func (c *MockStateGetIAASUnitContextCall) DoAndReturn(f func(context.Context, string) (internal.IAASUnitContext, error)) *MockStateGetIAASUnitContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

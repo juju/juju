@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -220,7 +220,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.UnitAddStorageArg,
+		storageArg applicationinternal.UnitAddStorageArg,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
@@ -238,16 +238,16 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.IAASUnitAddStorageArg,
+		storageArg applicationinternal.IAASUnitAddStorageArg,
 	) ([]corestorage.ID, error)
 
 	// GetIAASUnitContext returns the IAAS context information required for the
 	// construction of a context factory for a unit.
-	GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error)
+	GetIAASUnitContext(ctx context.Context, unitName string) (applicationinternal.IAASUnitContext, error)
 
 	// GetCAASUnitContext returns the CAAS context information required for the
 	// construction of a context factory for a unit.
-	GetCAASUnitContext(ctx context.Context, unitName string) (application.CAASUnitContext, error)
+	GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error)
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -917,7 +917,7 @@ func (s *ProviderService) getCloudAPIVersion(ctx context.Context) (string, error
 	return env.APIVersion()
 }
 
-func encodeProxySettings(settings application.ProxySettings) proxy.Settings {
+func encodeProxySettings(settings applicationinternal.ProxySettings) proxy.Settings {
 	return proxy.Settings{
 		Http:    settings.HTTP,
 		Https:   settings.HTTPS,

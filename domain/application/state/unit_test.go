@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
@@ -1737,8 +1738,8 @@ func (s *unitStateSuite) TestGetIAASUnitContext(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.LegacyProxySettings, tc.DeepEquals, application.ProxySettings{})
-	c.Check(result.JujuProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.LegacyProxySettings, tc.DeepEquals, applicationinternal.ProxySettings{})
+	c.Check(result.JujuProxySettings, tc.DeepEquals, applicationinternal.ProxySettings{})
 	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.NotNil)
 }
 
@@ -1796,8 +1797,8 @@ func (s *unitStateSuite) TestGetCAASUnitContext(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.LegacyProxySettings, tc.DeepEquals, application.ProxySettings{})
-	c.Check(result.JujuProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.LegacyProxySettings, tc.DeepEquals, applicationinternal.ProxySettings{})
+	c.Check(result.JujuProxySettings, tc.DeepEquals, applicationinternal.ProxySettings{})
 	c.Check(result.OpenedPortRangesByEndpoint, tc.NotNil)
 }
 
