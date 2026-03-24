@@ -7,7 +7,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
@@ -188,4 +187,16 @@ type UnitStorageRefreshArgs struct {
 	// RefreshStorageDirectives is the storage directives when the unit uses the
 	// charm specified in [RefreshCharmUUID].
 	RefreshStorageDirectives []StorageDirective
+}
+
+// StorageInstanceCharmNameSetArg describes the arguments required for
+// updating a Storage Instance charm name. This is done when a Storage Instance
+// is imported to a model and being attached to a unit to fulfill a Charm's
+// storage definition for the first time.
+type StorageInstanceCharmNameSetArg struct {
+	// CharmMetadataName is the charm name to associate with the storage instance.
+	CharmMetadataName string
+
+	// UUID is the unique identifier of the Storage Instance to update.
+	UUID domainstorage.StorageInstanceUUID
 }
