@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 )
 
+// RelationNetworkInfo contains data to include the relation's network
+// info in the unit settings when updated.
 type RelationNetworkInfo struct {
 	// RelationUUID is the UUID of the relation.
 	RelationUUID relation.UUID
@@ -40,10 +42,6 @@ type RelationSettings struct {
 type CommitHookChangesArg struct {
 	// UnitUUID is the uuid of the unit these changes pertain to.
 	UnitUUID unit.UUID
-
-	// UpdateNetworkInfo indicates that the relation network settings
-	// should be updated for this unit.
-	UpdateNetworkInfo bool
 
 	// RelationUnitSettings settings for the relation unit and application
 	// which need to be updated.
@@ -89,7 +87,6 @@ type CommitHookChangesArg struct {
 func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID unit.UUID) CommitHookChangesArg {
 	return CommitHookChangesArg{
 		UnitUUID:           unitUUID,
-		UpdateNetworkInfo:  in.UpdateNetworkInfo,
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,
 		CharmState:         in.CharmState,

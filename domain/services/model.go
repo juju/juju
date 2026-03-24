@@ -476,6 +476,7 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 	return unitstateservice.NewLeadershipService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		domain.NewLeaseService(s.leaseManager),
+		providertracker.ProviderRunner[unitstateservice.ProviderWithNetworking](s.providerFactory, s.modelUUID.String()),
 		log,
 	)
 }

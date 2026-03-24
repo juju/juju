@@ -18,7 +18,6 @@ import (
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -465,7 +464,7 @@ func (s *commitHookBaseSuite) addSpaceWithName(c *tc.C, name string) string {
 
 // addLinkLayerDevice adds a link layer device to the database and returns its UUID.
 func (s *commitHookBaseSuite) addLinkLayerDevice(
-	c *tc.C, netNodeUUID, name, macAddress string, deviceType corenetwork.LinkLayerDeviceType,
+	c *tc.C, netNodeUUID, name, macAddress string, deviceType network.LinkLayerDeviceType,
 ) string {
 	deviceUUID := "device-" + name + "-uuid"
 
@@ -495,7 +494,7 @@ VALUES (?, ?, ?)`, uuid, cidr, spaceUUID)
 
 // addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
 func (s *commitHookBaseSuite) addIPAddressWithSubnetAndScope(c *tc.C, deviceUUID, netNodeUUID,
-	subnetUUID, addressValue string, scope corenetwork.Scope) string {
+	subnetUUID, addressValue string, scope network.Scope) string {
 	addressUUID := "address-" + addressValue + "-uuid"
 
 	s.query(c, `

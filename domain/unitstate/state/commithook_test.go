@@ -31,7 +31,6 @@ func (s *commitHookSuite) TestCommitHookChanges(c *tc.C) {
 	// Arrange
 	arg := internal.CommitHookChangesArg{
 		UnitUUID:           coreunit.UUID(s.unitUUID),
-		UpdateNetworkInfo:  true,
 		RelationSettings:   nil,
 		OpenPorts:          nil,
 		ClosePorts:         nil,
