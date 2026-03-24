@@ -336,14 +336,14 @@ func (st *State) GetUnitMachineName(ctx context.Context, unitUUID string) (strin
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	arg := getUnitMachineName{
+	arg := unitMachineName{
 		UnitUUID: unitUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (m.name) AS (&getUnitMachineName.*)
+SELECT (m.name) AS (&unitMachineName.*)
 FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.uuid = $getUnitMachineName.unit_uuid
+WHERE  u.uuid = $unitMachineName.unit_uuid
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -400,14 +400,14 @@ func (st *State) GetUnitMachineUUID(ctx context.Context, unitUUID string) (strin
 }
 
 func (st *State) getUnitMachineUUID(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
-	arg := getUnitMachineUUID{
+	arg := unitMachineUUID{
 		UnitUUID: unitUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (m.uuid) AS (&getUnitMachineUUID.*)
+SELECT (m.uuid) AS (&unitMachineUUID.*)
 FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
+WHERE  u.uuid = $unitMachineUUID.unit_uuid
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -424,14 +424,14 @@ WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
 }
 
 func (st *State) getUnitMachineUUIDByUnitName(ctx context.Context, tx *sqlair.TX, unitName string) (string, error) {
-	arg := getUnitMachineUUIDByUnitName{
+	arg := unitMachineUUIDByUnitName{
 		UnitName: unitName,
 	}
 	stmt, err := st.Prepare(`
-SELECT (m.uuid) AS (&getUnitMachineUUIDByUnitName.*)
+SELECT (m.uuid) AS (&unitMachineUUIDByUnitName.*)
 FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.name = $getUnitMachineUUIDByUnitName.name
+WHERE  u.name = $unitMachineUUIDByUnitName.name
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -548,16 +548,16 @@ func (st *State) GetUnitPrincipal(
 		return "", false, errors.Capture(err)
 	}
 
-	arg := getPrincipal{
+	arg := principal{
 		SubordinateUnitName: unitName,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT principal.name AS &getPrincipal.principal_unit_name
+SELECT principal.name AS &principal.principal_unit_name
 FROM   unit AS principal
 JOIN   unit_principal AS up ON principal.uuid = up.principal_uuid
 JOIN   unit AS sub ON up.unit_uuid = sub.uuid
-WHERE  sub.name = $getPrincipal.subordinate_unit_name
+WHERE  sub.name = $principal.subordinate_unit_name
 `, arg)
 	if err != nil {
 		return "", false, errors.Capture(err)

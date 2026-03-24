@@ -2566,15 +2566,15 @@ func (st *State) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName str
 		return false, errors.Capture(err)
 	}
 
-	arg := getCharmUpgradeOnError{
+	arg := charmUpgradeOnError{
 		Name: appName,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &getCharmUpgradeOnError.*
+SELECT &charmUpgradeOnError.*
 FROM   application
 JOIN   charm AS c ON c.uuid = application.charm_uuid
-WHERE  name = $getCharmUpgradeOnError.name AND c.source_id < 2;
+WHERE  name = $charmUpgradeOnError.name AND c.source_id < 2;
 `, arg)
 	if err != nil {
 		return false, errors.Capture(err)

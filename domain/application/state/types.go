@@ -1194,22 +1194,22 @@ type applicationWorkloadVersion struct {
 	Version         string `db:"version"`
 }
 
-type getPrincipal struct {
+type principal struct {
 	PrincipalUnitName   coreunit.Name `db:"principal_unit_name"`
 	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
 }
 
-type getUnitMachineName struct {
+type unitMachineName struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineName string `db:"name"`
 }
 
-type getUnitMachineUUID struct {
+type unitMachineUUID struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineUUID string `db:"uuid"`
 }
 
-type getUnitMachineUUIDByUnitName struct {
+type unitMachineUUIDByUnitName struct {
 	UnitName    string `db:"name"`
 	MachineUUID string `db:"uuid"`
 }
@@ -1218,7 +1218,7 @@ type lifeID struct {
 	LifeID life.Life `db:"life_id"`
 }
 
-type getCharmUpgradeOnError struct {
+type charmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
 }
