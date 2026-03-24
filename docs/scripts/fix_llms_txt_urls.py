@@ -55,7 +55,7 @@ def convert_llms_txt_to_absolute_urls(file_path, base_url):
         return False
 
     # Read the file
-    content = file_path.read_text()
+    content = file_path.read_text(encoding='utf-8')
 
     # Function to convert relative path to absolute URL
     def convert_path(match):
@@ -66,25 +66,32 @@ def convert_llms_txt_to_absolute_urls(file_path, base_url):
         if rel_path.startswith(('http://', 'https://', '/')):
             return match.group(0)  # Return unchanged
 
-        # Convert .md path to absolute URL
-        url_path = rel_path[:-3]  # Remove .md extension
-        if url_path == 'index':
-            absolute_url = base_url
-        else:
-            absolute_url = base_url + url_path + '/'
-        
-        return f'[{title}]({absolute_url})'
-    
-    # Replace all markdown links with relative paths
-    # Pattern matches: [Title](path.md) or [Title](path/to/file.md)
-    pattern = r'\[([^\]]+)\]\(([^)]+\.md)\)'
-    new_content = re.sub(pattern, convert_path, content)
+        # Build absolute URL by prepending base URL to relative path
+        # Keep .md extension and anchors intact for AI-friendliness
+        absolute_url = base_url + rel_path
 
-    # Count conversions
+        return f'[{title}]({absolute_url})'
+
+    # Replace all markdown links with relative paths
+    # Pattern matches: [Title](path.md) or [Title](path.md#anchor)
+    # Must contain .md to be processed
+    pattern = r'\[([^\]]+)\]\(([^)]*\.md[^)]*)\)'
+
+    # Count conversions to be made
     original_count = len(re.findall(pattern, content))
 
+    # Perform replacements
+    new_content = re.sub(pattern, convert_path, content)
+
+    # Verify conversions worked
+    absolute_url_pattern = r'\]\(https?://.*\.md'
+    converted_count = len(re.findall(absolute_url_pattern, new_content))
+
+    if converted_count < original_count:
+        print(f"Warning: Only {converted_count}/{original_count} conversions verified", file=sys.stderr)
+
     # Write back to file
-    file_path.write_text(new_content)
+    file_path.write_text(new_content, encoding='utf-8')
 
     print(f"Successfully converted {original_count} relative paths to absolute URLs in {file_path}")
     return True
