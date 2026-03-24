@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -1029,7 +1030,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 // storage instance attachment arguments that correspond to the storage uuids.
 func makeInsertUnitStorageAttachmentArgs(
 	unitUUID string,
-	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.CreateStorageInstanceAttachmentArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
@@ -1139,7 +1140,7 @@ func (st *State) attachExistingStorageForNewUnit(
 	if err != nil {
 		return errors.Capture(err)
 	}
-	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	allowedAttachments := set.NewStrings()
 	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageInstanceUnitAttachment) string { return u.UUID })...)
 	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
 		return errors.New(
@@ -1160,7 +1161,7 @@ func (st *State) attachExistingStorageForNewUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
+		[]internal.CreateStorageInstanceAttachmentArg{storageArg.CreateStorageInstanceAttachmentArg},
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -1193,7 +1194,7 @@ func (st *State) attachExistingStorageForExistingUnit(
 	if err != nil {
 		return errors.Capture(err)
 	}
-	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	allowedAttachments := set.NewStrings()
 	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageInstanceUnitAttachment) string { return u.UUID })...)
 	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
 		return errors.New(
@@ -1234,7 +1235,7 @@ func (st *State) attachExistingStorageForExistingUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
+		[]internal.CreateStorageInstanceAttachmentArg{storageArg.CreateStorageInstanceAttachmentArg},
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -1296,9 +1297,27 @@ WHERE storage_instance.uuid = $storageInstance.uuid
 	return nil
 }
 
-// AttachStorageToUnit attaches the storage instance to an unit.
+// AttachStorageToUnit attaches an existing storage instance to a unit after
+// validating the Storage Instance and Unit preconditions.
+//
+// The following errors can be expected:
+// - [storageerrors.StorageInstanceNotFound] when the storage instance does
+// not exist.
+// - [storageerrors.StorageInstanceNotAlive] when the storage instance is not
+// alive.
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [applicationerrors.UnitNotAlive] when the unit is not alive.
+// - [applicationerrors.StorageInstanceAlreadyAttachedToUnit] when the storage
+// instance is already attached to the unit.
+// - [applicationerrors.UnitAttachmentCountExceedsLimit] when the unit already
+// has too many attachments for the storage name.
+// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed.
+// - [applicationerrors.UnitMachineChanged] when the unit's machine has changed.
+// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the Storage
+// Instance has attachments outside the expected set.
 func (st *State) AttachStorageToUnit(
-	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+	ctx context.Context,
+	unitUUID coreunit.UUID,
 	storageArg internal.AttachExistingStorageToUnitArg,
 ) error {
 	db, err := st.DB(ctx)
@@ -1307,15 +1326,286 @@ func (st *State) AttachStorageToUnit(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.attachExistingStorageForExistingUnit(ctx, tx, storageUUID, unitUUID, storageArg)
+		err := st.checkStorageInstanceExistsAndAlive(
+			ctx, tx, storageArg.StorageInstanceUUID,
+		)
 		if err != nil {
-			return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
+			return err
 		}
-		return nil
+
+		err = st.checkUnitForStorageInstanceAttach(
+			ctx,
+			tx,
+			unitUUID,
+			storageArg.StorageInstanceUUID,
+			storageArg.UnitStorageInstanceAttachmentCheckArgs,
+		)
+		if err != nil {
+			return err
+		}
+
+		err = st.checkStorageInstanceAttachmentExpectations(
+			ctx,
+			tx,
+			storageArg.StorageInstanceUUID,
+			storageArg.StorageInstanceAttachmentCheckArgs,
+		)
+		if err != nil {
+			return err
+		}
+
+		return st.insertUnitStorageAttachments(
+			ctx,
+			tx,
+			unitUUID.String(),
+			[]internal.CreateStorageInstanceAttachmentArg{
+				storageArg.CreateStorageInstanceAttachmentArg,
+			},
+		)
 	})
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	return nil
+}
+
+// checkStorageInstanceExistsAndAlive validates that the storage instance exists
+// and is alive.
+//
+// The following errors can be expected:
+// - [storageerrors.StorageInstanceNotFound] when the storage instance does not
+// exist.
+// - [storageerrors.StorageInstanceNotAlive] when the storage instance is not
+// alive.
+func (st *State) checkStorageInstanceExistsAndAlive(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid domainstorage.StorageInstanceUUID,
+) error {
+	var (
+		lifeVal   entityLife
+		inputUUID = entityUUID{UUID: uuid.String()}
+	)
+
+	q := "SELECT &entityLife.* FROM storage_instance WHERE uuid = $entityUUID.uuid"
+	stmt, err := st.Prepare(q, inputUUID, lifeVal)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance life check query: %w", err,
+		)
+	}
+
+	err = tx.Query(ctx, stmt, inputUUID).Get(&lifeVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf(
+			"storage instance %q not found", uuid,
+		).Add(storageerrors.StorageInstanceNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking storage instance %q current life: %w", uuid, err,
+		)
+	}
+
+	if domainlife.Life(lifeVal.LifeID) != domainlife.Alive {
+		return errors.New(
+			"storage instance is not alive",
+		).Add(storageerrors.StorageInstanceNotAlive)
+	}
+
+	return nil
+}
+
+// checkStorageInstanceAttachmentExpectations validates that a storage instance
+// has no attachments outside the expected set.
+//
+// If the supplied args
+// [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] has no
+// attachment UUIDs the Storage Instance is checked for having no attachments.
+//
+// The following errors can be expected:
+//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when the storage
+//     instance has attachments that are not in the expected set.
+func (st *State) checkStorageInstanceAttachmentExpectations(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid domainstorage.StorageInstanceUUID,
+	args internal.StorageInstanceAttachmentCheckArgs,
+) error {
+	var (
+		count            count
+		siUUID           = entityUUID{UUID: uuid.String()}
+		inputAttachments = make(
+			storageAttachmentUUIDs, 0, len(args.ExpectedAttachments))
+	)
+	for _, attachmentUUID := range args.ExpectedAttachments {
+		inputAttachments = append(inputAttachments, attachmentUUID.String())
+	}
+
+	queryCountAttachments := `
+SELECT COUNT(*) AS &count.count
+FROM storage_attachment
+WHERE storage_instance_uuid = $entityUUID.uuid
+`
+
+	queryUnexpectedAttachments := `
+SELECT COUNT(*) AS &count.count
+FROM storage_attachment
+WHERE storage_instance_uuid = $entityUUID.uuid
+AND uuid NOT IN ($storageAttachmentUUIDs[:])
+`
+	stmtCountAttachments, err := st.Prepare(queryCountAttachments, siUUID, count)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance attachment count check query: %w", err,
+		)
+	}
+
+	stmtCountUnexpectedAttachments, err := st.Prepare(
+		queryUnexpectedAttachments, siUUID, count, inputAttachments)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance unexpected attachment count check query: %w",
+			err,
+		)
+	}
+
+	if len(inputAttachments) == 0 {
+		err = tx.Query(ctx, stmtCountAttachments, siUUID).Get(&count)
+	} else {
+		err = tx.Query(
+			ctx, stmtCountUnexpectedAttachments, siUUID, inputAttachments,
+		).Get(&count)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if count.Count > 0 {
+		return errors.Errorf(
+			"storage instance has %d unexpected attachments", count.Count,
+		).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+	}
+
+	return nil
+}
+
+// checkUnitForStorageInstanceAttach validates that the unit is in a suitable
+// state to attach the specified storage instance. It is expected that the
+// caller has validated that the Storage Instance exists and is alive.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [applicationerrors.UnitNotAlive] when the unit is not alive.
+// - [applicationerrors.StorageInstanceAlreadyAttachedToUnit] when the storage
+// instance is already attached to the unit.
+// - [applicationerrors.UnitAttachmentCountExceedsLimit] when the unit already
+// has too many attachments for the storage name.
+// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed.
+// - [applicationerrors.UnitMachineChanged] when the unit's machine has changed.
+func (st *State) checkUnitForStorageInstanceAttach(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	siUUID domainstorage.StorageInstanceUUID,
+	args internal.UnitStorageInstanceAttachmentCheckArgs,
+) error {
+	var (
+		checkResult              unitAttachStorageInstanceCheckInfo
+		inputUnitUUID            = entityUUID{UUID: unitUUID.String()}
+		inputStorageInstanceUUID = storageInstanceUUID{
+			UUID: siUUID.String(),
+		}
+	)
+
+	q := `
+SELECT &unitAttachStorageInstanceCheckInfo.*
+FROM (
+    SELECT    u.charm_uuid AS unit_charm_uuid,
+              u.life_id AS unit_life_id,
+              m.uuid AS unit_machine_uuid,
+              
+              -- Calculate how many Storage Instance attachments the unit has
+              -- for the same storage name of the Storage Instance being
+              -- attached.
+              (SELECT COUNT(*)
+               FROM storage_attachment sa
+               JOIN storage_instance si ON sa.storage_instance_uuid = si.uuid
+               WHERE sa.unit_uuid = $entityUUID.uuid
+               AND   si.storage_name = (SELECT storage_name
+                 				         FROM storage_instance
+                                        WHERE uuid = $storageInstanceUUID.uuid)
+              ) AS unit_attachment_count,
+              
+              -- Calculate if the Storage Instance is already attached to the
+              -- unit.
+              (SELECT 1
+               FROM storage_attachment sa
+               WHERE sa.unit_uuid = $entityUUID.uuid
+               AND   sa.storage_instance_uuid = $storageInstanceUUID.uuid
+              ) AS already_attached
+    FROM      unit u
+    LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid
+    WHERE     u.uuid = $entityUUID.uuid
+)
+`
+	stmt, err := st.Prepare(
+		q, inputUnitUUID, inputStorageInstanceUUID, checkResult,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"preparing query to get check unit storage instance attachment info: %w",
+			err,
+		)
+	}
+
+	err = tx.Query(ctx, stmt, inputUnitUUID, inputStorageInstanceUUID).Get(
+		&checkResult,
+	)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// If we received no result from the query then the unit does not exist.
+		return errors.Errorf(
+			"unit %q does not exist", unitUUID,
+		).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return err
+	}
+
+	if domainlife.Life(checkResult.UnitLifeID) != domainlife.Alive {
+		return errors.New("unit is not alive").Add(applicationerrors.UnitNotAlive)
+	}
+
+	if checkResult.AlreadyAttached {
+		return errors.New("storage instance is already attached to unit").Add(
+			applicationerrors.StorageInstanceAlreadyAttachedToUnit,
+		)
+	}
+
+	if checkResult.UnitAttachmentCount > args.CountLessThanEqual {
+		return errors.New("unit attachment count exceeds limit").Add(
+			applicationerrors.UnitAttachmentCountExceedsLimit,
+		)
+	}
+
+	if checkResult.UnitCharmUUID != args.CharmUUID.String() {
+		return errors.New("unit's charm has changed").Add(
+			applicationerrors.UnitCharmChanged,
+		)
+	}
+
+	var checkMachineUUID string
+	if args.MachineUUID != nil {
+		checkMachineUUID = args.MachineUUID.String()
+	}
+	unitMachineUUID := checkResult.MachineUUID.V
+
+	if checkMachineUUID != unitMachineUUID {
+		return errors.New("unit's machine has changed").Add(
+			applicationerrors.UnitMachineChanged,
+		)
+	}
+
 	return nil
 }
 

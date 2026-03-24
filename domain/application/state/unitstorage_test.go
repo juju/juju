@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
@@ -20,7 +21,8 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storage/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -563,7 +565,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	fsa1UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	sa2UUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsa2UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	unitStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
+	unitStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
 		{
 			UUID: sa1UUID,
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
@@ -636,173 +638,493 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	})
 }
 
-func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotFound(c *tc.C) {
+// TestAttachStorageToUnitStorageInstanceNotFound verifies that attaching
+// storage to a unitfor a missing Storage Instance returns an error satisfying
+// [domainstorageerrors.StorageInstanceNotFound].
+func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotFound(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	err := u.state.AttachStorageToUnit(
+		c.Context(),
+		unitUUID,
+		internal.AttachExistingStorageToUnitArg{
+			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+				StorageInstanceUUID: storageInstUUID,
+			},
+		},
+	)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
+
+// TestAttachStorageToUnitStorageInstanceNotAlive verifies that attaching
+// storage for a dying Storage Instance returns an error satisfying
+// [domainstorageerrors.StorageInstanceNotAlive].
+func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotAlive(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	storageInstUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+
+	err := u.state.AttachStorageToUnit(
+		c.Context(),
+		unitUUID,
+		internal.AttachExistingStorageToUnitArg{
+			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+				StorageInstanceUUID: storageInstUUID,
+			},
+		},
+	)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotAlive)
+}
+
+// TestAttachStorageToUnitUnitNotFound verifies that attaching storage for a
+// missing unit returns an error satisfying [applicationerrors.UnitNotFound].
+func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotFound(c *tc.C) {
+	storageInstUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
-}
 
-func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
-	_, unitUUID := u.createNamedIAASUnit(c)
-	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	err := u.state.AttachStorageToUnit(c.Context(), storageUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
-}
-
-func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
-	_, unitUUID := u.createNamedIAASUnit(c)
-	stUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
-
-	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
-		return err
-	})
-	c.Assert(err, tc.IsNil)
-
-	err = u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
-}
-
-func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotAlive(c *tc.C) {
-	_, unitUUID := u.createNamedIAASUnit(c)
-	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-
-	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
-	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNotAlive)
-}
-
-func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
-	unitUUID, _ := u.newUnitWithStorageDirectives(c)
-	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
-	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
-	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-
-	unitStorageToAttach := internal.AttachStorageToUnitArg{
-		UUID: saUUID,
-		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: fsUUID,
-			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-			UUID:           fsaUUID,
-		},
-		StorageInstanceUUID: siUUID,
-	}
-
-	attachInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
-	c.Assert(err, tc.IsNil)
-	c.Assert(attachInfo.StorageInstanceAttachments, tc.HasLen, 0)
-
-	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, internal.AttachExistingStorageToUnitArg{
-		AttachStorageToUnitArg: unitStorageToAttach,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	var siCharmName string
-	err = u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT charm_name FROM storage_instance WHERE uuid=?", siUUID).Scan(&siCharmName)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(siCharmName, tc.Equals, "foo")
-
-	inst, attach, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(inst, tc.SameContents, []internal.StorageInstanceComposition{
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: 0,
-				UUID:           fsUUID,
-			},
-			StorageName: "st1",
-			UUID:        siUUID,
-		},
-	})
-	c.Assert(attach, tc.SameContents, []internal.StorageAttachmentComposition{
-		{
-			UUID:                saUUID,
-			StorageInstanceUUID: siUUID,
-			FilesystemAttachment: &internal.StorageInstanceCompositionFilesystemAttachment{
-				ProvisionScope: 1,
-				UUID:           fsaUUID,
-				FilesystemUUID: fsUUID,
+	err := u.state.AttachStorageToUnit(
+		c.Context(),
+		unitUUID,
+		internal.AttachExistingStorageToUnitArg{
+			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+				StorageInstanceUUID: storageInstUUID,
 			},
 		},
-	})
-
-	attachInfo, err = u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
-	c.Assert(err, tc.IsNil)
-	c.Assert(attachInfo.StorageInstanceAttachments, tc.DeepEquals, map[string]string{unitUUID.String(): "foo/0"})
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (u *unitStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
-	unitUUID, _ := u.newUnitWithStorageDirectives(c)
-	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
-	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
-	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-
-	unitStorageToAttach := internal.AttachStorageToUnitArg{
-		UUID: saUUID,
-		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: fsUUID,
-			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-			UUID:           fsaUUID,
+// TestAttachStorageToUnitUnitNotAlive verifies that attaching storage for a
+// dying unit returns an error satisfying [applicationerrors.UnitNotAlive].
+func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotAlive(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
 		},
-		StorageInstanceUUID: siUUID,
 	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+	u.setUnitLife(c, unitUUID, life.Dying)
 
-	arg := internal.AttachExistingStorageToUnitArg{
-		AttachStorageToUnitArg: unitStorageToAttach,
-	}
-	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
-	c.Assert(err, tc.ErrorIsNil)
+	storageInstUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
 
-	arg.AllowedExistingUnitAttachments = []string{tc.Must(c, coreunit.NewUUID).String()}
-	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
-	rErr, ok := internalerrors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
-	c.Assert(ok, tc.IsTrue)
-	c.Assert(rErr, tc.DeepEquals, applicationerrors.StorageAttachmentNotAllowed{
-		AttachedToUnits: []string{"foo/0"},
-	})
+	err := u.state.AttachStorageToUnit(
+		c.Context(),
+		unitUUID,
+		internal.AttachExistingStorageToUnitArg{
+			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+				StorageInstanceUUID: storageInstUUID,
+			},
+		},
+	)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
-func (u *unitStorageSuite) TestAttachStorageTwiceSameUnit(c *tc.C) {
-	unitUUID, _ := u.newUnitWithStorageDirectives(c)
-	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
-	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
-	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-
-	unitStorageToAttach := internal.AttachStorageToUnitArg{
-		UUID: saUUID,
-		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: fsUUID,
-			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-			UUID:           fsaUUID,
+// TestAttachStorageToUnitStorageInstanceAlreadyAttached verifies that
+// attaching storage when the storage instance is already attached to the unit
+// returns an error satisfying
+// [applicationerrors.StorageInstanceAlreadyAttachedToUnit].
+func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceAlreadyAttached(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
 		},
-		StorageInstanceUUID: siUUID,
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID)
+
+	unitStorageToAttach := internal.CreateStorageInstanceAttachmentArg{
+		StorageInstanceUUID: storageInstUUID,
 	}
 
-	arg := internal.AttachExistingStorageToUnitArg{
-		AttachStorageToUnitArg: unitStorageToAttach,
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: unitStorageToAttach,
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
 	}
-	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAlreadyAttachedToUnit)
+}
+
+// TestAttachStorageToUnitAttachmentCountExceedsLimit verifies that attaching
+// storage when the unit already has too many attachments returns an error
+// satisfying [applicationerrors.UnitAttachmentCountExceedsLimit].
+func (u *unitStorageSuite) TestAttachStorageToUnitAttachmentCountExceedsLimit(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    2,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+
+	storageInst1UUID := u.newStorageInstanceWithName(c, "st1")
+	storageInst2UUID := u.newStorageInstanceWithName(c, "st1")
+	u.newStorageInstanceAttachment(c, storageInst1UUID, unitUUID)
+	u.newStorageInstanceAttachment(c, storageInst2UUID, unitUUID)
+
+	storageInst3UUID := u.newStorageInstanceWithName(c, "st1")
+	unitStorageToAttach := internal.CreateStorageInstanceAttachmentArg{
+		StorageInstanceUUID: storageInst3UUID,
+	}
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: unitStorageToAttach,
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 1,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitAttachmentCountExceedsLimit)
+}
+
+// TestAttachStorageToUnitUnitCharmChanged verifies that attaching storage with
+// a mismatched charm returns an error satisfying
+// [applicationerrors.UnitCharmChanged].
+func (u *unitStorageSuite) TestAttachStorageToUnitUnitCharmChanged(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	otherCharmUUID := tc.Must(c, corecharm.NewID)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			StorageInstanceUUID: storageInstUUID,
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          otherCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitCharmChanged)
+}
+
+// TestAttachStorageToUnitUnitMachineChanged verifies that attaching storage
+// with a mismatched machine returns an error satisfying
+// [applicationerrors.UnitMachineChanged].
+func (u *unitStorageSuite) TestAttachStorageToUnitUnitMachineChanged(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID)
+	otherMachineUUID := tc.Must(c, coremachine.NewUUID)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			StorageInstanceUUID: storageInstUUID,
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &otherMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineChanged)
+}
+
+// TestAttachStorageToUnitStorageInstanceUnexpectedAttachments verifies that
+// attaching storage with unexpected existing attachments returns an error
+// satisfying [applicationerrors.StorageInstanceUnexpectedAttachments].
+//
+// This test checks that the Storage Instance is attached to one unit but in
+// reality two attachments exists violating the pre-calculated expectations.
+func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceUnexpectedAttachments(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 3, storage,
+	)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+	unitUUID3 := unitUUIDs[2]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID1)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID1)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	saUUID1 := u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID2)
+	u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID3)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			StorageInstanceUUID: storageInstUUID,
+		},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+			ExpectedAttachments: []domainstorage.StorageAttachmentUUID{saUUID1},
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
+}
+
+// TestAttachStorageToUnitStorageInstanceNoExpectedAttachments verifies that
+// attaching storage without listing existing attachments returns an error
+// satisfying [applicationerrors.StorageInstanceUnexpectedAttachments].
+func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNoExpectedAttachments(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 2, storage,
+	)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID1)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID1)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID2)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			StorageInstanceUUID: storageInstUUID,
+		},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
+	c.Assert(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
+}
+
+// TestAttachStorageToUnitNoExistingAttachments verifies that attaching a
+// Storage Instance with no existing attachments succeeds.
+func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	unitMachineNetNodeUUID := u.getMachineNetNodeUUID(c, unitMachineUUID)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	storageInstUUID, filessystemUUID := u.newModelFilesystemStorageInstance(c, "st1", unitCharmUUID)
+	storageInstAttachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	filesystemAttachUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: filessystemUUID,
+				NetNodeUUID:    unitMachineNetNodeUUID,
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				UUID:           filesystemAttachUUID,
+			},
+			StorageInstanceUUID: storageInstUUID,
+			UUID:                storageInstAttachUUID,
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	arg.AllowedExistingUnitAttachments = []string{unitUUID.String()}
-	arg.CountLessThanEqual = 2
-	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+	u.assertStorageInstanceAttachmentExists(c, storageInstAttachUUID)
+	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
+}
+
+// TestAttachStorageToUnitWithExistingAttachments verifies that attaching a
+// storage instance with existing attachments and a unit with existing storage
+// attachments succeeds.
+func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 2, storage,
+	)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	unit1CharmUUID := u.getUnitCharmUUID(c, unitUUID1)
+	unit1MachineUUID := u.getUnitMachineUUID(c, unitUUID1)
+	unit1MachineNetNodeUUID := u.getMachineNetNodeUUID(c, unit1MachineUUID)
+
+	storageInst1UUID := u.newStorageInstanceWithName(c, "st1")
+	storageInst2UUID := u.newStorageInstanceWithName(c, "st1")
+	u.newStorageInstanceAttachment(c, storageInst1UUID, unitUUID1)
+	u.newStorageInstanceAttachment(c, storageInst2UUID, unitUUID1)
+
+	storageInst3UUID, filesystem3UUID := u.newModelFilesystemStorageInstance(
+		c, "st1", unit1CharmUUID,
+	)
+	existingAttachUUID := u.newStorageInstanceAttachment(
+		c, storageInst3UUID, unitUUID2,
+	)
+
+	storageInstAttachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	filesystemAttachUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: filesystem3UUID,
+				NetNodeUUID:    unit1MachineNetNodeUUID,
+				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+				UUID:           filesystemAttachUUID,
+			},
+			StorageInstanceUUID: storageInst3UUID,
+			UUID:                storageInstAttachUUID,
+		},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+			ExpectedAttachments: []domainstorage.StorageAttachmentUUID{
+				existingAttachUUID,
+			},
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 2,
+			CharmUUID:          unit1CharmUUID,
+			MachineUUID:        &unit1MachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
+
+	u.assertStorageInstanceAttachmentExists(c, storageInstAttachUUID)
+	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
 }
 
 func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUIDNotFound(c *tc.C) {

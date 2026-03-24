@@ -801,7 +801,7 @@ func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
-	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.CreateStorageInstanceAttachmentArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		unitUUID, storageToAttach,
@@ -1258,8 +1258,8 @@ func (st *State) makeInsertUnitFilesystemArgs(
 // makeInsertUnitFilesystemAttachmentArgs will make a slice of
 // [insertStorageFilesystemAttachment] for each filesystem attachment defined in
 // args.
-func (st *InsertIAASUnitState) makeInsertUnitFilesystemAttachmentArgs(
-	args []domainstorage.CreateUnitStorageAttachmentArg,
+func (st *State) makeInsertUnitFilesystemAttachmentArgs(
+	args []internal.CreateStorageInstanceAttachmentArg,
 ) []insertStorageFilesystemAttachment {
 	rval := []insertStorageFilesystemAttachment{}
 	for _, arg := range args {
@@ -1394,8 +1394,8 @@ func (st *State) makeInsertUnitVolumeArgs(
 // makeInsertUnitVolumeAttachmentArgs will make a slice of
 // [insertStorageVolumeAttachment] values for each volume attachment argument
 // supplied.
-func (st *InsertIAASUnitState) makeInsertUnitVolumeAttachmentArgs(
-	args []domainstorage.CreateUnitStorageAttachmentArg,
+func (st *State) makeInsertUnitVolumeAttachmentArgs(
+	args []internal.CreateStorageInstanceAttachmentArg,
 ) []insertStorageVolumeAttachment {
 	rval := []insertStorageVolumeAttachment{}
 	for _, arg := range args {

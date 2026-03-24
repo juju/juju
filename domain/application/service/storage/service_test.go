@@ -167,7 +167,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
 		// Existing st1 storage
 		{
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
@@ -200,7 +200,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := domainstorage.CreateUnitStorageAttachmentArg{
+		attachArg := internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -367,12 +367,12 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := make([]domainstorage.CreateUnitStorageAttachmentArg, 0, len(arg.StorageInstances))
+	expectedStorageToAttach := make([]internal.CreateStorageInstanceAttachmentArg, 0, len(arg.StorageInstances))
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := domainstorage.CreateUnitStorageAttachmentArg{
+		attachArg := internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -453,7 +453,7 @@ func (s *serviceSuite) TestMakeAttachExistingStorageArgs(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	expectedStorageToAttach := internal.AttachExistingStorageToUnitArg{
-		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: instComposition.UUID,
 		},
 		StorageName:        "pgdata",

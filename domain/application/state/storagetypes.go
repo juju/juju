@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+// storageInstanceUUID is used for queries that only require a storage
+// instance UUID input and cannot use [entityUUID] due to conflict of type names
+// with sqlair.
+type storageInstanceUUID entityUUID
+
+// storageAttachmentUUIDs is used for queries that return a list of storage
+// attachment UUIDs.
+type storageAttachmentUUIDs []string
+
 // insertStorageFilesystem represents the set of values required for inserting a
 // new storage filesystem into the model.
 type insertStorageFilesystem struct {
@@ -184,4 +193,14 @@ type updateApplicationStorageDirective struct {
 	SizeMiB         uint64 `db:"size_mib"`
 	StorageName     string `db:"storage_name"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
+}
+
+// unitAttachStorageInstanceCheckInfo is used to capture unit state and
+// attachment counts needed to validate attaching a storage instance.
+type unitAttachStorageInstanceCheckInfo struct {
+	AlreadyAttached     bool             `db:"already_attached"`
+	MachineUUID         sql.Null[string] `db:"unit_machine_uuid"`
+	UnitAttachmentCount uint32           `db:"unit_attachment_count"`
+	UnitCharmUUID       string           `db:"unit_charm_uuid"`
+	UnitLifeID          int              `db:"unit_life_id"`
 }

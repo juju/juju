@@ -133,6 +133,24 @@ WHERE u.uuid = ?`,
 	return machineUUID
 }
 
+// getMachineNetNodeUUID returns the net node UUID for the supplied machine
+// UUID.
+func (s *baseSuite) getMachineNetNodeUUID(
+	c *tc.C, machineUUID coremachine.UUID,
+) domainnetwork.NetNodeUUID {
+	var uuid string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT net_node_uuid FROM machine WHERE uuid = ?",
+		machineUUID.String(),
+	).Scan(&uuid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	netNodeUUID := domainnetwork.NetNodeUUID(uuid)
+	c.Assert(netNodeUUID.Validate(), tc.ErrorIsNil)
+	return netNodeUUID
+}
+
 func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 	name string,
 	charmResources map[string]charm.Resource,

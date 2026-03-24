@@ -25,6 +25,36 @@ type storageHelper struct {
 	dbGetter
 }
 
+// assertFilesystemAttachmentExists ensures a filesystem attachment exists for
+// the supplied attachment UUID.
+func (s *storageHelper) assertFilesystemAttachmentExists(
+	c *tc.C, attachmentUUID domainstorage.FilesystemAttachmentUUID,
+) {
+	var gotUUID string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT uuid FROM storage_filesystem_attachment WHERE uuid = ?",
+		attachmentUUID.String(),
+	).Scan(&gotUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUID, tc.Equals, attachmentUUID.String())
+}
+
+// assertStorageInstanceAttachmentExists ensures a storage attachment exists
+// for the supplied attachment UUID.
+func (s *storageHelper) assertStorageInstanceAttachmentExists(
+	c *tc.C, attachmentUUID domainstorage.StorageAttachmentUUID,
+) {
+	var gotUUID string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT uuid FROM storage_attachment WHERE uuid = ?",
+		attachmentUUID.String(),
+	).Scan(&gotUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotUUID, tc.Equals, attachmentUUID.String())
+}
+
 func (s *storageHelper) newStoragePool(c *tc.C,
 	name, providerType string,
 ) domainstorage.StoragePoolUUID {
