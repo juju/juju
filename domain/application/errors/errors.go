@@ -295,6 +295,18 @@ const (
 	// SpaceNotFound is returned when the specified space cannot be found.
 	SpaceNotFound = errors.ConstError("space not found")
 
+	// StorageInstanceAlreadyAttachedToUnit is returned when an attach operation
+	// targets a Unit that already has an attachment for the Storage Instance.
+	StorageInstanceAlreadyAttachedToUnit = errors.ConstError(
+		"storage instance already attached to unit",
+	)
+
+	// StorageInstanceUnexpectedAttachments is returned when a storage instance
+	// has attachments that do not match the expected set.
+	StorageInstanceUnexpectedAttachments = errors.ConstError(
+		"storage instance has unexpected attachments",
+	)
+
 	// EndpointNotFound descries an error that occurs when the endpoint being
 	// operated on does not exist.
 	EndpointNotFound = errors.ConstError("endpoint not found")
@@ -314,6 +326,23 @@ const (
 	// UnitsUpgrading describes an error where units are currently in the process
 	// of upgrading. This is relevant for model migration.
 	UnitsUpgrading = errors.ConstError("units upgrading")
+
+	// UnitAttachmentCountExceedsLimit describes an error that occurs where a
+	// unit's Storage Instance attachment count exceeds a pre-established max
+	// limit.
+	UnitAttachmentCountExceedsLimit = errors.ConstError(
+		"unit attachment count exceeds limit",
+	)
+
+	// UnitCharmChanged describes an error that occure when a Unit's charm
+	// has changed and no longer mataches a pre-existing assumption about what
+	// Charm the Unit was running.
+	UnitCharmChanged = errors.ConstError("unit charm has changed")
+
+	// UnitMachineChanged describes an error that occurs when a Unit's machine
+	// has changed and no longer matches a pre-existing assumption about the
+	// Unit's Machine.
+	UnitMachineChanged = errors.ConstError("unit machine has changed")
 )
 
 const (
