@@ -17,14 +17,14 @@ In software design, a **controller** is an architectural component responsible f
 - It refers to the initial controller {ref}`unit <unit>` as well as any units added later on (for machine clouds, for the purpose of {ref}`high-availability <high-availability>`) -- each of which includes
     - a {ref}`unit agent <unit-agent>`,
     - [`juju-controller`](https://charmhub.io/juju-controller) charm code, and
-    - a {ref}`controller agent <controller-agent>` running, among other things, the Juju API server and an in-process embedded [Dqlite](https://canonical.com/dqlite) database. <p>
+    - a {ref}`controller agent <controller-agent>` running, among other things, the Juju API server and an in-process embedded [Dqlite](https://canonical.com/dqlite) {ref}`database <database>`. <p>
 - It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
-- It stores state in the internal Dqlite database.
+- It stores state in the internal Dqlite {ref}`database <database>`.
 
 (controller-storage)=
 ## Controller storage
 
-A Juju controller has two basic persistent storage needs: database access and blob storage. Prior to Juju 4, both these needs were satisfied by a MongoDB database; however, with the switch to a Dqlite database in Juju 4, only the database access need is satisfied -- for blob storage the Juju controller will require an object store. By default, Juju will use the filesystem of the controller’s supporting infrastructure.
+A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. Prior to Juju 4, both these needs were satisfied by a MongoDB database; however, with the switch to a Dqlite database in Juju 4, only the database access need is satisfied -- for blob storage the Juju controller will require an object store. By default, Juju will use the filesystem of the controller's supporting infrastructure.
 
 <!-- ADD BACK IN WHEN WE MOVE THOSE VALUES INTO SECRETS.
 
