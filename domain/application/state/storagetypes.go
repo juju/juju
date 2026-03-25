@@ -50,6 +50,13 @@ type setStorageFilesystemAttachmentProviderID struct {
 	ProviderID string `db:"provider_id"`
 }
 
+// setStorageInstanceCharmName is used to update the charm name for an
+// existing storage instance.
+type setStorageInstanceCharmName struct {
+	CharmName string `db:"charm_name"`
+	UUID      string `db:"uuid"`
+}
+
 // insertStorageFilesystemInstance represents the set of values required for
 // assocating a storage instance and filesystem that already exist in the model
 // together.

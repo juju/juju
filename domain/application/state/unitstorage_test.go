@@ -1058,6 +1058,52 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
 }
 
+// TestAttachStorageToUnitSetsCharmName verifies that attaching storage with a
+// charm name set argument updates the storage instance charm name.
+func (u *unitStorageSuite) TestAttachStorageToUnitSetsCharmName(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage,
+	)
+	unitUUID := unitUUIDs[0]
+
+	unitCharmUUID := u.getUnitCharmUUID(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
+	attachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+
+	attachArgs := internal.AttachExistingStorageToUnitArg{
+		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+			StorageInstanceUUID: storageInstUUID,
+			UUID:                attachUUID,
+		},
+		StorageInstanceCharmNameSetArg: &internal.StorageInstanceCharmNameSetArg{
+			CharmMetadataName: "custom-charm-name",
+			UUID:              storageInstUUID,
+		},
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: 0,
+			CharmUUID:          unitCharmUUID,
+			MachineUUID:        &unitMachineUUID,
+		},
+	}
+
+	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmName := u.getStorageInstanceCharmName(c, storageInstUUID)
+	c.Check(charmName, tc.Equals, "custom-charm-name")
+}
+
 // TestAttachStorageToUnitWithExistingAttachments verifies that attaching a
 // storage instance with existing attachments and a unit with existing storage
 // attachments succeeds.

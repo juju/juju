@@ -55,6 +55,21 @@ func (s *storageHelper) assertStorageInstanceAttachmentExists(
 	c.Assert(gotUUID, tc.Equals, attachmentUUID.String())
 }
 
+// getStorageInstanceCharmName returns the charm name for the supplied Storage
+// Instance UUID.
+func (s *storageHelper) getStorageInstanceCharmName(
+	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID,
+) string {
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT charm_name FROM storage_instance WHERE uuid = ?",
+		storageInstanceUUID.String(),
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmName
+}
+
 func (s *storageHelper) newStoragePool(c *tc.C,
 	name, providerType string,
 ) domainstorage.StoragePoolUUID {

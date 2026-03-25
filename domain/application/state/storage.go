@@ -1297,6 +1297,48 @@ WHERE storage_instance.uuid = $storageInstance.uuid
 	return nil
 }
 
+// updateStorageInstancesCharmName updates charm name of the supplied Storage
+// Instances. It is assumed that the caller has already validated that the
+// Storage Instances exist.
+func (st *State) updateStorageInstancesCharmName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	args []internal.StorageInstanceCharmNameSetArg,
+) error {
+	if len(args) == 0 {
+		// Early exit oppurtunity.
+		return nil
+	}
+
+	stmt, err := st.Prepare(`
+UPDATE storage_instance
+SET    charm_name = $setStorageInstanceCharmName.charm_name
+WHERE  uuid = $setStorageInstanceCharmName.uuid
+`, setStorageInstanceCharmName{})
+	if err != nil {
+		return errors.Errorf(
+			"preparing update storage instances charm name statement: %w", err,
+		)
+	}
+
+	for _, arg := range args {
+		input := setStorageInstanceCharmName{
+			CharmName: arg.CharmMetadataName,
+			UUID:      arg.UUID.String(),
+		}
+		err := tx.Query(ctx, stmt, input).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting storage instance %q charm name: %w",
+				arg.UUID,
+				err,
+			)
+		}
+	}
+
+	return nil
+}
+
 // AttachStorageToUnit attaches an existing storage instance to a unit after
 // validating the Storage Instance and Unit preconditions.
 //
@@ -1323,6 +1365,13 @@ func (st *State) AttachStorageToUnit(
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	var charmNameSetArgs []internal.StorageInstanceCharmNameSetArg
+	if storageArg.StorageInstanceCharmNameSetArg != nil {
+		charmNameSetArgs = append(
+			charmNameSetArgs, *storageArg.StorageInstanceCharmNameSetArg,
+		)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1354,7 +1403,7 @@ func (st *State) AttachStorageToUnit(
 			return err
 		}
 
-		return st.insertUnitStorageAttachments(
+		err = st.insertUnitStorageAttachments(
 			ctx,
 			tx,
 			unitUUID.String(),
@@ -1362,6 +1411,19 @@ func (st *State) AttachStorageToUnit(
 				storageArg.CreateStorageInstanceAttachmentArg,
 			},
 		)
+		if err != nil {
+			return err
+		}
+
+		err = st.updateStorageInstancesCharmName(ctx, tx, charmNameSetArgs)
+		if err != nil {
+			return errors.Errorf(
+				"updating storage instance %q charm name: %w",
+				storageArg.StorageInstanceUUID,
+				err,
+			)
+		}
+		return nil
 	})
 	if err != nil {
 		return errors.Capture(err)
