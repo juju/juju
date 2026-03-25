@@ -1175,17 +1175,20 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 	}
 	s.assertIngressRules(c, m2.Tag().Id(), rules2)
 
-	// Remove applications.
-	u1.EXPECT().Life().Return(life.Dead)
-	unitsCh1 <- []string{u1.Name()}
-
-	removed1 := make(chan bool)
+	// Let the wordpress application watcher observe the removal event before
+	// the last unit is removed and tears it down.
+	removed1 := make(chan struct{})
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
 		DoAndReturn(func(context.Context, string) (bool, error) {
 			defer close(removed1)
 			return false, errors.NotFoundf(app1.Name())
 		})
 	appCh1 <- struct{}{}
+	<-removed1
+
+	// Remove applications.
+	u1.EXPECT().Life().Return(life.Dead)
+	unitsCh1 <- []string{u1.Name()}
 
 	u2.EXPECT().Life().Return(life.Dead)
 	unitsCh2 <- []string{u2.Name()}
@@ -1196,12 +1199,6 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
 	s.assertIngressRules(c, m2.Tag().Id(), nil)
-
-	select {
-	case <-removed1:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for app1 removal")
-	}
 	s.waitForMachineFlush(c)
 }
 
