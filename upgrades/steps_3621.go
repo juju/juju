@@ -3,8 +3,8 @@
 
 package upgrades
 
-// stateStepsFor3620 returns upgrade steps for Juju 3.6.20 that manipulate state directly.
-func stateStepsFor3620() []Step {
+// stateStepsFor3621 returns upgrade steps for Juju 3.6.21 that manipulate state directly.
+func stateStepsFor3621() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "convert scaling field to enum",
