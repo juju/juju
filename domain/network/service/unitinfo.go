@@ -5,12 +5,16 @@ package service
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strings"
 
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/network"
+	domainnetwork "github.com/juju/juju/domain/network"
+	networkinternal "github.com/juju/juju/domain/network/internal"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -23,7 +27,7 @@ import (
 //   - [relationerrors.RelationNotFound] if the relation key doesn't belong to
 //     the unit.
 func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
-	relKey corerelation.Key) (network.UnitNetwork, error) {
+	relKey corerelation.Key) (domainnetwork.UnitNetwork, error) {
 	var endpoint string
 	for _, epIdentifier := range relKey.EndpointIdentifiers() {
 		if strings.HasPrefix(unitName.String(), epIdentifier.ApplicationName) {
@@ -33,19 +37,19 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 	}
 	if endpoint == "" {
 		s.logger.Errorf(ctx, "could not find endpoint for unit %s in the relation %+v", unitName, relKey)
-		return network.UnitNetwork{}, relationerrors.RelationNotFound
+		return domainnetwork.UnitNetwork{}, relationerrors.RelationNotFound
 	}
 
 	infos, err := s.GetUnitEndpointNetworks(ctx, unitName, []string{endpoint})
 	if err != nil {
-		return network.UnitNetwork{}, internalerrors.Errorf("getting unit endpoint networks: %w", err)
+		return domainnetwork.UnitNetwork{}, internalerrors.Errorf("getting unit endpoint networks: %w", err)
 	}
 	if len(infos) != 1 {
 		// Should not happen unless the interface contract for
 		// GetUnitEndpointNetworks is broken.
 		// If not broken, providing exactly one endpoint as a parameter for
 		// GetUnitEndpointNetworks should return exactly one info.
-		return network.UnitNetwork{}, internalerrors.Errorf(
+		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
 			"expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint, len(infos))
 	}
 	return infos[0], nil
@@ -63,7 +67,7 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 func (s *ProviderService) GetUnitEndpointNetworks(
 	ctx context.Context, unitName coreunit.Name, endpointNames []string,
-) ([]network.UnitNetwork, error) {
+) ([]domainnetwork.UnitNetwork, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -91,27 +95,83 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 			ctx, unitUUID.String(), endpointNames, isCaas, egressSubnets)
 	}
 
-	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames, isCaas)
+	endpointAddresses, err := s.st.GetUnitEndpointNetworkAddresses(
+		ctx, unitUUID.String(), endpointNames,
+	)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
+		return nil, internalerrors.Errorf("getting unit endpoint addresses: %w", err)
 	}
-	for i := range result {
-		result[i].EgressSubnets = egressSubnets
+
+	result := make([]domainnetwork.UnitNetwork, len(endpointAddresses))
+	for i, endpointAddresses := range endpointAddresses {
+		info := buildUnitNetworkFromAddresses(endpointAddresses.Addresses, isCaas)
+		info.EndpointName = endpointAddresses.EndpointName
+		info.EgressSubnets = egressSubnets
+		result[i] = info
 	}
 
 	return result, nil
 }
 
+func buildUnitNetworkFromAddresses(
+	addresses []networkinternal.UnitAddress,
+	isCaas bool,
+) domainnetwork.UnitNetwork {
+	byDevice := map[string]domainnetwork.DeviceInfo{}
+	var ingressAddresses corenetwork.SpaceAddresses
+	for _, addr := range addresses {
+		// The purpose of the method is to get connectivity information for
+		// the unit. Skip loopback addresses to focus on external connectivity.
+		if addr.IP().IsLoopback() {
+			continue
+		}
+
+		devInfo, ok := byDevice[addr.DeviceName]
+		if !ok {
+			devInfo.Name = addr.DeviceName
+			devInfo.MACAddress = addr.MACAddress
+		}
+
+		if !isCaas || addr.Scope == corenetwork.ScopeMachineLocal {
+			devInfo.Addresses = append(devInfo.Addresses, domainnetwork.AddressInfo{
+				Hostname: addr.Host(),
+				Value:    addr.IP().String(),
+				CIDR:     addr.AddressCIDR(),
+			})
+		}
+		if (!isCaas || addr.Scope != corenetwork.ScopeMachineLocal) &&
+			// Addresses on virtual Ethernet devices are never suitable for
+			// ingress addresses.
+			addr.DeviceType != corenetwork.VirtualEthernetDevice {
+			ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
+		}
+
+		byDevice[addr.DeviceName] = devInfo
+	}
+
+	// We use the same sorting algorithm as in GetUnitAddresses.
+	// It is important that the selected address is the same every time for a
+	// given set of bindings/devices/addresses.
+	sortedIngressAddresses := ingressAddresses.AllMatchingScope(
+		corenetwork.ScopeMatchCloudLocal,
+	).Values()
+	return domainnetwork.UnitNetwork{
+		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
+		IngressAddresses: sortedIngressAddresses,
+	}
+}
+
 func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
 	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, egressSubnets []string,
-) ([]network.UnitNetwork, error) {
-	info, err := s.st.GetUnitNetwork(ctx, unitUUID, isCaas)
+) ([]domainnetwork.UnitNetwork, error) {
+	addresses, err := s.st.GetUnitNetworkAddresses(ctx, unitUUID)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit network: %w", err)
+		return nil, internalerrors.Errorf("getting unit addresses: %w", err)
 	}
+	info := buildUnitNetworkFromAddresses(addresses, isCaas)
 	info.EgressSubnets = egressSubnets
 
-	infos := make([]network.UnitNetwork, len(endpointNames))
+	infos := make([]domainnetwork.UnitNetwork, len(endpointNames))
 	for i, endpointName := range endpointNames {
 		infos[i] = info
 		infos[i].EndpointName = endpointName

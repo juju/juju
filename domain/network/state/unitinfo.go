@@ -5,22 +5,20 @@ package state
 
 import (
 	"context"
-	"maps"
-	"slices"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/network"
-	domainnetwork "github.com/juju/juju/domain/network"
+	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetUnitEndpointNetworks retrieves network information for the specified unit
-// and endpoints, including device and ingress details.
-func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
-	endpointNames []string, isCaas bool) ([]domainnetwork.UnitNetwork, error) {
+// GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
+// specified endpoints.
+func (st *State) GetUnitEndpointNetworkAddresses(ctx context.Context, unitUUID string,
+	endpointNames []string) ([]networkinternal.EndpointAddresses, error) {
 
 	// Determine the set of unique spaces to which the endpoints are bound.
 	spaces, err := st.getAllSpacesForEndpoints(ctx, unitUUID, endpointNames)
@@ -38,80 +36,36 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 		return nil, errors.Errorf("getting all unit addresses in spaces: %w", err)
 	}
 
-	addressesBySpace, _ := accumulateToMap(addresses, func(address unitAddress) (string, unitAddress, error) {
+	addressesBySpace, _ := accumulateToMap(addresses, func(address networkinternal.UnitAddress) (string, networkinternal.UnitAddress, error) {
 		return address.SpaceID.String(), address, nil
 	})
-	infoBySpaces := transform.Map(
-		addressesBySpace,
-		func(spaceUUID string, addrs []unitAddress) (string, domainnetwork.UnitNetwork) {
-			return spaceUUID, buildUnitNetworkFromAddresses(addrs, isCaas)
-		})
 
-	// Transform in order to dispatch info by endpoint.
+	// Transform in order to dispatch addresses by endpoint.
 	spaceEp := transform.SliceToMap(spaces, func(endpoint spaceEndpoint) (string, string) {
 		return endpoint.EndpointName, endpoint.SpaceUUID
 	})
-	infos, _ := transform.SliceOrErr(endpointNames, func(name string) (domainnetwork.UnitNetwork, error) {
-		info := infoBySpaces[spaceEp[name]]
-		info.EndpointName = name
-		return info, nil
+	infos, _ := transform.SliceOrErr(endpointNames, func(name string) (networkinternal.EndpointAddresses, error) {
+		return networkinternal.EndpointAddresses{
+			EndpointName: name,
+			Addresses:    addressesBySpace[spaceEp[name]],
+		}, nil
 	})
 
 	return infos, nil
 }
 
-// GetUnitNetwork retrieves network information for the specified unit by
-// selecting the best candidate from *all* unit addresses.
-// This is used on providers that do not support spaces, and therefore can
-// not factor endpoint bindings.
-func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string, isCaas bool) (domainnetwork.UnitNetwork, error) {
+// GetUnitNetworkAddresses retrieves all raw unit addresses for the specified
+// unit.
+func (st *State) GetUnitNetworkAddresses(
+	ctx context.Context,
+	unitUUID string,
+) ([]networkinternal.UnitAddress, error) {
 	addresses, err := st.getAllUnitAddresses(ctx, unitUUID)
 	if err != nil {
-		return domainnetwork.UnitNetwork{}, errors.Errorf("getting all unit addresses: %w", err)
+		return nil, errors.Errorf("getting all unit addresses: %w", err)
 	}
 
-	return buildUnitNetworkFromAddresses(addresses, isCaas), nil
-}
-
-func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainnetwork.UnitNetwork {
-	byDevice := map[string]domainnetwork.DeviceInfo{}
-	var ingressAddresses network.SpaceAddresses
-	for _, addr := range addresses {
-		// The purpose of the method is to get connectivity information for
-		// the unit. Skip loopback addresses to focus on external connectivity.
-		if addr.IP().IsLoopback() {
-			continue
-		}
-
-		devInfo, ok := byDevice[addr.Device]
-		if !ok {
-			devInfo.Name = addr.Device
-			devInfo.MACAddress = addr.MAC
-		}
-
-		if !isCaas || addr.Scope == network.ScopeMachineLocal {
-			devInfo.Addresses = append(devInfo.Addresses, domainnetwork.AddressInfo{
-				Hostname: addr.Host(),
-				Value:    addr.IP().String(),
-				CIDR:     addr.AddressCIDR(),
-			})
-		}
-		if (!isCaas || addr.Scope != network.ScopeMachineLocal) &&
-			addr.DeviceType != network.VirtualEthernetDevice.String() {
-			ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
-		}
-
-		byDevice[addr.Device] = devInfo
-	}
-
-	// We use the same sorting algorithm as in GetUnitAddresses.
-	// It is important that the selected address is the same every time for a
-	// given set of bindings/devices/addresses.
-	sortedIngressAddresses := ingressAddresses.AllMatchingScope(network.ScopeMatchCloudLocal).Values()
-	return domainnetwork.UnitNetwork{
-		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
-		IngressAddresses: sortedIngressAddresses,
-	}
+	return addresses, nil
 }
 
 // GetUnitEgressSubnets retrieves the egress subnets for the specified unit.
@@ -212,7 +166,7 @@ AND    ep.name IN ($names[:])
 func (st *State) getAllUnitAddresses(
 	ctx context.Context,
 	unitUUID string,
-) ([]unitAddress, error) {
+) ([]networkinternal.UnitAddress, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -255,13 +209,13 @@ WHERE  ua.unit_uuid = $entityUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	return transform.SliceOrErr(address, func(f allUnitAddressWithDevice) (unitAddress, error) {
+	return transform.SliceOrErr(address, func(f allUnitAddressWithDevice) (networkinternal.UnitAddress, error) {
 		encodedIP, err := encodeIPAddress(spaceAddress(f.InSpaceAddress))
-		return unitAddress{
+		return networkinternal.UnitAddress{
 			SpaceAddress: encodedIP,
-			Device:       f.Device,
-			MAC:          f.MAC,
-			DeviceType:   f.DeviceType,
+			DeviceName:   f.Device,
+			MACAddress:   f.MAC,
+			DeviceType:   network.LinkLayerDeviceType(f.DeviceType),
 		}, err
 	})
 }
@@ -272,7 +226,7 @@ func (st *State) getAllUnitAddressesInSpaces(
 	ctx context.Context,
 	unitUUID string,
 	spaceUUIDs []string,
-) ([]unitAddress, error) {
+) ([]networkinternal.UnitAddress, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -315,13 +269,13 @@ AND    space_uuid IN ($uuids[:])
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return transform.SliceOrErr(address, func(f spaceAddressWithDevice) (unitAddress, error) {
+	return transform.SliceOrErr(address, func(f spaceAddressWithDevice) (networkinternal.UnitAddress, error) {
 		encodedIP, err := encodeIPAddress(spaceAddress(f.InSpaceAddress))
-		return unitAddress{
+		return networkinternal.UnitAddress{
 			SpaceAddress: encodedIP,
-			Device:       f.Device,
-			MAC:          f.MAC,
-			DeviceType:   f.DeviceType,
+			DeviceName:   f.Device,
+			MACAddress:   f.MAC,
+			DeviceType:   network.LinkLayerDeviceType(f.DeviceType),
 		}, err
 	})
 }
@@ -356,13 +310,4 @@ WHERE  u.uuid = $entityUUID.uuid`, entityUUID{})
 	})
 
 	return result, err
-}
-
-// unitAddress represents a network address assigned to a specific unit,
-// including additional information like device and MAC.
-type unitAddress struct {
-	network.SpaceAddress
-	Device     string
-	MAC        string
-	DeviceType string
 }

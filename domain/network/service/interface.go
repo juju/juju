@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
 
@@ -175,19 +176,16 @@ type NetworkInfoState interface {
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
 
-	// GetUnitEndpointNetworks retrieves network relationship details for a
-	// specified unit and its given endpoints.
-	// It returns a list of domainnetwork.Info, one per endpoint name,
-	// with no guaranteed order.
-	// Returns if retrieval fails, or an empty list if the unit is not found or
-	// endpoints are inconsistent.
-	GetUnitEndpointNetworks(
-		ctx context.Context, unitUUID string, endpointNames []string, isCaas bool,
-	) ([]domainnetwork.UnitNetwork, error)
+	// GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
+	// specified endpoints. It returns one result per endpoint name.
+	GetUnitEndpointNetworkAddresses(
+		ctx context.Context, unitUUID string, endpointNames []string,
+	) ([]networkinternal.EndpointAddresses, error)
 
-	// GetUnitNetwork retrieves network information for the specified unit by
-	// selecting the best candidate from *all* unit addresses.
-	// This is used on providers that do not support spaces, and therefore can
-	// not factor endpoint bindings.
-	GetUnitNetwork(ctx context.Context, unitUUID string, isCaas bool) (domainnetwork.UnitNetwork, error)
+	// GetUnitNetworkAddresses retrieves all raw unit addresses for the
+	// specified unit. This is used on providers that do not support spaces and
+	// therefore cannot factor endpoint bindings.
+	GetUnitNetworkAddresses(
+		ctx context.Context, unitUUID string,
+	) ([]networkinternal.UnitAddress, error)
 }
