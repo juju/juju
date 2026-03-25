@@ -41,7 +41,6 @@ type appWorker struct {
 	changes     chan struct{}
 	password    string
 	lastApplied caas.ApplicationConfig
-	life        life.Value
 	statusOnly  bool
 
 	engineReportRequest chan chan<- map[string]any
@@ -143,10 +142,10 @@ func (a *appWorker) loop() error {
 	} else if err != nil {
 		return errors.Annotatef(err, "fetching life status for application %q", a.name)
 	}
-	a.life = appLife
+	state.appLife = appLife
 	if appLife == life.Dead {
 		if !a.statusOnly {
-			err = a.ops.AppDying(a.name, state.app, a.life, a.facade, a.unitFacade, a.logger)
+			err = a.ops.AppDying(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", a.name)
 			}
@@ -202,7 +201,7 @@ func (a *appWorker) loop() error {
 			}
 		} else if ps.CurrentOperation == application.ScaleOperation {
 			a.logger.Debugf("app %q resuming scale operation", a.name)
-			err := a.ops.EnsureScale(a.name, state.app, a.life, a.facade, a.unitFacade, a.logger)
+			err := a.ops.EnsureScale(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
 			if err != nil && !errors.Is(err, tryAgain) && !errors.Is(err, errors.NotFound) {
 				return errors.Annotatef(err, "scaling app %q", a.name)
 			}
@@ -276,7 +275,7 @@ func (a *appWorker) loop() error {
 				shouldRefresh = false
 				break
 			}
-			err := a.ops.EnsureScale(a.name, state.app, a.life, a.facade, a.unitFacade, a.logger)
+			err := a.ops.EnsureScale(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if state.scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -337,7 +336,7 @@ func (a *appWorker) loop() error {
 				state.reconcileDeadChan = nil
 				break
 			}
-			err := a.ops.ReconcileDeadUnitScale(a.name, state.app, a.life, a.facade, a.logger)
+			err := a.ops.ReconcileDeadUnitScale(a.name, state.app, state.appLife, a.facade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				state.reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
@@ -420,7 +419,7 @@ func (a *appWorker) loop() error {
 			report := map[string]any{
 				"application-name":  a.name,
 				"status-only":       a.statusOnly,
-				"application-life":  a.life,
+				"application-life":  state.appLife,
 				"scale-target":      ps.ScaleTarget,
 				"current-operation": ps.CurrentOperation,
 				"report-error":      reportErrors,
@@ -459,7 +458,6 @@ func (a *appWorker) handleLifeChange(state *appLoopState) error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	a.life = appLife
 	state.appLife = appLife
 
 	if state.initial {
@@ -529,7 +527,7 @@ func (a *appWorker) handleLifeChange(state *appLoopState) error {
 
 	case life.Dying:
 		if !a.statusOnly {
-			err := a.ops.AppDying(a.name, state.app, a.life, a.facade, a.unitFacade, a.logger)
+			err := a.ops.AppDying(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -538,7 +536,7 @@ func (a *appWorker) handleLifeChange(state *appLoopState) error {
 
 	case life.Dead:
 		if !a.statusOnly {
-			err := a.ops.AppDying(a.name, state.app, a.life, a.facade, a.unitFacade, a.logger)
+			err := a.ops.AppDying(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -552,7 +550,7 @@ func (a *appWorker) handleLifeChange(state *appLoopState) error {
 		return nil
 
 	default:
-		return errors.NotImplementedf("unknown life %q", a.life)
+		return errors.NotImplementedf("unknown life %q", state.appLife)
 	}
 	return nil
 }
@@ -577,7 +575,6 @@ func (a *appWorker) handleStorageChange(state *appLoopState) error {
 	} else if err != nil {
 		return errors.Annotatef(err, "fetching life status for application %q", a.name)
 	}
-	a.life = appLife
 	state.appLife = appLife
 
 	switch appLife {
