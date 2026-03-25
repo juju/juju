@@ -30,6 +30,9 @@ If guidance conflicts, architectural rules take precedence.
 - `go test ./path/to/package` — Run package tests.
 - `go test -run 'TestName' ./path/to/package` — Run specific test.
 - `make pre-check` — Static analysis (golangci-lint). Run before submitting.
+- For `internal/provider/kubernetes` unit tests, prefer `kubernetes.Interface`
+  with `k8s.io/client-go/kubernetes/fake.NewClientset` and reactors over ad hoc
+  function injection when exercising Kubernetes API interactions.
 
 ## Integration Tests (bash-based)
 
