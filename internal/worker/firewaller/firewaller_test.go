@@ -1177,18 +1177,14 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 
 	// Let the wordpress application watcher observe the removal event before
 	// the last unit is removed and tears it down.
-	removed1 := make(chan bool)
+	removed1 := make(chan struct{})
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
 		DoAndReturn(func(context.Context, string) (bool, error) {
 			defer close(removed1)
 			return false, errors.NotFoundf(app1.Name())
 		})
 	appCh1 <- struct{}{}
-	select {
-	case <-removed1:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for app1 removal")
-	}
+	<-removed1
 
 	// Remove applications.
 	u1.EXPECT().Life().Return(life.Dead)

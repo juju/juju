@@ -24,6 +24,8 @@ If guidance conflicts, architectural rules take precedence.
   - Prefer `c.Check` for value assertions.
   - Use `c.Assert` for value assertions only when needed to guard subsequent assertions (e.g. prevent nil dereference).
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
+- If a test event must occur, block on it and rely on the native test timeout
+  instead of adding an explicit timeout branch.
 
 ## Running Tests
 
