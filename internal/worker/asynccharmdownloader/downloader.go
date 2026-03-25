@@ -25,6 +25,11 @@ import (
 const (
 	retryAttempts = 3
 	retryDelay    = 20 * time.Second
+
+	// downloadTimeout is the maximum amount of time to allow for a charm
+	// download before timing out. We might want to make this configurable in
+	// the future
+	downloadTimeout = 5 * time.Minute
 )
 
 type asyncDownloadWorker struct {
@@ -93,6 +98,9 @@ func (w *asyncDownloadWorker) loop() error {
 	var result *charmdownloader.DownloadResult
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
+			ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+			defer cancel()
+
 			result, err = w.downloader.Download(ctx, url, info.SHA256)
 			if err != nil {
 				return errors.Capture(err)
