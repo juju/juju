@@ -601,6 +601,103 @@ func (s *offerSuite) TestDestroyOffersModelErrors(c *tc.C) {
 	})
 }
 
+func (s *offerSuite) TestModelForName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	qualifier := model.Qualifier("fred@external")
+	expectedModel := model.Model{
+		Name:      "prod",
+		Qualifier: qualifier,
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().
+		GetModelByNameAndQualifier(gomock.Any(), "prod", qualifier).
+		Return(expectedModel, nil)
+
+	obtained, err := s.offerAPI(c).modelForName(c.Context(), "prod", qualifier)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, expectedModel)
+}
+
+func (s *offerSuite) TestModelForNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	qualifier := model.Qualifier("fred@external")
+	s.modelService.EXPECT().
+		GetModelByNameAndQualifier(gomock.Any(), "prod", qualifier).
+		Return(model.Model{}, modelerrors.NotFound)
+
+	_, err := s.offerAPI(c).modelForName(c.Context(), "prod", qualifier)
+
+	c.Assert(err, tc.ErrorMatches, `model "fred@external/prod": not found`)
+}
+
+func (s *offerSuite) TestModelForNameUserNameNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	qualifier := model.Qualifier("fred@external")
+	s.modelService.EXPECT().
+		GetModelByNameAndQualifier(gomock.Any(), "prod", qualifier).
+		Return(model.Model{}, accesserrors.UserNameNotValid)
+
+	_, err := s.offerAPI(c).modelForName(c.Context(), "prod", qualifier)
+
+	c.Assert(err, tc.ErrorMatches, `user name "fred@external": not valid`)
+}
+
+func (s *offerSuite) TestGetModelsFromOffersUsesProvidedModelOwner(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	qualifier := model.Qualifier("fred@external")
+	expectedModel := model.Model{
+		Name:      "prod",
+		Qualifier: qualifier,
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().
+		GetModelByNameAndQualifier(gomock.Any(), "prod", qualifier).
+		Return(expectedModel, nil)
+
+	obtained, err := s.offerAPI(c).getModelsFromOffers(
+		c.Context(),
+		names.NewUserTag("simon"),
+		"fred@external/prod.hosted-mysql",
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Assert(obtained[0].err, tc.ErrorIsNil)
+	c.Check(obtained[0].url.String(), tc.Equals, "fred@external/prod.hosted-mysql")
+	c.Check(obtained[0].model, tc.DeepEquals, expectedModel)
+}
+
+func (s *offerSuite) TestGetModelsFromOffersDefaultsModelOwnerToAPIUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	qualifier := model.Qualifier("simon")
+	expectedModel := model.Model{
+		Name:      "prod",
+		Qualifier: qualifier,
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().
+		GetModelByNameAndQualifier(gomock.Any(), "prod", qualifier).
+		Return(expectedModel, nil)
+
+	obtained, err := s.offerAPI(c).getModelsFromOffers(
+		c.Context(),
+		names.NewUserTag("simon"),
+		"prod.hosted-mysql",
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Assert(obtained[0].err, tc.ErrorIsNil)
+	c.Check(obtained[0].url.String(), tc.Equals, "simon/prod.hosted-mysql")
+	c.Check(obtained[0].model, tc.DeepEquals, expectedModel)
+}
+
 func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
