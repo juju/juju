@@ -244,6 +244,35 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatuses(c *tc.
 	})
 }
 
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusesStatusOptional(c *tc.C) {
+	s.createIAASRemoteApplicationOfferer(c, "foo")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM application_remote_offerer_status`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	statuses, err := s.state.GetRemoteApplicationOffererStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+
+	foo, ok := statuses["foo"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(foo.Status.Status, tc.Equals, status.WorkloadStatusUnset)
+	c.Check(foo.Status.Message, tc.Equals, "")
+	c.Check(foo.Status.Data, tc.DeepEquals, []byte(nil))
+	c.Check(foo.Status.Since, tc.IsNil)
+	c.Check(foo.OfferURL, tc.Equals, "controller:qualifier/model.foo")
+	c.Check(foo.Life, tc.Equals, life.Alive)
+
+	endpointNames := make([]string, 0, len(foo.Endpoints))
+	for _, ep := range foo.Endpoints {
+		endpointNames = append(endpointNames, ep.Name)
+	}
+	c.Check(endpointNames, tc.SameContents, []string{"endpoint", "juju-info", "misc"})
+}
+
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusesWithRelations(c *tc.C) {
 	appUUID, _ := s.createIAASRemoteApplicationOfferer(c, "foo")
 	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, 1)
