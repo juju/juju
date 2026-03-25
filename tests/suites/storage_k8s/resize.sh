@@ -4,7 +4,7 @@ cleanup_deny_postgresql_sts_policy() {
 
 	main_sh_dir="$(dirname "$(readlink -f "$0")")"
 	deny_postgresql_sts_spec="${main_sh_dir}/suites/storage_k8s/specs/deny-postgresql-sts.yaml"
-	microk8s kubectl delete -f "${deny_postgresql_sts_spec}" --ignore-not-found=true >/dev/null 2>&1 || true
+	kubectl delete -f "${deny_postgresql_sts_spec}" --ignore-not-found=true >/dev/null 2>&1 || true
 }
 
 add_wrench_application_storage() {
@@ -36,7 +36,7 @@ storage_id_for_pod() {
 	storage_name=${3}
 	claim_name_prefix_regex="$storage_name-.*-$pod_name$"
 
-	pod_json=$(microk8s kubectl get pod "${pod_name}" -n "${model_name}" -o json 2>/dev/null || true)
+	pod_json=$(kubectl get pod "${pod_name}" -n "${model_name}" -o json 2>/dev/null || true)
 	if [[ -z ${pod_json} ]]; then
 		return 1
 	fi
@@ -52,7 +52,7 @@ storage_id_for_pod() {
 		return 1
 	fi
 
-	pvc_json=$(microk8s kubectl get pvc "${pvc_name}" -n "${model_name}" -o json 2>/dev/null || true)
+	pvc_json=$(kubectl get pvc "${pvc_name}" -n "${model_name}" -o json 2>/dev/null || true)
 	if [[ -z ${pvc_json} ]]; then
 		return 1
 	fi
@@ -127,7 +127,7 @@ test_scale_and_update_storage() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
-	microk8s kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# Check that the first unit uses 1GB storage and the new unit
@@ -147,7 +147,7 @@ test_scale_and_update_storage() {
 
 # Scenario: issue storage and scale operations in quick succession in both orders.
 # Expected outcome: app converges and new units are attached. The immediate new unit
-# can validly have either old or new storage size (2GiB or 3GiB, then 3GiB or 4GiB)
+# can validly have either old or new storage size (1GiB or 3GiB, then 3GiB or 4GiB)
 # because commands are issued so close together that we cannot guarantee which event
 # ordering the controller receives first; that ordering determines that unit's size.
 test_scale_and_update_storage_successive() {
@@ -176,7 +176,7 @@ test_scale_and_update_storage_successive() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
 
 	# Check that the first unit uses 1GB storage and the second unit
-	# can be 2GB or 3GB depending on reconcile ordering.
+	# can be 1GB or 3GB depending on reconcile ordering.
 	# We cannot guarantee ordering especially when successive commands are issued
 	# very close to each other. So we check two possible outcomes.
 	juju storage --format json |
@@ -184,11 +184,11 @@ test_scale_and_update_storage_successive() {
 		check 1024
 	juju storage --format json |
 		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
-		check "^(2048|3072)$"
+		check "^(1024|3072)$"
 
 	# Check that volume claim template is 3GB.
-	# This is expected despite the new pod MAY be spawned with old 2GB storage.
-	microk8s kubectl get sts postgresql-k8s -n "${model_name}" -o json |
+	# This is expected despite the new pod MAY be spawned with old 1GB storage.
+	kubectl get sts postgresql-k8s -n "${model_name}" -o json |
 		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | test("postgresql-k8s-pgdata-*.")) | .spec.resources.requests.storage' |
 		check 3Gi
 
@@ -218,7 +218,7 @@ test_scale_and_update_storage_successive() {
 		check 1024
 	juju storage --format json |
 		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
-		check "^(2048|3072)$"
+		check "^(1024|3072)$"
 	juju storage --format json |
 		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 3072
@@ -228,7 +228,7 @@ test_scale_and_update_storage_successive() {
 
 	# Check that volume claim template is 4GB.
 	# This is expected despite the new pod MAY be spawned with old 3GB storage.
-	microk8s kubectl get sts postgresql-k8s -n "${model_name}" -o json |
+	kubectl get sts postgresql-k8s -n "${model_name}" -o json |
 		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | test("postgresql-k8s-pgdata-*.")) | .spec.resources.requests.storage' |
 		check 4Gi
 
@@ -274,7 +274,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Apply the admission policy to deny creating a statefulset for postgresql-k8s.
-	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
+	kubectl apply -f "${deny_postgresql_sts_spec}"
 
 	# Update the storage to 2GB.
 	# This will trigger a statefulset delete (which succeeds) and a statefulset reapply
@@ -283,13 +283,13 @@ test_scale_app_with_updated_storage_self_healing() {
 
 	# Wait until it reaches an error state. At this point the statefulset is missing.
 	wait_for "postgresql-k8s" "$(error_condition "postgresql-k8s" 0)"
-	OUT=$(microk8s kubectl get sts "postgresql-k8s" -n "${model_name}" 2>&1 || true)
+	OUT=$(kubectl get sts "postgresql-k8s" -n "${model_name}" 2>&1 || true)
 	echo "$OUT" | check "NotFound"
 
 	# Delete the admission policy so the worker can reapply the statefulset.
 	cleanup_deny_postgresql_sts_policy
 	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	microk8s kubectl get sts "postgresql-k8s" -n "${model_name}" -o json 2>&1 |
+	kubectl get sts "postgresql-k8s" -n "${model_name}" -o json 2>&1 |
 		yq -o json '.metadata.name' | check "postgresql-k8s"
 
 	# After scale-application and add-unit, we will have a total
@@ -305,7 +305,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
-	microk8s kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# Check that the first unit uses 1GB storage and the new unit
@@ -410,14 +410,14 @@ test_scale_resumes_after_storage_update_missing_sts() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Apply admission policy to deny creating postgresql-k8s sts.
-	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
+	kubectl apply -f "${deny_postgresql_sts_spec}"
 
 	# Issuing update storage will fail.
 	juju application-storage postgresql-k8s pgdata=2G
 	wait_for "postgresql-k8s" "$(error_condition "postgresql-k8s" 0)"
 
 	# The sts is missing and juju fails to recreate it due to admission policy.
-	OUT=$(microk8s kubectl get sts postgresql-k8s -n "${model_name}" 2>&1 || true)
+	OUT=$(kubectl get sts postgresql-k8s -n "${model_name}" 2>&1 || true)
 	echo "$OUT" | check "NotFound"
 
 	# Let's try scaling multiple times while sts is missing. We record the intent
@@ -459,10 +459,10 @@ test_scale_resumes_after_storage_update_missing_sts() {
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
 
 	# Let's try scaling down now. Repeat the steps above.
-	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
+	kubectl apply -f "${deny_postgresql_sts_spec}"
 	juju application-storage postgresql-k8s pgdata=3G,kubernetes
 	wait_for "postgresql-k8s" "$(error_condition "postgresql-k8s" 0)"
-	OUT=$(microk8s kubectl get sts postgresql-k8s -n "${model_name}" 2>&1 || true)
+	OUT=$(kubectl get sts postgresql-k8s -n "${model_name}" 2>&1 || true)
 	echo "$OUT" | check "NotFound"
 
 	# Scale down.
@@ -577,10 +577,10 @@ test_remove_app_while_storage_update_stuck() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Deny sts creation/reapply, then trigger storage update.
-	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
+	kubectl apply -f "${deny_postgresql_sts_spec}"
 	juju application-storage postgresql-k8s pgdata=3G,kubernetes
 	wait_for "postgresql-k8s" "$(error_condition "postgresql-k8s" 0)"
-	OUT=$(microk8s kubectl get sts "postgresql-k8s" -n "${model_name}" 2>&1 || true)
+	OUT=$(kubectl get sts "postgresql-k8s" -n "${model_name}" 2>&1 || true)
 	echo "$OUT" | check "NotFound"
 
 	# Remove app while storage update is stuck.
