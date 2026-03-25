@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1472,6 +1473,56 @@ func (s *ProvisionerTaskSuite) TestMachineAndDeadNotProvisionedMachineAreRemoved
 	s.waitForRemovalMark(c, m1)
 }
 
+// TestDeadMachineWithNotFoundInstanceIDIsIgnored ensures that a dead machine
+// with an instance ID lookup that returns NotFound is ignored.
+func (s *ProvisionerTaskSuite) TestDeadMachineWithNotFoundInstanceIDIsIgnored(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	m0 := &testMachine{
+		c:    c,
+		id:   "0",
+		life: life.Dead,
+		instanceIdErr: &params.Error{
+			Code: params.CodeNotFound,
+		},
+	}
+
+	broker := environmocks.NewMockEnviron(ctrl)
+	exp := broker.EXPECT()
+	exp.AllRunningInstances(gomock.Any()).Return(nil, nil).MinTimes(1)
+
+	s.machinesAPI.EXPECT().Machines(
+		gomock.Any(),
+		names.NewMachineTag("0"),
+	).Return([]apiprovisioner.MachineResult{{
+		Machine: m0,
+	}}, nil).MinTimes(1)
+
+	var queuedStopInstances atomic.Int32
+	callbackCh := make(chan struct{})
+	task := s.newProvisionerTaskWithBrokerAndEventCb(c, broker, nil, numProvisionWorkersForTesting, func(evt string) {
+		switch evt {
+		case "processed-machines":
+			close(callbackCh)
+		case "queued-stop-instances":
+			queuedStopInstances.Add(1)
+		}
+	})
+	defer workertest.CleanKill(c, task)
+
+	s.sendModelMachinesChange(c, "0")
+
+	select {
+	case <-callbackCh:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for processed-machines event")
+	}
+
+	c.Check(queuedStopInstances.Load(), tc.Equals, int32(0))
+	c.Check(m0.GetMarkForRemoval(), tc.IsFalse)
+}
+
 // setUpZonedEnviron creates a mock broker with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machines ...*testMachine) *providermocks.MockZonedEnviron {
@@ -1692,7 +1743,7 @@ type machineClassificationTest struct {
 	description    string
 	life           life.Value
 	status         status.Status
-	idErr          string
+	instanceIdErr  string
 	ensureDeadErr  string
 	expectErrCode  string
 	expectErrFmt   string
@@ -1725,7 +1776,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *tc.C) {
 			instStatus:    t.status,
 			machineStatus: t.status,
 			id:            id,
-			idErr:         s2e(t.idErr),
+			instanceIdErr: s2e(t.instanceIdErr),
 			ensureDeadErr: s2e(t.ensureDeadErr),
 			statusErr:     s2e(t.statusErr),
 		}
@@ -1803,7 +1854,7 @@ type testMachine struct {
 
 	containersCh chan []string
 
-	idErr         error
+	instanceIdErr error
 	ensureDeadErr error
 	statusErr     error
 
@@ -1841,6 +1892,9 @@ func (m *testMachine) WatchContainers(_ context.Context, cType instance.Containe
 func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.instanceIdErr != nil {
+		return "", m.instanceIdErr
+	}
 	if m.instance == nil {
 		return "", params.Error{Code: "not provisioned"}
 	}
