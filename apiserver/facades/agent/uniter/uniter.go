@@ -2009,44 +2009,6 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	return settings, nil
 }
 
-func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg params.RelationUnitSettings, canAccess common.AuthFunc) error {
-	unitTag, err := names.ParseUnitTag(arg.Unit)
-	if err != nil {
-		return apiservererrors.ErrPerm
-	}
-	if !canAccess(unitTag) {
-		return apiservererrors.ErrPerm
-	}
-	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
-	if err != nil {
-		return apiservererrors.ErrPerm
-	}
-	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-	unitName := coreunit.Name(unitTag.Id())
-
-	// This is not the place to update those fields they are updated
-	// if required in setUnitRelationNetworks.
-	// Keeping those entries here may override incoming update with old values
-	delete(arg.Settings, "ingress-address")
-	delete(arg.Settings, "egress-subnets")
-
-	if u.logger.IsLevelEnabled(corelogger.TRACE) {
-		u.logger.Tracef(ctx, "relation unit settings for %q: %#v", unitName.String(), arg)
-	}
-
-	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUUID, arg.ApplicationSettings, arg.Settings)
-	if errors.Is(err, corelease.ErrNotHeld) {
-		return apiservererrors.ErrPerm
-	} else if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	return nil
-}
-
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
 // changes to every unit in the supplied relation that is visible to
 // the supplied unit.
@@ -2434,21 +2396,6 @@ func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag
 	return params.StringsWatchResult{StringsWatcherId: watcherId, Changes: initial}, nil
 }
 
-func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
-	return func(tag names.Tag) bool {
-		if tag, ok := tag.(names.ApplicationTag); ok {
-			switch authTag.(type) {
-			case names.UnitTag:
-				appName, err := names.UnitApplication(authTag.Id())
-				return err == nil && appName == tag.Id()
-			case names.ApplicationTag:
-				return tag == authTag
-			}
-		}
-		return false
-	}
-}
-
 // CloudSpec returns the cloud spec used by the model in which the
 // authenticated unit resides.
 // A check is made beforehand to ensure that the request is made by a unit
@@ -2828,8 +2775,6 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	canAccessApp := makeAppAuthChecker(u.auth.GetAuthTag())
-
 	res := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		unitTag, err := names.ParseUnitTag(arg.Tag)
@@ -2843,7 +2788,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 			continue
 		}
 
-		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
+		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.Is(err, errors.QuotaLimitExceeded) {
 				u.logger.Errorf(ctx, "%s: %v", unitTag, err)
@@ -2859,7 +2804,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	ctx context.Context,
 	unitTag names.UnitTag,
 	changes params.CommitHookChangesArg,
-	canAccessUnit, canAccessApp common.AuthFunc,
 ) error {
 	unitName, err := coreunit.NewName(unitTag.Id())
 	if err != nil {
@@ -2876,16 +2820,23 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		}
 	}
 
+	relationUnitSettings := make([]unitstate.RelationSettings, 0, len(changes.RelationUnitSettings))
 	for _, rus := range changes.RelationUnitSettings {
 		// Ensure the unit in the unit settings matches the root unit name.
 		if rus.Unit != changes.Tag {
 			return apiservererrors.ErrPerm
 		}
-		err := u.updateUnitAndApplicationSettings(ctx, rus, canAccessUnit)
+		relKey, err := corerelation.ParseKeyFromTagString(rus.Relation)
 		if err != nil {
-			return internalerrors.Errorf("updating unit and application settings for %q: %w", unitTag.Id(), err)
+			return apiservererrors.ErrPerm
 		}
+		relationUnitSettings = append(relationUnitSettings, unitstate.RelationSettings{
+			RelationKey:         relKey,
+			ApplicationSettings: unitstate.Settings(rus.ApplicationSettings),
+			Settings:            unitstate.Settings(rus.Settings),
+		})
 	}
+	arg.RelationSettings = relationUnitSettings
 
 	if len(changes.OpenPorts) > 0 {
 		openPorts := network.GroupedPortRanges{}
