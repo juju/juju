@@ -21,21 +21,25 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 	if err != nil {
 		return errors.Capture(err)
 	}
+	unitUUID := arg.UnitUUID.String()
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// TODO: (hml) 31-Mar-2026
+		// Validate incoming UUIDs still exist.
+
 		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
 			return errors.Errorf("update network info: %v", err)
 		}
 
-		if err := st.updateRelationSettings(ctx, tx, arg.RelationSettings); err != nil {
+		if err := st.updateRelationSettings(ctx, tx, unitUUID, arg.RelationSettings); err != nil {
 			return errors.Errorf("update relation settings: %v", err)
 		}
 
-		if err := st.updateUnitPorts(ctx, tx, arg.UnitUUID.String(), arg.OpenPorts, arg.ClosePorts); err != nil {
+		if err := st.updateUnitPorts(ctx, tx, unitUUID, arg.OpenPorts, arg.ClosePorts); err != nil {
 			return errors.Errorf("update ports: %v", err)
 		}
 
-		if err := st.updateCharmState(ctx, tx, entityUUID{UUID: arg.UnitUUID.String()}, arg.CharmState); err != nil {
+		if err := st.updateCharmState(ctx, tx, entityUUID{UUID: unitUUID}, arg.CharmState); err != nil {
 			return errors.Errorf("update charm state: %v", err)
 		}
 
@@ -73,7 +77,17 @@ func (st *State) updateNetworkInfo(ctx context.Context, tx *sqlair.TX, info bool
 	return nil
 }
 
-func (st *State) updateRelationSettings(ctx context.Context, tx *sqlair.TX, settings []internal.RelationSettings) error {
+func (st *State) updateRelationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID string,
+	relationSettings []internal.RelationSettings,
+) error {
+	for _, settings := range relationSettings {
+		if err := st.setRelationApplicationAndUnitSettings(ctx, tx, unitUUID, settings); err != nil {
+			return errors.Errorf("setting relation settings for relation %q: %v", settings.RelationUUID, err)
+		}
+	}
 	return nil
 }
 
