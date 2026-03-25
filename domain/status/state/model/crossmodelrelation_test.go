@@ -76,6 +76,18 @@ func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByNameNotRe
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.ApplicationNotRemote)
 }
 
+func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByNameNotRemoteWithOtherRemoteApplication(c *tc.C) {
+	// Regression guard for the join constraint in lookupRemoteApplicationOfferer:
+	// when a non-remote application exists alongside another remote
+	// application, the non-remote one must not resolve to an unrelated remote
+	// uuid.
+	s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
+	s.createIAASRemoteApplicationOfferer(c, "bar")
+
+	_, err := s.state.GetRemoteApplicationOffererUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.ApplicationNotRemote)
+}
+
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererUUIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetRemoteApplicationOffererUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)

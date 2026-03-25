@@ -316,7 +316,7 @@ SELECT    aro.uuid AS &remoteApplicationUUID.uuid
 FROM      application AS a
 -- left join ensures we can distinguish between an application that doesn't
 -- exist and one that is not remote
-LEFT JOIN application_remote_offerer AS aro
+LEFT JOIN application_remote_offerer AS aro ON a.uuid = aro.application_uuid
 WHERE     a.name = $applicationName.name `,
 		remoteApplicationUUID{}, appIdent)
 	if err != nil {
