@@ -284,7 +284,7 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 	modelInfo := model.Model{
 		UUID: tc.Must0(c, model.NewUUID),
 	}
-	qualifier := model.QualifierFromUserTag(authUserTag)
+	qualifier := model.Qualifier(authUserTag.Id())
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "model", qualifier).Return(modelInfo, nil)
 
 	offerURL, _ := corecrossmodel.ParseOfferURL("admin/model.application:db")
@@ -572,12 +572,12 @@ func (s *offerSuite) TestDestroyOffersModelErrors(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(
 		gomock.Any(),
 		"badmodel",
-		model.QualifierFromUserTag(authUserTag),
+		model.Qualifier(authUserTag.Id()),
 	).Return(model.Model{}, modelerrors.NotFound)
 	s.modelService.EXPECT().GetModelByNameAndQualifier(
 		gomock.Any(),
 		"badmodel",
-		model.QualifierFromUserTag(names.NewUserTag("garbage")),
+		model.Qualifier("garbage"),
 	).Return(model.Model{}, accesserrors.UserNameNotValid)
 
 	args := params.DestroyApplicationOffers{
@@ -616,7 +616,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -688,7 +688,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
 	c.Assert(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.hosted-db2",
+			OfferURL:               "fred@external/prod.hosted-db2",
 			OfferName:              "hosted-db2",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -701,7 +701,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	})
 	c.Check(obtained.Results[1], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.testing",
+			OfferURL:               "fred@external/prod.testing",
 			OfferName:              "testing",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
@@ -728,7 +728,7 @@ func (s *offerSuite) TestListApplicationOffersError(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -778,7 +778,7 @@ func (s *offerSuite) TestListApplicationOffersPermission(c *tc.C) {
 		Name: modelName,
 		UUID: tc.Must0(c, model.NewUUID),
 	}
-	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.QualifierFromUserTag(adminTag)).Return(foundModel, nil)
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(adminTag.Id())).Return(foundModel, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.AdminAccess)
 
 	filters := params.OfferFilters{
@@ -819,7 +819,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -895,7 +895,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
 	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.hosted-db2",
+			OfferURL:               "fred@external/prod.hosted-db2",
 			OfferName:              "hosted-db2",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -908,7 +908,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 	})
 	c.Check(obtained.Results[1], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.testing",
+			OfferURL:               "fred@external/prod.testing",
 			OfferName:              "testing",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
@@ -937,7 +937,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetAllModels(gomock.Any()).Return([]model.Model{foundModel}, nil)
@@ -995,7 +995,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
 	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.hosted-db2",
+			OfferURL:               "fred@external/prod.hosted-db2",
 			OfferName:              "hosted-db2",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -1008,7 +1008,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 	})
 	c.Check(obtained.Results[1], mc, params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/prod.testing",
+			OfferURL:               "fred@external/prod.testing",
 			OfferName:              "testing",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
@@ -1035,7 +1035,7 @@ func (s *offerSuite) TestFindApplicationOffersPermission(c *tc.C) {
 		Name: modelName,
 		UUID: tc.Must0(c, model.NewUUID),
 	}
-	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.QualifierFromUserTag(adminTag)).Return(foundModel, nil)
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(adminTag.Id())).Return(foundModel, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.ReadAccess)
 
 	filters := params.OfferFilters{
@@ -1074,7 +1074,7 @@ func (s *offerSuite) TestFindApplicationOffersError(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1191,7 +1191,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1242,7 +1242,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
-		OfferURLs: []string{"fred-external/test-model.hosted-db2", "fred-external/test-model.testing"},
+		OfferURLs: []string{"fred@external/test-model.hosted-db2", "fred@external/test-model.testing"},
 	}
 
 	// Act
@@ -1256,7 +1256,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
 	c.Assert(obtainedOffers.Results[0].Result, mc, &params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/test-model.hosted-db2",
+			OfferURL:               "fred@external/test-model.hosted-db2",
 			OfferName:              "hosted-db2",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -1269,7 +1269,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 	})
 	c.Check(obtainedOffers.Results[1].Result, mc, &params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/test-model.testing",
+			OfferURL:               "fred@external/test-model.testing",
 			OfferName:              "testing",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
@@ -1301,7 +1301,7 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1339,7 +1339,7 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
-		OfferURLs: []string{"fred-external/test-model.hosted-db2:endpoint", "fred-external/test-model.testing"},
+		OfferURLs: []string{"fred@external/test-model.hosted-db2:endpoint", "fred@external/test-model.testing"},
 	}
 
 	// Act
@@ -1354,7 +1354,7 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 	c.Assert(obtainedOffers.Results[0].Error, tc.ErrorMatches, "saas application \".*\" shouldn't include endpoint")
 	c.Check(obtainedOffers.Results[1].Result, mc, &params.ApplicationOfferAdminDetailsV5{
 		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-			OfferURL:               "fred-external/test-model.testing",
+			OfferURL:               "fred@external/test-model.testing",
 			OfferName:              "testing",
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
@@ -1383,7 +1383,7 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1396,7 +1396,7 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	var offerDetails []*crossmodelrelation.OfferDetail
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
-		OfferURLs: []string{"fred-external/test-model.testing"},
+		OfferURLs: []string{"fred@external/test-model.testing"},
 	}
 
 	// Act
@@ -1406,7 +1406,7 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedOffers.Results, tc.HasLen, 1)
 	c.Check(obtainedOffers.Results[0].Error, tc.DeepEquals, &params.Error{
-		Message: `application offer "fred-external/test-model.testing"`,
+		Message: `application offer "fred@external/test-model.testing"`,
 		Code:    params.CodeNotFound,
 	})
 }
@@ -1428,12 +1428,12 @@ func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 	args := params.OfferURLs{
-		OfferURLs: []string{"fred-external/test-model.testing"},
+		OfferURLs: []string{"fred@external/test-model.testing"},
 	}
 
 	// Act
@@ -1534,7 +1534,7 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      modelUUID,
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1545,7 +1545,7 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 			{Name: "endpoint"},
 		},
 	}
-	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/test-model.hosted-mysql")
 	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(offerDetails, nil)
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
@@ -1603,7 +1603,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      modelUUID,
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
@@ -1614,7 +1614,7 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 			{Name: "endpoint"},
 		},
 	}
-	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/test-model.hosted-mysql")
 	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(consumeDetails, nil)
 
 	bakeryMacaroon := newBakeryMacaroon(c, "test")
@@ -1701,13 +1701,13 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 
 	foundModel := model.Model{
 		Name:      modelName,
-		Qualifier: model.QualifierFromUserTag(modelOwnerTag),
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
 		UUID:      modelUUID,
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
 
 	offerDetails := crossmodelrelation.ConsumeDetails{}
-	offerURL, _ := corecrossmodel.ParseOfferURL("fred-external/test-model.hosted-mysql")
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/test-model.hosted-mysql")
 	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(offerDetails, crossmodelrelationerrors.OfferNotFound)
 
 	offerAPI := s.offerAPI(c)
@@ -1722,7 +1722,7 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 		Results: []params.ConsumeOfferDetailsResult{{
 			Error: &params.Error{
 				Code:    params.CodeNotFound,
-				Message: `application offer "fred-external/test-model.hosted-mysql" not found`,
+				Message: `application offer "fred@external/test-model.hosted-mysql" not found`,
 			},
 		}},
 	})
@@ -1822,7 +1822,7 @@ func (s *offerSuite) expectGetModelByNameAndQualifier(c *tc.C, authUserTag names
 	modelInfo := model.Model{
 		UUID: tc.Must0(c, model.NewUUID),
 	}
-	qualifier := model.QualifierFromUserTag(authUserTag)
+	qualifier := model.Qualifier(authUserTag.Id())
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, qualifier).Return(modelInfo, nil)
 	return modelInfo.UUID.String()
 }

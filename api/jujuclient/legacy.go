@@ -5,10 +5,6 @@ package jujuclient
 
 import (
 	"strings"
-
-	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/core/model"
 )
 
 // fixLegacyModelNames transforms any model names using a username as
@@ -22,7 +18,7 @@ func fixLegacyModelNames(ctrlModelsByName map[string]*ControllerModels) {
 			}
 			qualifierPart := parts[0]
 			namePart := parts[1]
-			fixedQualifier := model.QualifierFromUserTag(names.NewUserTag(qualifierPart)).String()
+			fixedQualifier := qualifierPart
 			if fixedQualifier == qualifierPart {
 				continue
 			}

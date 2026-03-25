@@ -34,7 +34,7 @@ func (c *Client) allModelsCompat(ctx context.Context) ([]base.UserModel, error) 
 		}
 		result[i] = base.UserModel{
 			Name:           usermodel.Name,
-			Qualifier:      model.QualifierFromUserTag(owner),
+			Qualifier:      model.Qualifier(owner.Id()),
 			UUID:           usermodel.UUID,
 			Type:           modelType,
 			LastConnection: usermodel.LastConnection,

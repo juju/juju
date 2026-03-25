@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -24,7 +23,7 @@ func (api *APIV6) Prechecks(ctx context.Context, model params.MigrationModelInfo
 	info := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
-		Qualifier:              coremodel.QualifierFromUserTag(ownerTag).String(),
+		Qualifier:              ownerTag.Id(),
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         model.FacadeVersions,

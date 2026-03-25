@@ -35,7 +35,7 @@ func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName stri
 		return "", errors.Annotate(err, "getting account details for qualifying model name")
 	}
 	user := names.NewUserTag(details.User)
-	modelName = jujuclient.QualifyModelName(coremodel.QualifierFromUserTag(user).String(), modelName)
+	modelName = jujuclient.QualifyModelName(coremodel.Qualifier(user.Id()).String(), modelName)
 	return modelName, nil
 }
 

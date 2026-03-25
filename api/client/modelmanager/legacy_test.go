@@ -33,7 +33,7 @@ func (s *modelmanagerCompatSuite) TestListModelSummariesWithOlderFacadeVersion(c
 	defer ctrl.Finish()
 
 	userTag := names.NewUserTag("alice@canonical.com")
-	expectedQualifier := string(model.QualifierFromUserTag(userTag))
+	expectedQualifier := userTag.Id()
 	testModelInfo := createModelSummaryLegacy()
 
 	args := params.ModelSummariesRequest{

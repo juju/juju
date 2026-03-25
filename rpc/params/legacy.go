@@ -14,10 +14,7 @@ import (
 )
 
 // ApproximateUserTagFromQualifier creates a valid user tag
-// from the supplied qualifier. A qualifier does not contain
-// all the same characters that a user tag can have. A model
-// qualifier supports "a-z", "0-9", "-" characters. A user
-// tag can also contain "@" and "+".
+// from the supplied qualifier.
 // This method is used for composing results for legacy callers
 // that still expect a user tag in the result. Such user tags may
 // still be parsed by the caller but are only used for display.

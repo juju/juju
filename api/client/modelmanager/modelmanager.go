@@ -76,7 +76,7 @@ func (c *Client) CreateModel(
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               name,
-		Qualifier:          modelCreator.String(),
+		Qualifier:          modelCreator.Id(),
 		Config:             config,
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,

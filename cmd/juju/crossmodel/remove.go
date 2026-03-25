@@ -189,20 +189,17 @@ func makeURLFromCurrentModel(
 	}
 	if url.ModelName == "" {
 		if jujuclient.IsQualifiedModelName(modelName) {
-			unqualifiedName, _, err := jujuclient.SplitFullyQualifiedModelName(modelName)
+			unqualifiedName, owner, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 			if err != nil {
 				return crossmodel.OfferURL{}, errors.Trace(err)
 			}
 			url.ModelName = unqualifiedName
-			// Don't use the normalized qualifier from the store key.
-			// Fall through to account details below.
+			url.ModelQualifier = owner
 		} else {
 			url.ModelName = modelName
 		}
 	}
 
-	// Always use the raw account username for the qualifier sent to the
-	// server, not the normalized qualifier from the client store key.
 	if url.ModelQualifier == "" {
 		accountDetails, err := store.AccountDetails(controllerName)
 		if err != nil {

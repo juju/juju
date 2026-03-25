@@ -32,7 +32,7 @@ func (*legacySuite) TestTransformOfferURLs(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "offer URL is missing the name")
 
 	// Create an Offer URL using a typical juju username.
-	modelQualifier := model.QualifierFromUserTag(names.NewUserTag("admin"))
+	modelQualifier := model.Qualifier("admin")
 	adminOfferURL := crossmodel.MakeURL(modelQualifier.String(), "modelname", "offername", "")
 
 	in := []string{
@@ -54,6 +54,6 @@ func (*legacySuite) TestTransformOfferURLs(c *tc.C) {
 		"/qualifier/model",
 		adminOfferURL,
 		"/modelname.offername",
-		crossmodel.MakeURL("fred-smith-canonical-com", "modelname", "offername", ""),
+		crossmodel.MakeURL(userTag.Id(), "modelname", "offername", ""),
 	})
 }

@@ -48,7 +48,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
-		Qualifier:   "user-prod",
+		Qualifier:   "prod",
 		Config:      map[string]interface{}{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",
@@ -149,7 +149,7 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 		ProviderType:   "C-123",
 		Cloud:          "nimbus",
 		CloudRegion:    "catbus",
-		Qualifier:      model.Qualifier("alice-domain-com"),
+		Qualifier:      model.Qualifier("alice@domain.com"),
 		Life:           "alive",
 		Status: base.Status{
 			Data: make(map[string]interface{}),

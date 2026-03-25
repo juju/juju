@@ -110,12 +110,12 @@ Continue [y/N]? `[1:]
 }
 
 func (s *removeSuite) TestRemoveNameOnly(c *tc.C) {
-	s.mockAPI.expectedURLs = []string{"bob/test.db2"}
+	s.mockAPI.expectedURLs = []string{"prod/test.db2"}
 	_, err := s.runRemove(c, "db2")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestMakeURLFromCurrentModelUsesAccountUser(c *tc.C) {
+func (s *removeSuite) TestMakeURLFromCurrentModelUsesCurrentModelOwner(c *tc.C) {
 	s.store.Accounts["test-master"] = jujuclient.AccountDetails{
 		User: "bob.smith@canonical.com",
 	}
@@ -124,11 +124,10 @@ func (s *removeSuite) TestMakeURLFromCurrentModelUsesAccountUser(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got.String(), tc.Equals, "bob.smith@canonical.com/test.db2")
 
-	// Qualified model name — still uses account details (not the
-	// normalized qualifier from the store key).
+	// Qualified model name — uses the current model owner.
 	got, err = makeURLFromCurrentModel(s.store, "test-master", "", "prod/test", "db2")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got.String(), tc.Equals, "bob.smith@canonical.com/test.db2")
+	c.Assert(got.String(), tc.Equals, "prod/test.db2")
 }
 
 type mockRemoveAPI struct {

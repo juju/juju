@@ -6,7 +6,6 @@ package model
 import (
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -92,12 +91,24 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 			err:       coreerrors.NotValid,
 		},
 		{
+			qualifier: "!",
+			err:       coreerrors.NotValid,
+		},
+		{
 			qualifier: "-invalid",
 			err:       coreerrors.NotValid,
 		},
 		{
-			qualifier: "Invalid",
-			err:       coreerrors.NotValid,
+			qualifier: "admin",
+		},
+		{
+			qualifier: "fred@external",
+		},
+		{
+			qualifier: "alice@domain.com",
+		},
+		{
+			qualifier: "fred+mary@external",
 		},
 		{
 			qualifier: "qualifier-123",
@@ -115,35 +126,4 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 
 		c.Check(err, tc.ErrorIs, test.err)
 	}
-}
-
-func (*ModelSuite) TestQualifierFromUserTag(c *tc.C) {
-	tests := []struct {
-		username  string
-		qualifier string
-	}{
-		{
-			username:  "fred",
-			qualifier: "fred",
-		},
-		{
-			username:  "Fred",
-			qualifier: "fred",
-		},
-		{
-			username:  "fred@external",
-			qualifier: "fred-external",
-		},
-		{
-			username:  "fred+mary@external",
-			qualifier: "fred-mary-external",
-		},
-	}
-
-	for i, test := range tests {
-		c.Logf("test %d: %q", i, test.username)
-		q := QualifierFromUserTag(names.NewUserTag(test.username))
-		c.Check(q.String(), tc.Equals, test.qualifier)
-	}
-
 }

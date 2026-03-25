@@ -4,9 +4,6 @@
 package model
 
 import (
-	"regexp"
-	"strings"
-
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/credential"
@@ -134,34 +131,14 @@ func (q Qualifier) String() string {
 	return string(q)
 }
 
-var (
-	validModelNameSnippet = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
-)
-
 // Validate returns an error if the model qualifier is not valid.
+// The qualifier is expected to be a valid user identifier
+// (e.g. "admin", "alice@external").
 func (q Qualifier) Validate() error {
-	if !validModelNameSnippet.MatchString(q.String()) || len(q.String()) > 63 {
+	if !names.IsValidUser(q.String()) {
 		return errors.Errorf("model qualifier %q %w", q, coreerrors.NotValid)
 	}
 	return nil
-}
-
-// QualifierFromUserTag returns a model qualifier created
-// from the supplied user tag.
-func QualifierFromUserTag(u names.UserTag) Qualifier {
-	return NormalizeQualifier(u.Id())
-}
-
-// NormalizeQualifier returns a normalized version of the
-// supplied qualifier.
-func NormalizeQualifier(q string) Qualifier {
-	validQualifier := strings.ToLower(q)
-	// Replace chars from a valid user tag that we
-	// don't want in a qualifier with "-".
-	validQualifier = strings.NewReplacer(
-		".", "-", "+", "-", "@", "-",
-	).Replace(validQualifier)
-	return Qualifier(validQualifier)
 }
 
 // ShortModelUUID returns a short version of the model UUID.

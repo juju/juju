@@ -333,10 +333,10 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 
 func constructModelQualifier(qualifier string, apiUser names.UserTag) model.Qualifier {
 	if qualifier == "" {
-		return model.QualifierFromUserTag(apiUser)
+		return model.Qualifier(apiUser.Id())
 	}
 
-	return model.NormalizeQualifier(qualifier)
+	return model.Qualifier(qualifier)
 }
 
 // applicationOffersFromModel gets details about remote applications that match given filters.

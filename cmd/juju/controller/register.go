@@ -509,7 +509,7 @@ one of them:
 	userModelNames := make(set.Strings)
 	otherModelNames := make(set.Strings)
 	for _, model := range models {
-		if model.Qualifier == coremodel.QualifierFromUserTag(user) {
+		if model.Qualifier == coremodel.Qualifier(user.Id()) {
 			userModelNames.Add(model.Name)
 			continue
 		}

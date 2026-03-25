@@ -35,6 +35,8 @@ func (s *ModelValidationSuite) TestValidateModelName(c *tc.C) {
 	c.Assert(jujuclient.ValidateModelName(""), tc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!"), tc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!/foo"), tc.ErrorMatches, `validating model name "!/foo": qualifier "!" not valid`)
+	c.Assert(jujuclient.ValidateModelName("admin/foo"), tc.ErrorIsNil)
+	c.Assert(jujuclient.ValidateModelName("alice@external/foo"), tc.ErrorIsNil)
 }
 
 func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *tc.C) {
