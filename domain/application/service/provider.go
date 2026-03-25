@@ -1328,7 +1328,7 @@ func (s *ProviderService) makeAttachExistingStorageToUnitArgs(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID, netNodeUUID string, unitPlacementMachineUUID *string,
 	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachExistingStorageToUnitArg, error) {
+) (internal.AttachStorageInstanceToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1336,7 +1336,7 @@ func (s *ProviderService) makeAttachExistingStorageToUnitArgs(
 	// It's an error if the storage is attached to any other unit,
 	// as we don't support shared storage.
 	if len(storageAttachInfo.AlreadyAttachedToUnits) > 0 {
-		return internal.AttachExistingStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+		return internal.AttachStorageInstanceToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
 			AttachedToUnits: slices.Collect(maps.Values(storageAttachInfo.AlreadyAttachedToUnits)),
 		}
 	}
@@ -1346,7 +1346,7 @@ func (s *ProviderService) makeAttachExistingStorageToUnitArgs(
 	if storageAttachInfo.StorageMachineOwner != nil {
 		// unitPlacementMachineUUID is nil when the unit is being added to a new machine.
 		if unitPlacementMachineUUID == nil || *unitPlacementMachineUUID != storageAttachInfo.StorageMachineOwner.UUID {
-			return internal.AttachExistingStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+			return internal.AttachStorageInstanceToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
 				ExistingStorageMachineOwner: &storageAttachInfo.StorageMachineOwner.Name,
 			}
 		}
@@ -1360,14 +1360,14 @@ func (s *ProviderService) populateAttachExistingStorageArgs(
 	storageUUID domainstorage.StorageInstanceUUID,
 	netNodeUUID string,
 	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachExistingStorageToUnitArg, error) {
+) (internal.AttachStorageInstanceToUnitArg, error) {
 	err := s.storageService.ValidateAttachStorage(
 		storageAttachInfo.CharmStorageDefinitionForValidation,
 		storageAttachInfo.AlreadyAttachedCount,
 		storageAttachInfo.ProvisionedSizeMiB,
 	)
 	if err != nil {
-		return internal.AttachExistingStorageToUnitArg{}, errors.Capture(err)
+		return internal.AttachStorageInstanceToUnitArg{}, errors.Capture(err)
 	}
 
 	attachArgs, err := s.storageService.MakeAttachExistingStorageArgs(
@@ -1377,7 +1377,7 @@ func (s *ProviderService) populateAttachExistingStorageArgs(
 		storageAttachInfo,
 	)
 	if err != nil {
-		return internal.AttachExistingStorageToUnitArg{}, errors.Capture(err)
+		return internal.AttachStorageInstanceToUnitArg{}, errors.Capture(err)
 	}
 	return attachArgs, nil
 }

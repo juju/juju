@@ -1032,13 +1032,13 @@ func (s Service) MakeAttachExistingStorageArgs(
 	attachNetNodeUUID string,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachExistingStorageToUnitArg, error) {
+) (internal.AttachStorageInstanceToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
-		return internal.AttachExistingStorageToUnitArg{}, errors.Errorf(
+		return internal.AttachStorageInstanceToUnitArg{}, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
 	}
@@ -1062,13 +1062,13 @@ func (s Service) MakeAttachExistingStorageArgs(
 		domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
 	)
 	if err != nil {
-		return internal.AttachExistingStorageToUnitArg{}, errors.Errorf(
+		return internal.AttachStorageInstanceToUnitArg{}, errors.Errorf(
 			"making storage attachment arguments for new storage instance: %w", err,
 		)
 	}
 
 	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
-	result := internal.AttachExistingStorageToUnitArg{
+	result := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			UUID:                 storageAttachArg.UUID,
 			FilesystemAttachment: storageAttachArg.FilesystemAttachment,

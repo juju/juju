@@ -319,7 +319,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AttachStorageToUnit(
 		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-		storageArg internal.AttachExistingStorageToUnitArg) error
+		storageArg internal.AttachStorageInstanceToUnitArg) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(

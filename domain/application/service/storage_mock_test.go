@@ -205,10 +205,10 @@ func (c *MockStorageServiceMakeApplicationStorageDirectiveArgsCall) DoAndReturn(
 }
 
 // MakeAttachExistingStorageArgs mocks base method.
-func (m *MockStorageService) MakeAttachExistingStorageArgs(arg0 context.Context, arg1 string, arg2 storage0.StorageInstanceUUID, arg3 internal.StorageInfoForAttach) (internal.AttachExistingStorageToUnitArg, error) {
+func (m *MockStorageService) MakeAttachExistingStorageArgs(arg0 context.Context, arg1 string, arg2 storage0.StorageInstanceUUID, arg3 internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeAttachExistingStorageArgs", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(internal.AttachExistingStorageToUnitArg)
+	ret0, _ := ret[0].(internal.AttachStorageInstanceToUnitArg)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -226,19 +226,19 @@ type MockStorageServiceMakeAttachExistingStorageArgsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Return(arg0 internal.AttachExistingStorageToUnitArg, arg1 error) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Return(arg0 internal.AttachStorageInstanceToUnitArg, arg1 error) *MockStorageServiceMakeAttachExistingStorageArgsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Do(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachExistingStorageToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Do(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) DoAndReturn(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachExistingStorageToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) DoAndReturn(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

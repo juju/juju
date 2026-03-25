@@ -662,7 +662,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotFound(c *tc.
 	err := u.state.AttachStorageToUnit(
 		c.Context(),
 		unitUUID,
-		internal.AttachExistingStorageToUnitArg{
+		internal.AttachStorageInstanceToUnitArg{
 			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 				StorageInstanceUUID: storageInstUUID,
 			},
@@ -695,7 +695,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotAlive(c *tc.
 	err := u.state.AttachStorageToUnit(
 		c.Context(),
 		unitUUID,
-		internal.AttachExistingStorageToUnitArg{
+		internal.AttachStorageInstanceToUnitArg{
 			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 				StorageInstanceUUID: storageInstUUID,
 			},
@@ -713,7 +713,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotFound(c *tc.C) {
 	err := u.state.AttachStorageToUnit(
 		c.Context(),
 		unitUUID,
-		internal.AttachExistingStorageToUnitArg{
+		internal.AttachStorageInstanceToUnitArg{
 			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 				StorageInstanceUUID: storageInstUUID,
 			},
@@ -746,7 +746,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotAlive(c *tc.C) {
 	err := u.state.AttachStorageToUnit(
 		c.Context(),
 		unitUUID,
-		internal.AttachExistingStorageToUnitArg{
+		internal.AttachStorageInstanceToUnitArg{
 			CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 				StorageInstanceUUID: storageInstUUID,
 			},
@@ -784,7 +784,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceAlreadyAttached
 		StorageInstanceUUID: storageInstUUID,
 	}
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: unitStorageToAttach,
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 0,
@@ -829,7 +829,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitAttachmentCountExceedsLimit(c 
 		StorageInstanceUUID: storageInst3UUID,
 	}
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: unitStorageToAttach,
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 1,
@@ -865,7 +865,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitCharmChanged(c *tc.C) {
 	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
 	otherCharmUUID := tc.Must(c, corecharm.NewID)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 		},
@@ -903,7 +903,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitMachineChanged(c *tc.C) {
 	otherMachineUUID := tc.Must(c, coremachine.NewUUID)
 	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 		},
@@ -948,7 +948,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceUnexpectedAttac
 	saUUID1 := u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID2)
 	u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID3)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 		},
@@ -991,7 +991,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNoExpectedAttac
 	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
 	u.newStorageInstanceAttachment(c, storageInstUUID, unitUUID2)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 		},
@@ -1033,7 +1033,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 	storageInstAttachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	filesystemAttachUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: filessystemUUID,
@@ -1081,7 +1081,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitSetsCharmName(c *tc.C) {
 	storageInstUUID := u.newStorageInstanceWithName(c, "st1")
 	attachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 			UUID:                attachUUID,
@@ -1143,7 +1143,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.
 	storageInstAttachUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	filesystemAttachUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
-	attachArgs := internal.AttachExistingStorageToUnitArg{
+	attachArgs := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: filesystem3UUID,

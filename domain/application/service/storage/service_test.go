@@ -452,7 +452,7 @@ func (s *serviceSuite) TestMakeAttachExistingStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedStorageToAttach := internal.AttachExistingStorageToUnitArg{
+	expectedStorageToAttach := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: instComposition.UUID,
 		},

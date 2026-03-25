@@ -1133,7 +1133,7 @@ WHERE  storage_id = $storageInstance.storage_id
 
 func (st *State) attachExistingStorageForNewUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.AttachExistingStorageToUnitArg,
+	storageArg internal.AttachStorageInstanceToUnitArg,
 ) error {
 	// Check allowed attachments.
 	attachedToUnits, err := st.getStorageInstanceUnitAttachments(ctx, tx, storageUUID)
@@ -1187,7 +1187,7 @@ func (st *State) attachExistingStorageForNewUnit(
 
 func (st *State) attachExistingStorageForExistingUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.AttachExistingStorageToUnitArg,
+	storageArg internal.AttachStorageInstanceToUnitArg,
 ) error {
 	// Check allowed attachments.
 	attachedToUnits, err := st.getStorageInstanceUnitAttachments(ctx, tx, storageUUID)
@@ -1360,7 +1360,7 @@ WHERE  uuid = $setStorageInstanceCharmName.uuid
 func (st *State) AttachStorageToUnit(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-	storageArg internal.AttachExistingStorageToUnitArg,
+	storageArg internal.AttachStorageInstanceToUnitArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {

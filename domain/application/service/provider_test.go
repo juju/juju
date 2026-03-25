@@ -3577,7 +3577,7 @@ func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 		charmStorageDef, uint32(66), uint64(6),
 	).Return(nil)
 
-	storageToAttach := internal.AttachExistingStorageToUnitArg{
+	storageToAttach := internal.AttachStorageInstanceToUnitArg{
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			UUID: saUUID,
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{

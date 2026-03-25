@@ -198,5 +198,5 @@ type StorageService interface {
 		netNodeUUID string,
 		storageUUID domainstorage.StorageInstanceUUID,
 		storageAttachInfo internal.StorageInfoForAttach,
-	) (internal.AttachExistingStorageToUnitArg, error)
+	) (internal.AttachStorageInstanceToUnitArg, error)
 }
