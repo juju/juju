@@ -4,13 +4,15 @@
 package kubernetes
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/juju/juju/core/network"
 )
@@ -54,27 +56,34 @@ func (s *k8sNetworkingSuite) TestSubnets(c *tc.C) {
 
 func (s *k8sNetworkingSuite) TestSubnetsFromNodePodCIDRs(c *tc.C) {
 	// Arrange
-	envNet := &environNetworking{
-		listNodes: func(context.Context) ([]corev1.Node, error) {
-			return []corev1.Node{
-				{
-					Spec: corev1.NodeSpec{
-						PodCIDR: "10.10.0.0/24",
-					},
+	envNet := newTestEnvironNetworking(&corev1.NodeList{
+		Items: []corev1.Node{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "a",
 				},
-				{
-					Spec: corev1.NodeSpec{
-						PodCIDRs: []string{"fd10::/64", "10.10.1.0/24"},
-					},
+				Spec: corev1.NodeSpec{
+					PodCIDR: "10.10.0.0/24",
 				},
-				{
-					Spec: corev1.NodeSpec{
-						PodCIDRs: []string{"10.10.0.0/24", "not-a-cidr"},
-					},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "b",
 				},
-			}, nil
+				Spec: corev1.NodeSpec{
+					PodCIDRs: []string{"fd10::/64", "10.10.1.0/24"},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "c",
+				},
+				Spec: corev1.NodeSpec{
+					PodCIDRs: []string{"10.10.0.0/24", "not-a-cidr"},
+				},
+			},
 		},
-	}
+	})
 
 	// Act
 	result, err := envNet.Subnets(c.Context(), nil)
@@ -97,26 +106,26 @@ func (s *k8sNetworkingSuite) TestSubnetsFromNodePodCIDRs(c *tc.C) {
 
 func (s *k8sNetworkingSuite) TestSubnetsFromNodeCIDRAnnotations(c *tc.C) {
 	// Arrange
-	envNet := &environNetworking{
-		listNodes: func(context.Context) ([]corev1.Node, error) {
-			return []corev1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"projectcalico.org/IPv4Address": "10.32.4.17/24",
-						},
+	envNet := newTestEnvironNetworking(&corev1.NodeList{
+		Items: []corev1.Node{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "a",
+					Annotations: map[string]string{
+						"projectcalico.org/IPv4Address": "10.32.4.17/24",
 					},
 				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"cilium.io/ipv6-pod-cidr": "fd32::/64",
-						},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "b",
+					Annotations: map[string]string{
+						"cilium.io/ipv6-pod-cidr": "fd32::/64",
 					},
 				},
-			}, nil
+			},
 		},
-	}
+	})
 
 	// Act
 	result, err := envNet.Subnets(c.Context(), nil)
@@ -136,11 +145,11 @@ func (s *k8sNetworkingSuite) TestSubnetsFromNodeCIDRAnnotations(c *tc.C) {
 
 func (s *k8sNetworkingSuite) TestSubnetsNodeDiscoveryErrorFallsBack(c *tc.C) {
 	// Arrange
-	envNet := &environNetworking{
-		listNodes: func(context.Context) ([]corev1.Node, error) {
-			return nil, errors.New("boom")
-		},
-	}
+	clientset := fake.NewClientset()
+	clientset.PrependReactor("list", "nodes", func(k8stesting.Action) (bool, k8sruntime.Object, error) {
+		return true, nil, errors.New("boom")
+	})
+	envNet := &environNetworking{clientset: clientset}
 
 	// Act
 	result, err := envNet.Subnets(c.Context(), nil)
@@ -154,4 +163,9 @@ func (s *k8sNetworkingSuite) TestSubnetsNodeDiscoveryErrorFallsBack(c *tc.C) {
 			CIDR: "::/0",
 		},
 	})
+}
+
+func newTestEnvironNetworking(objects ...k8sruntime.Object) *environNetworking {
+	envNet := newEnvironNetworking(fake.NewClientset(objects...))
+	return &envNet
 }

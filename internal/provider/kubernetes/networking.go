@@ -25,7 +25,7 @@ type environNetworking struct {
 	environs.NoContainerAddressesEnviron
 	environs.NoSpaceDiscoveryEnviron
 
-	listNodes func(context.Context) ([]corev1.Node, error)
+	clientset kubernetes.Interface
 }
 
 var nodeCIDRAnnotationKeys = []string{
@@ -38,29 +38,24 @@ var nodeCIDRAnnotationKeys = []string{
 
 func newEnvironNetworking(k8sClient kubernetes.Interface) environNetworking {
 	return environNetworking{
-		listNodes: func(ctx context.Context) ([]corev1.Node, error) {
-			nodes, err := k8sClient.CoreV1().Nodes().List(ctx, v1.ListOptions{})
-			if err != nil {
-				return nil, errors.Annotate(err, "listing kubernetes nodes")
-			}
-			return nodes.Items, nil
-		},
+		clientset: k8sClient,
 	}
 }
 
 // Subnets is part of the [environs.Networking] interface.
 func (en environNetworking) Subnets(ctx context.Context, _ []network.Id) ([]network.SubnetInfo, error) {
-	if en.listNodes == nil {
+	if en.clientset == nil {
 		return network.FallbackSubnetInfo, nil
 	}
 
-	nodes, err := en.listNodes(ctx)
+	nodes, err := en.clientset.CoreV1().Nodes().List(ctx, v1.ListOptions{})
 	if err != nil {
-		logger.Warningf(ctx, "unable to list kubernetes nodes for subnet discovery, using fallback subnets: %v", err)
+		logger.Warningf(ctx, "unable to list kubernetes nodes for subnet discovery, using fallback subnets: %v",
+			errors.Annotate(err, "listing kubernetes nodes"))
 		return network.FallbackSubnetInfo, nil
 	}
 
-	subnets := subnetsFromNodePodCIDRs(ctx, nodes)
+	subnets := subnetsFromNodePodCIDRs(ctx, nodes.Items)
 	if len(subnets) == 0 {
 		return network.FallbackSubnetInfo, nil
 	}
