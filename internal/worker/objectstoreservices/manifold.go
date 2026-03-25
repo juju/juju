@@ -6,6 +6,7 @@ package objectstoreservices
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -23,6 +24,7 @@ import (
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	ChangeStreamName string
+	Clock            clock.Clock
 	Logger           logger.Logger
 	NewWorker        func(Config) (worker.Worker, error)
 
@@ -40,6 +42,7 @@ type ManifoldConfig struct {
 type ObjectStoreServicesGetterFn func(
 	ObjectStoreServicesFn,
 	changestream.WatchableDBGetter,
+	clock.Clock,
 	logger.Logger,
 ) services.ObjectStoreServicesGetter
 
@@ -47,6 +50,7 @@ type ObjectStoreServicesGetterFn func(
 type ObjectStoreServicesFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
+	clock.Clock,
 	logger.Logger,
 ) services.ObjectStoreServices
 
@@ -63,6 +67,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewObjectStoreServices == nil {
 		return errors.NotValidf("nil NewObjectStoreServices")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -93,6 +100,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	return config.NewWorker(Config{
 		DBGetter:                     dbGetter,
+		Clock:                        config.Clock,
 		Logger:                       config.Logger,
 		NewObjectStoreServicesGetter: config.NewObjectStoreServicesGetter,
 		NewObjectStoreServices:       config.NewObjectStoreServices,
@@ -125,11 +133,13 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewObjectStoreServicesGetter(
 	newObjectStoreServices ObjectStoreServicesFn,
 	dbGetter changestream.WatchableDBGetter,
+	clock clock.Clock,
 	logger logger.Logger,
 ) services.ObjectStoreServicesGetter {
 	return &domainServicesGetter{
 		newObjectStoreServices: newObjectStoreServices,
 		dbGetter:               dbGetter,
+		clock:                  clock,
 		logger:                 logger,
 	}
 }
@@ -138,11 +148,13 @@ func NewObjectStoreServicesGetter(
 func NewObjectStoreServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
+	clock clock.Clock,
 	logger logger.Logger,
 ) services.ObjectStoreServices {
 	return domainservicefactory.NewObjectStoreServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
+		clock,
 		logger,
 	)
 }

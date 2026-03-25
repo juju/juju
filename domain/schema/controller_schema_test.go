@@ -155,10 +155,13 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"upgrade_state_type",
 
 		// Object store metadata
-		"object_store_metadata",
-		"object_store_metadata_path",
+		"object_store_backend_s3_credential",
+		"object_store_backend_type",
+		"object_store_backend",
 		"object_store_drain_info",
 		"object_store_drain_phase_type",
+		"object_store_metadata_path",
+		"object_store_metadata",
 		"object_store_placement",
 
 		// SSH Keys
@@ -338,6 +341,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_object_store_drain_info_insert",
 		"trg_log_object_store_drain_info_update",
 		"trg_log_object_store_drain_info_delete",
+
+		"trg_log_object_store_backend_delete",
+		"trg_log_object_store_backend_insert",
+		"trg_log_object_store_backend_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but

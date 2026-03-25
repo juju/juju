@@ -4,6 +4,7 @@
 package objectstoreservices
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
@@ -19,6 +20,7 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
 
+	Clock  clock.Clock
 	Logger logger.Logger
 
 	NewObjectStoreServicesGetter ObjectStoreServicesGetterFn
@@ -29,6 +31,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -52,6 +57,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		servicesGetter: config.NewObjectStoreServicesGetter(
 			config.NewObjectStoreServices,
 			config.DBGetter,
+			config.Clock,
 			config.Logger,
 		),
 	}
@@ -104,6 +110,7 @@ type objectStoreServices struct {
 type domainServicesGetter struct {
 	newObjectStoreServices ObjectStoreServicesFn
 	dbGetter               changestream.WatchableDBGetter
+	clock                  clock.Clock
 	logger                 logger.Logger
 }
 
@@ -113,7 +120,7 @@ type domainServicesGetter struct {
 func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.ObjectStoreServices {
 	return &objectStoreServices{
 		ObjectStoreServices: s.newObjectStoreServices(
-			modelUUID, s.dbGetter, s.logger,
+			modelUUID, s.dbGetter, s.clock, s.logger,
 		),
 	}
 }

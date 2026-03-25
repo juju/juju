@@ -168,9 +168,10 @@ func (s *phaseSuite) TestTransitionTo(c *tc.C) {
 		newPhase, err := pFrom.TransitionTo(pTo)
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorIs, ErrInvalidTransition)
 			continue
 		}
 		c.Assert(err, tc.IsNil)
-		c.Assert(newPhase.String(), tc.Equals, test.expected)
+		c.Check(newPhase.String(), tc.Equals, test.expected)
 	}
 }

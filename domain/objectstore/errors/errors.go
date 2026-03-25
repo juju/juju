@@ -47,4 +47,10 @@ const (
 
 	// ErrNoHints is returned when there are no hints for a given SHA384.
 	ErrNoHints = errors.ConstError("no hints for SHA384")
+
+	// ErrBackendNotFound is returned when the backend is not found.
+	ErrBackendNotFound = errors.ConstError("backend not found")
+
+	// ErrBackendAlreadyExists is returned when the backend already exists.
+	ErrBackendAlreadyExists = errors.ConstError("backend already exists")
 )
