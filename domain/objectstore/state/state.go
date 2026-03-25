@@ -27,7 +27,7 @@ const (
 	// Although, this is only used for testing, it's here to ensure that
 	// we have a consistent uuid for all file based backends. This must not be
 	// changed.
-	defaultFileBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
+	defaultFileBackendUUID = "653813f9-2896-5332-8cbe-629a337a56a3"
 )
 
 // State implements the domain objectstore state.

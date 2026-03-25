@@ -61,7 +61,7 @@ CREATE TABLE object_store_backend (
 );
 
 INSERT INTO object_store_backend (uuid, life_id, type_id, updated_at) VALUES
-('f44ea516-22ad-4161-b2bd-cbae9d7a9412', 0, 0, current_timestamp);
+('653813f9-2896-5332-8cbe-629a337a56a3', 0, 0, current_timestamp);
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist. In this case only 1 object store backend of type file

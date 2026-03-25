@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -817,7 +818,7 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3CalledTwice(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
 	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendAlreadyExists)
@@ -840,7 +841,7 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3MultipleTimes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the file backend to be marked as dead.
-	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
 	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
@@ -878,7 +879,7 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3WithActiveDrainingBackend(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the file backend to be marked as dead.
-	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
 	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
@@ -967,7 +968,7 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
 	// Second call marks the first S3 backend as dying and activates a new one.
 	err = st.SetObjectStoreBackendToS3(c.Context(), activeUUID, creds)
@@ -1026,7 +1027,7 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
 	// Second promotion marks the first S3 backend as dying and activates a new
 	// one.
@@ -1188,8 +1189,16 @@ func (s *stateSuite) TestGetObjectStoreBackendNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestDefaultFileBackendUUID(c *tc.C) {
+	// Juju UUID namespace that we (should) use for all Juju well-known UUIDs.
+	jujuUUIDNamespace := "96bb15e6-8b85-448b-9fce-ede1a1700e64"
+	namespaceUUID, err := uuid.Parse(jujuUUIDNamespace)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fileObjectStoreUUID := uuid.NewSHA1(namespaceUUID, []byte("juju.objectstore.file.backend"))
+	c.Assert(fileObjectStoreUUID.String(), tc.Equals, defaultFileBackendUUID)
+
 	var backendUUID string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT uuid FROM object_store_backend
 WHERE type_id = 0`)
