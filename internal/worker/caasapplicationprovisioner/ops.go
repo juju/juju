@@ -5,6 +5,7 @@ package caasapplicationprovisioner
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -265,6 +266,8 @@ func appState(appName string, app caas.Application, clk clock.Clock) (caas.Deplo
 			return caas.DeploymentState{},
 				errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
 		}
+		state.Exists = false
+		state.Terminating = false
 	}
 	return state, nil
 }
@@ -884,7 +887,7 @@ func ensureStorage(appName string, app caas.Application, password string,
 		statusErr := setApplicationStatus(appName, status.Error, "failed to update storage",
 			nil, facade, logger)
 		if statusErr != nil {
-			return errors.Trace(statusErr)
+			return errors.Trace(stderrors.Join(statusErr, err))
 		}
 		return errors.Trace(err)
 	}

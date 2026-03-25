@@ -2559,7 +2559,7 @@ func (a *app) EnsureStorage(
 	if err != nil {
 		return errors.Annotatef(err, "building statefulset for app %q", a.name)
 	}
-	// We have to build the statefulset oject because it's missing.
+	// We have to build the statefulset object because it's missing.
 	// This may happen when a storage update occurs, we delete the statefulset,
 	// then crashes before we are able to reapply a new one.
 	if notFound {

@@ -405,7 +405,6 @@ func (a *appWorker) loop() error {
 			} else if err != nil {
 				return errors.Trace(err)
 			}
-		case <-a.clock.After(10 * time.Second):
 		case <-refreshTimer.Chan():
 			// Force refresh of application status.
 		case reportChan := <-a.engineReportRequest:
