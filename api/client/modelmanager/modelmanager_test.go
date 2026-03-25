@@ -713,3 +713,53 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "fake error")
 	c.Assert(out, tc.IsNil)
 }
+
+func (s *dumpModelSuite) TestDumpModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.DumpModelRequest{
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
+	}
+
+	res := new(params.StringResults)
+	ress := params.StringResults{Results: []params.StringResult{{
+		Result: "version: 4.0.4\npayload:\n  agent_binary_store:\n  - version: 4.0.4\n",
+	}}}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DumpModels", args, res,
+	).SetArg(3, ress).Return(nil)
+	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
+
+	out, err := client.DumpModel(c.Context(), coretesting.ModelTag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out["version"], tc.Equals, "4.0.4")
+	_, ok := out["payload"]
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *dumpModelSuite) TestDumpModelError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.DumpModelRequest{
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
+	}
+
+	res := new(params.StringResults)
+	ress := params.StringResults{Results: []params.StringResult{{
+		Error: &params.Error{Message: "fake error"},
+	}}}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DumpModels", args, res,
+	).SetArg(3, ress).Return(nil)
+	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
+
+	out, err := client.DumpModel(c.Context(), coretesting.ModelTag)
+	c.Assert(err, tc.ErrorMatches, "fake error")
+	c.Assert(out, tc.IsNil)
+}

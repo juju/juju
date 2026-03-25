@@ -1617,6 +1617,44 @@ func (c *MockModelDomainServicesConfigCall) DoAndReturn(f func() modelmanager.Mo
 	return c
 }
 
+// Export mocks base method.
+func (m *MockModelDomainServices) Export() modelmanager.ExportService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Export")
+	ret0, _ := ret[0].(modelmanager.ExportService)
+	return ret0
+}
+
+// Export indicates an expected call of Export.
+func (mr *MockModelDomainServicesMockRecorder) Export() *MockModelDomainServicesExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockModelDomainServices)(nil).Export))
+	return &MockModelDomainServicesExportCall{Call: call}
+}
+
+// MockModelDomainServicesExportCall wrap *gomock.Call
+type MockModelDomainServicesExportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesExportCall) Return(arg0 modelmanager.ExportService) *MockModelDomainServicesExportCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesExportCall) Do(f func() modelmanager.ExportService) *MockModelDomainServicesExportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesExportCall) DoAndReturn(f func() modelmanager.ExportService) *MockModelDomainServicesExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Machine mocks base method.
 func (m *MockModelDomainServices) Machine() modelmanager.MachineService {
 	m.ctrl.T.Helper()
@@ -1731,40 +1769,40 @@ func (c *MockModelDomainServicesNetworkCall) DoAndReturn(f func() modelmanager.N
 	return c
 }
 
-// RemovalService mocks base method.
-func (m *MockModelDomainServices) RemovalService() modelmanager.RemovalService {
+// Removal mocks base method.
+func (m *MockModelDomainServices) Removal() modelmanager.RemovalService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovalService")
+	ret := m.ctrl.Call(m, "Removal")
 	ret0, _ := ret[0].(modelmanager.RemovalService)
 	return ret0
 }
 
-// RemovalService indicates an expected call of RemovalService.
-func (mr *MockModelDomainServicesMockRecorder) RemovalService() *MockModelDomainServicesRemovalServiceCall {
+// Removal indicates an expected call of Removal.
+func (mr *MockModelDomainServicesMockRecorder) Removal() *MockModelDomainServicesRemovalCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovalService", reflect.TypeOf((*MockModelDomainServices)(nil).RemovalService))
-	return &MockModelDomainServicesRemovalServiceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Removal", reflect.TypeOf((*MockModelDomainServices)(nil).Removal))
+	return &MockModelDomainServicesRemovalCall{Call: call}
 }
 
-// MockModelDomainServicesRemovalServiceCall wrap *gomock.Call
-type MockModelDomainServicesRemovalServiceCall struct {
+// MockModelDomainServicesRemovalCall wrap *gomock.Call
+type MockModelDomainServicesRemovalCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesRemovalServiceCall) Return(arg0 modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+func (c *MockModelDomainServicesRemovalCall) Return(arg0 modelmanager.RemovalService) *MockModelDomainServicesRemovalCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesRemovalServiceCall) Do(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+func (c *MockModelDomainServicesRemovalCall) Do(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesRemovalServiceCall) DoAndReturn(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalServiceCall {
+func (c *MockModelDomainServicesRemovalCall) DoAndReturn(f func() modelmanager.RemovalService) *MockModelDomainServicesRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
