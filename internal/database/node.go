@@ -301,28 +301,57 @@ func (m *NodeManager) WithTLSOption() (app.Option, error) {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(m.cfg.CACert()))
-
-	controllerCert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	listen, dial, err := dqliteTLSConfig(
+		m.cfg.CACert(), stateInfo.Cert, stateInfo.PrivateKey,
+	)
 	if err != nil {
-		return nil, errors.Annotate(err, "parsing controller certificate")
-	}
-
-	listen := &tls.Config{
-		ClientCAs:    caCertPool,
-		Certificates: []tls.Certificate{controllerCert},
-	}
-
-	dial := &tls.Config{
-		RootCAs:      caCertPool,
-		Certificates: []tls.Certificate{controllerCert},
-		// We cannot provide a ServerName value here, so we rely on the
-		// server validating the controller's client certificate.
-		InsecureSkipVerify: true,
+		return nil, errors.Trace(err)
 	}
 
 	return app.WithTLS(listen, dial), nil
+}
+
+func dqliteTLSConfig(
+	caCertPEM, certPEM, privateKeyPEM string,
+) (*tls.Config, *tls.Config, error) {
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM([]byte(caCertPEM)) {
+		return nil, nil, errors.New("failed to append controller CA cert to pool")
+	}
+
+	controllerCert, err := tls.X509KeyPair(
+		[]byte(certPEM), []byte(privateKeyPEM),
+	)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "parsing controller certificate")
+	}
+
+	x509Cert, err := x509.ParseCertificate(controllerCert.Certificate[0])
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "parsing controller x509 certificate")
+	}
+	if len(x509Cert.DNSNames) == 0 {
+		return nil, nil, errors.New("controller certificate has no DNS names")
+	}
+
+	listen := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{controllerCert},
+		RootCAs:      caCertPool,
+		ClientCAs:    caCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	}
+	listen.BuildNameToCertificate()
+
+	dial := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		RootCAs:            caCertPool,
+		Certificates:       []tls.Certificate{controllerCert},
+		ClientSessionCache: tls.NewLRUClientSessionCache(0),
+		ServerName:         x509Cert.DNSNames[0],
+	}
+
+	return listen, dial, nil
 }
 
 // WithClusterOption returns a Dqlite application Option for initialising
