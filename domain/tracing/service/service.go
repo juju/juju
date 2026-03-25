@@ -12,7 +12,7 @@ import (
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	// SetTracingConfig sets the tracing config in the state.
-	SetTracingConfig(ctx context.Context, insert map[string]string, delete []string) error
+	SetTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error
 
 	// GetTracingConfig returns the tracing config from the state.
 	GetTracingConfig(ctx context.Context) (map[string]string, error)
@@ -30,7 +30,7 @@ func NewService(st State) *Service {
 	}
 }
 
-// TracingConfig defines the tracing configuration for the model.
+// TracingConfig defines the tracing configuration for an OTEL collector.
 type TracingConfig struct {
 	HTTPEndpoint  string
 	HTTPSEndpoint string

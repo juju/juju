@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// State implements persistence for unit state.
+// State implements persistence for tracing configuration.
 type State struct {
 	*domain.StateBase
 }
@@ -26,7 +26,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // SetTracingConfig sets the tracing config in the state.
-func (st *State) SetTracingConfig(ctx context.Context, insert map[string]string, delete []string) error {
+func (st *State) SetTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return err
@@ -52,8 +52,8 @@ SET value = $tracingConfig.value`
 		return err
 	}
 
-	tracingConfigs := make([]tracingConfig, 0, len(insert))
-	for key, value := range insert {
+	tracingConfigs := make([]tracingConfig, 0, len(insertions))
+	for key, value := range insertions {
 		tracingConfigs = append(tracingConfigs, tracingConfig{
 			Key:   key,
 			Value: value,
@@ -61,8 +61,8 @@ SET value = $tracingConfig.value`
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if len(delete) > 0 {
-			if err := tx.Query(ctx, deleteStmt, tracingKeys(delete)).Run(); err != nil {
+		if len(deletions) > 0 {
+			if err := tx.Query(ctx, deleteStmt, tracingKeys(deletions)).Run(); err != nil {
 				return errors.Errorf("deleting tracing configs: %w", err)
 			}
 		}
@@ -102,11 +102,11 @@ func (st *State) GetTracingConfig(ctx context.Context) (map[string]string, error
 		return nil, err
 	}
 
-	endpoints := make(map[string]string)
+	tracingConfigMap := make(map[string]string)
 	for _, config := range configs {
-		endpoints[config.Key] = config.Value
+		tracingConfigMap[config.Key] = config.Value
 	}
-	return endpoints, nil
+	return tracingConfigMap, nil
 }
 
 type tracingConfig struct {

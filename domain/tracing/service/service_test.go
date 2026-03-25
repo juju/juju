@@ -86,6 +86,52 @@ func (s *serviceSuite) TestSetTracingConfigStateError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *serviceSuite) TestGetTracingConfigAllFields(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetTracingConfig(gomock.Any()).Return(map[string]string{
+		httpEndpointKey:  "http://localhost:4318",
+		httpsEndpointKey: "https://localhost:4318",
+		grpcEndpointKey:  "localhost:4317",
+		caCertificateKey: "cert-data",
+	}, nil)
+
+	config, err := NewService(s.st).GetTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, TracingConfig{
+		HTTPEndpoint:  "http://localhost:4318",
+		HTTPSEndpoint: "https://localhost:4318",
+		GRPCEndpoint:  "localhost:4317",
+		CACertificate: "cert-data",
+	})
+}
+
+func (s *serviceSuite) TestGetTracingConfigPartialFields(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetTracingConfig(gomock.Any()).Return(map[string]string{
+		grpcEndpointKey: "localhost:4317",
+	}, nil)
+
+	config, err := NewService(s.st).GetTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, TracingConfig{
+		HTTPEndpoint:  "",
+		HTTPSEndpoint: "",
+		GRPCEndpoint:  "localhost:4317",
+		CACertificate: "",
+	})
+}
+
+func (s *serviceSuite) TestGetTracingConfigStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetTracingConfig(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	_, err := NewService(s.st).GetTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
