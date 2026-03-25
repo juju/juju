@@ -65,6 +65,50 @@ type endpointName struct {
 // endpoints represents a list of network endpoints.
 type endpoints []string
 
+type getUnitRelAndApp struct {
+	UnitUUID     string `db:"unit_uuid"`
+	RelationUUID string `db:"relation_uuid"`
+}
+
+type relationUnitAndApp struct {
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	ApplicationUUID  string `db:"application_uuid"`
+}
+
+type applicationSettingsHash struct {
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+	Hash                 string `db:"sha256"`
+}
+
+type relationSetting struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type unitSettingsHash struct {
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	Hash             string `db:"sha256"`
+}
+
+type relationAndApplicationUUID struct {
+	RelationUUID  string `db:"relation_uuid"`
+	ApplicationID string `db:"application_uuid"`
+}
+
+type relationApplicationSetting struct {
+	UUID  string `db:"relation_endpoint_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type keys []string
+
+type relationUnitSetting struct {
+	UUID  string `db:"relation_unit_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
 type portRangeUUIDs []string
 
 // endpointPortRangeUUID represents an endpointPortRange with the port range

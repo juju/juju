@@ -27,7 +27,7 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("update network info: %v", err)
 		}
 
-		if err := st.updateRelationSettings(ctx, tx, arg.RelationSettings); err != nil {
+		if err := st.updateRelationSettings(ctx, tx, arg.UnitUUID, arg.RelationSettings); err != nil {
 			return errors.Errorf("update relation settings: %v", err)
 		}
 
@@ -73,7 +73,17 @@ func (st *State) updateNetworkInfo(ctx context.Context, tx *sqlair.TX, info bool
 	return nil
 }
 
-func (st *State) updateRelationSettings(ctx context.Context, tx *sqlair.TX, settings []internal.RelationSettings) error {
+func (st *State) updateRelationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	relationSettings []internal.RelationSettings,
+) error {
+	for _, settings := range relationSettings {
+		if err := st.setRelationApplicationAndUnitSettings(ctx, tx, unitUUID, settings); err != nil {
+			return errors.Errorf("setting relation settings for relation %q: %v", settings.RelationUUID, err)
+		}
+	}
 	return nil
 }
 

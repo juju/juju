@@ -4,60 +4,27 @@
 package state
 
 import (
+	"context"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/domain/unitstate/internal"
+	"github.com/juju/juju/internal/errors"
 )
 
 type unitRelationsSuite struct {
-	baseSuite
-
-	fakeCharmUUID1                string
-	fakeCharmUUID2                string
-	fakeApplicationUUID1          string
-	fakeApplicationUUID2          string
-	fakeApplicationName1          string
-	fakeApplicationName2          string
-	fakeCharmRelationProvidesUUID string
-
-	// relationCount helps generation of consecutive relation_id
-	relationCount int
+	commitHookSuite
 }
 
 func TestUnitRelationsSuite(t *testing.T) {
 	tc.Run(t, &unitRelationsSuite{})
-}
-
-func (s *unitRelationsSuite) SetUpTest(c *tc.C) {
-	s.baseSuite.SetUpTest(c)
-
-	s.fakeApplicationName1 = "fake-application-1"
-	s.fakeApplicationName2 = "fake-application-2"
-
-	// Populate DB with one application and charm.
-	s.fakeCharmUUID1 = s.addCharm(c)
-	s.fakeCharmUUID2 = s.addCharm(c)
-	s.fakeCharmRelationProvidesUUID = s.addCharmRelationWithDefaults(c, s.fakeCharmUUID1)
-	s.fakeApplicationUUID1 = s.addApplication(c, s.fakeCharmUUID1, s.fakeApplicationName1, network.AlphaSpaceId.String())
-	s.fakeApplicationUUID2 = s.addApplication(c, s.fakeCharmUUID2, s.fakeApplicationName2, network.AlphaSpaceId.String())
-
-	c.Cleanup(func() {
-		s.fakeCharmUUID1 = ""
-		s.fakeCharmUUID2 = ""
-		s.fakeApplicationName1 = ""
-		s.fakeApplicationName2 = ""
-		s.fakeApplicationUUID1 = ""
-		s.fakeApplicationUUID2 = ""
-		s.fakeCharmRelationProvidesUUID = ""
-		s.relationCount = 0
-	})
 }
 
 func (s *unitRelationsSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *tc.C) {
@@ -170,7 +137,6 @@ func (s *unitRelationsSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRela
 
 func (s *unitRelationsSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *tc.C) {
 	// Arrange: Add an endpoint and a peer relation on it.
-
 	endpoint1 := domainrelation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: charm.Relation{
@@ -206,7 +172,6 @@ func (s *unitRelationsSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *tc.
 // regular relation, not a peer relation.
 func (s *unitRelationsSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotFoundRegularRelation(c *tc.C) {
 	// Arrange: Add two endpoints and a relation on them.
-
 	endpoint1 := domainrelation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: charm.Relation{
@@ -265,81 +230,123 @@ func (s *unitRelationsSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFoun
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-// addCharmRelation inserts a new charm relation into the database with the
-// given UUID and attributes. Returns the relation UUID.
-func (s *unitRelationsSuite) addCharmRelation(c *tc.C, charmUUID string, r charm.Relation) string {
-	charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
-	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
-	return charmRelationUUID
+func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Declare settings and add initial settings.
+	appInitialSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	appSettingsUpdate := map[string]string{
+		"key2": "value22",
+		"key3": "",
+	}
+	appExpectedSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value22",
+	}
+	for k, v := range appInitialSettings {
+		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
+	}
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/7")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	unitInitialSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	unitSettingsUpdate := map[string]string{
+		"key2": "value22",
+		"key3": "",
+	}
+	unitExpectedSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value22",
+	}
+	for k, v := range unitInitialSettings {
+		s.addRelationUnitSetting(c, relationUnitUUID, k, v)
+	}
+
+	// Act:
+	err := s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationApplicationAndUnitSettings(
+			c.Context(),
+			tx,
+			unitUUID,
+			internal.RelationSettings{
+				RelationUUID:        relationUUID,
+				Settings:            unitSettingsUpdate,
+				ApplicationSettings: appSettingsUpdate,
+			},
+		)
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
+
+	foundAppSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
+	c.Check(foundAppSettings, tc.DeepEquals, appExpectedSettings)
+	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	c.Check(foundUnitSettings, tc.DeepEquals, unitExpectedSettings)
 }
 
-// addApplicationEndpoint inserts a new application endpoint into the database
-// with the specified UUIDs. Returns the endpoint uuid.
-func (s *unitRelationsSuite) addApplicationEndpoint(
-	c *tc.C, applicationUUID string, charmRelationUUID string,
-) string {
-	applicationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
-	return applicationEndpointUUID
-}
+func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
-// addRelation inserts a new relation into the database with default relation
-// and life IDs. Returns the relation UUID.
-func (s *unitRelationsSuite) addRelation(c *tc.C) corerelation.UUID {
-	relationUUID := tc.Must(c, corerelation.NewUUID)
-	s.query(c, `
-INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
-VALUES (?,0,?,0)
-`, relationUUID, s.relationCount)
-	s.relationCount++
-	return relationUUID
-}
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/3")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
-// addRelationEndpoint inserts a relation endpoint into the database
-// using the provided UUIDs for relation. Returns the endpoint UUID.
-func (s *unitRelationsSuite) addRelationEndpoint(
-	c *tc.C, relationUUID corerelation.UUID, applicationEndpointUUID string,
-) string {
-	relationEndpointUUID := tc.Must(c, corerelation.NewEndpointUUID).String()
-	s.query(c, `
-INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
-VALUES (?,?,?)
-`, relationEndpointUUID, relationUUID, applicationEndpointUUID)
-	return relationEndpointUUID
-}
+	// Act:
+	err := s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationApplicationAndUnitSettings(
+			c.Context(),
+			tx,
+			unitUUID,
+			internal.RelationSettings{
+				RelationUUID: relationUUID,
+			},
+		)
+	})
 
-// addCharmRelationWithDefaults inserts a new charm relation into the database
-// with the given UUID and predefined attributes. Returns the relation UUID.
-func (s *unitRelationsSuite) addCharmRelationWithDefaults(c *tc.C, charmUUID string) string {
-	charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
-	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
-VALUES (?, ?, 0, 0, 'fake-provides')
-`, charmRelationUUID, charmUUID)
-	return charmRelationUUID
-}
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-// encodeRoleID returns the ID used in the database for the given charm role. This
-// reflects the contents of the charm_relation_role table.
-func (s *unitRelationsSuite) encodeRoleID(role charm.RelationRole) int {
-	return map[charm.RelationRole]int{
-		charm.RoleProvider: 0,
-		charm.RoleRequirer: 1,
-		charm.RolePeer:     2,
-	}[role]
-}
-
-// encodeScopeID returns the ID used in the database for the given charm scope. This
-// reflects the contents of the charm_relation_scope table.
-func (s *unitRelationsSuite) encodeScopeID(role charm.RelationScope) int {
-	return map[charm.RelationScope]int{
-		charm.ScopeGlobal:    0,
-		charm.ScopeContainer: 1,
-	}[role]
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	c.Check(foundSettings, tc.HasLen, 0)
+	foundSettings = s.getRelationApplicationSettings(c, relationEndpointUUID1)
+	c.Check(foundSettings, tc.HasLen, 0)
 }

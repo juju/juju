@@ -12,15 +12,16 @@ import (
 	"github.com/juju/tc"
 
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/deployment/charm"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
-	baseSuite
+	commitHookBaseSuite
 }
 
 func TestCommitHookSuite(t *testing.T) {
@@ -108,21 +109,72 @@ func (s *commitHookSuite) TestUpdateCharmStateEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/7")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	// Arrange: setup the method input
+	appSettings := map[string]string{
+		"key2": "value2",
+		"key3": "value3",
+	}
+	unitSettings := map[string]string{
+		"key1": "value1",
+		"key3": "value3",
+	}
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: unitUUID,
+		RelationSettings: []internal.RelationSettings{{
+			RelationUUID:        relationUUID,
+			ApplicationSettings: appSettings,
+			Settings:            unitSettings,
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	foundAppSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
+	c.Check(foundAppSettings, tc.DeepEquals, appSettings)
+	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	c.Check(foundUnitSettings, tc.DeepEquals, unitSettings)
+}
+
 func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 	// Arrange
-	nodeUUID := s.addNetNode(c)
 	spaceUUID := s.addSpace(c)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, "testname", spaceUUID)
-	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+	unitName := coreunit.Name("testname/0")
+	expectedUUID := s.addUnit(c, unitName, appUUID, charmUUID)
 
 	// Act
-	uuid, err := s.state.GetUnitUUIDByName(c.Context(), coreunit.Name(unitUUID))
+	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), unitName)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuid, tc.Equals, unitUUID)
+	c.Check(unitUUID, tc.Equals, expectedUUID)
 }
 
 func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
@@ -130,22 +182,9 @@ func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *commitHookSuite) addNetNode(c *tc.C) string {
-	netNodeUUID := uuid.MustNewUUID().String()
-	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-	return netNodeUUID
-}
-
 func (s *commitHookSuite) addSpace(c *tc.C) string {
 	spaceUUID := uuid.MustNewUUID().String()
 	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
 		spaceUUID, spaceUUID)
 	return spaceUUID
-}
-
-func (s *commitHookSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
-		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
-	return unitUUID
 }
