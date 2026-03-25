@@ -3051,6 +3051,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	// Arrange: setup basics
 	unitName, _ := coreunit.NewName("wordpress/0")
 	unitTag := names.NewUnitTag(unitName.String())
+	relationKey, _ := corerelation.NewKeyFromString("one:db two:use")
 
 	// Arrange: SetUnitStateArg
 	arg := params.CommitHookChangesArg{
@@ -3064,6 +3065,12 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 		}},
 		OpenPorts: []params.EntityPortRange{{
 			Tag: unitTag.String(), Protocol: "icmp", FromPort: 80, ToPort: 80, Endpoint: "ep1",
+		}},
+		RelationUnitSettings: []params.RelationUnitSettings{{
+			Relation:            names.NewRelationTag(relationKey.String()).String(),
+			Unit:                unitTag.String(),
+			ApplicationSettings: map[string]string{"foo": "bar"},
+			Settings:            map[string]string{"key": "value"},
 		}},
 	}
 
@@ -3081,11 +3088,16 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 				Protocol: "icmp", FromPort: 80, ToPort: 80,
 			}},
 		},
+		RelationSettings: []unitstate.RelationSettings{{
+			RelationKey:         relationKey,
+			ApplicationSettings: map[string]string{"foo": "bar"},
+			Settings:            map[string]string{"key": "value"},
+		}},
 	}
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), domainArg).Return(nil)
 
 	// Act
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg, nil, nil)
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -3108,85 +3120,10 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
 	s.uniter.modelType = coremodel.CAAS
 
 	// Act
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg, nil, nil)
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
-	// arrange
-	defer s.setupMocks(c).Finish()
-	unitTag := names.NewUnitTag("wordpress/0")
-	relTag := names.NewRelationTag("wordpress:db mysql:db")
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	appSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	unitSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
-	s.expectGetRelationUUIDByKey(relKey, relUUID)
-	s.expectedSetRelationApplicationAndUnitSettings(coreunit.Name(unitTag.Id()), relUUID, appSettings, unitSettings)
-
-	canAccess := func(tag names.Tag) bool {
-		return true
-	}
-	arg := params.RelationUnitSettings{
-		Relation:            relTag.String(),
-		Unit:                unitTag.String(),
-		Settings:            unitSettings,
-		ApplicationSettings: appSettings,
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.IsNil)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(c *tc.C) {
-	// arrange
-	arg := params.RelationUnitSettings{
-		Unit: "machine-9",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, nil)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAccess(c *tc.C) {
-	// arrange
-	canAccess := func(tag names.Tag) bool {
-		return false
-	}
-	arg := params.RelationUnitSettings{
-		Unit: "unit-failauth-2",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelationTag(c *tc.C) {
-	// arrange
-	canAccess := func(tag names.Tag) bool {
-		return true
-	}
-	arg := params.RelationUnitSettings{
-		Unit:     "unit-wordpress-2",
-		Relation: "failme",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
@@ -3407,10 +3344,6 @@ func (s *commitHookChangesSuite) expectGetRelationUUIDByKey(key corerelation.Key
 
 func (s *commitHookChangesSuite) expectedSetRelationUnitSettings(unitName coreunit.Name, uuid corerelation.UUID, unitSettings map[string]string) {
 	s.relationService.EXPECT().SetRelationUnitSettings(gomock.Any(), unitName, uuid, unitSettings).Return(nil)
-}
-
-func (s *commitHookChangesSuite) expectedSetRelationApplicationAndUnitSettings(unitName coreunit.Name, uuid corerelation.UUID, appSettings, unitSettings map[string]string) {
-	s.relationService.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), unitName, uuid, appSettings, unitSettings).Return(nil)
 }
 
 func (s *commitHookChangesSuite) expectGetUnitRelationNetwork(unitName coreunit.Name, key corerelation.Key,
