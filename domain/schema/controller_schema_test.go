@@ -200,6 +200,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Agent binary metadata.
 		"agent_binary_store",
+
+		// Tracing config
+		"charm_tracing_config",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
