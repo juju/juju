@@ -333,7 +333,7 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 
 func constructModelQualifier(qualifier string, apiUser names.UserTag) model.Qualifier {
 	if qualifier == "" {
-		return model.Qualifier(apiUser.Id())
+		return model.QualifierFromUserTag(apiUser)
 	}
 
 	return model.Qualifier(qualifier)

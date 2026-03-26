@@ -63,7 +63,7 @@ func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelC
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               args.Name,
-		Qualifier:          ownerTag.Id(),
+		Qualifier:          coremodel.QualifierFromUserTag(ownerTag).String(),
 		Config:             args.Config,
 		CloudTag:           args.CloudTag,
 		CloudRegion:        args.CloudRegion,

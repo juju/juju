@@ -44,7 +44,7 @@ func (c *Client) modelInfoCompat(ctx context.Context) (migration.ModelInfo, erro
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
-		Qualifier:              model.Qualifier(owner.Id()),
+		Qualifier:              model.QualifierFromUserTag(owner),
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
 		ModelDescription:       modelDescription,

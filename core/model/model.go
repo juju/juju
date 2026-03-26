@@ -141,6 +141,12 @@ func (q Qualifier) Validate() error {
 	return nil
 }
 
+// QualifierFromUserTag returns a model qualifier created
+// from the supplied user tag.
+func QualifierFromUserTag(u names.UserTag) Qualifier {
+	return Qualifier(u.Id())
+}
+
 // ShortModelUUID returns a short version of the model UUID.
 func ShortModelUUID(uuid UUID) string {
 	// Taken from:

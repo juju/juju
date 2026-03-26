@@ -203,7 +203,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// For now, if logged in user is not admin,
 	// the only allowed qualifier must correspond to
 	// the logged in user to retain expected behaviour.
-	if !m.isAdmin && qualifier != coremodel.Qualifier(m.apiUser.Id()) {
+	if !m.isAdmin && qualifier != coremodel.QualifierFromUserTag(m.apiUser) {
 		return result, internalerrors.Errorf(
 			"cannot create model with qualifier %q", qualifier,
 		).Add(coreerrors.NotValid)

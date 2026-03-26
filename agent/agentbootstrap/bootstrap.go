@@ -187,7 +187,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
 		Name:        stateParams.ControllerModelConfig.Name(),
 		AdminUsers:  []user.UUID{adminUserUUID},
-		Qualifier:   coremodel.Qualifier(b.adminUser.Id()),
+		Qualifier:   coremodel.QualifierFromUserTag(b.adminUser),
 		Cloud:       stateParams.ControllerCloud.Name,
 		CloudRegion: stateParams.ControllerCloudRegion,
 		Credential:  credential.KeyFromTag(cloudCredTag),

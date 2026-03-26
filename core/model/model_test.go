@@ -6,6 +6,7 @@ package model
 import (
 	"testing"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -125,5 +126,26 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 		}
 
 		c.Check(err, tc.ErrorIs, test.err)
+	}
+}
+
+func (*ModelSuite) TestQualifierFromUserTag(c *tc.C) {
+	tests := []struct {
+		userTag   names.UserTag
+		qualifier Qualifier
+	}{
+		{
+			userTag:   names.NewUserTag("admin"),
+			qualifier: Qualifier("admin"),
+		},
+		{
+			userTag:   names.NewUserTag("alice@external"),
+			qualifier: Qualifier("alice@external"),
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.userTag)
+		c.Check(QualifierFromUserTag(test.userTag), tc.Equals, test.qualifier)
 	}
 }
