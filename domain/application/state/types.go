@@ -1298,10 +1298,9 @@ type modelType struct {
 	Type model.ModelType `db:"type"`
 }
 
-// unitCharmUpdateContext represents the set of values required before determining
-// whether we need to update the charm of a unit.
-type unitCharmUpdateContext struct {
-	UnitUUID             string    `db:"unit_uuid"`
-	LifeID               life.Life `db:"life_id"`
-	ApplicationCharmUUID string    `db:"application_charm_uuid"`
+// unitNetNodeWithCharm represents the net node and charm uuid for a unit.
+type unitNetNodeWithCharm struct {
+	UnitUUID    string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+	CharmUUID   string `db:"charm_uuid"`
 }

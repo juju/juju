@@ -437,3 +437,20 @@ type StorageInstanceCompositionVolumeAttachment struct {
 	// volume attachment.
 	VolumeUUID domainstorage.VolumeUUID
 }
+
+// UnitStorageRefreshArgs describes the required arguments to refresh a unit
+// to use a new charm with new storage.
+type UnitStorageRefreshArgs struct {
+	// NetNodeUUID is the net node of the unit.
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// CurrentCharmUUID is the uuid of the current charm the unit is using.
+	CurrentCharmUUID corecharm.ID
+
+	// RefreshCharmUUID is the uuid of the refresh charm the unit will use.
+	RefreshCharmUUID corecharm.ID
+
+	// RefreshStorageDirectives is the storage directives when the unit uses the
+	// charm specified in [RefreshCharmUUID].
+	RefreshStorageDirectives []StorageDirective
+}

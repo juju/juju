@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
@@ -35,6 +36,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1121,6 +1123,111 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		return errors.Errorf("updating CAAS unit %q: %w", unitName, err)
 	}
 	return nil
+}
+
+// GetUnitStorageDirectivesCurrentNext returns the current and the next storage
+// directives for this unit, if the unit was to switch to the given charm.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [applicationerrors.CharmNotFound] when the charm does not exist.
+func (st *State) GetUnitStorageRefreshArgs(
+	ctx context.Context, unit coreunit.UUID, next corecharm.ID,
+) (applicationinternal.UnitStorageRefreshArgs, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	charmUUID := charmUUID{UUID: next.String()}
+	unitUUID := unitUUID{UnitUUID: unit.String()}
+
+	unitStmt, err := st.Prepare(`
+SELECT &unitNetNodeWithCharm.*
+FROM   unit u
+WHERE  u.uuid = $unitUUID.uuid
+`, unitUUID, unitNetNodeWithCharm{})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	sdStmt, err := st.Prepare(`
+SELECT &storageDirective.* FROM (
+    SELECT usd.count,
+           usd.size_mib,
+           usd.storage_name,
+           usd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
+    FROM   unit_storage_directive usd
+    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND
+                               cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  unit_uuid = $unitUUID.uuid AND
+           charm_uuid = $charmUUID.uuid
+)`, unitUUID, charmUUID, storageDirective{})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	unitVal := unitNetNodeWithCharm{}
+	sdVals := []storageDirective{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, unitStmt, unitUUID).Get(&unitVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit %q does not exist", unit,
+			).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting unit %q details: %w", unit, err,
+			)
+		}
+
+		err = st.checkCharmExists(ctx, tx, charmUUID.UUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking charm %q exists: %w", charmUUID.UUID, err,
+			)
+		}
+
+		err = tx.Query(ctx, sdStmt, unitUUID, charmUUID).GetAll(&sdVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	retVal := applicationinternal.UnitStorageRefreshArgs{
+		NetNodeUUID:      domainnetwork.NetNodeUUID(unitVal.NetNodeUUID),
+		CurrentCharmUUID: corecharm.ID(unitVal.CharmUUID),
+		RefreshCharmUUID: next,
+		RefreshStorageDirectives: make(
+			[]applicationinternal.StorageDirective, 0, len(sdVals)),
+	}
+	for _, v := range sdVals {
+		sd := applicationinternal.StorageDirective{
+			CharmMetadataName: v.CharmMetadataName,
+			CharmStorageType:  charm.StorageType(v.CharmStorageKind),
+			Count:             v.Count,
+			MaxCount:          v.CountMax,
+			Name:              domainstorage.Name(v.StorageName),
+			PoolUUID:          domainstorage.StoragePoolUUID(v.StoragePoolUUID),
+			Size:              v.SizeMiB,
+		}
+		retVal.RefreshStorageDirectives = append(
+			retVal.RefreshStorageDirectives, sd)
+	}
+
+	return retVal, nil
 }
 
 // UpdateUnitCharm updates the currently running charm marker for the given
