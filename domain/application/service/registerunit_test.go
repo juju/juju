@@ -56,7 +56,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					UUID:            storageInstUUID,
 				},
 			},
-			StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{
+			StorageInstancesToAttach: []internal.CreateStorageInstanceAttachmentArg{
 				{
 					FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 						FilesystemUUID: fsUUID,

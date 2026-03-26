@@ -134,7 +134,7 @@ func (st *State) InsertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		args.NewStorageToAttach,
+		args.StorageInstancesToAttach,
 	)
 	if err != nil {
 		return "", nil, errors.Errorf(

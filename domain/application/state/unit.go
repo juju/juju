@@ -1090,7 +1090,7 @@ func (st *State) insertCAASUnitWithName(
 		ctx,
 		tx,
 		unitUUID,
-		args.NewStorageToAttach,
+		args.StorageInstancesToAttach,
 	)
 	if err != nil {
 		return "", errors.Errorf(

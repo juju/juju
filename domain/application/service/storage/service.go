@@ -320,8 +320,8 @@ func (s *Service) makeRegisterCAASUnitStorageArg(
 	// attachment provider ID mapped if one exists.
 	for _, storageInstance := range existingProviderStorage {
 		attachmentIndex := slices.IndexFunc(
-			unitStorageArgs.StorageToAttach,
-			func(e domainstorage.CreateUnitStorageAttachmentArg) bool {
+			unitStorageArgs.StorageInstancesToAttach,
+			func(e internal.CreateStorageInstanceAttachmentArg) bool {
 				return e.StorageInstanceUUID == storageInstance.UUID
 			},
 		)
@@ -345,7 +345,7 @@ func (s *Service) makeRegisterCAASUnitStorageArg(
 			existingUnitOwnedStorage,
 			existingUnitOwnedStorageAttachments,
 			unitStorageArgs.StorageInstances,
-			unitStorageArgs.NewStorageToAttach,
+			unitStorageArgs.StorageInstancesToAttach,
 		)
 	)
 
