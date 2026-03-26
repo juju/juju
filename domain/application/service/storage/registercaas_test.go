@@ -12,7 +12,6 @@ import (
 	caas "github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
@@ -86,7 +85,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 		"fs-1",
 	}).Return([]internal.StorageInstanceComposition{}, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
-		[]application.StorageDirective{
+		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
 				Count:             1,
@@ -217,7 +216,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 		"fs-1", "fs-2",
 	}).Return([]internal.StorageInstanceComposition{}, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
-		[]application.StorageDirective{
+		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
 				Count:             1,
@@ -367,7 +366,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 		"fs-1", "fs-2",
 	}).Return(existingProviderStorage, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
-		[]application.StorageDirective{
+		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
 				Count:             1,
@@ -519,7 +518,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 		"fs-1", "fs-2",
 	}).Return(existingProviderStorage, nil).AnyTimes()
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
-		[]application.StorageDirective{
+		[]internal.StorageDirective{
 			{
 				CharmMetadataName: "big-beautiful-charm",
 				Count:             1,
@@ -621,7 +620,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitApplicationNotFoun
 	}
 
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
-		[]application.StorageDirective{},
+		[]internal.StorageDirective{},
 		applicationerrors.ApplicationNotFound,
 	)
 	svc := Service{

@@ -107,7 +107,7 @@ SELECT &applicationStorageInfo.* FROM (
 func (st *State) GetApplicationStorageDirectives(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
-) ([]application.StorageDirective, error) {
+) ([]internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -161,9 +161,9 @@ SELECT &storageDirective.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]application.StorageDirective, 0, len(dbVals))
+	rval := make([]internal.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		rval = append(rval, application.StorageDirective{
+		rval = append(rval, internal.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
 			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
 			Count:             val.Count,
@@ -471,7 +471,7 @@ FROM (
 func (st *State) GetUnitStorageDirectives(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-) ([]application.StorageDirective, error) {
+) ([]internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -525,9 +525,9 @@ SELECT &storageDirective.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]application.StorageDirective, 0, len(dbVals))
+	rval := make([]internal.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		rval = append(rval, application.StorageDirective{
+		rval = append(rval, internal.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
 			Count:             val.Count,
 			MaxCount:          val.CountMax,
@@ -548,10 +548,10 @@ SELECT &storageDirective.* FROM (
 // - [applicationerrors.StorageNameNotSupported] if the named storage directive doesn't exist.
 func (st *State) GetUnitStorageDirectiveByName(
 	ctx context.Context, unitUUID coreunit.UUID, storageName string,
-) (application.StorageDirective, error) {
+) (internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
@@ -576,7 +576,7 @@ SELECT &storageDirective.* FROM (
 		unitUUIDInput, storageDirectiveInput,
 	)
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
 	var dbVal storageDirective
@@ -601,10 +601,10 @@ SELECT &storageDirective.* FROM (
 	})
 
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
-	return application.StorageDirective{
+	return internal.StorageDirective{
 		CharmMetadataName: dbVal.CharmMetadataName,
 		Count:             dbVal.Count,
 		MaxCount:          dbVal.CountMax,

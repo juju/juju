@@ -3127,7 +3127,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{}, applicationerrors.UnitNotFound)
+		Return(internal.StorageDirective{}, applicationerrors.UnitNotFound)
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -3138,7 +3138,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidUUID(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
-		Return(application.StorageDirective{}, coreerrors.NotValid)
+		Return(internal.StorageDirective{}, coreerrors.NotValid)
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", "!!!", 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -3150,7 +3150,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidName(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("!!!")).
-		Return(application.StorageDirective{}, corestorage.InvalidStorageName)
+		Return(internal.StorageDirective{}, corestorage.InvalidStorageName)
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "!!!", unitUUID, 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
@@ -3163,7 +3163,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{
+		Return(internal.StorageDirective{
 			Name:             "pgdata",
 			CharmStorageType: applicationcharm.StorageFilesystem,
 			Count:            1,
@@ -3208,7 +3208,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{
+		Return(internal.StorageDirective{
 			Name:             "pgdata",
 			CharmStorageType: applicationcharm.StorageFilesystem,
 			Count:            1,
@@ -3246,7 +3246,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
 
-	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), application.StorageDirective{
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), internal.StorageDirective{
 		Name:             "pgdata",
 		CharmStorageType: applicationcharm.StorageFilesystem,
 		Count:            1,
@@ -3281,7 +3281,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitNotFound(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{}, applicationerrors.UnitNotFound)
+		Return(internal.StorageDirective{}, applicationerrors.UnitNotFound)
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -3292,7 +3292,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidUUID(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
-		Return(application.StorageDirective{}, coreerrors.NotValid)
+		Return(internal.StorageDirective{}, coreerrors.NotValid)
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", "!!!", 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -3304,7 +3304,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidName(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("!!!")).
-		Return(application.StorageDirective{}, corestorage.InvalidStorageName)
+		Return(internal.StorageDirective{}, corestorage.InvalidStorageName)
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "!!!", unitUUID, 1, storage.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
@@ -3317,7 +3317,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{
+		Return(internal.StorageDirective{
 			Name:             "pgdata",
 			CharmStorageType: applicationcharm.StorageFilesystem,
 			Count:            1,
@@ -3362,7 +3362,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
-		Return(application.StorageDirective{
+		Return(internal.StorageDirective{
 			Name:             "pgdata",
 			CharmStorageType: applicationcharm.StorageFilesystem,
 			Count:            1,
@@ -3398,7 +3398,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		CountLessThanEqual: 656,
 	}
 
-	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), application.StorageDirective{
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), internal.StorageDirective{
 		Name:             "pgdata",
 		CharmStorageType: applicationcharm.StorageFilesystem,
 		Count:            1,

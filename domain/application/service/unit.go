@@ -253,7 +253,7 @@ type UnitState interface {
 func (s *ProviderService) makeIAASUnitArgs(
 	ctx context.Context,
 	units []AddIAASUnitArg,
-	storageDirectives []application.StorageDirective,
+	storageDirectives []internal.StorageDirective,
 	platform deployment.Platform,
 	constraints constraints.Constraints,
 ) ([]application.AddIAASUnitArg, error) {
@@ -347,7 +347,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 func (s *ProviderService) makeCAASUnitArgs(
 	ctx context.Context,
 	units []AddUnitArg,
-	storageDirectives []application.StorageDirective,
+	storageDirectives []internal.StorageDirective,
 	constraints constraints.Constraints,
 ) ([]application.AddCAASUnitArg, error) {
 	args := make([]application.AddCAASUnitArg, len(units))

@@ -320,7 +320,7 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 		},
 	}
 
-	expected := []domainapplication.StorageDirective{
+	expected := []internal.StorageDirective{
 		{
 			CharmMetadataName: "kratos",
 			CharmStorageType:  domainapplicationcharm.StorageFilesystem,
@@ -334,7 +334,7 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 			CharmMetadataName: "kratos",
 			CharmStorageType:  domainapplicationcharm.StorageBlock,
 			Count:             3,
-			MaxCount:          domainapplication.StorageDirectiveNoMaxCount,
+			MaxCount:          internal.StorageDirectiveNoMaxCount,
 			Name:              "data2",
 			PoolUUID:          poolUUID2,
 			Size:              1011,
@@ -353,7 +353,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoChang
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageFilesystem,
 			Name:             "data",
@@ -397,7 +397,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreas
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",
@@ -440,7 +440,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoSizeC
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",
@@ -484,7 +484,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreas
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",
@@ -526,7 +526,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageDecreas
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",
@@ -568,7 +568,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageAddNewS
 	defer s.setupMocks(c.T).Finish()
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",
@@ -621,7 +621,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageComplex
 
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	existingStorageDirectives := []internal.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
 			Name:             "data",

@@ -13,7 +13,6 @@ import (
 
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
@@ -247,7 +246,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 
 	gotDirectives, err := u.state.GetUnitStorageDirectives(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(gotDirectives, tc.SameContents, []application.StorageDirective{
+	c.Check(gotDirectives, tc.SameContents, []internal.StorageDirective{
 		{
 			CharmMetadataName: "foo",
 			CharmStorageType:  charm.StorageBlock,
@@ -362,7 +361,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 
 	gotDirective, err := u.state.GetUnitStorageDirectiveByName(c.Context(), unitUUID, "st2")
 	c.Check(err, tc.ErrorIsNil)
-	c.Assert(gotDirective, tc.DeepEquals, application.StorageDirective{
+	c.Assert(gotDirective, tc.DeepEquals, internal.StorageDirective{
 		CharmMetadataName: "foo",
 		CharmStorageType:  charm.StorageBlock,
 		Count:             1,
