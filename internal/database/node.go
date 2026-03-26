@@ -106,7 +106,7 @@ func (m *NodeManager) IsLoopbackBound(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	return strings.HasPrefix(servers[0].Address, dqliteBootstrapBindIP), nil
+	return strings.HasPrefix(servers[0].Address, "127."), nil
 }
 
 // IsExistingNode returns true if this machine or container has

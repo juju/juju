@@ -142,7 +142,7 @@ func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(nodeID, tc.Not(tc.Equals), uint64(0))
-	c.Check(addr, tc.Equals, "127.0.0.1")
+	c.Check(addr, tc.HasPrefix, "127.")
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *tc.C) {
