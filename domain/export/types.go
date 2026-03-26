@@ -8,9 +8,9 @@ package export
 // boundaries.
 type ModelExport struct {
 	// Version is the Juju semantic version that generated this export.
-	Version string
+	Version string `json:"version" yaml:"version"`
 
 	// Payload is export struct specific to the version,
 	// populated with a model's data.
-	Payload any
+	Payload any `json:"payload" yaml:"payload"`
 }

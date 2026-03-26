@@ -36,7 +36,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -438,10 +437,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]
 		return nil, errors.Trace(err)
 	}
 
-	bytes, err := yaml.Marshal(rpc.ModelExport{
-		Version: modelExport.Version,
-		Payload: modelExport.Payload,
-	})
+	bytes, err := yaml.Marshal(modelExport)
 	if err != nil {
 		return nil, internalerrors.Errorf("marshalling model export: %w", err)
 	}
