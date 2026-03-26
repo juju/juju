@@ -405,6 +405,9 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		func(ctx context.Context) (service.CAASProvider, error) {
 			return s.caasProvider, nil
 		},
+		func(ctx context.Context) (service.CloudInfoProvider, error) {
+			return cloudInfoProvider{}, nil
+		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		modelUUID,
@@ -466,4 +469,12 @@ func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Va
 
 func (serviceProvider) Application(string, caas.DeploymentType) caas.Application {
 	return nil
+}
+
+type cloudInfoProvider struct {
+	service.CloudInfoProvider
+}
+
+func (cloudInfoProvider) APIVersion() (string, error) {
+	return "", nil
 }

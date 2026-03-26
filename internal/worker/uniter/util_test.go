@@ -251,14 +251,11 @@ func (ctx *testContext) sendRelationUnitChange(c tc.LikeC, msg string, ruc watch
 }
 
 func (ctx *testContext) expectHookContext(c tc.LikeC) {
-	ctx.api.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	ctx.api.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
+	ctx.api.EXPECT().GetUnitContext(gomock.Any(), gomock.Any()).Return(apiuniter.UnitContext{
+		APIAddresses:    []string{"10.6.6.6"},
+		CloudAPIVersion: "6.6.6",
+	}, nil).AnyTimes()
 
-	cfg := coretesting.ModelConfig(c)
-	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
-	m, err := ctx.unit.AssignedMachine(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), m).Return(nil, nil).AnyTimes()
 	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
 }
 

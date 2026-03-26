@@ -1444,3 +1444,24 @@ type VirtualHostnameTargetArg struct {
 	Tag       string  `json:"tag"`
 	Container *string `json:"container,omitempty"`
 }
+
+// ProxySettings contains the proxy settings for a model, which may be used by
+// agents in the model.
+type ProxySettings struct {
+	HTTPProxy  string `json:"http-proxy,omitempty"`
+	HTTPSProxy string `json:"https-proxy,omitempty"`
+	FTPProxy   string `json:"ftp-proxy,omitempty"`
+	NoProxy    string `json:"no-proxy,omitempty"`
+}
+
+// UnitContext contains all the context information required for the
+// construction of a context factory.
+type UnitContext struct {
+	APIAddresses                      []string                          `json:"api-addresses"`
+	CloudAPIVersion                   string                            `json:"cloud-api-version"`
+	LegacyProxySettings               ProxySettings                     `json:"legacy-proxy-settings"`
+	JujuProxySettings                 ProxySettings                     `json:"juju-proxy-settings"`
+	PrivateAddress                    *string                           `json:"private-address,omitempty"`
+	OpenedMachinePortRangesByEndpoint map[string]map[string][]PortRange `json:"opened-machine-port-ranges-by-endpoint,omitempty"`
+	OpenedPortRangesByEndpoint        map[string]map[string][]PortRange `json:"opened-port-ranges-by-endpoint,omitempty"`
+}

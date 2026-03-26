@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
@@ -77,6 +78,7 @@ type UniterAPI struct {
 	resolveService            ResolveService
 	statusService             StatusService
 	controllerConfigService   ControllerConfigService
+	controllerNodeService     ControllerNodeService
 	crossModelRelationService CrossModelRelationService
 	machineService            MachineService
 	modelConfigService        ModelConfigService
@@ -3270,6 +3272,114 @@ func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
 
 // WatchLeadershipSettings is not implemented in version 21 of the uniter.
 func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
+
+// GetUnitContexts returns the contexts of the units specified in the request.
+func (u *UniterAPI) GetUnitContext(ctx context.Context, args params.Entity) (params.UnitContext, error) {
+	canAccess, err := u.accessUnit(ctx)
+	if err != nil {
+		return params.UnitContext{}, errors.Trace(err)
+	}
+
+	tag, err := names.ParseUnitTag(args.Tag)
+	if err != nil {
+		return params.UnitContext{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	if !canAccess(tag) {
+		return params.UnitContext{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	unitName, err := coreunit.NewName(tag.Id())
+	if err != nil {
+		return params.UnitContext{}, apiservererrors.ServerError(
+			errors.BadRequestf("parsing unit name: %s", tag.Id()),
+		)
+	}
+
+	unitContext, err := u.getUnitContext(ctx, unitName)
+	if err != nil {
+		return params.UnitContext{}, apiservererrors.ServerError(err)
+	}
+
+	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
+	if err != nil {
+		return params.UnitContext{}, apiservererrors.ServerError(
+			internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err),
+		)
+	}
+	unitContext.APIAddresses = apiAddresses
+
+	return unitContext, nil
+}
+
+func (u *UniterAPI) getUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
+	if u.modelType == model.CAAS {
+		return u.getCAASUnitContext(ctx, unitName)
+	}
+	return u.getIAASUnitContext(ctx, unitName)
+}
+
+func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
+	unitContext, err := u.applicationService.GetCAASUnitContext(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.UnitContext{}, errors.NotFoundf("getting unit %q", unitName)
+	} else if err != nil {
+		return params.UnitContext{}, errors.Trace(err)
+	}
+
+	return params.UnitContext{
+		CloudAPIVersion:            unitContext.CloudAPIVersion,
+		LegacyProxySettings:        encodeProxySettings(unitContext.LegacyProxySettings),
+		JujuProxySettings:          encodeProxySettings(unitContext.JujuProxySettings),
+		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(unitContext.OpenedPortRangesByEndpoint),
+	}, nil
+}
+
+func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Name) (params.UnitContext, error) {
+	unitContext, err := u.applicationService.GetIAASUnitContext(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.UnitContext{}, errors.NotFoundf("getting unit %q", unitName)
+	} else if err != nil {
+		return params.UnitContext{}, errors.Trace(err)
+	}
+
+	return params.UnitContext{
+		CloudAPIVersion:                   unitContext.CloudAPIVersion,
+		LegacyProxySettings:               encodeProxySettings(unitContext.LegacyProxySettings),
+		JujuProxySettings:                 encodeProxySettings(unitContext.JujuProxySettings),
+		PrivateAddress:                    unitContext.PrivateAddress,
+		OpenedMachinePortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(unitContext.OpenedMachinePortRangesByEndpoint),
+	}, nil
+}
+
+func encodeProxySettings(settings proxy.Settings) params.ProxySettings {
+	return params.ProxySettings{
+		HTTPProxy:  settings.Http,
+		HTTPSProxy: settings.Https,
+		FTPProxy:   settings.Ftp,
+		NoProxy:    settings.NoProxy,
+	}
+}
+
+func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges) map[string]map[string][]params.PortRange {
+	result := map[string]map[string][]params.PortRange{}
+	for unitName, groupedPortRanges := range openedPortRangesByEndpoint {
+		unitTag := names.NewUnitTag(unitName.String())
+
+		unitPortRanges := make(map[string][]params.PortRange, len(groupedPortRanges))
+		for endpoint, portRanges := range groupedPortRanges {
+			for _, portRange := range portRanges {
+				unitPortRanges[endpoint] = append(unitPortRanges[endpoint], params.PortRange{
+					FromPort: portRange.FromPort,
+					ToPort:   portRange.ToPort,
+					Protocol: portRange.Protocol,
+				})
+			}
+		}
+		result[unitTag.String()] = unitPortRanges
+	}
+	return result
+}
 
 func nilZeroPtr[T comparable](v T) *T {
 	var zero T

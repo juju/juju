@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainlife "github.com/juju/juju/domain/life"
@@ -217,6 +218,14 @@ type ApplicationService interface {
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
 	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error
+
+	// GetIAASUnitContext returns the unit context for a unit running on an IAAS
+	// provider.
+	GetIAASUnitContext(context.Context, coreunit.Name) (applicationservice.IAASUnitContext, error)
+
+	// GetCAASUnitContext returns the unit context for a unit running on an CAAS
+	// provider.
+	GetCAASUnitContext(context.Context, coreunit.Name) (applicationservice.CAASUnitContext, error)
 }
 
 // NetworkService is the interface that is used to interact with the

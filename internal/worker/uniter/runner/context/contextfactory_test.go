@@ -59,11 +59,12 @@ func (s *ContextFactorySuite) setupContextFactory(c *tc.C, ctrl *gomock.Controll
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: s.modelType,
 	}, nil)
-	s.uniter.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	s.uniter.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
-
-	cfg := coretesting.ModelConfig(c)
-	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
+	privateAddress := "u-0.testing.invalid"
+	s.uniter.EXPECT().GetUnitContext(gomock.Any(), s.unit.Tag()).Return(apiuniter.UnitContext{
+		APIAddresses:    []string{"10.6.6.6"},
+		CloudAPIVersion: "6.6.6",
+		PrivateAddress:  &privateAddress,
+	}, nil).AnyTimes()
 
 	contextFactory, err := context.NewContextFactory(c.Context(), context.FactoryConfig{
 		Uniter:           s.uniter,

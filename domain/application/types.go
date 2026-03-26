@@ -510,8 +510,8 @@ type ApplicationDetails struct {
 	IsApplicationSynthetic bool
 }
 
-// ApplicationStorageDirectiveOverride represents override instructions in the application
-// domain for application storage directives to alter the default
+// ApplicationStorageDirectiveOverride represents override instructions in the
+// application domain for application storage directives to alter the default
 // values a new application will receive.
 type ApplicationStorageDirectiveOverride struct {
 	// Count is the number of storage instances to create for each unit. This

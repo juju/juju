@@ -26,7 +26,7 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*UniterAPIv20)(nil)))
 	registry.MustRegister("Uniter", 21, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPIv21(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPI)(nil)))
+	}, reflect.TypeOf((*UniterAPIv21)(nil)))
 	registry.MustRegister("Uniter", 22, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
@@ -166,6 +166,7 @@ func newUniterAPIWithServices(
 
 		applicationService:        services.ApplicationService,
 		controllerConfigService:   services.ControllerConfigService,
+		controllerNodeService:     services.ControllerNodeService,
 		crossModelRelationService: services.CrossModelRelationService,
 		machineService:            services.MachineService,
 		modelConfigService:        services.ModelConfigService,

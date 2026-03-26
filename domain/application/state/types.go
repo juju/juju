@@ -9,7 +9,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -232,6 +231,17 @@ type spaceAddress struct {
 	DeviceID     string                      `db:"device_uuid"`
 	SpaceUUID    sql.Null[network.SpaceUUID] `db:"space_uuid"`
 	SubnetCIDR   sql.NullString              `db:"cidr"`
+}
+
+type unitSpaceAddress struct {
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
 }
 
 type subnet struct {
@@ -1130,9 +1140,15 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
-type machineNameWithNetNode struct {
-	Name        coremachine.Name `db:"name"`
-	NetNodeUUID string           `db:"net_node_uuid"`
+type nameWithNetNode struct {
+	Name        string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
+type nameWithNetNodeAndLife struct {
+	Name        string    `db:"name"`
+	NetNodeUUID string    `db:"net_node_uuid"`
+	LifeID      life.Life `db:"life_id"`
 }
 
 // machineUUIDWithNetNode represents the uuid and net node uuid columns from the
@@ -1183,17 +1199,17 @@ type applicationWorkloadVersion struct {
 	Version         string `db:"version"`
 }
 
-type getPrincipal struct {
+type principal struct {
 	PrincipalUnitName   coreunit.Name `db:"principal_unit_name"`
 	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
 }
 
-type getUnitMachineName struct {
+type unitMachineName struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineName string `db:"name"`
 }
 
-type getUnitMachineUUID struct {
+type unitMachineUUID struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineUUID string `db:"uuid"`
 }
@@ -1202,7 +1218,7 @@ type lifeID struct {
 	LifeID life.Life `db:"life_id"`
 }
 
-type getCharmUpgradeOnError struct {
+type charmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -562,4 +563,88 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
+}
+
+// UnitContext contains context information required for the construction of a
+// context factory.
+type UnitContext struct {
+	// APIAddresses contains the addresses of the API server that the unit can
+	// use to connect to it.
+	APIAddresses []string
+	// CloudAPIVersion contains the API version of the cloud, if known.
+	CloudAPIVersion string
+	// LegacyProxySettings contains the proxy settings from the model config
+	// under the legacy keys (e.g. http-proxy).
+	LegacyProxySettings proxy.Settings
+	// JujuProxySettings contains the proxy settings from the model config under
+	// the juju keys (e.g. juju-http-proxy).
+	JujuProxySettings proxy.Settings
+	// PrivateAddress contains the private address of the unit, if known.
+	PrivateAddress *string
+	// OpenedMachinePortRangesByEndpoint returns all port ranges currently open
+	// on the given machine, grouped by unit tag and application endpoint.
+	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	// OpenedPortRangesByEndpoint returns all port ranges currently opened
+	// grouped by unit tag and application endpoint.
+	OpenedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+}
+
+// GetUnitContext returns context information required for the construction of a
+// context factory.
+func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (UnitContext, error) {
+	var result params.UnitContext
+	args := params.Entity{Tag: tag.String()}
+	err := client.facade.FacadeCall(ctx, "GetUnitContext", args, &result)
+	if err != nil {
+		return UnitContext{}, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	return decodeUnitContext(result)
+}
+
+func decodeUnitContext(paramsUnitContext params.UnitContext) (UnitContext, error) {
+	machineOpenedRages, err := decodeOpenedPortRangesByEndpoint(paramsUnitContext.OpenedMachinePortRangesByEndpoint)
+	if err != nil {
+		return UnitContext{}, errors.Trace(err)
+	}
+	unitOpenedRages, err := decodeOpenedPortRangesByEndpoint(paramsUnitContext.OpenedPortRangesByEndpoint)
+	if err != nil {
+		return UnitContext{}, errors.Trace(err)
+	}
+
+	return UnitContext{
+		APIAddresses:                      paramsUnitContext.APIAddresses,
+		CloudAPIVersion:                   paramsUnitContext.CloudAPIVersion,
+		LegacyProxySettings:               decodeProxySettings(paramsUnitContext.LegacyProxySettings),
+		JujuProxySettings:                 decodeProxySettings(paramsUnitContext.JujuProxySettings),
+		PrivateAddress:                    paramsUnitContext.PrivateAddress,
+		OpenedMachinePortRangesByEndpoint: machineOpenedRages,
+		OpenedPortRangesByEndpoint:        unitOpenedRages,
+	}, nil
+}
+
+func decodeProxySettings(encoded params.ProxySettings) proxy.Settings {
+	return proxy.Settings{
+		Http:    encoded.HTTPProxy,
+		Https:   encoded.HTTPSProxy,
+		Ftp:     encoded.FTPProxy,
+		NoProxy: encoded.NoProxy,
+	}
+}
+
+func decodeOpenedPortRangesByEndpoint(encoded map[string]map[string][]params.PortRange) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
+	for unitTagStr, unitPortRanges := range encoded {
+		unitTag, err := names.ParseUnitTag(unitTagStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitPortRange := make(network.GroupedPortRanges)
+		for endpoint, portRanges := range unitPortRanges {
+			unitPortRange[endpoint] = transform.Slice(portRanges, func(pr params.PortRange) network.PortRange {
+				return pr.NetworkPortRange()
+			})
+		}
+		portRangeMap[unitTag] = unitPortRange
+	}
+	return portRangeMap, nil
 }

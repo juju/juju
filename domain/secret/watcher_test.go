@@ -16,6 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
@@ -999,6 +1000,9 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) string {
 		},
 		func(ctx context.Context) (applicationservice.CAASProvider, error) {
 			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
+			return nil, coreerrors.NotSupported
 		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
