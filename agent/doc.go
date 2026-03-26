@@ -1,10 +1,10 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package agent manages agent configuration for Juju agents.
 //
 // Agents are Juju processes that run on behalf of specific entities (machines,
-// units, applications, models, or controllers). Agent configuration provides
+// units, models, or controllers). Agent configuration provides
 // persistent identity, credentials, and connection details -- API credentials,
 // controller addresses, CA certificates, directory paths, and operational
 // settings like logging configuration -- that allow them to authenticate to the

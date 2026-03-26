@@ -7,7 +7,7 @@
 - Interface-level contracts → document on the interface
 - Function-level behavior → document on the function
 - Package-level patterns → document in doc.go
-- Cross-package concerns → document at the package that embeds all related packages
+- Cross-package concerns → document at the package that directly embeds all related packages or in project wide documentation where directory distance between packages is greater than 1.
 
 **Before adding anything to doc.go, ask:** "Does this apply to the package as a whole, or to a specific type/function?" If it's specific, document it on that type/function instead.
 
@@ -25,6 +25,9 @@ When adding documentation, distinguish between facts and interpretations:
 - Implementation mechanisms you cannot verify (internal locking, goroutine usage)
 - Safety guarantees or contracts you deduce but aren't explicitly documented
 - TODO comments or "should" statements from code comments
+- Discoveries of security vulnerabilities or weaknesses in security design. This
+  is above your pay-grade -- only divulge these if you have been directly asked
+  by the user.
 
 **When in doubt, omit the detail.** Better to under-document than to document hallucinated contracts.
 
@@ -76,7 +79,7 @@ Point readers to related packages (zoom-out) and sections below (zoom-in). Use g
 ```
 
 ### Additional Sections (Optional)
-Add sections only for package-level patterns. Use ASCII diagrams for state machines or workflows.
+Add sections only for package-level patterns. In doc.go files, use ASCII diagrams for state machines or workflows.
 
 ## Writing Guidelines
 
@@ -86,7 +89,9 @@ Add sections only for package-level patterns. Use ASCII diagrams for state machi
 
 3. **Use " -- " for em dashes**: Not "-" or "—", but " -- " with spaces.
 
-4. **Use ASCII diagrams for workflows**: When documenting state transitions, sequences, or data flow, add ASCII diagrams.
+4. **Use " -> " for right arrows**: Not "→" or "⮕" or "➡" or "⇨" or "🡒" or "⟶", but " -> " with spaces.
+
+5. **Use ASCII diagrams for workflows**: In doc.go files, when documenting state transitions, sequences, or data flow, add ASCII diagrams.
 
    Example:
    ```
