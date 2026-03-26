@@ -123,7 +123,11 @@ type ModelCreateArgs struct {
 	// Name is the name for the new model.
 	Name string `json:"name"`
 
-	// Qualifier disambiguates the name of the model.
+	// Qualifier is the model owner identifier used to disambiguate Name.
+	// It uses user-id form (for example "admin" or "alice@external"),
+	// not full user-tag form (for example "user-admin").
+	// Clients should pass this through and let server-side validation decide
+	// whether it is acceptable.
 	Qualifier string `json:"qualifier"`
 
 	// Config defines the model config, which includes the name of the
@@ -157,7 +161,8 @@ type ModelCreateArgs struct {
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name      string `json:"name"`
+	Name string `json:"name"`
+	// Qualifier is the owner identifier used to disambiguate Name.
 	Qualifier string `json:"qualifier"`
 	UUID      string `json:"uuid"`
 	Type      string `json:"type"`

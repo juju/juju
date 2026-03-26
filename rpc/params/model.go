@@ -28,7 +28,8 @@ type ModelConfigResults struct {
 // with the provider. This is used to take down mis-behaving models
 // aggressively.
 type HostedModelConfig struct {
-	Name      string                 `json:"name"`
+	Name string `json:"name"`
+	// Qualifier is the model owner identifier used to disambiguate Name.
 	Qualifier string                 `json:"qualifier"`
 	Config    map[string]interface{} `json:"config,omitempty"`
 	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
@@ -144,7 +145,9 @@ type ModelInfo struct {
 	// CloudCredentialValidity contains if model credential is valid, if known.
 	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitempty"`
 
-	// Qualifier disambiguates the model name.
+	// Qualifier is the model owner identifier used to disambiguate Name.
+	// It uses user-id form (for example "admin" or "alice@external"),
+	// not full user-tag form.
 	Qualifier string `json:"qualifier"`
 
 	// Life is the current lifecycle state of the model.
@@ -197,7 +200,8 @@ type SupportedFeature struct {
 
 // ModelSummary holds summary about a Juju model.
 type ModelSummary struct {
-	Name               string `json:"name"`
+	Name string `json:"name"`
+	// Qualifier is the model owner identifier used to disambiguate Name.
 	Qualifier          string `json:"qualifier"`
 	UUID               string `json:"uuid"`
 	Type               string `json:"type"`
