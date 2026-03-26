@@ -43,7 +43,7 @@ type InsertIAASUnitState interface {
 		tx *sqlair.TX,
 		appUUID, charmUUID string,
 		args application.AddIAASUnitArg,
-	) (coreunit.Name, coreunit.UUID, []coremachine.Name, error)
+	) (coreunit.Name, []coremachine.Name, error)
 }
 
 // NewInsertIAASUnitState returns a new insert IAAS unit state reference.
@@ -63,17 +63,17 @@ func (st *State) InsertIAASUnit(
 	tx *sqlair.TX,
 	appUUID, charmUUID string,
 	args application.AddIAASUnitArg,
-) (coreunit.Name, coreunit.UUID, []coremachine.Name, error) {
+) (coreunit.Name, []coremachine.Name, error) {
 	unitName, err := st.newUnitName(ctx, tx, appUUID)
 	if err != nil {
-		return "", "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+		return "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
 
 	unitUUID := args.UnitUUID.String()
 
 	machineNames, err := st.placeIAASUnitMachine(ctx, tx, args)
 	if err != nil {
-		return "", "", nil, errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
 
 	err = st.insertUnit(
@@ -85,21 +85,47 @@ func (st *State) InsertIAASUnit(
 		},
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+		return "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit exist and are alive.
+	err = st.checkStorageInstancesExistAndAlive(
+		ctx, tx, args.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"checking existing Storage Instances exist and are alive: %w", err,
+		)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit have the expected attachments on which the
+	// information was calculated.
+	err = st.checkStorageInstancesAttachmentExpectations(
+		ctx,
+		tx,
+		args.AddUnitArg.CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"checking pre condition for existing storage instance attachments: %w",
+			err,
+		)
 	}
 
 	err = st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage directives for unit %q: %w", unitName, err,
 		)
 	}
 
 	_, err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,
 		)
 	}
@@ -111,14 +137,14 @@ func (st *State) InsertIAASUnit(
 		args.NewStorageToAttach,
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage attachments for unit %q: %w", unitName, err,
 		)
 	}
 
 	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
 		)
 	}
@@ -126,7 +152,7 @@ func (st *State) InsertIAASUnit(
 	err = st.insertMachineVolumeOwnership(ctx, tx, args.MachineUUID,
 		args.VolumesToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting volume ownership for machine %q: %w",
 			args.MachineUUID, err,
 		)
@@ -135,23 +161,25 @@ func (st *State) InsertIAASUnit(
 	err = st.insertMachineFilesystemOwnership(ctx, tx, args.MachineUUID,
 		args.FilesystemsToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting volume ownership for machine %q: %w",
 			args.MachineUUID, err,
 		)
 	}
 
-	for _, extra := range args.ExistingStorageToAttach {
-		err = st.attachExistingStorageForNewUnit(ctx, tx, extra.StorageInstanceUUID, args.UnitUUID, extra)
-		if err != nil {
-			return "", "", nil, errors.Errorf(
-				"attaching existing storage instance %q to unit %q: %w",
-				extra.StorageInstanceUUID, unitName, err,
-			)
-		}
+	// If we are using any existing Storage Instances we need to ensure that the
+	// charm name column has been updated.
+	err = st.setStorageInstancesCharmName(
+		ctx, tx, args.StorageInstanceCharmNameSetArgs,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"updating storage instance charm name for new unit %q: %w",
+			unitName, err,
+		)
 	}
 
-	return coreunit.Name(unitName), coreunit.UUID(unitUUID), machineNames, nil
+	return coreunit.Name(unitName), machineNames, nil
 }
 
 type insertUnitArg struct {

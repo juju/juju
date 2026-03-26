@@ -29,6 +29,12 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// entityUUIDLife represents a UUID and life ID pair.
+type entityUUIDLife struct {
+	UUID   string `db:"uuid"`
+	LifeID int    `db:"life_id"`
+}
+
 type entityName struct {
 	Name string `db:"name"`
 }

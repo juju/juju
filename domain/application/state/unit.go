@@ -497,7 +497,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, _, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
+			uName, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -1011,6 +1011,18 @@ func (st *State) insertCAASUnit(
 
 // insertCAASUnitWithName inserts a new CAAS unit into the model using the
 // supplied unit name. Returned is the uuid for the new unit.
+//
+// The following errors can be expected:
+//   - [storageerrors.StorageInstanceNotFound] when any storage instance
+//     in [application.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     does not exist.
+//   - [storageerrors.StorageInstanceNotAlive] when any storage instance
+//     in [application.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     is not alive.
+//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when a storage
+//     instance has attachments outside
+//     [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] or is
+//     missing expected attachments.
 func (st *State) insertCAASUnitWithName(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1019,17 +1031,44 @@ func (st *State) insertCAASUnitWithName(
 ) (string, error) {
 	unitUUID := args.UnitUUID.String()
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
+	err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
 		Constraints:    args.Constraints,
 		UnitStatusArg:  args.UnitStatusArg,
-	}); err != nil {
+	})
+	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	err := st.insertUnitStorageDirectives(
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit exist and are alive.
+	err = st.checkStorageInstancesExistAndAlive(
+		ctx, tx, args.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"checking existing Storage Instances exist and are alive: %w", err,
+		)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit have the expected attachments on which the
+	// information was calculated.
+	err = st.checkStorageInstancesAttachmentExpectations(
+		ctx,
+		tx,
+		args.AddUnitArg.CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"checking pre condition for existing storage instance attachments: %w",
+			err,
+		)
+	}
+
+	err = st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
@@ -1063,6 +1102,18 @@ func (st *State) insertCAASUnitWithName(
 	if err != nil {
 		return "", errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
+		)
+	}
+
+	// If we are using any existing Storage Instances we need to ensure that the
+	// charm name column has been updated.
+	err = st.setStorageInstancesCharmName(
+		ctx, tx, args.StorageInstanceCharmNameSetArgs,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"updating storage instance charm name for new unit %q: %w",
+			unitName, err,
 		)
 	}
 

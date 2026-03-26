@@ -107,7 +107,7 @@ func (st *State) addSubordinateUnit(
 		},
 	}
 
-	unitName, unitUUID, _, err := st.unitState.InsertIAASUnit(
+	unitName, _, err := st.unitState.InsertIAASUnit(
 		ctx, tx, subAppUUID, charmUUID, addUnitArg,
 	)
 	if err != nil {

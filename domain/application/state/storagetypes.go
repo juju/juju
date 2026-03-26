@@ -13,6 +13,17 @@ import (
 // with sqlair.
 type storageInstanceUUID entityUUID
 
+// storageInstanceUUIDs is used for queries that accept a list of storage
+// instance UUIDs.
+type storageInstanceUUIDs []string
+
+// storageInstanceAttachmentsCount is used to represent attachment counts for a
+// storage instance.
+type storageInstanceAttachmentsCount struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	Count               int    `db:"count"`
+}
+
 // storageAttachmentUUIDs is used for queries that return a list of storage
 // attachment UUIDs.
 type storageAttachmentUUIDs []string
