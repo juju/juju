@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"sort"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -43,11 +42,10 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName unit.Name)
 		return matchedAddrs[0], nil
 	}
 
-	// If no address matches cloud-local scope, pick a deterministic first
-	// address from all candidates.
-	sortedAddrs := append(network.SpaceAddresses(nil), addrs...)
-	sort.Sort(sortedAddrs)
-	return sortedAddrs[0], nil
+	// AllMatchingScope already falls back to public addresses if no
+	// cloud-local address exists. If we still have no match, only
+	// unsuitable addresses (localhost, link-local) remain.
+	return network.SpaceAddress{}, network.NoAddressError("private")
 }
 
 // GetUnitPublicAddress returns the public address for the specified unit.

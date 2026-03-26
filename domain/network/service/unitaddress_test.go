@@ -533,6 +533,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 
 	unitName := unit.Name("foo/0")
 
+	// Only machine-local and link-local addresses.
 	nonMatchingScopeAddrs := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
@@ -575,11 +576,10 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("foo/0")).Return(unit.UUID("foo-uuid"), nil)
 	s.st.EXPECT().GetUnitAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
-	addr, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-	// We always return the (first) container address even if it doesn't match
-	// the scope.
-	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[0])
+	_, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
+	// AllMatchingScope with ScopeMatchCloudLocal returns invalidScope for both
+	// scopes, so no address can be selected and NoAddressError must be returned.
+	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 
 func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddressesSorted(c *tc.C) {
@@ -594,7 +594,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddressesSorted(c *tc
 				Value:      "10.0.0.9",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
+				Scope:      network.ScopeCloudLocal,
 			},
 		},
 		{
@@ -603,7 +603,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddressesSorted(c *tc
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
+				Scope:      network.ScopeCloudLocal,
 			},
 		},
 	}
