@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1254,6 +1255,8 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		namespace:      broker.namespace,
 		serviceAccount: broker.serviceAccount,
 		client:         broker.client,
+		// TODO: expose to test.
+		clock: clock.WallClock,
 	}, nil
 }
 

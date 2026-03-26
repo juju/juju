@@ -1994,7 +1994,8 @@ func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filter := func(id interface{}) bool {
+	sck := a.storageConstraintsKey()
+	filter := func(id any) bool {
 		id, ok := id.(string)
 		if !ok {
 			return false
@@ -2011,7 +2012,7 @@ func (a *Application) WatchStorageConstraints() (NotifyWatcher, error) {
 		// Construct the key with just the application name.
 		// For e.g. `asc#postgresql` rather than `asc#postgresql#ch:<arch>/postgresql-<rev>`.
 		key := parts[0] + "#" + parts[1] + "#"
-		appMatched := strings.HasPrefix(a.storageConstraintsKey(), key)
+		appMatched := strings.HasPrefix(sck, key)
 		if !appMatched {
 			return false
 		}
