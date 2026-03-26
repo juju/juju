@@ -411,6 +411,7 @@ func (s *applicationSuite) TestMarkApplicationAsDead(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.GetApplicationLife(gomock.Any(), appUUID.String()).Return(life.Dying, nil)
 	exp.GetApplicationUnitAndRelationCount(gomock.Any(), appUUID.String()).Return(0, 0, nil)
 	exp.MarkApplicationAsDead(gomock.Any(), appUUID.String()).Return(nil)
 
@@ -434,6 +435,7 @@ func (s *applicationSuite) TestMarkApplicationAsDeadWithUnitsReturnsIncomplete(c
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.GetApplicationLife(gomock.Any(), appUUID.String()).Return(life.Dying, nil)
 	exp.GetApplicationUnitAndRelationCount(gomock.Any(), appUUID.String()).Return(1, 0, nil)
 
 	err := s.newService(c).markApplicationAsDead(c.Context(), appUUID.String())
@@ -441,16 +443,42 @@ func (s *applicationSuite) TestMarkApplicationAsDeadWithUnitsReturnsIncomplete(c
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
-func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedCAASResourcesStillExist(c *tc.C) {
+func (s *applicationSuite) TestMarkApplicationAsDeadNotDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.GetApplicationLife(gomock.Any(), appUUID.String()).Return(life.Alive, nil)
+
+	err := s.newService(c).markApplicationAsDead(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+}
+
+func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedCAASResourcesStillExist(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	exp := s.modelState.EXPECT()
 	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
+	exp.IsApplicationK8sResourcesManaged(gomock.Any(), appUUID.String()).Return(false, nil)
 	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), appUUID.String()).Return(1, nil)
 
-	svc := s.newService(c)
-	err := svc.ensureApplicationProviderResourcesRemoved(c.Context(), appUUID.String())
+	err := s.newService(c).ensureApplicationProviderResourcesRemoved(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+}
+
+func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedK8sResourcesManaged(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	exp := s.modelState.EXPECT()
+	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
+	exp.IsApplicationK8sResourcesManaged(gomock.Any(), appUUID.String()).Return(true, nil)
+
+	err := s.newService(c).ensureApplicationProviderResourcesRemoved(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
@@ -460,7 +488,8 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingIAASMarksDeadReturns
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	// Called once by processApplicationRemovalJob, once by markApplicationAsDead.
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil).Times(2)
 	exp.ApplicationExists(gomock.Any(), j.EntityUUID).Return(true, nil)
 	exp.GetApplicationUnitAndRelationCount(gomock.Any(), j.EntityUUID).Return(0, 0, nil)
 	exp.MarkApplicationAsDead(gomock.Any(), j.EntityUUID).Return(nil)
@@ -477,6 +506,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDeadCAASReturnsIncomplete
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
+	exp.IsApplicationK8sResourcesManaged(gomock.Any(), j.EntityUUID).Return(false, nil)
 	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), j.EntityUUID).Return(1, nil)
 
 	err := s.newService(c).processApplicationRemovalJob(c.Context(), j)

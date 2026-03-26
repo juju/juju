@@ -763,11 +763,8 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	appId, _ := application.NewUUID()
 	app := caasmocks.NewMockApplication(ctrl)
-	broker := mocks.NewMockCAASBroker(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 
@@ -775,12 +772,10 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 		app.EXPECT().Delete().Return(nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		applicationService.EXPECT().DeleteCloudService(gomock.Any(), "test").Return(nil),
-		app.EXPECT().Service().Return(nil, errors.NotFound),
-		applicationService.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appId).Return(nil, nil),
-		app.EXPECT().Units().Return(nil, nil),
+		applicationService.EXPECT().ClearApplicationHasK8sResources(gomock.Any(), "test").Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", appId, app, broker, applicationService, statusService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", app, applicationService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

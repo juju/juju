@@ -86,9 +86,8 @@ type ApplicationOps interface {
 		applicationService ApplicationService, statusService StatusService,
 		logger logger.Logger) error
 
-	AppDead(ctx context.Context, appName string, appUUID coreapplication.UUID,
-		app caas.Application, broker CAASBroker, applicationService ApplicationService,
-		statusService StatusService,
+	AppDead(ctx context.Context, appName string,
+		app caas.Application, applicationService ApplicationService,
 		clk clock.Clock, logger logger.Logger) error
 
 	EnsureTrust(ctx context.Context, appName string, app caas.Application,
@@ -153,11 +152,11 @@ func (applicationOps) AppDying(
 }
 
 func (applicationOps) AppDead(ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	appName string, app caas.Application,
+	applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, appUUID, app, broker, applicationService, statusService, clk, logger)
+	return appDead(ctx, appName, app, applicationService, clk, logger)
 }
 
 func (applicationOps) EnsureTrust(
@@ -394,8 +393,8 @@ func appDying(
 // is removed from the k8s cluster and unblocks the cleanup of the application in state.
 func appDead(
 	ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	appName string, app caas.Application,
+	applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "application %q dead", appName)
@@ -412,9 +411,9 @@ func appDead(
 	if err := applicationService.DeleteCloudService(ctx, appName); err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, appUUID, app, nil, broker,
-		applicationService, statusService, clk)
-	if err != nil {
+	// Clear the managed-resources flag so the removal service knows the
+	// provisioner has finished cleaning up.
+	if err := applicationService.ClearApplicationHasK8sResources(ctx, appName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

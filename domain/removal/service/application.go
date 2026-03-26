@@ -62,9 +62,9 @@ type ApplicationState interface {
 	// for the application.
 	GetApplicationCloudServiceResourceCount(ctx context.Context, appUUID string) (int, error)
 
-	// GetApplicationName returns the application name for the application with
-	// the input UUID.
-	GetApplicationName(ctx context.Context, appUUID string) (string, error)
+	// IsApplicationK8sResourcesManaged returns true if the provisioner has
+	// signalled that it is managing k8s resources for the application.
+	IsApplicationK8sResourcesManaged(ctx context.Context, appUUID string) (bool, error)
 
 	// DeleteCharmIfUnused deletes the charm with the input UUID if it is not
 	// used by any other application/unit.
@@ -279,7 +279,19 @@ func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) err
 		return errors.Errorf("application does not exist").Add(applicationerrors.ApplicationNotFound)
 	}
 
-	// First we check that the application has no units or relations.
+	// Ensure the application is dying before checking counts. This guarantees
+	// no new units or relations can be added (they require the app to be
+	// alive), so the zero-count assertion below will remain stable.
+	appLife, err := s.modelState.GetApplicationLife(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q life: %w", appUUID, err)
+	}
+	if appLife != life.Dying {
+		return errors.Errorf("cannot mark application %q as dead, expected dying got %v", appUUID, appLife).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// Check that the application has no units or relations.
 	numUnits, numRelations, err := s.modelState.GetApplicationUnitAndRelationCount(ctx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting application %q association counts: %w", appUUID, err)
@@ -298,8 +310,10 @@ func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) err
 	return errors.Capture(s.modelState.MarkApplicationAsDead(ctx, appUUID))
 }
 
-// ensureApplicationProviderResourcesRemoved checks DB-tracked CAAS cloud-service
-// resources and blocks deletion until they are gone.
+// ensureApplicationProviderResourcesRemoved checks whether the CAAS
+// provisioner is still managing k8s resources for the application, and whether
+// DB-tracked cloud-service records still exist. Blocks deletion until both
+// conditions are clear.
 func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context, appUUID string) error {
 	modelType, err := s.modelState.GetModelType(ctx)
 	if err != nil {
@@ -307,6 +321,17 @@ func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context,
 	}
 	if modelType != coremodel.CAAS {
 		return nil
+	}
+
+	managed, err := s.modelState.IsApplicationK8sResourcesManaged(ctx, appUUID)
+	if err != nil {
+		s.logger.Warningf(ctx, "cannot check k8s resources managed for application %q, will retry: %v", appUUID, err)
+		return errors.Errorf("checking k8s resources managed for application %q: %w", appUUID, err).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+	if managed {
+		return errors.Errorf("cannot remove application %q while k8s resources are still being managed", appUUID).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
 	numResources, err := s.modelState.GetApplicationCloudServiceResourceCount(ctx, appUUID)

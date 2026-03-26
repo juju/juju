@@ -1041,8 +1041,8 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	return nil
 }
 
-// DeleteCloudService removes cloud-service addresses for the specified
-// application.
+// DeleteCloudService removes the cloud service and its addresses for the
+// specified application.
 func (st *State) DeleteCloudService(ctx context.Context, applicationName string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1070,8 +1070,6 @@ WHERE application_uuid = $cloudService.application_uuid
 		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
 		if err != nil {
 			return errors.Capture(err)
-		} else if appDetails.IsApplicationSynthetic {
-			return errors.Errorf("cannot delete cloud service for synthetic application %q", applicationName)
 		}
 
 		serviceFilter := cloudService{ApplicationUUID: appDetails.UUID}
@@ -1100,6 +1098,71 @@ WHERE application_uuid = $cloudService.application_uuid
 		return errors.Errorf("deleting cloud service for application %q: %w", applicationName, err)
 	}
 	return nil
+}
+
+// SetApplicationHasK8sResources records that the provisioner is managing k8s
+// resources for the named application. This blocks removal until cleared.
+func (st *State) SetApplicationHasK8sResources(ctx context.Context, appName string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStmt, err := st.Prepare(`
+WITH app AS (
+	SELECT uuid FROM application WHERE name = $applicationName.name
+)
+INSERT INTO application_k8s_resources_managed (application_uuid)
+SELECT uuid FROM app
+ON CONFLICT DO NOTHING
+`, applicationName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		name := applicationName{Name: appDetails.Name}
+		if err := tx.Query(ctx, insertStmt, name).Run(); err != nil {
+			return errors.Errorf("setting k8s resources managed for application %q: %w", appName, err)
+		}
+		return nil
+	}))
+}
+
+// ClearApplicationHasK8sResources records that the provisioner has finished
+// managing k8s resources for the named application, unblocking removal.
+func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appName string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteStmt, err := st.Prepare(`
+WITH app AS (
+	SELECT uuid FROM application WHERE name = $applicationName.name
+)
+DELETE FROM application_k8s_resources_managed
+WHERE application_uuid IN (SELECT uuid FROM app)
+`, applicationName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		name := applicationName{Name: appDetails.Name}
+		if err := tx.Query(ctx, deleteStmt, name).Run(); err != nil {
+			return errors.Errorf("clearing k8s resources managed for application %q: %w", appName, err)
+		}
+		return nil
+	}))
 }
 
 // createCloudService creates a cloud service for the specified application and

@@ -563,7 +563,6 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 		s.modelWatcherFactory("removal"),
 		domain.NewLeaseService(s.leaseManager),
 		providertracker.ProviderRunner[removalservice.Provider](s.providerFactory, s.modelUUID.String()),
-		providertracker.ProviderRunner[removalservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
 		s.modelUUID,
 		s.clock,
 		log,

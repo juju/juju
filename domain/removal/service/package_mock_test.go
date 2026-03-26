@@ -2380,45 +2380,6 @@ func (c *MockModelDBStateGetApplicationLifeCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
-// GetApplicationName mocks base method.
-func (m *MockModelDBState) GetApplicationName(arg0 context.Context, arg1 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationName", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationName indicates an expected call of GetApplicationName.
-func (mr *MockModelDBStateMockRecorder) GetApplicationName(arg0, arg1 any) *MockModelDBStateGetApplicationNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationName", reflect.TypeOf((*MockModelDBState)(nil).GetApplicationName), arg0, arg1)
-	return &MockModelDBStateGetApplicationNameCall{Call: call}
-}
-
-// MockModelDBStateGetApplicationNameCall wrap *gomock.Call
-type MockModelDBStateGetApplicationNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateGetApplicationNameCall) Return(arg0 string, arg1 error) *MockModelDBStateGetApplicationNameCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateGetApplicationNameCall) Do(f func(context.Context, string) (string, error)) *MockModelDBStateGetApplicationNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateGetApplicationNameCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelDBStateGetApplicationNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetApplicationNameAndUnitNameByUnitUUID mocks base method.
 func (m *MockModelDBState) GetApplicationNameAndUnitNameByUnitUUID(arg0 context.Context, arg1 string) (string, string, error) {
 	m.ctrl.T.Helper()
@@ -3470,6 +3431,45 @@ func (c *MockModelDBStateGetVolumeStatusCall) Do(f func(context.Context, string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetVolumeStatusCall) DoAndReturn(f func(context.Context, string) (int, error)) *MockModelDBStateGetVolumeStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationK8sResourcesManaged mocks base method.
+func (m *MockModelDBState) IsApplicationK8sResourcesManaged(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationK8sResourcesManaged", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationK8sResourcesManaged indicates an expected call of IsApplicationK8sResourcesManaged.
+func (mr *MockModelDBStateMockRecorder) IsApplicationK8sResourcesManaged(arg0, arg1 any) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationK8sResourcesManaged", reflect.TypeOf((*MockModelDBState)(nil).IsApplicationK8sResourcesManaged), arg0, arg1)
+	return &MockModelDBStateIsApplicationK8sResourcesManagedCall{Call: call}
+}
+
+// MockModelDBStateIsApplicationK8sResourcesManagedCall wrap *gomock.Call
+type MockModelDBStateIsApplicationK8sResourcesManagedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -75,11 +75,25 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
-	// DeleteCloudService removes cloud-service addresses for the specified
-	// application.
+	// DeleteCloudService removes the cloud service and its addresses for the
+	// specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	DeleteCloudService(ctx context.Context, appName string) error
+
+	// SetApplicationHasK8sResources records that the provisioner is managing
+	// k8s resources for the named application. This blocks removal until
+	// cleared.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	SetApplicationHasK8sResources(ctx context.Context, appName string) error
+
+	// ClearApplicationHasK8sResources records that the provisioner has
+	// finished managing k8s resources for the named application, unblocking
+	// removal.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	ClearApplicationHasK8sResources(ctx context.Context, appName string) error
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
@@ -858,8 +872,8 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
 
-// DeleteCloudService removes cloud-service addresses for the specified
-// application.
+// DeleteCloudService removes the cloud service and its addresses for the
+// specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) DeleteCloudService(ctx context.Context, appName string) error {
@@ -867,6 +881,24 @@ func (s *Service) DeleteCloudService(ctx context.Context, appName string) error 
 	defer span.End()
 
 	return s.st.DeleteCloudService(ctx, appName)
+}
+
+// SetApplicationHasK8sResources records that the provisioner is managing k8s
+// resources for the named application. This blocks removal until cleared.
+func (s *Service) SetApplicationHasK8sResources(ctx context.Context, appName string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.SetApplicationHasK8sResources(ctx, appName)
+}
+
+// ClearApplicationHasK8sResources records that the provisioner has finished
+// managing k8s resources for the named application, unblocking removal.
+func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appName string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.ClearApplicationHasK8sResources(ctx, appName)
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
