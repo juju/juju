@@ -7,6 +7,10 @@ Apply both files below for any code change:
 
 If guidance conflicts, architectural rules take precedence.
 
+## Documentation
+
+- [Package doc.go rules](AGENTS.doc-dot-go-rules.md) — Guidelines for writing package-level documentation.
+
 ## Build
 
 - `make install` — Full build including schema regeneration.
