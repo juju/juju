@@ -25,8 +25,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// SetTracingConfig sets the tracing config in the state.
-func (st *State) SetTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error {
+// SetCharmTracingConfig sets the tracing config in the state.
+func (st *State) SetCharmTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (st *State) SetTracingConfig(ctx context.Context, insertions map[string]str
 	type tracingKeys []string
 
 	deleteQuery := `
-DELETE FROM tracing_config
+DELETE FROM charm_tracing_config
 WHERE key IN ($tracingKeys[:])`
 	deleteStmt, err := st.Prepare(deleteQuery, tracingKeys{})
 	if err != nil {
@@ -43,18 +43,18 @@ WHERE key IN ($tracingKeys[:])`
 	}
 
 	insertQuery := `
-INSERT INTO tracing_config (key, value)
-VALUES ($tracingConfig.*)
+INSERT INTO charm_tracing_config (key, value)
+VALUES ($charmTracingConfig.*)
 ON CONFLICT (key) DO UPDATE
-SET value = $tracingConfig.value`
-	insertStmt, err := st.Prepare(insertQuery, tracingConfig{})
+SET value = $charmTracingConfig.value`
+	insertStmt, err := st.Prepare(insertQuery, charmTracingConfig{})
 	if err != nil {
 		return err
 	}
 
-	tracingConfigs := make([]tracingConfig, 0, len(insertions))
+	charmTracingConfigs := make([]charmTracingConfig, 0, len(insertions))
 	for key, value := range insertions {
-		tracingConfigs = append(tracingConfigs, tracingConfig{
+		charmTracingConfigs = append(charmTracingConfigs, charmTracingConfig{
 			Key:   key,
 			Value: value,
 		})
@@ -63,13 +63,13 @@ SET value = $tracingConfig.value`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if len(deletions) > 0 {
 			if err := tx.Query(ctx, deleteStmt, tracingKeys(deletions)).Run(); err != nil {
-				return errors.Errorf("deleting tracing configs: %w", err)
+				return errors.Errorf("deleting charm tracing configs: %w", err)
 			}
 		}
 
-		for _, config := range tracingConfigs {
+		for _, config := range charmTracingConfigs {
 			if err := tx.Query(ctx, insertStmt, config).Run(); err != nil {
-				return errors.Errorf("inserting tracing configs: %w", err)
+				return errors.Errorf("inserting charm tracing configs: %w", err)
 			}
 		}
 		return nil
@@ -79,37 +79,37 @@ SET value = $tracingConfig.value`
 	return nil
 }
 
-// GetTracingConfig returns the tracing config from the state.
-func (st *State) GetTracingConfig(ctx context.Context) (map[string]string, error) {
+// GetCharmTracingConfig returns the tracing config from the state.
+func (st *State) GetCharmTracingConfig(ctx context.Context) (map[string]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	query := `SELECT &tracingConfig.* FROM tracing_config`
-	stmt, err := st.Prepare(query, tracingConfig{})
+	query := `SELECT &charmTracingConfig.* FROM charm_tracing_config`
+	stmt, err := st.Prepare(query, charmTracingConfig{})
 	if err != nil {
 		return nil, err
 	}
 
-	var configs []tracingConfig
+	var configs []charmTracingConfig
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting tracing configs: %w", err)
+			return errors.Errorf("getting charm tracing configs: %w", err)
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
-	tracingConfigMap := make(map[string]string)
+	charmTracingConfigMap := make(map[string]string)
 	for _, config := range configs {
-		tracingConfigMap[config.Key] = config.Value
+		charmTracingConfigMap[config.Key] = config.Value
 	}
-	return tracingConfigMap, nil
+	return charmTracingConfigMap, nil
 }
 
-type tracingConfig struct {
+type charmTracingConfig struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
 }

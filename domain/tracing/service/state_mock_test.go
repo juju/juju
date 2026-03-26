@@ -39,79 +39,79 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// GetTracingConfig mocks base method.
-func (m *MockState) GetTracingConfig(arg0 context.Context) (map[string]string, error) {
+// GetCharmTracingConfig mocks base method.
+func (m *MockState) GetCharmTracingConfig(arg0 context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTracingConfig", arg0)
+	ret := m.ctrl.Call(m, "GetCharmTracingConfig", arg0)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetTracingConfig indicates an expected call of GetTracingConfig.
-func (mr *MockStateMockRecorder) GetTracingConfig(arg0 any) *MockStateGetTracingConfigCall {
+// GetCharmTracingConfig indicates an expected call of GetCharmTracingConfig.
+func (mr *MockStateMockRecorder) GetCharmTracingConfig(arg0 any) *MockStateGetCharmTracingConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTracingConfig", reflect.TypeOf((*MockState)(nil).GetTracingConfig), arg0)
-	return &MockStateGetTracingConfigCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmTracingConfig", reflect.TypeOf((*MockState)(nil).GetCharmTracingConfig), arg0)
+	return &MockStateGetCharmTracingConfigCall{Call: call}
 }
 
-// MockStateGetTracingConfigCall wrap *gomock.Call
-type MockStateGetTracingConfigCall struct {
+// MockStateGetCharmTracingConfigCall wrap *gomock.Call
+type MockStateGetCharmTracingConfigCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetTracingConfigCall) Return(arg0 map[string]string, arg1 error) *MockStateGetTracingConfigCall {
+func (c *MockStateGetCharmTracingConfigCall) Return(arg0 map[string]string, arg1 error) *MockStateGetCharmTracingConfigCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetTracingConfigCall) Do(f func(context.Context) (map[string]string, error)) *MockStateGetTracingConfigCall {
+func (c *MockStateGetCharmTracingConfigCall) Do(f func(context.Context) (map[string]string, error)) *MockStateGetCharmTracingConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetTracingConfigCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStateGetTracingConfigCall {
+func (c *MockStateGetCharmTracingConfigCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStateGetCharmTracingConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// SetTracingConfig mocks base method.
-func (m *MockState) SetTracingConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
+// SetCharmTracingConfig mocks base method.
+func (m *MockState) SetCharmTracingConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetTracingConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetCharmTracingConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetTracingConfig indicates an expected call of SetTracingConfig.
-func (mr *MockStateMockRecorder) SetTracingConfig(arg0, arg1, arg2 any) *MockStateSetTracingConfigCall {
+// SetCharmTracingConfig indicates an expected call of SetCharmTracingConfig.
+func (mr *MockStateMockRecorder) SetCharmTracingConfig(arg0, arg1, arg2 any) *MockStateSetCharmTracingConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTracingConfig", reflect.TypeOf((*MockState)(nil).SetTracingConfig), arg0, arg1, arg2)
-	return &MockStateSetTracingConfigCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmTracingConfig", reflect.TypeOf((*MockState)(nil).SetCharmTracingConfig), arg0, arg1, arg2)
+	return &MockStateSetCharmTracingConfigCall{Call: call}
 }
 
-// MockStateSetTracingConfigCall wrap *gomock.Call
-type MockStateSetTracingConfigCall struct {
+// MockStateSetCharmTracingConfigCall wrap *gomock.Call
+type MockStateSetCharmTracingConfigCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateSetTracingConfigCall) Return(arg0 error) *MockStateSetTracingConfigCall {
+func (c *MockStateSetCharmTracingConfigCall) Return(arg0 error) *MockStateSetCharmTracingConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetTracingConfigCall) Do(f func(context.Context, map[string]string, []string) error) *MockStateSetTracingConfigCall {
+func (c *MockStateSetCharmTracingConfigCall) Do(f func(context.Context, map[string]string, []string) error) *MockStateSetCharmTracingConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetTracingConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string) error) *MockStateSetTracingConfigCall {
+func (c *MockStateSetCharmTracingConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string) error) *MockStateSetCharmTracingConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

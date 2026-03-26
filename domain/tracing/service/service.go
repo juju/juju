@@ -9,13 +9,20 @@ import (
 	"github.com/juju/juju/core/trace"
 )
 
+const (
+	httpEndpointKey  = "http-endpoint"
+	httpsEndpointKey = "https-endpoint"
+	grpcEndpointKey  = "grpc-endpoint"
+	caCertificateKey = "ca-certificate"
+)
+
 // State defines an interface for interacting with the underlying state.
 type State interface {
-	// SetTracingConfig sets the tracing config in the state.
-	SetTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error
+	// SetCharmTracingConfig sets the charm tracing config in the state.
+	SetCharmTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error
 
-	// GetTracingConfig returns the tracing config from the state.
-	GetTracingConfig(ctx context.Context) (map[string]string, error)
+	// GetCharmTracingConfig returns the charm tracing config from the state.
+	GetCharmTracingConfig(ctx context.Context) (map[string]string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -30,16 +37,17 @@ func NewService(st State) *Service {
 	}
 }
 
-// TracingConfig defines the tracing configuration for an OTEL collector.
-type TracingConfig struct {
+// CharmTracingConfig defines the tracing configuration for an OTEL collector.
+type CharmTracingConfig struct {
 	HTTPEndpoint  string
 	HTTPSEndpoint string
 	GRPCEndpoint  string
 	CACertificate string
 }
 
-// SetTracingConfig sets the tracing config in the state.
-func (s *Service) SetTracingConfig(ctx context.Context, config TracingConfig) error {
+// SetCharmTracingConfig sets the charm tracing config. This method will
+// insert any non-empty fields and delete any empty fields from the state.
+func (s *Service) SetCharmTracingConfig(ctx context.Context, config CharmTracingConfig) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -66,30 +74,23 @@ func (s *Service) SetTracingConfig(ctx context.Context, config TracingConfig) er
 		deletions = append(deletions, caCertificateKey)
 	}
 
-	return s.st.SetTracingConfig(ctx, insertions, deletions)
+	return s.st.SetCharmTracingConfig(ctx, insertions, deletions)
 }
 
-// GetTracingConfig returns the tracing config from the state.
-func (s *Service) GetTracingConfig(ctx context.Context) (TracingConfig, error) {
+// GetCharmTracingConfig returns the charm tracing config from the state.
+func (s *Service) GetCharmTracingConfig(ctx context.Context) (CharmTracingConfig, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	configMap, err := s.st.GetTracingConfig(ctx)
+	configMap, err := s.st.GetCharmTracingConfig(ctx)
 	if err != nil {
-		return TracingConfig{}, err
+		return CharmTracingConfig{}, err
 	}
 
-	return TracingConfig{
+	return CharmTracingConfig{
 		HTTPEndpoint:  configMap[httpEndpointKey],
 		HTTPSEndpoint: configMap[httpsEndpointKey],
 		GRPCEndpoint:  configMap[grpcEndpointKey],
 		CACertificate: configMap[caCertificateKey],
 	}, nil
 }
-
-const (
-	httpEndpointKey  = "http-endpoint"
-	httpsEndpointKey = "https-endpoint"
-	grpcEndpointKey  = "grpc-endpoint"
-	caCertificateKey = "ca-certificate"
-)

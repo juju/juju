@@ -19,25 +19,25 @@ func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 
-func (s *stateSuite) TestSetTracingConfig(c *tc.C) {
+func (s *stateSuite) TestSetCharmTracingConfig(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	tracingConfig := map[string]string{
 		"one-key": "one-value",
 	}
-	err := state.SetTracingConfig(c.Context(), tracingConfig, nil)
+	err := state.SetCharmTracingConfig(c.Context(), tracingConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedTracingConfig := map[string]string{
 		"one-key": "one-value",
 	}
 
-	tracingConfigFromDB, err := state.GetTracingConfig(c.Context())
+	tracingConfigFromDB, err := state.GetCharmTracingConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
 }
 
-func (s *stateSuite) TestSetTracingConfigWithDeletion(c *tc.C) {
+func (s *stateSuite) TestSetCharmTracingConfigWithDeletion(c *tc.C) {
 	state := NewState(s.TxnRunnerFactory())
 
 	tracingConfig := map[string]string{
@@ -45,7 +45,7 @@ func (s *stateSuite) TestSetTracingConfigWithDeletion(c *tc.C) {
 		"two-key":   "two-value",
 		"three-key": "three-value",
 	}
-	err := state.SetTracingConfig(c.Context(), tracingConfig, nil)
+	err := state.SetCharmTracingConfig(c.Context(), tracingConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	tracingConfig = map[string]string{
@@ -53,7 +53,7 @@ func (s *stateSuite) TestSetTracingConfigWithDeletion(c *tc.C) {
 	}
 	deletionKeys := []string{"two-key", "three-key"}
 
-	err = state.SetTracingConfig(c.Context(), tracingConfig, deletionKeys)
+	err = state.SetCharmTracingConfig(c.Context(), tracingConfig, deletionKeys)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedTracingConfig := map[string]string{
@@ -61,7 +61,7 @@ func (s *stateSuite) TestSetTracingConfigWithDeletion(c *tc.C) {
 		"four-key": "four-value",
 	}
 
-	tracingConfigFromDB, err := state.GetTracingConfig(c.Context())
+	tracingConfigFromDB, err := state.GetCharmTracingConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
 }
