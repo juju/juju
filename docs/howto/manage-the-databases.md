@@ -1,27 +1,27 @@
 ---
 myst:
   html_meta:
-    description: "Manage the Juju databases: access controller and model databases, switch between them, run SQL queries, inspect schema using the Dqlite REPL."
+    description: "Manage the Juju database: access controller and model databases, switch between them, run SQL queries, inspect schema using the REPL."
 ---
 
 (manage-the-databases)=
 # Manage the databases
 
-Juju stores its state in embedded Dqlite databases -- one for the controller model and one for each additional model. The controller model database stores controller-level data (users, clouds, model metadata), while each model database stores that model's applications, units, machines, and relations.
+Juju stores its state in Dqlite. This is segmented into different databases: There is a global controller database and then a model database for each model, where
+- the controller model's database stores controller-level data (users, clouds, model metadata)
+- each workload model's database stores that model's applications, units, machines, and relations.
 
-You can access and query these databases through a Dqlite REPL, which provides direct SQL access for inspection, debugging, and troubleshooting.
+This guide shows you how to access and query these databases through a REPL, which provides direct SQL access for inspection, debugging, and troubleshooting.
 
 ```{ibnote}
 See more: {ref}`database`, {ref}`juju_db_repl`, [Dqlite documentation](https://dqlite.io/), [SQL documentation](https://www.sqlite.org/lang.html)
 ```
 
-This guide shows you how to work with databases (requires SSH access to a Juju 4.0+ controller).
+## Access the databases
 
-## Access databases
+Given a Juju 4.0+ client and controller, to access the databases:
 
-To work with databases, access the Dqlite REPL on any controller machine.
-
-1. SSH into a controller machine:
+1. SSH into a controller:
 
    ```text
    juju ssh -m controller 0
@@ -35,44 +35,17 @@ To work with databases, access the Dqlite REPL on any controller machine.
    juju_db_repl
    ```
 
-   ```{dropdown} Troubleshooting: juju_db_repl command not found
-
-   The `juju_db_repl` helper function is defined in `/etc/profile.d/juju-introspection.sh`. If it's not available:
-
-   1. **Source the file manually:**
-      \`\`\`text
-      source /etc/profile.d/juju-introspection.sh
-      juju_db_repl
-      \`\`\`
-
-   2. **Or start a login shell (then run `juju_db_repl` inside it):**
-      \`\`\`text
-      bash -l
-      # Now you're in a new shell, run:
-      juju_db_repl
-      \`\`\`
-
-   3. **Or call `jujud` directly (for machine 0):**
-      \`\`\`text
-      sudo /var/lib/juju/tools/machine-0/jujud db-repl --machine-id=0
-      \`\`\`
-
-      For other machine IDs, replace `machine-0` and `--machine-id=0` accordingly.
-   ```
-
-   The REPL starts in the controller model database by default. You should see a prompt like:
+   The REPL starts in the controller database by default. You should see a prompt like:
 
    ```text
    repl (controller)>
    ```
 
-3. To see available REPL commands:
+3. To see the available REPL commands:
 
    ```text
    .help
    ```
-
-   (You can also use `.h` as a shortcut.)
 
    ```{ibnote}
    See more: {ref}`juju_db_repl-help`
@@ -84,14 +57,14 @@ To work with databases, access the Dqlite REPL on any controller machine.
    .exit
    ```
 
-   (You can also use `.quit`, or press `Ctrl+D` or `Ctrl+C`.)
+   (You can also use `.quit`, or press `Ctrl+D`.)
 
    ```{ibnote}
    See more: {ref}`juju_db_repl-exit`
    ```
 
 ```{dropdown} Tip: Navigation
-Use arrow keys to navigate command history. The REPL maintains a history file for session continuity.
+Use the arrow keys to navigate through previous commands. Note: This is only possible per session -- the command history file is cleared when you exit the REPL.
 ```
 
 ## View the database cluster
@@ -106,9 +79,9 @@ To see the Dqlite cluster configuration:
 See more: {ref}`juju_db_repl-describe-cluster`
 ```
 
-This shows the node IDs, addresses, and roles (leader/follower/spare) of the controller machines that form the Dqlite database cluster. With a single controller, this shows one node. In high-availability (HA) setups with multiple controllers, this shows all nodes and their current roles, which is useful for diagnosing cluster health and leadership status.
+This shows the node IDs, addresses, and roles (leader/follower/spare) of the controllers nodes that form the Dqlite cluster. Note: With a single controller, this will show one node. In high-availability (HA) setups with multiple controllers, this will show all nodes and their current roles, which is useful for diagnosing cluster health and leadership status.
 
-## List databases
+## List the databases
 
 To see all available databases (controller model and other models):
 
@@ -132,7 +105,7 @@ d87021ed-2121-4aa9-8d56-308f9bb0721c  model-1
 ## Switch to a database
 
 ```{note}
-Model databases in the REPL are prefixed with `model-`. For a model named `production`, use `.switch model-production`. For a model named `model-1`, use `.switch model-model-1`.
+Model databases in the REPL are prefixed with `model-`. For a model named `production`, use `.switch model-production`.
 ```
 
 To switch to a model database by its name:
@@ -155,7 +128,7 @@ To switch to a model database by its UUID (useful when you don't know the model 
 See more: {ref}`juju_db_repl-open`
 ```
 
-To switch back to the controller model database:
+To switch back to the controller database:
 
 ```text
 .switch controller
@@ -213,19 +186,11 @@ CREATE TABLE application (
 
 To list all views in the current database:
 
-```{dropdown} Reminder: What's a view?
-A view is a virtual table defined by a SQL query. Unlike regular tables, views don't store data themselves -- they present data from other tables in a specific way.
-```
-
 ```text
 .views
 ```
 
 To list all triggers in the current database:
-
-```{dropdown} Reminder: What's a trigger?
-A trigger is a database object that automatically executes code when certain events occur (INSERT, UPDATE, DELETE). Juju uses triggers internally to maintain data consistency and track changes.
-```
 
 ```text
 .triggers
@@ -245,10 +210,6 @@ To see reference counts for a specific UUID:
 
 ## Query a database
 
-```{dropdown} Tip: Viewing query results
-After running a query, press `Tab` to cycle through different result formatting options. Use a backslash (`\`) at the end of a line to continue multi-line queries.
-```
-
 ### Query the controller model database
 
 To find models on a specific cloud:
@@ -266,7 +227,7 @@ SELECT name, display_name, created_at
 FROM user;
 ```
 
-### Query a model database
+### Query a workload model database
 
 To view all applications:
 
@@ -304,16 +265,9 @@ SELECT name, life
 FROM relation;
 ```
 
-To run a multi-line query, use a backslash at the end of each line to continue:
+For multi-line queries, use standard SQL line continuation with backslashes.
 
-```text
-SELECT a.name, COUNT(u.uuid) as num_units \
-FROM application a \
-LEFT JOIN unit u ON a.uuid = u.application_uuid \
-GROUP BY a.name;
-```
-
-## Query across databases
+## Query across the databases
 
 To run the same query on all model databases:
 
@@ -328,16 +282,10 @@ The REPL executes the query on each model and displays results grouped by model 
 ```{dropdown} About write operations
 :color: warning
 
-The REPL supports write operations (INSERT, UPDATE, DELETE), but these directly modify the database state and can corrupt your deployment. Only perform write operations when specifically directed by Juju developers or in emergency recovery scenarios. Always back up your controller first using `juju create-backup`.
+The REPL supports write operations (INSERT, UPDATE, DELETE), but these directly modify the database state and can corrupt your deployment. Only perform write operations when specifically directed by Juju developers or in emergency recovery scenarios. Always back up your controller first.
 ```
 
-To modify data, use standard SQL write operations:
-
-```text
-INSERT INTO table_name (column1, column2) VALUES (value1, value2);
-UPDATE table_name SET column1 = value1 WHERE condition;
-DELETE FROM table_name WHERE condition;
-```
+To modify data, use standard SQL write operations.
 
 ## View a database's change history
 
@@ -349,10 +297,13 @@ To view recent changes in the current database:
 
 This shows the change log entries, useful for understanding recent modifications.
 
+```{dropdown} For Juju developers: View change stream
+
 To view change stream entries in the current database:
 
-```text
+\`\`\`text
 .change-stream
-```
+\`\`\`
 
 This shows what the internal change stream will process.
+```

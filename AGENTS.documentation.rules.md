@@ -72,6 +72,22 @@ Each section should follow the pattern: **"To \<accomplish task\>, \<do action\>
 - Generic headings like "Prerequisites" or "Tips"
 - Command-centric organization ("Run .tables")
 
+### Context Establishment
+
+Balance context establishment to support both first-time readers and returning users who jump to specific sections.
+
+**Pattern:**
+- **Establish once:** An early section (e.g., "Access the databases") establishes the working environment
+- **Self-contained sections:** Each section should be understandable on its own for users who return directly to it
+- **Clarify transitions:** Add brief context when the interaction model changes or when a command's syntax differs significantly
+
+**Example:**
+- "Access the databases" establishes you're working in the REPL
+- Sections showing dot commands (`.models`, `.switch`, `.tables`) are self-contained because the dot prefix signals REPL context
+- "Query a database" adds clarifying context ("type SQL statements directly at the REPL prompt") because raw SQL lacks visual cues and users may return to this section repeatedly
+
+**Rationale:** Users often return to how-to guides to reference specific tasks. Sections should be independently usable without requiring full re-reading, while avoiding verbose repetition in every section.
+
 ### Child Entities and Bridge Sections
 
 Guides can include subsections for **child entities** when they're tightly coupled to the parent.
@@ -131,6 +147,36 @@ A view is a virtual table defined by a SQL query.
 - Keep code blocks clean: empty line before and after triple backticks
 - Include sample output after commands when helpful
 - Use realistic UUIDs and names in examples
+
+## Upstream Documentation
+
+**Point to upstream; don't duplicate.**
+
+When Juju documentation references technologies maintained by external projects (SQL, YAML, cloud APIs, etc.):
+
+- **DO** link to upstream documentation as the source of truth
+- **DO** provide brief guidance on how to use that technology with Juju (e.g., "To modify data, use standard SQL write operations")
+- **DON'T** duplicate upstream syntax references, tutorials, or specifications
+
+**Good:**
+```markdown
+To modify data, use standard SQL write operations.
+
+```{ibnote}
+See more: [SQL documentation](https://www.sqlite.org/lang.html)
+```
+```
+
+**Avoid:**
+```markdown
+To modify data, use standard SQL write operations:
+
+INSERT INTO table_name (column1, column2) VALUES (value1, value2);
+UPDATE table_name SET column1 = value1 WHERE condition;
+DELETE FROM table_name WHERE condition;
+```
+
+**Rationale:** This keeps our documentation coherent while avoiding maintenance burden and version drift. We maintain Juju-specific guidance; upstream maintains their specifications.
 
 ## Version Information
 
