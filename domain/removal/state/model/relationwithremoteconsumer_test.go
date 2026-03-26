@@ -181,6 +181,7 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnitsUn
 
 	err := st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
 func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c *tc.C) {
