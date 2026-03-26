@@ -89,7 +89,7 @@ func (s *LogSenderSuite) testCleanCloseReturnsEOF(c *gc.C, code int) {
 	}
 
 	err = w.WriteLog(new(params.LogRecord))
-	c.Assert(err, gc.Equals, io.EOF)
+	c.Assert(err, jc.ErrorIs, io.EOF)
 	c.Assert(conn.written, gc.HasLen, 0)
 }
 
@@ -122,7 +122,7 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 	}
 
 	err = w.WriteLog(new(params.LogRecord))
-	c.Assert(err, gc.ErrorMatches, "sending log message: read foo: closed yo")
+	c.Assert(err, gc.ErrorMatches, `sending log message: closed yo\nread foo`)
 	c.Assert(conn.written, gc.HasLen, 0)
 }
 

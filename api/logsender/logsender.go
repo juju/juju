@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	stderrors "errors"
 	"io"
 	"net/url"
 
@@ -64,20 +65,11 @@ func newWriter(conn base.Stream) *writer {
 
 // readLoop is necessary for the client to process websocket control messages.
 // If we get an error, enqueue it so that if a subsequent call to WriteLog
-// fails do to our closure of the socket, we can enhance the resulting error.
-// Clean close codes are normalised to io.EOF so callers can distinguish an
-// expected server-side close from a real network error.
+// fails due to our closure of the socket, we can enhance the resulting error.
 // Close() is safe to call concurrently.
 func (w *writer) readLoop() {
 	for {
 		if _, _, err := w.conn.NextReader(); err != nil {
-			if gorillaws.IsCloseError(err,
-				gorillaws.CloseNormalClosure,
-				gorillaws.CloseGoingAway,
-				gorillaws.CloseNoStatusReceived,
-			) {
-				err = io.EOF
-			}
 			select {
 			case w.readErrs <- err:
 			default:
@@ -99,17 +91,21 @@ func (w *writer) WriteLog(m *params.LogRecord) error {
 	if err := w.conn.WriteJSON(m); err != nil {
 		var readErr error
 		select {
-		case readErr = <-w.readErrs:
+		case readErr, _ = <-w.readErrs:
 		default:
 		}
 
-		if errors.Is(readErr, io.EOF) {
-			return io.EOF
+		// Join all errors so callers can check with errors.Is
+		// without losing context.
+		joinedErr := stderrors.Join(err, readErr)
+		if gorillaws.IsCloseError(readErr,
+			gorillaws.CloseNormalClosure,
+			gorillaws.CloseGoingAway,
+			gorillaws.CloseNoStatusReceived,
+		) {
+			joinedErr = stderrors.Join(joinedErr, io.EOF)
 		}
-		if readErr != nil {
-			err = errors.Annotate(err, readErr.Error())
-		}
-		return errors.Annotate(err, "sending log message")
+		return errors.Annotate(joinedErr, "sending log message")
 	}
 	return nil
 }
