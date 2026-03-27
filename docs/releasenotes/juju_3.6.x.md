@@ -14,8 +14,46 @@ myst:
 Juju 3.6 series is LTS
 ```
 
+## 🔸 **Juju 3.6.20**
+🗓️ 26 Mar 2026
+
+This is a critical security and bug fix release for Juju 3.6.
+We recommend that all users running Juju 3.6 upgrade to this release as soon
+as possible given the critical nature of the fixes included.
+
+🛠️ **Fixes**:
+
+### Improper TLS authentication and certificate verification on Dqlite cluster
+An attacker with only route-ability to the target Juju controller Dqlite cluster
+endpoint may join the Dqlite cluster and then read and modify all information.
+The Dqlite database stores leases used to manage leadership of application units.
+The authenticated access is also a vector for DOS attacks on the cluster.<br>
+**Note:** the mongo database which stores model state is not affected by this issue.
+
+Mitigation steps (if upgrade is not possible immediately):<br>
+**Option 1:** disable the HA (High Availability) controller.
+If your environment does not strictly require HA, reducing the cluster to a
+single controller removes the need for DQlite replication. Moreover, the port
+that replicates the vulnerability should be blocked, namely 17666.<br>
+**Option 2:** Restrict what IPs can communicate with port 17666, by implementing 
+firewall rules to block all ingress traffic to this port. Only Juju controller
+IPs should be able to connect to this port.
+
+
+- fix: [CVE-2026-4370](https://github.com/juju/juju/security/advisories/GHSA-gvrj-cjch-728p)
+
+### Other CVEs
+- fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
+- fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
+
+### Other fixes
+- fix: eventual consistency in etcd causing rbac authz failures @hpidcock
+- fix(ssh): revert disable PTY allocation when remote command is provided since it broke some juju ssh use cases
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.20).
+
 ## 🔸 **Juju 3.6.19**
-🗓️ 19 Mar 2025
+🗓️ 19 Mar 2026
 
 This is a security and critical bug fix release for Juju 3.6.
 Included are fixes for several CVEs, including Mongo Bleed and other vulnerabilities.
@@ -59,6 +97,17 @@ This means that when deploying a charm with `--base=ubuntu@26.04` will now succe
 - fix: [CVE-2025-14847](https://github.com/juju/juju/security/advisories/GHSA-29v7-rr38-wf32)
 - fix: mongodb accepts unauthenticated connection https://github.com/juju/juju/security/advisories/GHSA-9j5v-49f8-cpp8
 
+A consequence of using the new MongoDB version is that client connections are required to use a certificate
+signed by the same authority as used by the server. The script used to start a mongo shell connection to the 
+controller's MongoDB has been updated and can be found [here](https://discourse.charmhub.io/t/login-into-mongodb/309).
+
+Another change is that the ability for a Juju CLI client to boostrap a controller with an older agent version is
+restricted by default to agent versions which support the new, uncompromised MongoDB version. This means that the
+minimum older agent version that can be specified out of the box is 3.6.19.
+You can still bootstrap to an older agent version by explicitly allowing the older MongoDB version like so:
+
+`juju bootstrap lxd --agent-version 3.6.14 --config juju-db-snap-channel 4.4/stable`
+
 ### Other CVEs
 - fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
 - fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
@@ -100,7 +149,7 @@ list of users.
 - fix(k8s): delete orphaned StatefulSets before recreating to avoid PVC mismatch @marceloneppel in https://github.com/juju/juju/pull/21786
 - fix: retry writing agent config during migration @SimonRichardson in https://github.com/juju/juju/pull/21821
 
-See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.18).
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.19).
 
 ## 🔸 **Juju 3.6.14**
 
