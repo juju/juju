@@ -577,6 +577,25 @@ func (s *infoSuite) TestGetUnitEgressSubnetsDeduplicated(c *tc.C) {
 	c.Check(cidrs, tc.DeepEquals, []string{"10.0.1.0/24"})
 }
 
+func (s *infoSuite) TestGetRelationEgressSubnets(c *tc.C) {
+	relationUUID := s.addRelation(c)
+
+	s.addRelationNetworkEgress(c, relationUUID, "10.0.1.0/24")
+	s.addRelationNetworkEgress(c, relationUUID, "10.0.2.0/24")
+
+	cidrs, err := s.state.GetRelationEgressSubnets(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.SameContents, []string{"10.0.1.0/24", "10.0.2.0/24"})
+}
+
+func (s *infoSuite) TestGetRelationEgressSubnetsEmpty(c *tc.C) {
+	relationUUID := s.addRelation(c)
+
+	cidrs, err := s.state.GetRelationEgressSubnets(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.HasLen, 0)
+}
+
 // Helper methods
 
 func normalizeEndpointAddresses(

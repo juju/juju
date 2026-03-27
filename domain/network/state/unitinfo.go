@@ -56,9 +56,7 @@ AND    ru.unit_uuid = $relationUnit.unit_uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, arg).Get(&endpoint)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"relation %q not found for unit %q", relationUUID, unitUUID,
-			).Add(relationerrors.RelationNotFound)
+			return errors.New("relation not found").Add(relationerrors.RelationNotFound)
 		} else if err != nil {
 			return errors.Errorf("querying relation endpoint name: %w", err)
 		}
@@ -122,6 +120,42 @@ func (st *State) GetUnitNetworkAddresses(
 	}
 
 	return addresses, nil
+}
+
+// GetRelationEgressSubnets retrieves the egress subnets for the specified
+// relation.
+func (st *State) GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := entityUUID{UUID: relationUUID}
+	stmt, err := st.Prepare(`
+SELECT DISTINCT rne.cidr AS &egressCIDR.cidr
+FROM   relation_network_egress AS rne
+WHERE  rne.relation_uuid = $entityUUID.uuid
+`, egressCIDR{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select relation egress subnets statement: %w", err)
+	}
+
+	var cidrs []egressCIDR
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&cidrs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying relation egress subnets: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(cidrs) == 0 {
+		return nil, nil
+	}
+	return transform.Slice(cidrs, func(c egressCIDR) string { return c.CIDR }), nil
 }
 
 // GetUnitEgressSubnets retrieves the egress subnets for the specified unit.
