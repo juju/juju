@@ -172,6 +172,12 @@ type NetworkInfoState interface {
 	// Kubernetes service.
 	IsCaasUnit(ctx context.Context, unitUUID string) (bool, error)
 
+	// GetUnitRelationEndpointName retrieves the endpoint name used by the
+	// specified unit in the specified relation.
+	GetUnitRelationEndpointName(
+		ctx context.Context, unitUUID, relationUUID string,
+	) (string, error)
+
 	// GetUnitEgressSubnets retrieves the egress subnets for the specified
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)

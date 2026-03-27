@@ -7,7 +7,6 @@ import (
 	"context"
 	"maps"
 	"slices"
-	"strings"
 
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -20,27 +19,36 @@ import (
 )
 
 // GetUnitRelationNetwork retrieves network relation information for a given
-// unit and relation key.
+// unit and relation UUID.
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitNotFound] if the unit does not exist.
-//   - [relationerrors.RelationNotFound] if the relation key doesn't belong to
-//     the unit.
+//   - [relationerrors.RelationNotFound] if the relation doesn't belong to the
+//     unit.
 func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
-	relKey corerelation.Key) (domainnetwork.UnitNetwork, error) {
-	var endpoint string
-	for _, epIdentifier := range relKey.EndpointIdentifiers() {
-		if strings.HasPrefix(unitName.String(), epIdentifier.ApplicationName) {
-			endpoint = epIdentifier.EndpointName
-			break
-		}
-	}
-	if endpoint == "" {
-		s.logger.Errorf(ctx, "could not find endpoint for unit %s in the relation %+v", unitName, relKey)
-		return domainnetwork.UnitNetwork{}, relationerrors.RelationNotFound
+	relationUUID corerelation.UUID) (domainnetwork.UnitNetwork, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return domainnetwork.UnitNetwork{}, internalerrors.Capture(err)
 	}
 
-	infos, err := s.GetUnitEndpointNetworks(ctx, unitName, []string{endpoint})
+	endpointName, err := s.st.GetUnitRelationEndpointName(
+		ctx, unitUUID.String(), relationUUID.String(),
+	)
+	if internalerrors.Is(err, relationerrors.RelationNotFound) {
+		return domainnetwork.UnitNetwork{}, relationerrors.RelationNotFound
+	} else if err != nil {
+		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
+			"getting endpoint name for relation %q: %w", relationUUID, err,
+		)
+	}
+
+	infos, err := s.getUnitEndpointNetworks(
+		ctx, unitUUID.String(), []string{endpointName},
+	)
 	if err != nil {
 		return domainnetwork.UnitNetwork{}, internalerrors.Errorf("getting unit endpoint networks: %w", err)
 	}
@@ -50,7 +58,9 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 		// If not broken, providing exactly one endpoint as a parameter for
 		// GetUnitEndpointNetworks should return exactly one info.
 		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
-			"expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint, len(infos))
+			"expected 1 NetworkInfo for unit %q on endpoint %q, got %d",
+			unitName, endpointName, len(infos),
+		)
 	}
 	return infos[0], nil
 }
@@ -76,27 +86,35 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
+	return s.getUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
+}
+
+func (s *ProviderService) getUnitEndpointNetworks(
+	ctx context.Context,
+	unitUUID string,
+	endpointNames []string,
+) ([]domainnetwork.UnitNetwork, error) {
 	supportsNetworking, err := s.supportsNetworking(ctx)
 	if err != nil {
 		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
 	}
 
-	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID.String())
+	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("checking if unit is caas: %w", err)
 	}
-	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
+	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
 	}
 
 	if !supportsNetworking {
 		return s.getUnitEndpointNetworksWithoutProviderNetworking(
-			ctx, unitUUID.String(), endpointNames, isCaas, egressSubnets)
+			ctx, unitUUID, endpointNames, isCaas, egressSubnets)
 	}
 
 	endpointAddresses, err := s.st.GetUnitEndpointNetworkAddresses(
-		ctx, unitUUID.String(), endpointNames,
+		ctx, unitUUID, endpointNames,
 	)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit endpoint addresses: %w", err)

@@ -13,9 +13,11 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	corenetwork "github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -166,6 +168,65 @@ func (s *infoSuite) TestGetUnitEndpointNetworksSortsIngressAddresses(c *tc.C) {
 	c.Assert(infos, tc.HasLen, 1)
 	c.Assert(infos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.9", "10.0.1.9"})
 	c.Assert(infos[0].EgressSubnets, tc.DeepEquals, []string{"10.0.0.0/24"})
+}
+
+func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	endpointName := "db"
+	stateAddresses := []networkinternal.EndpointAddresses{{
+		EndpointName: endpointName,
+		Addresses: []networkinternal.UnitAddress{
+			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
+				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+		},
+	}}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetUnitRelationEndpointName(
+		gomock.Any(), unitUUID.String(), relationUUID.String(),
+	).Return(endpointName, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
+	s.st.EXPECT().GetUnitEgressSubnets(
+		gomock.Any(), unitUUID.String(),
+	).Return([]string{"192.168.1.0/24"}, nil)
+	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+		gomock.Any(), unitUUID.String(), []string{endpointName},
+	).Return(stateAddresses, nil)
+
+	service := NewProviderService(
+		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
+	)
+	info, err := service.GetUnitRelationNetwork(
+		c.Context(), unitName, relationUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.EndpointName, tc.Equals, endpointName)
+	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"192.168.1.10"})
+	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"192.168.1.0/24"})
+}
+
+func (s *infoSuite) TestGetUnitRelationNetworkRelationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetUnitRelationEndpointName(
+		gomock.Any(), unitUUID.String(), relationUUID.String(),
+	).Return("", relationerrors.RelationNotFound)
+
+	service := NewProviderService(
+		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
+	)
+	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, relationUUID)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworksUnitNotFound(c *tc.C) {

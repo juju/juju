@@ -1062,6 +1062,45 @@ func (c *MockStateGetUnitNetworkAddressesCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetUnitRelationEndpointName mocks base method.
+func (m *MockState) GetUnitRelationEndpointName(arg0 context.Context, arg1, arg2 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitRelationEndpointName", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitRelationEndpointName indicates an expected call of GetUnitRelationEndpointName.
+func (mr *MockStateMockRecorder) GetUnitRelationEndpointName(arg0, arg1, arg2 any) *MockStateGetUnitRelationEndpointNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRelationEndpointName", reflect.TypeOf((*MockState)(nil).GetUnitRelationEndpointName), arg0, arg1, arg2)
+	return &MockStateGetUnitRelationEndpointNameCall{Call: call}
+}
+
+// MockStateGetUnitRelationEndpointNameCall wrap *gomock.Call
+type MockStateGetUnitRelationEndpointNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitRelationEndpointNameCall) Return(arg0 string, arg1 error) *MockStateGetUnitRelationEndpointNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitRelationEndpointNameCall) Do(f func(context.Context, string, string) (string, error)) *MockStateGetUnitRelationEndpointNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitRelationEndpointNameCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockStateGetUnitRelationEndpointNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUIDByName mocks base method.
 func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
