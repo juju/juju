@@ -2,9 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 //
 // GENERATED FILE - DO NOT EDIT
-//
-// Generated from:
-//   Juju Version:   3.6.20
 
 package cloudcred
 
