@@ -5788,8 +5788,17 @@ func (s *CAASApplicationSuite) setupApplicationWithAttachStorage(c *gc.C, unitNu
 }
 
 func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
-	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Since:   &now,
+	}
+	err := s.mysql.SetOperatorStatus(sInfo)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+
+	_, err = s.mysql.OperatorStatus()
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
@@ -5811,7 +5820,7 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	err := app.SetOperatorStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
+	appStatus, err := app.OperatorStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
 	c.Assert(appStatus.Message, gc.DeepEquals, "broken")
