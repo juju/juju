@@ -2148,8 +2148,9 @@ func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNo
 	//  - Public or unknown scoped IPv4 addresses
 	//  - Public or unknown scoped IPv6 addresses
 	//
-	// Loopback addresses and addresses associated with veth devices are
-	// excluded.
+	// Sorts virtual ethernet devices after real ethernet devices.
+	//
+	// Loopback addresses are excluded.
 	//
 	// Note: unknown scope is included as a fallback for compatibility with the
 	// openstack provider, though in practice we would expect these to be public
@@ -2164,7 +2165,6 @@ JOIN ip_address a ON d.uuid = a.device_uuid
 WHERE
     a.scope_id IN (0, 1, 2)
     AND a.config_type_id != 6
-    AND d.device_type_id != 7
     AND n.uuid = $entityUUID.uuid
 ORDER BY
     CASE
@@ -2173,7 +2173,8 @@ ORDER BY
         WHEN (a.scope_id = 1 OR a.scope_id = 0) AND a.type_id = 0 THEN 2
         WHEN (a.scope_id = 1 OR a.scope_id = 0) AND a.type_id = 1 THEN 3
     END,
-    a.address_value
+    a.address_value,
+	d.device_type_id
 LIMIT 1;
 `, unitAddress{}, entityUUID)
 	if err != nil {

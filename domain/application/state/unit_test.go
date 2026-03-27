@@ -1884,7 +1884,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	c.Assert(result.PrivateAddress, tc.NotNil)
 	// The local-cloud IPv4 candidates are excluded by config/device filters,
 	// so the next preferred address is local-cloud IPv6.
-	c.Check(*result.PrivateAddress, tc.Equals, "2001:db8::1/64")
+	c.Check(*result.PrivateAddress, tc.Equals, "10.0.0.1/24")
 }
 
 func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressPrefersIPv4OverIPv6InLocalCloud(c *tc.C) {
