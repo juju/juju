@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
@@ -22,10 +21,7 @@ func (api *APIV4) ModelInfo(ctx context.Context) (params.MigrationModelInfoLegac
 	if err != nil {
 		return params.MigrationModelInfoLegacy{}, errors.Trace(err)
 	}
-	owner, err := params.ApproximateUserTagFromQualifier(coremodel.Qualifier(modelInfo.Qualifier))
-	if err != nil {
-		return params.MigrationModelInfoLegacy{}, apiservererrors.ServerError(err)
-	}
+	owner := params.UserTagFromQualifier(coremodel.Qualifier(modelInfo.Qualifier))
 
 	return params.MigrationModelInfoLegacy{
 		UUID:             modelInfo.UUID,

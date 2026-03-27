@@ -13,16 +13,12 @@ import (
 	"github.com/juju/juju/core/semversion"
 )
 
-// ApproximateUserTagFromQualifier creates a valid user tag
-// from the supplied qualifier.
-// This method is used for composing results for legacy callers
-// that still expect a user tag in the result. Such user tags may
-// still be parsed by the caller but are only used for display.
-func ApproximateUserTagFromQualifier(q model.Qualifier) (names.UserTag, error) {
-	if err := q.Validate(); err != nil {
-		return names.UserTag{}, err
-	}
-	return names.NewUserTag(q.String()), nil
+// UserTagFromQualifier creates a user tag from the supplied qualifier.
+// This function provides a stable interface for qualifier-to-tag conversion,
+// allowing for future changes to Qualifier internals without requiring
+// updates across all call sites.
+func UserTagFromQualifier(q model.Qualifier) names.UserTag {
+	return names.NewUserTag(q.String())
 }
 
 // ModelBlockInfoLegacy holds information about a model and its
