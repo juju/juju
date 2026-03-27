@@ -2,9 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 //
 // GENERATED FILE - DO NOT EDIT
-//
-// Generated from:
-//   Juju Version:   3.6.20
 
 package cloudcred
 
@@ -24,8 +21,6 @@ var attr = map[string]bool{
 	"ec2,access-key,access-key":                              true,
 	"ec2,access-key,secret-key":                              false,
 	"ec2,instance-role,instance-profile-name":                true,
-	"equinix,access-key,api-token":                           false,
-	"equinix,access-key,project-id":                          true,
 	"gce,jsonfile,file":                                      true,
 	"gce,oauth2,client-email":                                true,
 	"gce,oauth2,client-id":                                   true,
