@@ -12,6 +12,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -592,6 +593,21 @@ func (s *infoSuite) TestGetRelationEgressSubnetsEmpty(c *tc.C) {
 	relationUUID := s.addRelation(c)
 
 	cidrs, err := s.state.GetRelationEgressSubnets(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.HasLen, 0)
+}
+
+func (s *infoSuite) TestGetModelEgressSubnets(c *tc.C) {
+	s.query(c, `INSERT INTO model_config VALUES (?, ?)`,
+		config.EgressSubnets, "10.0.1.0/24, 10.0.2.0/24")
+
+	cidrs, err := s.state.GetModelEgressSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.DeepEquals, []string{"10.0.1.0/24", "10.0.2.0/24"})
+}
+
+func (s *infoSuite) TestGetModelEgressSubnetsEmpty(c *tc.C) {
+	cidrs, err := s.state.GetModelEgressSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cidrs, tc.HasLen, 0)
 }

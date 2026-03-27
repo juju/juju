@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -120,6 +122,55 @@ func (st *State) GetUnitNetworkAddresses(
 	}
 
 	return addresses, nil
+}
+
+// GetModelEgressSubnets retrieves the egress-subnets configuration from model
+// config.
+func (st *State) GetModelEgressSubnets(ctx context.Context) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type modelConfigEntry struct {
+		Key   string `db:"key"`
+		Value string `db:"value"`
+	}
+
+	egressSubnetsConfig := modelConfigEntry{Key: config.EgressSubnets}
+	stmt, err := st.Prepare(`
+SELECT &modelConfigEntry.value
+FROM   model_config
+WHERE  key = $modelConfigEntry.key
+`, modelConfigEntry{})
+	if err != nil {
+		return nil, errors.Errorf("preparing model egress subnets statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, egressSubnetsConfig).Get(&egressSubnetsConfig)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if egressSubnetsConfig.Value == "" {
+		return []string{}, nil
+	}
+
+	cidrs := strings.Split(egressSubnetsConfig.Value, ",")
+	result := make([]string, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		trimmed := strings.TrimSpace(cidr)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result, nil
 }
 
 // GetRelationEgressSubnets retrieves the egress subnets for the specified
