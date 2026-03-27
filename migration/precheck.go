@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -239,6 +240,10 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 	for _, app := range apps {
 		if app.Life() != state.Alive {
 			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())
+		}
+		ps := app.ProvisioningState()
+		if ps != nil && ps.CurrentOperation != application.NoOperation {
+			return nil, errors.Errorf("application %s has an ongoing %s operation", app.Name(), ps.CurrentOperation)
 		}
 		units, err := app.AllUnits()
 		if err != nil {
