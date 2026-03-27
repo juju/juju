@@ -24,7 +24,7 @@ In software design, a **controller** is an architectural component responsible f
 (controller-storage)=
 ## Controller storage
 
-A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. Prior to Juju 4, both these needs were satisfied by a MongoDB database; however, with the switch to a Dqlite database in Juju 4, only the database access need is satisfied -- for blob storage the Juju controller will require an object store. By default, Juju will use the filesystem of the controller's supporting infrastructure.
+A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. By default, Juju will use the filesystem of the controller's supporting infrastructure.
 
 <!-- ADD BACK IN WHEN WE MOVE THOSE VALUES INTO SECRETS.
 

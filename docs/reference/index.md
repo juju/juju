@@ -29,7 +29,7 @@ myst:
 - {ref}`hook-command`
 - {ref}`juju-cli`
 - {ref}`juju-dashboard`
-- {ref}`juju_db_repl`
+- {ref}`juju-db-repl`
 - {ref}`juju-web-cli`
 - {ref}`jujuc`
 - {ref}`jujud`

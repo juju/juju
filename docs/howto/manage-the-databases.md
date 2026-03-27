@@ -7,14 +7,10 @@ myst:
 (manage-the-databases)=
 # Manage the databases
 
-Juju stores its state in Dqlite. This is segmented into different databases: There is a global controller database and then a model database for each model, where
-- the controller model's database stores controller-level data (users, clouds, model metadata)
-- each workload model's database stores that model's applications, units, machines, and relations.
-
-This guide shows you how to access and query these databases through a REPL, which provides direct SQL access for inspection, debugging, and troubleshooting.
+You never need to interact with Juju's internal databases directly -- Juju handles creation, migrations, and replication automatically, and you normally query state through Juju commands (`juju status`, `juju config`, `juju show-unit`, etc.). However, direct database access is sometimes useful for debugging unexpected behavior, verifying relation data not surfaced through standard commands, or emergency recovery under guidance from Juju developers. This guide shows you how to access and query these databases through the REPL for inspection, debugging, and troubleshooting.
 
 ```{ibnote}
-See more: {ref}`database`, {ref}`juju_db_repl`, [Dqlite documentation](https://dqlite.io/), [SQL documentation](https://www.sqlite.org/lang.html)
+See more: {ref}`database`, {ref}`juju-db-repl`, [Dqlite documentation](https://dqlite.io/), [SQL documentation](https://www.sqlite.org/lang.html)
 ```
 
 ## Access the databases
@@ -35,7 +31,7 @@ Given a Juju 4.0+ client and controller, to access the databases:
    juju_db_repl
    ```
 
-   The REPL starts in the controller database by default. You should see a prompt like:
+   The REPL starts in the global `controller` database by default. You should see a prompt like:
 
    ```text
    repl (controller)>
@@ -47,8 +43,10 @@ Given a Juju 4.0+ client and controller, to access the databases:
    .help
    ```
 
+   This shows a list of all available dot commands.
+
    ```{ibnote}
-   See more: {ref}`juju_db_repl-help`
+   See more: {ref}`juju-db-repl-help`
    ```
 
 4. To exit:
@@ -60,10 +58,12 @@ Given a Juju 4.0+ client and controller, to access the databases:
    (You can also use `.quit`, or press `Ctrl+D`.)
 
    ```{ibnote}
-   See more: {ref}`juju_db_repl-exit`
+   See more: {ref}`juju-db-repl-exit`
    ```
 
 ```{dropdown} Tip: Navigation
+:color: success
+
 Use the arrow keys to navigate through previous commands. Note: This is only possible per session -- the command history file is cleared when you exit the REPL.
 ```
 
@@ -75,22 +75,18 @@ To see the Dqlite cluster configuration:
 .describe-cluster
 ```
 
-```{ibnote}
-See more: {ref}`juju_db_repl-describe-cluster`
-```
-
 This shows the node IDs, addresses, and roles (leader/follower/spare) of the controllers nodes that form the Dqlite cluster. Note: With a single controller, this will show one node. In high-availability (HA) setups with multiple controllers, this will show all nodes and their current roles, which is useful for diagnosing cluster health and leadership status.
 
-## List the databases
+```{ibnote}
+See more: {ref}`juju-db-repl-describe-cluster`
+```
 
-To see all available databases (controller model and other models):
+## View all the model databases
+
+To view all the model databases:
 
 ```text
 .models
-```
-
-```{ibnote}
-See more: {ref}`juju_db_repl-models`
 ```
 
 Sample output:
@@ -98,62 +94,66 @@ Sample output:
 ```text
 uuid                                  name
 f5e8a7b2-1234-5678-90ab-cdef12345678  controller
-a1b2c3d4-5678-90ab-cdef-123456789012  default
-d87021ed-2121-4aa9-8d56-308f9bb0721c  model-1
+a1b2c3d4-5678-90ab-cdef-123456789012  frontend
+d87021ed-2121-4aa9-8d56-308f9bb0721c  backend
+```
+
+```{note}
+The `.models` command only shows model databases, including the controller model database (shown as "controller" in the output above). The global `controller` database, which contains controller-level state, is not listed here. To access the global controller database, use `.switch controller`.
+```
+
+```{ibnote}
+See more: {ref}`juju-db-repl-models`
 ```
 
 ## Switch to a database
 
-```{note}
-Model databases in the REPL are prefixed with `model-`. For a model named `production`, use `.switch model-production`.
-```
+The REPL starts in the global `controller` database. To switch to a different database:
 
-To switch to a model database by its name:
+- To access the global controller database:
 
-```text
-.switch model-default
-```
+  ```text
+  .switch controller
+  ```
+
+- To access the controller model database:
+
+  ```text
+  .switch model-controller
+  ```
+
+- To access any other model database by name:
+
+  ```text
+  .switch model-frontend
+  ```
+
+- To access a model database by UUID (get UUIDs from `.models`):
+
+  ```text
+  .open f5e8a7b2-1234-5678-90ab-cdef12345678
+  ```
+
+The prompt updates to show the current database; e.g., `repl (model-frontend)>`
 
 ```{ibnote}
-See more: {ref}`juju_db_repl-switch`
-```
-
-To switch to a model database by its UUID (useful when you don't know the model name):
-
-```text
-.open f5e8a7b2-1234-5678-90ab-cdef12345678
-```
-
-```{ibnote}
-See more: {ref}`juju_db_repl-open`
-```
-
-To switch back to the controller database:
-
-```text
-.switch controller
-```
-
-The prompt updates to show the current database:
-
-```text
-repl (model-default)>
+See more: {ref}`juju-db-repl-switch`, {ref}`juju-db-repl-open`
 ```
 
 ## View a database's schema
+
+The REPL provides several commands to inspect database schema.
+
+```{dropdown} Tip: Start with .tables
+:color: success
+
+Start with `.tables` to see what tables exist, then use other commands to drill into specific details.
+```
 
 To list all tables in the current database:
 
 ```text
 .tables
-```
-
-```{ibnote}
-See more: {ref}`juju_db_repl-tables`
-```
-
-```{dropdown} Tip: Start with .tables
-Run `.tables` when you first switch to a database to understand its schema before writing queries.
 ```
 
 Sample output from a model database:
@@ -167,6 +167,10 @@ relation
 unit
 ```
 
+```{ibnote}
+See more: {ref}`juju-db-repl-tables`
+```
+
 To see what columns and data types a table contains:
 
 ```text
@@ -175,7 +179,7 @@ To see what columns and data types a table contains:
 
 This shows the CREATE statement that defines the table structure:
 
-```text
+```sql
 CREATE TABLE application (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -184,16 +188,28 @@ CREATE TABLE application (
 )
 ```
 
+```{ibnote}
+See more: {ref}`juju-db-repl-ddl`
+```
+
 To list all views in the current database:
 
 ```text
 .views
 ```
 
+```{ibnote}
+See more: {ref}`juju-db-repl-views`
+```
+
 To list all triggers in the current database:
 
 ```text
 .triggers
+```
+
+```{ibnote}
+See more: {ref}`juju-db-repl-triggers`
 ```
 
 To see which tables reference a specific table and column:
@@ -208,74 +224,35 @@ To see reference counts for a specific UUID:
 .fk-list unit uuid abc-123-def-456
 ```
 
+```{ibnote}
+See more: {ref}`juju-db-repl-fk-list`
+```
+
 ## Query a database
 
-### Query the controller model database
+Once you've viewed a database's schema (using `.tables`, `.ddl`, etc.), you can query the data using standard SQL SELECT statements.
 
-To find models on a specific cloud:
-
-```text
-SELECT uuid, name, cloud_name, cloud_region
-FROM model
-WHERE cloud_name = 'aws';
+```{warning}
+The REPL requires queries to be on a single line or use backslash `\` continuation for multi-line queries. For long queries, end each line (except the last) with a backslash.
 ```
 
-To list all users:
-
-```text
-SELECT name, display_name, created_at
-FROM user;
+```{ibnote}
+See more: [SQL documentation](https://www.sqlite.org/lang.html)
 ```
 
-### Query a workload model database
-
-To view all applications:
-
-```text
-SELECT name, life FROM application;
-```
-
-To count units by application:
-
-```text
-SELECT application_uuid, COUNT(*) as unit_count
-FROM unit
-GROUP BY application_uuid;
-```
-
-To view applications and their charm URLs:
-
-```text
-SELECT a.name, c.reference_name
-FROM application a
-JOIN charm c ON a.charm_uuid = c.uuid;
-```
-
-To check machine status:
-
-```text
-SELECT machine_id, life, instance_id
-FROM machine;
-```
-
-To view relations between applications:
-
-```text
-SELECT name, life
-FROM relation;
-```
-
-For multi-line queries, use standard SQL line continuation with backslashes.
-
-## Query across the databases
+## Query all the model databases
 
 To run the same query on all model databases:
 
-```text
+```sql
 .query-models SELECT COUNT(*) FROM unit
 ```
 
 The REPL executes the query on each model and displays results grouped by model UUID.
+
+```{ibnote}
+See more: {ref}`juju-db-repl-query-models`
+```
 
 ## Modify a database
 
@@ -297,13 +274,22 @@ To view recent changes in the current database:
 
 This shows the change log entries, useful for understanding recent modifications.
 
-```{dropdown} For Juju developers: View change stream
+```{ibnote}
+See more: {ref}`juju-db-repl-change-log`
+```
+
+````{dropdown} For Juju developers: View change stream
+:color: info
 
 To view change stream entries in the current database:
 
-\`\`\`text
+```text
 .change-stream
-\`\`\`
+```
 
 This shows what the internal change stream will process.
+
+```{ibnote}
+See more: {ref}`juju-db-repl-change-stream`
 ```
+````
