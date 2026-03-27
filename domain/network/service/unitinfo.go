@@ -7,6 +7,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"sort"
 
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -46,7 +47,7 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 		)
 	}
 
-	egressSubnets, err := s.getRelationEgressSubnets(ctx, relationUUID)
+	egressSubnets, err := s.getRelationEgressSubnets(ctx, relationUUID, unitUUID)
 	if err != nil {
 		return domainnetwork.UnitNetwork{}, internalerrors.Capture(err)
 	}
@@ -91,7 +92,7 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
-	egressSubnets, err := s.getUnitEgressSubnets(ctx, unitUUID.String())
+	egressSubnets, err := s.getUnitEgressSubnets(ctx, unitUUID)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
@@ -143,6 +144,7 @@ func (s *ProviderService) getUnitEndpointNetworks(
 func (s *ProviderService) getRelationEgressSubnets(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
+	unitUUID coreunit.UUID,
 ) ([]string, error) {
 	egressSubnets, err := s.st.GetRelationEgressSubnets(ctx, relationUUID.String())
 	if err != nil {
@@ -154,20 +156,40 @@ func (s *ProviderService) getRelationEgressSubnets(
 		return egressSubnets, nil
 	}
 
-	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
+	modelEgressSubnets, err := s.getModelEgressSubnets(ctx)
 	if err != nil {
 		return nil, internalerrors.Errorf(
 			"getting egress subnets for relation %q: %w", relationUUID, err,
 		)
+	}
+	if len(modelEgressSubnets) > 0 {
+		return modelEgressSubnets, nil
+	}
+
+	publicEgressSubnets, err := s.getUnitPublicEgressSubnets(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting egress subnets for relation %q: %w", relationUUID, err,
+		)
+	}
+	return publicEgressSubnets, nil
+}
+
+func (s *ProviderService) getModelEgressSubnets(
+	ctx context.Context,
+) ([]string, error) {
+	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
 	}
 	return modelEgressSubnets, nil
 }
 
 func (s *ProviderService) getUnitEgressSubnets(
 	ctx context.Context,
-	unitUUID string,
+	unitUUID coreunit.UUID,
 ) ([]string, error) {
-	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID)
+	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
 	}
@@ -175,11 +197,34 @@ func (s *ProviderService) getUnitEgressSubnets(
 		return egressSubnets, nil
 	}
 
-	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
+	modelEgressSubnets, err := s.getModelEgressSubnets(ctx)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
+		return nil, internalerrors.Capture(err)
 	}
-	return modelEgressSubnets, nil
+	if len(modelEgressSubnets) > 0 {
+		return modelEgressSubnets, nil
+	}
+
+	return s.getUnitPublicEgressSubnets(ctx, unitUUID)
+}
+
+func (s *ProviderService) getUnitPublicEgressSubnets(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+) ([]string, error) {
+	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting unit public addresses for egress fallback: %w", err,
+		)
+	}
+
+	matchedAddrs := addrs.AllMatchingScope(corenetwork.ScopeMatchPublic)
+	if len(matchedAddrs) == 0 {
+		return []string{}, nil
+	}
+	sort.Sort(matchedAddrs)
+	return corenetwork.SubnetsForAddresses([]string{matchedAddrs[0].Value}), nil
 }
 
 func buildUnitNetworkFromAddresses(
