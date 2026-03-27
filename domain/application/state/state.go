@@ -668,9 +668,18 @@ func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident entityUUID) (
 
 func (s *State) getCharmState(ctx context.Context, tx *sqlair.TX, ident entityUUID) (charm.Charm, error) {
 	charmQuery := `
-SELECT &charmState.*
-FROM charm
-WHERE uuid = $entityUUID.uuid;
+SELECT
+    c.reference_name AS &charmState.reference_name,
+    c.revision AS &charmState.revision,
+    c.archive_path AS &charmState.archive_path,
+    c.object_store_uuid AS &charmState.object_store_uuid,
+    c.available AS &charmState.available,
+    cs.name AS &charmState.source,
+    c.architecture_id AS &charmState.architecture_id,
+    c.version AS &charmState.version
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.uuid = $entityUUID.uuid;
 `
 
 	charmStmt, err := s.Prepare(charmQuery, charmState{}, ident)
@@ -1456,16 +1465,13 @@ WHERE a.uuid = $entityUUID.uuid;
 }
 
 func decodeCharmState(state charmState) (charm.Charm, error) {
-	arch, err := decodeArchitecture(state.ArchitectureID)
-	if err != nil {
-		return charm.Charm{}, err
+	arch := architecture.Unknown
+	if state.ArchitectureID.Valid {
+		arch = architecture.Architecture(state.ArchitectureID.V)
 	}
+	source := charm.CharmSource(state.Source)
 
-	source, err := decodeCharmSource(state.SourceID)
-	if err != nil {
-		return charm.Charm{}, err
-	}
-
+	var err error
 	var objectStoreUUID objectstore.UUID
 	if state.ObjectStoreUUID.Valid {
 		objectStoreUUID, err = objectstore.ParseUUID(state.ObjectStoreUUID.String)
@@ -1485,38 +1491,6 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 		Source:          source,
 	}, nil
 
-}
-
-func decodeArchitecture(arch sql.Null[int64]) (architecture.Architecture, error) {
-	if !arch.Valid {
-		return architecture.Unknown, nil
-	}
-
-	switch arch.V {
-	case 0:
-		return architecture.AMD64, nil
-	case 1:
-		return architecture.ARM64, nil
-	case 2:
-		return architecture.PPC64EL, nil
-	case 3:
-		return architecture.S390X, nil
-	case 4:
-		return architecture.RISCV64, nil
-	default:
-		return -1, errors.Errorf("unsupported architecture: %d", arch.V)
-	}
-}
-
-func decodeCharmSource(source int) (charm.CharmSource, error) {
-	switch source {
-	case 1:
-		return charm.CharmHubSource, nil
-	case 0:
-		return charm.LocalSource, nil
-	default:
-		return "", errors.Errorf("unsupported charm source: %d", source)
-	}
 }
 
 func encodeArchitecture(a architecture.Architecture) (int, error) {

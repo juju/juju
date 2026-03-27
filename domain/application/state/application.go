@@ -386,8 +386,8 @@ func (st *State) getDefaultSpaceUUID(ctx context.Context, tx *sqlair.TX) (string
 	}
 	stmt, err := st.Prepare(`
 SELECT &entityUUID.uuid
-FROM space
-JOIN model_config ON model_config.key = $KeyValue.key AND model_config.value = space.name`, key, entityUUID{})
+FROM   space
+JOIN   model_config ON model_config.key = $KeyValue.key AND model_config.value = space.name`, key, entityUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -480,8 +480,8 @@ func (st *State) getLifeForUnitName(ctx context.Context, tx *sqlair.TX, unitName
 	unit := unitNameLife{Name: unitName.String()}
 	queryUnit := `
 SELECT &unitNameLife.life_id
-FROM unit
-WHERE name = $unitNameLife.name
+FROM   unit
+WHERE  name = $unitNameLife.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
@@ -522,8 +522,8 @@ func (st *State) getApplicationScaleState(ctx context.Context, tx *sqlair.TX, ap
 	appScale := applicationScale{ApplicationID: appUUID}
 	queryScale := `
 SELECT &applicationScale.*
-FROM application_scale
-WHERE application_uuid = $applicationScale.application_uuid
+FROM   application_scale
+WHERE  application_uuid = $applicationScale.application_uuid
 `
 	queryScaleStmt, err := st.Prepare(queryScale, appScale)
 	if err != nil {
@@ -555,9 +555,9 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 	ident := entityUUID{UUID: appUUID.String()}
 	stmt, err := st.Prepare(`
 SELECT a.life_id AS &lifeID.life_id 
-FROM application AS a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.uuid = $entityUUID.uuid;
+FROM   application AS a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.uuid = $entityUUID.uuid;
 `, lifeID{}, ident)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -594,9 +594,9 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.life_id AS &applicationDetails.life_id,
 	   a.space_uuid AS &applicationDetails.space_uuid,
 	   c.source_id = 2 AS &applicationDetails.is_application_synthetic
-FROM application a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.uuid = $applicationDetails.uuid;
+FROM   application a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.uuid = $applicationDetails.uuid;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -641,9 +641,9 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.life_id AS &applicationDetails.life_id,
 	   a.space_uuid AS &applicationDetails.space_uuid,
 	   c.source_id = 2 AS &applicationDetails.is_application_synthetic
-FROM application a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationDetails.name;
+FROM   application a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.name = $applicationDetails.name;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -680,8 +680,8 @@ func (st *State) IsControllerApplication(ctx context.Context, appID coreapplicat
 	ident := entityUUID{UUID: appID.String()}
 	appExistsQuery := `
 SELECT &entityUUID.*
-FROM application
-WHERE uuid = $entityUUID.uuid;
+FROM   application
+WHERE  uuid = $entityUUID.uuid;
 `
 	appExistsStmt, err := st.Prepare(appExistsQuery, ident)
 	if err != nil {
@@ -693,8 +693,8 @@ WHERE uuid = $entityUUID.uuid;
 	}
 	stmt, err := st.Prepare(`
 SELECT TRUE AS &controllerApplication.is_controller
-FROM application_controller
-WHERE application_uuid = $controllerApplication.application_uuid
+FROM   application_controller
+WHERE  application_uuid = $controllerApplication.application_uuid
 `, controllerApp)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -760,9 +760,9 @@ func (st *State) CheckApplicationsForMigration(ctx context.Context) error {
 func (st *State) checkAllApplicationsAndUnitsAreAlive(ctx context.Context, tx *sqlair.TX) error {
 	checkApplicationsStmt, err := st.Prepare(`
 SELECT &applicationName.*
-FROM application
-JOIN charm AS c ON c.uuid = application.charm_uuid
-WHERE life_id != 0 AND c.source_id < 2;
+FROM   application
+JOIN   charm AS c ON c.uuid = application.charm_uuid
+WHERE  life_id != 0 AND c.source_id < 2;
 `, applicationName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -770,8 +770,8 @@ WHERE life_id != 0 AND c.source_id < 2;
 
 	checkUnitsStmt, err := st.Prepare(`
 SELECT &unitName.*
-FROM unit
-WHERE life_id != 0
+FROM   unit
+WHERE  life_id != 0
 `, unitName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -800,9 +800,9 @@ WHERE life_id != 0
 func (st *State) checkNoUnitsUpgrading(ctx context.Context, tx *sqlair.TX) error {
 	checkUnitsStmt, err := st.Prepare(`
 SELECT u.name AS &unitName.*
-FROM unit AS u
-JOIN application AS a ON a.uuid = u.application_uuid
-WHERE u.charm_uuid != a.charm_uuid
+FROM   unit AS u
+JOIN   application AS a ON a.uuid = u.application_uuid
+WHERE  u.charm_uuid != a.charm_uuid
 `, unitName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -829,9 +829,9 @@ SELECT a.uuid AS &applicationDetails.uuid,
 	   a.life_id AS &applicationDetails.life_id,
 	   a.space_uuid AS &applicationDetails.space_uuid,
 	   c.source_id = 2 AS &applicationDetails.is_application_synthetic
-FROM application a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationDetails.name;
+FROM   application a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.name = $applicationDetails.name;
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
@@ -861,8 +861,9 @@ func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapp
 		Scale:         scale,
 	}
 	upsertApplicationScale := `
-UPDATE application_scale SET scale = $applicationScale.scale
-WHERE application_uuid = $applicationScale.application_uuid
+UPDATE application_scale 
+SET    scale = $applicationScale.scale
+WHERE  application_uuid = $applicationScale.application_uuid
 `
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
@@ -886,8 +887,9 @@ func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplica
 	}
 
 	upsertApplicationScale := `
-UPDATE application_scale SET scale = $applicationScale.scale
-WHERE application_uuid = $applicationScale.application_uuid
+UPDATE application_scale 
+SET    scale = $applicationScale.scale
+WHERE  application_uuid = $applicationScale.application_uuid
 `
 	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
 	if err != nil {
@@ -929,11 +931,11 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 	}
 
 	upsertApplicationScale := `
-UPDATE application_scale SET
-    scale = $applicationScale.scale,
-    scaling = $applicationScale.scaling,
-    scale_target = $applicationScale.scale_target
-WHERE application_uuid = $applicationScale.application_uuid
+UPDATE application_scale
+SET    scale = $applicationScale.scale,
+       scaling = $applicationScale.scaling,
+       scale_target = $applicationScale.scale_target
+WHERE  application_uuid = $applicationScale.application_uuid
 `
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
@@ -992,7 +994,8 @@ func (st *State) UpsertCloudService(ctx context.Context, applicationName, provid
 
 	// Query any existing records for application and provider id.
 	queryExistingStmt, err := st.Prepare(`
-SELECT &cloudService.* FROM k8s_service
+SELECT &cloudService.* 
+FROM   k8s_service
 WHERE  application_uuid = $cloudService.application_uuid
 AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	if err != nil {
@@ -1259,9 +1262,9 @@ func (st *State) InitialWatchStatementApplicationsWithPendingCharms() (string, e
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT a.uuid AS &entityUUID.uuid
-FROM application a
-JOIN charm c ON a.charm_uuid = c.uuid
-WHERE c.available = FALSE AND c.source_id < 2;
+FROM   application a
+JOIN   charm c ON a.charm_uuid = c.uuid
+WHERE  c.available = FALSE AND c.source_id < 2;
 `, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1293,10 +1296,10 @@ func (st *State) InitialWatchStatementApplicationConfigHash(appName string) (str
 		app := applicationName{Name: appName}
 		stmt, err := st.Prepare(`
 SELECT &applicationConfigHash.*
-FROM application_config_hash ach
-JOIN application a ON a.uuid = ach.application_uuid
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationName.name AND c.source_id < 2;
+FROM   application_config_hash ach
+JOIN   application a ON a.uuid = ach.application_uuid
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.name = $applicationName.name AND c.source_id < 2;
 `, app, applicationConfigHash{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1327,9 +1330,9 @@ func (st *State) InitialWatchStatementApplications() (string, eventsource.Namesp
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 		stmt, err := st.Prepare(`
 SELECT a.uuid AS &entityUUID.uuid
-FROM application AS a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE c.source_id < 2;
+FROM   application AS a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  c.source_id < 2;
 `, entityUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1452,16 +1455,15 @@ func (st *State) getNetNodeSpaceAddresses(ctx context.Context, tx *sqlair.TX, ne
 
 	netNodeUUID := netNodeUUID{NetNodeUUID: netNode}
 	stmt, err := st.Prepare(`
-SELECT
-    ip.address_value AS &spaceAddress.address_value,
-    ip.type_id AS &spaceAddress.type_id,
-    ip.scope_id AS &spaceAddress.scope_id,
-    sn.space_uuid AS &spaceAddress.space_uuid
-FROM      net_node nn
-JOIN      link_layer_device lld ON lld.net_node_uuid = nn.uuid
-JOIN      ip_address ip ON ip.device_uuid = lld.uuid
-LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
-WHERE     nn.uuid = $netNodeUUID.uuid;
+SELECT ip.address_value AS &spaceAddress.address_value,
+       ip.type_id AS &spaceAddress.type_id,
+       ip.scope_id AS &spaceAddress.scope_id,
+       sn.space_uuid AS &spaceAddress.space_uuid
+FROM   net_node nn
+       JOIN link_layer_device lld ON lld.net_node_uuid = nn.uuid
+       JOIN ip_address ip ON ip.device_uuid = lld.uuid
+       LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
+WHERE  nn.uuid = $netNodeUUID.uuid;
 `, netNodeUUID, spaceAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1553,9 +1555,9 @@ func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, 
 
 	stmt, err := st.Prepare(`
 SELECT a.uuid AS &entityUUID.uuid
-FROM application AS a
-JOIN charm AS c ON a.charm_uuid = c.uuid
-WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
+FROM   application AS a
+JOIN   charm AS c ON a.charm_uuid = c.uuid
+WHERE  a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 `, entityUUID{}, applicationIDs{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1668,8 +1670,8 @@ func (st *State) SetApplicationCharm(
 
 	setAppCharmStmt, err := st.Prepare(`
 UPDATE application
-SET charm_uuid = $applicationAndCharmUUID.charm_uuid
-WHERE uuid = $applicationAndCharmUUID.application_uuid
+SET    charm_uuid = $applicationAndCharmUUID.charm_uuid
+WHERE  uuid = $applicationAndCharmUUID.application_uuid
 `, applicationAndCharmUUID{})
 	if err != nil {
 		return errors.Errorf("preparing set application charm: %w", err)
@@ -1790,8 +1792,8 @@ func (st *State) GetApplicationUUIDByUnitName(
 	unit := unitName{Name: name.String()}
 	queryUnit := `
 SELECT application_uuid AS &entityUUID.uuid
-FROM unit
-WHERE name = $unitName.name;
+FROM   unit
+WHERE  name = $unitName.name;
 `
 	query, err := st.Prepare(queryUnit, entityUUID{}, unit)
 	if err != nil {
@@ -1829,10 +1831,10 @@ func (st *State) GetApplicationUUIDAndNameByUnitName(
 	unit := unitName{Name: name.String()}
 	queryUnit := `
 SELECT a.uuid AS &applicationUUIDAndName.uuid,
-a.name AS &applicationUUIDAndName.name
-FROM unit u
-JOIN application a ON a.uuid = u.application_uuid
-WHERE u.name = $unitName.name;
+       a.name AS &applicationUUIDAndName.name
+FROM   unit u
+JOIN   application a ON a.uuid = u.application_uuid
+WHERE  u.name = $unitName.name;
 `
 	query, err := st.Prepare(queryUnit, applicationUUIDAndName{}, unit)
 	if err != nil {
@@ -1871,8 +1873,8 @@ func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication
 	appUUID := entityUUID{UUID: id.String()}
 	queryApp := `
 SELECT &cmv.*
-FROM application
-WHERE uuid = $entityUUID.uuid
+FROM   application
+WHERE  uuid = $entityUUID.uuid
 `
 	query, err := st.Prepare(queryApp, cmv{}, appUUID)
 	if err != nil {
@@ -1907,9 +1909,19 @@ func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplic
 	appIdent := entityUUID{UUID: appID.String()}
 
 	query, err := st.Prepare(`
-SELECT &applicationCharmDownloadInfo.*
-FROM v_application_charm_download_info
-WHERE application_uuid = $entityUUID.uuid
+SELECT
+    v.charm_uuid AS &applicationCharmDownloadInfo.charm_uuid,
+    v.name AS &applicationCharmDownloadInfo.name,
+    v.available AS &applicationCharmDownloadInfo.available,
+    v.hash AS &applicationCharmDownloadInfo.hash,
+    v.provenance AS &applicationCharmDownloadInfo.provenance,
+    v.charmhub_identifier AS &applicationCharmDownloadInfo.charmhub_identifier,
+    v.download_url AS &applicationCharmDownloadInfo.download_url,
+    v.download_size AS &applicationCharmDownloadInfo.download_size,
+    cs.name AS &applicationCharmDownloadInfo.source
+FROM v_application_charm_download_info AS v
+JOIN charm_source AS cs ON v.source_id = cs.id
+WHERE v.application_uuid = $entityUUID.uuid
 `, applicationCharmDownloadInfo{}, appIdent)
 	if err != nil {
 		return application.CharmDownloadInfo{}, errors.Errorf("preparing query for application %q: %w", appID, err)
@@ -1933,9 +1945,7 @@ WHERE application_uuid = $entityUUID.uuid
 	}
 
 	// We can only reserve charms from CharmHub charms.
-	if source, err := decodeCharmSource(info.SourceID); err != nil {
-		return application.CharmDownloadInfo{}, errors.Errorf("decoding charm source for %q: %w", appID, err)
-	} else if source != charm.CharmHubSource {
+	if source := charm.CharmSource(info.Source); source != charm.CharmHubSource {
 		return application.CharmDownloadInfo{}, errors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmProvenanceNotValid)
 	}
 
@@ -1996,12 +2006,11 @@ WHERE uuid = $entityUUID.uuid
 
 	charmQuery := `
 UPDATE charm
-SET
-	archive_path = $resolveCharmState.archive_path,
-	object_store_uuid = $resolveCharmState.object_store_uuid,
-	lxd_profile = $resolveCharmState.lxd_profile,
-	available = TRUE
-WHERE uuid = $entityUUID.uuid;`
+SET    archive_path = $resolveCharmState.archive_path,
+	   object_store_uuid = $resolveCharmState.object_store_uuid,
+	   lxd_profile = $resolveCharmState.lxd_profile,
+	   available = TRUE
+WHERE  uuid = $entityUUID.uuid;`
 	charmStmt, err := st.Prepare(charmQuery, charmUUID, chState)
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
@@ -2050,7 +2059,7 @@ func (st *State) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appli
 
 	revUpdaterAppQuery := `
 SELECT &revisionUpdaterApplication.*
-FROM v_revision_updater_application
+FROM   v_revision_updater_application
 `
 
 	revUpdaterAppStmt, err := st.Prepare(revUpdaterAppQuery, revisionUpdaterApplication{})
@@ -2060,7 +2069,7 @@ FROM v_revision_updater_application
 
 	numUnitsQuery := `
 SELECT &revisionUpdaterApplicationNumUnits.*
-FROM v_revision_updater_application_unit
+FROM   v_revision_updater_application_unit
 `
 
 	numUnitsStmt, err := st.Prepare(numUnitsQuery, revisionUpdaterApplicationNumUnits{})
@@ -2095,14 +2104,14 @@ FROM v_revision_updater_application_unit
 	return transform.SliceOrErr(apps, func(r revisionUpdaterApplication) (application.RevisionUpdaterApplication, error) {
 		// The following architecture IDs should never diverge, as we only
 		// support homogenous architectures. Yet we have two sources of truth.
-		charmArch, err := decodeArchitecture(r.CharmArchitectureID)
-		if err != nil {
-			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding architecture: %w", err)
+		charmArch := architecture.Unknown
+		if r.CharmArchitectureID.Valid {
+			charmArch = architecture.Architecture(r.CharmArchitectureID.V)
 		}
 
-		appArch, err := decodeArchitecture(r.PlatformArchitectureID)
-		if err != nil {
-			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding architecture: %w", err)
+		appArch := architecture.Unknown
+		if r.PlatformArchitectureID.Valid {
+			appArch = architecture.Architecture(r.PlatformArchitectureID.V)
 		}
 
 		risk, err := decodeRisk(r.ChannelRisk)
@@ -2110,10 +2119,10 @@ FROM v_revision_updater_application_unit
 			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding risk: %w", err)
 		}
 
-		osType, err := decodeOSType(r.PlatformOSID)
-		if err != nil {
-			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding os type: %w", err)
+		if !r.PlatformOSID.Valid {
+			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding os type: os type is null")
 		}
+		osType := deployment.OSType(r.PlatformOSID.V)
 
 		return application.RevisionUpdaterApplication{
 			Name: r.Name,
@@ -2271,8 +2280,8 @@ func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreappli
 
 	settingsQuery := `
 SELECT trust AS &applicationSettings.trust
-FROM application_setting
-WHERE application_uuid = $entityUUID.uuid;`
+FROM   application_setting
+WHERE  application_uuid = $entityUUID.uuid;`
 
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
@@ -2398,13 +2407,13 @@ func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreappli
 	// charm config and the application settings for the trust config.
 	appQuery := `
 SELECT &entityUUID.*
-FROM application
-WHERE uuid = $entityUUID.uuid;
+FROM   application
+WHERE  uuid = $entityUUID.uuid;
 `
 	deleteQuery := `
 DELETE FROM application_config
-WHERE application_uuid = $entityUUID.uuid
-AND key IN ($S[:]);
+WHERE  application_uuid = $entityUUID.uuid
+AND    key IN ($S[:]);
 `
 	settingsQuery := `
 INSERT INTO application_setting (*)
@@ -2479,8 +2488,8 @@ func (st *State) GetCharmConfigByApplicationUUID(ctx context.Context, appID core
 
 	appQuery := `
 SELECT &charmUUID.*
-FROM application
-WHERE uuid = $entityUUID.uuid;
+FROM   application
+WHERE  uuid = $entityUUID.uuid;
 `
 	appStmt, err := st.Prepare(appQuery, appIdent, charmUUID{})
 	if err != nil {
@@ -2607,8 +2616,8 @@ func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplica
 
 	query := `
 SELECT sha256 AS &applicationConfigHash.sha256
-FROM application_config_hash
-WHERE application_uuid = $entityUUID.uuid;
+FROM   application_config_hash
+WHERE  application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, applicationConfigHash{}, ident)
@@ -2649,9 +2658,13 @@ func (st *State) GetApplicationCharmOrigin(ctx context.Context, appID coreapplic
 	ident := entityUUID{UUID: appID.String()}
 
 	queryOrigin := `
-SELECT &applicationOrigin.*
-FROM v_application_origin
-WHERE uuid = $entityUUID.uuid;`
+SELECT v.reference_name AS &applicationOrigin.reference_name,
+       cs.name AS &applicationOrigin.source,
+       v.revision AS &applicationOrigin.revision,
+       v.charmhub_identifier AS &applicationOrigin.charmhub_identifier,
+       v.hash AS &applicationOrigin.hash
+FROM   v_application_origin AS v JOIN charm_source AS cs ON v.source_id = cs.id
+WHERE  v.uuid = $entityUUID.uuid;`
 
 	stmtOrigin, err := st.Prepare(queryOrigin, applicationOrigin{}, ident)
 	if err != nil {
@@ -2660,8 +2673,8 @@ WHERE uuid = $entityUUID.uuid;`
 
 	queryPlatformChannel := `
 SELECT &applicationPlatformAndChannel.*
-FROM v_application_platform_channel
-WHERE application_uuid = $entityUUID.uuid;
+FROM   v_application_platform_channel
+WHERE  application_uuid = $entityUUID.uuid;
 `
 	stmtPlatformChannel, err := st.Prepare(queryPlatformChannel, applicationPlatformAndChannel{}, ident)
 	if err != nil {
@@ -2692,11 +2705,6 @@ WHERE application_uuid = $entityUUID.uuid;
 		return application.CharmOrigin{}, errors.Errorf("querying application %q: %w", appID, err)
 	}
 
-	source, err := decodeCharmSource(appOrigin.SourceID)
-	if err != nil {
-		return application.CharmOrigin{}, errors.Errorf("decoding charm source: %w", err)
-	}
-
 	platform, err := decodePlatform(appPlatformChan.PlatformChannel, appPlatformChan.PlatformOSID, appPlatformChan.PlatformArchitectureID)
 	if err != nil {
 		return application.CharmOrigin{}, errors.Errorf("decoding platform: %w", err)
@@ -2724,7 +2732,7 @@ WHERE application_uuid = $entityUUID.uuid;
 
 	return application.CharmOrigin{
 		Name:               appOrigin.ReferenceName,
-		Source:             source,
+		Source:             charm.CharmSource(appOrigin.Source),
 		Platform:           platform,
 		Channel:            channel,
 		Revision:           revision,
@@ -2749,8 +2757,8 @@ func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplic
 
 	query := `
 SELECT &applicationConstraint.*
-FROM v_application_constraint
-WHERE application_uuid = $entityUUID.uuid;
+FROM   v_application_constraint
+WHERE  application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, applicationConstraint{}, ident)
@@ -2815,8 +2823,8 @@ func (st *State) setApplicationConstraints(
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM application_constraint
-WHERE application_uuid = $applicationUUID.application_uuid
+FROM   application_constraint
+WHERE  application_uuid = $applicationUUID.application_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
 	if err != nil {
@@ -3003,9 +3011,9 @@ func (st *State) GetDeviceConstraints(ctx context.Context, appID coreapplication
 
 	query := `
 SELECT &deviceConstraint.*
-FROM device_constraint AS dc
-LEFT JOIN device_constraint_attribute AS dca ON dca.device_constraint_uuid = dc.uuid
-WHERE dc.application_uuid = $entityUUID.uuid;
+FROM   device_constraint AS dc
+       LEFT JOIN device_constraint_attribute AS dca ON dca.device_constraint_uuid = dc.uuid
+WHERE  dc.application_uuid = $entityUUID.uuid;
 `
 
 	stmt, err := st.Prepare(query, deviceConstraint{}, ident)
@@ -3283,9 +3291,9 @@ func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, name str
 	app := applicationUUIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
 SELECT a.uuid AS &applicationUUIDAndName.uuid
-FROM application AS a
-JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationUUIDAndName.name;
+FROM   application AS a
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  a.name = $applicationUUIDAndName.name;
 `, app)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3329,8 +3337,8 @@ WHERE a.uuid = $entityUUID.uuid;
 func (st *State) getApplicationConfig(ctx context.Context, tx *sqlair.TX, appID entityUUID) ([]applicationConfig, error) {
 	configQuery := `
 SELECT &applicationConfig.*
-FROM v_application_config
-WHERE uuid = $entityUUID.uuid;
+FROM   v_application_config
+WHERE  uuid = $entityUUID.uuid;
 `
 	configStmt, err := st.Prepare(configQuery, applicationConfig{}, appID)
 	if err != nil {
@@ -3347,8 +3355,8 @@ WHERE uuid = $entityUUID.uuid;
 func (st *State) getApplicationSettings(ctx context.Context, tx *sqlair.TX, appID entityUUID) (applicationSettings, error) {
 	settingsQuery := `
 SELECT &applicationSettings.*
-FROM application_setting
-WHERE application_uuid = $entityUUID.uuid;
+FROM   application_setting
+WHERE  application_uuid = $entityUUID.uuid;
 `
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, appID)
 	if err != nil {
@@ -3520,12 +3528,7 @@ func decodeOSType(osType sql.Null[int64]) (deployment.OSType, error) {
 		return 0, errors.Errorf("os type is null")
 	}
 
-	switch osType.V {
-	case 0:
-		return deployment.Ubuntu, nil
-	default:
-		return -1, errors.Errorf("unknown os type %v", osType)
-	}
+	return deployment.OSType(osType.V), nil
 }
 
 func hashConfigAndSettings(config []applicationConfig, settings applicationSettings) (string, error) {
@@ -3557,9 +3560,9 @@ func decodePlatform(channel string, os, arch sql.Null[int64]) (deployment.Platfo
 		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)
 	}
 
-	archType, err := decodeArchitecture(arch)
-	if err != nil {
-		return deployment.Platform{}, errors.Errorf("decoding architecture: %w", err)
+	archType := architecture.Unknown
+	if arch.Valid {
+		archType = architecture.Architecture(arch.V)
 	}
 
 	return deployment.Platform{
@@ -3611,7 +3614,7 @@ JOIN   application_endpoint AS ae ON vcr.uuid = ae.charm_relation_uuid
 JOIN   relation_endpoint AS re ON ae.uuid = re.endpoint_uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  ae.application_uuid = $application.uuid
-GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional, vcr.capacity, vcr.scope -- for count
+GROUP BY a.name, vcr.charm_uuid, vcr.name, vcr.role, vcr.interface, vcr.optional, vcr.capacity, vcr.scope
 `, app, relationInfo{})
 	if err != nil {
 		return nil, errors.Errorf("preparing query: %w", err)
@@ -3703,7 +3706,7 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 
 	clearApplicationConfig, err := st.Prepare(`
 DELETE FROM application_config
-WHERE application_uuid = $entityUUID.uuid;
+WHERE  application_uuid = $entityUUID.uuid;
 `, appIdent)
 	if err != nil {
 		return errors.Capture(err)

@@ -302,7 +302,7 @@ type charmState struct {
 	ArchivePath     string          `db:"archive_path"`
 	ObjectStoreUUID sql.NullString  `db:"object_store_uuid"`
 	Available       bool            `db:"available"`
-	SourceID        int             `db:"source_id"`
+	Source          string          `db:"source"`
 	ArchitectureID  sql.Null[int64] `db:"architecture_id"`
 	Version         string          `db:"version"`
 }
@@ -693,7 +693,7 @@ type countResult struct {
 type charmLocator struct {
 	ReferenceName  string          `db:"reference_name"`
 	Revision       int             `db:"revision"`
-	SourceID       int             `db:"source_id"`
+	Source         string          `db:"source"`
 	ArchitectureID sql.Null[int64] `db:"architecture_id"`
 }
 
@@ -706,7 +706,7 @@ type applicationCharmDownloadInfo struct {
 	CharmhubIdentifier string `db:"charmhub_identifier"`
 	DownloadURL        string `db:"download_url"`
 	DownloadSize       int64  `db:"download_size"`
-	SourceID           int    `db:"source_id"`
+	Source             string `db:"source"`
 }
 
 type resourceToAdd struct {
@@ -1064,7 +1064,7 @@ type applicationPlatformAndChannel struct {
 
 type applicationOrigin struct {
 	ReferenceName      string          `db:"reference_name"`
-	SourceID           int             `db:"source_id"`
+	Source             string          `db:"source"`
 	Revision           sql.Null[int64] `db:"revision"`
 	CharmhubIdentifier sql.NullString  `db:"charmhub_identifier"`
 	Hash               sql.NullString  `db:"hash"`

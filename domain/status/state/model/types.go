@@ -162,7 +162,7 @@ type relationStatus struct {
 type CharmLocatorDetails struct {
 	CharmReferenceName  string          `db:"charm_reference_name"`
 	CharmRevision       int             `db:"charm_revision"`
-	CharmSourceID       int             `db:"charm_source_id"`
+	CharmSource         string          `db:"charm_source"`
 	CharmArchitectureID sql.Null[int64] `db:"charm_architecture_id"`
 }
 
