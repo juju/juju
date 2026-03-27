@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"sort"
 
 	"github.com/juju/proxy"
 
@@ -840,7 +839,7 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 		CloudAPIVersion:                   cloudAPIVersion,
 		LegacyProxySettings:               encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:                 encodeProxySettings(result.JujuProxySettings),
-		PrivateAddress:                    s.getUnitPrivateAddress(result.PrivateAddress),
+		PrivateAddress:                    result.PrivateAddress,
 		OpenedMachinePortRangesByEndpoint: result.OpenedMachinePortRangesByEndpoint,
 	}, nil
 }
@@ -884,24 +883,6 @@ func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreu
 		JujuProxySettings:          encodeProxySettings(result.JujuProxySettings),
 		OpenedPortRangesByEndpoint: result.OpenedPortRangesByEndpoint,
 	}, nil
-}
-
-// getUnitPrivateAddress returns the private address for a unit, if any.
-func (s *ProviderService) getUnitPrivateAddress(addrs network.SpaceAddresses) *string {
-	if len(addrs) == 0 {
-		return nil
-	}
-
-	// First match the scope.
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	if len(matchedAddrs) == 0 {
-		// If no address matches the scope, return the first private address.
-		return new(addrs[0].IP().String())
-	}
-	// Then sort by origin.
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
-
-	return new(matchedAddrs[0].IP().String())
 }
 
 func (s *ProviderService) getCloudAPIVersion(ctx context.Context) (string, error) {

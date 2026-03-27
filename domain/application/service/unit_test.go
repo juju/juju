@@ -636,6 +636,7 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 
 	unitName := coreunit.Name("foo/666")
 	subordinateUnit := coreunit.Name("logging/0")
+	privateAddress := "192.168.1.1"
 	stateResult := applicationinternal.IAASUnitContext{
 		LegacyProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://proxy:3128",
@@ -648,7 +649,7 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 			HTTPS:   "https://juju-proxy:3128",
 			NoProxy: "juju.local",
 		},
-		PrivateAddress: network.NewSpaceAddresses("192.168.1.1"),
+		PrivateAddress: &privateAddress,
 		OpenedMachinePortRangesByEndpoint: map[coreunit.Name]network.GroupedPortRanges{
 			subordinateUnit: {
 				"endpoint1": []network.PortRange{

@@ -26,7 +26,7 @@ type IAASUnitContext struct {
 	// set in the model config, using the Juju proxy configuration keys.
 	JujuProxySettings ProxySettings
 	/// PrivateAddress contains the private address for a unit context.
-	PrivateAddress []network.SpaceAddress
+	PrivateAddress *string
 	// OpenedMachinePortRangesByEndpoint contains the opened machine port ranges
 	// by endpoint for a unit context.
 	OpenedMachinePortRangesByEndpoint map[unit.Name]network.GroupedPortRanges
