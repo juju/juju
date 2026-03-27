@@ -2147,8 +2147,8 @@ func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNo
 	//  - Local cloud scoped IPv6 addresses
 	//  - Public or unknown scoped IPv4 addresses
 	//  - Public or unknown scoped IPv6 addresses
-	//
-	// Sorts virtual ethernet devices after real ethernet devices.
+	//  - Origin either from machine or provider
+	//  - Real ethernet devices over virtual ethernet devices
 	//
 	// Loopback addresses are excluded.
 	//
@@ -2158,7 +2158,23 @@ func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNo
 
 	query, err := st.Prepare(`
 SELECT
-    a.address_value AS &unitAddress.value
+    a.address_value AS &unitAddress.value,
+	d.device_type_id,
+    CASE
+        WHEN a.scope_id = 2 THEN 0
+        WHEN a.scope_id IN (1, 0) THEN 1
+        ELSE 2
+    END AS scope_rank,
+    CASE
+        WHEN a.type_id = 0 THEN 0
+        WHEN a.type_id = 1 THEN 1
+        ELSE 2
+    END AS type_rank,
+	CASE
+		WHEN a.origin_id = 0 THEN 1
+		WHEN a.origin_id = 1 THEN 0
+		ELSE 2
+	END AS origin_rank
 FROM net_node n
 JOIN link_layer_device d ON n.uuid = d.net_node_uuid
 JOIN ip_address a ON d.uuid = a.device_uuid
@@ -2167,14 +2183,11 @@ WHERE
     AND a.config_type_id != 6
     AND n.uuid = $entityUUID.uuid
 ORDER BY
-    CASE
-        WHEN a.scope_id = 2 AND a.type_id = 0 THEN 0
-        WHEN a.scope_id = 2 AND a.type_id = 1 THEN 1
-        WHEN (a.scope_id = 1 OR a.scope_id = 0) AND a.type_id = 0 THEN 2
-        WHEN (a.scope_id = 1 OR a.scope_id = 0) AND a.type_id = 1 THEN 3
-    END,
-    a.address_value,
-	d.device_type_id
+    scope_rank,
+    type_rank,
+	origin_rank,
+	d.device_type_id,
+    a.address_value
 LIMIT 1;
 `, unitAddress{}, entityUUID)
 	if err != nil {
