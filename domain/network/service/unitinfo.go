@@ -46,8 +46,15 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 		)
 	}
 
+	egressSubnets, err := s.st.GetRelationEgressSubnets(ctx, relationUUID.String())
+	if err != nil {
+		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
+			"getting egress subnets for relation %q: %w", relationUUID, err,
+		)
+	}
+
 	infos, err := s.getUnitEndpointNetworks(
-		ctx, unitUUID.String(), []string{endpointName},
+		ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
 	)
 	if err != nil {
 		return domainnetwork.UnitNetwork{}, internalerrors.Errorf("getting unit endpoint networks: %w", err)
@@ -86,13 +93,21 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
-	return s.getUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
+	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
+	}
+
+	return s.getUnitEndpointNetworks(
+		ctx, unitUUID.String(), endpointNames, egressSubnets,
+	)
 }
 
 func (s *ProviderService) getUnitEndpointNetworks(
 	ctx context.Context,
 	unitUUID string,
 	endpointNames []string,
+	egressSubnets []string,
 ) ([]domainnetwork.UnitNetwork, error) {
 	supportsNetworking, err := s.supportsNetworking(ctx)
 	if err != nil {
@@ -102,10 +117,6 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("checking if unit is caas: %w", err)
-	}
-	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID)
-	if err != nil {
-		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
 	}
 
 	if !supportsNetworking {
