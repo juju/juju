@@ -17,8 +17,11 @@ import (
 // This function provides a stable interface for qualifier-to-tag conversion,
 // allowing for future changes to Qualifier internals without requiring
 // updates across all call sites.
-func UserTagFromQualifier(q model.Qualifier) names.UserTag {
-	return names.NewUserTag(q.String())
+func UserTagFromQualifier(q model.Qualifier) (names.UserTag, error) {
+	if err := q.Validate(); err != nil {
+		return names.UserTag{}, err
+	}
+	return names.NewUserTag(q.String()), nil
 }
 
 // ModelBlockInfoLegacy holds information about a model and its

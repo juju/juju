@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
@@ -29,7 +30,11 @@ func (c *ModelManagerAPIV10) ModelStatus(ctx context.Context, req params.Entitie
 			result.Results[i].Error = r.Error
 			continue
 		}
-		owner := params.UserTagFromQualifier(coremodel.Qualifier(r.Qualifier))
+		owner, err := params.UserTagFromQualifier(coremodel.Qualifier(r.Qualifier))
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		result.Results[i] = params.ModelStatusLegacy{
 			ModelTag:           r.ModelTag,
 			Life:               r.Life,
@@ -112,7 +117,11 @@ func (m *ModelManagerAPIV10) ListModelSummaries(ctx context.Context, req params.
 			result.Results[i].Error = r.Error
 			continue
 		}
-		owner := params.UserTagFromQualifier(coremodel.Qualifier(r.Result.Qualifier))
+		owner, err := params.UserTagFromQualifier(coremodel.Qualifier(r.Result.Qualifier))
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		result.Results[i].Result = &params.ModelSummaryLegacy{
 			Name:               r.Result.Name,
 			UUID:               r.Result.UUID,
@@ -153,7 +162,11 @@ func (m *ModelManagerAPIV10) ModelInfo(ctx context.Context, args params.Entities
 			continue
 		}
 		result := r.Result
-		owner := params.UserTagFromQualifier(coremodel.Qualifier(result.Qualifier))
+		owner, err := params.UserTagFromQualifier(coremodel.Qualifier(result.Qualifier))
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		results.Results[i].Result = &params.ModelInfoLegacy{
 			Name:                    result.Name,
 			Type:                    result.Type,
@@ -195,7 +208,10 @@ func (m *ModelManagerAPIV10) ListModels(ctx context.Context, userEntity params.E
 		UserModels: make([]params.UserModelLegacy, len(models.UserModels)),
 	}
 	for i, model := range models.UserModels {
-		owner := params.UserTagFromQualifier(coremodel.Qualifier(model.Qualifier))
+		owner, err := params.UserTagFromQualifier(coremodel.Qualifier(model.Qualifier))
+		if err != nil {
+			return params.UserModelListLegacy{}, apiservererrors.ServerError(err)
+		}
 		result.UserModels[i] = params.UserModelLegacy{
 			ModelLegacy: params.ModelLegacy{
 				Name:     model.Name,

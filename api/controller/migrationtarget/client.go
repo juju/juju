@@ -77,7 +77,10 @@ func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) e
 	}
 
 	if c.BestFacadeVersion() < 7 {
-		owner := params.UserTagFromQualifier(model.Qualifier)
+		owner, err := params.UserTagFromQualifier(model.Qualifier)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		args := params.MigrationModelInfoLegacy{
 			UUID:                   model.UUID,
 			Name:                   model.Name,

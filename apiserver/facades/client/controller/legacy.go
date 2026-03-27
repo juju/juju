@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,7 +29,11 @@ func (c *ControllerAPIV12) ModelStatus(ctx context.Context, req params.Entities)
 			result.Results[i].Error = r.Error
 			continue
 		}
-		owner := params.UserTagFromQualifier(model.Qualifier(r.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(r.Qualifier))
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		result.Results[i] = params.ModelStatusLegacy{
 			ModelTag:           r.ModelTag,
 			Life:               r.Life,
@@ -59,7 +64,10 @@ func (c *ControllerAPIV12) AllModels(ctx context.Context) (params.UserModelListL
 		UserModels: make([]params.UserModelLegacy, 0, len(models.UserModels)),
 	}
 	for i, m := range models.UserModels {
-		owner := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		if err != nil {
+			return params.UserModelListLegacy{}, apiservererrors.ServerError(err)
+		}
 		result.UserModels[i] = params.UserModelLegacy{
 			ModelLegacy: params.ModelLegacy{
 				Name:     m.Name,
@@ -88,7 +96,10 @@ func (c *ControllerAPIV12) ListBlockedModels(ctx context.Context) (params.ModelB
 		Models: make([]params.ModelBlockInfoLegacy, 0, len(models.Models)),
 	}
 	for i, m := range models.Models {
-		owner := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		if err != nil {
+			return params.ModelBlockInfoListLegacy{}, apiservererrors.ServerError(err)
+		}
 		result.Models[i] = params.ModelBlockInfoLegacy{
 			Name:     m.Name,
 			UUID:     m.UUID,
@@ -119,7 +130,13 @@ func (c *ControllerAPIV12) HostedModelConfigs(ctx context.Context) (params.Hoste
 			}
 			continue
 		}
-		owner := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
+		if err != nil {
+			result.Models[i] = params.HostedModelConfigLegacy{
+				Error: apiservererrors.ServerError(err),
+			}
+			continue
+		}
 		result.Models[i] = params.HostedModelConfigLegacy{
 			Name:      m.Name,
 			OwnerTag:  owner.String(),
