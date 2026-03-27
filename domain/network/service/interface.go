@@ -182,6 +182,10 @@ type NetworkInfoState interface {
 	// relation.
 	GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error)
 
+	// GetModelEgressSubnets retrieves the egress-subnets configuration from
+	// model config.
+	GetModelEgressSubnets(ctx context.Context) ([]string, error)
+
 	// GetUnitEgressSubnets retrieves the egress subnets for the specified
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)

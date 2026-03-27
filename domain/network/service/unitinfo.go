@@ -46,11 +46,9 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 		)
 	}
 
-	egressSubnets, err := s.st.GetRelationEgressSubnets(ctx, relationUUID.String())
+	egressSubnets, err := s.getRelationEgressSubnets(ctx, relationUUID)
 	if err != nil {
-		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
-			"getting egress subnets for relation %q: %w", relationUUID, err,
-		)
+		return domainnetwork.UnitNetwork{}, internalerrors.Capture(err)
 	}
 
 	infos, err := s.getUnitEndpointNetworks(
@@ -93,9 +91,9 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
-	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
+	egressSubnets, err := s.getUnitEgressSubnets(ctx, unitUUID.String())
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	return s.getUnitEndpointNetworks(
@@ -140,6 +138,48 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	}
 
 	return result, nil
+}
+
+func (s *ProviderService) getRelationEgressSubnets(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+) ([]string, error) {
+	egressSubnets, err := s.st.GetRelationEgressSubnets(ctx, relationUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting egress subnets for relation %q: %w", relationUUID, err,
+		)
+	}
+	if len(egressSubnets) > 0 {
+		return egressSubnets, nil
+	}
+
+	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting egress subnets for relation %q: %w", relationUUID, err,
+		)
+	}
+	return modelEgressSubnets, nil
+}
+
+func (s *ProviderService) getUnitEgressSubnets(
+	ctx context.Context,
+	unitUUID string,
+) ([]string, error) {
+	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
+	}
+	if len(egressSubnets) > 0 {
+		return egressSubnets, nil
+	}
+
+	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
+	}
+	return modelEgressSubnets, nil
 }
 
 func buildUnitNetworkFromAddresses(
