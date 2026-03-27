@@ -14,13 +14,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 )
 
 type replCommand struct {
@@ -234,7 +232,7 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 			baseModelName, qualifier, _ := jujuclient.SplitFullyQualifiedModelName(modelName)
 			// If the logged in username matches the model qualifier,
 			// we can mask out the qualifier in the display prompt.
-			if model.QualifierFromUserTag(names.NewUserTag(userName)).String() == qualifier {
+			if userName == qualifier {
 				modelName = baseModelName
 			}
 		}

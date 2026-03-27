@@ -301,7 +301,7 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
 
-		modelQualifier := constructModelQualifier(f.ModelQualifier, apiUser).String()
+		modelQualifier := constructModelQualifier(f.ModelQualifier, apiUser)
 
 		var (
 			modelUUID string
@@ -336,7 +336,7 @@ func constructModelQualifier(qualifier string, apiUser names.UserTag) model.Qual
 		return model.QualifierFromUserTag(apiUser)
 	}
 
-	return model.NormalizeQualifier(qualifier)
+	return model.Qualifier(qualifier)
 }
 
 // applicationOffersFromModel gets details about remote applications that match given filters.
@@ -665,13 +665,14 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 			return corecrossmodel.OfferURL{}, model.Model{}, errors.Capture(err)
 		}
 
-		url.ModelQualifier = constructModelQualifier(url.ModelQualifier, user).String()
+		qualifier := constructModelQualifier(url.ModelQualifier, user)
+		url.ModelQualifier = qualifier.String()
 		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
 		if foundModel, ok := modelsCache[modelPath]; ok {
 			return url, foundModel, nil
 		}
 
-		m, err := api.modelForName(ctx, url.ModelName, url.ModelQualifier)
+		m, err := api.modelForName(ctx, url.ModelName, qualifier)
 		if err != nil {
 			return corecrossmodel.OfferURL{}, model.Model{}, errors.Capture(err)
 		}
@@ -693,14 +694,12 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 // The following errors may be returned:
 // - [coreerrors.NotFound] when no model with the given name exists.
 // - [coreerrors.NotValid] when ownerName is not valid.
-func (api *OffersAPI) modelForName(ctx context.Context, modelName, ownerName string) (model.Model, error) {
-	qualifier := model.QualifierFromUserTag(names.NewUserTag(ownerName))
-
+func (api *OffersAPI) modelForName(ctx context.Context, modelName string, qualifier model.Qualifier) (model.Model, error) {
 	m, err := api.modelService.GetModelByNameAndQualifier(ctx, modelName, qualifier)
 	if errors.Is(err, modelerrors.NotFound) {
-		return model.Model{}, errors.Errorf(`model "%s/%s": %w`, ownerName, modelName, coreerrors.NotFound)
+		return model.Model{}, errors.Errorf(`model "%s/%s": %w`, qualifier, modelName, coreerrors.NotFound)
 	} else if errors.Is(err, accesserrors.UserNameNotValid) {
-		return model.Model{}, errors.Errorf("user name %q: %w", ownerName, coreerrors.NotValid)
+		return model.Model{}, errors.Errorf("user name %q: %w", qualifier, coreerrors.NotValid)
 	} else if err != nil {
 		return model.Model{}, errors.Capture(err)
 	}
@@ -952,7 +951,7 @@ func (api *OffersAPI) getConsumeDetails(
 			continue
 		}
 
-		model, err := api.modelForName(ctx, offerURL.ModelName, offerURL.ModelQualifier)
+		model, err := api.modelForName(ctx, offerURL.ModelName, model.Qualifier(offerURL.ModelQualifier))
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

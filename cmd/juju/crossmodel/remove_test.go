@@ -115,6 +115,21 @@ func (s *removeSuite) TestRemoveNameOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *removeSuite) TestMakeURLFromCurrentModelUsesCurrentModelOwner(c *tc.C) {
+	s.store.Accounts["test-master"] = jujuclient.AccountDetails{
+		User: "bob.smith@canonical.com",
+	}
+	// Unqualified model name — uses account details for qualifier.
+	got, err := makeURLFromCurrentModel(s.store, "test-master", "", "test", "db2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.String(), tc.Equals, "bob.smith@canonical.com/test.db2")
+
+	// Qualified model name — uses the current model owner.
+	got, err = makeURLFromCurrentModel(s.store, "test-master", "", "prod/test", "db2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.String(), tc.Equals, "prod/test.db2")
+}
+
 type mockRemoveAPI struct {
 	msg           string
 	expectedForce bool

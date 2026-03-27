@@ -127,6 +127,27 @@ master  prod/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
+func (s *findSuite) TestFindDefaultQualifierUsesAccountUser(c *tc.C) {
+	s.store.Accounts["test-master"] = jujuclient.AccountDetails{
+		User: "bob.smith@canonical.com",
+	}
+	s.mockAPI.c = c
+	s.mockAPI.expectedModelName = "model"
+	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
+		ModelQualifier: "bob.smith@canonical.com",
+		ModelName:      "model",
+		OfferName:      "hosted-db2",
+	}
+	s.assertFind(
+		c,
+		[]string{"--url", "model.hosted-db2"},
+		`
+Store   URL                    Access  Interfaces
+master  prod/model.hosted-db2  -       http:db2, http:log
+`[1:],
+	)
+}
+
 func (s *findSuite) TestFindApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
 	s.assertFindError(c, []string{"prod/model.db2"}, ".*fail.*")

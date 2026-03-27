@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -420,7 +419,7 @@ func setUnsetQualifiers(c accountDetailsGetter, offerURLs []crossmodel.OfferURL)
 			}
 		}
 		// The qualifier is derived from the username.
-		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(currentAccountDetails.User)).String()
+		url.ModelQualifier = currentAccountDetails.User
 		offerURLs[i] = url
 	}
 	return nil

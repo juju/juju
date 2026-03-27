@@ -73,6 +73,33 @@ func (s *showSuite) TestShowNameOnly(c *tc.C) {
 	s.assertShowYaml(c, "db2")
 }
 
+func (s *showSuite) TestShowModelOfferDefaultsToAccountUser(c *tc.C) {
+	s.store.Accounts["test-master"] = jujuclient.AccountDetails{
+		User: "bob.smith@canonical.com",
+	}
+	s.mockAPI.offerURL = "bob.smith@canonical.com/model.db2"
+	s.assertShow(
+		c,
+		[]string{"model.db2", "--format", "yaml"},
+		`
+test-master:bob.smith@canonical.com/model.db2:
+  description: IBM DB2 Express Server Edition is an entry level database system
+  access: '-'
+  endpoints:
+    db2:
+      interface: http
+      role: requirer
+    log:
+      interface: http
+      role: provider
+  users:
+    bob:
+      display-name: Bob
+      access: consume
+`[1:],
+	)
+}
+
 func (s *showSuite) TestShowNameAndEnvvarOnly(c *tc.C) {
 	// Ensure envvar (prod/model) overrides CurrentModel (prod/test)
 	os.Setenv(osenv.JujuModelEnvKey, "prod/model")

@@ -63,12 +63,6 @@ func (c *Client) CreateModel(
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
 
-	// At the moment, the model qualifier is set to the user who creates the model.
-	qualifier := model.QualifierFromUserTag(modelCreator)
-
-	if err := qualifier.Validate(); err != nil {
-		return result, errors.Errorf("invalid qualifier %q", qualifier)
-	}
 	var cloudTag string
 	if cloud != "" {
 		if !names.IsValidCloud(cloud) {
@@ -82,7 +76,7 @@ func (c *Client) CreateModel(
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               name,
-		Qualifier:          qualifier.String(),
+		Qualifier:          model.QualifierFromUserTag(modelCreator).String(),
 		Config:             config,
 		CloudTag:           cloudTag,
 		CloudRegion:        cloudRegion,
