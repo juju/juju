@@ -11,6 +11,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -302,6 +303,42 @@ func (s *infoSuite) TestGetUnitAddressesCaasUnit(c *tc.C) {
 		MACAddress: "00:11:22:33:44:66",
 		DeviceType: corenetwork.EthernetDevice,
 	}})
+}
+
+func (s *infoSuite) TestGetUnitRelationEndpointName(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	endpointName := "database"
+	endpointUUID := s.addApplicationEndpoint(
+		c, appUUID, charmUUID, endpointName, spaceUUID,
+	)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, endpointUUID)
+	s.addRelationUnit(c, relationEndpointUUID, string(unitUUID))
+
+	name, err := s.state.GetUnitRelationEndpointName(
+		c.Context(), string(unitUUID), relationUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, endpointName)
+}
+
+func (s *infoSuite) TestGetUnitRelationEndpointNameRelationNotFound(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	name, err := s.state.GetUnitRelationEndpointName(
+		c.Context(), string(unitUUID), uuid.MustNewUUID().String(),
+	)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Check(name, tc.Equals, "")
 }
 
 // TestGetAllSpacesForEndpoints tests retrieving space information for endpoints

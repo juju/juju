@@ -12,8 +12,64 @@ import (
 
 	"github.com/juju/juju/core/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetUnitRelationEndpointName retrieves the endpoint name used by the
+// specified unit in the specified relation.
+func (st *State) GetUnitRelationEndpointName(
+	ctx context.Context,
+	unitUUID, relationUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type relationUnit struct {
+		RelationUUID string `db:"relation_uuid"`
+		UnitUUID     string `db:"unit_uuid"`
+	}
+	type endpointName struct {
+		Name string `db:"name"`
+	}
+
+	arg := relationUnit{
+		RelationUUID: relationUUID,
+		UnitUUID:     unitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT cr.name AS &endpointName.name
+FROM   relation_endpoint AS re
+JOIN   relation_unit AS ru ON ru.relation_endpoint_uuid = re.uuid
+JOIN   application_endpoint AS ae ON ae.uuid = re.endpoint_uuid
+JOIN   charm_relation AS cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  re.relation_uuid = $relationUnit.relation_uuid
+AND    ru.unit_uuid = $relationUnit.unit_uuid
+`, endpointName{}, relationUnit{})
+	if err != nil {
+		return "", errors.Errorf("preparing relation endpoint name statement: %w", err)
+	}
+
+	var endpoint endpointName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&endpoint)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"relation %q not found for unit %q", relationUUID, unitUUID,
+			).Add(relationerrors.RelationNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying relation endpoint name: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return endpoint.Name, nil
+}
 
 // GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
 // specified endpoints.
