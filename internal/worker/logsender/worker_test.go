@@ -5,16 +5,23 @@ package logsender_test
 
 import (
 	"fmt"
+	"io"
+	"net/url"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/internal/worker/logsender"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -186,4 +193,107 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 		"x": "42 log messages dropped due to lack of API connectivity",
 	})
 	c.Assert(docs[2]["x"], gc.Equals, "message1")
+}
+
+type workerBounceSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&workerBounceSuite{})
+
+type mockConnector struct {
+	stream base.Stream
+}
+
+func (c *mockConnector) ConnectStream(_ string, _ url.Values) (base.Stream, error) {
+	return c.stream, nil
+}
+
+type mockStream struct {
+	c              *gc.C
+	succeedNWrites int
+	writeCount     int32
+	writesReady    chan struct{}
+	closed         chan struct{}
+	closeOnce      sync.Once
+}
+
+func (s *mockStream) NextReader() (int, io.Reader, error) {
+	if s.writesReady != nil {
+		<-s.writesReady
+	}
+	return 0, nil, &gorillaws.CloseError{Code: gorillaws.CloseNormalClosure}
+}
+
+func (s *mockStream) WriteJSON(v interface{}) error {
+	count := atomic.AddInt32(&s.writeCount, 1)
+	if int(count) <= s.succeedNWrites {
+		if int(count) == s.succeedNWrites {
+			close(s.writesReady)
+		}
+		return nil
+	}
+	// Ensure readLoop has processed the close error before we return.
+	select {
+	case <-s.closed:
+	case <-time.After(testing.LongWait):
+		s.c.Fatal("timed out waiting for mock stream close")
+	}
+	return fmt.Errorf("use of closed network connection")
+}
+
+func (s *mockStream) ReadJSON(v interface{}) error {
+	s.c.Fatal("ReadJSON called unexpectedly")
+	return nil
+}
+
+func (s *mockStream) Close() error {
+	s.closeOnce.Do(func() { close(s.closed) })
+	return nil
+}
+
+func (s *workerBounceSuite) TestWriteLogEOFReturnsBounce(c *gc.C) {
+	stream := &mockStream{
+		c:              c,
+		succeedNWrites: 0,
+		closed:         make(chan struct{}),
+	}
+	logSenderAPI := apilogsender.NewAPI(&mockConnector{stream: stream})
+
+	logsCh := make(logsender.LogRecordCh, 1)
+	logsCh <- &logsender.LogRecord{
+		Time:     time.Now(),
+		Module:   "test",
+		Location: "test:1",
+		Level:    loggo.INFO,
+		Message:  "hello",
+	}
+
+	w := logsender.New(logsCh, logSenderAPI)
+	err := w.Wait()
+	c.Assert(err, gc.Equals, dependency.ErrBounce)
+}
+
+func (s *workerBounceSuite) TestDroppedLogWriteEOFReturnsBounce(c *gc.C) {
+	stream := &mockStream{
+		c:              c,
+		succeedNWrites: 1,
+		writesReady:    make(chan struct{}),
+		closed:         make(chan struct{}),
+	}
+	logSenderAPI := apilogsender.NewAPI(&mockConnector{stream: stream})
+
+	logsCh := make(logsender.LogRecordCh, 1)
+	logsCh <- &logsender.LogRecord{
+		Time:         time.Now(),
+		Module:       "test",
+		Location:     "test:1",
+		Level:        loggo.INFO,
+		Message:      "hello",
+		DroppedAfter: 5,
+	}
+
+	w := logsender.New(logsCh, logSenderAPI)
+	err := w.Wait()
+	c.Assert(err, gc.Equals, dependency.ErrBounce)
 }
