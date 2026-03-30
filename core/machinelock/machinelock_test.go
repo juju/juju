@@ -59,9 +59,15 @@ func (s *lockSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.lock = lock
 
-	s.AddCleanup(func(c *tc.C) {
+	c.Cleanup(func() {
 		// release all the pending goroutines
 		close(s.allowAcquire)
+
+		s.lock = nil
+		s.clock = nil
+		s.logfile = ""
+		s.notify = nil
+		s.release = nil
 	})
 }
 
@@ -242,12 +248,23 @@ func (s *lockSuite) TestLogfileOutput(c *tc.C) {
 
 func (s *lockSuite) addWaiting(c *tc.C, worker, comment string) {
 	go func() {
+		done := make(chan struct{})
+		defer close(done)
+		cancel := make(chan struct{})
+		c.Cleanup(func() {
+			close(cancel)
+			<-done
+		})
 		_, err := s.lock.Acquire(machinelock.Spec{
-			Cancel:  make(chan struct{}),
+			Cancel:  cancel,
 			Worker:  worker,
 			Comment: comment,
 		})
-		c.Check(err, tc.ErrorIsNil)
+		select {
+		case <-cancel:
+		default:
+			c.Check(err, tc.ErrorIsNil)
+		}
 	}()
 
 	select {

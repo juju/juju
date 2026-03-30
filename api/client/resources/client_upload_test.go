@@ -51,6 +51,14 @@ func (s *UploadSuite) setup(c *tc.C) *gomock.Controller {
 	s.mockFacadeCaller.EXPECT().RawAPICaller().Return(s.mockAPICaller).AnyTimes()
 	s.mockFacadeCaller.EXPECT().BestAPIVersion().Return(2).AnyTimes()
 	s.client = resources.NewClientForTest(s.mockFacadeCaller, s.mockHTTPClient)
+
+	c.Cleanup(func() {
+		s.mockHTTPClient = nil
+		s.mockAPICaller = nil
+		s.mockFacadeCaller = nil
+		s.client = nil
+	})
+
 	return ctrl
 }
 
@@ -220,8 +228,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 }
 
 func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setup(c).Finish()
 
 	_, err := s.client.UploadPendingResource(c.Context(), resources.UploadPendingResourceArgs{})
 	c.Assert(err, tc.ErrorMatches, `.*invalid application.*`)

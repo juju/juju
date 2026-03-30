@@ -46,7 +46,7 @@ type provisionerMockSuite struct {
 	// All these need deprecation.
 	environ *environtesting.MockNetworkingEnviron
 
-	api ProvisionerAPI
+	api *ProvisionerAPI
 }
 
 func TestProvisionerMockSuite(t *testing.T) {
@@ -311,6 +311,9 @@ func (s *provisionerMockSuite) TestStatusNotFound(c *tc.C) {
 }
 
 func (s *provisionerMockSuite) TestStatusInvalidTags(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
 	result, err := s.api.Status(c.Context(), params.Entities{Entities: []params.Entity{
 		{Tag: "application-unknown"},
 		{Tag: "invalid-tag"},
@@ -381,6 +384,9 @@ func (s *provisionerMockSuite) TestSetStatusMachineNotFound(c *tc.C) {
 }
 
 func (s *provisionerMockSuite) TestSetStatusInvalidTags(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
 	result, err := s.api.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: "application-unknown"},
 		{Tag: "invalid-tag"},
@@ -440,6 +446,9 @@ func (s *provisionerMockSuite) TestInstanceStatusNotFound(c *tc.C) {
 }
 
 func (s *provisionerMockSuite) TestInstanceStatusInvalidTags(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
 	result, err := s.api.InstanceStatus(c.Context(), params.Entities{Entities: []params.Entity{
 		{Tag: "application-unknown"},
 		{Tag: "invalid-tag"},
@@ -541,6 +550,9 @@ func (s *provisionerMockSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 }
 
 func (s *provisionerMockSuite) TestSetInstanceStatusInvalidTags(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
 	result, err := s.api.SetInstanceStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: "application-unknown"},
 		{Tag: "invalid-tag"},
@@ -606,7 +618,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 
-	s.api = ProvisionerAPI{
+	s.api = &ProvisionerAPI{
 		applicationService: s.applicationService,
 		machineService:     s.machineService,
 		statusService:      s.statusService,
@@ -632,6 +644,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.networkService = nil
 		s.removalService = nil
 		s.authorizer = nil
+		s.api = nil
 	})
 
 	return ctrl
