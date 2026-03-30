@@ -35,6 +35,7 @@ func newSyncAgentBinaryCommand() cmd.Command {
 // a local directory to the controller.
 type syncAgentBinaryCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	versionStr    string
 	targetVersion semversion.Number
 	dryRun        bool
