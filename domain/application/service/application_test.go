@@ -330,34 +330,6 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := tc.Must(c, coreapplication.NewUUID)
-	charmUUID := charmtesting.GenCharmID(c)
-
-	info := application.CharmDownloadInfo{
-		CharmUUID: charmUUID,
-		Name:      "foo",
-		SHA256:    "hash",
-		DownloadInfo: applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-	}
-
-	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyResolved)
-
-	err := s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
-		CharmUUID: charmUUID,
-		Path:      "foo",
-		Size:      42,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

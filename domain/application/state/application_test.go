@@ -2032,6 +2032,25 @@ func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsNot
 	c.Check(expected, tc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsSyntheticExcludedFromMixed(c *tc.C) {
+	synthAppUUID := s.createIAASApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "bar", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, synthAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{synthAppUUID, appUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(expected, tc.DeepEquals, []coreapplication.UUID{appUUID})
+}
+
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsForSameCharm(c *tc.C) {
 	// These use the same charm, so once you set one applications charm, you
 	// set both.

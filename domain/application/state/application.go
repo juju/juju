@@ -1557,7 +1557,9 @@ func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, 
 SELECT a.uuid AS &entityUUID.uuid
 FROM   application AS a
 JOIN   charm AS c ON a.charm_uuid = c.uuid
-WHERE  a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
+WHERE  a.uuid IN ($applicationIDs[:])
+AND c.available = FALSE
+AND c.source_id < 2
 `, entityUUID{}, applicationIDs{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2031,7 +2033,7 @@ WHERE  uuid = $entityUUID.uuid;`
 
 		// Write the charm actions.yaml, this will actually disappear once the
 		// charmhub store provides this information.
-		if err = st.addCharmActions(ctx, tx, id, info.Actions); err != nil {
+		if err := st.addCharmActions(ctx, tx, id, info.Actions); err != nil {
 			return errors.Errorf("setting charm actions for %q: %w", id, err)
 		}
 
