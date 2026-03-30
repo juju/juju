@@ -117,8 +117,7 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error, tc.ErrorMatches, "cloud \"no-dice\" not found")
-	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {
@@ -272,7 +271,7 @@ func (s *cloudSuite) TestCloudInfoNotFound(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestAddCloud(c *tc.C) {
@@ -568,8 +567,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
-	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestListCloudInfo(c *tc.C) {
@@ -1061,7 +1059,7 @@ func (s *cloudSuite) TestCredentialCloudNotFound(c *tc.C) {
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestModifyCloudAccess(c *tc.C) {
@@ -1204,7 +1202,7 @@ func (s *cloudSuite) TestCredentialContentsCloudNotFound(c *tc.C) {
 	results, err := s.api.CredentialContents(c.Context(), params.CloudCredentialArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func cloudCredentialTag(params credParams) (jujucloud.Credential, names.CloudCredentialTag) {

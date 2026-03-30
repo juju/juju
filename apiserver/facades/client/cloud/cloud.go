@@ -184,10 +184,9 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 			}
 		}
 		aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
-		if err != nil {
-			if errors.Is(err, clouderrors.NotFound) {
-				return nil, errors.NotFoundf("cloud %q", tag.Id())
-			}
+		if errors.Is(err, clouderrors.NotFound) {
+			return nil, errors.NotFoundf("cloud %q", tag.Id())
+		} else if err != nil {
 			return nil, err
 		}
 		paramsCloud := cloudToParams(*aCloud)
@@ -244,10 +243,9 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	}
 
 	aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
-	if err != nil {
-		if errors.Is(err, clouderrors.NotFound) {
-			return nil, errors.NotFoundf("cloud %q", tag.Id())
-		}
+	if errors.Is(err, clouderrors.NotFound) {
+		return nil, errors.NotFoundf("cloud %q", tag.Id())
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info := params.CloudInfo{
@@ -600,11 +598,10 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 				return s, nil
 			}
 			aCloud, err := api.cloudService.Cloud(ctx, cloudName)
-			if err != nil {
-				if errors.Is(err, clouderrors.NotFound) {
-					return nil, errors.NotFoundf("cloud %q", cloudName)
-				}
-				return nil, err
+			if errors.Is(err, clouderrors.NotFound) {
+				return nil, errors.NotFoundf("cloud %q", cloudName)
+			} else if err != nil {
+				return nil, errors.Trace(err)
 			}
 			aProvider, err := environs.Provider(aCloud.Type)
 			if err != nil {
@@ -662,10 +659,9 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 	if cloudArgs.Cloud.Type != cloud.CloudTypeKubernetes {
 		// All non-k8s cloud need to go through whitelist.
 		controllerCloud, err := api.cloudService.Cloud(ctx, api.controllerCloud)
-		if err != nil {
-			if errors.Is(err, clouderrors.NotFound) {
-				return errors.NotFoundf("cloud %q", api.controllerCloud)
-			}
+		if errors.Is(err, clouderrors.NotFound) {
+			return errors.NotFoundf("cloud %q", api.controllerCloud)
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 		if err := cloud.CurrentWhiteList().Check(controllerCloud.Type, cloudArgs.Cloud.Type); err != nil {
@@ -766,10 +762,9 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 			return s, nil
 		}
 		aCloud, err := api.cloudService.Cloud(ctx, cloudName)
-		if err != nil {
-			if errors.Is(err, clouderrors.NotFound) {
-				return nil, errors.NotFoundf("cloud %q", cloudName)
-			}
+		if errors.Is(err, clouderrors.NotFound) {
+			return nil, errors.NotFoundf("cloud %q", cloudName)
+		} else if err != nil {
 			return nil, err
 		}
 		aProvider, err := environs.Provider(aCloud.Type)
