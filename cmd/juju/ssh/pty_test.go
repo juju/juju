@@ -3,6 +3,8 @@
 package ssh
 
 import (
+	"bytes"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/retry"
 	"github.com/juju/testing"
@@ -63,51 +65,99 @@ func (m *mockSSHProvider) setRetryStrategy(retry.CallArgs)          {}
 func (m *mockSSHProvider) setPublicKeyRetryStrategy(retry.CallArgs) {}
 
 func (s *PTYSuite) TestRunPTYLogic(c *gc.C) {
+	// We use distinct buffer pointers for stdin and stdout so that
+	// the mock isTerminal function can tell which one is being queried.
+	stdinBuf := &bytes.Buffer{}
+	stdoutBuf := &bytes.Buffer{}
+
 	tests := []struct {
-		about       string
-		args        []string // args passed to the command (target is args[0])
-		flags       []string // flags like --pty=true
-		isTerminal  bool
-		expectedPTY bool
+		about            string
+		args             []string // args passed to the command (target is args[0])
+		flags            []string // flags like --pty=true
+		stdinIsTerminal  bool
+		stdoutIsTerminal bool
+		expectedPTY      bool
 	}{
+		// ── No command (interactive session) ──────────────────────
 		{
-			about:       "no command, is terminal -> pty=true",
-			args:        []string{"0"},
-			isTerminal:  true,
-			expectedPTY: true,
+			about:            "no command, stdin=tty -> pty=true",
+			args:             []string{"0"},
+			stdinIsTerminal:  true,
+			stdoutIsTerminal: true,
+			expectedPTY:      true,
 		},
 		{
-			about:       "no command, not terminal -> pty=false",
-			args:        []string{"0"},
-			isTerminal:  false,
-			expectedPTY: false,
+			about:            "no command, stdin=not tty -> pty=false",
+			args:             []string{"0"},
+			stdinIsTerminal:  false,
+			stdoutIsTerminal: true,
+			expectedPTY:      false,
+		},
+		// ── Command provided, both stdin+stdout are terminals ─────
+		// This is the #22070 fix: interactive 'sudo -i' at a terminal.
+		{
+			about:            "command, stdin=tty, stdout=tty -> pty=true (#22070 fix)",
+			args:             []string{"0", "sudo", "-i"},
+			stdinIsTerminal:  true,
+			stdoutIsTerminal: true,
+			expectedPTY:      true,
+		},
+		// ── Command provided, stdout piped/captured ───────────────
+		// This is the #19576 fix: output captured by script.
+		{
+			about:            "command, stdin=tty, stdout=pipe -> pty=false (#19576 fix)",
+			args:             []string{"0", "echo", "hello"},
+			stdinIsTerminal:  true,
+			stdoutIsTerminal: false,
+			expectedPTY:      false,
+		},
+		// ── Command provided, stdin piped ─────────────────────────
+		{
+			about:            "command, stdin=pipe, stdout=tty -> pty=false",
+			args:             []string{"0", "cat"},
+			stdinIsTerminal:  false,
+			stdoutIsTerminal: true,
+			expectedPTY:      false,
 		},
 		{
-			about:       "command provided, is terminal -> pty=false",
-			args:        []string{"0", "ls"},
-			isTerminal:  true,
-			expectedPTY: false,
+			about:            "command, stdin=pipe, stdout=pipe -> pty=false",
+			args:             []string{"0", "ls"},
+			stdinIsTerminal:  false,
+			stdoutIsTerminal: false,
+			expectedPTY:      false,
+		},
+		// ── Explicit --pty flag overrides ─────────────────────────
+		{
+			about:            "command, --pty=true overrides -> pty=true",
+			args:             []string{"0", "ls"},
+			flags:            []string{"--pty=true"},
+			stdinIsTerminal:  false,
+			stdoutIsTerminal: false,
+			expectedPTY:      true,
 		},
 		{
-			about:       "command provided, --pty=true -> pty=true",
-			args:        []string{"0", "ls"},
-			flags:       []string{"--pty=true"},
-			isTerminal:  true,
-			expectedPTY: true,
+			about:            "command, --pty=false overrides -> pty=false",
+			args:             []string{"0", "sudo", "-i"},
+			flags:            []string{"--pty=false"},
+			stdinIsTerminal:  true,
+			stdoutIsTerminal: true,
+			expectedPTY:      false,
 		},
 		{
-			about:       "command provided, --pty=false -> pty=false",
-			args:        []string{"0", "ls"},
-			flags:       []string{"--pty=false"},
-			isTerminal:  true,
-			expectedPTY: false,
+			about:            "no command, --pty=true, not terminal -> pty=true (forced)",
+			args:             []string{"0"},
+			flags:            []string{"--pty=true"},
+			stdinIsTerminal:  false,
+			stdoutIsTerminal: false,
+			expectedPTY:      true,
 		},
 		{
-			about:       "no command, --pty=true -> pty=true",
-			args:        []string{"0"},
-			flags:       []string{"--pty=true"},
-			isTerminal:  false,
-			expectedPTY: true, // forced
+			about:            "no command, --pty=false, is terminal -> pty=false (forced)",
+			args:             []string{"0"},
+			flags:            []string{"--pty=false"},
+			stdinIsTerminal:  true,
+			stdoutIsTerminal: true,
+			expectedPTY:      false,
 		},
 	}
 
@@ -116,13 +166,20 @@ func (s *PTYSuite) TestRunPTYLogic(c *gc.C) {
 
 		mock := &mockSSHProvider{}
 		sshCmd := &sshCommand{
-			provider:   mock,
-			isTerminal: func(interface{}) bool { return t.isTerminal },
-			// sshMachine/sshContainer embedded fields are zero-valued
+			provider: mock,
+			isTerminal: func(f interface{}) bool {
+				if f == stdinBuf {
+					return t.stdinIsTerminal
+				}
+				if f == stdoutBuf {
+					return t.stdoutIsTerminal
+				}
+				return false
+			},
 		}
 
-		// 1. Simulate flag parsing
-		// Since pty is autoBoolValue, default is nil.
+		// Simulate flag parsing.
+		sshCmd.pty.b = nil
 		if len(t.flags) > 0 {
 			for _, f := range t.flags {
 				if f == "--pty=true" || f == "--pty" {
@@ -135,17 +192,23 @@ func (s *PTYSuite) TestRunPTYLogic(c *gc.C) {
 			}
 		}
 
-		// 2. Set Args
-		// args[0] is target. args[1:] are command args.
+		// Set command args (args[0] is target, args[1:] are command args).
 		if len(t.args) > 1 {
 			mock.args = t.args[1:]
+		} else {
+			mock.args = nil
 		}
 
-		// 3. Run
-		ctx := &cmd.Context{Stdin: nil, Stdout: nil, Stderr: nil}
+		// Use our identifiable buffers as stdin/stdout so the mock
+		// isTerminal function can distinguish between them.
+		ctx := &cmd.Context{
+			Stdin:  stdinBuf,
+			Stdout: stdoutBuf,
+			Stderr: &bytes.Buffer{},
+		}
+
 		err := sshCmd.Run(ctx)
 		c.Assert(err, jc.ErrorIsNil)
-
 		c.Assert(mock.ptyEnabled, gc.Equals, t.expectedPTY)
 	}
 }
