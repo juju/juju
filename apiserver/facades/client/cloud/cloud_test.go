@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -109,7 +110,7 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 
 	backend := s.cloudService.EXPECT()
-	backend.Cloud(gomock.Any(), "no-dice").Return(&jujucloud.Cloud{}, errors.NotFoundf("cloud \"no-dice\""))
+	backend.Cloud(gomock.Any(), "no-dice").Return(&jujucloud.Cloud{}, fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
 
 	results, err := s.api.Cloud(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
@@ -117,6 +118,7 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, "cloud \"no-dice\" not found")
+	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {
@@ -258,6 +260,19 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
 		},
 	})
+}
+
+func (s *cloudSuite) TestCloudInfoNotFound(c *tc.C) {
+	defer s.setup(c, names.NewUserTag("admin")).Finish()
+
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "no-dice").Return(&jujucloud.Cloud{}, fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
+
+	results, err := s.api.CloudInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestAddCloud(c *tc.C) {
@@ -536,7 +551,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(errors.New("cloud \"nope\" not found"))
+	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "nope",
@@ -554,6 +569,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("cloud %q not found", updatedCloud.Name))
+	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func (s *cloudSuite) TestListCloudInfo(c *tc.C) {
@@ -1023,6 +1039,31 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
+func (s *cloudSuite) TestCredentialCloudNotFound(c *tc.C) {
+	bruceTag := names.NewUserTag("bruce")
+	defer s.setup(c, bruceTag).Finish()
+
+	credentialOne, tagOne := cloudCredentialTag(credParams{name: "two", owner: "bruce", cloudName: "meep", authType: jujucloud.UserPassAuthType,
+		attrs: map[string]string{
+			"username": "admin",
+			"password": "adm1n",
+		}})
+
+	creds := map[string]jujucloud.Credential{
+		tagOne.Id(): credentialOne,
+	}
+
+	s.credService.EXPECT().CloudCredentialsForOwner(gomock.Any(), usertesting.GenNewName(c, "bruce"), "meep").Return(creds, nil)
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&jujucloud.Cloud{}, fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
+
+	results, err := s.api.Credential(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "cloudcred-meep_bruce_two",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+}
+
 func (s *cloudSuite) TestModifyCloudAccess(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
@@ -1144,6 +1185,26 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *tc.C) {
 	for _, one := range results.Results {
 		c.Assert(one.Result.Content, tc.DeepEquals, expected[one.Result.Content.Name])
 	}
+}
+
+func (s *cloudSuite) TestCredentialContentsCloudNotFound(c *tc.C) {
+	bruceTag := names.NewUserTag("bruce")
+	defer s.setup(c, bruceTag).Finish()
+
+	credentialOne, tagOne := cloudCredentialTag(credParams{name: "one", owner: "bruce", cloudName: "meep", authType: jujucloud.EmptyAuthType,
+		attrs: map[string]string{}})
+
+	creds := map[credential.Key]jujucloud.Credential{
+		{Cloud: "meep", Owner: usertesting.GenNewName(c, "bruce"), Name: tagOne.Name()}: credentialOne,
+	}
+
+	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag)).Return(creds, nil)
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&jujucloud.Cloud{}, fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
+
+	results, err := s.api.CredentialContents(c.Context(), params.CloudCredentialArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
 }
 
 func cloudCredentialTag(params credParams) (jujucloud.Credential, names.CloudCredentialTag) {
