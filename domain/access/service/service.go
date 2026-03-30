@@ -40,6 +40,22 @@ type UserState interface {
 		creatorUUID user.UUID,
 	) error
 
+	// AddUserWithCreatedAt adds a new user with a specific creation date to the
+	// database, preserving the original creation timestamp. This is primarily
+	// used when importing external users during model migration.
+	// If the user already exists, an error satisfying
+	// [accesserrors.UserAlreadyExists] will be returned. If the creator does not
+	// exist, an error satisfying [accesserrors.UserCreatorUUIDNotFound] will be
+	// returned.
+	AddUserWithCreatedAt(
+		ctx context.Context,
+		uuid user.UUID,
+		name user.Name,
+		displayName string,
+		creatorUUID user.UUID,
+		createdAt time.Time,
+	) error
+
 	// AddUserWithPasswordHash will add a new user to the database with the
 	// provided password hash and salt. If the user already exists an error that
 	// satisfies accesserrors.UserAlreadyExists will be returned. If the users creator

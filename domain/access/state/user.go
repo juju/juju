@@ -87,6 +87,32 @@ func (st *UserState) AddUserWithPermission(
 	})
 }
 
+// AddUserWithCreatedAt adds a new user with a specific creation date to the
+// database, preserving the original creation timestamp. This is primarily used
+// when importing external users during model migration.
+// The following error types are possible from this function:
+//   - [accesserrors.UserAlreadyExists]: If a user with the supplied name already
+//     exists.
+//   - [accesserrors.UserCreatorUUIDNotFound]: If the creator supplied for the
+//     user does not exist.
+func (st *UserState) AddUserWithCreatedAt(
+	ctx context.Context,
+	uuid user.UUID,
+	name user.Name,
+	displayName string,
+	creatorUUID user.UUID,
+	createdAt time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Errorf("getting DB access: %w", err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(AddUser(ctx, tx, uuid, name, displayName, true, creatorUUID, createdAt))
+	})
+}
+
 // AddUserWithPasswordHash will add a new user to the database with the provided
 // password hash and salt. If the user already exists, an error that satisfies
 // [accesserrors.UserAlreadyExists] will be returned. If the creator does not

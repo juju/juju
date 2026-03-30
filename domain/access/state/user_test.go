@@ -298,6 +298,87 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, usererrors.PermissionTargetInvalid)
 }
 
+// TestAddUserWithCreatedAt asserts that a new user is created with the
+// specified creation date preserved, and that the user is correctly marked as
+// external.
+func (s *userStateSuite) TestAddUserWithCreatedAt(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	creatorUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	creatorName := usertesting.GenNewName(c, "creator")
+	err = st.AddUser(c.Context(), creatorUUID, creatorName, "creator", false, creatorUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	createdAt := time.Now().Add(-24 * time.Hour).Truncate(time.Second).UTC()
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob External", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetUser(c.Context(), extUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.Name, tc.Equals, extName)
+	c.Check(got.UUID, tc.Equals, extUUID)
+	c.Check(got.DisplayName, tc.Equals, "Bob External")
+	c.Check(got.CreatorUUID, tc.Equals, creatorUUID)
+	c.Check(got.CreatedAt, tc.Equals, createdAt)
+}
+
+// TestAddUserWithCreatedAtAlreadyExists asserts that adding a user that already
+// exists returns [usererrors.UserAlreadyExists].
+func (s *userStateSuite) TestAddUserWithCreatedAtAlreadyExists(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	creatorUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	creatorName := usertesting.GenNewName(c, "creator")
+	err = st.AddUser(c.Context(), creatorUUID, creatorName, "creator", false, creatorUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	createdAt := time.Now().UTC()
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID2, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID2, extName, "Bob", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIs, usererrors.UserAlreadyExists)
+}
+
+// TestAddUserWithCreatedAtCreatorNotFound asserts that adding a user whose
+// creator does not exist returns [usererrors.UserCreatorUUIDNotFound].
+func (s *userStateSuite) TestAddUserWithCreatedAtCreatorNotFound(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	nonExistentUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob", nonExistentUUID, time.Now().UTC(),
+	)
+	c.Assert(err, tc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+}
+
 // TestGetUser asserts that we can get a user from the database.
 func (s *userStateSuite) TestGetUser(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
