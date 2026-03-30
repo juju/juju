@@ -1264,8 +1264,6 @@ func (s *ProviderService) AddStorageForCAASUnit(
 // unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
 // unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the
-// storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AttachStorageToUnit(

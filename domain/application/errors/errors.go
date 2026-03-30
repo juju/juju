@@ -346,10 +346,6 @@ const (
 )
 
 const (
-	// StorageNotAlive describes an error that occurs when
-	// a storage is not alive.
-	StorageNotAlive = errors.ConstError("storage not alive")
-
 	// StorageNameNotSupported describes an error that occurs when
 	// a storage name is not supported by the charm.
 	StorageNameNotSupported = errors.ConstError("storage name not supported")
