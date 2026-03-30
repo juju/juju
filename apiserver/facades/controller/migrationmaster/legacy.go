@@ -22,7 +22,7 @@ func (api *APIV4) ModelInfo(ctx context.Context) (params.MigrationModelInfoLegac
 	if err != nil {
 		return params.MigrationModelInfoLegacy{}, errors.Trace(err)
 	}
-	owner, err := params.ApproximateUserTagFromQualifier(coremodel.Qualifier(modelInfo.Qualifier))
+	owner, err := params.UserTagFromQualifier(coremodel.Qualifier(modelInfo.Qualifier))
 	if err != nil {
 		return params.MigrationModelInfoLegacy{}, apiservererrors.ServerError(err)
 	}

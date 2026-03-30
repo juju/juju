@@ -33,11 +33,7 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 		}
 		return nil, err
 	}
-	models, err := ParseModels(data)
-	if err != nil {
-		return nil, err
-	}
-	return models, nil
+	return ParseModels(data)
 }
 
 // WriteModelsFile marshals to YAML details of the given models
@@ -57,7 +53,6 @@ func ParseModels(data []byte) (map[string]*ControllerModels, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal models")
 	}
-	fixLegacyModelNames(result.ControllerModels)
 	return result.ControllerModels, nil
 }
 

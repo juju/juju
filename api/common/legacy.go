@@ -45,7 +45,7 @@ func (c *ModelStatusAPI) modelStatusCompat(ctx context.Context, tags ...names.Mo
 		}
 		statusResults[i] = params.ModelStatus{
 			ModelTag:           r.ModelTag,
-			Qualifier:          owner.String(),
+			Qualifier:          owner.Id(),
 			Life:               r.Life,
 			Type:               r.Type,
 			HostedMachineCount: r.HostedMachineCount,
