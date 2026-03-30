@@ -1062,11 +1062,12 @@ func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
 }
 
 type fakeApp struct {
-	name     string
-	life     state.Life
-	charmURL string
-	units    []migration.PrecheckUnit
-	minunits int
+	name              string
+	life              state.Life
+	charmURL          string
+	units             []migration.PrecheckUnit
+	minunits          int
+	provisioningState *state.ApplicationProvisioningState
 }
 
 func (a *fakeApp) Name() string {
@@ -1091,6 +1092,10 @@ func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
 
 func (a *fakeApp) MinUnits() int {
 	return a.minunits
+}
+
+func (a *fakeApp) ProvisioningState() *state.ApplicationProvisioningState {
+	return a.provisioningState
 }
 
 type fakeUnit struct {
