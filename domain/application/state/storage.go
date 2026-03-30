@@ -1228,10 +1228,12 @@ func (st *State) AttachStorageToUnit(
 			return err
 		}
 
-		err = st.checkStorageInstanceAttachmentExpectations(
+		err = st.checkStorageInstancesAttachmentExpectations(
 			ctx,
 			tx,
-			storageArg.StorageInstanceAttachmentCheckArgs,
+			[]internal.StorageInstanceAttachmentCheckArgs{
+				storageArg.StorageInstanceAttachmentCheckArgs,
+			},
 		)
 		if err != nil {
 			return err
@@ -1398,6 +1400,8 @@ ORDER BY uuid
 // more then once in args.
 //
 // The following errors can be expected:
+//   - [storageerrors.StorageInstanceNotFound] when a storage instance UUID
+//     supplied in args cannot be found in the model.
 //   - [applicationerrors.StorageInstanceUnexpectedAttachments] when a storage
 //     instance has attachments outside
 //     [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] or is
@@ -1418,16 +1422,10 @@ func (st *State) checkStorageInstancesAttachmentExpectations(
 		return strings.Compare(a.UUID.String(), b.UUID.String())
 	})
 
-	// Expected is used to denote Storage Instances that we expect to have a
-	// defined set of attachments. Unexpected is used to denote Storage
-	// Instances that we expect to have no attachments.
-	type expectedStorageInstanceUUIDs storageInstanceUUIDs
-	type unexpectedStorageInstanceUUIDs storageInstanceUUIDs
-
 	var (
 		expectedAttachmentUUIDs storageAttachmentUUIDs
-		expectedSIUUIDs         expectedStorageInstanceUUIDs
-		unexpectedSIUUIDs       unexpectedStorageInstanceUUIDs
+		expectedSIUUIDs         storageInstanceUUIDs
+		unexpectedSIUUIDs       storageInstanceUUIDs
 	)
 
 	// We need to pack args into [expectedAttachmentUUIDs],
@@ -1436,15 +1434,11 @@ func (st *State) checkStorageInstancesAttachmentExpectations(
 	// Otherwise, it goes into the expected list.
 	for _, arg := range args {
 		if len(arg.ExpectedAttachments) == 0 {
-			unexpectedSIUUIDs = append(
-				unexpectedSIUUIDs, arg.UUID.String(),
-			)
+			unexpectedSIUUIDs = append(unexpectedSIUUIDs, arg.UUID.String())
 			continue
 		}
 
-		expectedSIUUIDs = append(
-			expectedSIUUIDs, arg.UUID.String(),
-		)
+		expectedSIUUIDs = append(expectedSIUUIDs, arg.UUID.String())
 		// Pre-allocated expectedAttachmentUUIDs to avoid reallocation.
 		expectedAttachmentUUIDs = slices.Grow(
 			expectedAttachmentUUIDs, len(arg.ExpectedAttachments),
@@ -1462,60 +1456,53 @@ func (st *State) checkStorageInstancesAttachmentExpectations(
 		)
 	}
 
-	// If any of the inputs are empty slices we need to add an empty string
-	// value to make the VALUES part of the query work. They are filtered out.
-	// This is just quirk with sql and SqlAir.
-	if len(expectedAttachmentUUIDs) == 0 {
-		expectedAttachmentUUIDs = storageAttachmentUUIDs{""}
-	}
-	if len(unexpectedSIUUIDs) == 0 {
-		unexpectedSIUUIDs = unexpectedStorageInstanceUUIDs{""}
-	}
-	if len(expectedSIUUIDs) == 0 {
-		expectedSIUUIDs = expectedStorageInstanceUUIDs{""}
-	}
-
-	queryStorageInstanceAttachmentsCount := `
-SELECT &storageInstanceAttachmentsCount.*
+	queryStorageInstanceAttachmentUnexpectedCount := `
+SELECT &storageInstanceAttachmentCheckCount.*
 FROM (
-    WITH
-    unexpected_instances(uuid) AS (
-      VALUES ($unexpectedStorageInstanceUUIDs[:])
-    ),
-    expected_instances(uuid) AS (
-      VALUES ($expectedStorageInstanceUUIDs[:])
-    ),
-    expected_attachments(uuid) AS (
-      VALUES ($storageAttachmentUUIDs[:])
-    )
-    SELECT    isi.uuid AS storage_instance_uuid,
-              COUNT(sa.uuid) AS count
-    FROM      unexpected_instances isi
-    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid = isi.uuid
-    -- Filter out any empty string value supplied to keep the sql parser happy.
-    WHERE isi.uuid <> ''
-    GROUP BY isi.uuid
-    
-    UNION
-    
-    SELECT    isi.uuid AS storage_instance_uuid,
-              COUNT(sa.uuid) AS count
-    FROM      expected_instances isi
-    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid = isi.uuid
-    JOIN      expected_attachments ea ON ea.uuid = sa.uuid
-    -- Filter out any empty string value supplied to keep the sql parser happy.
-    WHERE     isi.uuid <> ''
-    GROUP BY  isi.uuid
+    SELECT    si.uuid AS storage_instance_uuid,
+              0 as expected_count,
+              COUNT(sa.uuid) AS unexpected_count
+    FROM      storage_instance si
+    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid = si.uuid
+    WHERE     si.uuid IN ($storageInstanceUUIDs[:])
+    GROUP BY  si.uuid
 )
-ORDER BY storage_instance_uuid ASC
 `
 
-	stmtUnexpectedAttachments, err := st.Prepare(
-		queryStorageInstanceAttachmentsCount,
-		storageInstanceAttachmentsCount{},
+	queryStorageInstanceAttachmentExpectedCount := `
+SELECT &storageInstanceAttachmentCheckCount.*
+FROM (
+    SELECT    si.uuid AS storage_instance_uuid,
+              COUNT(sae.uuid) AS expected_count,
+              COUNT(sau.uuid) AS unexpected_count
+    FROM      storage_instance si
+    LEFT JOIN storage_attachment sa  ON sa.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_attachment sae ON sae.uuid = sa.uuid
+                                    AND sae.uuid IN ($storageAttachmentUUIDs[:])
+    LEFT JOIN storage_attachment sau ON sau.uuid = sa.uuid
+                                    AND sau.uuid NOT IN ($storageAttachmentUUIDs[:])
+    WHERE     si.uuid IN ($storageInstanceUUIDs[:])
+    GROUP BY  si.uuid
+)
+`
+
+	stmtUnexpected, err := st.Prepare(
+		queryStorageInstanceAttachmentUnexpectedCount,
+		storageInstanceAttachmentCheckCount{},
+		unexpectedSIUUIDs,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"preparing storage instance unexpected attachments check query: %w",
+			err,
+		)
+	}
+
+	stmtExpected, err := st.Prepare(
+		queryStorageInstanceAttachmentExpectedCount,
+		storageInstanceAttachmentCheckCount{},
 		expectedAttachmentUUIDs,
 		expectedSIUUIDs,
-		unexpectedSIUUIDs,
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -1524,118 +1511,73 @@ ORDER BY storage_instance_uuid ASC
 		)
 	}
 
-	dbVals := []storageInstanceAttachmentsCount{}
-	err = tx.Query(
-		ctx,
-		stmtUnexpectedAttachments,
-		expectedAttachmentUUIDs,
-		expectedSIUUIDs,
-		unexpectedSIUUIDs,
-	).GetAll(&dbVals)
-	if err != nil {
-		return errors.Errorf(
-			"checking storage instances expected attachments: %w", err,
-		)
-	}
+	expectedVals := []storageInstanceAttachmentCheckCount{}
+	unexpectedVals := []storageInstanceAttachmentCheckCount{}
 
-	if len(dbVals) != len(args) {
-		// This should never occur but we must be safe to avoid a PANIC.
-		return errors.Errorf(
-			"found storage instances %d does not match number of expected args %d",
-			len(dbVals), len(args),
-		)
-	}
-
-	for i, dbVal := range dbVals {
-		if dbVal.StorageInstanceUUID != args[i].UUID.String() {
-			// This will occur when the caller has not sorted the args in
-			// ascending order on Storage Instance UUID.
+	if len(unexpectedSIUUIDs) != 0 {
+		err = tx.Query(
+			ctx,
+			stmtUnexpected,
+			unexpectedSIUUIDs,
+		).GetAll(&unexpectedVals)
+		// We don't need to handle a no rows error. Performed below.
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"storage instance UUID mismatch: expected %s, got %s",
-				args[i].UUID.String(), dbVal.StorageInstanceUUID,
+				"checking storage instances unexpected attachments: %w", err,
 			)
 		}
-
-		if dbVal.Count != len(args[i].ExpectedAttachments) {
+	}
+	if len(expectedSIUUIDs) != 0 {
+		err = tx.Query(
+			ctx,
+			stmtExpected,
+			expectedAttachmentUUIDs,
+			expectedSIUUIDs,
+		).GetAll(&expectedVals)
+		// We don't need to handle a no rows error. Performed below.
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"storage instance %q has %d unexpected attachments",
-				dbVal.StorageInstanceUUID, dbVal.Count,
-			).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+				"checking storage instances expected attachments: %w", err,
+			)
 		}
 	}
 
-	return nil
-}
+	// Merge the two results together and sort based on storage instance uuid.
+	// This has to be done this way instead of SQL due to limitations in sqlair.
+	slices.Grow(expectedVals, len(unexpectedVals))
+	groupedVals := append(expectedVals, unexpectedVals...)
+	slices.SortFunc(groupedVals, func(a, b storageInstanceAttachmentCheckCount) int {
+		return strings.Compare(a.StorageInstanceUUID, b.StorageInstanceUUID)
+	})
 
-// checkStorageInstanceAttachmentExpectations validates that a storage instance
-// has no attachments outside the expected set.
-//
-// If the supplied args
-// [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] has no
-// attachment UUIDs the Storage Instance is checked for having no attachments.
-//
-// The following errors can be expected:
-//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when the storage
-//     instance has attachments that are not in the expected set.
-func (st *State) checkStorageInstanceAttachmentExpectations(
-	ctx context.Context,
-	tx *sqlair.TX,
-	args internal.StorageInstanceAttachmentCheckArgs,
-) error {
-	var (
-		count            count
-		siUUID           = entityUUID{UUID: args.UUID.String()}
-		inputAttachments = make(
-			storageAttachmentUUIDs, 0, len(args.ExpectedAttachments))
-	)
-	for _, attachmentUUID := range args.ExpectedAttachments {
-		inputAttachments = append(inputAttachments, attachmentUUID.String())
-	}
+	for i, arg := range args {
+		// if we have less values in groupedVals than args we have hit the end
+		// of the road and something is missing.
+		if len(groupedVals) <= i {
+			return errors.Errorf(
+				"storage instance %q not found", arg.UUID,
+			).Add(storageerrors.StorageInstanceNotFound)
+		}
 
-	queryCountAttachments := `
-SELECT COUNT(*) AS &count.count
-FROM storage_attachment
-WHERE storage_instance_uuid = $entityUUID.uuid
-`
-
-	queryUnexpectedAttachments := `
-SELECT COUNT(*) AS &count.count
-FROM storage_attachment
-WHERE storage_instance_uuid = $entityUUID.uuid
-AND uuid NOT IN ($storageAttachmentUUIDs[:])
-`
-	stmtCountAttachments, err := st.Prepare(queryCountAttachments, siUUID, count)
-	if err != nil {
-		return errors.Errorf(
-			"preparing storage instance attachment count check query: %w", err,
-		)
-	}
-
-	stmtCountUnexpectedAttachments, err := st.Prepare(
-		queryUnexpectedAttachments, siUUID, count, inputAttachments)
-	if err != nil {
-		return errors.Errorf(
-			"preparing storage instance unexpected attachment count check query: %w",
-			err,
-		)
-	}
-
-	if len(inputAttachments) == 0 {
-		err = tx.Query(ctx, stmtCountAttachments, siUUID).Get(&count)
-	} else {
-		err = tx.Query(
-			ctx, stmtCountUnexpectedAttachments, siUUID, inputAttachments,
-		).Get(&count)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if count.Count > 0 {
-		return errors.Errorf(
-			"storage instance has %d unexpected attachments", count.Count,
-		).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+		if arg.UUID.String() != groupedVals[i].StorageInstanceUUID {
+			return errors.Errorf(
+				"storage instance %q not found", arg.UUID,
+			).Add(storageerrors.StorageInstanceNotFound)
+		}
+		if groupedVals[i].ExpectedCount != len(args[i].ExpectedAttachments) {
+			return errors.Errorf(
+				"storage instance %q missing %d expected attachments",
+				arg.UUID,
+				len(args[i].ExpectedAttachments)-groupedVals[i].ExpectedCount,
+			).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+		}
+		if groupedVals[i].UnexpectedCount > 0 {
+			return errors.Errorf(
+				"storage instance %q has %d unexpected attachments",
+				arg.UUID,
+				groupedVals[i].UnexpectedCount,
+			).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+		}
 	}
 
 	return nil

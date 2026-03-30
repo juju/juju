@@ -41,15 +41,21 @@ func (s *storageHelper) assertFilesystemAttachmentExists(
 }
 
 // assertStorageInstanceAttachmentExists ensures a storage attachment exists
-// for the supplied attachment UUID.
+// for the supplied attachment, storage instance, and unit UUIDs.
 func (s *storageHelper) assertStorageInstanceAttachmentExists(
-	c *tc.C, attachmentUUID domainstorage.StorageAttachmentUUID,
+	c *tc.C,
+	attachmentUUID domainstorage.StorageAttachmentUUID,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+	unitUUID coreunit.UUID,
 ) {
 	var gotUUID string
 	err := s.DB().QueryRowContext(
 		c.Context(),
-		"SELECT uuid FROM storage_attachment WHERE uuid = ?",
+		`SELECT uuid FROM storage_attachment
+WHERE uuid = ? AND storage_instance_uuid = ? AND unit_uuid = ?`,
 		attachmentUUID.String(),
+		storageInstanceUUID.String(),
+		unitUUID.String(),
 	).Scan(&gotUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotUUID, tc.Equals, attachmentUUID.String())
@@ -377,4 +383,18 @@ VALUES (?, ?, ?, ?)
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return attachmentUUID
+}
+
+// setStorageInstanceLife updates the life for the supplied storage instance.
+func (s *storageHelper) setStorageInstanceLife(
+	c *tc.C, storageInstanceUUID domainstorage.StorageInstanceUUID,
+	life domainlife.Life,
+) {
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		"UPDATE storage_instance SET life_id = ? WHERE uuid = ?",
+		life,
+		storageInstanceUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }

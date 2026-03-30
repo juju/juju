@@ -17,11 +17,12 @@ type storageInstanceUUID entityUUID
 // instance UUIDs.
 type storageInstanceUUIDs []string
 
-// storageInstanceAttachmentsCount is used to represent attachment counts for a
-// storage instance.
-type storageInstanceAttachmentsCount struct {
+// storageInstanceAttachmentCheckCount is used to represent attachment counts
+// for a storage instance.
+type storageInstanceAttachmentCheckCount struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
-	Count               int    `db:"count"`
+	ExpectedCount       int    `db:"expected_count"`
+	UnexpectedCount     int    `db:"unexpected_count"`
 }
 
 // storageAttachmentUUIDs is used for queries that return a list of storage

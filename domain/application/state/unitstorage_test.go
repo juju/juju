@@ -954,6 +954,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceUnexpectedAttac
 		},
 		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
 			ExpectedAttachments: []domainstorage.StorageAttachmentUUID{saUUID1},
+			UUID:                storageInstUUID,
 		},
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 0,
@@ -995,7 +996,9 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNoExpectedAttac
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 		},
-		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+			UUID: storageInstUUID,
+		},
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 0,
 			CharmUUID:          unitCharmUUID,
@@ -1044,6 +1047,9 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 			StorageInstanceUUID: storageInstUUID,
 			UUID:                storageInstAttachUUID,
 		},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+			UUID: storageInstUUID,
+		},
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 0,
 			CharmUUID:          unitCharmUUID,
@@ -1054,7 +1060,12 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.assertStorageInstanceAttachmentExists(c, storageInstAttachUUID)
+	u.assertStorageInstanceAttachmentExists(
+		c,
+		storageInstAttachUUID,
+		storageInstUUID,
+		unitUUID,
+	)
 	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
 }
 
@@ -1085,6 +1096,9 @@ func (u *unitStorageSuite) TestAttachStorageToUnitSetsCharmName(c *tc.C) {
 		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
 			StorageInstanceUUID: storageInstUUID,
 			UUID:                attachUUID,
+		},
+		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+			UUID: storageInstUUID,
 		},
 		StorageInstanceCharmNameSetArg: &internal.StorageInstanceCharmNameSetArg{
 			CharmMetadataName: "custom-charm-name",
@@ -1158,6 +1172,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.
 			ExpectedAttachments: []domainstorage.StorageAttachmentUUID{
 				existingAttachUUID,
 			},
+			UUID: storageInst3UUID,
 		},
 		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
 			CountLessThanEqual: 2,
@@ -1169,7 +1184,12 @@ func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.
 	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	u.assertStorageInstanceAttachmentExists(c, storageInstAttachUUID)
+	u.assertStorageInstanceAttachmentExists(
+		c,
+		storageInstAttachUUID,
+		storageInst3UUID,
+		unitUUID1,
+	)
 	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
 }
 
