@@ -280,7 +280,7 @@ func (s *UserService) EnsureExternalUser(ctx context.Context, subject user.Name)
 		return errors.New("external user to ensure is empty").Add(accesserrors.UserNameNotValid)
 	}
 	if subject.IsLocal() {
-		return nil
+		return errors.Errorf("cannot ensure local user %q as external", subject).Add(coreerrors.NotValid)
 	}
 	return errors.Capture(s.st.EnsureExternalUser(ctx, subject))
 }

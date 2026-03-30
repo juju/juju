@@ -122,3 +122,43 @@ func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil,
 		tc.Commentf("testuser@external was not created in Juju's DB after JWT login"))
 }
+
+// TestExternalUserNotCreatedWhenJWTLoginUnauthorized verifies that an external
+// user is NOT inserted into Juju's database when the JWT token carries no
+// access permissions. The login should fail and no user row should be created.
+func (s *externalUserJWTLoginSuite) TestExternalUserNotCreatedWhenJWTLoginUnauthorized(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+
+	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	externalUserName := tc.Must1(c, user.NewName, "testuser@external")
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+
+	// Build a JWT with no access claims — the user is authenticated but
+	// has zero permissions on the controller.
+	token, err := apitesting.NewEncodedJWT(apitesting.JWTParams{
+		Controller: s.ControllerUUID,
+		User:       "user-testuser@external",
+		Access:     map[string]string{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	info := s.ControllerModelApiInfo()
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	_, err = api.Open(c.Context(), info, api.DialOpts{
+		LoginProvider: &jwtLoginProvider{
+			tag:   names.NewUserTag("testuser@external"),
+			token: token,
+		},
+	})
+	c.Assert(err, tc.NotNil)
+
+	// Failed login must not create an external user row.
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound,
+		tc.Commentf("testuser@external should not be created when JWT login is unauthorised"))
+}

@@ -49,6 +49,11 @@ func (st *UserState) EnsureExternalUser(ctx context.Context, subject user.Name) 
 		return errors.Capture(err)
 	}
 
+	userUUID, err := user.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating user UUID: %w", err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the UUID of everyone@external to use as the creator.
 		creatorUUID, err := GetUserUUIDByName(ctx, tx, permission.EveryoneUserName)
@@ -58,22 +63,14 @@ func (st *UserState) EnsureExternalUser(ctx context.Context, subject user.Name) 
 			return errors.Capture(err)
 		}
 
-		userUUID, err := user.NewUUID()
-		if err != nil {
-			return errors.Errorf("generating user UUID: %w", err)
-		}
-
 		err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, creatorUUID, st.clock.Now().UTC())
-		if err != nil {
+		if errors.Is(err, accesserrors.UserAlreadyExists) {
 			// User already exists — this is the expected path for
 			// returning users and also handles the race condition
 			// of two concurrent logins for the same new user.
-			if errors.Is(err, accesserrors.UserAlreadyExists) {
-				return nil
-			}
-			return errors.Capture(err)
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return errors.Errorf("ensuring external user %q: %w", subject, err)

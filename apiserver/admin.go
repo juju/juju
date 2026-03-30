@@ -358,7 +358,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		userName := coreuser.NameFromTag(userTag)
 		if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
 			logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
-			return nil, errors.Annotatef(err, "ensuring external user record for %q", userName)
+			return nil, errors.Annotatef(err, "ensuring external user %q", userName)
 		}
 	}
 

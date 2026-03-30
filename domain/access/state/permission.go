@@ -315,11 +315,18 @@ AND     u.removed = false
 
 	var baseExternalPerms dbPermission
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Reset perm and baseExternalPerms for every txn retry. This is so
+		// we don't accidentally cache the result between txn retries where
+		// a value may have changed.
+		baseExternalPerms = dbPermission{}
+		perm = dbPermission{
+			GrantOn: target.Key,
+		}
+
 		err = tx.Query(ctx, readStmt, user, perm).Get(&perm)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			if subject.IsLocal() {
-				return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
-			}
+		if errors.Is(err, sqlair.ErrNoRows) && subject.IsLocal() {
+			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+		} else if errors.Is(err, sqlair.ErrNoRows) {
 			// External user has no DB record yet. Their access is
 			// determined entirely by everyone@external below.
 		} else if err != nil {

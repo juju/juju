@@ -10,6 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -82,7 +83,7 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Grant everyone@external superuser access on the controller.
+	// Grant everyone@external login access on the controller.
 	// This is needed so that ReadUserAccessLevelForTarget inherits
 	// controller access for testuser@external (external users inherit
 	// the higher of their own and everyone@external's permissions).
@@ -94,7 +95,7 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 				ObjectType: permission.Controller,
 				Key:        s.ControllerUUID,
 			},
-			Access: permission.SuperuserAccess,
+			Access: permission.LoginAccess,
 		},
 	})
 	c.Assert(err, tc.IsNil)
@@ -107,7 +108,11 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 
 	// Open an API connection with no credentials, triggering the external
 	// macaroon login flow described in the test doc comment.
+	// Use a controller-only login (no ModelTag) because the test only
+	// grants everyone@external login access on the controller, not on any
+	// model. Controller-only login only checks controller-level permissions.
 	info := s.ControllerModelApiInfo()
+	info.ModelTag = names.ModelTag{}
 	info.Tag = nil
 	info.Password = ""
 	info.Macaroons = nil
@@ -136,6 +141,7 @@ func (s *externalUserLoginSuite) TestExternalUserNotCreatedWhenMacaroonLoginUnau
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 
 	info := s.ControllerModelApiInfo()
+	info.ModelTag = names.ModelTag{}
 	info.Tag = nil
 	info.Password = ""
 	info.Macaroons = nil

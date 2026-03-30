@@ -689,5 +689,5 @@ func (s *userServiceSuite) TestEnsureExternalUserLocalUser(c *tc.C) {
 	localUserName := tc.Must1(c, user.NewName, "localonly")
 
 	err := s.service().EnsureExternalUser(c.Context(), localUserName)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }

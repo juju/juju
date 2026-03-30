@@ -13,6 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
@@ -27,6 +28,9 @@ func TestPermissionDelegatorSuite(t *stdtesting.T) {
 func (s *permissionDelegatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
+	c.Cleanup(func() {
+		s.accessService = nil
+	})
 	return ctrl
 }
 
@@ -39,12 +43,13 @@ func (s *permissionDelegatorSuite) delegator() *PermissionDelegator {
 func (s *permissionDelegatorSuite) TestSubjectPermissionsLocalUserSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	aliceName := tc.Must1(c, user.NewName, "alice@local")
 	target := permission.ID{
 		ObjectType: permission.Controller,
 		Key:        "controller-uuid",
 	}
 	s.accessService.EXPECT().
-		ReadUserAccessLevelForTarget(gomock.Any(), gomock.Any(), target).
+		ReadUserAccessLevelForTarget(gomock.Any(), aliceName, target).
 		Return(permission.AdminAccess, nil)
 
 	access, err := s.delegator().SubjectPermissions(c.Context(), "alice@local", target)
@@ -58,12 +63,13 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsLocalUserSuccess(c *tc.
 func (s *permissionDelegatorSuite) TestSubjectPermissionsAccessNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	aliceName := tc.Must1(c, user.NewName, "alice@local")
 	target := permission.ID{
 		ObjectType: permission.Model,
 		Key:        "model-uuid",
 	}
 	s.accessService.EXPECT().
-		ReadUserAccessLevelForTarget(gomock.Any(), gomock.Any(), target).
+		ReadUserAccessLevelForTarget(gomock.Any(), aliceName, target).
 		Return(permission.NoAccess, accesserrors.AccessNotFound)
 
 	access, err := s.delegator().SubjectPermissions(c.Context(), "alice@local", target)
@@ -76,13 +82,14 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsAccessNotFound(c *tc.C)
 func (s *permissionDelegatorSuite) TestSubjectPermissionsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	aliceName := tc.Must1(c, user.NewName, "alice@local")
 	target := permission.ID{
 		ObjectType: permission.Controller,
 		Key:        "controller-uuid",
 	}
 	svcError := errors.New("database error")
 	s.accessService.EXPECT().
-		ReadUserAccessLevelForTarget(gomock.Any(), gomock.Any(), target).
+		ReadUserAccessLevelForTarget(gomock.Any(), aliceName, target).
 		Return(permission.NoAccess, svcError)
 
 	_, err := s.delegator().SubjectPermissions(c.Context(), "alice@local", target)

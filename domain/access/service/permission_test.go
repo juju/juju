@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	corepermission "github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -159,20 +160,20 @@ func (s *serviceSuite) TestReadUserAccessLevelForTarget(c *tc.C) {
 func (s *serviceSuite) TestReadUserAccessLevelForTargetExternalPassthrough(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subject := usertesting.GenNewName(c, "testme@external")
+	subject := tc.Must1(c, coreuser.NewName, "testme@external")
 	target := corepermission.ID{
-		ObjectType: corepermission.Cloud,
-		Key:        "aws",
+		ObjectType: corepermission.Controller,
+		Key:        "controller-uuid",
 	}
 	// The state layer handles external user inheritance transparently.
 	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, target).
-		Return(corepermission.AddModelAccess, nil)
+		Return(corepermission.LoginAccess, nil)
 
 	access, err := NewService(s.state, clock.WallClock).ReadUserAccessLevelForTarget(
 		c.Context(), subject, target,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(access, tc.Equals, corepermission.AddModelAccess)
+	c.Assert(access, tc.Equals, corepermission.LoginAccess)
 }
 
 func (s *serviceSuite) TestReadUserAccessLevelForTargetAccessNotFound(c *tc.C) {

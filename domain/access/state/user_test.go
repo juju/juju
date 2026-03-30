@@ -1731,3 +1731,14 @@ func (s *userStateSuite) TestEnsureExternalUserAlreadyExists(c *tc.C) {
 	err = st.EnsureExternalUser(c.Context(), jimUserName)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+// TestEnsureExternalUserEveryoneNotFound checks that an error is returned when
+// the everyone@external user does not exist, since it is required as the
+// creator of external users and is normally seeded during bootstrap.
+func (s *userStateSuite) TestEnsureExternalUserEveryoneNotFound(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
+}
