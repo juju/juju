@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalservices "github.com/juju/juju/internal/services"
@@ -115,7 +116,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 			Logger_:           loggertesting.WrapCheckLog(c),
 			LeadershipReader_: s.leadershipReader,
 			ControllerUUID_:   tc.Must0(c, model.NewUUID).String(),
-			ModelUUID_:        tc.Must0(c, model.NewUUID),
+			ModelUUID_:        s.DefaultModelUUID,
 		},
 		DomainServicesForModelFunc_: func(modelUUID model.UUID) internalservices.DomainServices {
 			return s.ModelDomainServices(c, modelUUID)
@@ -133,7 +134,7 @@ func (s *controllerSuite) TearDownTest(c *tc.C) {
 // It provides custom service getter functions and mock services
 // to allow test-level control over their behavior.
 func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
-	stdCtx := c.Context()
+	stdCtx := model.WithContextModelUUID(c.Context(), s.context.ModelUUID())
 	ctx := s.context
 	var (
 		authorizer     = ctx.Auth()
@@ -326,6 +327,11 @@ func (s *controllerSuite) TestCloudSpec(c *tc.C) {
 	c.Assert(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
 }
 
+func (s *controllerSuite) TestCloudSpecV13Noop(c *tc.C) {
+	var api controller.ControllerAPIV13
+	api.CloudSpec(c.Context(), struct{}{}, struct{}{})
+}
+
 func (s *controllerSuite) TestCloudSpecInvalidTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -353,6 +359,24 @@ func (s *controllerSuite) TestCloudSpecUnauthorized(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Result, tc.IsNil)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
+}
+
+func (s *controllerSuite) TestCloudSpecUsesConnectedModelOnly(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	otherModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.DefaultModelUUID.String()).String()},
+			{Tag: otherModelTag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Result, tc.NotNil)
+	c.Check(result.Results[1].Result, tc.IsNil)
+	c.Check(result.Results[1].Error, tc.ErrorMatches, "permission denied")
 }
 
 func (s *controllerSuite) TestCloudSpecServiceError(c *tc.C) {
@@ -745,6 +769,18 @@ type accessSuite struct {
 	controllerModelUUID model.UUID
 }
 
+type cloudSpecProviderStub struct {
+	spec environscloudspec.CloudSpec
+	err  error
+}
+
+func (s cloudSpecProviderStub) GetCloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
+	if s.err != nil {
+		return environscloudspec.CloudSpec{}, s.err
+	}
+	return s.spec, nil
+}
+
 func TestAccessSuite(t *stdtesting.T) {
 	tc.Run(t, &accessSuite{})
 }
@@ -768,8 +804,9 @@ func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
+	stdCtx := model.WithContextModelUUID(c.Context(), s.controllerModelUUID)
 	api, err := controller.NewControllerAPI(
-		c.Context(),
+		stdCtx,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		nil,
@@ -799,6 +836,162 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 	c.Assert(err, tc.ErrorIsNil)
 
 	return api
+}
+
+func (s *accessSuite) TestCloudSpecDefaultsToControllerModelWithoutContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := environscloudspec.CloudSpec{
+		Type: "lxd",
+		Name: "localhost",
+	}
+	called := 0
+	cloudSpecServiceGetter := func(_ context.Context, modelUUID model.UUID) (controller.ModelProviderService, error) {
+		called++
+		c.Check(modelUUID, tc.Equals, s.controllerModelUUID)
+		return cloudSpecProviderStub{spec: expected}, nil
+	}
+
+	api, err := controller.NewControllerAPI(
+		c.Context(),
+		s.authorizer,
+		loggertesting.WrapCheckLog(c),
+		nil,
+		nil,
+		nil,
+		s.accessService,
+		s.modelService,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cloudSpecServiceGetter,
+		nil,
+		nil,
+		nil,
+		nil,
+		s.controllerModelUUID,
+		s.controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	otherModelTag := names.NewModelTag(tc.Must0(c, model.NewUUID).String())
+	result, err := api.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.controllerModelUUID.String()).String()},
+			{Tag: otherModelTag.String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
+	c.Check(result.Results[1].Result, tc.IsNil)
+	c.Check(result.Results[1].Error, tc.ErrorMatches, "permission denied")
+	c.Check(called, tc.Equals, 1)
+}
+
+func (s *accessSuite) TestCloudSpecReturnsAnnotatedServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloudSpecServiceGetter := func(_ context.Context, _ model.UUID) (controller.ModelProviderService, error) {
+		return cloudSpecProviderStub{err: errors.New("boom")}, nil
+	}
+
+	api, err := controller.NewControllerAPI(
+		model.WithContextModelUUID(c.Context(), s.controllerModelUUID),
+		s.authorizer,
+		loggertesting.WrapCheckLog(c),
+		nil,
+		nil,
+		nil,
+		s.accessService,
+		s.modelService,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cloudSpecServiceGetter,
+		nil,
+		nil,
+		nil,
+		nil,
+		s.controllerModelUUID,
+		s.controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := api.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.controllerModelUUID.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `getting cloud spec for model ".*": boom`)
+}
+
+func (s *accessSuite) TestCloudSpecReturnsServiceGetterError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cloudSpecServiceGetter := func(_ context.Context, _ model.UUID) (controller.ModelProviderService, error) {
+		return nil, errors.New("provider service unavailable")
+	}
+
+	api, err := controller.NewControllerAPI(
+		model.WithContextModelUUID(c.Context(), s.controllerModelUUID),
+		s.authorizer,
+		loggertesting.WrapCheckLog(c),
+		nil,
+		nil,
+		nil,
+		s.accessService,
+		s.modelService,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cloudSpecServiceGetter,
+		nil,
+		nil,
+		nil,
+		nil,
+		s.controllerModelUUID,
+		s.controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := api.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.controllerModelUUID.String()).String()},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, "provider service unavailable")
 }
 
 func (s *accessSuite) TestModifyControllerAccess(c *tc.C) {

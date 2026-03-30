@@ -60,6 +60,7 @@ type ControllerAPI struct {
 
 	authorizer                  facade.Authorizer
 	apiUser                     names.UserTag
+	authModelTag                names.ModelTag
 	controllerConfigService     ControllerConfigService
 	accessService               ControllerAccessService
 	modelService                ModelService
@@ -125,6 +126,10 @@ func NewControllerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	authModelTag := names.NewModelTag(controllerModelUUID.String())
+	if modelUUID, ok := coremodel.ModelUUIDFromContext(ctx); ok {
+		authModelTag = names.NewModelTag(modelUUID.String())
+	}
 
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
@@ -148,6 +153,7 @@ func NewControllerAPI(
 		),
 		authorizer:                  authorizer,
 		apiUser:                     apiUser,
+		authModelTag:                authModelTag,
 		logger:                      logger,
 		controllerConfigService:     controllerConfigService,
 		accessService:               accessService,
@@ -287,8 +293,8 @@ func (c *ControllerAPI) CloudSpec(ctx context.Context, req params.Entities) (par
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := c.authorizer.HasPermission(ctx, permission.ReadAccess, modelTag); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
+		if modelTag != c.authModelTag {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		spec, err := c.getCloudSpec(ctx, coremodel.UUID(modelTag.Id()))
