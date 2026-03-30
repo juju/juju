@@ -1869,6 +1869,7 @@ SELECT * AS &unitStorageNameInfo.* FROM (
     SELECT    m.uuid AS machine_uuid,
               u.name AS unit_name,
               u.uuid AS unit_uuid,
+              u.net_node_uuid AS unit_net_node_uuid,
               (SELECT count(*)
                FROM storage_attachment sa
                JOIN storage_instance si ON sa.storage_instance_uuid = si.uuid

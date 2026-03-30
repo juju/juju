@@ -959,6 +959,7 @@ type unitStorageNameInfo struct {
 
 	MachineUUID          sql.Null[string] `db:"machine_uuid"`
 	UnitName             string           `db:"unit_name"`
+	UnitNetNodeUUID      string           `db:"unit_net_node_uuid"`
 	UnitUUID             string           `db:"unit_uuid"`
 	AlreadyAttachedCount uint32           `db:"already_attached_count"`
 }
