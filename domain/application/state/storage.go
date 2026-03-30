@@ -1867,6 +1867,7 @@ func (st *State) getUnitStorageNameInfo(
 	q := `
 SELECT * AS &unitStorageNameInfo.* FROM (
     SELECT    m.uuid AS machine_uuid,
+              u.life_id as unit_life_id,
               u.name AS unit_name,
               u.uuid AS unit_uuid,
               u.net_node_uuid AS unit_net_node_uuid,

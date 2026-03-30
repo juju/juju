@@ -958,6 +958,7 @@ type unitStorageNameInfo struct {
 	StorageDefinitionShared      bool   `db:"storage_definition_shared"`
 
 	MachineUUID          sql.Null[string] `db:"machine_uuid"`
+	UnitLifeID           int              `db:"unit_life_id"`
 	UnitName             string           `db:"unit_name"`
 	UnitNetNodeUUID      string           `db:"unit_net_node_uuid"`
 	UnitUUID             string           `db:"unit_uuid"`
