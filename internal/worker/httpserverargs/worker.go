@@ -186,16 +186,6 @@ func (b *managedServices) ReadUserAccessLevelForTarget(
 	return b.accessService.ReadUserAccessLevelForTarget(b.tomb.Context(ctx), subject, target)
 }
 
-// EnsureExternalUserIfAuthorized checks if an external user is missing from the
-// database and has permissions on an object. If they do then they will be
-// added. This ensures that juju has a record of external users that have
-// inherited their permissions from everyone@external.
-func (b *managedServices) EnsureExternalUserIfAuthorized(
-	ctx context.Context, subject coreuser.Name, target permission.ID,
-) error {
-	return b.accessService.EnsureExternalUserIfAuthorized(b.tomb.Context(ctx), subject, target)
-}
-
 // UpdateLastModelLogin updates the last login time for the user with the
 // given name.
 func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name coreuser.Name, modelUUID coremodel.UUID) error {

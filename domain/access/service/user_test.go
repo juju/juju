@@ -666,3 +666,28 @@ func (s stringerNotEmpty) Matches(arg any) bool {
 func (s stringerNotEmpty) String() string {
 	return "matches if the input fmt.Stringer produces a non-empty string."
 }
+
+func (s *userServiceSuite) TestEnsureExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	userName := tc.Must1(c, user.NewName, "testme@external")
+	s.state.EXPECT().EnsureExternalUser(gomock.Any(), userName).Return(nil)
+
+	err := s.service().EnsureExternalUser(c.Context(), userName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *userServiceSuite) TestEnsureExternalUserEmptySubject(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service().EnsureExternalUser(c.Context(), user.Name{})
+	c.Assert(err, tc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+func (s *userServiceSuite) TestEnsureExternalUserLocalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	localUserName := tc.Must1(c, user.NewName, "localonly")
+
+	err := s.service().EnsureExternalUser(c.Context(), localUserName)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}

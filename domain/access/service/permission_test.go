@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	corepermission "github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -153,6 +155,43 @@ func (s *serviceSuite) TestReadUserAccessLevelForTarget(c *tc.C) {
 			Key:        "aws",
 		})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestReadUserAccessLevelForTargetExternalPassthrough(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := tc.Must1(c, coreuser.NewName, "testme@external")
+	target := corepermission.ID{
+		ObjectType: corepermission.Controller,
+		Key:        "controller-uuid",
+	}
+	// The state layer handles external user inheritance transparently.
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, target).
+		Return(corepermission.LoginAccess, nil)
+
+	access, err := NewService(s.state, clock.WallClock).ReadUserAccessLevelForTarget(
+		c.Context(), subject, target,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.Equals, corepermission.LoginAccess)
+}
+
+func (s *serviceSuite) TestReadUserAccessLevelForTargetAccessNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := usertesting.GenNewName(c, "testme")
+	target := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "aws",
+	}
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, target).
+		Return(corepermission.NoAccess, accesserrors.AccessNotFound)
+
+	access, err := NewService(s.state, clock.WallClock).ReadUserAccessLevelForTarget(
+		c.Context(), subject, target,
+	)
+	c.Assert(err, tc.ErrorIs, accesserrors.AccessNotFound)
+	c.Assert(access, tc.Equals, corepermission.NoAccess)
 }
 
 func (s *serviceSuite) TestReadUserAccessLevelForTargetError(c *tc.C) {

@@ -32,6 +32,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
@@ -414,7 +415,15 @@ type stubDomainServicesGetter struct {
 }
 
 func (s *stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
-	return nil, nil
+	return &stubDomainServices{}, nil
+}
+
+type stubDomainServices struct {
+	services.DomainServices
+}
+
+func (s *stubDomainServices) Access() *accessservice.Service {
+	return nil
 }
 
 type stubTracerGetter struct {

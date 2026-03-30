@@ -48,12 +48,6 @@ type AccessService interface {
 	// given name.
 	UpdateLastModelLogin(ctx context.Context, name coreuser.Name, modelUUID coremodel.UUID) error
 
-	// EnsureExternalUserIfAuthorized checks if an external user is missing from the
-	// database and has permissions on an object. If they do then they will be
-	// added. This ensures that juju has a record of external users that have
-	// inherited their permissions from everyone@external.
-	EnsureExternalUserIfAuthorized(ctx context.Context, subject coreuser.Name, target corepermission.ID) error
-
 	// ReadUserAccessLevelForTarget returns the user access level for the given
 	// user on the given target. A NotValid error is returned if the subject
 	// (user) string is empty, or the target is not valid. Any errors from the

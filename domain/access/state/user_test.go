@@ -1688,3 +1688,57 @@ func (s *userStateSuite) modelAdminAccess(modelUUID string) permission.AccessSpe
 		},
 	}
 }
+
+// seedEveryoneExternal creates the everyone@external user record that acts as
+// the creator of other external users. Returns the UUID assigned to the user.
+func (s *userStateSuite) seedEveryoneExternal(c *tc.C) user.UUID {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	everyoneUUID := tc.Must(c, user.NewUUID)
+	err := st.AddUser(c.Context(), everyoneUUID, permission.EveryoneUserName, "everyone@external", true, everyoneUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return everyoneUUID
+}
+
+// TestEnsureExternalUser checks that an external user is created when they
+// do not already exist.
+func (s *userStateSuite) TestEnsureExternalUser(c *tc.C) {
+	everyoneUUID := s.seedEveryoneExternal(c)
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	jim, err := st.GetUserByName(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jim.Name, tc.Equals, jimUserName)
+	c.Check(jim.DisplayName, tc.Equals, jimUserName.Name())
+	c.Check(jim.UUID, tc.IsUUID)
+	c.Check(jim.CreatorUUID, tc.Equals, everyoneUUID)
+}
+
+// TestEnsureExternalUserAlreadyExists checks that no error is returned if the
+// user already exists.
+func (s *userStateSuite) TestEnsureExternalUserAlreadyExists(c *tc.C) {
+	everyoneUUID := s.seedEveryoneExternal(c)
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	jimUUID := tc.Must(c, user.NewUUID)
+	err := st.AddUser(c.Context(), jimUUID, jimUserName, "jim", true, everyoneUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnsureExternalUserEveryoneNotFound checks that an error is returned when
+// the everyone@external user does not exist, since it is required as the
+// creator of external users and is normally seeded during bootstrap.
+func (s *userStateSuite) TestEnsureExternalUserEveryoneNotFound(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
+}
