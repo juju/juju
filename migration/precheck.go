@@ -234,6 +234,8 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 		return nil, errors.Annotate(err, "retrieving model")
 	}
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
+	// TODO(adisazhar123): In a follow-up PR we have to reject if there are ongoing
+	// scaling or storage resize operations.
 	for _, app := range apps {
 		if app.Life() != state.Alive {
 			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())

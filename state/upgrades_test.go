@@ -299,12 +299,14 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	model1, err := state1.Model()
 	c.Assert(err, gc.IsNil)
 
+	// app1: scaling=true should become current-operation="scale".
 	err = appColl1.Insert(bson.M{
 		"_id":        ensureModelUUID(model1.UUID(), "app1"),
 		"name":       "app1",
 		"model-uuid": model1.UUID(),
 	})
 	c.Assert(err, gc.IsNil)
+	// app2: scaling=false should become current-operation="".
 	err = appColl1.Insert(bson.M{
 		"_id":        ensureModelUUID(model1.UUID(), "app2"),
 		"name":       "app2",
@@ -313,6 +315,7 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// app3 does not get backfilled because its storage unique ID is already
 	// populated.
+	// app3: empty provisioning-state should remain empty.
 	err = appColl1.Insert(bson.M{
 		"_id":               ensureModelUUID(model1.UUID(), "app3"),
 		"name":              "app3",
@@ -431,4 +434,152 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	err = appColl2.Find(bson.M{"name": "app5"}).One(&app5)
 	c.Assert(err, gc.IsNil)
 	c.Assert(app5["storage-unique-id"], gc.Equals, "uniqueid5")
+}
+
+func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
+	defer func() {
+		_ = state1.Close()
+		_ = state2.Close()
+	}()
+
+	// Insert apps to model1 (CAAS model)
+	appColl1, closer := state1.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	model1, err := state1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// app1: scaling=true should become current-operation="scale".
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app1"),
+		"name":       "app1",
+		"model-uuid": model1.UUID(),
+		"provisioning-state": bson.M{
+			"scaling":      true,
+			"scale-target": 3,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// app2: scaling=false should become current-operation="".
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app2"),
+		"name":       "app2",
+		"model-uuid": model1.UUID(),
+		"provisioning-state": bson.M{
+			"scaling": false,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// app3: empty provisioning-state should remain empty.
+	err = appColl1.Insert(bson.M{
+		"_id":                ensureModelUUID(model1.UUID(), "app3"),
+		"name":               "app3",
+		"model-uuid":         model1.UUID(),
+		"provisioning-state": bson.M{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// app4: missing provisioning-state should remain missing.
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app4"),
+		"name":       "app4",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// app5: provisioning-state explicitly null should remain null.
+	err = appColl1.Insert(bson.M{
+		"_id":                ensureModelUUID(model1.UUID(), "app5"),
+		"name":               "app5",
+		"model-uuid":         model1.UUID(),
+		"provisioning-state": nil,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// app6: scaling explicitly null should be unset, leaving empty provisioning-state.
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app6"),
+		"name":       "app6",
+		"model-uuid": model1.UUID(),
+		"provisioning-state": bson.M{
+			"scaling": nil,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	appColl2, closer := state2.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	// Insert apps to model2 (IAAS model)
+	model2, err := state2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// app7: IAAS model app should be untouched by this CAAS-only upgrade.
+	err = appColl2.Insert(bson.M{
+		"_id":        ensureModelUUID(model2.UUID(), "app7"),
+		"name":       "app7",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUpgradedData(c, ConvertScalingToCurrentOperationEnumField, nil,
+		expectUpgradedData{
+			coll: appColl1,
+			filter: bson.D{
+				{"model-uuid", model1.UUID()},
+			},
+			expected: []bson.M{
+				{
+					"_id":        ensureModelUUID(model1.UUID(), "app1"),
+					"name":       "app1",
+					"model-uuid": model1.UUID(),
+					"provisioning-state": bson.M{
+						"current-operation": "scale",
+						"scale-target":      3,
+					},
+				},
+				{
+					"_id":                ensureModelUUID(model1.UUID(), "app2"),
+					"name":               "app2",
+					"model-uuid":         model1.UUID(),
+					"provisioning-state": bson.M{},
+				},
+				{
+					"_id":                ensureModelUUID(model1.UUID(), "app3"),
+					"name":               "app3",
+					"model-uuid":         model1.UUID(),
+					"provisioning-state": bson.M{},
+				},
+				{
+					"_id":        ensureModelUUID(model1.UUID(), "app4"),
+					"name":       "app4",
+					"model-uuid": model1.UUID(),
+				},
+				{
+					"_id":                ensureModelUUID(model1.UUID(), "app5"),
+					"name":               "app5",
+					"model-uuid":         model1.UUID(),
+					"provisioning-state": nil,
+				},
+				{
+					"_id":                ensureModelUUID(model1.UUID(), "app6"),
+					"name":               "app6",
+					"model-uuid":         model1.UUID(),
+					"provisioning-state": bson.M{},
+				},
+			},
+		},
+		expectUpgradedData{
+			coll: appColl2,
+			filter: bson.D{
+				{"model-uuid", model2.UUID()},
+			},
+			expected: []bson.M{
+				{
+					"_id":        ensureModelUUID(model2.UUID(), "app7"),
+					"name":       "app7",
+					"model-uuid": model2.UUID(),
+				},
+			},
+		},
+	)
 }

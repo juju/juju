@@ -1493,8 +1493,9 @@ func (a *API) ProvisioningState(args params.Entity) (params.CAASApplicationProvi
 	}
 
 	result.ProvisioningState = &params.CAASApplicationProvisioningState{
-		Scaling:     ps.Scaling,
-		ScaleTarget: ps.ScaleTarget,
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     ps.ReplicaCount,
+		CurrentOperation: ps.CurrentOperation,
 	}
 	return result, nil
 }
@@ -1516,8 +1517,9 @@ func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateA
 	}
 
 	ps := state.ApplicationProvisioningState{
-		Scaling:     args.ProvisioningState.Scaling,
-		ScaleTarget: args.ProvisioningState.ScaleTarget,
+		ScaleTarget:      args.ProvisioningState.ScaleTarget,
+		ReplicaCount:     args.ProvisioningState.ReplicaCount,
+		CurrentOperation: args.ProvisioningState.CurrentOperation,
 	}
 	err = app.SetProvisioningState(ps)
 	if errors.Is(err, stateerrors.ProvisioningStateInconsistent) {

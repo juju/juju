@@ -1403,14 +1403,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		HasResources:         a.HasResources(),
 		StorageUniqueID:      a.StorageUniqueID(),
 	}
-
-	if ps := a.ProvisioningState(); ps != nil {
-		appDoc.ProvisioningState = &ApplicationProvisioningState{
-			Scaling:     ps.Scaling(),
-			ScaleTarget: ps.ScaleTarget(),
-		}
-	}
-
+	// TODO(adisazhar123): In a follow-up PR, we have to write the provisioning-state
+	// to new format for incoming models from older controllers.
 	return appDoc, nil
 }
 

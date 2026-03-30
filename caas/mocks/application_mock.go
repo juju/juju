@@ -100,6 +100,20 @@ func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1, arg2 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVCs", reflect.TypeOf((*MockApplication)(nil).EnsurePVCs), arg0, arg1, arg2)
 }
 
+// EnsureStorage mocks base method.
+func (m *MockApplication) EnsureStorage(arg0 caas.ApplicationConfig, arg1 func(string, int) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureStorage indicates an expected call of EnsureStorage.
+func (mr *MockApplicationMockRecorder) EnsureStorage(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplication)(nil).EnsureStorage), arg0, arg1)
+}
+
 // Exists mocks base method.
 func (m *MockApplication) Exists() (caas.DeploymentState, error) {
 	m.ctrl.T.Helper()

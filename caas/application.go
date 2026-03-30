@@ -59,6 +59,14 @@ type Application interface {
 		string,
 	) error
 
+	// EnsureStorage ensures that the storage updates are reflected for the app.
+	EnsureStorage(config ApplicationConfig,
+		saveReplicaCount func(
+			appName string,
+			replicaCount int,
+		) error,
+	) error
+
 	ServiceInterface
 }
 
