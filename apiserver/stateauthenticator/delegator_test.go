@@ -110,6 +110,47 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsInvalidUserName(c *tc.C
 	c.Assert(err, tc.NotNil)
 }
 
+// TestSubjectPermissionsDisabledExternalUser verifies that a disabled external
+// user gets PermissionNotFound (via AccessNotFound from the state layer) rather
+// than an unexpected error propagation. This is a regression test for a bug
+// where disabled external users could inherit everyone@external permissions.
+func (s *permissionDelegatorSuite) TestSubjectPermissionsDisabledExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	jimName := tc.Must1(c, user.NewName, "jim@external")
+	target := permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller-uuid",
+	}
+	s.accessService.EXPECT().
+		ReadUserAccessLevelForTarget(gomock.Any(), jimName, target).
+		Return(permission.NoAccess, accesserrors.AccessNotFound)
+
+	access, err := s.delegator().SubjectPermissions(c.Context(), "jim@external", target)
+	c.Check(err, tc.ErrorIs, accesserrors.PermissionNotFound)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+// TestSubjectPermissionsRemovedExternalUser verifies that a removed external
+// user gets PermissionNotFound (via AccessNotFound from the state layer) rather
+// than falling through to everyone@external inheritance.
+func (s *permissionDelegatorSuite) TestSubjectPermissionsRemovedExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	jimName := tc.Must1(c, user.NewName, "jim@external")
+	target := permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller-uuid",
+	}
+	s.accessService.EXPECT().
+		ReadUserAccessLevelForTarget(gomock.Any(), jimName, target).
+		Return(permission.NoAccess, accesserrors.AccessNotFound)
+
+	access, err := s.delegator().SubjectPermissions(c.Context(), "jim@external", target)
+	c.Check(err, tc.ErrorIs, accesserrors.PermissionNotFound)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
 // TestPermissionError verifies that PermissionError always returns ErrPerm,
 // regardless of the tag or access level provided.
 func (s *permissionDelegatorSuite) TestPermissionError(c *tc.C) {

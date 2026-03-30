@@ -539,6 +539,78 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUserNoAcc
 	c.Assert(accessLevel, tc.Equals, corepermission.NoAccess)
 }
 
+// TestReadUserAccessLevelForTargetDisabledExternalUser verifies that a
+// disabled external user cannot inherit permissions from everyone@external.
+func (s *permissionStateSuite) TestReadUserAccessLevelForTargetDisabledExternalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
+
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+
+	// Grant everyone@external superuser access on the controller.
+	_, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: corepermission.EveryoneUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify Jim can inherit before being disabled.
+	accessLevel, err := st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accessLevel, tc.Equals, corepermission.SuperuserAccess)
+
+	// Disable Jim.
+	s.disableUser(c, "777")
+
+	// Disabled user must NOT inherit from everyone@external.
+	_, err = st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIs, accesserrors.AccessNotFound)
+}
+
+// TestReadUserAccessLevelForTargetRemovedExternalUser verifies that a removed
+// external user cannot inherit permissions from everyone@external.
+func (s *permissionStateSuite) TestReadUserAccessLevelForTargetRemovedExternalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
+
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+
+	// Grant everyone@external superuser access on the controller.
+	_, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: corepermission.EveryoneUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify Jim can inherit before being removed.
+	accessLevel, err := st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accessLevel, tc.Equals, corepermission.SuperuserAccess)
+
+	// Remove Jim.
+	s.removeUser(c, "777")
+
+	// Removed user must NOT inherit from everyone@external.
+	_, err = st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIs, accesserrors.AccessNotFound)
+}
+
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -1396,5 +1468,25 @@ func (s *permissionStateSuite) ensureCloud(c *tc.C, cloudUUID, cloudName, credUU
 		return err
 	})
 
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *permissionStateSuite) disableUser(c *tc.C, userUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE user_authentication SET disabled = true WHERE user_uuid = ?
+		`, userUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *permissionStateSuite) removeUser(c *tc.C, userUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE user SET removed = true WHERE uuid = ?
+		`, userUUID)
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }

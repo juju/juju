@@ -285,6 +285,9 @@ AND     u.removed = false
 // for the given user on the given target.
 // If the access level of a user cannot be found then
 // accesserrors.AccessNotFound is returned.
+// Removed or disabled users always receive accesserrors.AccessNotFound
+// and are never allowed to fall through to the everyone@external
+// inheritance path.
 func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	userAccess := corepermission.NoAccess
 	db, err := st.DB(ctx)
@@ -300,15 +303,14 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 	}
 
 	readQuery := `
-SELECT  (p.access_type, p.uuid) AS (&dbPermission.*)
+SELECT  (p.access_type, p.uuid) AS (&dbPermission.*),
+        (u.disabled, u.removed) AS (&dbUserActive.*)
 FROM    v_user_auth u
         LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbPermission.grant_on
 WHERE   u.name = $dbPermissionUser.name
-AND     u.disabled = false
-AND     u.removed = false
 `
 
-	readStmt, err := st.Prepare(readQuery, user, perm)
+	readStmt, err := st.Prepare(readQuery, user, perm, dbUserActive{})
 	if err != nil {
 		return userAccess, errors.Errorf("preparing select user access level for target statement: %w", err)
 	}
@@ -323,7 +325,8 @@ AND     u.removed = false
 			GrantOn: target.Key,
 		}
 
-		err = tx.Query(ctx, readStmt, user, perm).Get(&perm)
+		var userActive dbUserActive
+		err = tx.Query(ctx, readStmt, user, perm).Get(&perm, &userActive)
 		if errors.Is(err, sqlair.ErrNoRows) && subject.IsLocal() {
 			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
@@ -331,6 +334,15 @@ AND     u.removed = false
 			// determined entirely by everyone@external below.
 		} else if err != nil {
 			return errors.Errorf("reading user access level for target: %w", err)
+		} else if userActive.Removed || userActive.Disabled {
+			// The user exists but has been removed or disabled.
+			// Return AccessNotFound so that disabled/removed external
+			// users cannot fall through to everyone@external
+			// inheritance. We use AccessNotFound (rather than
+			// UserAuthenticationDisabled) because HasPermission and
+			// the delegator layer expect AccessNotFound for any
+			// "no access" situation.
+			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
 		}
 
 		// For external users, also retrieve the base everyone@external
