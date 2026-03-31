@@ -32,6 +32,8 @@ func TestEnvSuite(t *stdtesting.T) {
 }
 
 func (s *EnvSuite) assertVars(c *tc.C, actual []string, expect ...[]string) {
+	c.Helper()
+
 	var fullExpect []string
 	for _, someExpect := range expect {
 		fullExpect = append(fullExpect, someExpect...)
@@ -80,6 +82,14 @@ func (s *EnvSuite) getHookContext(c *tc.C, newProxyOnly bool, uniter api.UniterC
 		"JUJU_AVAILABILITY_ZONE=some-zone",
 		"JUJU_VERSION=1.2.3",
 		"CLOUD_API_VERSION=6.66",
+
+		// Tracing config is always included in the environment variables, even
+		// if empty, to allow charms to write trace spans to the same OTEL
+		// collector without needing to have multiple charm integrations.
+		"JUJU_CHARM_TRACE_CONFIG_HTTP=",
+		"JUJU_CHARM_TRACE_CONFIG_HTTPS=",
+		"JUJU_CHARM_TRACE_CONFIG_GRPC=",
+		"JUJU_CHARM_TRACE_CONFIG_CA_CERT=",
 	}
 	if newProxyOnly {
 		expected = append(expected,
@@ -241,7 +251,18 @@ func (s *EnvSuite) TestHostEnv(c *tc.C) {
 	checkVars := s.setCheck(hookContext)
 	actualVars, err = hookContext.HookVars(c.Context(), paths, environmenter)
 	c.Assert(err, tc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
+	s.assertVars(c,
+		actualVars,
+		contextVars,
+		pathsVars,
+		ubuntuVars,
+		relationVars,
+		secretVars,
+		storageVars,
+		workloadVars,
+		noticeVars,
+		checkVars,
+	)
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *tc.C) {

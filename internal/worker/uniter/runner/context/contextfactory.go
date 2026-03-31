@@ -382,6 +382,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 	ctx.cloudAPIVersion = info.CloudAPIVersion
 	ctx.legacyProxySettings = info.LegacyProxySettings
 	ctx.jujuProxySettings = info.JujuProxySettings
+	ctx.charmTracingConfig = info.CharmTracingConfig
 
 	if f.modelType == model.IAAS {
 		if info.PrivateAddress != nil {
