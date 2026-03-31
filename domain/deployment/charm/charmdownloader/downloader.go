@@ -107,7 +107,7 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.SHA256)
 	}
 
-	d.logger.Debugf(ctx, "downloaded charm: %q", url)
+	d.logger.Infof(ctx, "downloaded charm: %q", url)
 
 	return &DownloadResult{
 		SHA256: digest.SHA256,

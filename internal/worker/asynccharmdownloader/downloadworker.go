@@ -6,6 +6,7 @@ package asynccharmdownloader
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
@@ -24,6 +25,8 @@ import (
 const (
 	// States which report the state of the worker.
 	stateStarted = "started"
+
+	restartDelay = 20 * time.Second
 )
 
 // ApplicationService describes the API exposed by the charm downloader facade.
@@ -112,11 +115,14 @@ func newWorker(config Config, internalState chan string) (*Worker, error) {
 		IsFatal: func(err error) bool {
 			return false
 		},
+		// Allow restarts, since it is necessary that a charm is downloaded and
+		// resolved to allow the deploy process to continue. This is unbounded
 		ShouldRestart: func(err error) bool {
-			return false
+			return true
 		},
-		Clock:  config.Clock,
-		Logger: internalworker.WrapLogger(config.Logger),
+		RestartDelay: restartDelay,
+		Clock:        config.Clock,
+		Logger:       internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
