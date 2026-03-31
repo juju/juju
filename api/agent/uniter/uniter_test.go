@@ -230,6 +230,36 @@ func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestGetUnitContextDecodesCharmTracingConfig(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "GetUnitContext")
+		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
+		c.Assert(result, tc.FitsTypeOf, &params.UnitContext{})
+
+		*(result.(*params.UnitContext)) = params.UnitContext{
+			CharmTracingConfig: params.CharmTracingConfig{
+				HTTPEndpoint:  "http://tempo:3200",
+				HTTPSEndpoint: "https://tempo:3201",
+				GRPCEndpoint:  "tempo:4317",
+				CACertificate: "test-ca-cert",
+			},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
+
+	result, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.CharmTracingConfig, tc.DeepEquals, uniter.CharmTracingConfig{
+		HTTPEndpoint:  "http://tempo:3200",
+		HTTPSEndpoint: "https://tempo:3201",
+		GRPCEndpoint:  "tempo:4317",
+		CACertificate: "test-ca-cert",
+	})
+}
+
 func (s *uniterSuite) TestGetUnitContextAPICallError(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
