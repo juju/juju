@@ -2551,10 +2551,12 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 				Name:        unitStorageNameInfo.StorageDefinitionName,
 				Type:        domainapplicationcharm.StorageType(unitStorageNameInfo.StorageDefinitionKind),
 			},
-			Life:        domainlife.Life(unitStorageNameInfo.UnitLifeID),
-			Name:        coreunit.Name(unitStorageNameInfo.UnitName),
-			NetNodeUUID: domainnetwork.NetNodeUUID(unitStorageNameInfo.UnitNetNodeUUID),
-			UUID:        coreunit.UUID(unitStorageNameInfo.UnitUUID),
+			CharmMetadataName: unitStorageNameInfo.CharmMetadataName,
+			CharmUUID:         corecharm.ID(unitStorageNameInfo.UnitCharmUUID),
+			Life:              domainlife.Life(unitStorageNameInfo.UnitLifeID),
+			Name:              coreunit.Name(unitStorageNameInfo.UnitName),
+			NetNodeUUID:       domainnetwork.NetNodeUUID(unitStorageNameInfo.UnitNetNodeUUID),
+			UUID:              coreunit.UUID(unitStorageNameInfo.UnitUUID),
 		},
 	}
 

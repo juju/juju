@@ -957,7 +957,9 @@ type unitStorageNameInfo struct {
 	StorageDefinitionReadOnly    bool   `db:"storage_definition_read_only"`
 	StorageDefinitionShared      bool   `db:"storage_definition_shared"`
 
+	CharmMetadataName    string           `db:"charm_metadata_name"`
 	MachineUUID          sql.Null[string] `db:"machine_uuid"`
+	UnitCharmUUID        string           `db:"unit_charm_uuid"`
 	UnitLifeID           int              `db:"unit_life_id"`
 	UnitName             string           `db:"unit_name"`
 	UnitNetNodeUUID      string           `db:"unit_net_node_uuid"`

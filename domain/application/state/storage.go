@@ -1871,6 +1871,8 @@ SELECT * AS &unitStorageNameInfo.* FROM (
               u.name AS unit_name,
               u.uuid AS unit_uuid,
               u.net_node_uuid AS unit_net_node_uuid,
+              cm.name AS charm_metadata_name,
+              u.charm_uuid AS unit_charm_uuid,
               (SELECT count(*)
                FROM storage_attachment sa
                JOIN storage_instance si ON sa.storage_instance_uuid = si.uuid
@@ -1885,6 +1887,7 @@ SELECT * AS &unitStorageNameInfo.* FROM (
               cs.read_only AS storage_definition_read_only,
               cs.shared AS storage_definition_shared
     FROM      unit u
+    JOIN      charm_metadata cm ON u.charm_uuid = cm.charm_uuid
     JOIN      charm_storage cs ON u.charm_uuid = cs.charm_uuid
     JOIN      charm_storage_kind csk ON cs.storage_kind_id = csk.id
     LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid

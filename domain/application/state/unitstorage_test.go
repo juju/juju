@@ -1291,6 +1291,7 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 	unitUUID := unitUUIDs[0]
 	unitName := u.getUnitName(c, unitUUID)
 	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	unitNetNodeUUID := u.getUnitNetNodeUUID(c, unitUUID)
 
 	charmUUID := u.getUnitCharmUUID(c, unitUUID)
 	charmName := u.getCharmMetadataName(c, charmUUID)
@@ -1316,7 +1317,10 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 		},
 		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
 			UUID:                 unitUUID,
+			CharmMetadataName:    charmName,
+			CharmUUID:            charmUUID,
 			Name:                 coreunit.Name(unitName),
+			NetNodeUUID:          unitNetNodeUUID,
 			MachineUUID:          &unitMachineUUID,
 			AlreadyAttachedCount: 0,
 			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{

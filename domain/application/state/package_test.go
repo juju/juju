@@ -114,6 +114,25 @@ func (s *baseSuite) getUnitName(c *tc.C, unitUUID coreunit.UUID) string {
 	return name
 }
 
+// getUnitNetNodeUUID returns the net node UUID for the supplied unit UUID.
+func (s *baseSuite) getUnitNetNodeUUID(
+	c *tc.C, unitUUID coreunit.UUID,
+) domainnetwork.NetNodeUUID {
+	var uuid string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT net_node_uuid FROM unit WHERE uuid = ?",
+			unitUUID.String(),
+		).Scan(&uuid)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	netNodeUUID := domainnetwork.NetNodeUUID(uuid)
+	c.Assert(netNodeUUID.Validate(), tc.ErrorIsNil)
+	return netNodeUUID
+}
+
 // getUnitMachineUUID returns the machine UUID for the supplied unit UUID.
 func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID coreunit.UUID) coremachine.UUID {
 	var uuid string
