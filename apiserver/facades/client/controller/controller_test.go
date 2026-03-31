@@ -249,6 +249,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		cloudSpecServiceGetter,
 		machineServiceGetter,
 		removalServiceGetter,
+		common.AuthFuncForTag(names.NewModelTag(ctx.ModelUUID().String())),
 		domainServices.Proxy(),
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
@@ -769,18 +770,6 @@ type accessSuite struct {
 	controllerModelUUID model.UUID
 }
 
-type cloudSpecProviderStub struct {
-	spec environscloudspec.CloudSpec
-	err  error
-}
-
-func (s cloudSpecProviderStub) GetCloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
-	if s.err != nil {
-		return environscloudspec.CloudSpec{}, s.err
-	}
-	return s.spec, nil
-}
-
 func TestAccessSuite(t *stdtesting.T) {
 	tc.Run(t, &accessSuite{})
 }
@@ -800,6 +789,11 @@ func (s *accessSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = mocks.NewMockControllerAccessService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
+
+	c.Cleanup(func() {
+		s.accessService = nil
+		s.modelService = nil
+	})
 	return ctrl
 }
 
@@ -828,6 +822,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
+		common.AuthFuncForTag(names.NewModelTag(s.controllerModelUUID.String())),
 		nil,
 		nil,
 		s.controllerModelUUID,
@@ -838,18 +833,21 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 	return api
 }
 
-func (s *accessSuite) TestCloudSpecDefaultsToControllerModelWithoutContext(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+func (s *accessSuite) TestCloudSpecUsesAuthFunc(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	expected := environscloudspec.CloudSpec{
 		Type: "lxd",
 		Name: "localhost",
 	}
+	mockProvider := mocks.NewMockModelProviderService(ctrl)
+	mockProvider.EXPECT().GetCloudSpec(gomock.Any()).Return(expected, nil)
 	called := 0
 	cloudSpecServiceGetter := func(_ context.Context, modelUUID model.UUID) (controller.ModelProviderService, error) {
 		called++
 		c.Check(modelUUID, tc.Equals, s.controllerModelUUID)
-		return cloudSpecProviderStub{spec: expected}, nil
+		return mockProvider, nil
 	}
 
 	api, err := controller.NewControllerAPI(
@@ -875,6 +873,7 @@ func (s *accessSuite) TestCloudSpecDefaultsToControllerModelWithoutContext(c *tc
 		cloudSpecServiceGetter,
 		nil,
 		nil,
+		common.AuthFuncForTag(names.NewModelTag(s.controllerModelUUID.String())),
 		nil,
 		nil,
 		s.controllerModelUUID,
@@ -899,10 +898,13 @@ func (s *accessSuite) TestCloudSpecDefaultsToControllerModelWithoutContext(c *tc
 }
 
 func (s *accessSuite) TestCloudSpecReturnsAnnotatedServiceError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
+	mockProvider := mocks.NewMockModelProviderService(ctrl)
+	mockProvider.EXPECT().GetCloudSpec(gomock.Any()).Return(environscloudspec.CloudSpec{}, errors.New("boom"))
 	cloudSpecServiceGetter := func(_ context.Context, _ model.UUID) (controller.ModelProviderService, error) {
-		return cloudSpecProviderStub{err: errors.New("boom")}, nil
+		return mockProvider, nil
 	}
 
 	api, err := controller.NewControllerAPI(
@@ -928,6 +930,7 @@ func (s *accessSuite) TestCloudSpecReturnsAnnotatedServiceError(c *tc.C) {
 		cloudSpecServiceGetter,
 		nil,
 		nil,
+		common.AuthFuncForTag(names.NewModelTag(s.controllerModelUUID.String())),
 		nil,
 		nil,
 		s.controllerModelUUID,
@@ -976,6 +979,7 @@ func (s *accessSuite) TestCloudSpecReturnsServiceGetterError(c *tc.C) {
 		cloudSpecServiceGetter,
 		nil,
 		nil,
+		common.AuthFuncForTag(names.NewModelTag(s.controllerModelUUID.String())),
 		nil,
 		nil,
 		s.controllerModelUUID,
@@ -992,6 +996,49 @@ func (s *accessSuite) TestCloudSpecReturnsServiceGetterError(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Result, tc.IsNil)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, "provider service unavailable")
+}
+
+func (s *accessSuite) TestCloudSpecReturnsGetAuthFuncError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	getAuthFunc := func(context.Context) (common.AuthFunc, error) {
+		return nil, errors.New("cannot build auth func")
+	}
+	api, err := controller.NewControllerAPI(
+		model.WithContextModelUUID(c.Context(), s.controllerModelUUID),
+		s.authorizer,
+		loggertesting.WrapCheckLog(c),
+		nil,
+		nil,
+		nil,
+		s.accessService,
+		s.modelService,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		getAuthFunc,
+		nil,
+		nil,
+		s.controllerModelUUID,
+		s.controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = api.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewModelTag(s.controllerModelUUID.String()).String()}},
+	})
+	c.Check(err, tc.ErrorMatches, "cannot build auth func")
 }
 
 func (s *accessSuite) TestModifyControllerAccess(c *tc.C) {

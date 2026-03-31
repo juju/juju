@@ -60,7 +60,7 @@ type ControllerAPI struct {
 
 	authorizer                  facade.Authorizer
 	apiUser                     names.UserTag
-	authModelTag                names.ModelTag
+	getAuthFunc                 common.GetAuthFunc
 	controllerConfigService     ControllerConfigService
 	accessService               ControllerAccessService
 	modelService                ModelService
@@ -92,7 +92,7 @@ var LatestAPI = makeControllerAPI
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
-	ctx context.Context,
+	_ context.Context,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
@@ -114,6 +114,7 @@ func NewControllerAPI(
 	cloudSpecServiceGetter func(context.Context, coremodel.UUID) (ModelProviderService, error),
 	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	removalServiceGetter func(context.Context, coremodel.UUID) (RemovalService, error),
+	getAuthFunc common.GetAuthFunc,
 	proxyService ProxyService,
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
@@ -126,10 +127,6 @@ func NewControllerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	authModelTag := names.NewModelTag(controllerModelUUID.String())
-	if modelUUID, ok := coremodel.ModelUUIDFromContext(ctx); ok {
-		authModelTag = names.NewModelTag(modelUUID.String())
-	}
 
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
@@ -153,7 +150,7 @@ func NewControllerAPI(
 		),
 		authorizer:                  authorizer,
 		apiUser:                     apiUser,
-		authModelTag:                authModelTag,
+		getAuthFunc:                 getAuthFunc,
 		logger:                      logger,
 		controllerConfigService:     controllerConfigService,
 		accessService:               accessService,
@@ -284,6 +281,10 @@ func (c *ControllerAPIV13) CloudSpec(ctx context.Context, _, _ struct{}) {}
 
 // CloudSpec returns cloud specifications for the specified models.
 func (c *ControllerAPI) CloudSpec(ctx context.Context, req params.Entities) (params.CloudSpecResults, error) {
+	authFunc, err := c.getAuthFunc(ctx)
+	if err != nil {
+		return params.CloudSpecResults{}, errors.Trace(err)
+	}
 	results := params.CloudSpecResults{
 		Results: make([]params.CloudSpecResult, len(req.Entities)),
 	}
@@ -293,7 +294,7 @@ func (c *ControllerAPI) CloudSpec(ctx context.Context, req params.Entities) (par
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if modelTag != c.authModelTag {
+		if !authFunc(modelTag) {
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}

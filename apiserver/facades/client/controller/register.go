@@ -9,7 +9,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 )
@@ -151,6 +153,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.Removal(), nil
 	}
+	authModelTag := names.NewModelTag(ctx.ModelUUID().String())
 
 	return NewControllerAPI(
 		stdCtx,
@@ -175,6 +178,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		cloudSpecServiceGetter,
 		machineServiceGetter,
 		removalServiceGetter,
+		common.AuthFuncForTag(authModelTag),
 		domainServices.Proxy(),
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),

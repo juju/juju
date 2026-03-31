@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -194,6 +195,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		cloudSpecServiceGetter,
 		machineServiceGetter,
 		removalServiceGetter,
+		common.AuthFuncForTag(names.NewModelTag(ctx.ModelUUID().String())),
 		domainServices.Proxy(),
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
