@@ -894,6 +894,14 @@ func (s *baseSuite) checkRemoteApplicationOffererLife(c *tc.C, remoteAppUUID str
 	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
+func (s *baseSuite) checkRelationLife(c *tc.C, relationUUID relation.UUID, expectedLife life.Life) {
+	row := s.DB().QueryRow("SELECT life_id FROM relation WHERE uuid = ?", relationUUID.String())
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
+}
+
 // addCharm inserts a new charm record into the database and returns its UUID as a string.
 func (s *baseSuite) addCharm(c *tc.C) string {
 	charmUUID := uuid.MustNewUUID().String()

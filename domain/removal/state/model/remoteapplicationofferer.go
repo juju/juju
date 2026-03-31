@@ -118,8 +118,9 @@ SELECT r.uuid AS &entityUUID.uuid
 FROM   v_relation_endpoint AS re
 JOIN   relation AS r ON re.relation_uuid = r.uuid
 JOIN   application_remote_offerer AS aro ON re.application_uuid = aro.application_uuid
-WHERE  r.life_id = 0
-	`, entityUUID{})
+WHERE  aro.uuid = $entityUUID.uuid
+AND    r.life_id = 0
+	`, remoteAppOffererUUID)
 	if err != nil {
 		return res, errors.Errorf("preparing relation uuids query: %w", err)
 	}
@@ -139,7 +140,7 @@ AND    life_id = 0`, uuids{})
 		}
 
 		var relationUUIDs []entityUUID
-		err := tx.Query(ctx, selectRelationUUIDsStmt).GetAll(&relationUUIDs)
+		err := tx.Query(ctx, selectRelationUUIDsStmt, remoteAppOffererUUID).GetAll(&relationUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting relation UUIDs: %w", err)
 		}
