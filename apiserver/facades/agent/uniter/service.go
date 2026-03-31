@@ -538,15 +538,6 @@ type RelationService interface {
 		unitSettings map[string]string,
 	) error
 
-	// SetRelationApplicationAndUnitSettings records settings for a unit and
-	// an application in a relation.
-	SetRelationApplicationAndUnitSettings(
-		ctx context.Context,
-		unitName coreunit.Name,
-		relationUnitUUID corerelation.UUID,
-		applicationSettings, unitSettings map[string]string,
-	) error
-
 	// WatchRelationUnitApplicationLifeSuspendedStatus returns a watcher that notifies
 	// of changes to the life or suspended status any relation the unit's
 	// application is part of. If the unit is a subordinate, its principal

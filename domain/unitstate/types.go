@@ -13,6 +13,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	IngressAddressKey = "ingress-address"
+	EgressSubnetsKey  = "egress-subnets"
+)
+
 // UnitState represents the state of the world according to a unit agent at
 // hook commit time.
 type UnitState struct {
@@ -60,11 +65,11 @@ type RetrievedUnitState struct {
 // Settings holds relation settings names and values.
 type Settings map[string]string
 
-// RelationSettings holds a relation uuid and local unit and
+// RelationSettings holds a relation key and local unit and
 // app-level settings.
 type RelationSettings struct {
-	// RelationUUID is the UUID of the relation.
-	RelationUUID relation.UUID
+	// RelationKey is the Key of the relation.
+	RelationKey relation.Key
 
 	// Settings represent the settings of the unit.
 	Settings Settings
@@ -173,7 +178,7 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 	}
 	for _, settings := range c.RelationSettings {
 		hasChanges = true
-		if err := settings.RelationUUID.Validate(); err != nil {
+		if err := settings.RelationKey.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}

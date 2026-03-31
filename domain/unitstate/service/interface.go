@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	corerelation "github.com/juju/juju/core/relation"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 )
@@ -21,6 +23,33 @@ type CommitHookState interface {
 	// CommitHookChanges persists a set of changes after a hook successfully
 	// completes and executes them in a single transaction.
 	CommitHookChanges(ctx context.Context, arg internal.CommitHookChangesArg) error
+
+	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
+	// relation specified by a single endpoint identifier.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
+	//     found.
+	GetPeerRelationUUIDByEndpointIdentifiers(
+		ctx context.Context,
+		endpoint corerelation.EndpointIdentifier,
+	) (corerelation.UUID, error)
+
+	// GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
+	// relation specified by two endpoint identifiers.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+	//     found.
+	GetRegularRelationUUIDByEndpointIdentifiers(
+		ctx context.Context,
+		endpoint1, endpoint2 corerelation.EndpointIdentifier,
+	) (corerelation.UUID, error)
+
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving
