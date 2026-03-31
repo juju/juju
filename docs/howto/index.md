@@ -19,6 +19,7 @@ Manage clouds <manage-clouds>
 Manage credentials <manage-credentials>
 Manage metadata <manage-metadata>
 Manage controllers <manage-controllers>
+Manage the databases <manage-the-databases>
 Manage the Juju dashboard <manage-the-juju-dashboard>
 Manage models <manage-models>
 Manage secret backends <manage-secret-backends>
@@ -68,6 +69,7 @@ Install the `juju` client, add a cloud to the client, bootstrap a Juju controlle
 - {ref}`Manage credentials <manage-credentials>`
 - {ref}`Manage metadata <manage-metadata>`
 - {ref}`Manage controllers <manage-controllers>`
+- {ref}`Manage the databases <manage-the-databases>`
 - {ref}`Manage the Juju dashboard <manage-the-juju-dashboard>`
 - {ref}`Manage models <manage-models>`
 - {ref}`Manage secret backends <manage-secret-backends>`
