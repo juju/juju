@@ -78,9 +78,33 @@ type UnitState interface {
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
 
-	// UpdateUnitCharm updates the currently running charm marker for the given
-	// unit.
-	UpdateUnitCharm(context.Context, coreunit.Name, corecharm.ID) error
+	// UpdateUnitCharm sets the currently running charm marker for the given
+	// unit, adding the specified new storage requirements and removing the old
+	// unit storage directives.
+	UpdateUnitCharm(
+		ctx context.Context,
+		unit coreunit.UUID,
+		charm corecharm.ID,
+		storage internal.CreateUnitStorageArg,
+	) error
+
+	// GetUnitStorageDirectivesCurrentNext returns the current and the next storage
+	// directives for this unit, if the unit was to switch to the given charm.
+	GetUnitStorageRefreshArgs(
+		ctx context.Context, unit coreunit.UUID, next corecharm.ID,
+	) (internal.UnitStorageRefreshArgs, error)
+
+	// GetUnitOwnedStorageInstances returns the storage compositions for all
+	// storage instances owned by the unit in the model. If the unit does not
+	// currently own any storage instances then an empty result is returned.
+	GetUnitOwnedStorageInstances(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+	) (
+		[]internal.StorageInstanceComposition,
+		[]internal.StorageAttachmentComposition,
+		error,
+	)
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -470,17 +494,56 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm charm does not exist.
-func (s *Service) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
+func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	args := argsFromLocator(locator)
-	id, err := s.getCharmID(ctx, args)
+	err := unitName.Validate()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return s.st.UpdateUnitCharm(ctx, unitName, id)
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Errorf("getting uuid of unit %q: %w", unitName, err)
+	}
+
+	charmUUID, err := s.getCharmID(ctx, argsFromLocator(locator))
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	args, err := s.st.GetUnitStorageRefreshArgs(ctx, unitUUID, charmUUID)
+	if err != nil {
+		return errors.Errorf(
+			"getting current and next unit %q storage directives", unitName,
+		).Add(err)
+	}
+
+	sic, sac, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
+	if err != nil {
+		return errors.Errorf(
+			"getting unit %q storage instances and attachments", unitName,
+		).Add(err)
+	}
+
+	unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
+		ctx, args.NetNodeUUID, args.RefreshStorageDirectives, sic, sac,
+	)
+	if err != nil {
+		return errors.Errorf("making storage for unit %q", unitName).Add(err)
+	}
+
+	err = s.st.UpdateUnitCharm(
+		ctx, unitUUID, charmUUID, unitStorageArgs,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"updating unit %q charm to %q", unitName, charmUUID,
+		).Add(err)
+	}
+
+	return nil
 }
 
 // GetUnitUUID returns the UUID for the named unit.
