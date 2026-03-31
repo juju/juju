@@ -147,7 +147,8 @@ func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
 	}
 	machineHostKeys := make([]gossh.PublicKey, len(stringHostKeys))
 
-	// Machine host keys in Mongo are stored in openSSH's authorized_keys format.
+	// Machine host keys in the database are stored in openSSH's authorized_keys
+	// format.
 	for i, key := range stringHostKeys {
 		machineHostKeys[i], _, _, _, err = gossh.ParseAuthorizedKey([]byte(key))
 		if err != nil {

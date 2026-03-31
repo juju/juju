@@ -9,7 +9,8 @@ but that'd be quite needlessly confusing, so "core" it is.
 This is a necessarily broad brush; if anything, it's most important to be aware
 what should *not* go here. In particular:
 
-  - if it makes any reference to MongoDB, it should not be in here.
+  - if it makes any reference to the domain packages, then it should not be in
+    here.
   - if it's in any way concerned with API transport, or serialization, it should
     not be in here.
   - if it has to do with the *specifics* of any resource *substrate* (compute,

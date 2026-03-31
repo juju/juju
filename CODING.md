@@ -475,39 +475,6 @@ wants and needs to be a bit more sophisticated. After all, what is our
 *job* if not to package up messy reality and render it comprehensible to
 our users?
 
-### YAGNI... But, Some Things You Actually Will
-
-Of course, your model *will* grow and evolve with your feature; don't
-try to anticipate every user request. Know that there *will* be changes,
-but don't imagine you know what they'll be: just try to keep it clean
-and modular to the extent that you can in service of future updates.
-
-However, there are some things that you *do* need to do even if no user
-explicitly requests them; and which are *very* hard to tack on after the
-fact. Specifically: **you must write consistent data** to mongodb. This
-is not optional; and nor, sadly, is it easy. You might be used to fancy
-schmancy ACID transactions: we don't have none of that here.
-
-There's plenty of documentation of its idiosyncracies -- see
-doc/hacking-state.txt, and the "MongoDB and Consistency" and "mgo/txn
-example" pages on the wiki, not to mention the package's own
-documentation; so **please** read and understand all that **before** you
-try to write persistence code.
-
-And if you understand it all just by reading it, and you are not chilled
-to the bone, you are either a prodigous genius or a fool-rushing-in.
-Make sure that any state code you write is reviewed by someone who
-understands the context enough to fear it.
-
-Bluntly: you need referential integrity. It's a shame you don't get it
-for free, but if you're landing even a *single branch* that does not
-fulfil these responsibilities, you are setting us up for the sort of
-failure that requires live DB surgery to fix.  "Usually works under easy
-conditions" is not good enough: you need to shoot for "still acts
-sensibly in the face of every adverse condition I can subject it to", by
-making use of the tools (`SetBeforeHooks` et al) that give you that
-degree of control.
-
 ### Model Self-Consistent Concepts
 
 Don't implement creation without deletion. Don't make your getters
@@ -1038,18 +1005,7 @@ more a representation of the boundary between the facades and the api clients.
 
 #### Clients
 
-Currently loosely organised under `api`, many of the client packages are a
-dreadful mess. As noted above, the CLI and the agents were originally using
-direct connections to MongoDB, and directly interacting with the entities
-defined in the state package. In the interest of implementing an API layer
-*without* rewriting almost everything in juju, we chose to implement the api
-client code in such a way as to ape the existing state entities.
-
-This was a dumb thing to do (for all that it may have been better than the
-alternatives). Now we have all these "State" types that are really APIs, and
-do nothing more than obfuscate the true capabilities of the facade, in the
-interest of maintaining a remote-object-style approach to the code that
-*itself* does us no favours.
+Currently loosely organised under `api`.
 
 Please make future api client code as thin as possible -- ideally just another
 model/params translation layer, with version tracking -- and work to slim down

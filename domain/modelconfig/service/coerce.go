@@ -19,8 +19,9 @@ import (
 // Specifically the services layer should not be trying to understand the
 // default in and outs of every config type and how to get it into shape for
 // persistence. Instead, the config should be providing translation helpers to
-// deal with this so that each attribute can be encapsulated on its own.
-// This is a leftover copy from Mongo and should be dealt with at some stage.
+// deal with this so that each attribute can be encapsulated on its own. This is
+// a leftover copy from prior versions of Juju and should be dealt with at some
+// stage.
 func CoerceConfigForStorage(attrs map[string]any) (map[string]string, error) {
 	coerced := make(map[string]string, len(attrs))
 

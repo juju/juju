@@ -162,7 +162,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	// We need to set IsControllerCloud on the controller cloud from params.
 	// This is so caas environs work correctly for the moment. This SHOULD be
-	// removed with Mongo in time.
+	// removed in the future.
 	// Fixes: lp2040947
 	args.ControllerCloud.IsControllerCloud = true
 
@@ -273,7 +273,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := ensureSSHServerHostKey(&args); err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := getAddressesForMongo(isCAAS, env, ctx, args)
+	addrs, err := getInstanceAddresses(isCAAS, env, ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -333,7 +333,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func getAddressesForMongo(
+func getInstanceAddresses(
 	isCAAS bool,
 	env environs.BootstrapEnviron,
 	ctx context.Context,

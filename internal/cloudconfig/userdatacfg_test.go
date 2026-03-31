@@ -159,9 +159,8 @@ func makeNormalConfig(base corebase.Base, build int) *testInstanceConfig {
 	return makeTestConfig(base, false, semversion.MustParse("1.2.3"), build)
 }
 
-// setMachineID updates MachineId, MachineAgentServiceName,
-// MongoInfo.Tag, and APIInfo.Tag to match the given machine ID. If
-// MongoInfo or APIInfo are nil, they're not changed.
+// setMachineID updates MachineId, MachineAgentServiceName, and APIInfo.Tag to
+// match the given machine ID. If APIInfo are nil, they're not changed.
 func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	cfg.MachineId = id
 	cfg.MachineAgentServiceName = fmt.Sprintf("jujud-%s", names.NewMachineTag(id).String())

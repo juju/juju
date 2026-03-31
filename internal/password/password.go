@@ -70,10 +70,9 @@ func UserPasswordHash(password string, salt string) string {
 	if FastInsecureHash {
 		iter = 1
 	}
-	// Generate 18 byte passwords because we know that MongoDB
-	// uses the MD5 sum of the password anyway, so there's
-	// no point in using more bytes. (18 so we don't get base 64
-	// padding characters).
+	// Generate 18 byte passwords because we know that the legacy Juju with
+	// mongo uses the MD5 sum of the password anyway, so there's no point in
+	// using more bytes. (18 so we don't get base 64 padding characters).
 	h := pbkdf2.Key([]byte(password), []byte(salt), iter, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
 }

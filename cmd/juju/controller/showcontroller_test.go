@@ -634,10 +634,6 @@ func (c *fakeController) ModelStatus(_ context.Context, models ...names.ModelTag
 	return result, nil
 }
 
-func (c *fakeController) MongoVersion(ctx context.Context) (string, error) {
-	return "3.5.12", nil
-}
-
 func (c *fakeController) AllModels(ctx context.Context) (result []base.UserModel, _ error) {
 	models := map[string][]base.UserModel{
 		"aws-test": {

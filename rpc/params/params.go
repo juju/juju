@@ -725,7 +725,7 @@ type StateServingInfo struct {
 	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
 	CAPrivateKey string `json:"ca-private-key"`
-	// this will be passed as the KeyFile argument to MongoDB
+	// SystemIdentity will be passed as the KeyFile for the database.
 	SystemIdentity string `json:"system-identity"`
 }
 
@@ -1167,13 +1167,6 @@ type BundleChangesMapArgs struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
-}
-
-type MongoVersion struct {
-	Major         int    `json:"major"`
-	Minor         int    `json:"minor"`
-	Patch         string `json:"patch"`
-	StorageEngine string `json:"engine"`
 }
 
 // MacaroonResults contains a set of MacaroonResults.
