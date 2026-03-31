@@ -138,8 +138,8 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedOfferPermissions := s.getOfferPermissions(c, "v_permission_offer")
-	c.Check(obtainedOfferPermissions, tc.SameContents, []offerAccess{
+	obtainedOfferPermissions := s.getPermissions(c, "v_permission_offer")
+	c.Check(obtainedOfferPermissions, tc.SameContents, []userAccess{
 		{GrantTo: s.adminUserUUID.String(), GrantOn: offerOneUUID, AccessType: "admin"},
 		{GrantTo: joeUserUUID, GrantOn: offerOneUUID, AccessType: "consume"},
 		{GrantTo: simonUserUUID, GrantOn: offerOneUUID, AccessType: "read"},
@@ -237,8 +237,8 @@ func (s *importSuite) TestPermissionImport(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedOfferPermissions := s.getOfferPermissions(c, "v_permission_model")
-	c.Check(obtainedOfferPermissions, tc.SameContents, []offerAccess{
+	obtainedOfferPermissions := s.getPermissions(c, "v_permission_model")
+	c.Check(obtainedOfferPermissions, tc.SameContents, []userAccess{
 		{GrantTo: joeUserUUID, GrantOn: s.modelUUID.String(), AccessType: "write"},
 		{GrantTo: simonUserUUID, GrantOn: s.modelUUID.String(), AccessType: "admin"},
 	})
@@ -291,28 +291,28 @@ func (s *importSuite) addUserToController(c *tc.C, name string, access permissio
 	return userUUID.String()
 }
 
-type offerAccess struct {
+type userAccess struct {
 	GrantOn    string `db:"grant_on"`
 	GrantTo    string `db:"grant_to"`
 	AccessType string `db:"access_type"`
 }
 
-// getOfferPermissions gets the permissions for the given table.
-func (s *importSuite) getOfferPermissions(c *tc.C, table string) []offerAccess {
+// getPermissions queries permissions from the given view and returns all rows.
+func (s *importSuite) getPermissions(c *tc.C, view string) []userAccess {
 	stmt, err := sqlair.Prepare(fmt.Sprintf(`
-SELECT * AS &offerAccess.*
+SELECT * AS &userAccess.*
 FROM %s
-`, table), offerAccess{})
+`, view), userAccess{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var access []offerAccess
+	var access []userAccess
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&access)
 	})
 
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting offer permissions: %s",
-		errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting permissions from %s: %s",
+		view, errors.ErrorStack(err)))
 	return access
 }
 
