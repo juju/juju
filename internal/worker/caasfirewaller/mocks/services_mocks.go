@@ -528,40 +528,40 @@ func (c *MockModelDomainServicesConfigCall) DoAndReturn(f func() *service16.Watc
 	return c
 }
 
-// ControllerUpgraderService mocks base method.
-func (m *MockModelDomainServices) ControllerUpgraderService() *service8.Service {
+// ControllerUpgrader mocks base method.
+func (m *MockModelDomainServices) ControllerUpgrader() *service8.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerUpgraderService")
+	ret := m.ctrl.Call(m, "ControllerUpgrader")
 	ret0, _ := ret[0].(*service8.Service)
 	return ret0
 }
 
-// ControllerUpgraderService indicates an expected call of ControllerUpgraderService.
-func (mr *MockModelDomainServicesMockRecorder) ControllerUpgraderService() *MockModelDomainServicesControllerUpgraderServiceCall {
+// ControllerUpgrader indicates an expected call of ControllerUpgrader.
+func (mr *MockModelDomainServicesMockRecorder) ControllerUpgrader() *MockModelDomainServicesControllerUpgraderCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUpgraderService", reflect.TypeOf((*MockModelDomainServices)(nil).ControllerUpgraderService))
-	return &MockModelDomainServicesControllerUpgraderServiceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUpgrader", reflect.TypeOf((*MockModelDomainServices)(nil).ControllerUpgrader))
+	return &MockModelDomainServicesControllerUpgraderCall{Call: call}
 }
 
-// MockModelDomainServicesControllerUpgraderServiceCall wrap *gomock.Call
-type MockModelDomainServicesControllerUpgraderServiceCall struct {
+// MockModelDomainServicesControllerUpgraderCall wrap *gomock.Call
+type MockModelDomainServicesControllerUpgraderCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesControllerUpgraderServiceCall) Return(arg0 *service8.Service) *MockModelDomainServicesControllerUpgraderServiceCall {
+func (c *MockModelDomainServicesControllerUpgraderCall) Return(arg0 *service8.Service) *MockModelDomainServicesControllerUpgraderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesControllerUpgraderServiceCall) Do(f func() *service8.Service) *MockModelDomainServicesControllerUpgraderServiceCall {
+func (c *MockModelDomainServicesControllerUpgraderCall) Do(f func() *service8.Service) *MockModelDomainServicesControllerUpgraderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesControllerUpgraderServiceCall) DoAndReturn(f func() *service8.Service) *MockModelDomainServicesControllerUpgraderServiceCall {
+func (c *MockModelDomainServicesControllerUpgraderCall) DoAndReturn(f func() *service8.Service) *MockModelDomainServicesControllerUpgraderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
