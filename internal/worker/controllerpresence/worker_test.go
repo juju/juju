@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
@@ -352,7 +352,7 @@ func (s *WorkerSuite) TestNewConnectionTrackerReport(c *tc.C) {
 	err := workertest.CheckKill(c, w)
 	c.Assert(err, tc.ErrorIs, BrokenConnection)
 
-	report := w.Report()
+	report := w.Report(context.Background())
 	c.Assert(report["controller-id"], tc.Equals, "0")
 	c.Assert(report["connected"], tc.Equals, false)
 }

@@ -83,7 +83,7 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 }
 
 // Report returns a summary of the watcher state.
-func (w *NotifyWatcher) Report() map[string]any {
+func (w *NotifyWatcher) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"type":    "NotifyWatcher",
 		"summary": w.summary,

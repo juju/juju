@@ -8,8 +8,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -161,7 +161,7 @@ func (t *trackerWorker) Wait() error {
 	return t.catacomb.Wait()
 }
 
-func (t *trackerWorker) Report() map[string]any {
+func (t *trackerWorker) Report(ctx context.Context) map[string]any {
 	report := map[string]any{
 		"model": t.model.UUID,
 		"type":  t.model.Type,

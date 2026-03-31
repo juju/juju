@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -524,7 +524,7 @@ func (a *appWorker) loop() error {
 }
 
 // Report returns a report about this application provisioner.
-func (a *appWorker) Report() map[string]any {
+func (a *appWorker) Report(ctx context.Context) map[string]any {
 	reportChan := make(chan map[string]any)
 	select {
 	case a.engineReportRequest <- reportChan:

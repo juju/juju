@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/changestream"
@@ -153,7 +153,7 @@ func (e *EventMultiplexer) Wait() error {
 
 // Report returns the current state of the event queue.
 // This is used by the engine report.
-func (e *EventMultiplexer) Report() map[string]any {
+func (e *EventMultiplexer) Report(_ context.Context) map[string]any {
 	ctx, cancel := e.scopedContext()
 	defer cancel()
 
@@ -319,7 +319,7 @@ func (e *EventMultiplexer) loop() error {
 
 			// If the stream supports reporting, then include it in the report.
 			if s, ok := e.stream.(reporter); ok {
-				r.data["stream"] = s.Report()
+				r.data["stream"] = s.Report(ctx)
 			}
 			close(r.done)
 		}
@@ -327,7 +327,7 @@ func (e *EventMultiplexer) loop() error {
 }
 
 type reporter interface {
-	Report() map[string]interface{}
+	Report(ctx context.Context) map[string]interface{}
 }
 
 func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestream.ChangeEvent) []*subscription {

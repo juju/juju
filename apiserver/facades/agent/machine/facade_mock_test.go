@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	worker "github.com/juju/worker/v4"
+	worker "github.com/juju/worker/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

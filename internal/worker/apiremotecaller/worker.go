@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
@@ -195,10 +195,10 @@ func (w *remoteWorker) Wait() error {
 }
 
 // Report returns a map of internal state for the remoteWorker.
-func (w *remoteWorker) Report() map[string]any {
+func (w *remoteWorker) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
 	report["origin"] = w.cfg.Origin.Id()
-	report["runner"] = w.runner.Report()
+	report["runner"] = w.runner.Report(ctx)
 	return report
 }
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -60,7 +60,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {
 
 	// Kill, then bump the loop so it comes around to the top and cleans up.
 	sub.Kill()
-	queue.Report()
+	queue.Report(c.Context())
 }
 
 func (s *eventMultiplexerSuite) TestDispatch(c *tc.C) {
@@ -394,7 +394,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	}
 
 	// Bump the loop so it comes around to the top and cleans up.
-	queue.Report()
+	queue.Report(c.Context())
 
 	for _, sub := range subs {
 		select {
@@ -467,7 +467,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	}
 
 	// Bump the loop so it comes around to the top and cleans up.
-	queue.Report()
+	queue.Report(c.Context())
 
 	for _, sub := range subs {
 		select {
@@ -743,7 +743,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 		subs = append(subs, sub)
 	}
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        10,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    10,
@@ -755,9 +755,9 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	}
 
 	// Bump the loop so it comes around to the top and cleans up dead subs.
-	queue.Report()
+	queue.Report(c.Context())
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,
@@ -791,7 +791,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 		subs = append(subs, sub)
 	}
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -829,7 +829,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 		subs = append(subs, sub)
 	}
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  2,
 		"subscriptions-all":    0,
@@ -867,7 +867,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 		subs = append(subs, sub)
 	}
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -905,7 +905,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 		subs = append(subs, sub)
 	}
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        len(subs),
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -936,7 +936,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 	sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        1,
 		"subscriptions-by-ns":  1,
 		"subscriptions-all":    0,
@@ -946,9 +946,9 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *tc
 	sub.Kill()
 
 	// Bump the loop so it comes around to the top and cleans up dead subs.
-	queue.Report()
+	queue.Report(c.Context())
 
-	c.Check(queue.Report(), tc.DeepEquals, map[string]any{
+	c.Check(queue.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"subscriptions":        0,
 		"subscriptions-by-ns":  0,
 		"subscriptions-all":    0,

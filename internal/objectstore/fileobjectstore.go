@@ -17,8 +17,8 @@ import (
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -400,13 +400,13 @@ func (t *fileObjectStore) RemoveAll(ctx context.Context) error {
 	return nil
 }
 
-func (t *fileObjectStore) Report() map[string]any {
+func (t *fileObjectStore) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
 
 	report["type"] = "file-object-store"
 	report["namespace"] = t.namespace
 	report["path"] = t.path
-	report["remote"] = t.remoteRunner.Report()
+	report["remote"] = t.remoteRunner.Report(ctx)
 
 	return report
 }

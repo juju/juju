@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -220,7 +220,7 @@ func (w *localWorker) loop() error {
 }
 
 // Report provides information for the engine report.
-func (w *localWorker) Report() map[string]any {
+func (w *localWorker) Report(ctx context.Context) map[string]any {
 	result := make(map[string]any)
 	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
 	result["consumer-application-uuid"] = w.consumerApplicationUUID.String()

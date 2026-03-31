@@ -4,6 +4,7 @@
 package introspection_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -17,8 +18,8 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/errors"
@@ -218,7 +219,7 @@ type depEngine struct {
 	values map[string]interface{}
 }
 
-func (r *depEngine) Report() map[string]interface{} {
+func (r *depEngine) Report(ctx context.Context) map[string]interface{} {
 	return r.values
 }
 

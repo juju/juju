@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -129,9 +129,9 @@ func (w *controllerWorker) Wait() error {
 }
 
 // Report returns a map of internal state for the controllerWorker.
-func (w *controllerWorker) Report() map[string]any {
+func (w *controllerWorker) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
-	report["runner"] = w.runner.Report()
+	report["runner"] = w.runner.Report(ctx)
 	return report
 }
 
@@ -225,7 +225,7 @@ func (w *connectionTracker) Wait() error {
 }
 
 // Report returns a map of internal state for the connectionTracker.
-func (w *connectionTracker) Report() map[string]any {
+func (w *connectionTracker) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
 	report["controller-id"] = w.controllerID
 	report["connected"] = w.connected.Load()

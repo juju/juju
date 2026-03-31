@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/internal/logger"
 	coretesting "github.com/juju/juju/internal/testing"

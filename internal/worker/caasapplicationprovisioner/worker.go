@@ -18,8 +18,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
@@ -122,7 +122,7 @@ type Runner interface {
 	Worker(id string, abort <-chan struct{}) (worker.Worker, error)
 	StartWorker(ctx context.Context, id string, startFunc func(context.Context) (worker.Worker, error)) error
 	StopAndRemoveWorker(id string, abort <-chan struct{}) error
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 	worker.Worker
 }
 
@@ -316,8 +316,8 @@ func (p *provisioner) loop() error {
 
 // Report calls onto the runner give back information about each application
 // worker for an engine report.
-func (p *provisioner) Report() map[string]any {
-	return p.runner.Report()
+func (p *provisioner) Report(ctx context.Context) map[string]any {
+	return p.runner.Report(ctx)
 }
 
 func (p *provisioner) scopedContext() (context.Context, context.CancelFunc) {

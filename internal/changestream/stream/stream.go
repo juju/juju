@@ -170,7 +170,7 @@ func NewInternalStates(
 }
 
 // Report returns
-func (s *Stream) Report() map[string]any {
+func (s *Stream) Report(_ context.Context) map[string]any {
 	s.watermarksMutex.Lock()
 	defer s.watermarksMutex.Unlock()
 

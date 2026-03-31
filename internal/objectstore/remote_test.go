@@ -5,12 +5,13 @@ package objectstore
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -231,6 +232,6 @@ func (w *reportableWorker) Wait() error {
 	return w.worker.Wait()
 }
 
-func (w *reportableWorker) Report() map[string]any {
+func (w *reportableWorker) Report(ctx context.Context) map[string]any {
 	return make(map[string]any)
 }

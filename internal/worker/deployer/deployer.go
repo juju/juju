@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
@@ -75,7 +75,7 @@ type Context interface {
 	// running the deployer.
 	AgentConfig() agent.Config
 
-	Report() map[string]interface{}
+	Report(ctx context.Context) map[string]interface{}
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
@@ -97,9 +97,9 @@ func NewDeployer(client Client, logger logger.Logger, ctx Context) (worker.Worke
 }
 
 // Report is shown in the engine report.
-func (d *Deployer) Report() map[string]interface{} {
+func (d *Deployer) Report(ctx context.Context) map[string]interface{} {
 	// Get the report from the context.
-	return d.ctx.Report()
+	return d.ctx.Report(ctx)
 }
 
 // SetUp is called by the NewStringsWorker to create the watcher that drives the

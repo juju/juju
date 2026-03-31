@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"

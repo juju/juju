@@ -214,7 +214,7 @@ func (w *FlightRecorder) Enabled() bool {
 }
 
 // Report returns a map of internal state for introspection.
-func (w *FlightRecorder) Report() map[string]any {
+func (w *FlightRecorder) Report(ctx context.Context) map[string]any {
 	ch := make(chan report, 1)
 	select {
 	case <-w.tomb.Dying():

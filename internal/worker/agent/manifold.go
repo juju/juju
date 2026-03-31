@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -66,7 +66,7 @@ func (w *agentWorker) Wait() error {
 }
 
 // Report shows up in the dependency engine report.
-func (w *agentWorker) Report() map[string]interface{} {
+func (w *agentWorker) Report(ctx context.Context) map[string]interface{} {
 	cfg := w.agent.CurrentConfig()
 	return map[string]interface{}{
 		"agent":      cfg.Tag().String(),

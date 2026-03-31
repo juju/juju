@@ -11,7 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -149,7 +149,7 @@ func (w *remoteServer) Wait() error {
 }
 
 // Report outputs the state of the worker for the engine report.
-func (w *remoteServer) Report() map[string]any {
+func (w *remoteServer) Report(ctx context.Context) map[string]any {
 	ch := make(chan report, 1)
 	select {
 	case <-w.tomb.Dying():

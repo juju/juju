@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -384,13 +384,13 @@ func (w *dbWorker) Wait() error {
 }
 
 // Report provides information for the engine report.
-func (w *dbWorker) Report() map[string]any {
+func (w *dbWorker) Report(ctx context.Context) map[string]any {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
 	// We need to guard against attempting to report when setting up or dying,
 	// so we don't end up panicking with missing information.
-	result := w.dbRunner.Report()
+	result := w.dbRunner.Report(ctx)
 
 	if w.dbApp == nil {
 		result["leader"] = ""

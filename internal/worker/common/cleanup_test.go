@@ -4,12 +4,13 @@
 package common_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -45,7 +46,7 @@ func (s *cleanupSuite) TestReport(c *tc.C) {
 
 	reporter, ok := cw.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]interface{}{
 		"fake": true,
 	})
 }
@@ -63,7 +64,7 @@ func (w *fakeWorker) Wait() error {
 	return w.stub.NextErr()
 }
 
-func (w *fakeWorker) Report() map[string]interface{} {
+func (w *fakeWorker) Report(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"fake": true,
 	}

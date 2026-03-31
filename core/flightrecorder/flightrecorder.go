@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 )
 
 // Kind represents the kind of flight recording.

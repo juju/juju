@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
@@ -342,7 +342,7 @@ func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 }
 
 // Report returns a map of internal state for the s3 object store.
-func (t *s3ObjectStore) Report() map[string]any {
+func (t *s3ObjectStore) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
 
 	report["type"] = "s3-object-store"

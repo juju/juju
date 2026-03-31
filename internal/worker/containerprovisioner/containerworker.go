@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -151,7 +151,7 @@ func (w *ContainerSetupAndProvisioner) Wait() error {
 }
 
 // Report provides information for the engine report.
-func (w *ContainerSetupAndProvisioner) Report() map[string]interface{} {
+func (w *ContainerSetupAndProvisioner) Report(ctx context.Context) map[string]interface{} {
 	w.mu.Lock()
 
 	result := make(map[string]interface{}, 0)

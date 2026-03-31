@@ -15,8 +15,8 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"
@@ -236,7 +236,7 @@ func (w *localConsumerWorker) ConsumeVersion() int {
 }
 
 // Report provides information for the engine report.
-func (w *localConsumerWorker) Report() map[string]interface{} {
+func (w *localConsumerWorker) Report(ctx context.Context) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["remote-model-uuid"] = w.offererModelUUID
@@ -246,7 +246,7 @@ func (w *localConsumerWorker) Report() map[string]interface{} {
 	result["consumer-model-uuid"] = w.consumerModelUUID
 	result["consume-version"] = w.consumeVersion
 
-	result["workers"] = w.runner.Report()
+	result["workers"] = w.runner.Report(ctx)
 
 	return result
 }

@@ -223,7 +223,7 @@ func (s *Secrets) SecretsRemoved(
 }
 
 // Report provides information for the engine report.
-func (s *Secrets) Report() map[string]interface{} {
+func (s *Secrets) Report(ctx context.Context) map[string]interface{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

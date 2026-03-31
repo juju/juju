@@ -11,7 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
@@ -296,7 +296,7 @@ func (s *offererRelationsWorkerSuite) TestReport(c *tc.C) {
 		c.Fatalf("timed out waiting for WatchRelationSuspendedStatus to be called")
 	}
 
-	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+	c.Assert(w.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"offerer-application-uuid": s.offererApplicationUUID.String(),
 		"life":                     "",
@@ -321,7 +321,7 @@ func (s *offererRelationsWorkerSuite) TestReport(c *tc.C) {
 		c.Fatalf("timed out waiting for changes to be sent")
 	}
 
-	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+	c.Assert(w.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"offerer-application-uuid": s.offererApplicationUUID.String(),
 		"life":                     "alive",

@@ -6,7 +6,7 @@ package httpclient
 import (
 	"net/http"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
 	internalhttp "github.com/juju/juju/internal/http"

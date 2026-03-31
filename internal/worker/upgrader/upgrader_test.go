@@ -15,8 +15,8 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"

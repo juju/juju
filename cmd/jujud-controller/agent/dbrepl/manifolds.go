@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"

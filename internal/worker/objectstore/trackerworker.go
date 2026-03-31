@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
@@ -186,8 +186,8 @@ func (t *trackerWorker) RemoveAll(ctx context.Context) (err error) {
 	return nil
 }
 
-func (t *trackerWorker) Report() map[string]any {
-	report := t.objectStore.Report()
+func (t *trackerWorker) Report(ctx context.Context) map[string]any {
+	report := t.objectStore.Report(ctx)
 	report["modelUUID"] = t.modelUUID
 	return report
 }

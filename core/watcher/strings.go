@@ -6,8 +6,8 @@ package watcher
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -150,13 +150,13 @@ func (sw *StringsWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (sw *StringsWorker) Report() map[string]interface{} {
+func (sw *StringsWorker) Report(ctx context.Context) map[string]interface{} {
 	report := map[string]interface{}{
 		"type": "StringsWorker",
 	}
 
 	if r, ok := sw.config.Handler.(worker.Reporter); ok {
-		report["handler"] = r.Report()
+		report["handler"] = r.Report(ctx)
 	}
 	return report
 }

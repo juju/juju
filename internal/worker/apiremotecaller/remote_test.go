@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -481,7 +481,9 @@ func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
-	reporter := w.(interface{ Report() map[string]any })
+	reporter := w.(interface {
+		Report(ctx context.Context) map[string]any
+	})
 
 	s.ensureStartup(c)
 
@@ -495,14 +497,14 @@ func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
 
 	s.ensureChanged(c)
 
-	report := reporter.Report()
+	report := reporter.Report(c.Context())
 	addresses, ok := report["addresses"].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
 
 	addresses[0] = "wss://10.0.0.99"
 
-	report = reporter.Report()
+	report = reporter.Report(c.Context())
 	addresses, ok = report["addresses"].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})

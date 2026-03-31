@@ -10,9 +10,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
 
 	internallogger "github.com/juju/juju/internal/logger"

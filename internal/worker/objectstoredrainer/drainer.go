@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -88,7 +88,7 @@ func (w *drainWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *drainWorker) Report() map[string]any {
+func (w *drainWorker) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"namespace":  w.namespace,
 		"rootBucket": w.rootBucket,
