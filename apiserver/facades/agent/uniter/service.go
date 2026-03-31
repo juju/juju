@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -58,6 +59,7 @@ type Services struct {
 	SecretService              SecretService
 	StorageProvisioningService StorageProvisioningService
 	UnitStateService           UnitStateService
+	TracingService             TracingService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -657,4 +659,10 @@ type StorageProvisioningService interface {
 	WatchStorageAttachment(
 		ctx context.Context, uuid domainstorage.StorageAttachmentUUID,
 	) (watcher.NotifyWatcher, error)
+}
+
+// TracingService provides methods to retrieve tracing configuration for charms.
+type TracingService interface {
+	// GetCharmTracingConfig returns the charm tracing config from the state.
+	GetCharmTracingConfig(ctx context.Context) (tracingservice.CharmTracingConfig, error)
 }

@@ -54,6 +54,7 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -95,6 +96,8 @@ type ControllerDomainServices interface {
 	Macaroon() *macaroonservice.Service
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the

@@ -82,6 +82,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			SecretService:              domainServices.Secret(),
 			StorageProvisioningService: domainServices.StorageProvisioning(),
 			UnitStateService:           domainServices.UnitState(),
+			TracingService:             domainServices.Tracing(),
 		},
 	)
 }
@@ -181,5 +182,6 @@ func newUniterAPIWithServices(
 		statusService:             services.StatusService,
 		secretService:             services.SecretService,
 		unitStateService:          services.UnitStateService,
+		tracingService:            services.TracingService,
 	}, nil
 }

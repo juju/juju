@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -66,7 +67,9 @@ type uniterSuite struct {
 	controllerNodeService *MockControllerNodeService
 	resolveService        *MockResolveService
 	removalService        *MockRemovalService
-	watcherRegistry       *MockWatcherRegistry
+	tracingService        *MockTracingService
+
+	watcherRegistry *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -1575,6 +1578,9 @@ func (s *uniterSuite) TestGetUnitContextIAAS(c *tc.C) {
 		PrivateAddress:                    &privateAddress,
 		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
 	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, nil,
+	)
 
 	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
 
@@ -1630,6 +1636,9 @@ func (s *uniterSuite) TestGetUnitContextCAAS(c *tc.C) {
 		JujuProxySettings:          jujuProxySettings,
 		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
 	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, nil,
+	)
 
 	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
 
@@ -1641,6 +1650,93 @@ func (s *uniterSuite) TestGetUnitContextCAAS(c *tc.C) {
 		JujuProxySettings:          encodeProxySettings(jujuProxySettings),
 		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint),
 	})
+}
+
+func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+	charmTracingConfig := tracingservice.CharmTracingConfig{
+		HTTPEndpoint:  "http://tracing:4317",
+		HTTPSEndpoint: "https://tracing:4318",
+		GRPCEndpoint:  "grpc://tracing:9411",
+		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(charmTracingConfig, nil)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res.CharmTracingConfig, tc.DeepEquals, params.CharmTracingConfig{
+		HTTPEndpoint:  "http://tracing:4317",
+		HTTPSEndpoint: "https://tracing:4318",
+		GRPCEndpoint:  "grpc://tracing:9411",
+		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
+	})
+	c.Check(res.APIAddresses, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
+}
+
+func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfigError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, errors.New("tracing service error"),
+	)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res.CharmTracingConfig, tc.DeepEquals, params.CharmTracingConfig{})
+	c.Check(res.APIAddresses, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
 }
 
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
@@ -1688,6 +1784,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.tracingService = NewMockTracingService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	authFunc := func(ctx context.Context) (common.AuthFunc, error) {
@@ -1705,11 +1802,13 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		controllerNodeService: s.controllerNodeService,
 		resolveService:        s.resolveService,
 		removalService:        s.removalService,
+		tracingService:        s.tracingService,
 		auth:                  authorizer,
 		accessApplication:     authFunc,
 		accessMachine:         authFunc,
 		accessUnit:            authFunc,
 		watcherRegistry:       s.watcherRegistry,
+		logger:                loggertesting.WrapCheckLog(c),
 	}
 
 	c.Cleanup(func() {
@@ -1722,6 +1821,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerNodeService = nil
 		s.resolveService = nil
 		s.removalService = nil
+		s.tracingService = nil
 		s.watcherRegistry = nil
 	})
 
