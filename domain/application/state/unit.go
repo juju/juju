@@ -1237,27 +1237,40 @@ SELECT &storageDirective.* FROM (
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm does not exist.
-func (st *State) UpdateUnitCharm(ctx context.Context, name coreunit.Name, uuid corecharm.ID) error {
+func (st *State) UpdateUnitCharm(
+	ctx context.Context, unit coreunit.UUID, charm corecharm.ID,
+	newUnitStorageDirectives []internal.CreateUnitStorageDirectiveArg,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	charmUUID := charmUUID{UUID: uuid.String()}
-	unitName := unitName{Name: name.String()}
-	unitUUID := unitUUID{}
-	charmUpdateContext := unitCharmUpdateContext{}
 
-	getUnitUpdateContextQuery, err := st.Prepare(`
-SELECT u.uuid AS &unitCharmUpdateContext.unit_uuid,
-       u.life_id AS &unitCharmUpdateContext.life_id,
-       a.charm_uuid AS &unitCharmUpdateContext.application_charm_uuid
+	charmUUID := charmUUID{UUID: charm.String()}
+	unitUUID := unitUUID{UnitUUID: unit.String()}
+
+	directives := make([]insertUnitStorageDirective, 0,
+		len(newUnitStorageDirectives))
+	for _, v := range newUnitStorageDirectives {
+		directives = append(directives, insertUnitStorageDirective{
+			CharmUUID:       charmUUID.UUID,
+			UnitUUID:        unitUUID.UnitUUID,
+			Count:           v.Count,
+			Size:            v.Size,
+			StorageName:     v.Name.String(),
+			StoragePoolUUID: v.PoolUUID.String(),
+		})
+	}
+
+	unitLifeQuery, err := st.Prepare(`
+SELECT u.life_id AS &unitUUIDLife.life_id
 FROM   unit u
-JOIN   application a ON a.uuid = u.application_uuid
-WHERE  u.name = $unitName.name
-`, unitName, charmUpdateContext)
+WHERE  u.uuid = $unitUUID.uuid
+`, unitUUID, unitUUIDLife{})
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	checkCharmExistsQuery, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
 FROM   charm
@@ -1267,7 +1280,7 @@ WHERE  uuid = $charmUUID.charm_uuid
 		return errors.Capture(err)
 	}
 
-	query, err := st.Prepare(`
+	updateUnitCharmQuery, err := st.Prepare(`
 UPDATE unit
 SET    charm_uuid = $charmUUID.charm_uuid
 WHERE  uuid = $unitUUID.uuid
@@ -1287,43 +1300,25 @@ WHERE  unit_uuid = $unitUUID.uuid
 		return errors.Capture(err)
 	}
 
-	insertMissingUnitStorageDirectivesQuery, err := st.Prepare(`
+	insertUnitStorageDirectives, err := st.Prepare(`
 INSERT INTO unit_storage_directive (
-    unit_uuid,
-    charm_uuid,
-    storage_name,
-    storage_pool_uuid,
-    size_mib,
-    count
-)
-SELECT u.uuid,
-       asd.charm_uuid,
-       asd.storage_name,
-       asd.storage_pool_uuid,
-       asd.size_mib,
-       asd.count
-FROM   unit u
-JOIN   application_storage_directive asd
-       ON asd.application_uuid = u.application_uuid
-WHERE  u.uuid = $unitUUID.uuid
-AND    asd.charm_uuid = $charmUUID.charm_uuid
-ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
-`, charmUUID, unitUUID)
+    unit_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count
+) VALUES ($insertUnitStorageDirective.*)
+`, insertUnitStorageDirective{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Get the unit's current life and application charm uuuid to validate the update.
-		err := tx.Query(ctx, getUnitUpdateContextQuery, unitName).Get(&charmUpdateContext)
+		unitUUIDLife := unitUUIDLife{}
+		err := tx.Query(ctx, unitLifeQuery, unitUUID).Get(&unitUUIDLife)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.UnitNotFound
-		}
-		if err != nil {
+		} else if err != nil {
 			return errors.Capture(err)
 		}
 		// Ensure unit is alive for update.
-		if charmUpdateContext.LifeID == life.Dead {
+		if unitUUIDLife.LifeID == int(life.Dead) {
 			return applicationerrors.UnitIsDead
 		}
 		// Ensure the target charm exists.
@@ -1333,33 +1328,32 @@ ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
 			return errors.Capture(err)
 		}
 		if charmCount.Count == 0 {
-			return errors.Errorf("charm %q not found", uuid).Add(applicationerrors.CharmNotFound)
-		}
-		// Ensure the unit's target charm uuid to upgrade matches the application charm uuid.
-		if charmUpdateContext.ApplicationCharmUUID != charmUUID.UUID {
 			return errors.Errorf(
-				"application charm %q does not match target charm %q",
-				charmUpdateContext.ApplicationCharmUUID,
-				charmUUID.UUID,
-			).Add(coreerrors.NotValid)
+				"charm %q not found", charm,
+			).Add(applicationerrors.CharmNotFound)
 		}
-		unitUUID.UnitUUID = charmUpdateContext.UnitUUID
 
 		// Update unit charm UUID.
-		err = tx.Query(ctx, query, charmUUID, unitUUID).Run()
-		if internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("charm %q not found", uuid).Add(applicationerrors.CharmNotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		// Update unit storage directives charm UUID.
-		err = tx.Query(ctx, updateUnitStorageDirectivesQuery, charmUUID, unitUUID).Run()
+		err = tx.Query(ctx, updateUnitCharmQuery, charmUUID, unitUUID).Run()
 		if err != nil {
 			return errors.Capture(err)
 		}
+
+		// Update unit storage directives charm UUID.
+		err = tx.Query(
+			ctx, updateUnitStorageDirectivesQuery, charmUUID, unitUUID,
+		).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		// Insert new unit storage directives that were added in the new charm.
-		err = tx.Query(ctx, insertMissingUnitStorageDirectivesQuery, charmUUID, unitUUID).Run()
-		return errors.Capture(err)
+		err = tx.Query(ctx, insertUnitStorageDirectives, directives).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
 	})
 	if err != nil {
 		return errors.Capture(err)
