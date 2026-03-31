@@ -1694,10 +1694,10 @@ WHERE  uuid = $entityUUID.uuid
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
-		charmIdent := entityUUID{UUID: chID.String()}
-		if err := st.checkCharmExists(ctx, tx, charmIdent); err != nil {
+		if err := st.checkCharmExists(ctx, tx, chID.String()); err != nil {
 			return errors.Capture(err)
 		}
+		charmIdent := entityUUID{UUID: chID.String()}
 		if err := st.precheckUpgradeRelation(ctx, tx, appID, charmIdent); err != nil {
 			return errors.Capture(err)
 		}

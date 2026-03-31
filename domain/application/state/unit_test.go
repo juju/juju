@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -830,27 +831,37 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
-	err := s.state.UpdateUnitCharm(c.Context(), "foo/666", "bar")
+	missingUnitUUID := tc.Must(c, coreunit.NewUUID)
+	err := s.state.UpdateUnitCharm(
+		c.Context(), missingUnitUUID, "bar",
+		applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharmUnitIsDead(c *tc.C) {
-	unitName, unitUUID := s.createNamedIAASUnit(c)
+	_, unitUUID := s.createNamedIAASUnit(c)
 	s.setUnitLife(c, unitUUID, life.Dead)
 
-	err := s.state.UpdateUnitCharm(c.Context(), unitName, "bar")
+	err := s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, "bar",
+		applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
-	unitName, _ := s.createNamedIAASUnit(c)
+	_, unitUUID := s.createNamedIAASUnit(c)
 
-	err := s.state.UpdateUnitCharm(c.Context(), unitName, "bar")
+	err := s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, "bar",
+		applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharmApplicationCharmMismatch(c *tc.C) {
-	unitName, _ := s.createNamedIAASUnit(c)
+	_, unitUUID := s.createNamedIAASUnit(c)
 
 	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
 		Metadata: charm.Metadata{
@@ -866,13 +877,16 @@ func (s *unitStateSuite) TestUpdateUnitCharmApplicationCharmMismatch(c *tc.C) {
 	}, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.UpdateUnitCharm(c.Context(), unitName, id)
+	err = s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, id,
+		applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(errors.Is(err, coreerrors.NotValid), tc.IsTrue)
 	c.Assert(err, tc.ErrorMatches, `application charm ".*" does not match target charm ".*"`)
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
-	unitName, _ := s.createNamedIAASUnit(c)
+	_, unitUUID := s.createNamedIAASUnit(c)
 
 	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
 		Metadata: charm.Metadata{
@@ -892,17 +906,18 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 		c.Context(),
 		`UPDATE application
 		 SET charm_uuid = ?
-		 WHERE uuid = (SELECT application_uuid FROM unit WHERE name = ?)`,
-		id.String(), unitName.String(),
+		 WHERE uuid = (SELECT application_uuid FROM unit WHERE uuid = ?)`,
+		id.String(), unitUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.UpdateUnitCharm(c.Context(), unitName, id)
+	err = s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, id, internal.CreateUnitStorageArg{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE name=?", unitName).Scan(&gotUUID)
+		err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID).Scan(&gotUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -932,14 +947,11 @@ func (s *unitStateSuite) TestUpdateUnitCharmUpdateUnitStorageDirectivesCharmUUID
 	_, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
 	unitUUID := unitUUIDs[0]
 
-	var (
-		unitName     string
-		currentCharm string
-	)
+	var currentCharm string
 	// Capture the unit name and current charm UUID.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT name, charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
-			Scan(&unitName, &currentCharm)
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&currentCharm)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1003,7 +1015,10 @@ func (s *unitStateSuite) TestUpdateUnitCharmUpdateUnitStorageDirectivesCharmUUID
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act by updating the unit charm to the new charm UUID.
-	err = s.state.UpdateUnitCharm(c.Context(), coreunit.Name(unitName), id)
+	err = s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, id,
+		applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -1061,14 +1076,11 @@ func (s *unitStateSuite) TestUpdateUnitCharmAddNewUnitStorageDirectives(c *tc.C)
 	appUUID, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, oldStorage)
 	unitUUID := unitUUIDs[0]
 
-	var (
-		unitName     string
-		currentCharm string
-	)
+	var currentCharm string
 	// Capture the unit name and current charm UUID.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT name, charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
-			Scan(&unitName, &currentCharm)
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&currentCharm)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1140,7 +1152,9 @@ func (s *unitStateSuite) TestUpdateUnitCharmAddNewUnitStorageDirectives(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Update the unit charm to the new charm UUID.
-	err = s.state.UpdateUnitCharm(c.Context(), coreunit.Name(unitName), id)
+	err = s.state.UpdateUnitCharm(
+		c.Context(), unitUUID, id, applicationinternal.CreateUnitStorageArg{},
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (

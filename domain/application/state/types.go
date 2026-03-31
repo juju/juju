@@ -1304,3 +1304,9 @@ type unitNetNodeWithCharm struct {
 	NetNodeUUID string `db:"net_node_uuid"`
 	CharmUUID   string `db:"charm_uuid"`
 }
+
+// unitLifeWithCharm represents the life of a unit and its current charm.
+type unitLifeWithCharm struct {
+	LifeID    int    `db:"life_id"`
+	CharmUUID string `db:"charm_uuid"`
+}
