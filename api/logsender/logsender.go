@@ -102,6 +102,7 @@ func (w *writer) WriteLog(m *params.LogRecord) error {
 			gorillaws.CloseNormalClosure,
 			gorillaws.CloseGoingAway,
 			gorillaws.CloseNoStatusReceived,
+			gorillaws.CloseAbnormalClosure,
 		) {
 			joinedErr = stderrors.Join(joinedErr, io.EOF)
 		}

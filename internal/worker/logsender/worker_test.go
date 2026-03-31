@@ -220,7 +220,11 @@ type mockStream struct {
 
 func (s *mockStream) NextReader() (int, io.Reader, error) {
 	if s.writesReady != nil {
-		<-s.writesReady
+		select {
+		case <-s.writesReady:
+		case <-time.After(testing.LongWait):
+			s.c.Fatalf("expected number of writes not received")
+		}
 	}
 	return 0, nil, &gorillaws.CloseError{Code: gorillaws.CloseNormalClosure}
 }

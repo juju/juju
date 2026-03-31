@@ -105,6 +105,10 @@ func (s *LogSenderSuite) TestWriteLogReturnsEOFOnGoingAway(c *gc.C) {
 	s.testCleanCloseReturnsEOF(c, gorillaws.CloseGoingAway)
 }
 
+func (s *LogSenderSuite) TestWriteLogReturnsEOFOnAbnormalClosure(c *gc.C) {
+	s.testCleanCloseReturnsEOF(c, gorillaws.CloseAbnormalClosure)
+}
+
 func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 	conn := &mockConnector{
 		c:          c,
