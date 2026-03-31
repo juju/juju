@@ -20,10 +20,11 @@ Given a Juju 4.0+ client and controller, to access the databases:
 1. SSH into a controller:
 
    ```text
-   juju ssh -m controller 0
+   juju ssh -m controller <n>
+
    ```
 
-   In high-availability (HA) setups, you can SSH into any controller node.
+where <n> is 0 for a freshly bootstrapped controller, and one of the controller nodes in high-availability (HA) setups.
 
 2. Start the REPL:
 
@@ -122,7 +123,7 @@ The REPL starts in the global `controller` database. To switch to a different da
   .switch model-controller
   ```
 
-- To access any other model database by name:
+- To access any other model database, e.g., `frontend`, by name:
 
   ```text
   .switch model-frontend
@@ -142,7 +143,7 @@ See more: {ref}`juju-db-repl-switch`, {ref}`juju-db-repl-open`
 
 ## View a database's schema
 
-The REPL provides several commands to inspect database schema.
+The REPL provides several commands to inspect the database schema.
 
 ```{dropdown} Tip: Start with .tables
 :color: success

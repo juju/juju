@@ -239,7 +239,7 @@ Controls: {ref}`controls-user-authentication`
 (assets-database)=
 ### Database
 
-Overview: Juju stores all its state and operational data in databases powered by Dqlite. The controller maintains separate databases: a global controller database (storing controller configuration, user accounts, and metadata about all models) and a database for each model (storing that model's applications, units, machines, and relations). These databases can only be accessed by authorized entities (controllers, agents, or administrators) following proper authentication. All passwords saved in the databases are hashed and salted. The databases are not exposed on network ports accessible outside the controller.
+Overview: Juju stores all its state and operational data in databases powered by Dqlite. The controller maintains separate databases: a global controller database (storing controller configuration, user accounts, and metadata about all models) and a database for each model (storing that model's applications, units, machines, relations, etc.). These databases can only be accessed by authorized entities (controllers, agents, or administrators) following proper authentication. All passwords saved in the databases are hashed and salted. The databases are not exposed on network ports accessible outside the controller.
 
 Owned by: Controller.
 
@@ -253,7 +253,7 @@ Example threats:
 Controls: {ref}`controls-high-availability`, {ref}`controls-database-authentication`, {ref}`controls-filesystem-permissions`, {ref}`controls-no-plaintext-passwords-in-the-database`, {ref}`controls-regular-backups`
 
 ```{ibnote}
-See more: {ref}`database`, {ref}`database-access-and-security`
+See more: {ref}`database`
 ```
 
 (assets-image-registry)=

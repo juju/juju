@@ -19,7 +19,7 @@ The Juju controller organizes data across multiple isolated databases:
 
 ### Controller database
 
-The **controller database** stores global controller-level information across all models:
+The **controller database** stores global controller-level information across all models, including but not limited to:
 
 - Controller configuration and metadata
 - All model metadata (UUIDs, names, owners)
@@ -31,14 +31,14 @@ There is one controller database per controller. This is a separate global datab
 
 ### Model databases
 
-Each model (including the controller model) has its own **model database** containing that model's workload data:
+Each model (including the controller model) has its own **model database** containing that model's workload data, including but not limited to:
 
 - Applications and their configurations (including the controller application, in the case of the controller model)
 - Units and their status
 - Machines and their specifications
 - Relations between applications
 - Charm metadata and resources
-- Secrets scoped to the model
+- Secrets
 - Storage and network spaces
 
 Model databases are isolated -- changes in one model's database do not affect other models. They are accessed via the `model-<name>` namespace in the {ref}`juju-db-repl`.
