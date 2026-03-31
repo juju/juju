@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -1886,7 +1885,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 	var (
 		legacyProxySettings, jujuProxySettings applicationinternal.ProxySettings
 		machineOpenedPortRanges                []unitEndpointOpenedPortRange
-		unitAddresses                          []unitSpaceAddress
+		unitAddress                            *string
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		netNodeUUID, err := st.getNonDeadUnitNetNodeByUnitName(ctx, tx, unitName)
@@ -1909,7 +1908,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 			return errors.Errorf("getting machine opened port ranges: %w", err)
 		}
 
-		unitAddresses, err = st.getUnitPrivateAddress(ctx, tx, netNodeUUID)
+		unitAddress, err = st.getUnitPrivateAddress(ctx, tx, netNodeUUID)
 		if err != nil {
 			return errors.Errorf("getting private address for unit: %w", err)
 		}
@@ -1918,11 +1917,6 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 	})
 	if err != nil {
 		return applicationinternal.IAASUnitContext{}, errors.Capture(err)
-	}
-
-	encodedAddresses, err := encodeIPAddresses(unitAddresses)
-	if err != nil {
-		return applicationinternal.IAASUnitContext{}, errors.Errorf("encoding unit addresses: %w", err)
 	}
 
 	decoded := port.UnitEndpointPortRanges(
@@ -1937,7 +1931,7 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		LegacyProxySettings:               legacyProxySettings,
 		JujuProxySettings:                 jujuProxySettings,
 		OpenedMachinePortRangesByEndpoint: decoded.ByUnitByEndpoint(),
-		PrivateAddress:                    encodedAddresses,
+		PrivateAddress:                    unitAddress,
 	}, nil
 }
 
@@ -2143,28 +2137,71 @@ WHERE unit_name = $unitEndpointOpenedPortRange.unit_name
 	return results, nil
 }
 
-func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID string) ([]unitSpaceAddress, error) {
+func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID string) (*string, error) {
 	entityUUID := entityUUID{UUID: netNodeUUID}
 
+	// A unit private address is determined by looking for IP addresses
+	// associated with the unit's net node, and prioritising them as follows:
+	//
+	//  - Local cloud scoped IPv4 addresses
+	//  - Local cloud scoped IPv6 addresses
+	//  - Public or unknown scoped IPv4 addresses
+	//  - Public or unknown scoped IPv6 addresses
+	//  - Origin either from machine or provider
+	//  - Real ethernet devices over virtual ethernet devices
+	//
+	// Loopback addresses are excluded.
+	//
+	// Note: unknown scope is included as a fallback for compatibility with the
+	// openstack provider, though in practice we would expect these to be public
+	// addresses and shouldn't be used.
+
 	query, err := st.Prepare(`
-SELECT    &unitSpaceAddress.*
-FROM      link_layer_device AS lld
-JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
-LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE     lld.net_node_uuid = $entityUUID.uuid
-`, unitSpaceAddress{}, entityUUID)
+SELECT
+    a.address_value AS &unitAddress.value,
+	d.device_type_id,
+    CASE
+        WHEN a.scope_id = 2 THEN 0
+        WHEN a.scope_id IN (1, 0) THEN 1
+        ELSE 2
+    END AS scope_rank,
+    CASE
+        WHEN a.type_id = 0 THEN 0
+        WHEN a.type_id = 1 THEN 1
+        ELSE 2
+    END AS type_rank,
+	CASE
+		WHEN a.origin_id = 0 THEN 1
+		WHEN a.origin_id = 1 THEN 0
+		ELSE 2
+	END AS origin_rank
+FROM net_node n
+JOIN link_layer_device d ON n.uuid = d.net_node_uuid
+JOIN ip_address a ON d.uuid = a.device_uuid
+WHERE
+    a.scope_id IN (0, 1, 2)
+    AND a.config_type_id != 6
+    AND n.uuid = $entityUUID.uuid
+ORDER BY
+    scope_rank,
+    type_rank,
+	origin_rank,
+	d.device_type_id,
+    a.address_value
+LIMIT 1;
+`, unitAddress{}, entityUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get unit private address statement: %w", err)
 	}
 
-	var addresses []unitSpaceAddress
-	err = tx.Query(ctx, query, entityUUID).GetAll(&addresses)
+	var address unitAddress
+	err = tx.Query(ctx, query, entityUUID).Get(&address)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Errorf("querying unit private address: %w", err)
 	}
-	return addresses, nil
+	return new(address.Value), nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting
@@ -2285,48 +2322,4 @@ func encodeK8sPodInfo(info unitK8sPodInfo, ports []k8sPodPort) application.K8sPo
 		ret.Ports[i] = p.Port
 	}
 	return ret
-}
-
-func encodeIPAddresses(addresses []unitSpaceAddress) (network.SpaceAddresses, error) {
-	res := make(network.SpaceAddresses, len(addresses))
-	for i, addr := range addresses {
-		encodedIP, err := encodeIPAddress(addr)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		res[i] = encodedIP
-	}
-	return res, nil
-}
-
-func encodeIPAddress(address unitSpaceAddress) (network.SpaceAddress, error) {
-	spaceUUID := network.AlphaSpaceId
-	if address.SpaceUUID.Valid {
-		spaceUUID = network.SpaceUUID(address.SpaceUUID.String)
-	}
-	// The saved address value is in the form 192.0.2.1/24,
-	// parse the parts for the MachineAddress
-	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
-	if err != nil {
-		// Note: IP addresses from Kubernetes do not contain subnet
-		// mask suffixes yet. Handle that scenario here. Eventually
-		// an error should be returned instead.
-		ipAddr = net.ParseIP(address.Value)
-	}
-	cidr := ipNet.String()
-	// Prefer the subnet cidr if one exists.
-	if address.SubnetCIDR.Valid {
-		cidr = address.SubnetCIDR.String
-	}
-	return network.SpaceAddress{
-		SpaceID: spaceUUID,
-		Origin:  network.Origin(address.Origin),
-		MachineAddress: network.MachineAddress{
-			Value:      ipAddr.String(),
-			CIDR:       cidr,
-			Type:       network.AddressType(address.Type),
-			Scope:      network.Scope(address.Scope),
-			ConfigType: network.AddressConfigType(address.ConfigType),
-		},
-	}, nil
 }

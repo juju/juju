@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	"sort"
+	"net"
 
 	"github.com/juju/proxy"
 
@@ -836,13 +836,37 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 		s.logger.Warningf(ctx, "getting cloud api version: %v", err)
 	}
 
+	privateAddress, err := getIPAddressFromIAASPrivateAddress(result.PrivateAddress)
+	if err != nil {
+		s.logger.Warningf(ctx, "getting private address for unit %q: %v", unitName, err)
+	}
+
 	return IAASUnitContext{
 		CloudAPIVersion:                   cloudAPIVersion,
 		LegacyProxySettings:               encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:                 encodeProxySettings(result.JujuProxySettings),
-		PrivateAddress:                    s.getUnitPrivateAddress(result.PrivateAddress),
+		PrivateAddress:                    privateAddress,
 		OpenedMachinePortRangesByEndpoint: result.OpenedMachinePortRangesByEndpoint,
 	}, nil
+}
+
+// getIPAddressFromIAASPrivateAddress encodes the private address for an IAAS
+// unit. If the address is nil an error is returned stating the fact. If the
+// address is not a valid CIDR string, then it's an unexpected format.
+//
+// Note: IP addresses from kubernetes do not contain subnet mask suffixes yet,
+// so don't use this method for encoding CAAS unit addresses.
+func getIPAddressFromIAASPrivateAddress(addr *string) (*string, error) {
+	if addr == nil {
+		return nil, errors.Errorf("no private address")
+	}
+
+	ipAddr, _, err := net.ParseCIDR(*addr)
+	if err != nil {
+		return nil, errors.Errorf("parsing private address %q: %w", *addr, err)
+	}
+
+	return new(ipAddr.String()), nil
 }
 
 // CAASUnitContext describes the CAAS context information required for the
@@ -884,24 +908,6 @@ func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreu
 		JujuProxySettings:          encodeProxySettings(result.JujuProxySettings),
 		OpenedPortRangesByEndpoint: result.OpenedPortRangesByEndpoint,
 	}, nil
-}
-
-// getUnitPrivateAddress returns the private address for a unit, if any.
-func (s *ProviderService) getUnitPrivateAddress(addrs network.SpaceAddresses) *string {
-	if len(addrs) == 0 {
-		return nil
-	}
-
-	// First match the scope.
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	if len(matchedAddrs) == 0 {
-		// If no address matches the scope, return the first private address.
-		return new(addrs[0].IP().String())
-	}
-	// Then sort by origin.
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
-
-	return new(matchedAddrs[0].IP().String())
 }
 
 func (s *ProviderService) getCloudAPIVersion(ctx context.Context) (string, error) {

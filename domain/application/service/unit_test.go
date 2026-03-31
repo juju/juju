@@ -636,6 +636,8 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 
 	unitName := coreunit.Name("foo/666")
 	subordinateUnit := coreunit.Name("logging/0")
+	// State returns the raw CIDR string; the service strips the mask.
+	privateAddress := "192.168.1.1/24"
 	stateResult := applicationinternal.IAASUnitContext{
 		LegacyProxySettings: applicationinternal.ProxySettings{
 			HTTP:    "http://proxy:3128",
@@ -648,7 +650,7 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 			HTTPS:   "https://juju-proxy:3128",
 			NoProxy: "juju.local",
 		},
-		PrivateAddress: network.NewSpaceAddresses("192.168.1.1"),
+		PrivateAddress: &privateAddress,
 		OpenedMachinePortRangesByEndpoint: map[coreunit.Name]network.GroupedPortRanges{
 			subordinateUnit: {
 				"endpoint1": []network.PortRange{
@@ -677,6 +679,7 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 	c.Check(result.CloudAPIVersion, tc.Equals, "v1.0.0")
 	c.Check(result.LegacyProxySettings.Http, tc.Equals, "http://proxy:3128")
 	c.Check(result.PrivateAddress, tc.NotNil)
+	// The CIDR mask is stripped; only the host address is returned.
 	c.Check(*result.PrivateAddress, tc.Equals, "192.168.1.1")
 	// Verify port ranges are correctly encoded with names.UnitTag keys
 	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.HasLen, 1)
@@ -731,6 +734,85 @@ func (s *unitServiceSuite) TestGetIAASUnitContextCloudAPIVersionError(c *tc.C) {
 
 	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextPrivateAddressNil(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// State returns nil private address (unit has no matching address).
+	// The service logs a warning and returns nil — it is not a hard error.
+	unitName := coreunit.Name("foo/0")
+	stateResult := applicationinternal.IAASUnitContext{}
+
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("", nil)
+
+	result, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.PrivateAddress, tc.IsNil)
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextPrivateAddressInvalidCIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// State returns an address that cannot be parsed as a CIDR.
+	// The service logs a warning and returns nil — it is not a hard error.
+	unitName := coreunit.Name("foo/0")
+	badAddress := "not-an-ip-address"
+	stateResult := applicationinternal.IAASUnitContext{PrivateAddress: &badAddress}
+
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("", nil)
+
+	result, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.PrivateAddress, tc.IsNil)
+}
+
+// TestGetIPAddressFromIAASPrivateAddressIPv4 verifies that an IPv4 CIDR is
+// parsed and the host address is returned without the mask suffix.
+func (s *unitServiceSuite) TestGetIPAddressFromIAASPrivateAddressIPv4(c *tc.C) {
+	addr := "10.0.0.1/24"
+	result, err := getIPAddressFromIAASPrivateAddress(&addr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+	c.Check(*result, tc.Equals, "10.0.0.1")
+}
+
+// TestGetIPAddressFromIAASPrivateAddressIPv6 verifies that an IPv6 CIDR is
+// parsed and the host address is returned without the mask suffix.
+func (s *unitServiceSuite) TestGetIPAddressFromIAASPrivateAddressIPv6(c *tc.C) {
+	addr := "2001:db8::1/64"
+	result, err := getIPAddressFromIAASPrivateAddress(&addr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+	c.Check(*result, tc.Equals, "2001:db8::1")
+}
+
+// TestGetIPAddressFromIAASPrivateAddressNil verifies that a nil pointer returns
+// a descriptive error rather than panicking.
+func (s *unitServiceSuite) TestGetIPAddressFromIAASPrivateAddressNil(c *tc.C) {
+	result, err := getIPAddressFromIAASPrivateAddress(nil)
+	c.Assert(err, tc.ErrorMatches, "no private address")
+	c.Check(result, tc.IsNil)
+}
+
+// TestGetIPAddressFromIAASPrivateAddressInvalidCIDR verifies that an address
+// that cannot be parsed as a CIDR returns an error.
+func (s *unitServiceSuite) TestGetIPAddressFromIAASPrivateAddressInvalidCIDR(c *tc.C) {
+	addr := "not-an-ip"
+	result, err := getIPAddressFromIAASPrivateAddress(&addr)
+	c.Assert(err, tc.ErrorMatches, `parsing private address "not-an-ip": .*`)
+	c.Check(result, tc.IsNil)
+}
+
+// TestGetIPAddressFromIAASPrivateAddressBarePureIP verifies that a bare IP
+// without a CIDR mask (e.g. from a legacy path) returns an error.
+func (s *unitServiceSuite) TestGetIPAddressFromIAASPrivateAddressBareIP(c *tc.C) {
+	addr := "192.168.1.1"
+	result, err := getIPAddressFromIAASPrivateAddress(&addr)
+	c.Assert(err, tc.ErrorMatches, `parsing private address "192.168.1.1": .*`)
+	c.Check(result, tc.IsNil)
 }
 
 func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {

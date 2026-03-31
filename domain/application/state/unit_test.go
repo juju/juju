@@ -1825,18 +1825,349 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	// Assert: private address is populated
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.PrivateAddress, tc.HasLen, 1)
-	c.Check(result.PrivateAddress[0], tc.DeepEquals, network.SpaceAddress{
-		SpaceID: network.AlphaSpaceId,
-		Origin:  network.OriginMachine,
-		MachineAddress: network.MachineAddress{
-			Value:      "10.0.0.1",
-			CIDR:       "10.0.0.0/24",
-			Type:       network.IPv4Address,
-			Scope:      network.ScopeCloudLocal,
-			ConfigType: network.ConfigDHCP,
-		},
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.0.0.1/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextWithPrivateAddressOrderingAndFilters(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-eth0", netNodeUUID, "eth0", 1500, "00:11:22:33:44:55", 2, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-veth0", netNodeUUID, "veth0", 1500, "00:11:22:33:44:66", 7, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-loopback-config", "lld-eth0", "10.0.0.1/24", netNodeUUID, 0, 2, 0, 6)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-local-cloud-ipv6", "lld-eth0", "2001:db8::1/64", netNodeUUID, 1, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-public-ipv4", "lld-eth0", "198.51.100.7/24", netNodeUUID, 0, 1, 0, 1)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-eth-local-cloud-ipv4", "lld-eth0", "10.0.0.2/24", netNodeUUID, 0, 2, 0, 1)
+		if err != nil {
+			return err
+		}
+		return nil
 	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.0.0.2/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressPrefersIPv4OverIPv6InLocalCloud(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-ip-order", netNodeUUID, "eth0", 1500, "00:11:22:33:44:aa", 2, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-order-ipv6", "lld-ip-order", "2001:db8::10/64", netNodeUUID, 1, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-order-ipv4", "lld-ip-order", "10.0.10.10/24", netNodeUUID, 0, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.0.10.10/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressPrefersIPv4OverIPv6InPublicUnknownBucket(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-bucket-order", netNodeUUID, "eth0", 1500, "00:11:22:33:44:bb", 2, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		// No local-cloud addresses in this setup.
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-bucket-public-ipv6", "lld-bucket-order", "2001:db8::20/64", netNodeUUID, 1, 1, 0, 5)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-bucket-unknown-ipv4", "lld-bucket-order", "172.16.20.20/16", netNodeUUID, 0, 0, 0, 5)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "172.16.20.20/16")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressFiltersCanExcludeIPv6(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-filter-ipv6", netNodeUUID, "eth0", 1500, "00:11:22:33:44:cc", 2, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		// This local-cloud IPv6 address is excluded because config_type is loopback.
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-filter-ipv6-loopback", "lld-filter-ipv6", "2001:db8::30/64", netNodeUUID, 1, 2, 0, 6)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-filter-ipv4-valid", "lld-filter-ipv6", "10.30.30.30/24", netNodeUUID, 0, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.30.30.30/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressPrefersProviderOrigin(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-origin", netNodeUUID, "eth0", 1500, "00:11:22:33:44:dd", 2, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		// Same scope and type, provider origin should rank above machine origin.
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-origin-machine", "lld-origin", "10.40.40.10/24", netNodeUUID, 0, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-origin-provider", "lld-origin", "10.40.40.20/24", netNodeUUID, 0, 2, 1, 5)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.40.40.20/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressPrefersEthernetOverVeth(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-eth-choice", netNodeUUID, "eth0", 1500, "00:11:22:33:44:ee", 2, 0)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-veth-choice", netNodeUUID, "veth0", 1500, "00:11:22:33:44:ff", 7, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		// Same scope, type, and origin; ethernet device type should rank ahead of veth.
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-choice-veth", "lld-veth-choice", "10.50.50.2/24", netNodeUUID, 0, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-choice-eth", "lld-eth-choice", "10.50.50.1/24", netNodeUUID, 0, 2, 0, 5)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "10.50.50.1/24")
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextPrivateAddressExcludesLocalMachineAndLinkLocal(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx,
+			"SELECT net_node_uuid FROM unit WHERE name = ?",
+			unitName.String(),
+		).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertLLD := `
+INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-excluded-scopes", netNodeUUID, "eth0", 1500, "00:11:22:33:44:11", 2, 0)
+		if err != nil {
+			return err
+		}
+
+		insertIPAddress := `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, type_id, scope_id, origin_id, config_type_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-local-machine", "lld-excluded-scopes", "127.0.0.1/8", netNodeUUID, 0, 3, 0, 6)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-link-local", "lld-excluded-scopes", "169.254.1.2/16", netNodeUUID, 0, 4, 0, 1)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.PrivateAddress, tc.IsNil)
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextWithoutPrivateAddress(c *tc.C) {
+	// Arrange: Create an IAAS unit but do not add any ip_address rows.
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Get the IAAS unit context.
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+
+	// Assert: no private address is returned.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.PrivateAddress, tc.IsNil)
 }
 
 func (s *unitStateSuite) TestGetCAASUnitContext(c *tc.C) {
