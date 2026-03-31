@@ -65,7 +65,7 @@ func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
 			modelTag,
 			auth,
 			checker,
-			domainServices.ControllerUpgraderService(),
+			domainServices.ControllerUpgrader(),
 		)
 		return UpgradeAPI{upgraderAPI}, nil
 	}

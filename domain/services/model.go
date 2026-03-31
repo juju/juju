@@ -628,7 +628,9 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 	)
 }
 
-func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
+// ControllerUpgrader returns the service for upgrading the controller and its
+// model.
+func (s *ModelServices) ControllerUpgrader() *controllerupgraderservice.Service {
 	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
 	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
 	agentFinder := controllerupgraderservice.NewAgentFinder(

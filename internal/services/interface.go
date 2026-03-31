@@ -112,8 +112,8 @@ type ModelDomainServices interface {
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
-	// ControllerUpgraderService returns a service for upgrading controllers.
-	ControllerUpgraderService() *controllerupgraderservice.Service
+	// ControllerUpgrader returns a service for upgrading controllers.
+	ControllerUpgrader() *controllerupgraderservice.Service
 	// CrossModelRelation returns a service for managing cross model relations.
 	CrossModelRelation() *crossmodelrelationservice.WatchableService
 	// Machine returns the machine service.
