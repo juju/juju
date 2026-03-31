@@ -11112,6 +11112,24 @@
                         "scope"
                     ]
                 },
+                "CharmTracingConfig": {
+                    "type": "object",
+                    "properties": {
+                        "ca-certificate": {
+                            "type": "string"
+                        },
+                        "grpc-endpoint": {
+                            "type": "string"
+                        },
+                        "http-endpoint": {
+                            "type": "string"
+                        },
+                        "https-endpoint": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "CharmURL": {
                     "type": "object",
                     "properties": {
@@ -12964,6 +12982,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "charm-tracing-config": {
+                            "$ref": "#/definitions/CharmTracingConfig"
                         },
                         "cloud-api-version": {
                             "type": "string"
