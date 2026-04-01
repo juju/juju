@@ -23,3 +23,22 @@ const (
 	// KindFilesystem represents storage in the model that is a filesystem.
 	StorageKindFilesystem
 )
+
+// String returns the string representation of this [StorageKind]. The value
+// return should not be considered a const enum value that can be relied upon
+// for comparison.
+//
+// Value is intended purely for display purposes. If the kind is unknown an
+// empty string is returned.
+//
+// Implements the [fmt.Stringer] interface.
+func (s StorageKind) String() string {
+	switch s {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "filesystem"
+	default:
+		return "unknown"
+	}
+}
