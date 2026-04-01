@@ -1165,8 +1165,8 @@ SELECT &storageDirective.* FROM (
                                cs.name = usd.storage_name
     JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  unit_uuid = $unitUUID.uuid AND
-           charm_uuid = $charmUUID.uuid
+    WHERE  usd.unit_uuid = $unitUUID.uuid AND
+           usd.charm_uuid = $charmUUID.charm_uuid
 )`, unitUUID, charmUUID, storageDirective{})
 	if err != nil {
 		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
