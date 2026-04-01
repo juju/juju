@@ -207,21 +207,13 @@ func (s *infoSuite) TestGetUnitEndpointNetworksFallsBackToPublicEgressSubnets(c 
 				corenetwork.EthernetDevice),
 		),
 	}
-	publicAddresses := corenetwork.SpaceAddresses{{
-		SpaceID: corenetwork.AlphaSpaceId,
-		MachineAddress: corenetwork.MachineAddress{
-			Value: "198.51.100.10",
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopePublic,
-		},
-	}}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return(nil, nil)
 	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{}, nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(
-		gomock.Any(), unitUUID,
-	).Return(publicAddresses, nil)
+	s.st.EXPECT().GetUnitPublicAddressForEgress(
+		gomock.Any(), unitUUID.String(),
+	).Return("198.51.100.10/24", nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
@@ -327,14 +319,6 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 				corenetwork.EthernetDevice),
 		),
 	}
-	publicAddresses := corenetwork.SpaceAddresses{{
-		SpaceID: corenetwork.AlphaSpaceId,
-		MachineAddress: corenetwork.MachineAddress{
-			Value: "198.51.100.10",
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopePublic,
-		},
-	}}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitRelationEndpointName(
@@ -344,9 +328,9 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 		gomock.Any(), relationUUID.String(),
 	).Return(nil, nil)
 	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{}, nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(
-		gomock.Any(), unitUUID,
-	).Return(publicAddresses, nil)
+	s.st.EXPECT().GetUnitPublicAddressForEgress(
+		gomock.Any(), unitUUID.String(),
+	).Return("198.51.100.10/24", nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), []string{endpointName},
@@ -471,7 +455,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksGetUnitEgressSubnetsError(c *tc.C
 	c.Assert(err, tc.ErrorMatches, "getting unit egress subnets: boom")
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksDeprioritizesVethIngress(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksDeprioritisesVethIngress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")

@@ -492,6 +492,73 @@ WHERE  ru.unit_uuid = $entityUUID.uuid
 	return transform.Slice(cidrs, func(c egressCIDR) string { return c.CIDR }), nil
 }
 
+// GetUnitPublicAddressForEgress retrieves the best unit address to use when
+// deriving fallback egress subnets.
+func (st *State) GetUnitPublicAddressForEgress(
+	ctx context.Context,
+	unitUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type addressValue struct {
+		Value string `db:"address_value"`
+	}
+
+	ident := entityUUID{UUID: unitUUID}
+	stmt, err := st.Prepare(`
+WITH unit_net_node AS (
+    SELECT
+        s.net_node_uuid
+    FROM unit AS u
+    JOIN application AS a ON u.application_uuid = a.uuid
+    JOIN k8s_service AS s ON a.uuid = s.application_uuid
+    WHERE u.uuid = $entityUUID.uuid
+    UNION
+    SELECT
+        net_node_uuid
+    FROM unit
+    WHERE uuid = $entityUUID.uuid
+)
+SELECT address_value AS &addressValue.address_value
+FROM unit_net_node AS unn
+JOIN ip_address AS ipa ON ipa.net_node_uuid = unn.net_node_uuid
+WHERE ipa.scope_id = 1 /* public */
+ORDER BY ipa.type_id, /* ipv4 (0) before ipv6 (1) */
+         ipa.is_secondary, /* primary (0) before secondary (1) */
+         ipa.origin_id DESC, /* provider (1) before machine (0) */
+         address_value
+LIMIT 1
+`, addressValue{}, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf(
+			"preparing select unit public address statement: %w", err,
+		)
+	}
+
+	var address addressValue
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDead(ctx, tx, ident); err != nil {
+			return errors.Capture(err)
+		}
+		err := tx.Query(ctx, stmt, ident).Get(&address)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("querying unit public address: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return address.Value, nil
+}
+
 // IsCaasUnit determines if a unit identified by the given UUID is tied to a
 // Kubernetes service.
 func (st *State) IsCaasUnit(ctx context.Context, uuid string) (bool, error) {

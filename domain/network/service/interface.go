@@ -190,6 +190,10 @@ type NetworkInfoState interface {
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
 
+	// GetUnitPublicAddressForEgress retrieves the best unit address to use
+	// when deriving fallback egress subnets.
+	GetUnitPublicAddressForEgress(ctx context.Context, unitUUID string) (string, error)
+
 	// GetUnitEndpointNetworkInfo retrieves raw unit addresses and selected
 	// ingress addresses for the specified endpoints. It returns one result per
 	// endpoint name.

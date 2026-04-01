@@ -50,7 +50,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworkInfo(c *tc.C) {
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(normalizeEndpointNetworkInfo(info), tc.DeepEquals, []networkinternal.EndpointNetworkInfo{{
+	c.Check(normaliseEndpointNetworkInfo(info), tc.DeepEquals, []networkinternal.EndpointNetworkInfo{{
 		EndpointName: endpointName,
 		Addresses: []networkinternal.UnitAddress{{
 			SpaceAddress: corenetwork.SpaceAddress{
@@ -113,7 +113,7 @@ WHERE uuid = ?
 	)
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworkInfoPrioritizesPrimaryIngress(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworkInfoPrioritisesPrimaryIngress(c *tc.C) {
 	nodeUUID := s.addNetNode(c)
 	deviceUUID := s.addLinkLayerDevice(
 		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
@@ -172,7 +172,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworkInfoMultipleEndpointsSameSpace(c *
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(normalizeEndpointNetworkInfo(info), tc.DeepEquals, []networkinternal.EndpointNetworkInfo{{
+	c.Check(normaliseEndpointNetworkInfo(info), tc.DeepEquals, []networkinternal.EndpointNetworkInfo{{
 		EndpointName: "endpoint1",
 		Addresses: []networkinternal.UnitAddress{{
 			SpaceAddress: corenetwork.SpaceAddress{
@@ -243,7 +243,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworkInfoCaasUnit(c *tc.C) {
 	c.Assert(info, tc.HasLen, 1)
 	c.Check(info[0].EndpointName, tc.Equals, endpointName)
 	c.Check(info[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
-	c.Check(normalizeUnitAddresses(info[0].Addresses), tc.SameContents, []networkinternal.UnitAddress{{
+	c.Check(normaliseUnitAddresses(info[0].Addresses), tc.SameContents, []networkinternal.UnitAddress{{
 		SpaceAddress: corenetwork.SpaceAddress{
 			MachineAddress: corenetwork.MachineAddress{
 				Value: "10.0.0.1",
@@ -341,7 +341,7 @@ WHERE uuid = ?
 		tc.DeepEquals,
 		[]string{"198.51.100.10", "198.51.100.20", "198.51.100.30"},
 	)
-	c.Check(normalizeUnitAddresses(info.Addresses), tc.SameContents, []networkinternal.UnitAddress{{
+	c.Check(normaliseUnitAddresses(info.Addresses), tc.SameContents, []networkinternal.UnitAddress{{
 		SpaceAddress: corenetwork.SpaceAddress{
 			MachineAddress: corenetwork.MachineAddress{
 				Value: "198.51.100.20",
@@ -380,7 +380,7 @@ WHERE uuid = ?
 	}})
 }
 
-func (s *infoSuite) TestGetUnitNetworkInfoPrioritizesPrimaryIngress(c *tc.C) {
+func (s *infoSuite) TestGetUnitNetworkInfoPrioritisesPrimaryIngress(c *tc.C) {
 	nodeUUID := s.addNetNode(c)
 	deviceUUID := s.addLinkLayerDevice(
 		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
@@ -445,7 +445,7 @@ func (s *infoSuite) TestGetUnitNetworkInfoCaasUnit(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"10.0.0.2", "10.0.0.3"})
-	c.Check(normalizeUnitAddresses(info.Addresses), tc.SameContents, []networkinternal.UnitAddress{{
+	c.Check(normaliseUnitAddresses(info.Addresses), tc.SameContents, []networkinternal.UnitAddress{{
 		SpaceAddress: corenetwork.SpaceAddress{
 			MachineAddress: corenetwork.MachineAddress{
 				Value: "10.0.0.1",
@@ -673,6 +673,74 @@ func (s *infoSuite) TestGetRelationEgressSubnetsEmpty(c *tc.C) {
 	c.Check(cidrs, tc.HasLen, 0)
 }
 
+func (s *infoSuite) TestGetUnitPublicAddressForEgress(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
+	)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	subnetUUID := s.addSubnet(c, "198.51.100.0/24", spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, deviceUUID, nodeUUID, subnetUUID, "10.0.0.10/24",
+		corenetwork.ScopeCloudLocal,
+	)
+	secondaryUUID := s.addIPAddressWithSubnetAndOrigin(
+		c, deviceUUID, nodeUUID, subnetUUID, "198.51.100.1/24", 1,
+	)
+	s.query(c, `
+UPDATE ip_address
+SET scope_id = (SELECT id FROM ip_address_scope WHERE name = 'public')
+WHERE uuid = ?
+`, secondaryUUID)
+	s.markIPAddressSecondary(c, secondaryUUID)
+	publicUUID := s.addIPAddressWithSubnetAndOrigin(
+		c, deviceUUID, nodeUUID, subnetUUID, "198.51.100.10/24", 1,
+	)
+	s.query(c, `
+UPDATE ip_address
+SET scope_id = (SELECT id FROM ip_address_scope WHERE name = 'public')
+WHERE uuid = ?
+`, publicUUID)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	address, err := s.state.GetUnitPublicAddressForEgress(
+		c.Context(), string(unitUUID),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address, tc.Equals, "198.51.100.10/24")
+}
+
+func (s *infoSuite) TestGetUnitPublicAddressForEgressWithoutPublicAddress(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
+	)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	subnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, deviceUUID, nodeUUID, subnetUUID, "10.0.0.10/24",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.addIPAddressWithSubnetAndOrigin(
+		c, deviceUUID, nodeUUID, subnetUUID, "198.51.100.10/24", 1,
+	)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	address, err := s.state.GetUnitPublicAddressForEgress(
+		c.Context(), string(unitUUID),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address, tc.Equals, "")
+}
+
 func (s *infoSuite) TestGetModelEgressSubnets(c *tc.C) {
 	s.query(c, `INSERT INTO model_config VALUES (?, ?)`,
 		config.EgressSubnets, "10.0.1.0/24, 10.0.2.0/24")
@@ -690,16 +758,16 @@ func (s *infoSuite) TestGetModelEgressSubnetsEmpty(c *tc.C) {
 
 // Helper methods
 
-func normalizeEndpointNetworkInfo(
+func normaliseEndpointNetworkInfo(
 	addresses []networkinternal.EndpointNetworkInfo,
 ) []networkinternal.EndpointNetworkInfo {
 	return transform.Slice(addresses, func(addr networkinternal.EndpointNetworkInfo) networkinternal.EndpointNetworkInfo {
-		addr.Addresses = normalizeUnitAddresses(addr.Addresses)
+		addr.Addresses = normaliseUnitAddresses(addr.Addresses)
 		return addr
 	})
 }
 
-func normalizeUnitAddresses(addresses []networkinternal.UnitAddress) []networkinternal.UnitAddress {
+func normaliseUnitAddresses(addresses []networkinternal.UnitAddress) []networkinternal.UnitAddress {
 	return transform.Slice(addresses, func(addr networkinternal.UnitAddress) networkinternal.UnitAddress {
 		return networkinternal.UnitAddress{
 			SpaceAddress: corenetwork.SpaceAddress{
