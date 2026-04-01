@@ -5,8 +5,6 @@ package storage
 
 import (
 	"context"
-	"maps"
-	"math"
 	"slices"
 
 	"github.com/juju/juju/caas"
@@ -1066,9 +1064,6 @@ func (s Service) MakeAttachStorageInstanceToUnitArg(
 			CountLessThanEqual: storageAttachInfo.UnitNamedStorageInfo.AlreadyAttachedCount,
 			MachineUUID:        storageAttachInfo.UnitNamedStorageInfo.MachineUUID,
 		},
-		StorageName:                    storageAttachInfo.CharmStorageDefinitionForValidation.Name,
-		CountLessThanEqual:             uint32(math.MaxUint32),
-		AllowedExistingUnitAttachments: allowedUUIDs,
 	}
 
 	// Set the expected attachment checks args for the storage instance.
