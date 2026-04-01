@@ -80,7 +80,7 @@ func (s *destroyControllerSuite) SetUpTest(c *tc.C) {
 // It provides custom service getter functions and mock services
 // to allow test-level control over their behavior.
 func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
-	stdCtx := coremodel.WithContextModelUUID(c.Context(), s.context.ModelUUID())
+	stdCtx := c.Context()
 	ctx := s.context
 	var (
 		authorizer     = ctx.Auth()
