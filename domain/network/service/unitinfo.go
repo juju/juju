@@ -8,6 +8,9 @@ import (
 	"maps"
 	"slices"
 	"sort"
+	"strings"
+
+	"github.com/juju/collections/transform"
 
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -123,17 +126,21 @@ func (s *ProviderService) getUnitEndpointNetworks(
 			ctx, unitUUID, endpointNames, isCaas, egressSubnets)
 	}
 
-	endpointAddresses, err := s.st.GetUnitEndpointNetworkAddresses(
+	endpointNetworks, err := s.st.GetUnitEndpointNetworkInfo(
 		ctx, unitUUID, endpointNames,
 	)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit endpoint addresses: %w", err)
+		return nil, internalerrors.Errorf("getting unit endpoint network info: %w", err)
 	}
 
-	result := make([]domainnetwork.UnitNetwork, len(endpointAddresses))
-	for i, endpointAddresses := range endpointAddresses {
-		info := buildUnitNetworkFromAddresses(endpointAddresses.Addresses, isCaas)
-		info.EndpointName = endpointAddresses.EndpointName
+	result := make([]domainnetwork.UnitNetwork, len(endpointNetworks))
+	for i, endpointNetwork := range endpointNetworks {
+		info := buildUnitNetworkWithIngressAddresses(
+			endpointNetwork.Addresses,
+			endpointNetwork.IngressAddresses,
+			isCaas,
+		)
+		info.EndpointName = endpointNetwork.EndpointName
 		info.EgressSubnets = egressSubnets
 		result[i] = info
 	}
@@ -227,12 +234,12 @@ func (s *ProviderService) getUnitPublicEgressSubnets(
 	return corenetwork.SubnetsForAddresses([]string{matchedAddrs[0].Value}), nil
 }
 
-func buildUnitNetworkFromAddresses(
+func buildUnitNetworkWithIngressAddresses(
 	addresses []networkinternal.UnitAddress,
+	ingressAddresses []string,
 	isCaas bool,
 ) domainnetwork.UnitNetwork {
 	byDevice := map[string]domainnetwork.DeviceInfo{}
-	var ingressAddresses corenetwork.SpaceAddresses
 	for _, addr := range addresses {
 		// The purpose of the method is to get connectivity information for
 		// the unit. Skip loopback addresses to focus on external connectivity.
@@ -253,36 +260,33 @@ func buildUnitNetworkFromAddresses(
 				CIDR:     addr.AddressCIDR(),
 			})
 		}
-		if (!isCaas || addr.Scope != corenetwork.ScopeMachineLocal) &&
-			// Addresses on virtual Ethernet devices are never suitable for
-			// ingress addresses.
-			addr.DeviceType != corenetwork.VirtualEthernetDevice {
-			ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
-		}
-
 		byDevice[addr.DeviceName] = devInfo
 	}
-
-	// We use the same sorting algorithm as in GetUnitAddresses.
-	// It is important that the selected address is the same every time for a
-	// given set of bindings/devices/addresses.
-	sortedIngressAddresses := ingressAddresses.AllMatchingScope(
-		corenetwork.ScopeMatchCloudLocal,
-	).Values()
 	return domainnetwork.UnitNetwork{
 		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
-		IngressAddresses: sortedIngressAddresses,
+		IngressAddresses: normalizeIngressAddresses(ingressAddresses),
 	}
+}
+
+func normalizeIngressAddresses(addresses []string) []string {
+	return transform.Slice(addresses, func(address string) string {
+		before, _, _ := strings.Cut(address, "/")
+		return before
+	})
 }
 
 func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
 	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, egressSubnets []string,
 ) ([]domainnetwork.UnitNetwork, error) {
-	addresses, err := s.st.GetUnitNetworkAddresses(ctx, unitUUID)
+	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting unit addresses: %w", err)
+		return nil, internalerrors.Errorf(
+			"getting unit network info: %w", err,
+		)
 	}
-	info := buildUnitNetworkFromAddresses(addresses, isCaas)
+	info := buildUnitNetworkWithIngressAddresses(
+		unitNetwork.Addresses, unitNetwork.IngressAddresses, isCaas,
+	)
 	info.EgressSubnets = egressSubnets
 
 	infos := make([]domainnetwork.UnitNetwork, len(endpointNames))

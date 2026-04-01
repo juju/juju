@@ -53,13 +53,28 @@ type SpaceName struct {
 	Name string
 }
 
-// EndpointAddresses represents unit addresses associated with an endpoint.
-type EndpointAddresses struct {
+// EndpointNetworkInfo represents unit addresses and selected ingress
+// addresses associated with an endpoint.
+type EndpointNetworkInfo struct {
 	// EndpointName specifies the name of the network endpoint.
 	EndpointName string
 
 	// Addresses is the set of unit addresses available on the endpoint.
 	Addresses []UnitAddress
+
+	// IngressAddresses is the ordered set of ingress addresses for the
+	// endpoint.
+	IngressAddresses []string
+}
+
+// UnitNetworkInfo represents unit addresses and selected ingress addresses
+// for a unit when endpoint bindings are not available.
+type UnitNetworkInfo struct {
+	// Addresses is the set of unit addresses available on the unit.
+	Addresses []UnitAddress
+
+	// IngressAddresses is the ordered set of ingress addresses for the unit.
+	IngressAddresses []string
 }
 
 // UnitAddress represents a unit address together with device metadata.

@@ -190,16 +190,17 @@ type NetworkInfoState interface {
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
 
-	// GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
-	// specified endpoints. It returns one result per endpoint name.
-	GetUnitEndpointNetworkAddresses(
+	// GetUnitEndpointNetworkInfo retrieves raw unit addresses and selected
+	// ingress addresses for the specified endpoints. It returns one result per
+	// endpoint name.
+	GetUnitEndpointNetworkInfo(
 		ctx context.Context, unitUUID string, endpointNames []string,
-	) ([]networkinternal.EndpointAddresses, error)
+	) ([]networkinternal.EndpointNetworkInfo, error)
 
-	// GetUnitNetworkAddresses retrieves all raw unit addresses for the
-	// specified unit. This is used on providers that do not support spaces and
-	// therefore cannot factor endpoint bindings.
-	GetUnitNetworkAddresses(
+	// GetUnitNetworkInfo retrieves raw unit addresses and selected ingress
+	// addresses for the specified unit when provider networking is not
+	// supported.
+	GetUnitNetworkInfo(
 		ctx context.Context, unitUUID string,
-	) ([]networkinternal.UnitAddress, error)
+	) (networkinternal.UnitNetworkInfo, error)
 }

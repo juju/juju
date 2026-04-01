@@ -98,31 +98,25 @@ func (s *infoSuite) TestGetUnitEndpointNetworks(c *tc.C) {
 			EgressSubnets:    []string{"192.168.1.0/24"},
 		},
 	}
-	stateAddresses := []networkinternal.EndpointAddresses{
-		{
-			EndpointName: "db",
-			Addresses: []networkinternal.UnitAddress{
-				unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
-					"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-			},
-		},
-		{
-			EndpointName: "server",
-			Addresses: []networkinternal.UnitAddress{
-				unitAddress("10.0.0.10", "10.0.0.0/24", "eth1",
-					"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-			},
-		},
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"192.168.1.10/24"},
+			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
+				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+		),
+		endpointNetworkInfo("server", []string{"10.0.0.10/24"},
+			unitAddress("10.0.0.10", "10.0.0.0/24", "eth1",
+				"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+		),
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"192.168.1.0/24"}, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -137,30 +131,29 @@ func (s *infoSuite) TestGetUnitEndpointNetworksSortsIngressAddresses(c *tc.C) {
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	endpointNames := []string{"db"}
 
-	stateAddresses := []networkinternal.EndpointAddresses{
-		{
-			EndpointName: "db",
-			Addresses: []networkinternal.UnitAddress{
-				unitAddress("10.0.1.9", "10.0.1.0/24", "eth0",
-					"aa:bb:cc:dd:ee:f0", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-				unitAddress("10.0.0.9", "10.0.0.0/24", "eth1",
-					"aa:bb:cc:dd:ee:f1", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-				unitAddress("10.0.0.2", "10.0.0.0/24", "veth0",
-					"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
-					corenetwork.VirtualEthernetDevice),
-				unitAddress("127.0.0.1", "127.0.0.0/8", "lo",
-					"00:00:00:00:00:00", corenetwork.ScopeMachineLocal,
-					corenetwork.LoopbackDevice),
-			},
-		},
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"10.0.0.9", "10.0.1.9"},
+			unitAddress("10.0.1.9", "10.0.1.0/24", "eth0",
+				"aa:bb:cc:dd:ee:f0", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+			unitAddress("10.0.0.9", "10.0.0.0/24", "eth1",
+				"aa:bb:cc:dd:ee:f1", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+			unitAddress("10.0.0.2", "10.0.0.0/24", "veth0",
+				"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
+				corenetwork.VirtualEthernetDevice),
+			unitAddress("127.0.0.1", "127.0.0.0/8", "lo",
+				"00:00:00:00:00:00", corenetwork.ScopeMachineLocal,
+				corenetwork.LoopbackDevice),
+		),
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"10.0.0.0/24"}, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(gomock.Any(), unitUUID.String(), gomock.Any()).Return(stateAddresses, nil)
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
+		gomock.Any(), unitUUID.String(), endpointNames,
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -176,22 +169,21 @@ func (s *infoSuite) TestGetUnitEndpointNetworksFallsBackToModelEgressSubnets(c *
 	unitName := coreunit.Name("mysql/0")
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	endpointNames := []string{"db"}
-	stateAddresses := []networkinternal.EndpointAddresses{{
-		EndpointName: "db",
-		Addresses: []networkinternal.UnitAddress{
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"192.168.1.10"},
 			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
 				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
 				corenetwork.EthernetDevice),
-		},
-	}}
+		),
+	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return(nil, nil)
 	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{"203.0.113.0/24"}, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
@@ -208,14 +200,13 @@ func (s *infoSuite) TestGetUnitEndpointNetworksFallsBackToPublicEgressSubnets(c 
 	unitName := coreunit.Name("mysql/0")
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	endpointNames := []string{"db"}
-	stateAddresses := []networkinternal.EndpointAddresses{{
-		EndpointName: "db",
-		Addresses: []networkinternal.UnitAddress{
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"192.168.1.10"},
 			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
 				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
 				corenetwork.EthernetDevice),
-		},
-	}}
+		),
+	}
 	publicAddresses := corenetwork.SpaceAddresses{{
 		SpaceID: corenetwork.AlphaSpaceId,
 		MachineAddress: corenetwork.MachineAddress{
@@ -232,9 +223,9 @@ func (s *infoSuite) TestGetUnitEndpointNetworksFallsBackToPublicEgressSubnets(c 
 		gomock.Any(), unitUUID,
 	).Return(publicAddresses, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
@@ -252,14 +243,13 @@ func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	endpointName := "db"
-	stateAddresses := []networkinternal.EndpointAddresses{{
-		EndpointName: endpointName,
-		Addresses: []networkinternal.UnitAddress{
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo(endpointName, []string{"192.168.1.10"},
 			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
 				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
 				corenetwork.EthernetDevice),
-		},
-	}}
+		),
+	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitRelationEndpointName(
@@ -269,9 +259,9 @@ func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
 		gomock.Any(), relationUUID.String(),
 	).Return([]string{"192.168.1.0/24"}, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), []string{endpointName},
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
@@ -292,14 +282,13 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *t
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	endpointName := "db"
-	stateAddresses := []networkinternal.EndpointAddresses{{
-		EndpointName: endpointName,
-		Addresses: []networkinternal.UnitAddress{
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo(endpointName, []string{"192.168.1.10"},
 			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
 				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
 				corenetwork.EthernetDevice),
-		},
-	}}
+		),
+	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitRelationEndpointName(
@@ -310,9 +299,9 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *t
 	).Return(nil, nil)
 	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{"203.0.113.0/24"}, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), []string{endpointName},
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
@@ -331,14 +320,13 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	endpointName := "db"
-	stateAddresses := []networkinternal.EndpointAddresses{{
-		EndpointName: endpointName,
-		Addresses: []networkinternal.UnitAddress{
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo(endpointName, []string{"192.168.1.10"},
 			unitAddress("192.168.1.10", "192.168.1.0/24", "eth0",
 				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
 				corenetwork.EthernetDevice),
-		},
-	}}
+		),
+	}
 	publicAddresses := corenetwork.SpaceAddresses{{
 		SpaceID: corenetwork.AlphaSpaceId,
 		MachineAddress: corenetwork.MachineAddress{
@@ -360,9 +348,9 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 		gomock.Any(), unitUUID,
 	).Return(publicAddresses, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), []string{endpointName},
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
@@ -442,13 +430,13 @@ func (s *infoSuite) TestGetUnitEndpointNetworksStateError(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"10.0.0.0/24"}, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
 	).Return(nil, errors.New("state error"))
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
-	c.Assert(err, tc.ErrorMatches, "getting unit endpoint addresses: state error")
+	c.Assert(err, tc.ErrorMatches, "getting unit endpoint network info: state error")
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworksIsCaasUnitError(c *tc.C) {
@@ -483,42 +471,39 @@ func (s *infoSuite) TestGetUnitEndpointNetworksGetUnitEgressSubnetsError(c *tc.C
 	c.Assert(err, tc.ErrorMatches, "getting unit egress subnets: boom")
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksExcludesLoopbackAndVethFromIngress(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksDeprioritizesVethIngress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	endpointNames := []string{"db"}
-	stateAddresses := []networkinternal.EndpointAddresses{
-		{
-			EndpointName: "db",
-			Addresses: []networkinternal.UnitAddress{
-				unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
-					"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-				unitAddress("10.0.0.2", "10.0.0.0/24", "veth0",
-					"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
-					corenetwork.VirtualEthernetDevice),
-				unitAddress("127.0.0.1", "127.0.0.0/8", "lo",
-					"00:00:00:00:00:00", corenetwork.ScopeMachineLocal,
-					corenetwork.LoopbackDevice),
-			},
-		},
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"10.0.0.1", "10.0.0.2"},
+			unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
+				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+			unitAddress("10.0.0.2", "10.0.0.0/24", "veth0",
+				"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
+				corenetwork.VirtualEthernetDevice),
+			unitAddress("127.0.0.1", "127.0.0.0/8", "lo",
+				"00:00:00:00:00:00", corenetwork.ScopeMachineLocal,
+				corenetwork.LoopbackDevice),
+		),
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"192.168.1.0/24"}, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.HasLen, 1)
 	c.Check(infos[0].EndpointName, tc.Equals, "db")
-	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.1"})
+	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
 	c.Check(infos[0].EgressSubnets, tc.DeepEquals, []string{"192.168.1.0/24"})
 
 	devices := transform.SliceToMap(
@@ -546,26 +531,23 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 	unitName := coreunit.Name("mysql/0")
 	unitUUID := coreunit.UUID("unit-uuid-123")
 	endpointNames := []string{"db"}
-	stateAddresses := []networkinternal.EndpointAddresses{
-		{
-			EndpointName: "db",
-			Addresses: []networkinternal.UnitAddress{
-				unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
-					"aa:bb:cc:dd:ee:ff", corenetwork.ScopeMachineLocal,
-					corenetwork.EthernetDevice),
-				unitAddress("10.0.0.2", "10.0.0.0/24", "eth1",
-					"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
-					corenetwork.EthernetDevice),
-			},
-		},
+	stateNetworkInfo := []networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("db", []string{"10.0.0.2"},
+			unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
+				"aa:bb:cc:dd:ee:ff", corenetwork.ScopeMachineLocal,
+				corenetwork.EthernetDevice),
+			unitAddress("10.0.0.2", "10.0.0.0/24", "eth1",
+				"ff:ee:dd:cc:bb:aa", corenetwork.ScopeCloudLocal,
+				corenetwork.EthernetDevice),
+		),
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"10.0.0.0/24"}, nil)
-	s.st.EXPECT().GetUnitEndpointNetworkAddresses(
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), endpointNames,
-	).Return(stateAddresses, nil)
+	).Return(stateNetworkInfo, nil)
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -603,7 +585,9 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitAddresses(c *
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"192.168.1.0/24"}, nil)
-	s.st.EXPECT().GetUnitNetworkAddresses(gomock.Any(), unitUUID.String()).Return(addresses, nil)
+	s.st.EXPECT().GetUnitNetworkInfo(
+		gomock.Any(), unitUUID.String(),
+	).Return(unitNetworkInfo([]string{"192.168.1.10/24"}, addresses...), nil)
 
 	service := NewProviderService(s.st, s.notSupportedProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -664,7 +648,9 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedSortsIngressAddresses
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
 	s.st.EXPECT().GetUnitEgressSubnets(gomock.Any(), unitUUID.String()).Return([]string{"10.0.0.0/24"}, nil)
-	s.st.EXPECT().GetUnitNetworkAddresses(gomock.Any(), unitUUID.String()).Return(unitAddresses, nil)
+	s.st.EXPECT().GetUnitNetworkInfo(
+		gomock.Any(), unitUUID.String(),
+	).Return(unitNetworkInfo([]string{"10.0.0.9", "10.0.1.9"}, unitAddresses...), nil)
 
 	service := NewProviderService(s.st, s.notSupportedProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -710,5 +696,27 @@ func unitAddress(
 		DeviceName: deviceName,
 		MACAddress: macAddress,
 		DeviceType: deviceType,
+	}
+}
+
+func endpointNetworkInfo(
+	endpointName string,
+	ingressAddresses []string,
+	addresses ...networkinternal.UnitAddress,
+) networkinternal.EndpointNetworkInfo {
+	return networkinternal.EndpointNetworkInfo{
+		EndpointName:     endpointName,
+		Addresses:        addresses,
+		IngressAddresses: ingressAddresses,
+	}
+}
+
+func unitNetworkInfo(
+	ingressAddresses []string,
+	addresses ...networkinternal.UnitAddress,
+) networkinternal.UnitNetworkInfo {
+	return networkinternal.UnitNetworkInfo{
+		Addresses:        addresses,
+		IngressAddresses: ingressAddresses,
 	}
 }
