@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -36,7 +35,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -888,7 +886,7 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UpdateUnitCharm(
-		c.Context(), unitUUID, id, internal.CreateUnitStorageArg{})
+		c.Context(), unitUUID, id, applicationinternal.CreateUnitStorageArg{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotUUID string
@@ -994,9 +992,9 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	storageInstanceUUID := tc.Must(c, storage.NewStorageInstanceUUID)
-	createArgs := internal.CreateUnitStorageArg{
-		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	createArgs := applicationinternal.CreateUnitStorageArg{
+		StorageInstances: []applicationinternal.CreateUnitStorageInstanceArg{{
 			UUID:            storageInstanceUUID,
 			CharmName:       "foo",
 			Kind:            domainstorage.StorageKindFilesystem,
@@ -1004,8 +1002,8 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 			RequestSizeMiB:  8192,
 			StoragePoolUUID: newPoolID,
 		}},
-		StorageToAttach: []internal.CreateUnitStorageAttachmentArg{{
-			UUID:                tc.Must(c, storage.NewStorageAttachmentUUID),
+		StorageToAttach: []applicationinternal.CreateUnitStorageAttachmentArg{{
+			UUID:                tc.Must(c, domainstorage.NewStorageAttachmentUUID),
 			StorageInstanceUUID: storageInstanceUUID,
 		}},
 		StorageToOwn: []domainstorage.StorageInstanceUUID{storageInstanceUUID},
@@ -1196,7 +1194,7 @@ func (s *unitStateSuite) TestGetUnitStorageRefreshArgs(c *tc.C) {
 	c.Check(
 		got.RefreshStorageDirectives,
 		tc.SameContents,
-		[]internal.StorageDirective{
+		[]applicationinternal.StorageDirective{
 			{
 				CharmMetadataName: "foo",
 				CharmStorageType:  charm.StorageFilesystem,

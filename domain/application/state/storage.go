@@ -680,13 +680,18 @@ SELECT &unitUUID.uuid
 FROM   unit u
 WHERE  u.application_uuid = $applicationUUID.application_uuid
 `, applicationUUID, unitUUID{})
+	if err != nil {
+		return errors.Errorf("preparing all unit uuids for app query").Add(err)
+	}
 
 	var unitUUIDs []unitUUID
 	err = tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDs)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf("getting all unit uuids for %q", uuid).Add(err)
+		return errors.Errorf(
+			"getting all unit uuids for application %q", uuid,
+		).Add(err)
 	}
 
 	insertDirectivesInput := make([]insertUnitStorageDirective, 0,
@@ -712,12 +717,17 @@ INSERT INTO unit_storage_directive (*)
 VALUES ($insertUnitStorageDirective.*)
 `, insertUnitStorageDirective{})
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf(
+			"preparing insert unit storage directive query",
+		).Add(err)
 	}
 
 	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf(
+			"inserting unit storage directives for all units in application %q",
+			uuid,
+		).Add(err)
 	}
 
 	return nil
