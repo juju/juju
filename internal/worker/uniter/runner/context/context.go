@@ -1440,7 +1440,6 @@ func (c *HookContext) HookVars(
 		// trace spans to the same OTEL collector without needing to have
 		// multiple charm integrations.
 		"JUJU_CHARM_TRACE_CONFIG_HTTP="+c.charmTracingConfig.HTTPEndpoint,
-		"JUJU_CHARM_TRACE_CONFIG_HTTPS="+c.charmTracingConfig.HTTPSEndpoint,
 		"JUJU_CHARM_TRACE_CONFIG_GRPC="+c.charmTracingConfig.GRPCEndpoint,
 		"JUJU_CHARM_TRACE_CONFIG_CA_CERT="+c.charmTracingConfig.CACertificate,
 	)

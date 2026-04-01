@@ -1458,7 +1458,6 @@ type ProxySettings struct {
 // be used by agents in the model.
 type CharmTracingConfig struct {
 	HTTPEndpoint  string `json:"http-endpoint,omitempty"`
-	HTTPSEndpoint string `json:"https-endpoint,omitempty"`
 	GRPCEndpoint  string `json:"grpc-endpoint,omitempty"`
 	CACertificate string `json:"ca-certificate,omitempty"`
 }

@@ -87,7 +87,6 @@ func (s *EnvSuite) getHookContext(c *tc.C, newProxyOnly bool, uniter api.UniterC
 		// if empty, to allow charms to write trace spans to the same OTEL
 		// collector without needing to have multiple charm integrations.
 		"JUJU_CHARM_TRACE_CONFIG_HTTP=",
-		"JUJU_CHARM_TRACE_CONFIG_HTTPS=",
 		"JUJU_CHARM_TRACE_CONFIG_GRPC=",
 		"JUJU_CHARM_TRACE_CONFIG_CA_CERT=",
 	}

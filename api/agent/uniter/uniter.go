@@ -567,10 +567,10 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 
 // CharmTracingConfig contains the tracing configuration for the charm.
 type CharmTracingConfig struct {
-	// HTTPEndpoint is the endpoint to which HTTP spans should be sent.
+	// HTTPEndpoint is the endpoint to which HTTP(s) spans should be sent. The
+	// scheme of the endpoint determines whether spans should be sent using HTTP
+	// or HTTPS.
 	HTTPEndpoint string
-	// HTTPSEndpoint is the endpoint to which HTTPS spans should be sent.
-	HTTPSEndpoint string
 	// GRPCEndpoint is the endpoint to which gRPC spans should be sent.
 	GRPCEndpoint string
 	// CACertificate is the CA certificate that should be used to verify the TLS
@@ -636,7 +636,6 @@ func decodeUnitContext(paramsUnitContext params.UnitContext) (UnitContext, error
 		OpenedPortRangesByEndpoint:        unitOpenedRages,
 		CharmTracingConfig: CharmTracingConfig{
 			HTTPEndpoint:  paramsUnitContext.CharmTracingConfig.HTTPEndpoint,
-			HTTPSEndpoint: paramsUnitContext.CharmTracingConfig.HTTPSEndpoint,
 			GRPCEndpoint:  paramsUnitContext.CharmTracingConfig.GRPCEndpoint,
 			CACertificate: paramsUnitContext.CharmTracingConfig.CACertificate,
 		},

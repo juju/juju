@@ -3307,7 +3307,6 @@ func (u *UniterAPI) GetUnitContext(ctx context.Context, args params.Entity) (par
 	if err == nil {
 		unitContext.CharmTracingConfig = params.CharmTracingConfig{
 			HTTPEndpoint:  charmTraceConfig.HTTPEndpoint,
-			HTTPSEndpoint: charmTraceConfig.HTTPSEndpoint,
 			GRPCEndpoint:  charmTraceConfig.GRPCEndpoint,
 			CACertificate: charmTraceConfig.CACertificate,
 		}

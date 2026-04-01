@@ -11123,9 +11123,6 @@
                         },
                         "http-endpoint": {
                             "type": "string"
-                        },
-                        "https-endpoint": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false

@@ -1671,7 +1671,6 @@ func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfig(c *tc.C) {
 	}
 	charmTracingConfig := tracingservice.CharmTracingConfig{
 		HTTPEndpoint:  "http://tracing:4317",
-		HTTPSEndpoint: "https://tracing:4318",
 		GRPCEndpoint:  "grpc://tracing:9411",
 		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
 	}
@@ -1693,7 +1692,6 @@ func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfig(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Check(res.CharmTracingConfig, tc.DeepEquals, params.CharmTracingConfig{
 		HTTPEndpoint:  "http://tracing:4317",
-		HTTPSEndpoint: "https://tracing:4318",
 		GRPCEndpoint:  "grpc://tracing:9411",
 		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
 	})

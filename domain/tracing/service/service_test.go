@@ -25,14 +25,12 @@ func (s *serviceSuite) TestSetCharmTracingConfigAllFields(c *tc.C) {
 
 	config := CharmTracingConfig{
 		HTTPEndpoint:  "http://localhost:4318",
-		HTTPSEndpoint: "https://localhost:4318",
 		GRPCEndpoint:  "localhost:4317",
 		CACertificate: "cert-data",
 	}
 
 	s.st.EXPECT().SetCharmTracingConfig(gomock.Any(), map[string]string{
 		httpEndpointKey:  "http://localhost:4318",
-		httpsEndpointKey: "https://localhost:4318",
 		grpcEndpointKey:  "localhost:4317",
 		caCertificateKey: "cert-data",
 	}, []string{}).Return(nil)
@@ -46,7 +44,6 @@ func (s *serviceSuite) TestSetCharmTracingConfigNoFields(c *tc.C) {
 
 	s.st.EXPECT().SetCharmTracingConfig(gomock.Any(), map[string]string{}, []string{
 		httpEndpointKey,
-		httpsEndpointKey,
 		grpcEndpointKey,
 		caCertificateKey,
 	}).Return(nil)
@@ -68,7 +65,6 @@ func (s *serviceSuite) TestSetCharmTracingConfigPartialFields(c *tc.C) {
 		caCertificateKey: "cert-data",
 	}, []string{
 		httpEndpointKey,
-		httpsEndpointKey,
 	}).Return(nil)
 
 	err := NewService(s.st).SetCharmTracingConfig(c.Context(), config)
@@ -91,7 +87,6 @@ func (s *serviceSuite) TestGetCharmTracingConfigAllFields(c *tc.C) {
 
 	s.st.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(map[string]string{
 		httpEndpointKey:  "http://localhost:4318",
-		httpsEndpointKey: "https://localhost:4318",
 		grpcEndpointKey:  "localhost:4317",
 		caCertificateKey: "cert-data",
 	}, nil)
@@ -100,7 +95,6 @@ func (s *serviceSuite) TestGetCharmTracingConfigAllFields(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, CharmTracingConfig{
 		HTTPEndpoint:  "http://localhost:4318",
-		HTTPSEndpoint: "https://localhost:4318",
 		GRPCEndpoint:  "localhost:4317",
 		CACertificate: "cert-data",
 	})
@@ -117,7 +111,6 @@ func (s *serviceSuite) TestGetCharmTracingConfigPartialFields(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, CharmTracingConfig{
 		HTTPEndpoint:  "",
-		HTTPSEndpoint: "",
 		GRPCEndpoint:  "localhost:4317",
 		CACertificate: "",
 	})

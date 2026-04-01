@@ -240,7 +240,6 @@ func (s *uniterSuite) TestGetUnitContextDecodesCharmTracingConfig(c *tc.C) {
 		*(result.(*params.UnitContext)) = params.UnitContext{
 			CharmTracingConfig: params.CharmTracingConfig{
 				HTTPEndpoint:  "http://tempo:3200",
-				HTTPSEndpoint: "https://tempo:3201",
 				GRPCEndpoint:  "tempo:4317",
 				CACertificate: "test-ca-cert",
 			},
@@ -254,7 +253,6 @@ func (s *uniterSuite) TestGetUnitContextDecodesCharmTracingConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.CharmTracingConfig, tc.DeepEquals, uniter.CharmTracingConfig{
 		HTTPEndpoint:  "http://tempo:3200",
-		HTTPSEndpoint: "https://tempo:3201",
 		GRPCEndpoint:  "tempo:4317",
 		CACertificate: "test-ca-cert",
 	})
