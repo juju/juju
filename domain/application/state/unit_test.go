@@ -15,6 +15,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
@@ -1056,6 +1057,166 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 	).Scan(&st2InstanceCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(st2InstanceCount, tc.Equals, 1)
+}
+
+func (s *unitStateSuite) TestGetUnitStorageRefreshArgsUnitNotFound(c *tc.C) {
+	missingUnit := tc.Must(c, coreunit.NewUUID)
+	missingCharm := tc.Must(c, corecharm.NewID)
+
+	_, err := s.state.GetUnitStorageRefreshArgs(c.Context(), missingUnit, missingCharm)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitStorageRefreshArgsCharmNotFound(c *tc.C) {
+	_, unitUUID := s.createNamedIAASUnit(c)
+	missingCharm := tc.Must(c, corecharm.NewID)
+
+	_, err := s.state.GetUnitStorageRefreshArgs(c.Context(), unitUUID, missingCharm)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitStorageRefreshArgsNoStorageDirectives(c *tc.C) {
+	_, unitUUID := s.createNamedIAASUnit(c)
+
+	// Retrieve the current charm UUID and net node UUID for the unit.
+	var currentCharmUUID, netNodeUUID string
+	err := s.DB().QueryRowContext(c.Context(),
+		"SELECT charm_uuid, net_node_uuid FROM unit WHERE uuid=?",
+		unitUUID.String(),
+	).Scan(&currentCharmUUID, &netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a "next" charm with no storage definitions.
+	nextCharm, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      43,
+		ReferenceName: "ubuntu",
+		Hash:          "hash-next",
+		ArchivePath:   "archive-next",
+		Version:       "deadbeef-next",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitStorageRefreshArgs(c.Context(), unitUUID, nextCharm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.NetNodeUUID, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+	c.Check(got.CurrentCharmUUID, tc.Equals, corecharm.ID(currentCharmUUID))
+	c.Check(got.RefreshCharmUUID, tc.Equals, nextCharm)
+	c.Check(got.RefreshStorageDirectives, tc.HasLen, 0)
+}
+
+func (s *unitStateSuite) TestGetUnitStorageRefreshArgs(c *tc.C) {
+	// Create an application with an existing storage definition on its charm.
+	charmStorage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    5,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, charmStorage)
+	unitUUID := unitUUIDs[0]
+
+	// Retrieve the current charm UUID and net node UUID for the unit.
+	var currentCharmUUID, netNodeUUID string
+	err := s.DB().QueryRowContext(c.Context(),
+		"SELECT charm_uuid, net_node_uuid FROM unit WHERE uuid=?",
+		unitUUID.String(),
+	).Scan(&currentCharmUUID, &netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a storage pool referenced by the directives.
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		poolUUID.String(), "test-pool", "test-provider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create the "next" charm that retains st1 (filesystem) and
+	// introduces st2 (block storage).
+	nextCharm, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+			Storage: map[string]charm.Storage{
+				"st1": {
+					CountMax:    5,
+					CountMin:    1,
+					Description: "st1",
+					Name:        "st1",
+					MinimumSize: 1024,
+					Type:        charm.StorageFilesystem,
+				},
+				"st2": {
+					CountMax:    3,
+					CountMin:    1,
+					Description: "st2",
+					Name:        "st2",
+					MinimumSize: 2048,
+					Type:        charm.StorageBlock,
+				},
+			},
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      43,
+		ReferenceName: "foo",
+		Hash:          "hash-next",
+		ArchivePath:   "archive-next",
+		Version:       "deadbeef-next",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Insert unit storage directives for the next charm as they would be
+	// pre-staged during an application charm refresh.
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`INSERT INTO unit_storage_directive
+		(unit_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count)
+		VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)`,
+		unitUUID.String(), nextCharm.String(), "st1", poolUUID.String(), 1024, 2,
+		unitUUID.String(), nextCharm.String(), "st2", poolUUID.String(), 2048, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitStorageRefreshArgs(c.Context(), unitUUID, nextCharm)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.NetNodeUUID, tc.Equals, domainnetwork.NetNodeUUID(netNodeUUID))
+	c.Check(got.CurrentCharmUUID, tc.Equals, corecharm.ID(currentCharmUUID))
+	c.Check(got.RefreshCharmUUID, tc.Equals, nextCharm)
+	c.Check(
+		got.RefreshStorageDirectives,
+		tc.SameContents,
+		[]internal.StorageDirective{
+			{
+				CharmMetadataName: "foo",
+				CharmStorageType:  charm.StorageFilesystem,
+				Count:             2,
+				MaxCount:          5,
+				Name:              domainstorage.Name("st1"),
+				PoolUUID:          poolUUID,
+				Size:              1024,
+			},
+			{
+				CharmMetadataName: "foo",
+				CharmStorageType:  charm.StorageBlock,
+				Count:             1,
+				MaxCount:          3,
+				Name:              domainstorage.Name("st2"),
+				PoolUUID:          poolUUID,
+				Size:              2048,
+			},
+		},
+	)
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
