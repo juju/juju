@@ -54,7 +54,7 @@ to build them, then juju deploy the built artifact.
   * `juju deploy --force` no longer allows deploying to a base not declared by the charm. 
   * `juju refresh --force-series` removed; use `--force-base`.
 * **Status API filtering**: Server-side `StatusArgs.Patterns[]` filtering is removed (migrate to client-side filtering 
-until a replacement arrives).
+until a replacement arrives). For Juju users, this means that `juju status` no longer accepts selectors.
 * **Offers update (`juju offer`)**: Updating an existing offer is removed; use create/remove flows.
 * **Provider type rename (`manual` → `unmanaged`)**: Update all relevant cloud commands, bootstrap scripts, CI, and docs.
 * **Wait-for**: `juju wait-for` (and subcommands `wait-for model|application|machine|unit`) — removed. In `3.6` this 
