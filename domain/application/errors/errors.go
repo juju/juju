@@ -349,6 +349,33 @@ const (
 	// StorageNameNotSupported describes an error that occurs when
 	// a storage name is not supported by the charm.
 	StorageNameNotSupported = errors.ConstError("storage name not supported")
+
+	// StorageInstanceKindNotValidForCharmStorageDefinition describes an error
+	// that occurs when a storage instance's kind is not compatible with the
+	// kind required by the charm's storage definition.
+	StorageInstanceKindNotValidForCharmStorageDefinition = errors.ConstError(
+		"storage instance kind not valid for charm storage definition",
+	)
+
+	// StorageInstanceCharmNameMismatch describes an error that occurs when a
+	// storage instance is associated with a different charm name than the unit.
+	StorageInstanceCharmNameMismatch = errors.ConstError(
+		"storage instance charm name mismatch",
+	)
+
+	// StorageInstanceSizeNotValidForCharmStorageDefinition describes an error
+	// that occurs when a storage instance's size does not meet the minimum
+	// required by the charm's storage definition.
+	StorageInstanceSizeNotValidForCharmStorageDefinition = errors.ConstError(
+		"storage instance size not valid for charm storage definition",
+	)
+
+	// StorageInstanceAttachMachineOwnerMismatch describes an error that occurs
+	// when a storage instance's owning machine does not match the unit's
+	// machine.
+	StorageInstanceAttachMachineOwnerMismatch = errors.ConstError(
+		"storage instance owning machine does not match unit machine",
+	)
 )
 
 // StorageCountLimitExceeded describes an error that occurs when an operation

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
-	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // StorageDirectiveOverrides represents override instructions for application
@@ -188,15 +187,14 @@ type StorageService interface {
 		storageSize uint64,
 	) error
 
-	// MakeAttachExistingStorageArgs creates the storage arguments required to
-	// attach existing storage to a unit.
-	// The following errors may be expected:
-	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
-	// falls outside of the bounds defined by the charm.
-	MakeAttachExistingStorageArgs(
+	// MakeAttachStorageInstanceToUnitArg builds the arguments required to attach
+	// an existing storage instance to a unit. It constructs the attachment
+	// details, expected attachment checks, and unit precondition checks.
+	//
+	// This function does not perform validation; callers must validate inputs
+	// before invoking it.
+	MakeAttachStorageInstanceToUnitArg(
 		ctx context.Context,
-		netNodeUUID string,
-		storageUUID domainstorage.StorageInstanceUUID,
-		storageAttachInfo internal.StorageInfoForAttach,
+		storageAttachInfo internal.StorageInstanceInfoForUnitAttach,
 	) (internal.AttachStorageInstanceToUnitArg, error)
 }

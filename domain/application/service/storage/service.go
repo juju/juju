@@ -169,9 +169,9 @@ func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger
 	}
 }
 
-// encodeStorageKindFromCharmStorageType provides a mapping from charm storage
+// StorageKindFromCharmStorageType provides a mapping from charm storage
 // type to storage kind.
-func encodeStorageKindFromCharmStorageType(
+func StorageKindFromCharmStorageType(
 	storageType charm.StorageType,
 ) (domainstorage.StorageKind, error) {
 	switch storageType {
@@ -555,13 +555,13 @@ volumeAttachmentLoop:
 		rvalVolumeAttachmentProviderIDs
 }
 
-// makeStorageAttachmentArgFromExistingStorageInstance is responsible for taking
+// makeStorageAttachmentArgFromInstanceComposition is responsible for taking
 // an existing storage instance in the model and generating a corresponding
 // storage attachment creation argument.
 //
 // The attachment of the filesystem and volume will be done on to the supplied
 // net node and follow the information set on the existing storage instance.
-func makeStorageAttachmentArgFromExistingStorageInstance(
+func makeStorageAttachmentArgFromInstanceComposition(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.StorageInstanceComposition,
 ) (domainstorage.CreateStorageInstanceAttachmentArg, error) {
@@ -612,13 +612,11 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	return rval, nil
 }
 
-// makeStorageAttachmentArgFromStorageInstance is responsible generating a
-// storage attachment creation argument for either a new or existing
-// storage instance.
-//
-// The attachment of filesystem and volume will be done on to the supplied net
-// node and follow the information set on the storage instance.
-func makeStorageAttachmentArgFromStorageInstance(
+// makeStorageAttachmentArgFromCreateStorageInstance builds the attachment
+// arguments for a newly created storage instance. It maps the instance's
+// filesystem and volume details into a composition and delegates attachment
+// argument creation to [makeStorageAttachmentArgFromInstanceComposition].
+func makeStorageAttachmentArgFromCreateStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance domainstorage.CreateUnitStorageInstanceArg,
 ) (domainstorage.CreateUnitStorageAttachmentArg, error) {
@@ -662,11 +660,14 @@ func makeStorageAttachmentArgFromStorageInstance(
 			VolumeUUID:     storageInstance.Volume.UUID,
 			NetNodeUUID:    netNodeUUID,
 			ProvisionScope: storageInstance.Volume.ProvisionScope,
-			UUID:           uuid,
+			UUID:           storageInstance.Volume.UUID,
 		}
 	}
 
-	return rval, nil
+	return makeStorageAttachmentArgFromInstanceComposition(
+		netNodeUUID,
+		composition,
+	)
 }
 
 // MakeUnitStorageArgs creates the storage arguments required for a unit in
@@ -758,12 +759,8 @@ func (s *Service) MakeUnitStorageArgs(
 		rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
-			storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
-				attachNetNodeUUID, internal.AttachStorageInstanceArg{
-					Filesystem: inst.Filesystem,
-					Volume:     inst.Volume,
-					UUID:       inst.UUID,
-				},
+			storageAttachArg, err := makeStorageAttachmentArgFromCreateStorageInstance(
+				attachNetNodeUUID, inst,
 			)
 
 			if err != nil {
@@ -787,7 +784,7 @@ func (s *Service) MakeUnitStorageArgs(
 				}
 			}
 			storageAttachArg, err :=
-				makeStorageAttachmentArgFromExistingStorageInstance(
+				makeStorageAttachmentArgFromInstanceComposition(
 					attachNetNodeUUID, inst,
 				)
 			if err != nil {
@@ -906,12 +903,8 @@ func (s *Service) MakeUnitAddStorageArgs(
 	rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 	for _, inst := range instArgs {
-		storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
-			domainnetwork.NetNodeUUID(attachNetNodeUUID), internal.AttachStorageInstanceArg{
-				Filesystem: inst.Filesystem,
-				Volume:     inst.Volume,
-				UUID:       inst.UUID,
-			},
+		storageAttachArg, err := makeStorageAttachmentArgFromCreateStorageInstance(
+			domainnetwork.NetNodeUUID(attachNetNodeUUID), inst,
 		)
 
 		if err != nil {
@@ -949,7 +942,7 @@ func makeUnitStorageInstancesFromDirective(
 		return nil, nil
 	}
 
-	storageKind, err := encodeStorageKindFromCharmStorageType(directive.CharmStorageType)
+	storageKind, err := StorageKindFromCharmStorageType(directive.CharmStorageType)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1025,66 +1018,79 @@ func makeUnitStorageInstancesFromDirective(
 	return rval, nil
 }
 
-// MakeAttachExistingStorageArgs creates the storage arguments required to
-// attach existing storage to a unit.
-func (s Service) MakeAttachExistingStorageArgs(
+// MakeAttachStorageInstanceToUnitArg builds the arguments required to attach an
+// existing storage instance to a unit. It constructs the attachment details,
+// expected attachment checks, and unit precondition checks.
+//
+// This function does not perform validation; callers must validate inputs
+// before invoking it.
+func (s Service) MakeAttachStorageInstanceToUnitArg(
 	ctx context.Context,
-	attachNetNodeUUID string,
-	storageInstanceUUID domainstorage.StorageInstanceUUID,
-	storageAttachInfo internal.StorageInfoForAttach,
+	storageAttachInfo internal.StorageInstanceInfoForUnitAttach,
 ) (internal.AttachStorageInstanceToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
-	if err != nil {
-		return internal.AttachStorageInstanceToUnitArg{}, errors.Errorf(
-			"getting composition details for storage %q: %w", storageInstanceUUID, err,
-		)
+	// Build up a composition of the StorageInstance to generate the new
+	// attachment.
+	storageInstComposition := internal.StorageInstanceComposition{
+		StorageName: domainstorage.Name(storageAttachInfo.StorageName),
+		UUID:        storageAttachInfo.StorageInstanceInfo.UUID,
+	}
+	if storageAttachInfo.StorageInstanceInfo.Filesystem != nil {
+		storageInstComposition.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+			UUID: storageAttachInfo.StorageInstanceInfo.Filesystem.UUID,
+		}
+	}
+	if storageAttachInfo.StorageInstanceInfo.Volume != nil {
+		storageInstComposition.Volume = &internal.StorageInstanceCompositionVolume{
+			UUID: storageAttachInfo.StorageInstanceInfo.Volume.UUID,
+		}
 	}
 
-	instArg := internal.AttachStorageInstanceArg{
-		UUID: storageInstanceUUID,
-	}
-	if instComposition.Filesystem != nil {
-		instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
-			UUID:           instComposition.Filesystem.UUID,
-			ProvisionScope: instComposition.Filesystem.ProvisionScope,
-		}
-	}
-	if instComposition.Volume != nil {
-		instArg.Volume = &internal.CreateUnitStorageVolumeArg{
-			UUID:           instComposition.Volume.UUID,
-			ProvisionScope: instComposition.Volume.ProvisionScope,
-		}
-	}
-	storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
-		domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
+	storageAttachArg, err := makeStorageAttachmentArgFromInstanceComposition(
+		storageAttachInfo.UnitNamedStorageInfo.NetNodeUUID,
+		storageInstComposition,
 	)
 	if err != nil {
 		return internal.AttachStorageInstanceToUnitArg{}, errors.Errorf(
-			"making storage attachment arguments for new storage instance: %w", err,
+			"making storage attachment arg: %w", err,
 		)
 	}
 
-	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
-	result := internal.AttachStorageInstanceToUnitArg{
-		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
-			UUID:                 storageAttachArg.UUID,
-			FilesystemAttachment: storageAttachArg.FilesystemAttachment,
-			StorageInstanceUUID:  storageAttachArg.StorageInstanceUUID,
-			VolumeAttachment:     storageAttachArg.VolumeAttachment,
+	// Start creating the return val.
+	retVal := internal.AttachStorageInstanceToUnitArg{
+		CreateStorageInstanceAttachmentArg: storageAttachArg,
+		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
+			CharmUUID:          storageAttachInfo.UnitNamedStorageInfo.CharmUUID,
+			CountLessThanEqual: storageAttachInfo.UnitNamedStorageInfo.AlreadyAttachedCount,
+			MachineUUID:        storageAttachInfo.UnitNamedStorageInfo.MachineUUID,
 		},
 		StorageName:                    storageAttachInfo.CharmStorageDefinitionForValidation.Name,
 		CountLessThanEqual:             uint32(math.MaxUint32),
 		AllowedExistingUnitAttachments: allowedUUIDs,
 	}
 
-	// Record the max allowed count precondition.
-	// This will be checked inside the transaction.
-	if storageAttachInfo.CharmStorageDefinitionForValidation.CountMax > 0 {
-		result.CountLessThanEqual = uint32(storageAttachInfo.CharmStorageDefinitionForValidation.CountMax) - 1
+	// Set the expected attachment checks args for the storage instance.
+	existingAttachments := make(
+		[]domainstorage.StorageAttachmentUUID,
+		0,
+		len(storageAttachInfo.StorageInstanceAttachments),
+	)
+	for _, attachment := range storageAttachInfo.StorageInstanceAttachments {
+		existingAttachments = append(existingAttachments, attachment.UUID)
+	}
+	retVal.StorageInstanceAttachmentCheckArgs = internal.StorageInstanceAttachmentCheckArgs{
+		ExpectedAttachments: existingAttachments,
+		UUID:                storageAttachInfo.StorageInstanceInfo.UUID,
 	}
 
-	return result, nil
+	if storageAttachInfo.StorageInstanceInfo.CharmName == nil {
+		retVal.StorageInstanceCharmNameSetArg = &internal.StorageInstanceCharmNameSetArg{
+			CharmMetadataName: storageAttachInfo.UnitNamedStorageInfo.CharmMetadataName,
+			UUID:              storageAttachInfo.StorageInstanceInfo.UUID,
+		}
+	}
+
+	return retVal, nil
 }

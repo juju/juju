@@ -364,7 +364,7 @@ func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
-		Maximum:     ptr(2),
+		Maximum:     new(2),
 		Minimum:     0,
 		Requested:   4,
 		StorageName: "st1",

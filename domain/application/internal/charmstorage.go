@@ -36,6 +36,9 @@ type CharmStorageDefinitionForValidation struct {
 	// be attached to a unit fulfilling this Storage Definition. The value is
 	// expressed MiB.
 	MinimumSize uint64
+
+	// Shared indicates the storage definition is shared between units.
+	Shared bool
 }
 
 // StorageDefinitionForValidationFromCharm converts a charm storage definition
@@ -49,6 +52,7 @@ func StorageDefinitionForValidationFromCharm(
 		CountMin:    def.CountMin,
 		CountMax:    def.CountMax,
 		MinimumSize: def.MinimumSize,
+		Shared:      def.Shared,
 	}
 }
 

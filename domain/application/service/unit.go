@@ -239,14 +239,18 @@ type UnitState interface {
 	// and select details for the storage instance on the specified unit.
 	// The details include how many existing instances of the same named storage
 	// already exist, the requested size, and the instance's storage pool.
-	// The following error types can be expected:
-	// - [applicationerrors.storageerrors.StorageInstanceNotFound]: when storage
-	// instance does not exist.
-	// - [applicationerrors.StorageNameNotSupported]: when the storage instance
-	//  name is not defined in charm metadata.
+	//
+	// The following errors can be expected:
+	// - [applicationerrors.UnitNotFound] when the unit does not exist.
+	// - [storageerrors.StorageInstanceNotFound] when the storage instance does not
+	// exist.
+	// - [applicationerrors.StorageNameNotSupported] when the unit's charm does not
+	// define the storage name in use by the storage instance.
 	GetStorageAttachInfoByUnitUUIDAndStorageUUID(
-		ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
-	) (internal.StorageInfoForAttach, error)
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		storageUUID domainstorage.StorageInstanceUUID,
+	) (internal.StorageInstanceInfoForUnitAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -305,21 +309,28 @@ type UnitState interface {
 		uUUID coreunit.UUID,
 	) (bool, error)
 
-	// AttachStorageToUnit attaches the storage instance to a CAAS unit.
+	// AttachStorageToUnit attaches an existing storage instance to a unit.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
-	// unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
-	// unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
-	// when the storage instance does not exist.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when
-	// the storage instance is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
-	// when the requested storage falls outside of the bounds defined by the charm.
+	// - [storageerrors.StorageInstanceNotFound] when the storage instance does
+	// not exist.
+	// - [storageerrors.StorageInstanceNotAlive] when the storage instance is not
+	// alive.
+	// - [applicationerrors.UnitNotFound] when the unit does not exist.
+	// - [applicationerrors.UnitNotAlive] when the unit is not alive.
+	// - [applicationerrors.StorageInstanceAlreadyAttachedToUnit] when the
+	// storage instance is already attached to the unit.
+	// - [applicationerrors.UnitAttachmentCountExceedsLimit] when the unit
+	// already has too many attachments for the storage name.
+	// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed.
+	// - [applicationerrors.UnitMachineChanged] when the unit's machine has
+	// changed.
+	// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the
+	// storage instance has attachments outside the expected set.
 	AttachStorageToUnit(
-		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-		storageArg internal.AttachStorageInstanceToUnitArg) error
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		storageArg internal.AttachStorageInstanceToUnitArg,
+	) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
