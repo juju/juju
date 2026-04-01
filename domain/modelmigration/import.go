@@ -65,6 +65,9 @@ func ImportOperations(
 
 	lease.RegisterImport(coordinator, logger.Child("lease"))
 	externalcontroller.RegisterImport(coordinator)
+	// External users must be imported before credentials since an external
+	// user may be the model owner referenced during credential import.
+	access.RegisterExternalUsersImport(coordinator, clock, logger.Child("access"))
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterModelImport(coordinator, clock, logger.Child("model"))
 

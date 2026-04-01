@@ -18,6 +18,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -184,6 +185,175 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *tc.C) {
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, accesserrors.UserAuthenticationDisabled)
+}
+
+// TestImportExternalUsers verifies that external users are created via
+// ImportExternalUsers and that permissions and last login are set in a single
+// unified pass alongside local users.
+func (s *importSuite) TestImportExternalUsers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	modelUUID := model.UUID()
+	modelID := permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelUUID,
+	}
+
+	adminTime := time.Now().Truncate(time.Minute).UTC()
+	adminArgs := description.UserArgs{
+		Name:           "admin",
+		Access:         string(permission.AdminAccess),
+		CreatedBy:      "admin",
+		DateCreated:    time.Now(),
+		DisplayName:    "admin",
+		LastConnection: adminTime,
+	}
+
+	extTime := time.Now().Truncate(time.Minute).UTC()
+	extArgs := description.UserArgs{
+		Name:           "bob@external",
+		Access:         string(permission.ReadAccess),
+		CreatedBy:      "bob@external",
+		DateCreated:    time.Now().Add(-time.Hour),
+		DisplayName:    "Bob External",
+		LastConnection: extTime,
+	}
+
+	model.AddUser(adminArgs)
+	model.AddUser(extArgs)
+
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The permissions operation no longer calls ImportExternalUsers — that is
+	// handled by the separate importExternalUsersOperation.
+	s.service.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: modelID,
+			Access: permission.AdminAccess,
+		},
+		User: user.AdminUserName,
+	})
+	s.service.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: modelID,
+			Access: permission.ReadAccess,
+		},
+		User: bobExtName,
+	})
+	s.service.EXPECT().SetLastModelLogin(gomock.Any(), user.AdminUserName, coremodel.UUID(modelUUID), adminTime)
+	s.service.EXPECT().SetLastModelLogin(gomock.Any(), bobExtName, coremodel.UUID(modelUUID), extTime)
+
+	op := s.newImportOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+type importExternalUsersSuite struct {
+	coordinator *MockCoordinator
+	service     *MockImportExternalUsersService
+}
+
+func TestImportExternalUsersSuite(t *testing.T) {
+	tc.Run(t, &importExternalUsersSuite{})
+}
+
+func (s *importExternalUsersSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.coordinator = NewMockCoordinator(ctrl)
+	s.service = NewMockImportExternalUsersService(ctrl)
+
+	c.Cleanup(func() {
+		s.coordinator = nil
+		s.service = nil
+	})
+
+	return ctrl
+}
+
+func (s *importExternalUsersSuite) newImportExternalUsersOperation() *importExternalUsersOperation {
+	return &importExternalUsersOperation{
+		service: s.service,
+	}
+}
+
+func (s *importExternalUsersSuite) TestRegisterExternalUsersImport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.coordinator.EXPECT().Add(gomock.Any())
+
+	RegisterExternalUsersImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+// TestImportExternalUsersNoUsers verifies that the operation is a no-op when
+// the model has no users.
+func (s *importExternalUsersSuite) TestImportExternalUsersNoUsers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	op := s.newImportExternalUsersOperation()
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersOnlyLocalUsers verifies that the operation is a no-op
+// when all model users are local (no external users to create).
+func (s *importExternalUsersSuite) TestImportExternalUsersOnlyLocalUsers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddUser(description.UserArgs{
+		Name:        "admin",
+		Access:      string(permission.AdminAccess),
+		CreatedBy:   "admin",
+		DateCreated: time.Now(),
+	})
+
+	op := s.newImportExternalUsersOperation()
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersCreatesExternalUsers verifies that external users from
+// the model description are passed to ImportExternalUsers with their display
+// name and creation date preserved.
+func (s *importExternalUsersSuite) TestImportExternalUsersCreatesExternalUsers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	extDate := time.Now().Add(-time.Hour).Truncate(time.Minute).UTC()
+	model.AddUser(description.UserArgs{
+		Name:        "admin",
+		Access:      string(permission.AdminAccess),
+		CreatedBy:   "admin",
+		DateCreated: time.Now(),
+	})
+	model.AddUser(description.UserArgs{
+		Name:           "bob@external",
+		Access:         string(permission.ReadAccess),
+		CreatedBy:      "bob@external",
+		DateCreated:    extDate,
+		DisplayName:    "Bob External",
+		LastConnection: time.Now(),
+	})
+
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.service.EXPECT().ImportExternalUsers(gomock.Any(), []internal.ExternalUserImport{
+		{
+			Name:        bobExtName,
+			DisplayName: "Bob External",
+			DateCreated: extDate,
+		},
+	}).Return(nil)
+
+	op := s.newImportExternalUsersOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type importOfferAccessSuite struct {

@@ -123,6 +123,44 @@ func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// AddUserWithCreatedAt mocks base method.
+func (m *MockState) AddUserWithCreatedAt(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddUserWithCreatedAt", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddUserWithCreatedAt indicates an expected call of AddUserWithCreatedAt.
+func (mr *MockStateMockRecorder) AddUserWithCreatedAt(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateAddUserWithCreatedAtCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithCreatedAt", reflect.TypeOf((*MockState)(nil).AddUserWithCreatedAt), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockStateAddUserWithCreatedAtCall{Call: call}
+}
+
+// MockStateAddUserWithCreatedAtCall wrap *gomock.Call
+type MockStateAddUserWithCreatedAtCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddUserWithCreatedAtCall) Return(arg0 error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddUserWithCreatedAtCall) Do(f func(context.Context, user.UUID, user.Name, string, user.UUID, time.Time) error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddUserWithCreatedAtCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, user.UUID, time.Time) error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddUserWithPasswordHash mocks base method.
 func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
