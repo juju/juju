@@ -1326,7 +1326,7 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 		if err != nil {
 			return errors.Capture(err)
 		}
-		st.unitState.insertUnitStorageAttachments(
+		err = st.unitState.insertUnitStorageAttachments(
 			ctx, tx, unit.String(), storage.StorageToAttach)
 		if err != nil {
 			return errors.Capture(err)

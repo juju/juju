@@ -1944,9 +1944,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *tc.C) {
 	id := charmtesting.GenCharmID(c).String()
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.checkCharmExists(ctx, tx, entityUUID{
-			UUID: id,
-		})
+		return s.state.checkCharmExists(ctx, tx, id)
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }

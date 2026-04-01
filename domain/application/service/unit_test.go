@@ -80,6 +80,9 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 
 	id := charmtesting.GenCharmID(c)
 	unitName := coreunit.Name("bar/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	args := applicationinternal.CreateUnitStorageArg{}
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -87,7 +90,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 		Source:   charm.CharmHubSource,
 	}
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
-	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, id).Return(applicationerrors.UnitNotFound)
+	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitUUID, id, args).Return(applicationerrors.UnitNotFound)
 
 	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -98,6 +101,9 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 
 	id := charmtesting.GenCharmID(c)
 	unitName := coreunit.Name("bar/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	args := applicationinternal.CreateUnitStorageArg{}
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -105,7 +111,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 		Source:   charm.CharmHubSource,
 	}
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
-	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, id).Return(nil)
+	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), unitUUID, id, args).Return(nil)
 
 	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIsNil)
