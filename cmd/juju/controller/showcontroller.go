@@ -347,10 +347,6 @@ type ControllerDetails struct {
 	// ControllerModelVersion is the version in the controller model config state.
 	ControllerModelVersion string `yaml:"controller-model-version,omitempty" json:"controller-model-version,omitempty"`
 
-	// MongoVersion is the version of the mongo server running on this
-	// controller.
-	MongoVersion string `yaml:"mongo-version,omitempty" json:"mongo-version,omitempty"`
-
 	// IdentityURL contails the address of an external identity provider
 	// if one has been configured for this controller.
 	IdentityURL string `yaml:"identity-url,omitempty" json:"identity-url,omitempty"`

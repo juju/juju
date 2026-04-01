@@ -808,8 +808,8 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 // TODO(jack-w-shaw): This watcher only exists to maintain backwards
 // compatibility with the uniter agent facade. Specifically, version 20 of the
 // facade implements a Watch endpoint, which can watches for _any_ change to the
-// unit doc in Mongo. Once we no longer need to support facade 20, we can drop
-// this method.
+// unit doc in 3.6 or earlier. Once we no longer need to support facade 20, we
+// can drop this method.
 func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

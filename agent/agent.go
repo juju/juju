@@ -157,7 +157,6 @@ const (
 	ContainerType     = "CONTAINER_TYPE"
 	Namespace         = "NAMESPACE"
 	AgentServiceName  = "AGENT_SERVICE_NAME"
-	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
 
 	// LoggingOverride will set the logging for this agent to the value

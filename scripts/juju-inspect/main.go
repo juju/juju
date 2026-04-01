@@ -31,9 +31,6 @@ func main() {
 		log.Fatal("expected at least on file")
 	}
 	allRules := []Rule{
-		rules.NewRaftRule(),
-		rules.NewMongoRule(),
-		rules.NewPubsubRule(),
 		rules.NewManifoldsRule(includeNested),
 		rules.NewStartCountRule(includeNested, startCountAmount),
 	}
