@@ -1293,6 +1293,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			CpuPower:         args.Constraints.CpuPower,
 			Tags:             args.Constraints.Tags,
 			AvailabilityZone: &zone,
+			RootDiskSource:   args.Constraints.RootDiskSource,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {

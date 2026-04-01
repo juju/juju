@@ -571,10 +571,12 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	cores := uint64(2)
 	mem := uint64(2048)
 	it := "t2.micro"
+	rootDiskSource := "test-storage-pool"
 	args.Constraints = constraints.Value{
-		CpuCores:     &cores,
-		Mem:          &mem,
-		InstanceType: &it,
+		CpuCores:       &cores,
+		Mem:            &mem,
+		InstanceType:   &it,
+		RootDiskSource: &rootDiskSource,
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
@@ -582,6 +584,8 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.NotNil)
 	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
+	c.Assert(res.Hardware.RootDiskSource, gc.NotNil)
+	c.Assert(*res.Hardware.RootDiskSource, gc.Equals, "test-storage-pool")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {

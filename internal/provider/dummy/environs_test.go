@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -161,9 +162,11 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, s.callCtx, s.ControllerUUID, "0")
+	inst, hwc := jujutesting.AssertStartInstanceWithConstraints(c, e, s.callCtx, s.ControllerUUID, "0", constraints.MustParse("root-disk-source=test-storage-pool"))
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.AvailabilityZone, gc.NotNil)
+	c.Assert(hwc.RootDiskSource, gc.NotNil)
+	c.Check(*hwc.RootDiskSource, gc.Equals, "test-storage-pool")
 }
 
 func (s *suite) TestSupportsSpaces(c *gc.C) {

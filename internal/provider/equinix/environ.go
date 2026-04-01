@@ -541,12 +541,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	inst := newInstance(d, e)
 
 	arch := getArchitectureFromPlan(d.Plan.Name)
+
 	r := &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &instance.HardwareCharacteristics{
-			Arch: &arch,
-			Mem:  &spec.InstanceType.Mem,
-			// RootDisk: &instanceSpec.InstanceType.RootDisk,
+			Arch:     &arch,
+			Mem:      &spec.InstanceType.Mem,
 			CpuCores: &spec.InstanceType.CpuCores,
 		},
 	}

@@ -551,11 +551,13 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.ensureAMDImages(c)
 	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64 root-disk-source=local"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	c.Assert(hc.CpuPower, gc.IsNil)
+	c.Assert(hc.RootDiskSource, gc.NotNil)
+	c.Check(*hc.RootDiskSource, gc.Equals, "local")
 }
 
 func (s *localServerSuite) TestInstanceName(c *gc.C) {

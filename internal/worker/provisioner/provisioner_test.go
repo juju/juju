@@ -362,12 +362,13 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 					zone := hc.AvailabilityZone
 					hc.AvailabilityZone = nil
 					c.Assert(*hc, gc.DeepEquals, instance.HardwareCharacteristics{
-						Arch:     cons.Arch,
-						Mem:      cons.Mem,
-						RootDisk: cons.RootDisk,
-						CpuCores: cons.CpuCores,
-						CpuPower: cons.CpuPower,
-						Tags:     cons.Tags,
+						Arch:           cons.Arch,
+						Mem:            cons.Mem,
+						RootDisk:       cons.RootDisk,
+						CpuCores:       cons.CpuCores,
+						CpuPower:       cons.CpuPower,
+						Tags:           cons.Tags,
+						RootDiskSource: cons.RootDiskSource,
 					})
 					hc.AvailabilityZone = zone
 				}
