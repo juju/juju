@@ -146,7 +146,8 @@ func (st *State) setRelationApplicationAndUnitSettings(
 	unitUUID string,
 	settings internal.RelationSettings,
 ) error {
-	if len(settings.Settings) == 0 && len(settings.ApplicationSettings) == 0 {
+	if len(settings.UnitSet) == 0 && len(settings.ApplicationSet) == 0 &&
+		len(settings.UnitUnset) == 0 && len(settings.ApplicationUnset) == 0 {
 		return nil
 	}
 
@@ -157,13 +158,17 @@ func (st *State) setRelationApplicationAndUnitSettings(
 		return err
 	}
 
-	err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings.Settings)
+	err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings.UnitSet, settings.UnitUnset)
 	if err != nil {
 		return err
 	}
 
 	err = st.setRelationApplicationSettings(
-		ctx, tx, settings.RelationUUID.String(), applicationUUID, settings.ApplicationSettings,
+		ctx, tx,
+		settings.RelationUUID.String(),
+		applicationUUID,
+		settings.ApplicationSet,
+		settings.ApplicationUnset,
 	)
 	if err != nil {
 		return errors.Errorf("setting relation application settings: %w", err)
@@ -177,15 +182,14 @@ func (st *State) setRelationUnitSettings(
 	tx *sqlair.TX,
 	relationUnitUUID string,
 	settings map[string]string,
+	unset keys,
 ) error {
-	// If the settings are nil then there is nothing to do. Do not check for
-	// length of 0, as that is valid for deleting all settings.
-	if settings == nil {
+	if len(settings) == 0 && len(unset) == 0 {
 		return nil
 	}
 
 	// Update the unit settings specified in the settings argument.
-	err := st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+	err := st.updateUnitSettings(ctx, tx, relationUnitUUID, settings, unset)
 	if err != nil {
 		return errors.Errorf("updating relation unit settings: %w", err)
 	}
@@ -217,10 +221,9 @@ func (st *State) setRelationApplicationSettings(
 	relationUUID string,
 	applicationID string,
 	settings map[string]string,
+	unset keys,
 ) error {
-	// If the settings are nil then there is nothing to do. Do not check for
-	// length of 0, as that is valid for deleting all settings.
-	if settings == nil {
+	if len(settings) == 0 && len(unset) == 0 {
 		return nil
 	}
 
@@ -231,7 +234,7 @@ func (st *State) setRelationApplicationSettings(
 	}
 
 	// Update the application settings specified in the settings argument.
-	err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings)
+	err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings, unset)
 	if err != nil {
 		return errors.Errorf("updating relation application settings: %w", err)
 	}
@@ -261,29 +264,16 @@ func (st *State) setRelationApplicationSettings(
 // provided settings map. If the value of a setting is empty then the setting is
 // deleted, otherwise it is inserted/updated.
 func (st *State) updateUnitSettings(
-	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string,
+	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string, unset keys,
 ) error {
-	if len(settings) == 0 {
-		return nil
-	}
-
-	// TODO: (hml) 31-Mar-2026
-	// move to service both here and in the relation domain for units
-	// applications and remote units.
-
 	// Determine the keys to set and unset.
 	var set []relationUnitSetting
-	var unset keys
 	for k, v := range settings {
-		if v == "" {
-			unset = append(unset, k)
-		} else {
-			set = append(set, relationUnitSetting{
-				UUID:  relUnitUUID,
-				Key:   k,
-				Value: v,
-			})
-		}
+		set = append(set, relationUnitSetting{
+			UUID:  relUnitUUID,
+			Key:   k,
+			Value: v,
+		})
 	}
 
 	// Update the keys to set.
@@ -440,24 +430,20 @@ func (st *State) updateApplicationSettings(
 	tx *sqlair.TX,
 	endpointUUID string,
 	settings map[string]string,
+	unset keys,
 ) error {
-	if len(settings) == 0 {
+	if len(settings) == 0 && len(unset) == 0 {
 		return nil
 	}
 
 	// Determine the keys to set and unset.
 	var set []relationApplicationSetting
-	var unset keys
 	for k, v := range settings {
-		if v == "" {
-			unset = append(unset, k)
-		} else {
-			set = append(set, relationApplicationSetting{
-				UUID:  endpointUUID,
-				Key:   k,
-				Value: v,
-			})
-		}
+		set = append(set, relationApplicationSetting{
+			UUID:  endpointUUID,
+			Key:   k,
+			Value: v,
+		})
 	}
 
 	// Update the keys to set.

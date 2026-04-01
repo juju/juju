@@ -1550,7 +1550,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationUnitSettings(c *tc.C) {
 		"unitKey": "unitValue",
 	}
 	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
-	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, unitSettings).Return(nil)
+	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, unitSettings, nil).Return(nil)
 
 	// Act:
 	err := s.leadershipService.SetRelationUnitSettings(c.Context(), unitName, relationUUID, unitSettings)
@@ -1567,10 +1567,10 @@ func (s *relationLeadershipServiceSuite) TestSetRelationUnitSettingsEmpty(c *tc.
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	unitSettings := make(map[string]string)
 
 	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
-	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, unitSettings).Return(nil)
+	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, nil, nil).Return(nil)
+	unitSettings := make(map[string]string)
 
 	// Act:
 	err := s.leadershipService.SetRelationUnitSettings(c.Context(), unitName, relationUUID, unitSettings)

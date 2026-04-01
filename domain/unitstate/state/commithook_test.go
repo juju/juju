@@ -145,9 +145,9 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: unitUUID,
 		RelationSettings: []internal.RelationSettings{{
-			RelationUUID:        relationUUID,
-			ApplicationSettings: appSettings,
-			Settings:            unitSettings,
+			RelationUUID:   relationUUID,
+			ApplicationSet: appSettings,
+			UnitSet:        unitSettings,
 		}},
 	}
 

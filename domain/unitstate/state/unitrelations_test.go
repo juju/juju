@@ -254,7 +254,6 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) 
 	}
 	appSettingsUpdate := map[string]string{
 		"key2": "value22",
-		"key3": "",
 	}
 	appExpectedSettings := map[string]string{
 		"key1": "value1",
@@ -276,7 +275,6 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) 
 	}
 	unitSettingsUpdate := map[string]string{
 		"key2": "value22",
-		"key3": "",
 	}
 	unitExpectedSettings := map[string]string{
 		"key1": "value1",
@@ -293,9 +291,11 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) 
 			tx,
 			unitUUID.String(),
 			internal.RelationSettings{
-				RelationUUID:        relationUUID,
-				Settings:            unitSettingsUpdate,
-				ApplicationSettings: appSettingsUpdate,
+				RelationUUID:     relationUUID,
+				UnitSet:          unitSettingsUpdate,
+				UnitUnset:        []string{"key3"},
+				ApplicationSet:   appSettingsUpdate,
+				ApplicationUnset: []string{"key3"},
 			},
 		)
 	})

@@ -347,7 +347,7 @@ func (st *State) insertRelationUnitSettings(
 		return relationerrors.RelationUnitNotFound
 	}
 
-	// Update the unit settings specified in the settings argument.
+	// Update the unit settings to those specified in the settings argument.
 	err = st.replaceUnitSettings(ctx, tx, relationUnitUUID, settings)
 	if err != nil {
 		return errors.Errorf("updating relation unit settings: %w", err)

@@ -24,6 +24,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
@@ -232,6 +233,7 @@ type State interface {
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
+		unset []string,
 	) error
 }
 
@@ -340,7 +342,33 @@ func (s *LeadershipService) SetRelationUnitSettings(
 		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
 	}
 
-	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
+	settings, unset := parseForSetAndUnsetSettings(unitSettings)
+
+	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings, unset))
+}
+
+func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []string) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	// Determine the keys to set and unset.
+	out := make(unitstate.Settings, 0)
+	unset := make([]string, 0)
+	for k, v := range in {
+		if v == "" {
+			unset = append(unset, k)
+		} else {
+			out[k] = v
+		}
+	}
+	if len(out) > 0 && len(unset) == 0 {
+		return out, nil
+	} else if len(unset) > 0 && len(out) == 0 {
+		return nil, unset
+	}
+
+	return out, unset
 }
 
 // Service provides the API for working with relations.
