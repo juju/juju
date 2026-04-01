@@ -25,6 +25,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -276,9 +277,6 @@ func (api *OffersAPI) getApplicationOffersDetails(
 			offerDetails.OfferURL = corecrossmodel.MakeURL(m.Qualifier.String(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
-
-		// TODO (cmr)
-		// Add offer connections if apiUser is superuser, model or offer admin
 	}
 	return result, nil
 }
@@ -348,7 +346,12 @@ func (api *OffersAPI) applicationOffersFromModel(
 	requiredAccess permission.Access,
 	filters []crossmodelrelationservice.OfferFilter,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
-	if err := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), requiredAccess); err != nil {
+	// If the user is a controller superuser or model admin, they are
+	// considered admin and can see all offers and their connections.
+	isAdmin := api.checkAPIUserAdmin(ctx, model.UUID(modelUUID)) == nil
+
+	// If admin access is required and the user is not an admin, reject.
+	if requiredAccess == permission.AdminAccess && !isAdmin {
 		return nil, apiservererrors.ErrPerm
 	}
 
@@ -363,16 +366,32 @@ func (api *OffersAPI) applicationOffersFromModel(
 		return nil, errors.Capture(err)
 	}
 
-	// Process data.
+	modelTag := names.NewModelTag(modelUUID)
+	controllerTag := names.NewControllerTag(api.controllerUUID)
+
+	// Process data. For non-admin users, check per-offer access and skip
+	// offers the user has no access to.
 	var results []params.ApplicationOfferAdminDetailsV5
+	var adminOfferUUIDs []string
 	for _, appOffer := range offers {
-		isAdminUser := api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID)) == nil
+		isOfferAdmin := isAdmin
+		if !isAdmin {
+			userAccess, err := api.checkOfferAccess(ctx, apiUser, controllerTag, modelTag, appOffer.OfferUUID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			if userAccess == permission.NoAccess {
+				continue
+			}
+			isOfferAdmin = userAccess == permission.AdminAccess
+		}
+
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
 			appOffer,
 			apiUser,
 			apiUserDisplayName,
-			isAdminUser,
+			isOfferAdmin,
 		)
 
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
@@ -384,8 +403,71 @@ func (api *OffersAPI) applicationOffersFromModel(
 			ApplicationName:           appOffer.ApplicationName,
 			CharmURL:                  charmURL,
 		})
+		if isOfferAdmin {
+			adminOfferUUIDs = append(adminOfferUUIDs, appOffer.OfferUUID)
+		}
 	}
+
+	// Populate offer connections for offers where the user has admin access.
+	if len(adminOfferUUIDs) > 0 {
+		offerIndexByUUID := make(map[string]int, len(results))
+		for i, r := range results {
+			offerIndexByUUID[r.OfferUUID] = i
+		}
+		connections, err := crossModelRelationService.GetOfferConnections(ctx, adminOfferUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, conn := range connections {
+			idx, ok := offerIndexByUUID[conn.OfferUUID]
+			if !ok {
+				continue
+			}
+			results[idx].Connections = append(results[idx].Connections, makeOfferConnection(conn))
+		}
+	}
+
 	return results, nil
+}
+
+// checkOfferAccess returns the level of access the authenticated user has to the offer,
+// checking in decreasing order: controller superuser, model admin, then
+// offer-level permissions (admin, consume, read).
+func (api *OffersAPI) checkOfferAccess(
+	ctx context.Context,
+	user names.UserTag,
+	controllerTag names.ControllerTag,
+	modelTag names.ModelTag,
+	offerUUID string,
+) (permission.Access, error) {
+	// If the authenticated user is controller superuser we return admin.
+	err := api.authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, controllerTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return permission.NoAccess, errors.Capture(err)
+	} else if err == nil {
+		return permission.AdminAccess, nil
+	}
+
+	// If the authenticated user is model admin we return admin.
+	err = api.authorizer.EntityHasPermission(ctx, user, permission.AdminAccess, modelTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return permission.NoAccess, errors.Capture(err)
+	} else if err == nil {
+		return permission.AdminAccess, nil
+	}
+
+	// Check offer-level permissions in decreasing order.
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	for _, access := range []permission.Access{permission.AdminAccess, permission.ConsumeAccess, permission.ReadAccess} {
+		err := api.authorizer.EntityHasPermission(ctx, user, access, offerTag)
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return permission.NoAccess, errors.Capture(err)
+		} else if err == nil {
+			return access, nil
+		}
+	}
+
+	return permission.NoAccess, nil
 }
 
 func (api *OffersAPI) makeOfferParams(
@@ -456,6 +538,21 @@ func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) per
 		}
 	}
 	return permission.NoAccess
+}
+
+func makeOfferConnection(conn crossmodelrelation.OfferConnectionDetail) params.OfferConnection {
+	return params.OfferConnection{
+		SourceModelTag: names.NewModelTag(conn.SourceModelUUID).String(),
+		RelationId:     conn.RelationID,
+		Username:       conn.Username,
+		Endpoint:       conn.Endpoint,
+		Status: params.EntityStatus{
+			Status: status.Status(conn.Status),
+			Info:   conn.Message,
+			Since:  conn.StatusSince,
+		},
+		IngressSubnets: conn.IngressSubnets,
+	}
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelationservice.OfferFilter, error) {

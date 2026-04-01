@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/application/architecture"
@@ -19,6 +20,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainstatus "github.com/juju/juju/domain/status"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type modelOfferSuite struct {
@@ -660,6 +662,116 @@ func (s *modelOfferSuite) setupOfferConnection(c *tc.C) (string, string) {
 	s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoining)
 
 	return crossModelRelUUID, offerUUID.String()
+}
+
+// addOfferConnectionWithConsumer sets up a complete offer connection scenario
+// including the synthetic remote consumer application. It returns the offer
+// UUID, consumer model UUID, and relation UUID.
+func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string) {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appName := "test-app"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+
+	offerUUID := s.addOffer(c, "test-offer", []string{appEndpointUUID})
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID.String(), appEndpointUUID)
+
+	connUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'consumer-user')`, connUUID, offerUUID, relUUID)
+
+	synthCharmUUID := s.addCMRCharm(c)
+	s.addCharmMetadata(c, synthCharmUUID, false)
+	s.query(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, 'remote-consumer', 0, ?, ?)`, connUUID, synthCharmUUID, network.AlphaSpaceId)
+
+	consumerModelUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO application_remote_consumer
+(offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, connUUID, appUUID, internaluuid.MustNewUUID().String(), consumerModelUUID)
+
+	return offerUUID.String(), consumerModelUUID, relUUID.String()
+}
+
+func (s *modelOfferSuite) TestGetOfferConnections(c *tc.C) {
+	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+
+	// Set relation status with message and timestamp.
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+VALUES (?, '1', 'test message', '2025-06-15T10:30:00Z')`, relUUID)
+
+	// Add ingress subnets.
+	s.query(c, `
+INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '10.0.0.0/24')`, relUUID)
+	s.query(c, `
+INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '192.168.1.0/24')`, relUUID)
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(connections, tc.HasLen, 1)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].SourceModelUUID, tc.Equals, consumerModelUUID)
+	c.Check(connections[0].RelationID, tc.Equals, 0)
+	c.Check(connections[0].Username, tc.Equals, "consumer-user")
+	c.Check(connections[0].Endpoint, tc.Equals, "db")
+	c.Check(connections[0].Status, tc.Equals, "joined")
+	c.Check(connections[0].Message, tc.Equals, "test message")
+	c.Assert(connections[0].StatusSince, tc.Not(tc.IsNil))
+	c.Check(connections[0].StatusSince.UTC().Format("2006-01-02T15:04:05Z"), tc.Equals, "2025-06-15T10:30:00Z")
+	c.Check(connections[0].IngressSubnets, tc.SameContents, []string{"10.0.0.0/24", "192.168.1.0/24"})
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsNullMessageAndTimestamp(c *tc.C) {
+	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+
+	// Set relation status with NULL message and NULL updated_at.
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID)
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.HasLen, 1)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].SourceModelUUID, tc.Equals, consumerModelUUID)
+	c.Check(connections[0].Username, tc.Equals, "consumer-user")
+	c.Check(connections[0].Endpoint, tc.Equals, "db")
+	c.Check(connections[0].Status, tc.Equals, "joining")
+	c.Check(connections[0].Message, tc.Equals, "")
+	c.Check(connections[0].StatusSince, tc.IsNil)
+	c.Check(connections[0].IngressSubnets, tc.IsNil)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsNoConnections(c *tc.C) {
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{internaluuid.MustNewUUID().String()})
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.HasLen, 0)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsEmptyUUIDs(c *tc.C) {
+	connections, err := s.state.GetOfferConnections(c.Context(), nil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.IsNil)
 }
 
 func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
