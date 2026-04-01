@@ -2466,10 +2466,10 @@ LIMIT 1;
 //
 // The following errors can be expected:
 // - [applicationerrors.UnitNotFound] when the unit does not exist.
-// - [applicationerrors.StorageNameNotSupported] when the unit's charm does not
-// support the storage name in use by the storage instance.
 // - [storageerrors.StorageInstanceNotFound] when the storage instance does not
 // exist.
+// - [applicationerrors.StorageNameNotSupported] when the unit's charm does not
+// define the storage name in use by the storage instance.
 func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
@@ -2549,6 +2549,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 				CountMax:    unitStorageNameInfo.StorageDefinitionCountMax,
 				MinimumSize: unitStorageNameInfo.StorageDefinitionMinimumSize,
 				Name:        unitStorageNameInfo.StorageDefinitionName,
+				Shared:      unitStorageNameInfo.StorageDefinitionShared,
 				Type:        domainapplicationcharm.StorageType(unitStorageNameInfo.StorageDefinitionKind),
 			},
 			CharmMetadataName: unitStorageNameInfo.CharmMetadataName,

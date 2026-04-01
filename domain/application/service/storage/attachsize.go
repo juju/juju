@@ -1,0 +1,33 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package storage
+
+import (
+	"github.com/juju/juju/domain/application/internal"
+	domainstorage "github.com/juju/juju/domain/storage"
+)
+
+// CalculateStorageInstanceSizeForAttachment returns the size in MiB to use
+// when validating a storage instance for attachment. Filesystem or volume
+// provisioned sizes are used when set; otherwise the requested size is used.
+// If the kind is unknown, the requested size is used.
+func CalculateStorageInstanceSizeForAttachment(info internal.StorageInstanceInfo) uint64 {
+	requestedSize := info.RequestedSizeMIB
+	if requestedSize < 0 {
+		requestedSize = 0
+	}
+	fallback := uint64(requestedSize)
+
+	switch info.Kind {
+	case domainstorage.StorageKindFilesystem:
+		if info.Filesystem != nil && info.Filesystem.Size != 0 {
+			return uint64(info.Filesystem.Size)
+		}
+	case domainstorage.StorageKindBlock:
+		if info.Volume != nil && info.Volume.Size != 0 {
+			return uint64(info.Volume.Size)
+		}
+	}
+	return fallback
+}
