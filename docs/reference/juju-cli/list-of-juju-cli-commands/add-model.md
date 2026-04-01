@@ -39,9 +39,9 @@ Model names may only contain lowercase letters, digits and hyphens, and
 may not start with a hyphen.
 
 To add a model, Juju requires a credential:
-* if you have a default (or just one) credential defined at client
+* if you have a default (or just one) credential defined on your client
   (i.e. in `credentials.yaml`), then juju will use that;
-* if you have no default (and multiple) credentials defined at the client,
+* if you have no default (or multiple) credentials defined on your client,
   then you must specify one using `--credential`;
 * as the admin user you can omit the credential,
   and the credential used to bootstrap will be used.
@@ -50,6 +50,19 @@ To add a credential for add-model, use one of the `juju add-credential` or
 `juju autoload-credentials` commands. These will add credentials
 to the Juju client, which `juju add-model` will upload to the controller
 as necessary.
+
+A model's credential (whether specified explicitly or used by default) will be
+visible to users who have be granted write or admin access to the model.
+This is because trusted charms may request the credential to create resources on
+the cloud on behalf of the model.
+
+Juju uses the BYO credential paradigm, meaning that users who have been granted
+add-model permission on a cloud are able to create their own model(s) on that
+cloud, but they are also then expected to supply their own credential.
+As a controller superuser, it is therefore not recommended that you create
+models for other users using your own credential, or any credential that you do
+not want to be potentially visible to charms or other users with model write
+access.
 
 You may also supply model-specific configuration as well as a
 cloud/region to which this model will be deployed. The cloud/region and credentials
