@@ -5,9 +5,6 @@
 ## Summary
 Report the status of the model, its machines, applications and units.
 
-## Usage
-```juju status [options] [<selector> [...]]```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
@@ -26,18 +23,6 @@ Report the status of the model, its machines, applications and units.
 
 ## Examples
 
-Report the status of units hosted on machine `0`:
-
-    juju status 0
-
-Report the status of the `mysql` application:
-
-    juju status mysql
-
-Report the status for applications that start with `nova-`:
-
-    juju status nova-*
-
 Include information about storage and relations in output:
 
     juju status --storage --relations
@@ -46,32 +31,10 @@ Provide output as valid `JSON`:
 
     juju status --format=json
 
-Show only applications/units in active status:
-
-    juju status active
-
-Show only applications/units in error status:
-
-    juju status error
-
 
 ## Details
 
-Report the model's status, optionally filtered by names of applications or
-units. When selectors are present, filter the report to exclude entities that
-do not match.
-
-    juju status [<selector> [...]]
-
-`<selector>` selects machines, units or applications from the model to display.
-Wildcard characters (`*`) enable multiple entities to be matched at the same
-time.
-
-    (<machine>|<unit>|<application>)[*]
-
-When an entity that matches &lt;selector&gt; is integrated with other applications, the
-status of those applications will also be presented. By default (without a
-`<selector>`) the status of all applications and their units will be displayed.
+Report the model's status including its machines, applications and units.
 
 
 ### Altering the output format
