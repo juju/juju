@@ -40,6 +40,7 @@ type Client struct {
 	portService               PortService
 	relationService           RelationService
 	statusService             StatusService
+	controllerConfigService   ControllerConfigService
 
 	isControllerModel bool
 }
