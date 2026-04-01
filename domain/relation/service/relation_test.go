@@ -1559,26 +1559,6 @@ func (s *relationLeadershipServiceSuite) TestSetRelationUnitSettings(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationLeadershipServiceSuite) TestSetRelationUnitSettingsEmpty(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	unitName := coreunittesting.GenNewName(c, "app/0")
-
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-
-	s.state.EXPECT().GetRelationUnitUUID(gomock.Any(), relationUUID, unitName).Return(relationUnitUUID, nil)
-	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, nil, nil).Return(nil)
-	unitSettings := make(map[string]string)
-
-	// Act:
-	err := s.leadershipService.SetRelationUnitSettings(c.Context(), unitName, relationUUID, unitSettings)
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *relationLeadershipServiceSuite) TestSetRelationUnitSettingsNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

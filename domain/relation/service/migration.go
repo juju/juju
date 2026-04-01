@@ -43,7 +43,7 @@ type MigrationState interface {
 	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
 
 	// SetRelationApplicationSettings records settings for a specific application
-	// relation combination.
+	// relation combination. Replaces all existing settings with the provided set.
 	SetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,

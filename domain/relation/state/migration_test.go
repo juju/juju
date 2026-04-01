@@ -203,107 +203,11 @@ func (s *migrationSuite) TestSetRelationApplicationSettings(c *tc.C) {
 	}
 	settingsUpdate := map[string]string{
 		"key2": "value22",
-		"key3": "",
+		"key7": "value5",
 	}
 	expectedSettings := map[string]string{
-		"key1": "value1",
 		"key2": "value22",
-	}
-	for k, v := range initialSettings {
-		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
-	}
-
-	// Act:
-	err := s.state.SetRelationApplicationSettings(
-		c.Context(),
-		relationUUID,
-		s.fakeApplicationUUID1,
-		settingsUpdate,
-	)
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
-
-	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
-}
-
-func (s *migrationSuite) TestSetRelationApplicationSettingsNothingToSet(c *tc.C) {
-	// Arrange: Add relation with one endpoint.
-	endpoint1 := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName1,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-1",
-			Role:      charm.RoleProvider,
-			Interface: "database",
-			Scope:     charm.ScopeContainer,
-		},
-	}
-	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
-	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
-	relationUUID := s.addRelation(c)
-	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
-
-	// Arrange: Declare settings and add initial settings.
-	initialSettings := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
-	}
-	settingsUpdate := map[string]string{
-		"key2": "",
-		"key3": "",
-	}
-	expectedSettings := map[string]string{
-		"key1": "value1",
-	}
-	for k, v := range initialSettings {
-		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
-	}
-
-	// Act:
-	err := s.state.SetRelationApplicationSettings(
-		c.Context(),
-		relationUUID,
-		s.fakeApplicationUUID1,
-		settingsUpdate,
-	)
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
-
-	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
-	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
-}
-
-func (s *migrationSuite) TestSetRelationApplicationSettingsNothingToUnSet(c *tc.C) {
-	// Arrange: Add relation with one endpoint.
-	endpoint1 := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName1,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-1",
-			Role:      charm.RoleProvider,
-			Interface: "database",
-			Scope:     charm.ScopeContainer,
-		},
-	}
-	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
-	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
-	relationUUID := s.addRelation(c)
-	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
-
-	// Arrange: Declare settings and add initial settings.
-	initialSettings := map[string]string{
-		"key1": "value1",
-	}
-	settingsUpdate := map[string]string{
-		"key2": "value2",
-		"key3": "value3",
-	}
-	expectedSettings := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
+		"key7": "value5",
 	}
 	for k, v := range initialSettings {
 		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)

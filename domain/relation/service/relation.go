@@ -308,7 +308,9 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	return settings, nil
 }
 
-// SetRelationUnitSettings records settings for a unit in a relation.
+// SetRelationUnitSettings records settings for a unit in a relation. If a
+// setting with the same key already exists, it is updated. If a key with
+// no value is provided, the setting is removed from the database.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] is returned if the
@@ -322,10 +324,7 @@ func (s *LeadershipService) SetRelationUnitSettings(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Note: do not check if the settings are length 0 here, as we want to
-	// enable clearing settings by passing empty maps. If the maps are nil, then
-	// it becomes a no-op.
-	if unitSettings == nil {
+	if len(unitSettings) == 0 {
 		return nil
 	}
 
@@ -354,18 +353,13 @@ func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []s
 
 	// Determine the keys to set and unset.
 	out := make(unitstate.Settings, 0)
-	unset := make([]string, 0)
+	var unset []string
 	for k, v := range in {
 		if v == "" {
 			unset = append(unset, k)
 		} else {
 			out[k] = v
 		}
-	}
-	if len(out) > 0 && len(unset) == 0 {
-		return out, nil
-	} else if len(unset) > 0 && len(out) == 0 {
-		return nil, unset
 	}
 
 	return out, unset

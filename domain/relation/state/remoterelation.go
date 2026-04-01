@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -379,6 +380,10 @@ func (st *State) insertRelationUnitSettings(
 func (st *State) replaceUnitSettings(
 	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string,
 ) error {
+	if len(settings) == 0 {
+		return nil
+	}
+
 	id := entityUUID{UUID: relUnitUUID}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM relation_unit_setting
@@ -387,38 +392,31 @@ WHERE       relation_unit_uuid = $entityUUID.uuid
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	updateStmt, err := st.Prepare(`
+INSERT INTO relation_unit_setting (*)
+VALUES ($relationUnitSetting.*)
+`, relationUnitSetting{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = tx.Query(ctx, deleteStmt, id).Run()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	// Determine the keys to set and unset.
-	var set []relationUnitSetting
-	for k, v := range settings {
-		if v == "" {
-			continue
-		}
-
-		set = append(set, relationUnitSetting{
+	set := transform.MapToSlice(settings, func(k, v string) []relationUnitSetting {
+		return []relationUnitSetting{{
 			UUID:  relUnitUUID,
 			Key:   k,
 			Value: v,
-		})
-	}
+		}}
+	})
 
-	// Insert the keys to set.
-	if len(set) > 0 {
-		updateStmt, err := st.Prepare(`
-INSERT INTO relation_unit_setting (*) 
-VALUES ($relationUnitSetting.*) 
-`, relationUnitSetting{})
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, updateStmt, set).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
+	err = tx.Query(ctx, updateStmt, set).Run()
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	return nil
