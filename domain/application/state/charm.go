@@ -248,7 +248,7 @@ WHERE uuid = $entityUUID.uuid;
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.checkCharmExists(ctx, tx, ident); err != nil {
+		if err := s.checkCharmExists(ctx, tx, id.String()); err != nil {
 			return errors.Capture(err)
 		}
 

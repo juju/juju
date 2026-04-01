@@ -1239,7 +1239,7 @@ SELECT &storageDirective.* FROM (
 // - [applicationerrors.CharmNotFound] if the charm does not exist.
 func (st *State) UpdateUnitCharm(
 	ctx context.Context, unit coreunit.UUID, charm corecharm.ID,
-	storage internal.CreateUnitStorageArg,
+	storage applicationinternal.CreateUnitStorageArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {

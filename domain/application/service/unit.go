@@ -85,14 +85,14 @@ type UnitState interface {
 		ctx context.Context,
 		unit coreunit.UUID,
 		charm corecharm.ID,
-		storage internal.CreateUnitStorageArg,
+		storage applicationinternal.CreateUnitStorageArg,
 	) error
 
 	// GetUnitStorageDirectivesCurrentNext returns the current and the next storage
 	// directives for this unit, if the unit was to switch to the given charm.
 	GetUnitStorageRefreshArgs(
 		ctx context.Context, unit coreunit.UUID, next corecharm.ID,
-	) (internal.UnitStorageRefreshArgs, error)
+	) (applicationinternal.UnitStorageRefreshArgs, error)
 
 	// GetUnitOwnedStorageInstances returns the storage compositions for all
 	// storage instances owned by the unit in the model. If the unit does not
@@ -101,8 +101,8 @@ type UnitState interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 	) (
-		[]internal.StorageInstanceComposition,
-		[]internal.StorageAttachmentComposition,
+		[]applicationinternal.StorageInstanceComposition,
+		[]applicationinternal.StorageAttachmentComposition,
 		error,
 	)
 
@@ -277,7 +277,7 @@ type UnitState interface {
 func (s *ProviderService) makeIAASUnitArgs(
 	ctx context.Context,
 	units []AddIAASUnitArg,
-	storageDirectives []internal.StorageDirective,
+	storageDirectives []applicationinternal.StorageDirective,
 	platform deployment.Platform,
 	constraints constraints.Constraints,
 ) ([]application.AddIAASUnitArg, error) {
@@ -371,7 +371,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 func (s *ProviderService) makeCAASUnitArgs(
 	ctx context.Context,
 	units []AddUnitArg,
-	storageDirectives []internal.StorageDirective,
+	storageDirectives []applicationinternal.StorageDirective,
 	constraints constraints.Constraints,
 ) ([]application.AddCAASUnitArg, error) {
 	args := make([]application.AddCAASUnitArg, len(units))
