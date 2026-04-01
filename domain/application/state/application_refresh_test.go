@@ -18,11 +18,14 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -942,6 +945,131 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc
 	c.Assert(trust, tc.Equals, true)
 }
 
+// TestSetApplicationCharmCreatesUnitStorageDirectivesForAllUnits verifies
+// that when SetApplicationCharm is called with StorageDirectivesToCreate,
+// a unit_storage_directive row is inserted for every unit of the application.
+func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesUnitStorageDirectivesForAllUnits(c *tc.C) {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := s.DB().Exec(
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		poolUUID, "test-pool", "testprovider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	unit0 := s.addUnit(c, coreunit.Name("my-app/0"), appID)
+	unit1 := s.addUnit(c, coreunit.Name("my-app/1"), appID)
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		storage: map[string]charm.Storage{
+			"data": {
+				Name:     "data",
+				Type:     charm.StorageFilesystem,
+				CountMin: 1,
+				CountMax: 1,
+			},
+		},
+	})
+
+	params := application.SetCharmStateParams{
+		StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+			Name:     domainstorage.Name("data"),
+			PoolUUID: poolUUID,
+			Count:    1,
+			Size:     1024,
+		}},
+	}
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, unitUUID := range []coreunit.UUID{unit0, unit1} {
+		var storageName string
+		var count uint32
+		var sizeMiB uint64
+		err = s.DB().QueryRowContext(
+			c.Context(),
+			`SELECT storage_name, count, size_mib
+			FROM unit_storage_directive
+			WHERE unit_uuid = ? AND charm_uuid = ?`,
+			unitUUID.String(), charmID.String(),
+		).Scan(&storageName, &count, &sizeMiB)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(storageName, tc.Equals, "data")
+		c.Check(count, tc.Equals, uint32(1))
+		c.Check(sizeMiB, tc.Equals, uint64(1024))
+	}
+}
+
+// TestSetApplicationCharmNoUnitsStorageDirectivesNoop verifies that when
+// SetApplicationCharm is called with StorageDirectivesToCreate but the
+// application has no units, no unit_storage_directive rows are inserted.
+func (s *applicationRefreshSuite) TestSetApplicationCharmNoUnitsStorageDirectivesNoop(c *tc.C) {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := s.DB().Exec(
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		poolUUID, "test-pool", "testprovider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	charmID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		storage: map[string]charm.Storage{
+			"data": {
+				Name:     "data",
+				Type:     charm.StorageFilesystem,
+				CountMin: 1,
+				CountMax: 1,
+			},
+		},
+	})
+
+	err = s.state.SetApplicationCharm(
+		c.Context(), appID, charmID,
+		application.SetCharmStateParams{
+			StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+				Name:     domainstorage.Name("data"),
+				PoolUUID: poolUUID,
+				Count:    1,
+				Size:     1024,
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_storage_directive WHERE charm_uuid = ?",
+		charmID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+// TestSetApplicationCharmEmptyStorageDirectivesToCreateNoop verifies that when
+// SetApplicationCharm is called with no StorageDirectivesToCreate, no
+// unit_storage_directive rows are inserted even when units exist.
+func (s *applicationRefreshSuite) TestSetApplicationCharmEmptyStorageDirectivesToCreateNoop(c *tc.C) {
+	appID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	_ = s.addUnit(c, coreunit.Name("my-app/0"), appID)
+	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
+
+	err := s.state.SetApplicationCharm(
+		c.Context(), appID, charmID, application.SetCharmStateParams{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_storage_directive WHERE charm_uuid = ?",
+		charmID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
 func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicationArgs) coreapplication.UUID {
 	appName := args.appName
@@ -1003,6 +1131,7 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 			Requires:      args.relationMap(c, charm.RoleRequirer),
 			Peers:         args.relationMap(c, charm.RolePeer),
 			ExtraBindings: args.extraBindings,
+			Storage:       args.storage,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
@@ -1215,6 +1344,9 @@ type createCharmArgs struct {
 
 	// charmConfig defines the config for the charm on this application
 	charmConfig charm.Config
+
+	// storage defines the storage requirements for the charm
+	storage map[string]charm.Storage
 }
 
 // relationMap processes the relations of a createCharmArgs instance,
