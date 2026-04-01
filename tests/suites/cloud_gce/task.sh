@@ -18,12 +18,13 @@ test_cloud_gce() {
 
 	file="${TEST_DIR}/test-cloud-gce.log"
 
-	if [ -z "$(skip 'test_pro_images' 'test_deploy_gpu_instance' 'test_create_storage_pool')" ]; then
+	if [ -z "$(skip 'test_pro_images' 'test_deploy_gpu_instance' 'test_create_storage_pool' 'test_root_disk_source')" ]; then
 		bootstrap "test-cloud-gce" "${file}"
 
 		test_pro_images
 		test_deploy_gpu_instance
 		test_create_storage_pool
+		test_root_disk_source
 
 		destroy_controller "test-cloud-gce"
 	fi

@@ -777,6 +777,8 @@ func (s *environSuite) assertStartInstance(
 	if !publicIP {
 		args.Constraints.AllocatePublicIP = &publicIP
 	}
+	testRootDiskSource := "test-storage-pool"
+	args.Constraints.RootDiskSource = &testRootDiskSource
 
 	result, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -793,10 +795,11 @@ func (s *environSuite) assertStartInstance(
 	}
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
-		Arch:     &arch,
-		Mem:      &mem,
-		RootDisk: &expectedRootDisk,
-		CpuCores: &cpuCores,
+		Arch:           &arch,
+		Mem:            &mem,
+		RootDisk:       &expectedRootDisk,
+		CpuCores:       &cpuCores,
+		RootDiskSource: &testRootDiskSource,
 	})
 	startParams := assertStartInstanceRequestsParams{
 		imageReference:         &jammyImageReferenceGen2,
