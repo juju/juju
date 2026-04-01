@@ -7,6 +7,7 @@ package app
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 
 	"github.com/canonical/go-dqlite/v3/app"
 	"github.com/canonical/go-dqlite/v3/client"
@@ -73,4 +74,10 @@ type App = app.App
 // New creates a new application node.
 func New(dir string, options ...Option) (*App, error) {
 	return app.New(dir, options...)
+}
+
+// SimpleDialTLSConfig returns a simple TLS configuration that can be used to
+// establish a secure connection with a dqlite node.
+func SimpleDialTLSConfig(cert tls.Certificate, pool *x509.CertPool) *tls.Config {
+	return app.SimpleDialTLSConfig(cert, pool)
 }
