@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v12"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
