@@ -150,16 +150,22 @@ func (w *remoteServer) Wait() error {
 
 // Report outputs the state of the worker for the engine report.
 func (w *remoteServer) Report(ctx context.Context) map[string]any {
+	ctx = w.tomb.Context(ctx)
+
 	ch := make(chan report, 1)
 	select {
-	case <-w.tomb.Dying():
-		return map[string]any{}
+	case <-ctx.Done():
+		return map[string]any{
+			"error": ctx.Err().Error(),
+		}
 	case w.reports <- ch:
 	}
 
 	select {
-	case <-w.tomb.Dying():
-		return map[string]any{}
+	case <-ctx.Done():
+		return map[string]any{
+			"error": ctx.Err().Error(),
+		}
 	case r := <-ch:
 		return map[string]any{
 			"controller-id": w.controllerID,
