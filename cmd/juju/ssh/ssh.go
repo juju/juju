@@ -286,22 +286,36 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 }
 
 // enablePty determines whether a pseudo-terminal should be allocated
-// for the SSH session, based on the --pty flag and terminal availability.
+// for the SSH session, based on the --pty flag, terminal availability,
+// and whether a command is provided.
 func (c *sshCommand) enablePty(ctx *cmd.Context) bool {
 	if c.pty.b != nil {
 		return *c.pty.b
 	}
-	// Flag was not specified.
-	// If a command is supplied, we shouldn't use a pty
-	// unless requested (which is handled above).
-	// If no command is supplied, we use a pty if we have a terminal.
-	if len(c.provider.getArgs()) > 0 {
+
+	stdinIsTTY := c.checkTerminal(ctx.Stdin)
+
+	// No command args: allocate PTY only if stdin is a terminal
+	// (standard interactive session behavior).
+	if len(c.provider.getArgs()) == 0 {
+		return stdinIsTTY
+	}
+
+	// Command args are present. To fix CRLF in captured output
+	// while preserving interactive commands like 'sudo -i',
+	// allocate PTY only when BOTH stdin and stdout are terminals
+	// (i.e., the user is at an interactive terminal, not capturing output).
+	if !stdinIsTTY {
 		return false
 	}
+	return c.checkTerminal(ctx.Stdout)
+}
+
+func (c *sshCommand) checkTerminal(f interface{}) bool {
 	if c.isTerminal != nil {
-		return c.isTerminal(ctx.Stdin)
+		return c.isTerminal(f)
 	}
-	return isTerminal(ctx.Stdin)
+	return isTerminal(f)
 }
 
 // autoBoolValue is like gnuflag.boolValue, but remembers
