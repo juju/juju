@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/description/v10"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -24,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"

@@ -1406,11 +1406,11 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	}
 
 	if ps := a.ProvisioningState(); ps != nil {
-		appDoc.ProvisioningState = &ApplicationProvisioningState{
-			ScaleTarget: ps.ScaleTarget(),
-		}
 		if ps.Scaling() {
-			appDoc.ProvisioningState.CurrentOperation = application.ScaleOperation
+			appDoc.ProvisioningState = &ApplicationProvisioningState{
+				ScaleTarget:      ps.ScaleTarget(),
+				CurrentOperation: application.ScaleOperation,
+			}
 		}
 	}
 
