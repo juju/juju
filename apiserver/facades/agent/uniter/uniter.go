@@ -91,6 +91,7 @@ type UniterAPI struct {
 	removalService            RemovalService
 	secretService             SecretService
 	unitStateService          UnitStateService
+	tracingService            TracingService
 
 	store objectstore.ObjectStore
 
@@ -3250,6 +3251,18 @@ func (u *UniterAPI) GetUnitContext(ctx context.Context, args params.Entity) (par
 	unitContext, err := u.getUnitContext(ctx, unitName)
 	if err != nil {
 		return params.UnitContext{}, apiservererrors.ServerError(err)
+	}
+
+	// Get the charm tracing config for the unit.
+	charmTraceConfig, err := u.tracingService.GetCharmTracingConfig(ctx)
+	if err == nil {
+		unitContext.CharmTracingConfig = params.CharmTracingConfig{
+			HTTPEndpoint:  charmTraceConfig.HTTPEndpoint,
+			GRPCEndpoint:  charmTraceConfig.GRPCEndpoint,
+			CACertificate: charmTraceConfig.CACertificate,
+		}
+	} else {
+		u.logger.Errorf(ctx, "getting charm tracing config failed: %v", err)
 	}
 
 	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)

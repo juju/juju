@@ -43,6 +43,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
+	tracingstate "github.com/juju/juju/domain/tracing/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
 	"github.com/juju/juju/internal/errors"
@@ -213,6 +215,16 @@ func (s *ControllerServices) ControllerChangeStream() *changestreamservice.Servi
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.clock,
 			s.logger.Child("changestream"),
+		),
+	)
+}
+
+// Tracing returns the tracing service which provides access to tracing
+// configuration for charms.
+func (s *ControllerServices) Tracing() *tracingservice.Service {
+	return tracingservice.NewService(
+		tracingstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
 	)
 }

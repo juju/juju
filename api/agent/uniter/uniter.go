@@ -565,6 +565,19 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 	return result.OneError()
 }
 
+// CharmTracingConfig contains the tracing configuration for the charm.
+type CharmTracingConfig struct {
+	// HTTPEndpoint is the endpoint to which HTTP(s) spans should be sent. The
+	// scheme of the endpoint determines whether spans should be sent using HTTP
+	// or HTTPS.
+	HTTPEndpoint string
+	// GRPCEndpoint is the endpoint to which gRPC spans should be sent.
+	GRPCEndpoint string
+	// CACertificate is the CA certificate that should be used to verify the TLS
+	// connection to the tracing HTTPS endpoints.
+	CACertificate string
+}
+
 // UnitContext contains context information required for the construction of a
 // context factory.
 type UnitContext struct {
@@ -587,6 +600,8 @@ type UnitContext struct {
 	// OpenedPortRangesByEndpoint returns all port ranges currently opened
 	// grouped by unit tag and application endpoint.
 	OpenedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	// CharmTracingConfig contains the tracing configuration for the charm.
+	CharmTracingConfig CharmTracingConfig
 }
 
 // GetUnitContext returns context information required for the construction of a
@@ -619,6 +634,11 @@ func decodeUnitContext(paramsUnitContext params.UnitContext) (UnitContext, error
 		PrivateAddress:                    paramsUnitContext.PrivateAddress,
 		OpenedMachinePortRangesByEndpoint: machineOpenedRages,
 		OpenedPortRangesByEndpoint:        unitOpenedRages,
+		CharmTracingConfig: CharmTracingConfig{
+			HTTPEndpoint:  paramsUnitContext.CharmTracingConfig.HTTPEndpoint,
+			GRPCEndpoint:  paramsUnitContext.CharmTracingConfig.GRPCEndpoint,
+			CACertificate: paramsUnitContext.CharmTracingConfig.CACertificate,
+		},
 	}, nil
 }
 

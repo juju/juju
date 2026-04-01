@@ -54,6 +54,7 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -95,6 +96,8 @@ type ControllerDomainServices interface {
 	Macaroon() *macaroonservice.Service
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the
@@ -112,8 +115,8 @@ type ModelDomainServices interface {
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
-	// ControllerUpgraderService returns a service for upgrading controllers.
-	ControllerUpgraderService() *controllerupgraderservice.Service
+	// ControllerUpgrader returns a service for upgrading controllers.
+	ControllerUpgrader() *controllerupgraderservice.Service
 	// CrossModelRelation returns a service for managing cross model relations.
 	CrossModelRelation() *crossmodelrelationservice.WatchableService
 	// Machine returns the machine service.

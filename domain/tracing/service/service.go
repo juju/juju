@@ -11,7 +11,6 @@ import (
 
 const (
 	httpEndpointKey  = "http-endpoint"
-	httpsEndpointKey = "https-endpoint"
 	grpcEndpointKey  = "grpc-endpoint"
 	caCertificateKey = "ca-certificate"
 )
@@ -40,7 +39,6 @@ func NewService(st State) *Service {
 // CharmTracingConfig defines the tracing configuration for an OTEL collector.
 type CharmTracingConfig struct {
 	HTTPEndpoint  string
-	HTTPSEndpoint string
 	GRPCEndpoint  string
 	CACertificate string
 }
@@ -57,11 +55,6 @@ func (s *Service) SetCharmTracingConfig(ctx context.Context, config CharmTracing
 		insertions[httpEndpointKey] = config.HTTPEndpoint
 	} else {
 		deletions = append(deletions, httpEndpointKey)
-	}
-	if config.HTTPSEndpoint != "" {
-		insertions[httpsEndpointKey] = config.HTTPSEndpoint
-	} else {
-		deletions = append(deletions, httpsEndpointKey)
 	}
 	if config.GRPCEndpoint != "" {
 		insertions[grpcEndpointKey] = config.GRPCEndpoint
@@ -89,7 +82,6 @@ func (s *Service) GetCharmTracingConfig(ctx context.Context) (CharmTracingConfig
 
 	return CharmTracingConfig{
 		HTTPEndpoint:  configMap[httpEndpointKey],
-		HTTPSEndpoint: configMap[httpsEndpointKey],
 		GRPCEndpoint:  configMap[grpcEndpointKey],
 		CACertificate: configMap[caCertificateKey],
 	}, nil

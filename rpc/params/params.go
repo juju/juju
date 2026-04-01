@@ -1447,6 +1447,14 @@ type ProxySettings struct {
 	NoProxy    string `json:"no-proxy,omitempty"`
 }
 
+// CharmTracingConfig contains the tracing configuration for charms, which may
+// be used by agents in the model.
+type CharmTracingConfig struct {
+	HTTPEndpoint  string `json:"http-endpoint,omitempty"`
+	GRPCEndpoint  string `json:"grpc-endpoint,omitempty"`
+	CACertificate string `json:"ca-certificate,omitempty"`
+}
+
 // UnitContext contains all the context information required for the
 // construction of a context factory.
 type UnitContext struct {
@@ -1457,4 +1465,5 @@ type UnitContext struct {
 	PrivateAddress                    *string                           `json:"private-address,omitempty"`
 	OpenedMachinePortRangesByEndpoint map[string]map[string][]PortRange `json:"opened-machine-port-ranges-by-endpoint,omitempty"`
 	OpenedPortRangesByEndpoint        map[string]map[string][]PortRange `json:"opened-port-ranges-by-endpoint,omitempty"`
+	CharmTracingConfig                CharmTracingConfig                `json:"charm-tracing-config,omitempty"`
 }
