@@ -660,6 +660,69 @@ VALUES ($insertApplicationStorageDirective.*)
 	return nil
 }
 
+// insertUnitStorageDirectivesForAllUnits inserts all of the storage directives
+// for all the units in an application.
+func (st *State) insertUnitStorageDirectivesForAllUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid, charmUUID string,
+	directives []internal.CreateApplicationStorageDirectiveArg,
+) error {
+	if len(directives) == 0 {
+		return nil
+	}
+
+	applicationUUID := applicationUUID{
+		ApplicationUUID: uuid,
+	}
+	selectUnitUUIDsStmt, err := st.Prepare(`
+SELECT &unitUUID.uuid
+FROM   unit u
+WHERE  u.application_uuid = $applicationUUID.application_uuid
+`, applicationUUID, unitUUID{})
+
+	var unitUUIDs []unitUUID
+	err = tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDs)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting all unit uuids for %q", uuid).Add(err)
+	}
+
+	insertDirectivesInput := make([]insertUnitStorageDirective, 0,
+		len(unitUUIDs)*len(directives))
+	for _, unit := range unitUUIDs {
+		for _, d := range directives {
+			insertDirectivesInput = append(
+				insertDirectivesInput,
+				insertUnitStorageDirective{
+					UnitUUID:        unit.UnitUUID,
+					CharmUUID:       charmUUID,
+					Count:           d.Count,
+					Size:            d.Size,
+					StorageName:     d.Name.String(),
+					StoragePoolUUID: d.PoolUUID.String(),
+				},
+			)
+		}
+	}
+
+	insertDirectivesStmt, err := st.Prepare(`
+INSERT INTO unit_storage_directive (*)
+VALUES ($insertUnitStorageDirective.*)
+`, insertUnitStorageDirective{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // updateApplicationStorageDirectives updates the storage directives and charmUUID
 // for an application based on the provided overrides.
 // This is used during charm refresh to reconcile storage requirements.

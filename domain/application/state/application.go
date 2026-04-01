@@ -1690,7 +1690,7 @@ WHERE  uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
@@ -1703,13 +1703,30 @@ WHERE  uuid = $entityUUID.uuid
 		}
 
 		// Update storage directives for the new charm.
-		if err := st.updateApplicationStorageDirectives(ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate); err != nil {
+		err := st.updateApplicationStorageDirectives(
+			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate)
+		if err != nil {
 			return errors.Errorf("updating storage directives: %w", err)
 		}
 
-		// Insert storage directives for the new charm.
-		if err := st.insertApplicationStorageDirectives(ctx, tx, appID.String(), chID.String(), params.StorageDirectivesToCreate); err != nil {
-			return errors.Errorf("inserting storage directives: %w", err)
+		// Insert application storage directives for the new charm.
+		err = st.insertApplicationStorageDirectives(
+			ctx, tx, appID.String(), chID.String(),
+			params.StorageDirectivesToCreate,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"inserting application storage directives: %w", err,
+			)
+		}
+
+		// Insert unit storage directives for the new charm.
+		err = st.insertUnitStorageDirectivesForAllUnits(
+			ctx, tx, appID.String(), chID.String(),
+			params.StorageDirectivesToCreate,
+		)
+		if err != nil {
+			return errors.Errorf("inserting unit storage directives: %w", err)
 		}
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
@@ -1752,7 +1769,8 @@ WHERE  uuid = $entityUUID.uuid
 		}
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return errors.Capture(err)
 	}
 
