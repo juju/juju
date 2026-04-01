@@ -509,6 +509,7 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitError(c *tc.C) {
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
+	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(errors.Errorf("the front fell off"))
@@ -564,7 +565,7 @@ func (s *unitSuite) TestExecuteJobForUnitNotDeadError(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.MarkUnitAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(errors.Errorf("not dead"))
+	exp.MarkUnitAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(removalerrors.EntityStillAlive)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)

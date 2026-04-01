@@ -17,9 +17,11 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -83,35 +85,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeStorageAttachmentsDying(c *tc.C
 	unitUUID := unitUUIDs[0]
 
 	ctx := c.Context()
-
-	// Create a storage pool and a storage instance attached to the app's unit.
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(
-			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
-		); err != nil {
-			return err
-		}
-
-		inst := `
-INSERT INTO storage_instance (
-    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib,
-    charm_name, storage_name, life_id
-)
-VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', 'storage-name', 0)`
-		if _, err := tx.ExecContext(ctx, inst); err != nil {
-			return err
-		}
-
-		attach := `
-INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
-VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
-		if _, err := tx.ExecContext(ctx, attach, unitUUID); err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	_, storageAttachmentUUID := s.addUnitStorageAttachment(c, unitUUID, false)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -122,13 +96,9 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
 
 	// Storage attachment should be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = 'storage-attachment-uuid'")
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkStorageAttachmentLife(c, storageAttachmentUUID, life.Dying)
 
-	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
+	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{storageAttachmentUUID})
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveDestroyStorage(c *tc.C) {
@@ -140,39 +110,7 @@ func (s *unitSuite) TestEnsureUnitNotAliveDestroyStorage(c *tc.C) {
 	unitUUID := unitUUIDs[0]
 
 	ctx := c.Context()
-
-	// Create a storage pool and a storage instance attached to the app's unit.
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(
-			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
-		); err != nil {
-			return err
-		}
-
-		inst := `
-INSERT INTO storage_instance (
-	uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id, storage_kind_id
-)
-VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0, 0)`
-		if _, err := tx.ExecContext(ctx, inst); err != nil {
-			return err
-		}
-
-		attach := `
-INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
-VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
-		if _, err := tx.ExecContext(ctx, attach, unitUUID); err != nil {
-			return err
-		}
-
-		owned := "INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES ('instance-uuid', ?)"
-		if _, err := tx.ExecContext(ctx, owned, unitUUID); err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	storageInstanceUUID, storageAttachmentUUID := s.addUnitStorageAttachment(c, unitUUID, true)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -183,20 +121,13 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
 
 	// Storage attachment should be "dying".
-	row := s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = 'storage-attachment-uuid'")
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkStorageAttachmentLife(c, storageAttachmentUUID, life.Dying)
 
 	// Storage instance should be "dying".
-	row = s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = 'instance-uuid'")
-	err = row.Scan(&lifeID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	s.checkStorageInstanceLife(c, storageInstanceUUID, life.Dying)
 
-	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
-	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
+	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{storageAttachmentUUID})
+	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{storageInstanceUUID})
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitParentMachine(c *tc.C) {
@@ -663,17 +594,69 @@ func (s *unitSuite) TestMarkUnitAsDeadNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitSuite) TesMarkUnitAsDeadWithNoEntities(c *tc.C) {
+func (s *unitSuite) TestMarkUnitAsDeadWithNoEntities(c *tc.C) {
 	svc := s.setupApplicationService(c)
-	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(
+			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+			poolUUID.String(), "pool", "whatever",
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO model_storage_pool (storage_kind_id, storage_pool_uuid)
+VALUES (?, ?)`,
+			int(domainstorage.StorageKindFilesystem), poolUUID.String(),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := s.createIAASApplicationWithCharm(
+		c,
+		svc,
+		"some-app",
+		&stubCharm{
+			name: "test-charm",
+			storage: map[string]internalcharm.Storage{
+				"data": {
+					Name:        "data",
+					Type:        internalcharm.StorageFilesystem,
+					CountMin:    0,
+					CountMax:    -1,
+					MinimumSize: 1024,
+				},
+				"cache": {
+					Name:        "cache",
+					Type:        internalcharm.StorageFilesystem,
+					CountMin:    0,
+					CountMax:    -1,
+					MinimumSize: 2048,
+				},
+			},
+		},
+		applicationservice.AddIAASUnitArg{},
+	)
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
 
+	row := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_storage_directive WHERE unit_uuid = ?",
+		unitUUID.String(),
+	)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	_, err = s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
@@ -735,7 +718,28 @@ func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithRelations(c *tc.C) {
 	s.checkUnitLife(c, unitUUID.String(), life.Dead)
 }
 
-func (s *unitSuite) TesMarkUnitAsDeadWithNoEntitiesNotFound(c *tc.C) {
+func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithStorageAttachment(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addUnitStorageAttachment(c, unitUUID, false)
+
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	// The unit should still be dying, as it wasn't marked dead.
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.MarkUnitAsDeadWithNoEntities(c.Context(), "abc")
@@ -1297,4 +1301,63 @@ func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
 	err := row.Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return charmUUID
+}
+
+func (s *unitSuite) addUnitStorageAttachment(
+	c *tc.C, unitUUID unit.UUID, unitOwned bool,
+) (string, string) {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID).String()
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID).String()
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID).String()
+	poolName := fmt.Sprintf("pool-%s", poolUUID[:8])
+	storageID := fmt.Sprintf("storage-%s", storageInstanceUUID[:8])
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(
+			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+			poolUUID, poolName, "whatever",
+		); err != nil {
+			return err
+		}
+
+		inst := `
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib,
+    charm_name, storage_name, life_id
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		if _, err := tx.ExecContext(
+			ctx, inst,
+			storageInstanceUUID, storageID, poolUUID, 1, 100,
+			"charm-name", "storage-name", 0,
+		); err != nil {
+			return err
+		}
+
+		attach := `
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)`
+		if _, err := tx.ExecContext(
+			ctx, attach,
+			storageAttachmentUUID, storageInstanceUUID, unitUUID.String(), 0,
+		); err != nil {
+			return err
+		}
+
+		if unitOwned {
+			owned := `
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid)
+VALUES (?, ?)`
+			if _, err := tx.ExecContext(
+				ctx, owned, storageInstanceUUID, unitUUID.String(),
+			); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID, storageAttachmentUUID
 }

@@ -256,7 +256,22 @@ func (s *baseSuite) setupRelationService(c *tc.C) *relationservice.Service {
 }
 
 func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.UUID {
-	ch := &stubCharm{name: "test-charm"}
+	return s.createIAASApplicationWithCharm(
+		c,
+		svc,
+		name,
+		&stubCharm{name: "test-charm"},
+		units...,
+	)
+}
+
+func (s *baseSuite) createIAASApplicationWithCharm(
+	c *tc.C,
+	svc *applicationservice.ProviderService,
+	name string,
+	ch internalcharm.Charm,
+	units ...applicationservice.AddIAASUnitArg,
+) coreapplication.UUID {
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -1247,6 +1262,7 @@ func (s *baseSuite) addModelProvisionedVolume(c *tc.C) string {
 type stubCharm struct {
 	name        string
 	subordinate bool
+	storage     map[string]internalcharm.Storage
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -1286,6 +1302,7 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Type: "nvidia.com/gpu",
 			},
 		},
+		Storage: s.storage,
 	}
 }
 
