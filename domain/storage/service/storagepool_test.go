@@ -600,27 +600,3 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByNameInvalidName(c *tc.C) {
 	_, err := svc.GetStoragePoolByName(c.Context(), "666invalid")
 	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }
-
-// storagePoolImportSuite is a set of tests to verify the functionality of the
-// [StorageImportService] interface and contracts for Storage Pools.
-type storagePoolImportSuite struct {
-	baseStoragePoolServiceSuite
-	state *MockStorageImportState
-}
-
-// TestStoragePoolImportSuite runs all of the tests contained within
-// [storagePoolImportSuite].
-func TestStoragePoolImportSuite(t *testing.T) {
-	tc.Run(t, &storagePoolImportSuite{})
-}
-
-func (s *storagePoolImportSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := s.baseStoragePoolServiceSuite.setupMocks(c)
-	s.state = NewMockStorageImportState(ctrl)
-
-	c.Cleanup(func() {
-		s.state = nil
-	})
-
-	return ctrl
-}
