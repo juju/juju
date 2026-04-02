@@ -923,7 +923,7 @@ options:
 
 func parseRelations(s string, role charm.RelationRole) map[string]charm.Relation {
 	rels := make(map[string]charm.Relation)
-	for _, r := range strings.Fields(s) {
+	for r := range strings.FieldsSeq(s) {
 		parts := strings.Split(r, ":")
 		if len(parts) != 2 {
 			panic(fmt.Errorf("invalid relation specifier %q", r))

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -74,9 +75,7 @@ func copyStringMap(in map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string)
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 

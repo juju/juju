@@ -80,7 +80,7 @@ func (*passwordSuite) TestUserPasswordHash(c *tc.C) {
 
 func (*passwordSuite) TestAgentPasswordHash(c *tc.C) {
 	seenValues := make(map[string]bool)
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		password, err := RandomPassword()
 		c.Assert(err, tc.IsNil)
 		c.Assert(seenValues[password], tc.IsFalse)

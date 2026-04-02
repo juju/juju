@@ -90,8 +90,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 var (
-	muxType           = reflect.TypeOf(&apiserverhttp.Mux{})
-	authenticatorType = reflect.TypeOf((*macaroon.LocalMacaroonAuthenticator)(nil)).Elem()
+	muxType           = reflect.TypeFor[*apiserverhttp.Mux]()
+	authenticatorType = reflect.TypeFor[macaroon.LocalMacaroonAuthenticator]()
 )
 
 func manifoldOutput(in worker.Worker, out any) error {

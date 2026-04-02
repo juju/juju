@@ -235,7 +235,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 // but the name generation aborts to be safe from (theoretical) integer overflow.
 func generateNICDeviceName(profile *api.Profile) string {
 	template := "eth%d"
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		name := fmt.Sprintf(template, i)
 		unique := true
 		for d := range profile.Devices {

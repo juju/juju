@@ -332,7 +332,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "instance-id",
 							Label:            "A Unique Instance ID for this instance",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "id-ovf",
 							Value:            "",
 						}, {
@@ -340,7 +340,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "hostname",
 							Label:            "hostname",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "ubuntuguest",
 							Value:            "",
 							Description:      "Specifies the hostname for the appliance",
@@ -349,7 +349,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "seedfrom",
 							Label:            "Url to seed instance data from",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "",
 							Value:            "",
 						}, {
@@ -357,7 +357,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "public-keys",
 							Label:            "ssh public keys",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "",
 							Value:            "",
 						}, {
@@ -365,7 +365,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "user-data",
 							Label:            "Encoded user-data",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "",
 							Value:            "",
 						}, {
@@ -373,7 +373,7 @@ func (s *clientSuite) SetUpTest(c *tc.C) {
 							Id:               "password",
 							Label:            "Default User's password",
 							Type:             "string",
-							UserConfigurable: types.NewBool(true),
+							UserConfigurable: new(true),
 							DefaultValue:     "",
 							Value:            "",
 						}},

@@ -22,7 +22,7 @@ func getPodSpec36() corev1.PodSpec {
 		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
 		SecurityContext: &corev1.PodSecurityContext{
-			FSGroup:            int64Ptr(170),
+			FSGroup:            new(int64(170)),
 			SupplementalGroups: []int64{170},
 		},
 		InitContainers: []corev1.Container{{
@@ -31,8 +31,8 @@ func getPodSpec36() corev1.PodSpec {
 			Image:           "operator/image-path:1.1.1",
 			WorkingDir:      jujuDataDir,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(170),
-				RunAsGroup: int64Ptr(170),
+				RunAsUser:  new(int64(170)),
+				RunAsGroup: new(int64(170)),
 			},
 			Command: []string{"/opt/containeragent"},
 			Args: []string{
@@ -220,8 +220,8 @@ func getPodSpec36() corev1.PodSpec {
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(170),
-				RunAsGroup: int64Ptr(170),
+				RunAsUser:  new(int64(170)),
+				RunAsGroup: new(int64(170)),
 			},
 		}, {
 			Name:            "gitlab",
@@ -393,8 +393,8 @@ func getPodSpec36() corev1.PodSpec {
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(1234),
-				RunAsGroup: int64Ptr(4321),
+				RunAsUser:  new(int64(1234)),
+				RunAsGroup: new(int64(4321)),
 			},
 		}},
 		Volumes: []corev1.Volume{

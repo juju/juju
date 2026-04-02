@@ -5187,8 +5187,8 @@ func (c *archConstraint) Arch() (string, error) {
 }
 
 func constraintParser(s string) bundlechanges.ArchConstraint {
-	parts := strings.Split(s, " ")
-	for _, part := range parts {
+	parts := strings.SplitSeq(s, " ")
+	for part := range parts {
 		keyValue := strings.Split(part, "=")
 		if len(keyValue) == 2 && keyValue[0] == "arch" {
 			return &archConstraint{arch: keyValue[1]}

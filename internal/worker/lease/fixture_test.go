@@ -122,7 +122,7 @@ func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)
 
 func waitAlarms(c *tc.C, clock *testclock.Clock, count int) {
 	timeout := time.After(coretesting.LongWait)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		select {
 		case <-clock.Alarms():
 		case <-timeout:

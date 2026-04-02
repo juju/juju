@@ -104,7 +104,7 @@ func (s *persistentVolumeClaimSuite) TestList(c *tc.C) {
 	// way to call List multiple times with "Continue" set.
 
 	// Create fake persistent volume claims, some of which have a label
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("pvc%d", i),

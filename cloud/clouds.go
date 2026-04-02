@@ -5,8 +5,10 @@ package cloud
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -32,12 +34,7 @@ func (a AuthTypes) Less(i, j int) bool { return a[i] < a[j] }
 
 // Contains checks if AuthType t is in a AuthTypes.
 func (a AuthTypes) Contains(t AuthType) bool {
-	for _, v := range a {
-		if v == t {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(a, t)
 }
 
 // String implements the Stringer interface for AuthType.
@@ -679,9 +676,7 @@ var tagsForType = make(structTags)
 // when parsing cloud metadata.
 func RegisterStructTags(vals ...interface{}) {
 	tags := mkTags(vals...)
-	for k, v := range tags {
-		tagsForType[k] = v
-	}
+	maps.Copy(tagsForType, tags)
 }
 
 func init() {
@@ -705,7 +700,7 @@ func yamlTags(t reflect.Type) map[string]int {
 	tags := make(map[string]int)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.Type != reflect.TypeOf("") {
+		if f.Type != reflect.TypeFor[string]() {
 			continue
 		}
 		if tag := f.Tag.Get("yaml"); tag != "" {

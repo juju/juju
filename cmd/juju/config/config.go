@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -155,12 +156,7 @@ func (c *ConfigCommandBase) parseResetKeys() error {
 // sliceContains is a utility method to check if the given (string) slice
 // contains a given value.
 func sliceContains[T comparable](slice []T, val T) bool {
-	for _, s := range slice {
-		if s == val {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, val)
 }
 
 // validateActions checks that the requested combination of actions is valid
@@ -194,21 +190,21 @@ func (c *ConfigCommandBase) validateActions() error {
 // multiActionError returns an error saying that the provided actions
 // cannot be done simultaneously.
 func multiActionError(actions []Action) error {
-	actionList := ""
+	var actionList strings.Builder
 	for i, descr := range actions {
 		// put in the right (grammatical) list separator
 		switch i {
 		case 0:
 			// no separator before list
 		case len(actions) - 1:
-			actionList += " and "
+			actionList.WriteString(" and ")
 		default:
-			actionList += ", "
+			actionList.WriteString(", ")
 		}
 
-		actionList += string(descr)
+		actionList.WriteString(string(descr))
 	}
-	return errors.Errorf("cannot %s simultaneously", actionList)
+	return errors.Errorf("cannot %s simultaneously", actionList.String())
 }
 
 // Run - to be implemented by child command

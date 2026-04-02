@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
@@ -77,7 +78,7 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 		return nil, errors.Errorf("getting model uuid: %w", err)
 	}
 	result := make([]*secrets.URI, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		result[i] = secrets.NewURI().WithSource(modelUUID.String())
 	}
 	return result, nil
@@ -222,9 +223,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	// Take a copy as we may set it to nil below
 	// if the content is saved to a backend.
 	p.Data = make(map[string]string)
-	for k, v := range params.Data {
-		p.Data[k] = v
-	}
+	maps.Copy(p.Data, params.Data)
 
 	backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
 	if err != nil {
@@ -306,9 +305,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
-		for k, v := range params.Data {
-			p.Data[k] = v
-		}
+		maps.Copy(p.Data, params.Data)
 	}
 
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
@@ -392,9 +389,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		// if the content is saved to a backend.
 		if len(params.Data) > 0 {
 			p.Data = make(map[string]string)
-			for k, v := range params.Data {
-				p.Data[k] = v
-			}
+			maps.Copy(p.Data, params.Data)
 
 			backend, backendID, err := s.getBackendForUserSecrets(innerCtx, params.Accessor)
 			if err != nil {
@@ -503,9 +498,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
-		for k, v := range params.Data {
-			p.Data[k] = v
-		}
+		maps.Copy(p.Data, params.Data)
 	}
 
 	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {

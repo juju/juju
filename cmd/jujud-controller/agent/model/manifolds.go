@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
@@ -470,9 +471,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 
@@ -522,9 +521,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 	}
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

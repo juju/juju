@@ -21,7 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("making KeyUpdater api: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*KeyUpdaterAPI)(nil)))
+	}, reflect.TypeFor[*KeyUpdaterAPI]())
 }
 
 // makeKeyUpdaterAPI is responsible for making a new KeyUpdaterAPI from a model

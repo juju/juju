@@ -112,7 +112,7 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *tc.C) {
 		}
 		res := new(params.AddMachinesResults)
 		var results []params.AddMachinesResult
-		for i := 0; i < n; i++ {
+		for range n {
 			results = append(results, params.AddMachinesResult{
 				Error: &params.Error{Message: "MSG", Code: "621"},
 			})

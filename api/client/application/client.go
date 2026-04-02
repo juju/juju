@@ -7,6 +7,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -1012,9 +1013,7 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 		}
 		if len(inRd.ApplicationData) > 0 {
 			erd.ApplicationData = make(map[string]interface{})
-			for k, v := range inRd.ApplicationData {
-				erd.ApplicationData[k] = v
-			}
+			maps.Copy(erd.ApplicationData, inRd.ApplicationData)
 		}
 		if len(inRd.UnitRelationData) > 0 {
 			erd.UnitRelationData = make(map[string]RelationData)
@@ -1024,9 +1023,7 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 				}
 				if len(inUrd.UnitData) > 0 {
 					urd.UnitData = make(map[string]interface{})
-					for k, v := range inUrd.UnitData {
-						urd.UnitData[k] = v
-					}
+					maps.Copy(urd.UnitData, inUrd.UnitData)
 				}
 				erd.UnitRelationData[unit] = urd
 			}

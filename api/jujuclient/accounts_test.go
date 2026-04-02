@@ -79,7 +79,7 @@ func (s *AccountsSuite) TestUpdateAccountOverwrites(c *tc.C) {
 		Password:        "fnord",
 		LastKnownAccess: "add-model",
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		// Twice so we exercise the code path of updating with
 		// identical details.
 		err := s.store.UpdateAccount("kontroll", testAccountDetails)

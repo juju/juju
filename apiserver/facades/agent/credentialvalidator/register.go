@@ -18,10 +18,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CredentialValidator", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return makeCredentialValidatorAPIV2(ctx) // adds WatchModelCredential
-	}, reflect.TypeOf((*CredentialValidatorAPIV2)(nil)))
+	}, reflect.TypeFor[*CredentialValidatorAPIV2]())
 	registry.MustRegister("CredentialValidator", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return makeCredentialValidatorAPI(ctx) // drops InvalidateCredential
-	}, reflect.TypeOf((*CredentialValidatorAPI)(nil)))
+	}, reflect.TypeFor[*CredentialValidatorAPI]())
 }
 
 func makeCredentialValidatorAPIV2(ctx facade.ModelContext) (*CredentialValidatorAPIV2, error) {

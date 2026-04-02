@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -606,12 +607,7 @@ var (
 // ControllerOnlyAttribute returns true if the specified attribute name
 // is a controller config key (as opposed to, say, a model config key).
 func ControllerOnlyAttribute(attr string) bool {
-	for _, a := range ControllerOnlyConfigAttributes {
-		if attr == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ControllerOnlyConfigAttributes, attr)
 }
 
 // Config is a string-keyed map of controller configuration attributes.

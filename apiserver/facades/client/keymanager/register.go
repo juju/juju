@@ -24,7 +24,7 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("cannot make keymanager facade: %w", err)
 		}
 		return facade, nil
-	}, reflect.TypeOf((*KeyManagerAPI)(nil)))
+	}, reflect.TypeFor[*KeyManagerAPI]())
 }
 
 func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerAPI, error) {

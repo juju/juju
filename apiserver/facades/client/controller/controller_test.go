@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -91,9 +92,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	}
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	controllerCfg := testing.FakeControllerConfig()
-	for key, value := range s.controllerConfigAttrs {
-		controllerCfg[key] = value
-	}
+	maps.Copy(controllerCfg, s.controllerConfigAttrs)
 
 	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.SetUpTest(c)

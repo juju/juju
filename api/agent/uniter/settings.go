@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"maps"
+
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -61,9 +63,7 @@ func (s *Settings) Delete(key string) {
 func (s *Settings) FinalResult() params.Settings {
 	// First make a copy of the map, including deleted keys.
 	settingsCopy := make(params.Settings)
-	for k, v := range s.settings {
-		settingsCopy[k] = v
-	}
+	maps.Copy(settingsCopy, s.settings)
 	return settingsCopy
 }
 

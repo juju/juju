@@ -155,7 +155,7 @@ func (s *suite) TestStartsMultiple(c *tc.C) {
 	)
 
 	var activatedModelUUIDs []string
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		uuid := tc.Must0(c, coremodel.NewUUID)
 
 		activatedModelUUIDs = append(activatedModelUUIDs, uuid.String())
@@ -186,7 +186,7 @@ func (s *suite) TestIgnoresRepetition(c *tc.C) {
 	)
 
 	var activatedModelUUIDs []string
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		uuid := tc.Must0(c, coremodel.NewUUID)
 
 		activatedModelUUIDs = append(activatedModelUUIDs, uuid.String())
@@ -290,7 +290,7 @@ func (s *suite) TestKillsManagers(c *tc.C) {
 	)
 
 	var activatedModelUUIDs []string
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		uuid := tc.Must0(c, coremodel.NewUUID)
 
 		activatedModelUUIDs = append(activatedModelUUIDs, uuid.String())
@@ -328,7 +328,7 @@ func (s *suite) TestClosedChangesChannel(c *tc.C) {
 	)
 
 	var activatedModelUUIDs []string
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		uuid := tc.Must0(c, coremodel.NewUUID)
 
 		activatedModelUUIDs = append(activatedModelUUIDs, uuid.String())

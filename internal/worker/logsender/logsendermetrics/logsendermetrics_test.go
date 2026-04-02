@@ -60,7 +60,7 @@ func (s *bufferedLogWriterSuite) TestCollect(c *tc.C) {
 	s.writer.Write(loggo.Entry{})
 	s.writer.Write(loggo.Entry{}) // causes first to be dropped
 
-	for i := 0; i < maxLen; i++ {
+	for range maxLen {
 		<-s.writer.Logs()
 	}
 

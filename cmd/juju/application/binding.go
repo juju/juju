@@ -27,7 +27,7 @@ func parseBindExpr(expr string, knownSpaceNames set.Strings) (map[string]string,
 	}
 
 	parsedBindings := make(map[string]string)
-	for _, s := range strings.Fields(expr) {
+	for s := range strings.FieldsSeq(expr) {
 		v := strings.Split(s, "=")
 		var endpoint, spaceName string
 		switch len(v) {

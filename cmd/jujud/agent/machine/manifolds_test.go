@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"slices"
 	"sort"
 	stdtesting "testing"
 
@@ -319,20 +320,16 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 }
 
 func checkContains(c *tc.C, names []string, seek string) {
-	for _, name := range names {
-		if name == seek {
-			return
-		}
+	if slices.Contains(names, seek) {
+		return
 	}
 	c.Errorf("%q not found in %v", seek, names)
 }
 
 func checkNotContains(c *tc.C, names []string, seek string) {
-	for _, name := range names {
-		if name == seek {
-			c.Errorf("%q found in %v", seek, names)
-			return
-		}
+	if slices.Contains(names, seek) {
+		c.Errorf("%q found in %v", seek, names)
+		return
 	}
 }
 

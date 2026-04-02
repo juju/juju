@@ -506,7 +506,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *tc.C) {
 	}
 
 	// Loop through enough times to trigger a potential map ordering bug.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		model.initializeSequence()
 		model.InferMachineMap(data)
 		c.Assert(model.MachineMap, tc.DeepEquals, map[string]string{

@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"maps"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -149,12 +150,8 @@ func (ts configTestSpec) fixCfg(c *tc.C, cfg *config.Config) *config.Config {
 
 func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 	updated := make(testing.Attrs, len(attrs))
-	for k, v := range attrs {
-		updated[k] = v
-	}
-	for k, v := range updates {
-		updated[k] = v
-	}
+	maps.Copy(updated, attrs)
+	maps.Copy(updated, updates)
 	return updated
 }
 

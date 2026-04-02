@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"sort"
 	"strconv"
@@ -226,9 +227,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 		w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(app.StatusInfo.Message))
 		w.Println()
-		for un, u := range app.Units {
-			units[un] = u
-		}
+		maps.Copy(units, app.Units)
 	}
 	endSection(tw)
 

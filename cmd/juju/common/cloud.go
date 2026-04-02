@@ -171,9 +171,9 @@ func FormatConfigSchema(values interface{}) (string, error) {
 	output := out.String()
 
 	// Indent every line by 4 spaces
-	var indented string
-	for _, line := range strings.Split(output, "\n") {
-		indented += "    " + line + "\n"
+	var indented strings.Builder
+	for line := range strings.SplitSeq(output, "\n") {
+		indented.WriteString("    " + line + "\n")
 	}
-	return indented, nil
+	return indented.String(), nil
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -770,18 +771,13 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 }
 
 func isRegionOptional(cloudType string) bool {
-	for _, v := range []string{
-		// Region is optional for CDK on microk8s, openstack, lxd, maas;
+	return slices.Contains([]string{
+
 		k8s.K8sCloudMicrok8s,
 		k8s.K8sCloudOpenStack,
 		k8s.K8sCloudLXD,
 		k8s.K8sCloudMAAS,
-	} {
-		if cloudType == v {
-			return true
-		}
-	}
-	return false
+	}, cloudType)
 }
 
 func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion string) (_ string, err error) {
@@ -800,7 +796,7 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 	if err != nil {
 		return "", errors.Annotate(err, "listing cloud regions")
 	}
-	regionListMsg := ""
+	var regionListMsg strings.Builder
 	for _, details := range clouds {
 		// User may have specified cloud name or type so match on both.
 		if details.CloudType == cloudType {
@@ -824,11 +820,11 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 					logger.Debugf(context.TODO(), "cloud region %q is valid", cloudRegion)
 					return jujucloud.BuildHostCloudRegion(details.CloudType, region), nil
 				}
-				regionListMsg += fmt.Sprintf("\t%q\n", k)
+				regionListMsg.WriteString(fmt.Sprintf("\t%q\n", k))
 			}
 		}
 	}
-	ctx.Infof("Supported regions for cloud %q: \n%s", cloudType, regionListMsg)
+	ctx.Infof("Supported regions for cloud %q: \n%s", cloudType, regionListMsg.String())
 	return "", errors.NotValidf("cloud region %q", cloudRegion)
 }
 

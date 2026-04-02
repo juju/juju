@@ -5,6 +5,7 @@ package gen
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -168,11 +169,8 @@ func jimmFacades(facades []facade.Details) []facade.Details {
 			continue
 		}
 
-		for _, i := range versions {
-			if v.Version == i {
-				result = append(result, v)
-				break
-			}
+		if slices.Contains(versions, v.Version) {
+			result = append(result, v)
 		}
 	}
 	return result

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path"
@@ -799,9 +800,7 @@ func NewBootstrapInstanceConfig(
 	}
 	icfg.PublicImageSigningKey = publicImageSigningKey
 	icfg.ControllerConfig = make(map[string]interface{})
-	for k, v := range config {
-		icfg.ControllerConfig[k] = v
-	}
+	maps.Copy(icfg.ControllerConfig, config)
 	icfg.Bootstrap = &BootstrapConfig{
 		StateInitializationParams: StateInitializationParams{
 			BootstrapMachineConstraints: cons,

@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -326,9 +327,7 @@ func copyRelationUnitsChanged(src params.RelationUnitsChange) watcher.RelationUn
 	}
 	if src.AppChanged != nil {
 		dst.AppChanged = make(map[string]int64, len(src.AppChanged))
-		for name, appVersion := range src.AppChanged {
-			dst.AppChanged[name] = appVersion
-		}
+		maps.Copy(dst.AppChanged, src.AppChanged)
 	}
 	return dst
 }

@@ -6,6 +6,7 @@ package imageutils
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -113,12 +114,7 @@ var legacyUbuntuBases = []jujubase.Base{
 }
 
 func ubuntuBaseIslegacy(base jujubase.Base) bool {
-	for _, oldBase := range legacyUbuntuBases {
-		if base.IsCompatible(oldBase) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(legacyUbuntuBases, base.IsCompatible)
 }
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,

@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserSecretsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewUserSecretsManager(stdCtx, ctx)
-	}, reflect.TypeOf((*UserSecretsManager)(nil)))
+	}, reflect.TypeFor[*UserSecretsManager]())
 }
 
 // NewUserSecretsManager creates a UserSecretsManager.

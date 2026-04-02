@@ -78,16 +78,16 @@ const (
 // newSecurityRule returns a security rule with the given parameters.
 func newSecurityRule(p newSecurityRuleParams) *armnetwork.SecurityRule {
 	return &armnetwork.SecurityRule{
-		Name: to.Ptr(p.name),
+		Name: new(p.name),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr(p.description),
+			Description:              new(p.description),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			SourceAddressPrefix:      to.Ptr("*"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr(p.destPrefix),
-			DestinationPortRange:     to.Ptr(fmt.Sprint(p.port)),
+			SourceAddressPrefix:      new("*"),
+			SourcePortRange:          new("*"),
+			DestinationAddressPrefix: new(p.destPrefix),
+			DestinationPortRange:     new(fmt.Sprint(p.port)),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(p.priority)),
+			Priority:                 new(int32(p.priority)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
@@ -130,23 +130,23 @@ func networkTemplateResources(
 		},
 	}}
 	subnets := []*armnetwork.Subnet{{
-		Name: to.Ptr(internalSubnetName),
+		Name: new(internalSubnetName),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr(internalSubnetPrefix),
+			AddressPrefix: new(internalSubnetPrefix),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: to.Ptr(nsgID),
+				ID: new(nsgID),
 			},
 		},
 	}}
-	addressPrefixes := []*string{to.Ptr(internalSubnetPrefix)}
+	addressPrefixes := []*string{new(internalSubnetPrefix)}
 	if len(apiPorts) > 0 {
-		addressPrefixes = append(addressPrefixes, to.Ptr(controllerSubnetPrefix))
+		addressPrefixes = append(addressPrefixes, new(controllerSubnetPrefix))
 		subnets = append(subnets, &armnetwork.Subnet{
-			Name: to.Ptr(controllerSubnetName),
+			Name: new(controllerSubnetName),
 			Properties: &armnetwork.SubnetPropertiesFormat{
-				AddressPrefix: to.Ptr(controllerSubnetPrefix),
+				AddressPrefix: new(controllerSubnetPrefix),
 				NetworkSecurityGroup: &armnetwork.SecurityGroup{
-					ID: to.Ptr(nsgID),
+					ID: new(nsgID),
 				},
 			},
 		})

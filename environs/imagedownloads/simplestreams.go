@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -137,13 +138,14 @@ func validateArgs(arch, release, ftype string) error {
 	}
 
 	if len(bad) > 0 {
-		errMsg := "invalid parameters supplied"
+		var errMsg strings.Builder
+		errMsg.WriteString("invalid parameters supplied")
 		for _, k := range []string{arch, release, ftype} {
 			if v, ok := bad[k]; ok {
-				errMsg += fmt.Sprintf(" %s", v)
+				errMsg.WriteString(fmt.Sprintf(" %s", v))
 			}
 		}
-		return errors.New(errMsg)
+		return errors.New(errMsg.String())
 	}
 	return nil
 }

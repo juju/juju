@@ -18,7 +18,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("DiskManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newDiskManagerAPI(ctx)
-	}, reflect.TypeOf((*DiskManagerAPI)(nil)))
+	}, reflect.TypeFor[*DiskManagerAPI]())
 }
 
 // newDiskManagerAPI creates a new server-side DiskManager API facade.

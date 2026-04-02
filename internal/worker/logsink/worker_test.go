@@ -96,7 +96,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 
 	worker := w.(*LogSink)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		logger, err := worker.GetLogWriter(c.Context(), id)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
@@ -138,7 +138,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 
 	worker := w.(*LogSink)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		logger, err := worker.GetLoggerContext(c.Context(), id)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(logger, tc.NotNil)
@@ -163,7 +163,7 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.
 
 	// They both should use the same underlying model logger.
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if i%2 == 0 {
 			_, err := worker.GetLogWriter(c.Context(), id)
 			c.Assert(err, tc.ErrorIsNil)

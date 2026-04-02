@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
@@ -530,12 +531,8 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 	}
 
 	cfgToApply := make(map[string]interface{})
-	for k, v := range existing.Config {
-		cfgToApply[k] = v
-	}
-	for k, v := range params.Config {
-		cfgToApply[k] = v
-	}
+	maps.Copy(cfgToApply, existing.Config)
+	maps.Copy(cfgToApply, params.Config)
 	for _, k := range params.Reset {
 		delete(cfgToApply, k)
 	}

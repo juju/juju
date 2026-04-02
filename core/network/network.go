@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sort"
+	"slices"
 
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -105,9 +105,7 @@ func (s IDSet) Values() []Id {
 // SortedValues returns an ordered slice containing all the values in the set.
 func (s IDSet) SortedValues() []Id {
 	values := s.Values()
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
+	slices.Sort(values)
 	return values
 }
 

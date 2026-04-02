@@ -55,8 +55,8 @@ func ReadOSRelease(f string) (map[string]string, error) {
 		return nil, err
 	}
 	values := make(map[string]string)
-	releaseDetails := strings.Split(string(contents), "\n")
-	for _, val := range releaseDetails {
+	releaseDetails := strings.SplitSeq(string(contents), "\n")
+	for val := range releaseDetails {
 		c := strings.SplitN(val, "=", 2)
 		if len(c) != 2 {
 			continue

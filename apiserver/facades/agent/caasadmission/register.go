@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASAdmission", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+	}, reflect.TypeFor[*Facade]())
 }
 
 func newStateFacade(ctx facade.ModelContext) (*Facade, error) {

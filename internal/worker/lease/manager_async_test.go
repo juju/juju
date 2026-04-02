@@ -106,7 +106,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 	revokeCalls := make(chan struct{})
 
 	var calls []call
-	for i := 0; i < lease.MaxRetries; i++ {
+	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "RevokeLease",
 			args:   []interface{}{key("requiem"), "verdi"},
@@ -139,7 +139,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 		}()
 
 		duration := lease.InitialRetryDelay
-		for i := 0; i < lease.MaxRetries-1; i++ {
+		for i := range lease.MaxRetries - 1 {
 			c.Logf("retry %d", i)
 			select {
 			case <-revokeCalls:
@@ -487,7 +487,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 	// When a claim times out too many times we give up.
 	claimCalls := make(chan struct{})
 	var calls []call
-	for i := 0; i < lease.MaxRetries; i++ {
+	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "ClaimLease",
 			args: []interface{}{
@@ -517,7 +517,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 		}()
 
 		duration := lease.InitialRetryDelay
-		for i := 0; i < lease.MaxRetries-1; i++ {
+		for i := range lease.MaxRetries - 1 {
 			c.Logf("retry %d", i)
 			select {
 			case <-claimCalls:
@@ -555,7 +555,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 	// When a claim is invalid for too long, we give up
 	claimCalls := make(chan struct{})
 	var calls []call
-	for i := 0; i < lease.MaxRetries; i++ {
+	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "ClaimLease",
 			args: []interface{}{
@@ -585,7 +585,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 		}()
 
 		duration := lease.InitialRetryDelay
-		for i := 0; i < lease.MaxRetries-1; i++ {
+		for i := range lease.MaxRetries - 1 {
 			c.Logf("retry %d", i)
 			select {
 			case <-claimCalls:

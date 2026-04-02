@@ -17,7 +17,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Block", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewAPI(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // NewAPI returns a new block API facade.

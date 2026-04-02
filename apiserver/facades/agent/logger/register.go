@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Logger", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newLoggerAPIV1(ctx)
-	}, reflect.TypeOf((*LoggerAPI)(nil)))
+	}, reflect.TypeFor[*LoggerAPI]())
 }
 
 // newLoggerAPIV1 creates a new server-side logger API end point.

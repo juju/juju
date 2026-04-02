@@ -41,7 +41,7 @@ type keyInfo struct {
 
 // render turns the input data into a Markdown document
 func render(data map[string]*keyInfo) string {
-	var mainDoc string
+	var mainDoc strings.Builder
 
 	headingForKey := func(key string) string {
 		anchor := "(model-config-" + key + ")="
@@ -59,51 +59,51 @@ func render(data map[string]*keyInfo) string {
 	for _, key := range keys {
 		info := data[key]
 
-		mainDoc += headingForKey(key) + "\n"
+		mainDoc.WriteString(headingForKey(key) + "\n")
 		if info.Deprecated {
-			mainDoc += "> This key is deprecated.\n"
+			mainDoc.WriteString("> This key is deprecated.\n")
 		}
-		mainDoc += "\n"
+		mainDoc.WriteString("\n")
 
 		if info.SetByJuju {
-			mainDoc += "*Note: This value is set by Juju.*\n\n"
+			mainDoc.WriteString("*Note: This value is set by Juju.*\n\n")
 		} else {
 			// Only print these if the value can be set by a user, otherwise it is of no use.
 			if info.Immutable {
-				mainDoc += "*Note: This value cannot be changed after model creation.* \n\n"
+				mainDoc.WriteString("*Note: This value cannot be changed after model creation.* \n\n")
 			}
 			if info.Mandatory {
-				mainDoc += "*Note: This value must be set.* \n\n"
+				mainDoc.WriteString("*Note: This value must be set.* \n\n")
 			}
 		}
 
 		// Ensure doc has fullstop/newlines at end
-		mainDoc += strings.TrimRight(info.Summary, ".\n") + ".\n\n"
+		mainDoc.WriteString(strings.TrimRight(info.Summary, ".\n") + ".\n\n")
 
 		if info.Default != "" {
-			mainDoc += "**Default value:** `" + info.Default + "`\n\n"
+			mainDoc.WriteString("**Default value:** `" + info.Default + "`\n\n")
 		} else {
-			mainDoc += "**Default value:** `\"\"`" + "\n\n"
+			mainDoc.WriteString("**Default value:** `\"\"`" + "\n\n")
 		}
 
 		if info.Type != "" {
-			mainDoc += "**Type:** " + info.Type + "\n\n"
+			mainDoc.WriteString("**Type:** " + info.Type + "\n\n")
 		}
 		if len(info.ValidValues) > 0 {
-			mainDoc += "**Valid values:** `" + strings.Join(
+			mainDoc.WriteString("**Valid values:** `" + strings.Join(
 				info.ValidValues,
 				"`, `",
-			) + "`\n\n"
+			) + "`\n\n")
 		}
 
 		if info.Doc != "" {
-			mainDoc += "**Description:**\n\n" + info.Doc + "\n\n"
+			mainDoc.WriteString("**Description:**\n\n" + info.Doc + "\n\n")
 		}
 
-		mainDoc += "\n"
+		mainDoc.WriteString("\n")
 	}
 
-	return mainDoc
+	return mainDoc.String()
 }
 
 // Get data from config.Schema.

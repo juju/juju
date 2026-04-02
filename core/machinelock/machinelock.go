@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -258,12 +259,7 @@ const (
 )
 
 func contains(opts []ReportOption, opt ReportOption) bool {
-	for _, value := range opts {
-		if value == opt {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, opt)
 }
 
 type reportInfo struct {

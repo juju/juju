@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -233,9 +234,7 @@ func (*requestsSuite) TestAssertJSONCall(c *tc.C) {
 		if params.JSONBody != nil {
 			expectBody.Header.Set("Content-Type", "application/json")
 		}
-		for k, v := range params.Header {
-			expectBody.Header[k] = v
-		}
+		maps.Copy(expectBody.Header, params.Header)
 		if params.JSONBody != nil {
 			data, err := json.Marshal(params.JSONBody)
 			c.Assert(err, tc.ErrorIsNil)
@@ -280,7 +279,7 @@ func (*requestsSuite) TestAssertJSONCallWithBodyAsserter(c *tc.C) {
 func (*requestsSuite) TestAssertJSONCallWithHostedURL(c *tc.C) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(fmt.Sprintf("%q", "ok "+req.URL.Path)))
+		w.Write(fmt.Appendf(nil, "%q", "ok "+req.URL.Path))
 	}))
 	defer srv.Close()
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{

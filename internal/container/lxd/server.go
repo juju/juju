@@ -5,7 +5,9 @@ package lxd
 
 import (
 	"context"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	lxd "github.com/canonical/lxd/client"
@@ -142,9 +144,7 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 	if container.Config == nil {
 		container.Config = make(map[string]string)
 	}
-	for k, v := range cfg {
-		container.Config[k] = v
-	}
+	maps.Copy(container.Config, cfg)
 
 	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
 	if err != nil {
@@ -255,10 +255,8 @@ func (s *Server) HasProfile(name string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	for _, profile := range profiles {
-		if profile == name {
-			return true, nil
-		}
+	if slices.Contains(profiles, name) {
+		return true, nil
 	}
 	return false, nil
 }
@@ -318,10 +316,5 @@ func IsLXDAlreadyExists(err error) bool {
 }
 
 func inSlice[T comparable](key T, list []T) bool {
-	for _, entry := range list {
-		if entry == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, key)
 }

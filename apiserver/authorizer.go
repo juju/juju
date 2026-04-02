@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/names/v6"
 
@@ -27,10 +28,8 @@ type tagKindAuthorizer []string
 // Authorize is part of the httpcontext.Authorizer interface.
 func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
 	tagKind := authInfo.Tag.Kind()
-	for _, kind := range a {
-		if tagKind == kind {
-			return nil
-		}
+	if slices.Contains(a, tagKind) {
+		return nil
 	}
 	return errors.Errorf("tag kind %q is not supported", tagKind).Add(
 		coreerrors.NotValid,

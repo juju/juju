@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -114,9 +115,7 @@ func (c *StateSetCommand) handleKeyValueFile(ctx *cmd.Context) error {
 	}
 
 	overrides := c.StateValues
-	for k, v := range overrides {
-		kvs[k] = v
-	}
+	maps.Copy(kvs, overrides)
 	c.StateValues = kvs
 	return nil
 }

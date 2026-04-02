@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"context"
+	"maps"
 	"net"
 	"os"
 	"strconv"
@@ -249,9 +250,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewContainer(c *tc.C, name string) *lxd.Container {
 	metadata := make(map[string]string)
-	for k, v := range s.Metadata {
-		metadata[k] = v
-	}
+	maps.Copy(metadata, s.Metadata)
 
 	return &lxd.Container{
 		Instance: api.Instance{

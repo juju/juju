@@ -736,7 +736,7 @@ func (s *querySuite) TestGetOperationsLimitOne(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "limit-one-app/0")
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)
@@ -1209,7 +1209,7 @@ func (s *querySuite) TestGetOperationsPagination(c *tc.C) {
 	s.addCharmAction(c, charmUUID)
 	unitUUID := s.addUnitWithName(c, charmUUID, "pagination-test-app/0")
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		opUUID := s.addOperation(c)
 		s.addOperationAction(c, opUUID, charmUUID, "test-action")
 		taskUUID := s.addOperationTask(c, opUUID)

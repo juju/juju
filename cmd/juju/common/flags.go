@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -97,9 +98,7 @@ func (f *ConfigFlag) SetAttrsFromReader(reader io.Reader) error {
 	if f.attrs == nil {
 		f.attrs = make(map[string]interface{})
 	}
-	for k, attr := range attrs {
-		f.attrs[k] = attr
-	}
+	maps.Copy(f.attrs, attrs)
 	return nil
 }
 
@@ -122,18 +121,14 @@ func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error)
 			return nil, err
 		}
 	}
-	for k, v := range f.attrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, f.attrs)
 	return attrs, nil
 }
 
 // ReadConfigPairs returns just the k=v attributes.
 func (f *ConfigFlag) ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error) {
 	attrs := make(map[string]interface{})
-	for k, v := range f.attrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, f.attrs)
 	return attrs, nil
 }
 

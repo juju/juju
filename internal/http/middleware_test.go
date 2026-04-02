@@ -167,7 +167,7 @@ func (s *RetrySuite) TestRetryRequired(c *tc.C) {
 
 	retries := 3
 	go func() {
-		for i := 0; i < retries; i++ {
+		for range retries {
 			ch <- time.Now()
 		}
 	}()
@@ -210,7 +210,7 @@ func (s *RetrySuite) TestRetryRequiredUsingBackoff(c *tc.C) {
 
 	retries := 3
 	go func() {
-		for i := 0; i < retries; i++ {
+		for range retries {
 			ch <- time.Now()
 		}
 	}()
@@ -365,7 +365,7 @@ func (s *RetrySuite) TestRetryRequiredAndExceeded(c *tc.C) {
 
 	retries := 3
 	go func() {
-		for i := 0; i < retries; i++ {
+		for range retries {
 			ch <- time.Now()
 		}
 	}()

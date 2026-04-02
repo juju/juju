@@ -245,8 +245,8 @@ func (s *spacesSuite) TestCreateSpace(c *tc.C) {
 	name := "foo"
 	subnets := []string{}
 	r := rand.New(rand.NewSource(0xdeadbeef))
-	for i := 0; i < 100; i++ {
-		for j := 0; j < 10; j++ {
+	for range 100 {
+		for range 10 {
 			n := r.Uint32()
 			newSubnet := fmt.Sprintf("%d.%d.%d.0/24", uint8(n>>16), uint8(n>>8), uint8(n))
 			subnets = append(subnets, newSubnet)

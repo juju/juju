@@ -4,7 +4,7 @@
 package apiserver
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/juju/collections/set"
@@ -47,9 +47,7 @@ func (s *AllFacadesSuite) TestFacadeVersionsInSync(c *tc.C) {
 		c.Logf("checking %q", name)
 
 		// Force the versions to be sorted.
-		sort.Slice(facadeVersion, func(i, j int) bool {
-			return facadeVersion[i] < facadeVersion[j]
-		})
+		slices.Sort(facadeVersion)
 
 		versions, ok := m[name]
 		c.Assert(ok, tc.IsTrue, tc.Commentf("facade %q not registered", name))

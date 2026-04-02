@@ -6,6 +6,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/juju/errors"
@@ -363,9 +364,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 	var erred error
 	verified := map[string]jujucloud.Credential{}
 	mapUnion := func(items map[string]jujucloud.Credential) {
-		for k, v := range items {
-			verified[k] = v
-		}
+		maps.Copy(verified, items)
 	}
 	for cloudName, cloudCredentials := range update {
 		remoteCloud, ok := remoteUserClouds[names.NewCloudTag(cloudName)]

@@ -811,7 +811,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
 				AdditionalProperties: &jsonschema.Schema{
 					Type:          []jsonschema.Type{jsonschema.ObjectType},
 					Required:      []string{"name"},
-					MaxProperties: jsonschema.Int(1),
+					MaxProperties: new(1),
 					Properties: map[string]*jsonschema.Schema{
 						"name": {
 							Singular:      "the name",
@@ -829,7 +829,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
 				AdditionalProperties: &jsonschema.Schema{
 					Type:          []jsonschema.Type{jsonschema.ObjectType},
 					Required:      []string{"name"},
-					MaxProperties: jsonschema.Int(1),
+					MaxProperties: new(1),
 					Properties: map[string]*jsonschema.Schema{
 						"name": {
 							Singular:      "the name",
@@ -880,7 +880,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithDefault(c *tc.C) {
 				AdditionalProperties: &jsonschema.Schema{
 					Type:          []jsonschema.Type{jsonschema.ObjectType},
 					Required:      []string{"name"},
-					MaxProperties: jsonschema.Int(1),
+					MaxProperties: new(1),
 					Properties: map[string]*jsonschema.Schema{
 						"name": {
 							Singular:      "the name",
@@ -928,7 +928,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *tc.C) {
 				AdditionalProperties: &jsonschema.Schema{
 					Type:          []jsonschema.Type{jsonschema.ObjectType},
 					Required:      []string{"name"},
-					MaxProperties: jsonschema.Int(1),
+					MaxProperties: new(1),
 					Properties: map[string]*jsonschema.Schema{
 						"name": {
 							Singular:      "the name",
@@ -977,7 +977,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *tc.C) {
 				AdditionalProperties: &jsonschema.Schema{
 					Type:          []jsonschema.Type{jsonschema.ObjectType},
 					Required:      []string{"name"},
-					MaxProperties: jsonschema.Int(1),
+					MaxProperties: new(1),
 					Properties: map[string]*jsonschema.Schema{
 						"name": {
 							Singular:      "the name",

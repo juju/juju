@@ -74,7 +74,7 @@ func (ri *relationInfo) addRelatedApplications(relname string, count int) {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
-	for i := 0; i < count; i++ {
+	for range count {
 		ri.setNextRelation(relname, "", ri.RemoteApplicationName, nil)
 	}
 }

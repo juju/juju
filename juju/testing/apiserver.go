@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -215,9 +216,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		"name": "controller",
 		"type": DefaultCloud.Type,
 	}
-	for k, v := range s.ControllerModelConfigAttrs {
-		modelAttrs[k] = v
-	}
+	maps.Copy(modelAttrs, s.ControllerModelConfigAttrs)
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
 	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
@@ -358,9 +357,7 @@ func (s *ApiServerSuite) SetUpTest(c *tc.C) {
 	s.setupHttpServer(c)
 
 	controllerCfg := coretesting.FakeControllerConfig()
-	for key, value := range s.ControllerConfigAttrs {
-		controllerCfg[key] = value
-	}
+	maps.Copy(controllerCfg, s.ControllerConfigAttrs)
 	s.ControllerUUID = controllerCfg.ControllerUUID()
 	s.setupControllerModel(c, controllerCfg)
 	s.setupAPIServer(c, controllerCfg)

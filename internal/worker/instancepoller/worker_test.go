@@ -692,7 +692,7 @@ func (s *workerSuite) assertWorkerCompletesLoops(c *tc.C, w *updaterWorker, numL
 	w.loopCompletedHook = func() { ch <- struct{}{} }
 	triggerFn()
 
-	for loop := 0; loop < numLoops; loop++ {
+	for range numLoops {
 		select {
 		case <-ch: // loop completed
 		case <-time.After(coretesting.ShortWait):

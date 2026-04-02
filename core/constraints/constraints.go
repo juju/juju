@@ -417,8 +417,8 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 		// Replace slash-escaped spaces with a null byte so we can
 		// safely split on remaining whitespace.
 		arg = strings.Replace(arg, `\ `, "\x00", -1)
-		raws := strings.Split(strings.TrimSpace(arg), " ")
-		for _, raw := range raws {
+		raws := strings.SplitSeq(strings.TrimSpace(arg), " ")
+		for raw := range raws {
 			// Replace null bytes back to spaces
 			raw = strings.TrimSpace(strings.Replace(raw, "\x00", " ", -1))
 			if raw == "" {

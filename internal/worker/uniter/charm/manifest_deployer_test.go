@@ -277,7 +277,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *tc.C) {
 		// We retry 10 times in total so we need to advance the clock 9
 		// times to exceed the max retry attempts (the first attempt
 		// does not use the clock).
-		for i := 0; i < 9; i++ {
+		for range 9 {
 			c.Assert(s.clock.WaitAdvance(10*time.Second, time.Second, 1), tc.ErrorIsNil)
 		}
 	}()

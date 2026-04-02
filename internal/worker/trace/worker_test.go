@@ -96,7 +96,7 @@ func (s *workerSuite) TestGetTracerIsCached(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*tracerWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, err := worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -124,7 +124,7 @@ func (s *workerSuite) TestGetTracerIsNotCachedForDifferentNamespaces(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*tracerWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		_, err := worker.GetTracer(c.Context(), coretrace.Namespace("agent", fmt.Sprintf("anything-%d", i)))
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -155,7 +155,7 @@ func (s *workerSuite) TestGetTracerConcurrently(c *tc.C) {
 	wg.Add(10)
 
 	worker := w.(*tracerWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 			_, err := worker.GetTracer(c.Context(), coretrace.Namespace("agent", fmt.Sprintf("anything-%d", i)))

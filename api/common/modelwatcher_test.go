@@ -66,7 +66,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// watch for the changes
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case <-w.Changes():
 		case <-time.After(testhelpers.LongWait):

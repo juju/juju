@@ -490,7 +490,7 @@ func modelOperatorDeployment(
 						VolumeMounts: volumeMounts,
 					}},
 					ServiceAccountName:           serviceAccountName,
-					AutomountServiceAccountToken: boolPtr(true),
+					AutomountServiceAccountToken: new(true),
 					Volumes:                      volumes,
 				},
 			},
@@ -593,7 +593,7 @@ func ensureModelOperatorRBAC(
 
 	sa := &core.ServiceAccount{
 		ObjectMeta:                   objMetaNamespaced,
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: new(true),
 	}
 
 	c, err := broker.EnsureServiceAccount(ctx, sa)
@@ -707,7 +707,7 @@ func ensureExecRBACResources(ctx context.Context, objMeta meta.ObjectMeta, clock
 
 	sa := &core.ServiceAccount{
 		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: boolPtr(true),
+		AutomountServiceAccountToken: new(true),
 	}
 	_, err := broker.EnsureServiceAccount(ctx, sa)
 	if err != nil {

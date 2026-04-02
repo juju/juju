@@ -6,6 +6,7 @@ package application_test
 import (
 	"bytes"
 	"context"
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -460,21 +461,13 @@ func (s *configCommandSuite) assertSetSuccess(
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
 	c.Assert(err, tc.ErrorIsNil)
 	appValues := make(map[string]interface{})
-	for k, v := range s.defaultAppValues {
-		appValues[k] = v
-	}
-	for k, v := range expectAppValues {
-		appValues[k] = v
-	}
+	maps.Copy(appValues, s.defaultAppValues)
+	maps.Copy(appValues, expectAppValues)
 	c.Assert(s.fake.appValues, tc.DeepEquals, appValues)
 
 	charmValues := make(map[string]interface{})
-	for k, v := range s.defaultCharmValues {
-		charmValues[k] = v
-	}
-	for k, v := range expectCharmValues {
-		charmValues[k] = v
-	}
+	maps.Copy(charmValues, s.defaultCharmValues)
+	maps.Copy(charmValues, expectCharmValues)
 	c.Assert(s.fake.charmValues, tc.DeepEquals, charmValues)
 }
 
@@ -532,7 +525,7 @@ func setupBigFile(c *tc.C, dir string) string {
 	for i := 0; i < cap(chunk); i++ {
 		chunk[i] = byte(i % 256)
 	}
-	for i := 0; i < 6000; i++ {
+	for range 6000 {
 		_, err = file.Write(chunk)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -572,9 +565,7 @@ func (f *parseYamlAPI) SetConfig(ctx context.Context, application, configYAML st
 	}
 	for app, cfg := range parsed {
 		if app == application {
-			for key, val := range cfg {
-				config[key] = val
-			}
+			maps.Copy(config, cfg)
 		}
 	}
 

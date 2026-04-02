@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"context"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -55,9 +56,7 @@ func (f *fakeEnvAPI) ModelGet(ctx context.Context) (map[string]interface{}, erro
 	// We need to deep copy f.values first, because verifyKnownKeys() will
 	// alter the returned values of ModelGet(), hence breaking the tests.
 	valuesCopy := make(map[string]interface{})
-	for k, v := range f.values {
-		valuesCopy[k] = v
-	}
+	maps.Copy(valuesCopy, f.values)
 	return valuesCopy, nil
 }
 
@@ -74,9 +73,7 @@ func (f *fakeEnvAPI) ModelSet(ctx context.Context, config map[string]interface{}
 		f.values = config
 	} else {
 		// Append values rather than overwriting
-		for key, val := range config {
-			f.values[key] = val
-		}
+		maps.Copy(f.values, config)
 	}
 	return f.err
 }

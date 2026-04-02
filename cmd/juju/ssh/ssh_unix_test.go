@@ -261,9 +261,9 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *tc.C) {
 	type concrete struct {
 		coreSSHClient
 	}
-	t := reflect.TypeOf(concrete{})
-	for i := 0; i < t.NumMethod(); i++ {
-		name := t.Method(i).Name
+	t := reflect.TypeFor[concrete]()
+	for method := range t.Methods() {
+		name := method.Name
 
 		// Close isn't an API method.
 		if name == "Close" {

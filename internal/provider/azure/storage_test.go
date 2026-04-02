@@ -147,9 +147,9 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 
 	makeSender := func(name string, sizeGB int32) *azuretesting.MockSender {
 		sender := azuretesting.NewSenderWithValue(&armcompute.Disk{
-			Name: to.Ptr(name),
+			Name: new(name),
 			Properties: &armcompute.DiskProperties{
-				DiskSizeGB: to.Ptr(sizeGB),
+				DiskSizeGB: new(sizeGB),
 			},
 		})
 		sender.PathPattern = `.*/Microsoft\.Compute/disks/` + name
@@ -198,17 +198,17 @@ func (s *storageSuite) TestCreateVolumes(c *tc.C) {
 
 	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
-			"foo": to.Ptr("bar"),
+			"foo": new("bar"),
 		}
 		return &armcompute.Disk{
-			Name:     to.Ptr(name),
-			Location: to.Ptr("westus"),
+			Name:     new(name),
+			Location: new("westus"),
 			Tags:     tags,
 			SKU: &armcompute.DiskSKU{
 				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDLRS),
 			},
 			Properties: &armcompute.DiskProperties{
-				DiskSizeGB: to.Ptr(size),
+				DiskSizeGB: new(size),
 				CreationData: &armcompute.CreationData{
 					CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty),
 				},
@@ -278,14 +278,14 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 
 	makeDisk := func(name string, size int32) *armcompute.Disk {
 		tags := map[string]*string{
-			"foo": to.Ptr("bar"),
+			"foo": new("bar"),
 		}
 		return &armcompute.Disk{
-			Name:     to.Ptr(name),
-			Location: to.Ptr("westus"),
+			Name:     new(name),
+			Location: new("westus"),
 			Tags:     tags,
 			Properties: &armcompute.DiskProperties{
-				DiskSizeGB: to.Ptr(size),
+				DiskSizeGB: new(size),
 				CreationData: &armcompute.CreationData{
 					CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty),
 				},
@@ -303,11 +303,11 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *tc.C) {
 func (s *storageSuite) TestListVolumes(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	disks := []*armcompute.Disk{{
-		Name: to.Ptr("volume-0"),
+		Name: new("volume-0"),
 	}, {
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 	}, {
-		Name: to.Ptr("volume-1"),
+		Name: new("volume-1"),
 	}}
 	volumeSender := azuretesting.NewSenderWithValue(armcompute.DiskList{
 		Value: disks,
@@ -346,7 +346,7 @@ func (s *storageSuite) TestDescribeVolumes(c *tc.C) {
 	volumeSource := s.volumeSource(c)
 	volumeSender := azuretesting.NewSenderWithValue(&armcompute.Disk{
 		Properties: &armcompute.DiskProperties{
-			DiskSizeGB: to.Ptr(int32(1024)),
+			DiskSizeGB: new(int32(1024)),
 		},
 	})
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
@@ -437,15 +437,15 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *tc.C) {
 func (s *storageSuite) TestAttachVolumesSCSI(c *tc.C) {
 	// machine-1 has a single data disk with LUN 0.
 	machine1DataDisks := []*armcompute.DataDisk{{
-		Lun:  to.Ptr(int32(0)),
-		Name: to.Ptr("volume-1"),
+		Lun:  new(int32(0)),
+		Name: new("volume-1"),
 	}}
 	// machine-2 has 32 data disks; no LUNs free.
 	machine2DataDisks := make([]*armcompute.DataDisk, 32)
 	for i := range machine2DataDisks {
 		machine2DataDisks[i] = &armcompute.DataDisk{
-			Lun:  to.Ptr(int32(i)),
-			Name: to.Ptr(fmt.Sprintf("volume-%d", i)),
+			Lun:  new(int32(i)),
+			Name: new(fmt.Sprintf("volume-%d", i)),
 		}
 	}
 
@@ -473,17 +473,17 @@ func (s *storageSuite) TestAttachVolumesSCSI(c *tc.C) {
 	}
 
 	virtualMachines := []*armcompute.VirtualMachine{{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{},
 		},
 	}, {
-		Name: to.Ptr("machine-1"),
+		Name: new("machine-1"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{DataDisks: machine1DataDisks},
 		},
 	}, {
-		Name: to.Ptr("machine-2"),
+		Name: new("machine-2"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{DataDisks: machine2DataDisks},
 		},
@@ -533,26 +533,26 @@ func (s *storageSuite) TestAttachVolumesSCSI(c *tc.C) {
 
 	makeManagedDisk := func(volumeName string) *armcompute.ManagedDiskParameters {
 		return &armcompute.ManagedDiskParameters{
-			ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
+			ID: new(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
 		}
 	}
 
 	machine0DataDisks := []*armcompute.DataDisk{{
-		Lun:          to.Ptr(int32(0)),
-		Name:         to.Ptr("volume-0"),
+		Lun:          new(int32(0)),
+		Name:         new("volume-0"),
 		ManagedDisk:  makeManagedDisk("volume-0"),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
 	}, {
-		Lun:          to.Ptr(int32(1)),
-		Name:         to.Ptr("volume-2"),
+		Lun:          new(int32(1)),
+		Name:         new("volume-2"),
 		ManagedDisk:  makeManagedDisk("volume-2"),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
 	}}
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: machine0DataDisks,
@@ -564,8 +564,8 @@ func (s *storageSuite) TestAttachVolumesSCSI(c *tc.C) {
 func (s *storageSuite) TestAttachVolumesNVME(c *tc.C) {
 	// machine-1 has an existing data disk with LUN 0.
 	machine1InitialDataDisks := []*armcompute.DataDisk{{
-		Lun:  to.Ptr(int32(0)),
-		Name: to.Ptr("volume-0"),
+		Lun:  new(int32(0)),
+		Name: new("volume-0"),
 	}}
 
 	// volume-1 is attached to machine-1 with existing volume-0
@@ -586,7 +586,7 @@ func (s *storageSuite) TestAttachVolumesNVME(c *tc.C) {
 	}
 
 	virtualMachines := []*armcompute.VirtualMachine{{
-		Name: to.Ptr("machine-1"),
+		Name: new("machine-1"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks:          machine1InitialDataDisks,
@@ -628,23 +628,23 @@ func (s *storageSuite) TestAttachVolumesNVME(c *tc.C) {
 
 	makeManagedDisk := func(volumeName string) *armcompute.ManagedDiskParameters {
 		return &armcompute.ManagedDiskParameters{
-			ID: to.Ptr(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
+			ID: new(fmt.Sprintf("/subscriptions/%s/resourceGroups/juju-testmodel-deadbeef/providers/Microsoft.Compute/disks/%s", fakeManagedSubscriptionId, volumeName)),
 		}
 	}
 
 	machine1DataDisks := []*armcompute.DataDisk{{
-		Lun:  to.Ptr(int32(0)),
-		Name: to.Ptr("volume-0"),
+		Lun:  new(int32(0)),
+		Name: new("volume-0"),
 	}, {
-		Lun:          to.Ptr(int32(1)),
-		Name:         to.Ptr("volume-1"),
+		Lun:          new(int32(1)),
+		Name:         new("volume-1"),
 		ManagedDisk:  makeManagedDisk("volume-1"),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesAttach),
 	}}
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
-		Name: to.Ptr("machine-1"),
+		Name: new("machine-1"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks:          machine1DataDisks,
@@ -657,14 +657,14 @@ func (s *storageSuite) TestAttachVolumesNVME(c *tc.C) {
 func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 	// machine-0 has a three data disks: volume-0, volume-1 and volume-2
 	machine0DataDisks := []*armcompute.DataDisk{{
-		Lun:  to.Ptr(int32(0)),
-		Name: to.Ptr("volume-0"),
+		Lun:  new(int32(0)),
+		Name: new("volume-0"),
 	}, {
-		Lun:  to.Ptr(int32(1)),
-		Name: to.Ptr("volume-1"),
+		Lun:  new(int32(1)),
+		Name: new("volume-1"),
 	}, {
-		Lun:  to.Ptr(int32(2)),
-		Name: to.Ptr("volume-2"),
+		Lun:  new(int32(2)),
+		Name: new("volume-2"),
 	}}
 
 	makeParams := func(volume, machine string) storage.VolumeAttachmentParams {
@@ -686,12 +686,12 @@ func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 	}
 
 	virtualMachines := []*armcompute.VirtualMachine{{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{DataDisks: machine0DataDisks},
 		},
 	}, {
-		Name: to.Ptr("machine-1"),
+		Name: new("machine-1"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{},
 		},
@@ -728,7 +728,7 @@ func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: []*armcompute.DataDisk{
@@ -743,8 +743,8 @@ func (s *storageSuite) TestDetachVolumes(c *tc.C) {
 func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 	// machine-0 has a one data disk: volume-0.
 	machine0DataDisks := []*armcompute.DataDisk{{
-		Lun:  to.Ptr(int32(0)),
-		Name: to.Ptr("volume-0"),
+		Lun:  new(int32(0)),
+		Name: new("volume-0"),
 	}}
 
 	params := []storage.VolumeAttachmentParams{{
@@ -758,7 +758,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 	}}
 
 	virtualMachines := []*armcompute.VirtualMachine{{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{DataDisks: machine0DataDisks},
 		},
@@ -790,7 +790,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *tc.C) {
 	c.Assert(s.requests[1].Method, tc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: []*armcompute.DataDisk{},

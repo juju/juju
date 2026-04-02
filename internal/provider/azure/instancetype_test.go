@@ -6,7 +6,6 @@ package azure
 import (
 	stdtesting "testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
@@ -36,17 +35,17 @@ func (s *InstanceTypeSuite) TestNoDupes(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestStandard(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Standard_A2"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Standard_A2"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
 		Arch:     corearch.AMD64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     700, // 7 * 100
@@ -56,17 +55,17 @@ func (s *InstanceTypeSuite) TestStandard(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestStandardARM64(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Standard_A2"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Standard_A2"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.ARM64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2",
 		Name:     "Standard_A2",
 		Arch:     corearch.ARM64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     700, // 7 * 100
@@ -76,17 +75,17 @@ func (s *InstanceTypeSuite) TestStandardARM64(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestStandardVersioned(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Standard_A2_v4"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Standard_A2_v4"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4",
 		Name:     "Standard_A2_v4",
 		Arch:     corearch.AMD64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     696, // 7 * 100 - 4
@@ -96,17 +95,17 @@ func (s *InstanceTypeSuite) TestStandardVersioned(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestStandardPromo(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Standard_A2_v4_Promo"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Standard_A2_v4_Promo"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Standard_A2_v4_Promo",
 		Name:     "Standard_A2_v4_Promo",
 		Arch:     corearch.AMD64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     40300, // len(costs),
@@ -116,17 +115,17 @@ func (s *InstanceTypeSuite) TestStandardPromo(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestBasic(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Basic_A2"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Basic_A2"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.AMD64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
 		Arch:     corearch.AMD64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     40300, // len(costs),
@@ -136,17 +135,17 @@ func (s *InstanceTypeSuite) TestBasic(c *tc.C) {
 
 func (s *InstanceTypeSuite) TestBasicARM64(c *tc.C) {
 	vm := armcompute.VirtualMachineSize{
-		Name:           to.Ptr("Basic_A2"),
-		MemoryInMB:     to.Ptr(int32(100)),
-		NumberOfCores:  to.Ptr(int32(2)),
-		OSDiskSizeInMB: to.Ptr(int32(1024 * 1024)),
+		Name:           new("Basic_A2"),
+		MemoryInMB:     new(int32(100)),
+		NumberOfCores:  new(int32(2)),
+		OSDiskSizeInMB: new(int32(1024 * 1024)),
 	}
 	inst := newInstanceType(corearch.ARM64, vm)
 	c.Assert(inst, tc.DeepEquals, instances.InstanceType{
 		Id:       "Basic_A2",
 		Name:     "Basic_A2",
 		Arch:     corearch.ARM64,
-		VirtType: to.Ptr("Hyper-V"),
+		VirtType: new("Hyper-V"),
 		CpuCores: 2,
 		Mem:      100,
 		Cost:     40300, // len(costs),

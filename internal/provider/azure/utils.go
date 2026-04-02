@@ -7,7 +7,6 @@ import (
 	"context"
 
 	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
@@ -80,7 +79,7 @@ func toMap(in map[string]*string) map[string]string {
 func toMapPtr(in map[string]string) map[string]*string {
 	result := make(map[string]*string)
 	for k, v := range in {
-		result[k] = to.Ptr(v)
+		result[k] = new(v)
 	}
 	return result
 }

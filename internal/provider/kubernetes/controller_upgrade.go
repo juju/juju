@@ -121,7 +121,7 @@ func inClusterCredentialUpgrade(
 	}
 
 	ss.Spec.Template.Spec.ServiceAccountName = saName
-	ss.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(true)
+	ss.Spec.Template.Spec.AutomountServiceAccountToken = new(true)
 	if err := ss.Apply(ctx); err != nil {
 		runCleanups()
 		return errors.Annotate(err, "updating controller for in cluster credentials")

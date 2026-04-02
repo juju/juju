@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"maps"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/schema"
@@ -211,13 +212,9 @@ func ProviderDefaults(
 	coercedMap := coercedAttrs.(map[string]any)
 	rval := make(map[string]any, len(coercedMap)+len(modelDefaults))
 
-	for k, v := range coercedAttrs.(map[string]interface{}) {
-		rval[k] = v
-	}
+	maps.Copy(rval, coercedAttrs.(map[string]interface{}))
 
-	for k, v := range modelDefaults {
-		rval[k] = v
-	}
+	maps.Copy(rval, modelDefaults)
 
 	return rval, nil
 }
@@ -640,12 +637,8 @@ func coerceDefaultsToSchema(
 		return nil, errors.Errorf("coercing config to Juju schema: %w", err)
 	}
 
-	for k, v := range providerCfg {
-		resultCfg[k] = v
-	}
-	for k, v := range jujuCfg {
-		resultCfg[k] = v
-	}
+	maps.Copy(resultCfg, providerCfg)
+	maps.Copy(resultCfg, jujuCfg)
 	return resultCfg, nil
 }
 

@@ -6,6 +6,8 @@ package remotestate
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -187,18 +189,12 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 			Members:            make(map[string]int64),
 			ApplicationMembers: make(map[string]int64),
 		}
-		for name, version := range relationSnapshot.Members {
-			relationSnapshotCopy.Members[name] = version
-		}
-		for name, version := range relationSnapshot.ApplicationMembers {
-			relationSnapshotCopy.ApplicationMembers[name] = version
-		}
+		maps.Copy(relationSnapshotCopy.Members, relationSnapshot.Members)
+		maps.Copy(relationSnapshotCopy.ApplicationMembers, relationSnapshot.ApplicationMembers)
 		snapshot.Relations[id] = relationSnapshotCopy
 	}
 	snapshot.Storage = make(map[names.StorageTag]StorageSnapshot)
-	for tag, storageSnapshot := range w.current.Storage {
-		snapshot.Storage[tag] = storageSnapshot
-	}
+	maps.Copy(snapshot.Storage, w.current.Storage)
 	snapshot.ActionsPending = make([]string, len(w.current.ActionsPending))
 	copy(snapshot.ActionsPending, w.current.ActionsPending)
 	snapshot.Commands = make([]string, len(w.current.Commands))
@@ -206,15 +202,11 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot.WorkloadEvents = make([]string, len(w.current.WorkloadEvents))
 	copy(snapshot.WorkloadEvents, w.current.WorkloadEvents)
 	snapshot.ActionChanged = make(map[string]int)
-	for k, v := range w.current.ActionChanged {
-		snapshot.ActionChanged[k] = v
-	}
+	maps.Copy(snapshot.ActionChanged, w.current.ActionChanged)
 	snapshot.SecretRotations = make([]string, len(w.current.SecretRotations))
 	copy(snapshot.SecretRotations, w.current.SecretRotations)
 	snapshot.ConsumedSecretInfo = make(map[string]secrets.SecretRevisionInfo)
-	for u, r := range w.current.ConsumedSecretInfo {
-		snapshot.ConsumedSecretInfo[u] = r
-	}
+	maps.Copy(snapshot.ConsumedSecretInfo, w.current.ConsumedSecretInfo)
 	snapshot.ObsoleteSecretRevisions = make(map[string][]int)
 	for u, r := range w.current.ObsoleteSecretRevisions {
 		rCopy := make([]int, len(r))
@@ -772,10 +764,8 @@ func (w *RemoteStateWatcher) workloadEventsChanged(id string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	// Ensure we don't add the same ID twice.
-	for _, otherId := range w.current.WorkloadEvents {
-		if otherId == id {
-			return
-		}
+	if slices.Contains(w.current.WorkloadEvents, id) {
+		return
 	}
 	w.current.WorkloadEvents = append(w.current.WorkloadEvents, id)
 }
@@ -1160,9 +1150,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(ctx context.Context, rel api.Rel
 		for unit, settings := range change.Changed {
 			relationSnapshot.Members[unit] = settings.Version
 		}
-		for app, settingsVersion := range change.AppChanged {
-			relationSnapshot.ApplicationMembers[app] = settingsVersion
-		}
+		maps.Copy(relationSnapshot.ApplicationMembers, change.AppChanged)
 	}
 	// Wrap the Changes() with the relationId so we can process all changes
 	// via the same channel.
@@ -1189,9 +1177,7 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 	for unit, settings := range change.Changed {
 		snapshot.Members[unit] = settings.Version
 	}
-	for app, settingsVersion := range change.AppChanged {
-		snapshot.ApplicationMembers[app] = settingsVersion
-	}
+	maps.Copy(snapshot.ApplicationMembers, change.AppChanged)
 	for _, unit := range change.Departed {
 		delete(snapshot.Members, unit)
 	}

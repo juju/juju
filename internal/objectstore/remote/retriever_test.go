@@ -541,7 +541,7 @@ func (s *retrieverSuite) TestScopedContextDoneIgnoresChildAfterIgnore(c *tc.C) {
 	childCancel()
 
 	// Give the goroutine behind Done a chance to process child cancellation.
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		runtime.Gosched()
 	}
 

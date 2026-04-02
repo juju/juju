@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,9 +60,7 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 		nodeSelector = map[string]string{"kubernetes.io/arch": cpuArch}
 	}
 	if pod.NodeSelector != nil {
-		for k, v := range nodeSelector {
-			pod.NodeSelector[k] = v
-		}
+		maps.Copy(pod.NodeSelector, nodeSelector)
 	} else if nodeSelector != nil {
 		pod.NodeSelector = nodeSelector
 	}
@@ -248,15 +247,15 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 		if !strings.HasPrefix(key, podPrefix) && !strings.HasPrefix(key, antiPodPrefix) {
 			continue
 		}
-		if strings.HasPrefix(key, podPrefix) {
-			key = strings.TrimPrefix(key, podPrefix)
+		if after, ok := strings.CutPrefix(key, podPrefix); ok {
+			key = after
 			if notVal {
 				key = "^" + key
 			}
 			affinityTags[key] = value
 		}
-		if strings.HasPrefix(key, antiPodPrefix) {
-			key = strings.TrimPrefix(key, antiPodPrefix)
+		if after, ok := strings.CutPrefix(key, antiPodPrefix); ok {
+			key = after
 			if notVal {
 				key = "^" + key
 			}

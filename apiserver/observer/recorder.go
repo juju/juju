@@ -107,15 +107,13 @@ func extractErrors(body interface{}) []*auditlog.Error {
 	}
 
 	// Prefer a slice of structs with Errors.
-	for i := 0; i < value.NumField(); i++ {
-		attr := value.Field(i)
+	for _, attr := range value.Fields() {
 		if errors, ok := tryStructSliceErrors(attr); ok {
 			return convertErrors(errors)
 		}
 	}
 
-	for i := 0; i < value.NumField(); i++ {
-		attr := value.Field(i)
+	for _, attr := range value.Fields() {
 		if err, ok := tryErrorPointer(attr); ok {
 			return convertErrors([]*params.Error{err})
 		}
@@ -156,7 +154,7 @@ func tryStructSliceErrors(value reflect.Value) ([]*params.Error, bool) {
 	return result, true
 }
 
-var errorType = reflect.TypeOf(params.Error{})
+var errorType = reflect.TypeFor[params.Error]()
 
 func findErrorField(itemType reflect.Type) (int, bool) {
 	for i := 0; i < itemType.NumField(); i++ {

@@ -65,7 +65,7 @@ type keyInfo struct {
 
 // render turns the input data into a Markdown string.
 func render(data map[string]*keyInfo) string {
-	var mainDoc string
+	var mainDoc strings.Builder
 
 	headingForKey := func(key string) string {
 		anchor := "(controller-config-" + key + ")="
@@ -83,32 +83,32 @@ func render(data map[string]*keyInfo) string {
 	for _, key := range keys {
 		info := data[key]
 
-		mainDoc += headingForKey(key) + "\n"
+		mainDoc.WriteString(headingForKey(key) + "\n")
 		if info.Deprecated {
-			mainDoc += "> This key is deprecated.\n"
+			mainDoc.WriteString("> This key is deprecated.\n")
 		}
-		mainDoc += "\n"
+		mainDoc.WriteString("\n")
 
 		if info.Doc != "" {
 			// Ensure doc has fullstop/newlines at end
-			mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
+			mainDoc.WriteString(strings.TrimRight(info.Doc, ".\n") + ".\n\n")
 		}
 		if info.Type != "" {
-			mainDoc += "**Type:** " + info.Type + "\n\n"
+			mainDoc.WriteString("**Type:** " + info.Type + "\n\n")
 		}
 		if defaultVal, ok := firstNonzero(info.Default, info.Default2); ok {
-			mainDoc += "**Default value:** " + defaultVal + "\n\n"
+			mainDoc.WriteString("**Default value:** " + defaultVal + "\n\n")
 		}
 
-		mainDoc += "**Can be changed after bootstrap:** "
+		mainDoc.WriteString("**Can be changed after bootstrap:** ")
 		if info.Mutable {
-			mainDoc += "yes"
+			mainDoc.WriteString("yes")
 		} else {
-			mainDoc += "no"
+			mainDoc.WriteString("no")
 		}
-		mainDoc += "\n\n\n"
+		mainDoc.WriteString("\n\n\n")
 	}
-	return mainDoc
+	return mainDoc.String()
 }
 
 // Gather information from the AST parsed from the Go files:
@@ -154,15 +154,15 @@ out:
 			continue
 		}
 
-		var comment string
+		var comment strings.Builder
 		for _, astComment := range valueSpec.Doc.List {
-			comment += strings.TrimPrefix(astComment.Text, "// ") + "\n"
+			comment.WriteString(strings.TrimPrefix(astComment.Text, "// ") + "\n")
 		}
 
 		constantName := valueSpec.Names[0].Name
 		keyForConstantName[constantName] = key
 		constantNameForKey[key] = constantName
-		comments[key] = comment
+		comments[key] = comment.String()
 	}
 
 	// Put information in data map
@@ -228,22 +228,23 @@ func typeForExpr(expr ast.Expr) string {
 
 	callExpr := expr.(*ast.CallExpr)
 	rawType := callExpr.Fun.(*ast.SelectorExpr).Sel.Name
-	dataType := niceNameFor(rawType)
+	var dataType strings.Builder
+	dataType.WriteString(niceNameFor(rawType))
 
 	// Don't recurse for schema.NonEmptyString
 	if rawType != "NonEmptyString" && len(callExpr.Args) > 0 {
 		// add parameter types
-		dataType += "["
+		dataType.WriteString("[")
 		for i, arg := range callExpr.Args {
 			if i > 0 {
-				dataType += ", "
+				dataType.WriteString(", ")
 			}
-			dataType += typeForExpr(arg)
+			dataType.WriteString(typeForExpr(arg))
 		}
-		dataType += "]"
+		dataType.WriteString("]")
 	}
 
-	return dataType
+	return dataType.String()
 }
 
 // Check whether key is mutable in AllowedUpdateConfigAttributes slice
@@ -302,7 +303,7 @@ func fillFromConfigType(data map[string]*keyInfo) {
 
 	config, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	check(err)
-	t := reflect.TypeOf(config)
+	t := reflect.TypeFor[controller.Config]()
 	v := reflect.ValueOf(config)
 
 	for i := 0; i < t.NumMethod(); i++ {

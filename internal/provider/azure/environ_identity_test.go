@@ -28,7 +28,7 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 
 	deployments := []*armresources.DeploymentExtended{{
-		Name: to.Ptr("identity"),
+		Name: new("identity"),
 		Properties: &armresources.DeploymentPropertiesExtended{
 			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
 		},

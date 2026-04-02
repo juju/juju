@@ -17,10 +17,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Secrets", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsAPIV1(stdCtx, ctx)
-	}, reflect.TypeOf((*SecretsAPI)(nil)))
+	}, reflect.TypeFor[*SecretsAPI]())
 	registry.MustRegister("Secrets", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*SecretsAPI)(nil)))
+	}, reflect.TypeFor[*SecretsAPI]())
 }
 
 func newSecretsAPIV1(stdCtx context.Context, context facade.ModelContext) (*SecretsAPIV1, error) {

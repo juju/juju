@@ -94,7 +94,7 @@ func main() {
 		info := infos[hostCounter]
 		var conn api.Connection
 		delay := time.Second
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			var err error
 			start := time.Now()
 			conn, err = connect(info)

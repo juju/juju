@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"sort"
@@ -3013,12 +3014,8 @@ func wordpressCharm(extras M) M {
 
 func composeCharms(origin, extras M) M {
 	result := make(M, len(origin))
-	for key, value := range origin {
-		result[key] = value
-	}
-	for key, value := range extras {
-		result[key] = value
-	}
+	maps.Copy(result, origin)
+	maps.Copy(result, extras)
 	return result
 }
 

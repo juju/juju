@@ -18,7 +18,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASAgent", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewFacadeV2AuthCheck(ctx)
-	}, reflect.TypeOf((*FacadeV2)(nil)))
+	}, reflect.TypeFor[*FacadeV2]())
 }
 
 // NewFacadeV2AuthCheck provides the signature required for facade registration of

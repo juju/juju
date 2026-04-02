@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"sync"
@@ -237,9 +238,7 @@ func (s *Secrets) Report() map[string]interface{} {
 	result["obsolete-revisions"] = obsolete
 
 	consumed := make(map[string]int)
-	for u, v := range s.secretsState.ConsumedSecretInfo {
-		consumed[u] = v
-	}
+	maps.Copy(consumed, s.secretsState.ConsumedSecretInfo)
 	result["consumed-revisions"] = consumed
 
 	return result

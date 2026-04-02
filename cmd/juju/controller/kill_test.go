@@ -284,7 +284,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *tc.C) {
 		result <- err
 	}()
 
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		s.syncClockAlarm(c)
 		s.clock.Advance(5 * time.Second)
 	}

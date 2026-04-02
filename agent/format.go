@@ -68,11 +68,11 @@ func getFormatter(version string) (formatter, error) {
 }
 
 func parseConfigData(data []byte) (formatter, *configInternal, error) {
-	i := bytes.IndexByte(data, '\n')
-	if i == -1 {
+	before, after, ok := bytes.Cut(data, []byte{'\n'})
+	if !ok {
 		return nil, nil, fmt.Errorf("invalid agent config format: %s", string(data))
 	}
-	version, configData := string(data[0:i]), data[i+1:]
+	version, configData := string(before), after
 	if !strings.HasPrefix(version, formatPrefix) {
 		return nil, nil, fmt.Errorf("malformed agent config format %q", version)
 	}

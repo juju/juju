@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/juju/errors"
@@ -156,9 +157,7 @@ func InstanceConfig(
 	}
 
 	icfg.ControllerConfig = make(map[string]interface{})
-	for k, v := range controllerConfig {
-		icfg.ControllerConfig[k] = v
-	}
+	maps.Copy(icfg.ControllerConfig, controllerConfig)
 
 	if dataDir != "" {
 		icfg.DataDir = dataDir

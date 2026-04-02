@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"sync/atomic"
 	stdtesting "testing"
 	"time"
@@ -480,10 +481,8 @@ func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []stri
 		return false, fmt.Sprintf("Obtained value is not a []%T", t)
 	}
 
-	for _, o := range obtained {
-		if o == expected {
-			return true, ""
-		}
+	if slices.Contains(obtained, expected) {
+		return true, ""
 	}
 	return false, ""
 }

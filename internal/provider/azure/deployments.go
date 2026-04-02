@@ -70,7 +70,7 @@ func (env *azureEnviron) createSubscriptionDeployment(
 		return errors.Trace(err)
 	}
 	deployment := armresources.Deployment{
-		Location: to.Ptr(location),
+		Location: new(location),
 		Properties: &armresources.DeploymentProperties{
 			Parameters: params,
 			Template:   &templateMap,

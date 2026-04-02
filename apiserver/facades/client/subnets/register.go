@@ -17,7 +17,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Subnets", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(ctx) // Removes AddSubnets.
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newAPI creates a new Subnets API server-side facade with a

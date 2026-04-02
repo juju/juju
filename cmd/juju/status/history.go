@@ -130,11 +130,11 @@ func supportedHistoryKindDescs() string {
 	for k := range types {
 		supported.Add(string(k))
 	}
-	all := ""
+	var all strings.Builder
 	for _, k := range supported.SortedValues() {
-		all += fmt.Sprintf("    %v:  %v\n", k, types[status.HistoryKind(k)])
+		all.WriteString(fmt.Sprintf("    %v:  %v\n", k, types[status.HistoryKind(k)]))
 	}
-	return all
+	return all.String()
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {

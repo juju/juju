@@ -29,7 +29,7 @@ func (s *timerSuite) TestTimer(c *tc.C) {
 	var measuredMinTime time.Duration
 	var measuredMaxTime time.Duration
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		wait := timer(nominal)
 		waitDuration := time.Duration(reflect.ValueOf(wait).Int())
 		// We use Assert rather than Check because we don't want 100s of failures

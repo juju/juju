@@ -358,7 +358,7 @@ func (c customMethodCaller) Call(ctx context.Context, objId string, arg reflect.
 		return reflect.Value{}, err
 	}
 	obj := c.wrap(sm)
-	if reflect.TypeOf(obj) != c.expectedType {
+	if reflect.TypeFor[reflect.Value]() != c.expectedType {
 		logger.Errorf(ctx, "got the wrong type back, expected %s got %T", c.expectedType, obj)
 	}
 	logger.Debugf(ctx, "calling: %T %v %#v", obj, obj, c.objMethod)
@@ -390,17 +390,17 @@ func (cc *CustomRoot) FindMethod(
 	var wrap wrapper
 	switch version {
 	case 0:
-		goType = reflect.TypeOf((*VariableMethods1)(nil))
+		goType = reflect.TypeFor[*VariableMethods1]()
 		wrap = func(sm *SimpleMethods) reflect.Value {
 			return reflect.ValueOf(&VariableMethods1{sm})
 		}
 	case 1:
-		goType = reflect.TypeOf((*VariableMethods2)(nil))
+		goType = reflect.TypeFor[*VariableMethods2]()
 		wrap = func(sm *SimpleMethods) reflect.Value {
 			return reflect.ValueOf(&VariableMethods2{sm})
 		}
 	case 2:
-		goType = reflect.TypeOf((*RestrictedMethods)(nil))
+		goType = reflect.TypeFor[*RestrictedMethods]()
 		wrap = func(sm *SimpleMethods) reflect.Value {
 			methods := &RestrictedMethods{InterfaceMethods: sm}
 			return reflect.ValueOf(methods)
@@ -442,9 +442,9 @@ func (*rpcSuite) TestRPC(c *tc.C) {
 	root := SimpleRoot(c)
 	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
-	for narg := 0; narg < 2; narg++ {
-		for nret := 0; nret < 2; nret++ {
-			for nerr := 0; nerr < 2; nerr++ {
+	for narg := range 2 {
+		for nret := range 2 {
+			for nerr := range 2 {
 				retErr := nerr != 0
 				p := testCallParams{
 					client:         client,

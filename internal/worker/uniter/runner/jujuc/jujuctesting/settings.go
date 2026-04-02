@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"maps"
+
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,8 +31,6 @@ func (s Settings) Delete(k string) {
 // Map implements jujuc.Settings.
 func (s Settings) Map() params.Settings {
 	r := params.Settings{}
-	for k, v := range s {
-		r[k] = v
-	}
+	maps.Copy(r, s)
 	return r
 }

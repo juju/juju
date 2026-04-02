@@ -5,6 +5,7 @@ package machine
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"runtime"
 	"time"
@@ -572,9 +573,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

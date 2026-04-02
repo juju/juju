@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -842,9 +843,7 @@ func finalizePodBootstrapConfig(
 	}
 
 	pcfg.AgentEnvironment = make(map[string]string)
-	for k, v := range args.ExtraAgentValuesForTesting {
-		pcfg.AgentEnvironment[k] = v
-	}
+	maps.Copy(pcfg.AgentEnvironment, args.ExtraAgentValuesForTesting)
 
 	pcfg.Bootstrap.ControllerModelAuthorizedKeys = args.ControllerModelAuthorizedKeys
 	pcfg.Bootstrap.ControllerModelConfig = cfg

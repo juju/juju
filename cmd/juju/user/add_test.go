@@ -118,7 +118,7 @@ Please send this command to foobar:
 
 func (s *UserAddCommandSuite) TestUserRegistrationString(c *tc.C) {
 	// Ensure that the user registration string only contains alphanumerics.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		s.mockAPI.secretKey = []byte(strings.Repeat("X", 32+i))
 		context, err := s.run(c, "foobar", "Foo Bar")
 		c.Assert(err, tc.ErrorIsNil)

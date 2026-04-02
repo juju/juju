@@ -33,7 +33,7 @@ func GetDefaultRoute() (net.IP, string, error) {
 	var defaultRouteMetric = ^uint64(0)
 	var defaultRoute string
 	var defaultRouteDevice string
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		to, values := parseIpRouteShowLine(line)
 		logger.Tracef(context.TODO(), "parsing ip r s line to %q, values %+v ", to, values)
 		if to == "default" {

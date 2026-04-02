@@ -1665,7 +1665,7 @@ GROUP BY
 	result := make(map[coreunit.Name]application.K8sPodInfo)
 	for _, info := range infos {
 		ports := make([]k8sPodPort, 0)
-		for _, p := range strings.Split(info.Ports, ",") {
+		for p := range strings.SplitSeq(info.Ports, ",") {
 			ports = append(ports, k8sPodPort{Port: p})
 		}
 		result[coreunit.Name(info.UnitName)] = encodeK8sPodInfo(

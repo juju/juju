@@ -6,6 +6,7 @@ package cloud
 import (
 	"context"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 
@@ -248,9 +249,7 @@ func (c *cloudList) all() map[string]*CloudDetails {
 
 	result := make(map[string]*CloudDetails)
 	addAll := func(someClouds map[string]*CloudDetails) {
-		for name, cloud := range someClouds {
-			result[name] = cloud
-		}
+		maps.Copy(result, someClouds)
 	}
 
 	addAll(c.public)
@@ -267,9 +266,7 @@ func (c *cloudList) local() map[string]*CloudDetails {
 
 	result := make(map[string]*CloudDetails)
 	addAll := func(someClouds map[string]*CloudDetails) {
-		for name, cloud := range someClouds {
-			result[name] = cloud
-		}
+		maps.Copy(result, someClouds)
 	}
 
 	addAll(c.public)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -111,11 +112,8 @@ func (c *debugHooksCommand) Init(args []string) error {
 
 	// If any of the hooks is "*", then debug all hooks.
 	c.hooks = append([]string{}, args[1:]...)
-	for _, h := range c.hooks {
-		if h == "*" {
-			c.hooks = nil
-			break
-		}
+	if slices.Contains(c.hooks, "*") {
+		c.hooks = nil
 	}
 	return nil
 }
@@ -167,8 +165,8 @@ func (c *debugHooksCommand) validateHooksOrActions(ctx context.Context) error {
 	// If the unit/leader syntax is used, we need to manually extract the
 	// application name from the target parameter.
 	target := c.provider.getTarget()
-	if strings.HasSuffix(target, "/leader") {
-		appName = strings.TrimSuffix(target, "/leader")
+	if before, ok := strings.CutSuffix(target, "/leader"); ok {
+		appName = before
 	} else {
 		appName, err = names.UnitApplication(target)
 	}

@@ -4,6 +4,7 @@
 package osenv
 
 import (
+	"maps"
 	"runtime"
 	"strings"
 
@@ -83,9 +84,7 @@ func MergeEnvironment(current, newValues map[string]string) map[string]string {
 
 // mergeEnvUnix merges the two evironment variable lists in a case sensitive way.
 func mergeEnvUnix(current, newValues map[string]string) map[string]string {
-	for key, value := range newValues {
-		current[key] = value
-	}
+	maps.Copy(current, newValues)
 	return current
 }
 
@@ -111,8 +110,6 @@ func mergeEnvWin(current, newValues map[string]string) map[string]string {
 	for k := range current {
 		current[k] = uppers[strings.ToUpper(k)]
 	}
-	for k, v := range news {
-		current[k] = v
-	}
+	maps.Copy(current, news)
 	return current
 }

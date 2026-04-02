@@ -5,6 +5,7 @@ package broker
 
 import (
 	"context"
+	"maps"
 	"net"
 	"strings"
 
@@ -313,9 +314,7 @@ func combinedCloudInitData(
 	}
 
 	resultsMap := reader.ExtractPropertiesFromConfig(props, machineData, log)
-	for k, v := range resultsMap {
-		cloudInitData[k] = v
-	}
+	maps.Copy(cloudInitData, resultsMap)
 
 	return cloudInitData, nil
 }

@@ -6,6 +6,7 @@ package httpserver_test
 import (
 	"context"
 	"crypto/tls"
+	"maps"
 	"testing"
 	"time"
 
@@ -102,9 +103,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"api-server":      nil,
 		"domain-services": s.domainServices,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

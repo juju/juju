@@ -6,6 +6,7 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/juju/schema"
@@ -187,8 +188,6 @@ func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) 
 		delete(cfgAttrs, attr)
 		delete(ecfg.attrs, attr)
 	}
-	for k, v := range ecfg.attrs {
-		cfgAttrs[k] = v
-	}
+	maps.Copy(cfgAttrs, ecfg.attrs)
 	return config.New(config.NoDefaults, cfgAttrs)
 }

@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/errors"
@@ -130,9 +131,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Data:   make(map[string]interface{}),
 		Since:  modelInfo.Status.Since,
 	}
-	for k, v := range modelInfo.Status.Data {
-		result.Status.Data[k] = v
-	}
+	maps.Copy(result.Status.Data, modelInfo.Status.Data)
 	result.Users = make([]base.UserInfo, len(modelInfo.Users))
 	for i, u := range modelInfo.Users {
 		result.Users[i] = base.UserInfo{
@@ -246,9 +245,7 @@ func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]b
 			Data:   make(map[string]interface{}),
 			Since:  summary.Status.Since,
 		}
-		for k, v := range summary.Status.Data {
-			summaries[i].Status.Data[k] = v
-		}
+		maps.Copy(summaries[i].Status.Data, summary.Status.Data)
 		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
 			summaries[i].Error = errors.Annotatef(err, "parsing model cloud tag")
 			continue

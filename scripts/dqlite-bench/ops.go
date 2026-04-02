@@ -50,7 +50,7 @@ func seedModelAgents(numAgents int) ModelOperation {
 		agentUUIDS := make([]any, 0, numAgents*3)
 		insertStrings := make([]string, 0, numAgents)
 
-		for i := 0; i < numAgents; i++ {
+		for range numAgents {
 			uuid, err := uuid.NewUUID()
 			if err != nil {
 				return err

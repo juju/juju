@@ -6,6 +6,7 @@ package context
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strconv"
@@ -349,9 +350,7 @@ func (c *HookContext) GetCharmState(ctx context.Context) (map[string]string, err
 	}
 
 	retVal := make(map[string]string, len(c.cachedCharmState))
-	for k, v := range c.cachedCharmState {
-		retVal[k] = v
-	}
+	maps.Copy(retVal, c.cachedCharmState)
 	return retVal, nil
 }
 
@@ -772,9 +771,7 @@ func (c *HookContext) ConfigSettings(ctx context.Context) (charm.Config, error) 
 		}
 	}
 	result := charm.Config{}
-	for name, value := range c.configSettings {
-		result[name] = value
-	}
+	maps.Copy(result, c.configSettings)
 	return result, nil
 }
 

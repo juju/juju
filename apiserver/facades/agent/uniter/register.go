@@ -20,16 +20,16 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Uniter", 19, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPIv19(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPIv19)(nil)))
+	}, reflect.TypeFor[*UniterAPIv19]())
 	registry.MustRegister("Uniter", 20, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPIv20(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPIv20)(nil)))
+	}, reflect.TypeFor[*UniterAPIv20]())
 	registry.MustRegister("Uniter", 21, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPIv21(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPIv21)(nil)))
+	}, reflect.TypeFor[*UniterAPIv21]())
 	registry.MustRegister("Uniter", 22, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*UniterAPI)(nil)))
+	}, reflect.TypeFor[*UniterAPI]())
 }
 
 func newUniterAPIv19(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPIv19, error) {

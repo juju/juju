@@ -480,7 +480,7 @@ func mergeNetplanConfigs(dst, src interface{}) (interface{}, error) {
 			// don't care about the values that may get potentially
 			// appended, hence the pre-calculation of the dstVal
 			// length.
-			for i := 0; i < dstLen; i++ {
+			for i := range dstLen {
 				if reflect.DeepEqual(dstVal[i], srcSliceVal) {
 					continue nextSrcSliceVal // value already present
 				}

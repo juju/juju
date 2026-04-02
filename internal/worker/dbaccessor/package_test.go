@@ -75,7 +75,7 @@ func (s *baseSuite) expectTimer(ticks int) func() {
 
 	ch := s.setupTimer(PollInterval)
 	go func() {
-		for i := 0; i < ticks; i++ {
+		for range ticks {
 			select {
 			case ch <- time.Now():
 			case <-done:

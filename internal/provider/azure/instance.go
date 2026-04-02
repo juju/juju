@@ -207,7 +207,7 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 			idParts := strings.Split(toValue(ipConfiguration.Properties.Subnet.ID), "/")
 			lenParts := len(idParts)
 			subnet, err := subnets.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], &armnetwork.SubnetsClientGetOptions{
-				Expand: to.Ptr("networkSecurityGroup"),
+				Expand: new("networkSecurityGroup"),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -341,14 +341,14 @@ func (inst *azureInstance) openPortsOnGroup(
 		from := rule.SourceCIDRs.SortedValues()[0]
 		securityRule := armnetwork.SecurityRule{
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Description:              to.Ptr(rule.String()),
-				Protocol:                 to.Ptr(protocol),
-				SourcePortRange:          to.Ptr("*"),
-				DestinationPortRange:     to.Ptr(portRange),
-				SourceAddressPrefix:      to.Ptr(from),
-				DestinationAddressPrefix: to.Ptr(nsgInfo.primaryAddress.Value),
+				Description:              new(rule.String()),
+				Protocol:                 new(protocol),
+				SourcePortRange:          new("*"),
+				DestinationPortRange:     new(portRange),
+				SourceAddressPrefix:      new(from),
+				DestinationAddressPrefix: new(nsgInfo.primaryAddress.Value),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 to.Ptr(priority),
+				Priority:                 new(priority),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}
@@ -363,7 +363,7 @@ func (inst *azureInstance) openPortsOnGroup(
 		if err != nil {
 			return inst.env.HandleCredentialError(ctx, errors.Annotatef(err, "creating security rule for %q", ruleName))
 		}
-		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, to.Ptr(securityRule))
+		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, new(securityRule))
 	}
 	return nil
 }

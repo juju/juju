@@ -176,20 +176,20 @@ func printFlags(w io.Writer, cmd InfoCommand) {
 
 	for _, fs := range byName {
 		// Collect all flag aliases (usually a short one and a plain one, like -v / --verbose)
-		formattedFlags := ""
+		var formattedFlags strings.Builder
 		for i, f := range fs {
 			if i > 0 {
-				formattedFlags += ", "
+				formattedFlags.WriteString(", ")
 			}
 			if len(f.Name) == 1 {
-				formattedFlags += fmt.Sprintf("`-%s`", f.Name)
+				formattedFlags.WriteString(fmt.Sprintf("`-%s`", f.Name))
 			} else {
-				formattedFlags += fmt.Sprintf("`--%s`", f.Name)
+				formattedFlags.WriteString(fmt.Sprintf("`--%s`", f.Name))
 			}
 		}
 		// display all the flags aliases and the default value and description of the shortest one.
 		// Escape Markdown in description in order to display it cleanly in the final documentation.
-		fmt.Fprintf(w, "| %s | %s | %s |\n", formattedFlags,
+		fmt.Fprintf(w, "| %s | %s | %s |\n", formattedFlags.String(),
 			EscapeMarkdown(fs[0].DefValue),
 			strings.ReplaceAll(EscapeMarkdown(fs[0].Usage), "\n", " "),
 		)

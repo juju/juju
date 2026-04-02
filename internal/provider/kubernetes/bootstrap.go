@@ -780,7 +780,7 @@ func ensureControllerServiceAccount(
 				),
 				Annotations: annotations,
 			},
-			AutomountServiceAccountToken: boolPtr(true),
+			AutomountServiceAccountToken: new(true),
 		})
 
 	cleanUps, err := sa.Ensure(ctx)

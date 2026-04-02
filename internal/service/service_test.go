@@ -88,7 +88,7 @@ func (s *serviceSuite) TestInstallAndStartFail(c *tc.C) {
 	svc := mocks.NewMockService(ctrl)
 	svc.EXPECT().Name().Return("fred")
 	svc.EXPECT().Install().Return(nil)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		svc.EXPECT().Stop().Return(nil)
 		svc.EXPECT().Start().Return(errors.New("start error"))
 	}

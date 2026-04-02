@@ -6,6 +6,7 @@ package configschema
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/juju/schema"
@@ -199,10 +200,8 @@ func (c oneOfValuesChecker) Coerce(v interface{}, path []string) (interface{}, e
 	if err != nil {
 		return v, err
 	}
-	for _, allow := range c.vals {
-		if allow == v {
-			return v, nil
-		}
+	if slices.Contains(c.vals, v) {
+		return v, nil
 	}
 	return nil, fmt.Errorf("%sexpected one of %v, got %#v", pathPrefix(path), c.vals, v)
 }

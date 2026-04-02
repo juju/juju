@@ -210,7 +210,7 @@ func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 
 	SortSubnetInfos(s)
 	SortSubnetInfos(other)
-	for i := 0; i < len(s); i++ {
+	for i := range s {
 		if s[i].ID != other[i].ID {
 			return false
 		}

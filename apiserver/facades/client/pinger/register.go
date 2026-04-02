@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Pinger", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newFacade provides the signature required for facade registration.

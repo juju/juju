@@ -2674,7 +2674,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *tc.C) {
 func (s *applicationSuite) TestUnits(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		podSpec := getPodSpec31()
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
@@ -4288,8 +4288,4 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(validatingWebhookConfigurations.Items, tc.NotNil)
 	c.Assert(validatingWebhookConfigurations.Items, tc.HasLen, 1)
-}
-
-func int64Ptr(a int64) *int64 {
-	return &a
 }

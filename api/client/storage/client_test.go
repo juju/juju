@@ -169,7 +169,7 @@ func (s *storageMockSuite) TestListPools(c *tc.C) {
 	}
 	result := new(params.StoragePoolsResults)
 	pools := make([]params.StoragePool, want)
-	for i := 0; i < want; i++ {
+	for i := range want {
 		pools[i] = params.StoragePool{
 			Name:     fmt.Sprintf("name%v", i),
 			Provider: fmt.Sprintf("type%v", i),
@@ -284,7 +284,7 @@ func (s *storageMockSuite) TestListVolumes(c *tc.C) {
 	found, err := storageClient.ListVolumes(c.Context(), []string{"0", "1"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(found, tc.HasLen, 2)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		c.Assert(found[i].Result, tc.DeepEquals, []params.VolumeDetails{{
 			VolumeTag: "volume-0",
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{

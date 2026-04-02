@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"testing"
 	"time"
@@ -184,9 +185,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

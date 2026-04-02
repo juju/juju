@@ -22,7 +22,7 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("cannot register machine manager facade: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
+	}, reflect.TypeFor[*MachineManagerAPI]())
 }
 
 // makeMachineManagerFacadeV11 create a new server-side MachineManager API

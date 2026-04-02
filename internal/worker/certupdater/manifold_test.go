@@ -4,6 +4,7 @@
 package certupdater
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/juju/tc"
@@ -125,9 +126,7 @@ func (s *manifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"authority": s.authority,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

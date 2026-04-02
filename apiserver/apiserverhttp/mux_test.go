@@ -101,14 +101,14 @@ func (s *MuxSuite) TestConcurrentAddHandler(c *tc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < bN; i++ {
+		for range bN {
 			s.mux.AddHandler("POST", "/", http.NotFoundHandler())
 			s.mux.RemoveHandler("POST", "/")
 		}
 	}()
 	defer wg.Wait()
 
-	for i := 0; i < bN; i++ {
+	for range bN {
 		resp, err := s.client.Get(s.server.URL + "/")
 		c.Assert(err, tc.ErrorIsNil)
 		resp.Body.Close()
@@ -131,7 +131,7 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *tc.C) {
 	go func() {
 		defer wg.Done()
 		defer close(done)
-		for i := 0; i < bN; i++ {
+		for range bN {
 			s.mux.AddHandler("GET", "/", h)
 			// Sleep to give the client a
 			// chance to hit the endpoint.

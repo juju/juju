@@ -48,7 +48,7 @@ func benchmarkSignal(b *testing.B, changes ChangeSet) {
 
 func create(size int) ChangeSet {
 	changes := make(ChangeSet, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		changes[i] = &changeEvent{
 			ctype:   changestreamtesting.Update,
 			ns:      "test",
@@ -97,7 +97,7 @@ func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
 	defer workertest.CleanKill(c, em)
 
 	completed := make([]chan<- struct{}, 0, numSubs)
-	for i := 0; i < numSubs; i++ {
+	for range numSubs {
 		sub, err := em.Subscribe("foo", changestream.Namespace(ns, changestreamtesting.Update))
 		c.Assert(err, tc.IsNil)
 

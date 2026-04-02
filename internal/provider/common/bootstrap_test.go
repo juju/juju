@@ -675,16 +675,16 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
 	c.Assert(innerInstanceConfig.Bootstrap.InitialSSHHostKeys, tc.HasLen, 3)
-	computedKnownHosts := ""
+	var computedKnownHosts strings.Builder
 	computedHostKeyAlgos := []string{}
 	for _, key := range innerInstanceConfig.Bootstrap.InitialSSHHostKeys {
-		computedKnownHosts += "testing.invalid " + key.Public
+		computedKnownHosts.WriteString("testing.invalid " + key.Public)
 		computedHostKeyAlgos = append(computedHostKeyAlgos, key.PublicKeyAlgorithm)
 	}
 	c.Assert(
 		knownHosts,
 		tc.Equals,
-		computedKnownHosts,
+		computedKnownHosts.String(),
 	)
 	c.Assert(strings.Split(hostKeyAlgos, ","), tc.SameContents, computedHostKeyAlgos)
 }

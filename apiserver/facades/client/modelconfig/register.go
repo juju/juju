@@ -22,14 +22,14 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("registering model config client facade: %w", err)
 		}
 		return facade, nil
-	}, reflect.TypeOf((*ModelConfigAPIV3)(nil)))
+	}, reflect.TypeFor[*ModelConfigAPIV3]())
 	registry.MustRegister("ModelConfig", 4, func(_ context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		facade, err := makeFacade(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("registering model config client facade: %w", err)
 		}
 		return facade, nil
-	}, reflect.TypeOf((*ModelConfigAPI)(nil)))
+	}, reflect.TypeFor[*ModelConfigAPI]())
 }
 
 // makeFacade is used for API registration.

@@ -176,7 +176,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 	var started sync.WaitGroup
 	finishes := make(chan int, count)
 	unblocked := make(chan struct{})
-	for i := 0; i < count; i++ {
+	for i := range count {
 		started.Add(1)
 		go func(i int) {
 			visit := func() error {
@@ -199,7 +199,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 	close(unblocked)
 	timeout := time.After(coretesting.LongWait)
 	seen := make(map[int]bool)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		select {
 		case finished := <-finishes:
 			c.Logf("visit %d finished", finished)

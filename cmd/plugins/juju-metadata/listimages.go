@@ -102,7 +102,7 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	var bases []corebase.Base
 	if len(c.Bases) > 0 {
 		for _, b := range c.Bases {
-			for _, one := range strings.Split(b, ",") {
+			for one := range strings.SplitSeq(b, ",") {
 				b, err := corebase.ParseBaseFromString(one)
 				if err != nil {
 					return errors.Trace(err)

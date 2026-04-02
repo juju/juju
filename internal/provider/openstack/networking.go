@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/go-goose/goose/v5/neutron"
@@ -112,11 +113,9 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 			// the config, it'll be at the top of the extNetworkIds, but may be
 			// not used if the available FIP isn't it in. However the instance
 			// and the FIP will be in the same availability zone.
-			for _, extNetId := range extNetworkIds {
-				if fip.FloatingNetworkId == extNetId {
-					logger.Debugf(context.TODO(), "found unassigned public ip: %v", fip.IP)
-					return &fip.IP, nil
-				}
+			if slices.Contains(extNetworkIds, fip.FloatingNetworkId) {
+				logger.Debugf(context.TODO(), "found unassigned public ip: %v", fip.IP)
+				return &fip.IP, nil
 			}
 		}
 	}
@@ -215,11 +214,8 @@ func getExternalNeutronNetworksByAZ(ctx context.Context, e NetworkingBase, azNam
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
-		for _, netAZ := range network.AvailabilityZones {
-			if azNames.Contains(netAZ) {
-				netIds = append(netIds, network.Id)
-				break
-			}
+		if slices.ContainsFunc(network.AvailabilityZones, azNames.Contains) {
+			netIds = append(netIds, network.Id)
 		}
 		if azNames.IsEmpty() || len(network.AvailabilityZones) == 0 {
 			logger.Debugf(ctx,
@@ -578,10 +574,8 @@ func mapInterfaceList(
 
 func networkForSubnet(networks []neutron.NetworkV2, subnetID network.Id) (neutron.NetworkV2, error) {
 	for _, neutronNet := range networks {
-		for _, netSubnetID := range neutronNet.SubnetIds {
-			if netSubnetID == subnetID.String() {
-				return neutronNet, nil
-			}
+		if slices.Contains(neutronNet.SubnetIds, subnetID.String()) {
+			return neutronNet, nil
 		}
 	}
 

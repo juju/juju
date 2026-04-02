@@ -92,15 +92,16 @@ var versionStrings = append([]string{
 var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
-	expected := "Finding agent binaries in .*\n"
+	var expected strings.Builder
+	expected.WriteString("Finding agent binaries in .*\n")
 	f := `.*Fetching agent binaries from dir "{{.ToolsDir}}" to generate hash: %s` + "\n"
 
 	// Sort the global versionStrings
 	sort.Strings(versionStrings)
 	for _, v := range versionStrings {
-		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
+		expected.WriteString(fmt.Sprintf(f, regexp.QuoteMeta(v)))
 	}
-	return strings.TrimSpace(expected)
+	return strings.TrimSpace(expected.String())
 }
 
 func makeExpectedOutput(templ, stream, toolsDir string) string {

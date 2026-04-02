@@ -216,7 +216,7 @@ func waitForFile(filePath string) error {
 	maxAttempts := 10
 	pollInterval := 50 * time.Millisecond
 
-	for i := 0; i < maxAttempts; i++ {
+	for range maxAttempts {
 		if _, err := os.Stat(filePath); err == nil {
 			return nil
 		} else if !os.IsNotExist(err) {
