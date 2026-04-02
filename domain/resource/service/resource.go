@@ -371,6 +371,22 @@ func (s *Service) GetResource(
 	return s.st.GetApplicationResource(ctx, resourceUUID)
 }
 
+// GetResourceWithoutApplication returns the identified resource,
+// without validation of its application.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if resource does
+//     exist, or does not have a linked application.
+func (s *Service) GetResourceWithoutApplication(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
+	if err := resourceUUID.Validate(); err != nil {
+		return coreresource.Resource{}, errors.Errorf("resource id: %w", err)
+	}
+	return s.st.GetResource(ctx, resourceUUID)
+}
+
 // StoreResource adds the resource to blob storage and updates the metadata.
 // It also sets the retrieval information for the resource. The identified
 // resource is returned. An application is not required, as it may not

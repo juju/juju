@@ -255,7 +255,7 @@ func (s *resourceServiceSuite) TestListResourcesBadID(c *tc.C) {
 func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := resourcetesting.GenResourceUUID(c)
+	id := tc.Must(c, coreresource.NewUUID)
 	expectedRes := coreresource.Resource{
 		RetrievedBy: "admin",
 	}
@@ -266,9 +266,29 @@ func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
 	c.Assert(obtainedRes, tc.DeepEquals, expectedRes)
 }
 
-func (s *resourceServiceSuite) TestGetResourceBadID(c *tc.C) {
+func (s *resourceServiceSuite) TestGetResourceBadUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResource(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *resourceServiceSuite) TestGetResourceWithoutApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := tc.Must(c, coreresource.NewUUID)
+	expectedRes := coreresource.Resource{
+		RetrievedBy: "admin",
+	}
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
+
+	obtainedRes, err := s.service.GetResourceWithoutApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedRes, tc.DeepEquals, expectedRes)
+}
+
+func (s *resourceServiceSuite) TestGetResourceWithoutApplicationBadUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service.GetResourceWithoutApplication(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 

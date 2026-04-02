@@ -35,6 +35,16 @@ type ResourceService interface {
 	//     exist.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
+	// GetResourceWithoutApplication returns the identified resource,
+	// without validation of its application.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if resource does
+	//     exist.
+	GetResourceWithoutApplication(
+		ctx context.Context, resourceUUID coreresource.UUID,
+	) (coreresource.Resource, error)
+
 	// OpenResource returns the details of and a reader for the resource.
 	// The following error types can be expected to be returned:
 	//   - [resourceerrors.ResourceNotFound] if the specified resource does not

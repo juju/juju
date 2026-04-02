@@ -173,13 +173,17 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 	// Extract application name early to check if it's synthetic.
 	query := req.URL.Query()
 	application := query.Get(":application")
+	ctx := req.Context()
 
 	appService, err := h.applicationServiceGetter.Application(req)
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	appDetails, err := appService.GetApplicationDetailsByName(req.Context(), application)
+	// When uploading a resource during deployment, an application
+	// may not exist yet. The check for synthetic application is
+	// only valid when an application exists.
+	appDetails, err := appService.GetApplicationDetailsByName(ctx, application)
 	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, jujuerrors.Trace(err)
 	} else if appDetails.IsApplicationSynthetic {
@@ -202,14 +206,14 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 	}
 	var res coreresource.Resource
 	if uploaded.pending {
-		res, err = service.StoreResource(req.Context(), args)
+		res, err = service.StoreResource(ctx, args)
 	} else {
 		// If the resource is pending this call will fail. The charm
 		// modified version exists on applications only. A pending
 		// resources indicates the application does not yet exist.
 		// The charm modified version is used to upgrade a resource
 		// independently of a charm.
-		res, err = service.StoreResourceAndIncrementCharmModifiedVersion(req.Context(), args)
+		res, err = service.StoreResourceAndIncrementCharmModifiedVersion(ctx, args)
 	}
 	if err != nil {
 		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.resourceName, uploaded.applicationName, err)
@@ -271,11 +275,11 @@ func (h *ResourceHandler) getUploadedResource(
 		return nil, nil, errors.Errorf("getting resource uuid: %w", err)
 	}
 
-	res, err := resourceService.GetResource(req.Context(), resUUID)
+	// Resources can be uploaded without the application existing.
+	// This happens when deploying local charms with local resources.
+	res, err := resourceService.GetResourceWithoutApplication(req.Context(), resUUID)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
 		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
-	} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, nil, jujuerrors.NotFoundf("application %s", uReq.Application)
 	} else if err != nil {
 		return nil, nil, errors.Errorf("getting resource details: %w", err)
 	}
