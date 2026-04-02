@@ -176,6 +176,65 @@ VALUES (?, ?)
 	return storageInstanceUUID, filesystemUUID
 }
 
+// newModelVolumeStorageInstance creates a new storage instance backed by a
+// model provisioned volume, using the charm name from the supplied charm UUID.
+func (s *storageHelper) newModelVolumeStorageInstance(
+	c *tc.C, storageName string, charmUUID corecharm.ID,
+) (domainstorage.StorageInstanceUUID, domainstorage.VolumeUUID) {
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	storagePoolUUID := s.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
+
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID.String(),
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
+                              life_id, storage_pool_uuid, charm_name, requested_size_mib)
+VALUES (?, ?, 0, ?, ?, ?, ?, 2048)
+`,
+		storageInstanceUUID.String(),
+		storageName,
+		storageInstanceUUID.String(),
+		domainlife.Alive,
+		storagePoolUUID.String(),
+		charmName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, 0, 2048)
+	`,
+		volumeUUID.String(),
+		volumeUUID.String(),
+		domainlife.Alive,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)
+	`,
+		storageInstanceUUID.String(),
+		volumeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID, volumeUUID
+}
+
 // newStorageInstanceFilesysatemWithProviderID creates a new storage instance in
 // the model backed by a filesystem with the given provider ID set.
 func (s *storageHelper) newStorageInstanceFilesysatemWithProviderID(

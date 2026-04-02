@@ -1037,12 +1037,14 @@ func (s Service) MakeAttachStorageInstanceToUnitArg(
 	}
 	if storageAttachInfo.StorageInstanceInfo.Filesystem != nil {
 		storageInstComposition.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-			UUID: storageAttachInfo.StorageInstanceInfo.Filesystem.UUID,
+			ProvisionScope: storageAttachInfo.StorageInstanceInfo.Filesystem.ProvisionScope,
+			UUID:           storageAttachInfo.StorageInstanceInfo.Filesystem.UUID,
 		}
 	}
 	if storageAttachInfo.StorageInstanceInfo.Volume != nil {
 		storageInstComposition.Volume = &internal.StorageInstanceCompositionVolume{
-			UUID: storageAttachInfo.StorageInstanceInfo.Volume.UUID,
+			ProvisionScope: storageAttachInfo.StorageInstanceInfo.Volume.ProvisionScope,
+			UUID:           storageAttachInfo.StorageInstanceInfo.Volume.UUID,
 		}
 	}
 

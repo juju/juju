@@ -2032,9 +2032,11 @@ SELECT * AS &storageInstanceInfoForAttach.* FROM (
               si.storage_kind_id,
               sif.storage_filesystem_uuid AS filesystem_uuid,
               sf.size_mib AS filesystem_size_mib,
+              sf.provision_scope_id AS filesystem_provision_scope_id,
               mf.machine_uuid AS filesystem_owned_machine_uuid,
               siv.storage_volume_uuid AS volume_uuid,
               sv.size_mib AS volume_size_mib,
+              sv.provision_scope_id AS volume_provision_scope_id,
               mv.machine_uuid AS volume_owned_machine_uuid
     FROM      storage_instance si
     LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid

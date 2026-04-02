@@ -977,9 +977,11 @@ type storageInstanceInfoForAttach struct {
 	StorageKindID              int              `db:"storage_kind_id"`
 	RequestedSizeMIB           int              `db:"requested_size_mib"`
 	FilesystemOwnedMachineUUID sql.Null[string] `db:"filesystem_owned_machine_uuid"`
+	FilesystemProvisionScopeID sql.Null[int]    `db:"filesystem_provision_scope_id"`
 	FilesystemSizeMIB          sql.Null[int]    `db:"filesystem_size_mib"`
 	FilesystemUUID             sql.Null[string] `db:"filesystem_uuid"`
 	VolumeOwnedMachineUUID     sql.Null[string] `db:"volume_owned_machine_uuid"`
+	VolumeProvisionScopeID     sql.Null[int]    `db:"volume_provision_scope_id"`
 	VolumeSizeMIB              sql.Null[int]    `db:"volume_size_mib"`
 	VolumeUUID                 sql.Null[string] `db:"volume_uuid"`
 }

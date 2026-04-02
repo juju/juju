@@ -1307,9 +1307,13 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 
 	expected := internal.StorageInstanceInfoForUnitAttach{
 		StorageInstanceInfo: internal.StorageInstanceInfo{
-			UUID:             storageInstanceUUID,
-			CharmName:        &charmName,
-			Filesystem:       &internal.StorageInstanceFilesystemInfo{UUID: filesystemUUID, Size: 1024},
+			UUID:      storageInstanceUUID,
+			CharmName: &charmName,
+			Filesystem: &internal.StorageInstanceFilesystemInfo{
+				UUID:           filesystemUUID,
+				Size:           1024,
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			},
 			Kind:             domainstorage.StorageKindFilesystem,
 			Life:             life.Alive,
 			RequestedSizeMIB: 1024,
@@ -1329,6 +1333,70 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 				CountMax:    10,
 				Type:        charm.StorageFilesystem,
 				MinimumSize: 1024,
+			},
+		},
+	}
+
+	c.Assert(storageInfo, tc.DeepEquals, expected)
+}
+
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDVolume verifies the happy
+// path for a block storage instance backed by a volume.
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDVolume(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 2048,
+			Type:        charm.StorageBlock,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+	unitName := u.getUnitName(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+	unitNetNodeUUID := u.getUnitNetNodeUUID(c, unitUUID)
+
+	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	charmName := u.getCharmMetadataName(c, charmUUID)
+
+	storageInstanceUUID, volumeUUID := u.newModelVolumeStorageInstance(c, "st1", charmUUID)
+
+	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, storageInstanceUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected := internal.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfo: internal.StorageInstanceInfo{
+			UUID:      storageInstanceUUID,
+			CharmName: &charmName,
+			Volume: &internal.StorageInstanceVolumeInfo{
+				UUID:           volumeUUID,
+				Size:           2048,
+				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			},
+			Kind:             domainstorage.StorageKindBlock,
+			Life:             life.Alive,
+			RequestedSizeMIB: 2048,
+			StorageName:      "st1",
+		},
+		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
+			UUID:                 unitUUID,
+			CharmMetadataName:    charmName,
+			CharmUUID:            charmUUID,
+			Name:                 coreunit.Name(unitName),
+			NetNodeUUID:          unitNetNodeUUID,
+			MachineUUID:          &unitMachineUUID,
+			AlreadyAttachedCount: 0,
+			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+				Name:        "st1",
+				CountMin:    1,
+				CountMax:    10,
+				Type:        charm.StorageBlock,
+				MinimumSize: 2048,
 			},
 		},
 	}

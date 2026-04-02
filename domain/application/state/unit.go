@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -2572,8 +2573,9 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 
 	if storageInstInfo.FilesystemUUID.Valid {
 		retVal.StorageInstanceInfo.Filesystem = &internal.StorageInstanceFilesystemInfo{
-			UUID: domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
-			Size: storageInstInfo.FilesystemSizeMIB.V,
+			UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
+			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
+			Size:           storageInstInfo.FilesystemSizeMIB.V,
 		}
 	}
 	if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
@@ -2582,8 +2584,9 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}
 	if storageInstInfo.VolumeUUID.Valid {
 		retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
-			UUID: domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
-			Size: storageInstInfo.VolumeSizeMIB.V,
+			UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
+			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
+			Size:           storageInstInfo.VolumeSizeMIB.V,
 		}
 	}
 	if storageInstInfo.VolumeOwnedMachineUUID.Valid {

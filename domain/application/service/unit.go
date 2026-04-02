@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -674,23 +673,15 @@ func storageInstanceCompositionsFromAttachInfos(
 		}
 
 		if info.Filesystem != nil {
-			scope := domainstorageprov.ProvisionScopeModel
-			if info.Filesystem.OwningMachineUUID != nil {
-				scope = domainstorageprov.ProvisionScopeMachine
-			}
 			comp.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: scope,
+				ProvisionScope: info.Filesystem.ProvisionScope,
 				UUID:           info.Filesystem.UUID,
 			}
 		}
 
 		if info.Volume != nil {
-			scope := domainstorageprov.ProvisionScopeModel
-			if info.Volume.OwningMachineUUID != nil {
-				scope = domainstorageprov.ProvisionScopeMachine
-			}
 			comp.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: scope,
+				ProvisionScope: info.Volume.ProvisionScope,
 				UUID:           info.Volume.UUID,
 			}
 		}
