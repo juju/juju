@@ -363,7 +363,7 @@ func (s *WorkerSuite) TestFetch(c *tc.C) {
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
-				Revision: ptr(666),
+				Revision: new(666),
 				Channel:  &channel,
 				Platform: charm.Platform{
 					Architecture: "amd64",
@@ -468,7 +468,7 @@ func (s *WorkerSuite) TestFetchInfo(c *tc.C) {
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
-				Revision: ptr(666),
+				Revision: new(666),
 				Channel:  &channel,
 				Platform: charm.Platform{
 					Architecture: "amd64",
@@ -633,7 +633,7 @@ func (s *WorkerSuite) TestRequest(c *tc.C) {
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
-				Revision: ptr(666),
+				Revision: new(666),
 				Channel:  &channel,
 			},
 		},
@@ -734,7 +734,7 @@ func (s *WorkerSuite) TestRequestWithResources(c *tc.C) {
 		essentialMetadata: charm.EssentialMetadata{
 			ResolvedOrigin: charm.Origin{
 				Source:   charm.CharmHub,
-				Revision: ptr(666),
+				Revision: new(666),
 				Channel:  &channel,
 			},
 		},

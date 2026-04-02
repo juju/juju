@@ -88,7 +88,7 @@ func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 // TestRegisterNewCAASUnit tests the happy path of registering a new CAAS unit
 // into the model.
 func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -118,8 +118,8 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 		UnitName:               "foo/666",
 		PasswordHash:           "secret",
 		ProviderID:             "foo-666",
-		Address:                ptr("10.6.6.6"),
-		Ports:                  ptr([]string{"8080"}),
+		Address:                new("10.6.6.6"),
+		Ports:                  new([]string{"8080"}),
 		OrderedScale:           true,
 		OrderedId:              666,
 		RegisterUnitStorageArg: storageArg,
@@ -160,7 +160,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 // Key observabilities in this test:
 // - We want to see that the existing net node uuid for the caas unit is re-used.
 func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -189,12 +189,12 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 	).Return(storageArg, nil).AnyTimes()
 
 	expectedArg := application.RegisterCAASUnitArg{
-		Address:                ptr("10.6.6.6"),
+		Address:                new("10.6.6.6"),
 		NetNodeUUID:            unitNetNodeUUID,
 		OrderedId:              666,
 		OrderedScale:           true,
 		PasswordHash:           "secret",
-		Ports:                  ptr([]string{"8080"}),
+		Ports:                  new([]string{"8080"}),
 		ProviderID:             "foo-666",
 		RegisterUnitStorageArg: storageArg,
 		UnitName:               "foo/666",
@@ -246,7 +246,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitMissingProviderID(c *tc.C) {
 //
 // NOTE(tlm): It is unclear if this test has any value.
 func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)

@@ -124,7 +124,7 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretNoPeekOrRefresh(
 	service := s.service(c)
 
 	content, valueRef, latest, err := service.ProcessRemoteConsumerGetSecret(
-		c.Context(), uri, consumer, ptr(666), false, false)
+		c.Context(), uri, consumer, new(666), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(content, tc.DeepEquals, coresecrets.NewSecretValue(data))

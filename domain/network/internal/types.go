@@ -53,6 +53,29 @@ type SpaceName struct {
 	Name string
 }
 
+// EndpointAddresses represents unit addresses associated with an endpoint.
+type EndpointAddresses struct {
+	// EndpointName specifies the name of the network endpoint.
+	EndpointName string
+
+	// Addresses is the set of unit addresses available on the endpoint.
+	Addresses []UnitAddress
+}
+
+// UnitAddress represents a unit address together with device metadata.
+type UnitAddress struct {
+	corenetwork.SpaceAddress
+
+	// DeviceName specifies the network device's human-readable identifier.
+	DeviceName string
+
+	// MACAddress specifies the device's hardware MAC address.
+	MACAddress string
+
+	// DeviceType specifies the link-layer type of the device.
+	DeviceType corenetwork.LinkLayerDeviceType
+}
+
 type ImportCloudService struct {
 	UUID        string // generated during import
 	DeviceUUID  string // generated during import

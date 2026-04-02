@@ -53,7 +53,9 @@ type OfferFilters struct {
 
 // OfferFilter is used to query offers.
 type OfferFilter struct {
-	// ModelQualifier disambiguates the name of the model hosting the offer.
+	// ModelQualifier is the owner identifier used to disambiguate ModelName.
+	// It uses user-id form (for example "admin" or "alice@external"),
+	// not full user-tag form.
 	ModelQualifier string `json:"model-qualifier"`
 
 	// ModelName is the name of the model hosting the offer.

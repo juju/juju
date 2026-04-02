@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/hooks"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/rpc/params"
 )
 
 // CommandInfo specifies the information necessary to run a command.
@@ -375,45 +373,31 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext) (err error) {
 	defer func() { err = errors.Trace(err) }()
 
-	ctx.apiAddrs, err = f.client.APIAddresses(stdCtx)
+	info, err := f.client.GetUnitContext(stdCtx, f.unit.Tag())
 	if err != nil {
 		return err
 	}
 
-	apiVersion, err := f.client.CloudAPIVersion(stdCtx)
-	if err != nil {
-		f.logger.Warningf(stdCtx, "could not retrieve the cloud API version: %v", err)
-	}
-	ctx.cloudAPIVersion = apiVersion
+	ctx.apiAddrs = info.APIAddresses
+	ctx.cloudAPIVersion = info.CloudAPIVersion
+	ctx.legacyProxySettings = info.LegacyProxySettings
+	ctx.jujuProxySettings = info.JujuProxySettings
+	ctx.charmTracingConfig = info.CharmTracingConfig
 
-	// TODO(fwereade) 23-10-2014 bug 1384572
-	// Nothing here should ever be getting the environ config directly.
-	modelConfig, err := f.client.ModelConfig(stdCtx)
-	if err != nil {
-		return err
-	}
-	ctx.legacyProxySettings = modelConfig.LegacyProxySettings()
-	ctx.jujuProxySettings = modelConfig.JujuProxySettings()
-
-	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
-	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
-	switch f.modelType {
-	case model.IAAS:
-		if machPortRanges, err = f.client.OpenedMachinePortRangesByEndpoint(stdCtx, f.machineTag); err != nil {
-			return errors.Trace(err)
-		}
-
-		ctx.privateAddress, err = f.unit.PrivateAddress(stdCtx)
-		if err != nil && !params.IsCodeNoAddressSet(err) {
-			f.logger.Warningf(stdCtx, "cannot get legacy private address for %v: %v", f.unit.Name(), err)
-		}
-	case model.CAAS:
-		if appPortRanges, err = f.client.OpenedPortRangesByEndpoint(stdCtx); err != nil && !errors.Is(err, errors.NotSupported) {
-			return errors.Trace(err)
+	if f.modelType == model.IAAS {
+		if info.PrivateAddress != nil {
+			ctx.privateAddress = *info.PrivateAddress
+		} else {
+			f.logger.Warningf(stdCtx, "cannot get legacy private address for %v: no address set", f.unit.Name())
 		}
 	}
 
-	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
+	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger,
+		f.unit.Tag(),
+		f.modelType,
+		info.OpenedMachinePortRangesByEndpoint,
+		info.OpenedPortRangesByEndpoint,
+	)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 
 	return nil

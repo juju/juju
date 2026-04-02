@@ -55,7 +55,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *tc.C) {
 
 	_, err := s.service.getCharmID(c.Context(), charm.GetCharmArgs{
 		Name:     "foo",
-		Revision: ptr(42),
+		Revision: new(42),
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
@@ -74,7 +74,7 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *tc.C) {
 
 	_, err := s.service.getCharmID(c.Context(), charm.GetCharmArgs{
 		Name:     "foo",
-		Revision: ptr(42),
+		Revision: new(42),
 		Source:   "wrong-source",
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmSourceNotValid)

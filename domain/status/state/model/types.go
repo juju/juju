@@ -162,7 +162,7 @@ type relationStatus struct {
 type CharmLocatorDetails struct {
 	CharmReferenceName  string          `db:"charm_reference_name"`
 	CharmRevision       int             `db:"charm_revision"`
-	CharmSourceID       int             `db:"charm_source_id"`
+	CharmSource         string          `db:"charm_source"`
 	CharmArchitectureID sql.Null[int64] `db:"charm_architecture_id"`
 }
 
@@ -527,31 +527,31 @@ func decodeHardwareCharacteristics(
 ) instance.HardwareCharacteristics {
 	var hwc instance.HardwareCharacteristics
 	if arch.Valid {
-		hwc.Arch = ptr(arch.V)
+		hwc.Arch = new(arch.V)
 	}
 	if cpuCores.Valid {
-		hwc.CpuCores = ptr(cpuCores.V)
+		hwc.CpuCores = new(cpuCores.V)
 	}
 	if cpuPower.Valid {
-		hwc.CpuPower = ptr(cpuPower.V)
+		hwc.CpuPower = new(cpuPower.V)
 	}
 	if mem.Valid {
-		hwc.Mem = ptr(mem.V)
+		hwc.Mem = new(mem.V)
 	}
 	if rootDisk.Valid {
-		hwc.RootDisk = ptr(rootDisk.V)
+		hwc.RootDisk = new(rootDisk.V)
 	}
 	if rootDiskSource.Valid {
-		hwc.RootDiskSource = ptr(rootDiskSource.V)
+		hwc.RootDiskSource = new(rootDiskSource.V)
 	}
 	if virtType.Valid {
-		hwc.VirtType = ptr(virtType.V)
+		hwc.VirtType = new(virtType.V)
 	}
 	if len(tags) > 0 {
 		hwc.Tags = &tags
 	}
 	if availabilityZone.Valid {
-		hwc.AvailabilityZone = ptr(availabilityZone.V)
+		hwc.AvailabilityZone = new(availabilityZone.V)
 	}
 	return hwc
 }
@@ -572,40 +572,40 @@ func decodeConstraints(
 ) constraints.Constraints {
 	var cons constraints.Constraints
 	if arch.Valid {
-		cons.Arch = ptr(arch.V)
+		cons.Arch = new(arch.V)
 	}
 	if cpuCores.Valid {
-		cons.CpuCores = ptr(cpuCores.V)
+		cons.CpuCores = new(cpuCores.V)
 	}
 	if cpuPower.Valid {
-		cons.CpuPower = ptr(cpuPower.V)
+		cons.CpuPower = new(cpuPower.V)
 	}
 	if mem.Valid {
-		cons.Mem = ptr(mem.V)
+		cons.Mem = new(mem.V)
 	}
 	if rootDisk.Valid {
-		cons.RootDisk = ptr(rootDisk.V)
+		cons.RootDisk = new(rootDisk.V)
 	}
 	if rootDiskSource.Valid {
-		cons.RootDiskSource = ptr(rootDiskSource.V)
+		cons.RootDiskSource = new(rootDiskSource.V)
 	}
 	if virtType.Valid {
-		cons.VirtType = ptr(virtType.V)
+		cons.VirtType = new(virtType.V)
 	}
 	if instanceRole.Valid {
-		cons.InstanceRole = ptr(instanceRole.V)
+		cons.InstanceRole = new(instanceRole.V)
 	}
 	if instanceType.Valid {
-		cons.InstanceType = ptr(instanceType.V)
+		cons.InstanceType = new(instanceType.V)
 	}
 	if containerType.Valid {
-		cons.Container = ptr(instance.ContainerType(containerType.V))
+		cons.Container = new(instance.ContainerType(containerType.V))
 	}
 	if allocatePublicIP.Valid {
-		cons.AllocatePublicIP = ptr(allocatePublicIP.V == 1)
+		cons.AllocatePublicIP = new(allocatePublicIP.V == 1)
 	}
 	if imageID.Valid {
-		cons.ImageID = ptr(imageID.V)
+		cons.ImageID = new(imageID.V)
 	}
 	return cons
 }

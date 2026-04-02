@@ -134,7 +134,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Devices:           arg.Devices,
 		ApplicationStatus: &status.StatusInfo{
 			Status: status.Unset,
-			Since:  ptr(api.clock.Now()),
+			Since:  new(api.clock.Now()),
 		},
 		ApplicationConfig: dt.applicationConfig,
 		ApplicationSettings: application.ApplicationSettings{

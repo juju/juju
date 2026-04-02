@@ -195,17 +195,6 @@ subset of test names.
 go test -run='$REGEX'
 ```
 
-
-### Testing and MongoDB
-
-Many tests use a standalone instance of `mongod` as part of their setup. The
-`mongod` binary found in `$PATH` is executed by these suites.  If you don't
-already have MongoDB installed, run
-
-```
-make install-mongo-dependencies
-```
-
 ### Other
 
 For more information see [CODING.md](CODING.md)

@@ -142,7 +142,7 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) 
 		Name:        userName,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    new(auth.NewPassword(password)),
 		Permission: permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{

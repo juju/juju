@@ -91,17 +91,6 @@ const (
 	DownloadNameKey downloadKey = "download-name-key"
 )
 
-// ProgressBar defines a progress bar type for giving feedback to the user about
-// the state of the download.
-type ProgressBar interface {
-	io.Writer
-
-	// Start progress with max "total" steps.
-	Start(label string, total float64)
-	// Finished the progress display
-	Finished()
-}
-
 // Download returns the raw charm zip file, which is retrieved from the given
 // URL.
 // It is expected that the archive path doesn't already exist and if it does, it

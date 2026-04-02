@@ -106,7 +106,7 @@ func (s *storageSuite) TestSetFilesystemStatus(c *tc.C) {
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
@@ -121,7 +121,7 @@ func (s *storageSuite) TestSetFilesystemStatusInitialMissing(c *tc.C) {
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
@@ -137,7 +137,7 @@ func (s *storageSuite) TestSetFilesystemStatusMultipleTimes(c *tc.C) {
 	err := s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttaching,
 		Message: "waiting",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -145,7 +145,7 @@ func (s *storageSuite) TestSetFilesystemStatusMultipleTimes(c *tc.C) {
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
 		Message: "attached with 60MB",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err = s.modelState.SetFilesystemStatus(c.Context(), filesystemUUID, expected)
@@ -159,7 +159,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttaching,
 		Message: "waiting",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	uuid := tc.Must(c, storage.NewFilesystemUUID)
@@ -205,14 +205,14 @@ func (s *storageSuite) TestSetFilesystemStatusPendingWhenProvisioned(c *tc.C) {
 	now := time.Now().UTC()
 	sts := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypeAttached,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 	err := s.modelState.SetFilesystemStatus(c.Context(), fsUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypePending,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 	err = s.modelState.SetFilesystemStatus(c.Context(), fsUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
@@ -242,7 +242,7 @@ func (s *storageSuite) TestImportFilesystemStatus(c *tc.C) {
 	expected := status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.ImportFilesystemStatus(c.Context(), filesystemUUID, expected)
@@ -257,7 +257,7 @@ func (s *storageSuite) TestSetVolumeStatus(c *tc.C) {
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
@@ -272,7 +272,7 @@ func (s *storageSuite) TestSetVolumeStatusInitialMissing(c *tc.C) {
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
@@ -286,7 +286,7 @@ func (s *storageSuite) TestSetVolumeStatusMultipleTimes(c *tc.C) {
 	err := s.modelState.SetVolumeStatus(c.Context(), volumeUUID, status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttaching,
 		Message: "waiting",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -294,7 +294,7 @@ func (s *storageSuite) TestSetVolumeStatusMultipleTimes(c *tc.C) {
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
 		Message: "attached with 60MB",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err = s.modelState.SetVolumeStatus(c.Context(), volumeUUID, expected)
@@ -308,7 +308,7 @@ func (s *storageSuite) TestSetVolumeStatusVolumeNotFound(c *tc.C) {
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttaching,
 		Message: "waiting",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	uuid := tc.Must(c, storage.NewVolumeUUID)
@@ -350,14 +350,14 @@ func (s *storageSuite) TestSetVolumeStatusPendingWhenProvisioned(c *tc.C) {
 
 	sts := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypeAttached,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 	err := s.modelState.SetVolumeStatus(c.Context(), vUUID, sts)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sts = status.StatusInfo[status.StorageVolumeStatusType]{
 		Status: status.StorageVolumeStatusTypePending,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 	err = s.modelState.SetVolumeStatus(c.Context(), vUUID, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.VolumeStatusTransitionNotValid)
@@ -384,7 +384,7 @@ func (s *storageSuite) TestImportVolumeStatus(c *tc.C) {
 	expected := status.StatusInfo[status.StorageVolumeStatusType]{
 		Status:  status.StorageVolumeStatusTypeAttached,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.modelState.ImportVolumeStatus(c.Context(), volumeUUID, expected)

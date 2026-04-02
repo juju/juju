@@ -78,6 +78,8 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusPrinci
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
+	s.AssertChangeStreamIdle(c)
+
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -182,6 +184,8 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubord
 	s.addUnit(c, subordinateUnitUUID, "my-application/0", s.appUUID, s.charmUUID)
 	s.addUnit(c, principalUnitUUID, "two/0", appTwoUUID, charmTwoUUID)
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
+
+	s.AssertChangeStreamIdle(c)
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
@@ -291,6 +295,8 @@ func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplication(c *tc
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
+	s.AssertChangeStreamIdle(c)
+
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationsLifeSuspendedStatusForApplication(c.Context(), applicationUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -388,6 +394,8 @@ func (s *watcherSuite) TestWatchRelationLifeSuspendedStatus(c *tc.C) {
 
 	relationUUID := tc.Must(c, relation.NewUUID)
 	s.addRelation(c, relationUUID)
+
+	s.AssertChangeStreamIdle(c)
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationLifeSuspendedStatus(c.Context(), relationUUID)

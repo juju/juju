@@ -91,8 +91,3 @@ func filter[S any](input []S, accept func(S) bool) []S {
 	}
 	return result
 }
-
-// ptr takes a value of any type and returns a pointer to that value.
-func ptr[T any](v T) *T {
-	return &v
-}

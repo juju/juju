@@ -725,7 +725,7 @@ type StateServingInfo struct {
 	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
 	CAPrivateKey string `json:"ca-private-key"`
-	// this will be passed as the KeyFile argument to MongoDB
+	// SystemIdentity will be passed as the KeyFile for the database.
 	SystemIdentity string `json:"system-identity"`
 }
 
@@ -1169,13 +1169,6 @@ type BundleChangesMapArgs struct {
 	Requires []string `json:"requires"`
 }
 
-type MongoVersion struct {
-	Major         int    `json:"major"`
-	Minor         int    `json:"minor"`
-	Patch         string `json:"patch"`
-	StorageEngine string `json:"engine"`
-}
-
 // MacaroonResults contains a set of MacaroonResults.
 type MacaroonResults struct {
 	Results []MacaroonResult `json:"results"`
@@ -1443,4 +1436,34 @@ type CLICommandStatus struct {
 type VirtualHostnameTargetArg struct {
 	Tag       string  `json:"tag"`
 	Container *string `json:"container,omitempty"`
+}
+
+// ProxySettings contains the proxy settings for a model, which may be used by
+// agents in the model.
+type ProxySettings struct {
+	HTTPProxy  string `json:"http-proxy,omitempty"`
+	HTTPSProxy string `json:"https-proxy,omitempty"`
+	FTPProxy   string `json:"ftp-proxy,omitempty"`
+	NoProxy    string `json:"no-proxy,omitempty"`
+}
+
+// CharmTracingConfig contains the tracing configuration for charms, which may
+// be used by agents in the model.
+type CharmTracingConfig struct {
+	HTTPEndpoint  string `json:"http-endpoint,omitempty"`
+	GRPCEndpoint  string `json:"grpc-endpoint,omitempty"`
+	CACertificate string `json:"ca-certificate,omitempty"`
+}
+
+// UnitContext contains all the context information required for the
+// construction of a context factory.
+type UnitContext struct {
+	APIAddresses                      []string                          `json:"api-addresses"`
+	CloudAPIVersion                   string                            `json:"cloud-api-version"`
+	LegacyProxySettings               ProxySettings                     `json:"legacy-proxy-settings"`
+	JujuProxySettings                 ProxySettings                     `json:"juju-proxy-settings"`
+	PrivateAddress                    *string                           `json:"private-address,omitempty"`
+	OpenedMachinePortRangesByEndpoint map[string]map[string][]PortRange `json:"opened-machine-port-ranges-by-endpoint,omitempty"`
+	OpenedPortRangesByEndpoint        map[string]map[string][]PortRange `json:"opened-port-ranges-by-endpoint,omitempty"`
+	CharmTracingConfig                CharmTracingConfig                `json:"charm-tracing-config,omitempty"`
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"os"
 	"path/filepath"
@@ -88,8 +89,7 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 
 	var endpoint string
 	if s.UseTCP {
-		port := FindTCPPort(c)
-		endpoint = fmt.Sprintf("%s:%d", "127.0.0.1", port)
+		endpoint = FindTCPLocalEndpoint(c)
 		if verbose {
 			c.Logf("Opening dqlite db with: %v", endpoint)
 		}
@@ -280,6 +280,56 @@ func FindTCPPort(c *tc.C) int {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(l.Close(), tc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+var (
+	localEndpointNext atomic.Uint32
+)
+
+// FindTCPLocalEndpoint finds an unused TCP port on a PID unique /32 and returns
+// it. It is not prone to racing, and will not use a port more than once.
+func FindTCPLocalEndpoint(c *tc.C) string {
+	// Use the pid to generate a pseudo-random value for loopback subnet
+	// selection.
+	pid := os.Getpid()
+	f := fnv.New32a()
+	f.Write([]byte{byte(pid), byte(pid >> 8), byte(pid >> 16), byte(pid >> 24)})
+	subnet := f.Sum32()
+
+	const tries = 256
+	for i := range tries {
+		portSeed := localEndpointNext.Add(1)
+		f := fnv.New32a()
+		f.Write([]byte{byte(portSeed), byte(portSeed >> 8), byte(portSeed >> 16), byte(portSeed >> 24)})
+		port := f.Sum32()
+		port ^= port >> 16 // Use all the bits to choose the port.
+		port &= 0xffff     // Mask out the upper two octects
+		if port == 0 {
+			// Don't let the kernel choose the port (we need to avoid other go
+			// routines calling this function to get issued a port that might
+			// soon after be chosen by the kernel again).
+			port = 1
+		}
+		// Using all of the /32's available in the loopback /8, avoid potential
+		// collisions with other listeners (we will have already released the
+		// `port` back to the kernel, so it is likely to give it out again to
+		// any random port listens on all interfaces e.g. ":0").
+		endpoint := fmt.Sprintf(
+			"127.%d.%d.%d:%d",
+			byte(subnet), byte(subnet>>8), byte(subnet>>16), port,
+		)
+		// Confirm we can indeed listen on that port on this address.
+		l, err := net.Listen("tcp", endpoint)
+		if err != nil && i < tries-1 {
+			// If not, try another.
+			time.Sleep(time.Millisecond * time.Duration(i))
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(l.Close(), tc.ErrorIsNil)
+		return endpoint
+	}
+	panic("unreachable")
 }
 
 type noopTxnRunner struct{}

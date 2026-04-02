@@ -27,7 +27,8 @@ import (
 	service11 "github.com/juju/juju/domain/model/service"
 	service12 "github.com/juju/juju/domain/modeldefaults/service"
 	service13 "github.com/juju/juju/domain/secretbackend/service"
-	service14 "github.com/juju/juju/domain/upgrade/service"
+	service14 "github.com/juju/juju/domain/tracing/service"
+	service15 "github.com/juju/juju/domain/upgrade/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -624,11 +625,49 @@ func (c *MockControllerDomainServicesSecretBackendCall) DoAndReturn(f func() *se
 	return c
 }
 
+// Tracing mocks base method.
+func (m *MockControllerDomainServices) Tracing() *service14.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tracing")
+	ret0, _ := ret[0].(*service14.Service)
+	return ret0
+}
+
+// Tracing indicates an expected call of Tracing.
+func (mr *MockControllerDomainServicesMockRecorder) Tracing() *MockControllerDomainServicesTracingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tracing", reflect.TypeOf((*MockControllerDomainServices)(nil).Tracing))
+	return &MockControllerDomainServicesTracingCall{Call: call}
+}
+
+// MockControllerDomainServicesTracingCall wrap *gomock.Call
+type MockControllerDomainServicesTracingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDomainServicesTracingCall) Return(arg0 *service14.Service) *MockControllerDomainServicesTracingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDomainServicesTracingCall) Do(f func() *service14.Service) *MockControllerDomainServicesTracingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDomainServicesTracingCall) DoAndReturn(f func() *service14.Service) *MockControllerDomainServicesTracingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Upgrade mocks base method.
-func (m *MockControllerDomainServices) Upgrade() *service14.WatchableService {
+func (m *MockControllerDomainServices) Upgrade() *service15.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service14.WatchableService)
+	ret0, _ := ret[0].(*service15.WatchableService)
 	return ret0
 }
 
@@ -645,19 +684,19 @@ type MockControllerDomainServicesUpgradeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerDomainServicesUpgradeCall) Return(arg0 *service14.WatchableService) *MockControllerDomainServicesUpgradeCall {
+func (c *MockControllerDomainServicesUpgradeCall) Return(arg0 *service15.WatchableService) *MockControllerDomainServicesUpgradeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerDomainServicesUpgradeCall) Do(f func() *service14.WatchableService) *MockControllerDomainServicesUpgradeCall {
+func (c *MockControllerDomainServicesUpgradeCall) Do(f func() *service15.WatchableService) *MockControllerDomainServicesUpgradeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerDomainServicesUpgradeCall) DoAndReturn(f func() *service14.WatchableService) *MockControllerDomainServicesUpgradeCall {
+func (c *MockControllerDomainServicesUpgradeCall) DoAndReturn(f func() *service15.WatchableService) *MockControllerDomainServicesUpgradeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

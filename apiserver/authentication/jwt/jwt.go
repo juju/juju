@@ -96,8 +96,9 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 	}
 
 	return authentication.AuthInfo{
-		Tag:       userTag,
-		Delegator: &PermissionDelegator{token},
+		Tag:                       userTag,
+		Delegator:                 &PermissionDelegator{Token: token},
+		IsExternallyAuthenticated: true,
 	}, nil
 }
 
@@ -118,8 +119,9 @@ func (j *JWTAuthenticator) AuthenticateLoginRequest(
 	}
 
 	return authentication.AuthInfo{
-		Tag:       userTag,
-		Delegator: &PermissionDelegator{token},
+		Tag:                       userTag,
+		Delegator:                 &PermissionDelegator{Token: token},
+		IsExternallyAuthenticated: true,
 	}, nil
 }
 

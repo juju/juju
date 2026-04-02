@@ -49,6 +49,8 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
+	exportservice "github.com/juju/juju/domain/export/service"
+	exportstate "github.com/juju/juju/domain/export/state/model"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -288,6 +290,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[applicationservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.modelUUID,
@@ -383,6 +386,7 @@ func (s *ModelServices) Storage() *storageservice.Service {
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("storage"),
+		s.clock,
 		s.storageRegistry,
 	)
 }
@@ -456,6 +460,13 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 		s.storageRegistry,
 		modelservice.DefaultAgentBinaryFinder(),
 		s.logger.Child("modelinfo"),
+	)
+}
+
+// Export returns the model export service.
+func (s *ModelServices) Export() *exportservice.Service {
+	return exportservice.NewService(
+		exportstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
@@ -617,7 +628,9 @@ func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 	)
 }
 
-func (s *ModelServices) ControllerUpgraderService() *controllerupgraderservice.Service {
+// ControllerUpgrader returns the service for upgrading the controller and its
+// model.
+func (s *ModelServices) ControllerUpgrader() *controllerupgraderservice.Service {
 	controllerSt := controllerupgraderstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
 	controllerModelSt := controllerupgraderstate.NewControllerModelState(changestream.NewTxnRunnerFactory(s.modelDB))
 	agentFinder := controllerupgraderservice.NewAgentFinder(

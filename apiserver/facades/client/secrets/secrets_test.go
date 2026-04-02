@@ -86,8 +86,8 @@ func (s *SecretsSuite) TestListSecretsErrNoBackendName(c *tc.C) {
 		RotatePolicy:           coresecrets.RotateHourly,
 		LatestRevision:         2,
 		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
-		LatestExpireTime:       ptr(now),
-		NextRotateTime:         ptr(now.Add(time.Hour)),
+		LatestExpireTime:       new(now),
+		NextRotateTime:         new(now.Add(time.Hour)),
 		Description:            "shhh",
 		Label:                  "foobar",
 		CreateTime:             now,
@@ -104,7 +104,7 @@ func (s *SecretsSuite) TestListSecretsErrNoBackendName(c *tc.C) {
 			Revision:   666,
 			CreateTime: now,
 			UpdateTime: now.Add(time.Second),
-			ExpireTime: ptr(now.Add(time.Hour)),
+			ExpireTime: new(now.Add(time.Hour)),
 		}, {
 			// Revision backend name should have been populated in the service layer, even for unknowns.
 			// If there is no backend ID, backend name should be set to "<unknown>" to indicate that.
@@ -112,17 +112,17 @@ func (s *SecretsSuite) TestListSecretsErrNoBackendName(c *tc.C) {
 			ValueRef: &coresecrets.ValueRef{
 				BackendID: "not-a-valid-backend-id",
 			},
-			BackendName: ptr("<unknown>"),
+			BackendName: new("<unknown>"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}, {
 			// Valid backend name returned which will be retained.
 			Revision:    668,
-			BackendName: ptr("some backend"),
+			BackendName: new("some backend"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}},
 		{},
 	}
@@ -152,10 +152,6 @@ func (s *SecretsSuite) TestListSecretsReveal(c *tc.C) {
 	s.assertListSecrets(c, true)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 	defer s.setup(c).Finish()
 
@@ -178,8 +174,8 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 		RotatePolicy:           coresecrets.RotateHourly,
 		LatestRevision:         2,
 		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
-		LatestExpireTime:       ptr(now),
-		NextRotateTime:         ptr(now.Add(time.Hour)),
+		LatestExpireTime:       new(now),
+		NextRotateTime:         new(now.Add(time.Hour)),
 		Description:            "shhh",
 		Label:                  "foobar",
 		CreateTime:             now,
@@ -190,10 +186,10 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			// Revision backend name should have been populated in the service layer, even for unknowns.
 			// If there is no backend ID, backend name should be set to "<unknown>" to indicate that.
 			Revision:    666,
-			BackendName: ptr("<unknown>"),
+			BackendName: new("<unknown>"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(time.Second),
-			ExpireTime:  ptr(now.Add(time.Hour)),
+			ExpireTime:  new(now.Add(time.Hour)),
 		}, {
 			// Revision backend name should have been populated in the service layer, even for unknowns.
 			// If there is no backend ID, backend name should be set to "<unknown>" to indicate that.
@@ -201,32 +197,32 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			ValueRef: &coresecrets.ValueRef{
 				BackendID: "not-a-valid-backend-id",
 			},
-			BackendName: ptr("<unknown>"),
+			BackendName: new("<unknown>"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}, {
 			// Valid backend name returned which will be retained.
 			Revision:    668,
-			BackendName: ptr("some backend"),
+			BackendName: new("some backend"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}, {
 			// Backend name kubernetes should be transformed to the built-in name (model_name-local).
 			Revision:    669,
-			BackendName: ptr("kubernetes"),
+			BackendName: new("kubernetes"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}, {
 			// Default backend name will be retained.
 			Revision:    670,
 			ValueRef:    &coresecrets.ValueRef{},
-			BackendName: ptr("internal"),
+			BackendName: new("internal"),
 			CreateTime:  now,
 			UpdateTime:  now.Add(2 * time.Second),
-			ExpireTime:  ptr(now.Add(2 * time.Hour)),
+			ExpireTime:  new(now.Add(2 * time.Hour)),
 		}},
 		{},
 	}
@@ -266,8 +262,8 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			Version:                1,
 			OwnerTag:               "application-mysql",
 			RotatePolicy:           string(coresecrets.RotateHourly),
-			LatestExpireTime:       ptr(now),
-			NextRotateTime:         ptr(now.Add(time.Hour)),
+			LatestExpireTime:       new(now),
+			NextRotateTime:         new(now.Add(time.Hour)),
 			Description:            "shhh",
 			Label:                  "foobar",
 			LatestRevision:         2,
@@ -277,34 +273,34 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			Value:                  valueResult,
 			Revisions: []params.SecretRevision{{
 				Revision:    666,
-				BackendName: ptr("<unknown>"),
+				BackendName: new("<unknown>"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(time.Second),
-				ExpireTime:  ptr(now.Add(time.Hour)),
+				ExpireTime:  new(now.Add(time.Hour)),
 			}, {
 				Revision:    667,
-				BackendName: ptr("<unknown>"),
+				BackendName: new("<unknown>"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
-				ExpireTime:  ptr(now.Add(2 * time.Hour)),
+				ExpireTime:  new(now.Add(2 * time.Hour)),
 			}, {
 				Revision:    668,
-				BackendName: ptr("some backend"),
+				BackendName: new("some backend"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
-				ExpireTime:  ptr(now.Add(2 * time.Hour)),
+				ExpireTime:  new(now.Add(2 * time.Hour)),
 			}, {
 				Revision:    669,
-				BackendName: ptr("testmodel-local"),
+				BackendName: new("testmodel-local"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
-				ExpireTime:  ptr(now.Add(2 * time.Hour)),
+				ExpireTime:  new(now.Add(2 * time.Hour)),
 			}, {
 				Revision:    670,
-				BackendName: ptr("internal"),
+				BackendName: new("internal"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
-				ExpireTime:  ptr(now.Add(2 * time.Hour)),
+				ExpireTime:  new(now.Add(2 * time.Hour)),
 			}},
 			Access: []params.AccessInfo{
 				{TargetTag: "application-gitlab", ScopeTag: "relation-gitlab.server#mysql.db", Role: "view"},
@@ -364,7 +360,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
-	uriStrPtr := ptr(uri.String())
+	uriStrPtr := new(uri.String())
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -388,12 +384,12 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
-	uriStrPtr := ptr(uri.String())
+	uriStrPtr := new(uri.String())
 	s.secretService.EXPECT().CreateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateUserSecretParams) error {
 		c.Assert(arg1, tc.DeepEquals, uri)
 		c.Assert(params.Version, tc.Equals, 1)
-		c.Assert(params.UpdateUserSecretParams.Description, tc.DeepEquals, ptr("this is a user secret."))
-		c.Assert(params.UpdateUserSecretParams.Label, tc.DeepEquals, ptr("label"))
+		c.Assert(params.UpdateUserSecretParams.Description, tc.DeepEquals, new("this is a user secret."))
+		c.Assert(params.UpdateUserSecretParams.Label, tc.DeepEquals, new("label"))
 		c.Assert(params.UpdateUserSecretParams.Data, tc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
 		c.Assert(params.UpdateUserSecretParams.Checksum, tc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
@@ -407,8 +403,8 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 				OwnerTag: coretesting.ModelTag.Id(),
 				URI:      uriStrPtr,
 				UpsertSecretArg: params.UpsertSecretArg{
-					Description: ptr("this is a user secret."),
-					Label:       ptr("label"),
+					Description: new("this is a user secret."),
+					Label:       new("label"),
 					Content: params.SecretContentParams{
 						Data: map[string]string{"foo": "bar"},
 					},
@@ -438,9 +434,9 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 	}
 	s.secretService.EXPECT().UpdateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.UpdateUserSecretParams) error {
 		c.Assert(arg1, tc.DeepEquals, uri)
-		c.Assert(params.Description, tc.DeepEquals, ptr("this is a user secret."))
-		c.Assert(params.Label, tc.DeepEquals, ptr("label"))
-		c.Assert(params.AutoPrune, tc.DeepEquals, ptr(true))
+		c.Assert(params.Description, tc.DeepEquals, new("this is a user secret."))
+		c.Assert(params.Label, tc.DeepEquals, new("label"))
+		c.Assert(params.AutoPrune, tc.DeepEquals, new(true))
 		c.Assert(params.Data, tc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
 		c.Assert(params.Checksum, tc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
@@ -451,12 +447,12 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 	result, err := facade.UpdateSecrets(c.Context(), params.UpdateUserSecretArgs{
 		Args: []params.UpdateUserSecretArg{
 			{
-				AutoPrune:     ptr(true),
+				AutoPrune:     new(true),
 				URI:           uriString,
 				ExistingLabel: existingLabel,
 				UpsertSecretArg: params.UpsertSecretArg{
-					Description: ptr("this is a user secret."),
-					Label:       ptr("label"),
+					Description: new("this is a user secret."),
+					Label:       new("label"),
 					Content: params.SecretContentParams{
 						Data: map[string]string{"foo": "bar"},
 					},

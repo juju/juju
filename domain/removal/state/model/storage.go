@@ -553,7 +553,8 @@ WHERE  siv.storage_instance_uuid = $entityUUID.uuid
 		}
 
 		result, err = st.ensureStorageInstancesNotAliveCascade(
-			ctx, tx, []entityUUID{input}, obliterate)
+			ctx, tx, []entityUUID{input}, obliterate,
+		)
 		if err != nil {
 			return err
 		}
@@ -2103,7 +2104,7 @@ SELECT f.uuid AS &entityUUID.uuid
 FROM   storage_instance_filesystem i
 JOIN   storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
-AND    f.life_id = 0`
+AND    f.life_id < 2`
 
 	del = `
 UPDATE storage_filesystem
@@ -2150,7 +2151,7 @@ SELECT &entityUUID.uuid
 FROM   storage_instance_volume i
 JOIN   storage_volume v ON i.storage_volume_uuid = v.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
-AND    v.life_id = 0`
+AND    v.life_id < 2`
 
 	del = `
 UPDATE storage_volume

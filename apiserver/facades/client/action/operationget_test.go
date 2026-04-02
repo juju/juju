@@ -177,8 +177,8 @@ func (s *getOperationSuite) TestListOperationsLimitOffset(c *tc.C) {
 	offset := 20
 	s.OperationService.EXPECT().GetOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, qp operation.QueryArgs) (operation.QueryResult, error) {
-			c.Check(qp.Limit, tc.DeepEquals, ptr(10))
-			c.Check(qp.Offset, tc.DeepEquals, ptr(20))
+			c.Check(qp.Limit, tc.DeepEquals, new(10))
+			c.Check(qp.Offset, tc.DeepEquals, new(20))
 			return operation.QueryResult{}, nil
 		})
 	// Act
@@ -483,5 +483,3 @@ func (s *getOperationSuite) TestOperationsLargeBatch(c *tc.C) {
 		c.Check(res.Results[i-1].OperationTag, tc.Equals, fmt.Sprintf("operation-%d", i))
 	}
 }
-
-func ptr[T any](v T) *T { return &v }

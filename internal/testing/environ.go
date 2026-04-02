@@ -135,8 +135,6 @@ func CustomModelConfig(c tc.LikeC, extra Attrs) *config.Config {
 	return cfg
 }
 
-const DefaultMongoPassword = "conn-from-name-secret"
-
 // FakeJujuXDGDataHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuXDGDataHomeSuite struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/internal"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/internal/errors"
@@ -29,12 +30,30 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
+// RegisterExternalUsersImport registers the external users import operation
+// with the given coordinator. It must be registered before credential import
+// since external users may be model owners referenced by credentials.
+func RegisterExternalUsersImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
+	coordinator.Add(&importExternalUsersOperation{
+		clock:  clock,
+		logger: logger,
+	})
+}
+
 // RegisterImport registers the import operations with the given coordinator.
 func RegisterImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		clock:  clock,
 		logger: logger,
 	})
+}
+
+// ImportExternalUsersService provides a subset of the access domain
+// service methods needed for external user creation during model import.
+type ImportExternalUsersService interface {
+	// ImportExternalUsers creates external users from a migrated model on the
+	// target controller. Permission granting is handled separately.
+	ImportExternalUsers(ctx context.Context, users []internal.ExternalUserImport) error
 }
 
 // ImportService provides a subset of the access domain
@@ -48,6 +67,7 @@ type ImportService interface {
 	// If a permission for the user and target key already exists,
 	// [accesserrors.PermissionAlreadyExists] is returned.
 	CreatePermission(ctx context.Context, spec corepermission.UserAccessSpec) (corepermission.UserAccess, error)
+
 	// SetLastModelLogin will set the last login time for the user to the given
 	// value. The following error types are possible from this function:
 	// [accesserrors.UserNameNotValid] when the username supplied is not valid.
@@ -65,6 +85,51 @@ type ImportOfferAccessService interface {
 	// ImportOfferAccess imports the user access for offers in the
 	// model.
 	ImportOfferAccess(ctx context.Context, importAccess []access.OfferImportAccess) error
+}
+
+type importExternalUsersOperation struct {
+	modelmigration.BaseOperation
+
+	service ImportExternalUsersService
+
+	clock  clock.Clock
+	logger logger.Logger
+}
+
+// Name returns the name of this operation.
+func (i *importExternalUsersOperation) Name() string {
+	return "import external users"
+}
+
+// Setup implements Operation.
+func (i *importExternalUsersOperation) Setup(scope modelmigration.Scope) error {
+	i.service = service.NewService(state.NewState(scope.ControllerDB(), i.clock, i.logger), i.clock)
+	return nil
+}
+
+// Execute creates any external users referenced in the model that do not yet
+// exist on the target controller. This must run before credential import since
+// an external user may be the model owner.
+func (i *importExternalUsersOperation) Execute(ctx context.Context, model description.Model) error {
+	var externalUsers []internal.ExternalUserImport
+	for _, u := range model.Users() {
+		name, err := user.NewName(u.Name())
+		if err != nil {
+			return errors.Errorf("parsing user name %q: %w", u.Name(), err)
+		}
+		if name.IsLocal() {
+			continue
+		}
+		externalUsers = append(externalUsers, internal.ExternalUserImport{
+			Name:        name,
+			DisplayName: u.DisplayName(),
+			DateCreated: u.DateCreated(),
+		})
+	}
+	if len(externalUsers) == 0 {
+		return nil
+	}
+	return i.service.ImportExternalUsers(ctx, externalUsers)
 }
 
 type importOperation struct {
@@ -87,42 +152,70 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-// Execute the import on the model user permissions contained in the model.
-func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := model.UUID()
-	for _, u := range model.Users() {
+// userImport holds the common data needed to create permissions and record
+// the last model login for any user (local or external) during import.
+type userImport struct {
+	Name           user.Name
+	Access         corepermission.Access
+	LastConnection time.Time
+}
+
+func (i *importOperation) collectUsers(
+	users []description.User,
+) ([]userImport, error) {
+	var allUsers []userImport
+	for _, u := range users {
 		name, err := user.NewName(u.Name())
 		if err != nil {
-			return errors.Errorf("importing access for user %q: %w", u.Name(), err)
+			return nil, errors.Errorf("importing access for user %q: %w", u.Name(), err)
 		}
 		access := corepermission.Access(u.Access())
 		if err := access.Validate(); err != nil {
-			return errors.Errorf("importing access for user %q: %w", name, err)
+			return nil, errors.Errorf("importing access for user %q: %w", name, err)
 		}
+		allUsers = append(allUsers, userImport{
+			Name:           name,
+			Access:         access,
+			LastConnection: u.LastConnection(),
+		})
+	}
+	return allUsers, nil
+}
+
+// Execute the import on the model user permissions contained in the model.
+func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	modelUUID := model.UUID()
+	allUsers, err := i.collectUsers(model.Users())
+	if err != nil {
+		return errors.Errorf("fetching users: %w", err)
+	}
+
+	// Grant model permissions and record last model login for all users in a
+	// single pass. Both local and external users must already exist on the
+	// target controller at this point (external users are created by the
+	// importExternalUsersOperation which runs earlier in the pipeline).
+	for _, u := range allUsers {
 		_, err = i.service.CreatePermission(ctx, corepermission.UserAccessSpec{
 			AccessSpec: corepermission.AccessSpec{
 				Target: corepermission.ID{
 					ObjectType: corepermission.Model,
 					Key:        modelUUID,
 				},
-				Access: access,
+				Access: u.Access,
 			},
-			User: name,
+			User: u.Name,
 		})
 		if err != nil && !errors.Is(err, accesserrors.PermissionAlreadyExists) {
 			// If the permission already exists then it must be the model owner
 			// who is granted admin access when the model is created.
-			return errors.Errorf("creating permission for user %q: %w", name, err)
+			return errors.Errorf("creating permission for user %q: %w", u.Name, err)
 		}
 
-		lastLogin := u.LastConnection()
-		if !lastLogin.IsZero() {
-			err := i.service.SetLastModelLogin(ctx, name, coremodel.UUID(modelUUID), lastLogin)
-			if err != nil {
-				return errors.Errorf("setting model last login for user %q: %w", name, err)
+		if !u.LastConnection.IsZero() {
+			if err := i.service.SetLastModelLogin(ctx, u.Name, coremodel.UUID(modelUUID), u.LastConnection); err != nil {
+				return errors.Errorf("setting model last login for user %q: %w", u.Name, err)
 			}
 		}
-
 	}
 	return nil
 }

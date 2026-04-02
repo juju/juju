@@ -9,7 +9,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -234,6 +233,10 @@ type spaceAddress struct {
 	SubnetCIDR   sql.NullString              `db:"cidr"`
 }
 
+type unitAddress struct {
+	Value string `db:"value"`
+}
+
 type subnet struct {
 	UUID string `db:"uuid"`
 	CIDR string `db:"cidr"`
@@ -292,7 +295,7 @@ type charmState struct {
 	ArchivePath     string          `db:"archive_path"`
 	ObjectStoreUUID sql.NullString  `db:"object_store_uuid"`
 	Available       bool            `db:"available"`
-	SourceID        int             `db:"source_id"`
+	Source          string          `db:"source"`
 	ArchitectureID  sql.Null[int64] `db:"architecture_id"`
 	Version         string          `db:"version"`
 }
@@ -683,7 +686,7 @@ type countResult struct {
 type charmLocator struct {
 	ReferenceName  string          `db:"reference_name"`
 	Revision       int             `db:"revision"`
-	SourceID       int             `db:"source_id"`
+	Source         string          `db:"source"`
 	ArchitectureID sql.Null[int64] `db:"architecture_id"`
 }
 
@@ -696,7 +699,7 @@ type applicationCharmDownloadInfo struct {
 	CharmhubIdentifier string `db:"charmhub_identifier"`
 	DownloadURL        string `db:"download_url"`
 	DownloadSize       int64  `db:"download_size"`
-	SourceID           int    `db:"source_id"`
+	Source             string `db:"source"`
 }
 
 type resourceToAdd struct {
@@ -946,16 +949,16 @@ func (c dbConstraint) toValue(
 		rval.Arch = &c.Arch.String
 	}
 	if c.CPUCores.Valid {
-		rval.CpuCores = ptr(uint64(c.CPUCores.V))
+		rval.CpuCores = new(uint64(c.CPUCores.V))
 	}
 	if c.CPUPower.Valid {
-		rval.CpuPower = ptr(uint64(c.CPUPower.V))
+		rval.CpuPower = new(uint64(c.CPUPower.V))
 	}
 	if c.Mem.Valid {
-		rval.Mem = ptr(uint64(c.Mem.V))
+		rval.Mem = new(uint64(c.Mem.V))
 	}
 	if c.RootDisk.Valid {
-		rval.RootDisk = ptr(uint64(c.RootDisk.V))
+		rval.RootDisk = new(uint64(c.RootDisk.V))
 	}
 	if c.RootDiskSource.Valid {
 		rval.RootDiskSource = &c.RootDiskSource.String
@@ -1054,7 +1057,7 @@ type applicationPlatformAndChannel struct {
 
 type applicationOrigin struct {
 	ReferenceName      string          `db:"reference_name"`
-	SourceID           int             `db:"source_id"`
+	Source             string          `db:"source"`
 	Revision           sql.Null[int64] `db:"revision"`
 	CharmhubIdentifier sql.NullString  `db:"charmhub_identifier"`
 	Hash               sql.NullString  `db:"hash"`
@@ -1130,9 +1133,15 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
-type machineNameWithNetNode struct {
-	Name        coremachine.Name `db:"name"`
-	NetNodeUUID string           `db:"net_node_uuid"`
+type nameWithNetNode struct {
+	Name        string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
+type nameWithNetNodeAndLife struct {
+	Name        string    `db:"name"`
+	NetNodeUUID string    `db:"net_node_uuid"`
+	LifeID      life.Life `db:"life_id"`
 }
 
 // machineUUIDWithNetNode represents the uuid and net node uuid columns from the
@@ -1183,17 +1192,17 @@ type applicationWorkloadVersion struct {
 	Version         string `db:"version"`
 }
 
-type getPrincipal struct {
+type principal struct {
 	PrincipalUnitName   coreunit.Name `db:"principal_unit_name"`
 	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
 }
 
-type getUnitMachineName struct {
+type unitMachineName struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineName string `db:"name"`
 }
 
-type getUnitMachineUUID struct {
+type unitMachineUUID struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineUUID string `db:"uuid"`
 }
@@ -1202,7 +1211,7 @@ type lifeID struct {
 	LifeID life.Life `db:"life_id"`
 }
 
-type getCharmUpgradeOnError struct {
+type charmUpgradeOnError struct {
 	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
 	Name                string `db:"name"`
 }

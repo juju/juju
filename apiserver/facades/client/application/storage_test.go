@@ -53,7 +53,7 @@ func (s *storageSuite) TestStorageDirectives(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(sdo, tc.DeepEquals, map[string]applicationservice.StorageDirectiveOverrides{
 		"a": {PoolUUID: &poolUUID},
-		"b": {Size: ptr[uint64](123)},
-		"c": {Count: ptr[uint32](5)},
+		"b": {Size: new(uint64(123))},
+		"c": {Count: new(uint32(5))},
 	})
 }

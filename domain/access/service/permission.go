@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -108,34 +107,14 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 	return userAccess, errors.Capture(err)
 }
 
-// EnsureExternalUserIfAuthorized checks if an external user is missing from the
-// database and has permissions on an object. If they do then they will be
-// added. This ensures that juju has a record of external users that have
-// inherited their permissions from everyone@external.
-func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target corepermission.ID) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if subject.IsZero() {
-		return errors.Errorf("empty subject %w", coreerrors.NotValid)
-	}
-	if err := target.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := s.st.EnsureExternalUserIfAuthorized(ctx, subject, target); errors.Is(err, accesserrors.UserNotFound) {
-		return errors.Capture(err)
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-	return nil
-}
-
 // ReadUserAccessLevelForTarget returns the user access level for the
 // given user on the given target. A NotValid error is returned if the
 // subject (user) string is empty, or the target is not valid. Any errors
 // from the state layer are passed through.
 // If the access level of a user cannot be found then
 // [accesserrors.AccessNotFound] is returned.
+// For external users, inheritance from everyone@external is resolved
+// transparently when the user has no explicit permissions.
 func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

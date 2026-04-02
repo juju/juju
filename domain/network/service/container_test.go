@@ -181,7 +181,7 @@ func (s *containerSuite) TestDevicesToBridgeDeviceSatisfiesSpaces(c *tc.C) {
 			{
 				Name:       "eth0",
 				Type:       corenetwork.EthernetDevice,
-				MACAddress: ptr("some-mac-address"),
+				MACAddress: new("some-mac-address"),
 			},
 		},
 	}, nil)
@@ -230,7 +230,7 @@ func (s *containerSuite) TestDevicesToBridgeMultipleReqsMultipleDevsSatisfySpace
 		spaceOne: {{
 			Name:       "eth0",
 			Type:       corenetwork.EthernetDevice,
-			MACAddress: ptr("some-mac-address"),
+			MACAddress: new("some-mac-address"),
 		}},
 		spaceTwo: {{
 			Name: "br-not-default-lxd",

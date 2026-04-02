@@ -52,10 +52,10 @@ func (s *instanceSuite) TestAddresses(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 	inst := s.NewEnvironInstance(env, "inst-0")
 	s.GoogleInstance(c, inst).NetworkInterfaces = []*computepb.NetworkInterface{{
-		Name:       ptr("somenetif"),
-		NetworkIP:  ptr("10.0.10.3"),
-		Network:    ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
-		Subnetwork: ptr("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/sub-network1"),
+		Name:       new("somenetif"),
+		NetworkIP:  new("10.0.10.3"),
+		Network:    new("https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/default"),
+		Subnetwork: new("https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/sub-network1"),
 	}}
 
 	addresses, err := inst.Addresses(c.Context())
@@ -80,17 +80,17 @@ func (s *instanceSuite) TestOpenPorts(c *tc.C) {
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
-			IPProtocol: ptr("tcp"),
+			IPProtocol: new("tcp"),
 			Ports:      []string{"81"},
 		}},
 	}}, nil)
 	s.MockService.EXPECT().UpdateFirewall(gomock.Any(), fwName, &computepb.Firewall{
 		Name:         &fwName,
-		Description:  ptr("created by Juju with target " + fwName),
+		Description:  new("created by Juju with target " + fwName),
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
-			IPProtocol: ptr("tcp"),
+			IPProtocol: new("tcp"),
 			Ports:      []string{"81", "80"},
 		}},
 	})
@@ -115,7 +115,7 @@ func (s *instanceSuite) TestClosePorts(c *tc.C) {
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
-			IPProtocol: ptr("tcp"),
+			IPProtocol: new("tcp"),
 			Ports:      []string{"80"},
 		}},
 	}}, nil)
@@ -140,7 +140,7 @@ func (s *instanceSuite) TestPorts(c *tc.C) {
 		TargetTags:   []string{fwName},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*computepb.Allowed{{
-			IPProtocol: ptr("tcp"),
+			IPProtocol: new("tcp"),
 			Ports:      []string{"80"},
 		}},
 	}}, nil)

@@ -1203,8 +1203,8 @@ INSERT INTO charm_container (
 		expected.Containers = map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
-				Uid:      ptr(100),
-				Gid:      ptr(100),
+				Uid:      new(100),
+				Gid:      new(100),
 			},
 			"fred": {
 				Resource: "ubuntu@20.04",
@@ -1268,8 +1268,8 @@ INSERT INTO charm_container_mount (
 		expected.Containers = map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
-				Uid:      ptr(100),
-				Gid:      ptr(100),
+				Uid:      new(100),
+				Gid:      new(100),
 				Mounts: []charm.Mount{
 					{
 						Storage:  "block",
@@ -2320,8 +2320,8 @@ func (s *charmStateSuite) TestAddCharmThenGetCharmMetadataWithContainersWithNoMo
 		Containers: map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
-				Uid:      ptr(100),
-				Gid:      ptr(100),
+				Uid:      new(100),
+				Gid:      new(100),
 			},
 			"fred": {
 				Resource: "ubuntu@20.04",
@@ -2363,8 +2363,8 @@ func (s *charmStateSuite) TestAddCharmThenGetCharmMetadataWithContainersWithMoun
 		Containers: map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
-				Uid:      ptr(100),
-				Gid:      ptr(100),
+				Uid:      new(100),
+				Gid:      new(100),
 				Mounts: []charm.Mount{
 					{
 						Storage:  "block",

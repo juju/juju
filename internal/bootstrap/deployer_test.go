@@ -101,7 +101,7 @@ func (s *deployerSuite) TestControllerCharmArch(c *tc.C) {
 
 	cfg := s.newConfig(c)
 	cfg.Constraints = constraints.Value{
-		Arch: ptr("arm64"),
+		Arch: new("arm64"),
 	}
 	deployer := makeBaseDeployer(cfg)
 
@@ -151,7 +151,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 		Source:   corecharm.Local,
 		Type:     "charm",
 		Hash:     hash,
-		Revision: ptr(0),
+		Revision: new(0),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
@@ -181,7 +181,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 		Type:     "charm",
 		Channel:  &charm.Channel{},
 		Hash:     "sha-256",
-		Revision: ptr(1),
+		Revision: new(1),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
@@ -211,7 +211,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 		Type:     "charm",
 		Channel:  &charm.Channel{},
 		Hash:     "sha-256",
-		Revision: ptr(1),
+		Revision: new(1),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",
@@ -248,7 +248,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Source:   "charm-hub",
 			Type:     "charm",
 			Channel:  &charm.Channel{},
-			Revision: ptr(1),
+			Revision: new(1),
 			Hash:     "sha-256",
 			Platform: corecharm.Platform{
 				Architecture: "arm64",
@@ -276,12 +276,12 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			},
 			ApplicationStatus: &status.StatusInfo{
 				Status: status.Unset,
-				Since:  ptr(now),
+				Since:  new(now),
 			},
 			IsController: true,
 		},
 		applicationservice.AddIAASUnitArg{
-			Nonce: ptr(agent.BootstrapNonce),
+			Nonce: new(agent.BootstrapNonce),
 		},
 	)
 
@@ -298,7 +298,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		Source:   corecharm.CharmHub,
 		Type:     "charm",
 		Channel:  &charm.Channel{},
-		Revision: ptr(1),
+		Revision: new(1),
 		Hash:     "sha-256",
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
@@ -418,7 +418,7 @@ func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 		Type:     "charm",
 		Channel:  &charm.Channel{},
 		Hash:     "sha-256",
-		Revision: ptr(1),
+		Revision: new(1),
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
 			OS:           "ubuntu",

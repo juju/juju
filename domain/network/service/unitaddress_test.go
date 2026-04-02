@@ -533,6 +533,7 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 
 	unitName := unit.Name("foo/0")
 
+	// Only machine-local and link-local addresses.
 	nonMatchingScopeAddrs := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
@@ -575,11 +576,44 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("foo/0")).Return(unit.UUID("foo-uuid"), nil)
 	s.st.EXPECT().GetUnitAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
+	_, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
+	// AllMatchingScope with ScopeMatchCloudLocal returns invalidScope for both
+	// scopes, so no address can be selected and NoAddressError must be returned.
+	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
+}
+
+func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddressesSorted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+
+	nonMatchingScopeAddrs := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.9",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo-uuid"), nil)
+	s.st.EXPECT().GetUnitAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
+
 	addr, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	// We always return the (first) container address even if it doesn't match
-	// the scope.
-	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[0])
+	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[1])
 }
 
 func (s *unitAddressSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {

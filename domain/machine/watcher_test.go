@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
@@ -103,7 +104,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
 			},
-			Nonce: ptr("nonce-123"),
+			Nonce: new("nonce-123"),
 		})
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -116,7 +117,7 @@ func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
 			},
-			Nonce: ptr("nonce-123"),
+			Nonce: new("nonce-123"),
 		})
 		c.Assert(err, tc.IsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -158,9 +159,11 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
 		},
-		Nonce: ptr("nonce-123"),
+		Nonce: new("nonce-123"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -190,6 +193,8 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -212,7 +217,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
 		},
-		Nonce: ptr("nonce-123"),
+		Nonce: new("nonce-123"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -240,7 +245,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
 			},
-			Nonce: ptr("nonce-123"),
+			Nonce: new("nonce-123"),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -276,16 +281,16 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 			Channel: "24.04",
 			OSType:  deployment.Ubuntu,
 		},
-		Nonce: ptr("nonce-123"),
+		Nonce: new("nonce-123"),
 	})
 	c.Assert(err, tc.IsNil)
 	machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
 	c.Assert(err, tc.IsNil)
 	hc := &instance.HardwareCharacteristics{
-		Mem:      ptr[uint64](1024),
-		RootDisk: ptr[uint64](256),
-		CpuCores: ptr[uint64](4),
-		CpuPower: ptr[uint64](75),
+		Mem:      new(uint64(1024)),
+		RootDisk: new(uint64(256)),
+		CpuCores: new(uint64(4)),
+		CpuPower: new(uint64(75)),
 	}
 	watcher, err := s.svc.WatchMachineCloudInstances(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -787,6 +792,9 @@ func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.Watchable
 	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
 		return appProvider{}, nil
 	}
+	cloudInfoGetter := func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
 		func() internalstorage.ProviderRegistry {
 			return internalstorage.NotImplementedProviderRegistry{}
@@ -809,6 +817,7 @@ func (s *watcherSuite) setupApplicationService(c *tc.C, factory domain.Watchable
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		cloudInfoGetter,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		model.UUID(s.ModelUUID()),
@@ -834,7 +843,7 @@ func (s *watcherSuite) createIAASApplication(c *tc.C, svc *applicationservice.Wa
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -1192,8 +1201,4 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	return []caas.Unit{{
 		Id: "some-app-0",
 	}}, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	agentpassword "github.com/juju/juju/domain/agentpassword/modelmigration"
@@ -50,6 +51,7 @@ func ImportOperations(
 	coordinator Coordinator,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	configGetter providertracker.EphemeralProviderConfigGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) {
@@ -63,6 +65,9 @@ func ImportOperations(
 
 	lease.RegisterImport(coordinator, logger.Child("lease"))
 	externalcontroller.RegisterImport(coordinator)
+	// External users must be imported before credentials since an external
+	// user may be the model owner referenced during credential import.
+	access.RegisterExternalUsersImport(coordinator, clock, logger.Child("access"))
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterModelImport(coordinator, clock, logger.Child("model"))
 
@@ -79,9 +84,11 @@ func ImportOperations(
 	application.RegisterImport(coordinator, clock, logger.Child("application"))
 	// BlockDevice requires machines to be imported first.
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
-	// Storage requires machines and units (via the application domain) to be
-	// imported first. Volumes require block devices to be imported first.
-	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
+	// Storage requires the following domains be imported first:
+	// block devices, machines, application (for units), and model config.
+	storage.RegisterImport(
+		coordinator, storageRegistryGetter, configGetter, logger.Child("storage"),
+	)
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))

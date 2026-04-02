@@ -81,9 +81,9 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *tc.C) {
 	val := coresecrets.NewSecretValue(map[string]string{"data": "c2VjcmV0"})
 	expectedArgs := &jujuc.SecretUpdateArgs{
 		Value:        val,
-		RotatePolicy: ptr(coresecrets.RotateDaily),
-		Description:  ptr("sssshhhh"),
-		Label:        ptr("foobar"),
+		RotatePolicy: new(coresecrets.RotateDaily),
+		Description:  new("sssshhhh"),
+		Label:        new("foobar"),
 	}
 	s.Stub.CheckCallNames(c, "UpdateSecret")
 	call := s.Stub.Calls()[0]
@@ -124,7 +124,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *tc.C) {
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretUpdateArgs{
 		Value:        coresecrets.NewSecretValue(nil),
-		RotatePolicy: ptr(coresecrets.RotateDaily),
+		RotatePolicy: new(coresecrets.RotateDaily),
 	}
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "UpdateSecret", Args: []interface{}{"secret:9m4e2mr0ui3e8a215n4g", args}}})
 }

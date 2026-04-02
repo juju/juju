@@ -1033,7 +1033,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{mac},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).Return(nil)
 
 	w := s.newLocalConsumerWorker(c)
@@ -1123,7 +1123,7 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationSaveMacaroonFails
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{mac},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
 		defer close(publishDone)
 		return nil
@@ -1330,7 +1330,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDying(c 
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
 		defer close(publishDone)
 		return nil
@@ -1407,7 +1407,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{s.macaroon},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).
 		Return(params.Error{
 			Code:    params.CodeDischargeRequired,
@@ -3019,7 +3019,7 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *t
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{newMacaroon(c, "test")},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
 		defer close(publishDone)
 		return nil
@@ -3203,7 +3203,7 @@ func (s *localConsumerWorkerSuite) TestPublishModelDying(c *tc.C) {
 			ApplicationOrOfferToken: s.offerUUID,
 			Macaroons:               macaroon.Slice{newMacaroon(c, "test")},
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
 		defer close(publishDone)
 		return nil

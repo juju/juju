@@ -60,9 +60,10 @@ func serialisedModel(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, ti
 	return fmt.Sprintf(`
 version: 11
 agent-version: "6.6.6"
-type: "iaas"
+type: "caas"
 owner: ""
-config: {}
+config:
+  uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
 environ-version: 0
 storage-pools:
   pools: []
@@ -201,8 +202,9 @@ secrets:
     - number: 1
       create-time: %[2]s
       update-time: %[2]s
-      content:
-        foo: bar2
+      value-ref:
+        backend-id: deadbeef-0bad-400d-8000-4b1d0d06f00d
+        revision-id: revision-id
     acl:
       model-deadbeef-0bad-400d-8000-4b1d0d06f00d:
         scope: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
@@ -257,7 +259,8 @@ func (s *importSuite) TestImport(c *tc.C) {
 	dst, err := description.Deserialize([]byte(model))
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id"}, nil)
+	s.backendService.EXPECT().GetBuiltInKubernetesBackendID(gomock.Any()).Return("caas-backend", nil).AnyTimes()
+	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id", "caas-backend"}, nil)
 	forImport := backendSecrets(uri, uri2, uri3, uri4, nextRotate, expire, timestamp)
 	s.service.EXPECT().ImportSecrets(gomock.Any(), &service.SecretImport{
 		Secrets:   forImport.Secrets,
@@ -288,7 +291,8 @@ func (s *importSuite) TestImportMissingBackend(c *tc.C) {
 	dst, err := description.Deserialize([]byte(model))
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id2"}, nil)
+	s.backendService.EXPECT().GetBuiltInKubernetesBackendID(gomock.Any()).Return("caas-backend", nil).AnyTimes()
+	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id2", "caas-backend"}, nil)
 
 	op := s.newImportOperation(c)
 	err = op.Execute(c.Context(), dst)

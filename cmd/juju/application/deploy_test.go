@@ -789,10 +789,6 @@ func setupConfigFile(c *tc.C, dir string) (string, string) {
 	return path, string(content)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *DeploySuite) TestDeployWithChannel(c *tc.C) {
 	curl := charm.MustParseURL("ch:dummy")
 	origin := commoncharm.Origin{
@@ -820,9 +816,9 @@ func (s *DeploySuite) TestDeployWithChannel(c *tc.C) {
 	)
 	s.fakeAPI.Call("DeployFromRepository", application.DeployFromRepositoryArg{
 		CharmName:  "dummy",
-		Channel:    ptr("beta"),
+		Channel:    new("beta"),
 		ConfigYAML: "dummy: {}\n",
-		NumUnits:   ptr(1),
+		NumUnits:   new(1),
 	}).Returns(application.DeployInfo{
 		Architecture: "amd64",
 		Base:         corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
@@ -872,7 +868,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	s.fakeAPI.Call("DeployFromRepository", application.DeployFromRepositoryArg{
 		CharmName:  "wordpress-extra-bindings",
 		ConfigYAML: "wordpress-extra-bindings: {}\n",
-		NumUnits:   ptr(1),
+		NumUnits:   new(1),
 		EndpointBindings: map[string]string{
 			"db":        "db",
 			"db-client": "db",

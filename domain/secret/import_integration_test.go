@@ -105,6 +105,7 @@ func (s *importSuite) prepareModel(c *tc.C) description.Model {
 
 	// Add a secret backend to handle secrets.
 	s.addSecretBackend(c, "internal", "controller")
+	s.addSecretBackend(c, "kubernetes", "kubernetes")
 
 	return description.NewModel(description.ModelArgs{
 		Type:  string(model.IAAS),
@@ -275,14 +276,14 @@ func (s *importSuite) TestImportApplicationAndUnitSecrets(c *tc.C) {
 				Created:    now.Add(2 * time.Hour),
 				Updated:    now.Add(3 * time.Hour),
 				Content:    map[string]string{"key2": "val2"},
-				ExpireTime: ptr(now.Add(24 * time.Hour)),
+				ExpireTime: new(now.Add(24 * time.Hour)),
 			},
 			{
 				Number:     3,
 				Created:    now.Add(4 * time.Hour),
 				Updated:    now.Add(5 * time.Hour),
 				Content:    map[string]string{"key3": "val3"},
-				ExpireTime: ptr(now.Add(30 * time.Hour)),
+				ExpireTime: new(now.Add(30 * time.Hour)),
 			},
 		},
 	}
@@ -302,14 +303,14 @@ func (s *importSuite) TestImportApplicationAndUnitSecrets(c *tc.C) {
 				Created:    now.Add(12 * time.Hour),
 				Updated:    now.Add(13 * time.Hour),
 				Content:    map[string]string{"key3": "val3"},
-				ExpireTime: ptr(now.Add(36 * time.Hour)),
+				ExpireTime: new(now.Add(36 * time.Hour)),
 			},
 			{
 				Number:     6,
 				Created:    now.Add(14 * time.Hour),
 				Updated:    now.Add(15 * time.Hour),
 				Content:    map[string]string{"key3": "val3"},
-				ExpireTime: ptr(now.Add(48 * time.Hour)),
+				ExpireTime: new(now.Add(48 * time.Hour)),
 			},
 		},
 	}

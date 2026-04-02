@@ -221,14 +221,35 @@ func (s *netConfigSuite) TestSetMachineNetConfigAddsSingleHostSubnet(c *tc.C) {
 		VirtualPortType: corenetwork.NonVirtualPort,
 		IsAutoStart:     true,
 		IsEnabled:       true,
-		Addrs: []network.NetAddr{{
-			InterfaceName: devName,
-			AddressValue:  "10.0.0.5/32",
-			AddressType:   corenetwork.IPv4Address,
-			ConfigType:    corenetwork.ConfigDHCP,
-			Origin:        corenetwork.OriginMachine,
-			Scope:         corenetwork.ScopeCloudLocal,
-		}},
+		Addrs: []network.NetAddr{
+			{
+				InterfaceName: devName,
+				AddressValue:  "10.0.0.5/32",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigDHCP,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeCloudLocal,
+			},
+			// IPv6 loopback addresses are in a single IP subnet,
+			// but do not have that subnet added.
+			{
+				InterfaceName: devName,
+				AddressValue:  "::1/128",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigLoopback,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeMachineLocal,
+			},
+			// We never add IPv4 loopback addresses either.
+			{
+				InterfaceName: devName,
+				AddressValue:  "127.0.0.1/8",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigLoopback,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeMachineLocal,
+			},
+		},
 	}}, false)
 
 	// Assert

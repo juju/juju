@@ -389,7 +389,7 @@ func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 			ModelName:      "model2",
 			BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
 		}, false, nil),
-		jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), ptr("backend-id2")).Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), new("backend-id2")).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
 			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id1": {
@@ -412,8 +412,4 @@ func (s *backendSuite) TestGetRevisionContent(c *tc.C) {
 	val, err := client.GetRevisionContent(c.Context(), uri, 666)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val, tc.Equals, secretValue)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -26,17 +26,6 @@ cp %[3]s/jujud $JUJU_TOOLS_DIR/jujud
 %[4]s
 `[1:]
 
-	// MongoStartupShTemplate is used to generate the start script for mongodb.
-	// NOTE: 170 uid/gid must be updated here and in internal/provider/kubernetes/constants/constants.go
-	MongoStartupShTemplate = `
-args="%[1]s"
-ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)
-if [ $ipv6Disabled -eq 0 ]; then
-  args="${args} --ipv6"
-fi
-exec mongod ${args}
-`[1:]
-
 	// APIServerStartUpSh is the start script for the "api-server" container
 	// in the controller pod (Pebble running jujud).
 	APIServerStartUpSh = `

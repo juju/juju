@@ -135,8 +135,6 @@ func (s *commonSuite) TestAuthAnyWith3(c *tc.C) {
 	c.Check(auth(names.NewUserTag("quux")), tc.IsFalse)
 }
 
-func u(unit string) names.Tag { return names.NewUnitTag(unit) }
-
 func (s *commonSuite) TestAuthFuncForTagKind(c *tc.C) {
 	// TODO(dimitern): This list of all supported tags and kinds needs
 	// to live in juju/names.

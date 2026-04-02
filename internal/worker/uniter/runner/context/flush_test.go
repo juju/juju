@@ -301,18 +301,18 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 	ctx := s.context(c, ctrl)
 
 	err := ctx.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
-		RotatePolicy: ptr(secrets.RotateDaily),
-		Description:  ptr("a secret"),
-		Label:        ptr("foobar"),
+		RotatePolicy: new(secrets.RotateDaily),
+		Description:  new("a secret"),
+		Label:        new("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = ctx.RemoveSecret(nil, uri2, ptr(1))
+	err = ctx.RemoveSecret(nil, uri2, new(1))
 	c.Assert(err, tc.ErrorIsNil)
 
 	app, _ := names.UnitApplication(s.unit.Name())
 	err = ctx.RevokeSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: ptr(app),
+		ApplicationName: new(app),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -322,9 +322,9 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 		SecretUpdates: []params.UpdateSecretArg{{
 			URI: uri.String(),
 			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: ptr(secrets.RotateDaily),
-				Description:  ptr("a secret"),
-				Label:        ptr("foobar"),
+				RotatePolicy: new(secrets.RotateDaily),
+				Description:  new("a secret"),
+				Label:        new("foobar"),
 				Content: params.SecretContentParams{
 					Data:     map[string]string{"foo": "bar2"},
 					Checksum: "f6956a0bbc93272e46689a2a3ccde66bbb8add5166df232f3b27644a589c656c",

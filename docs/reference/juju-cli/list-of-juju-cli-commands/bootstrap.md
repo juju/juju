@@ -289,18 +289,20 @@ Controller configuration keys:
         time a writer will wait for others to finish writing on the
         same database.
     features:
-      type: list
-      description: A list of runtime changeable features to be updated
+      type: string
+      description: A comma-delimited list of runtime changeable features to be updated
     http-server-read-timeout:
       type: string
-      description: "The maximum duration for reading the entire HTTP request, including
-        the body.\nA zero value means no timeout. The default is 0 (no timeout). Set to
-        a non-zero value \n(e.g., 60s) if you need to prevent indefinite reads."
+      description: |-
+        The maximum duration for reading the entire HTTP request, including the body.
+        A zero value means no timeout. The default is 0 (no timeout). Set to a non-zero value
+        (e.g., 60s) if you need to prevent indefinite reads.
     http-server-write-timeout:
       type: string
-      description: "The maximum duration before timing out writes of the HTTP response.\nA
-        zero value means no timeout. The default is 0 (no timeout). Set to a non-zero
-        value \n(e.g., 60s) if you need to prevent indefinite writes."
+      description: |-
+        The maximum duration before timing out writes of the HTTP response.
+        A zero value means no timeout. The default is 0 (no timeout). Set to a non-zero value
+        (e.g., 60s) if you need to prevent indefinite writes.
     identity-public-key:
       type: string
       description: The public key of the identity manager

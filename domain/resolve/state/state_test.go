@@ -128,7 +128,7 @@ func (s *stateSuite) TestResolveUnitNoHooks(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 }
 
 func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
@@ -153,7 +153,7 @@ func (s *stateSuite) TestResolveUnitRetryHooks(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeRetryHooks))
 }
 
 func (s *stateSuite) TestResolveUnitAlreadyResolved(c *tc.C) {
@@ -181,7 +181,7 @@ func (s *stateSuite) TestResolveUnitAlreadyResolved(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 }
 
 func (s *stateSuite) TestResolveAllUnitsNoUnits(c *tc.C) {
@@ -276,11 +276,11 @@ func (s *stateSuite) TestResolveAllUnitsRetryHooks(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeRetryHooks))
 
 	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeRetryHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeRetryHooks))
 
 	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[2])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
@@ -333,11 +333,11 @@ func (s *stateSuite) TestResolveAllUnitsNoHooks(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 
 	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 
 	_, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[2])
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
@@ -380,11 +380,11 @@ func (s *stateSuite) TestResolveAllUnitsAlreadyResolved(c *tc.C) {
 
 	mode, err := s.state.UnitResolveMode(c.Context(), unitUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 
 	mode, err = s.state.UnitResolveMode(c.Context(), unitUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mode, tc.Equals, resolve.ResolveModeNoHooks)
+	c.Check(mode, tc.Equals, string(resolve.ResolveModeNoHooks))
 }
 
 func (s *stateSuite) TestClearResolvedNoUnit(c *tc.C) {

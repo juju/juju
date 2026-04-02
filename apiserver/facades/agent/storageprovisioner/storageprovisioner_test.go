@@ -1367,7 +1367,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		},
 		ID:         "fs-id123",
 		Provider:   "myprovider",
-		ProviderID: ptr("fs-provider-id"),
+		ProviderID: new("fs-provider-id"),
 		SizeMiB:    10,
 	}, nil)
 
@@ -1385,7 +1385,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 		FilesystemTag: tag.String(),
 		SizeMiB:       10,
 		Provider:      "myprovider",
-		ProviderId:    ptr("fs-provider-id"),
+		ProviderId:    new("fs-provider-id"),
 		Tags: map[string]string{
 			"tag1": "value1",
 		},
@@ -1663,7 +1663,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 			MachineInstanceID:              "12",
 			Provider:                       "myprovider",
 			FilesystemProviderID:           "fs-123",
-			FilesystemAttachmentProviderID: ptr("fs-attachment-123"),
+			FilesystemAttachmentProviderID: new("fs-attachment-123"),
 			MountPoint:                     "/var/foo",
 		}, nil,
 	)
@@ -1683,7 +1683,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 		FilesystemTag:        tag.String(),
 		MachineTag:           unitTag.String(),
 		FilesystemProviderId: "fs-123",
-		AttachmentProviderId: ptr("fs-attachment-123"),
+		AttachmentProviderId: new("fs-attachment-123"),
 		InstanceId:           "12",
 		Provider:             "myprovider",
 		MountPoint:           "/var/foo",
@@ -1713,7 +1713,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsCAASInstanceID(c *tc.C)
 			CAASInstanceID:                 "myapp-k8s-0",
 			Provider:                       "myprovider",
 			FilesystemProviderID:           "fs-123",
-			FilesystemAttachmentProviderID: ptr("fs-attachment-123"),
+			FilesystemAttachmentProviderID: new("fs-attachment-123"),
 			MountPoint:                     "/var/foo",
 		}, nil,
 	)
@@ -1733,7 +1733,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsCAASInstanceID(c *tc.C)
 		FilesystemTag:        tag.String(),
 		MachineTag:           unitTag.String(),
 		FilesystemProviderId: "fs-123",
-		AttachmentProviderId: ptr("fs-attachment-123"),
+		AttachmentProviderId: new("fs-attachment-123"),
 		InstanceId:           "myapp-k8s-0",
 		Provider:             "myprovider",
 		MountPoint:           "/var/foo",
@@ -2461,11 +2461,11 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentsForModel(c *tc.C) {
 		GetVolumeAttachmentIDs(gomock.Any(), []string{"volume-attachment-uuid-1", "volume-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.VolumeAttachmentID{
 			"volume-attachment-uuid-1": {
-				UnitName: ptr(coreunit.Name("foo/1")),
+				UnitName: new(coreunit.Name("foo/1")),
 				VolumeID: "1",
 			},
 			"volume-attachment-uuid-2": {
-				UnitName: ptr(coreunit.Name("foo/2")),
+				UnitName: new(coreunit.Name("foo/2")),
 				VolumeID: "2",
 			},
 		}, nil)
@@ -2582,11 +2582,11 @@ func (s *provisionerSuite) TestWatchFilesystemAttachmentsForModel(c *tc.C) {
 		GetFilesystemAttachmentIDs(gomock.Any(), []string{"filesystem-attachment-uuid-1", "filesystem-attachment-uuid-2"}).
 		Return(map[string]storageprovisioning.FilesystemAttachmentID{
 			"filesystem-attachment-uuid-1": {
-				UnitName:     ptr(coreunit.Name("foo/1")),
+				UnitName:     new(coreunit.Name("foo/1")),
 				FilesystemID: "1",
 			},
 			"filesystem-attachment-uuid-2": {
-				UnitName:     ptr(coreunit.Name("foo/2")),
+				UnitName:     new(coreunit.Name("foo/2")),
 				FilesystemID: "2",
 			},
 		}, nil)
@@ -4760,7 +4760,7 @@ func (s *provisionerV5Suite) TestFilesystemAttachmentParams(c *tc.C) {
 			MountPoint:                     "/var/foo",
 			Provider:                       "myprovider",
 			FilesystemProviderID:           "fs-123",
-			FilesystemAttachmentProviderID: ptr("fs-attachment-123"),
+			FilesystemAttachmentProviderID: new("fs-attachment-123"),
 		}, nil,
 	)
 
@@ -4779,7 +4779,7 @@ func (s *provisionerV5Suite) TestFilesystemAttachmentParams(c *tc.C) {
 		FilesystemTag:        tag.String(),
 		MachineTag:           unitTag.String(),
 		FilesystemProviderId: "fs-123",
-		AttachmentProviderId: ptr("fs-attachment-123"),
+		AttachmentProviderId: new("fs-attachment-123"),
 		InstanceId:           "12",
 		Provider:             "myprovider",
 		MountPoint:           "/var/foo",

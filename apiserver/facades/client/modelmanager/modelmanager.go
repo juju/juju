@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
@@ -82,27 +83,37 @@ type ModelManagerAPI struct {
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(ctx context.Context, isAdmin bool, apiUser names.UserTag, modelStatusAPI ModelStatusAPI,
-	controllerUUID uuid.UUID, controllerModelUUID coremodel.UUID, services Services, blockChecker BlockCheckerGetter,
-	authorizer facade.Authorizer) *ModelManagerAPI {
+func NewModelManagerAPI(
+	isAdmin bool,
+	apiUser names.UserTag,
+	modelStatusAPI ModelStatusAPI,
+	controllerUUID uuid.UUID,
+	controllerModelUUID coremodel.UUID,
+	services Services,
+	blockChecker BlockCheckerGetter,
+	authorizer facade.Authorizer,
+) *ModelManagerAPI {
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       modelStatusAPI,
+		ModelStatusAPI: modelStatusAPI,
+
+		getBlockChecker: blockChecker,
+		authorizer:      authorizer,
+		apiUser:         apiUser,
+		isAdmin:         isAdmin,
+
 		domainServicesGetter: services.DomainServicesGetter,
 		credentialService:    services.CredentialService,
-		applicationService:   services.ApplicationService,
-		store:                services.ObjectStore,
-		getBlockChecker:      blockChecker,
-		authorizer:           authorizer,
-		apiUser:              apiUser,
-		isAdmin:              isAdmin,
 		modelService:         services.ModelService,
 		modelDefaultsService: services.ModelDefaultsService,
 		accessService:        services.AccessService,
 		secretBackendService: services.SecretBackendService,
 		removalService:       services.RemovalService,
-		controllerUUID:       controllerUUID,
-		controllerModelUUID:  controllerModelUUID,
+		applicationService:   services.ApplicationService,
+		store:                services.ObjectStore,
+
+		controllerUUID:      controllerUUID,
+		controllerModelUUID: controllerModelUUID,
 	}
 }
 
@@ -411,7 +422,26 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]
 		}
 	}
 
-	return nil, errors.NotImplemented
+	modelUUID := coremodel.UUID(modelTag.Id())
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelExport, err := modelDomainServices.Export().Export(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	bytes, err := yaml.Marshal(modelExport)
+	if err != nil {
+		return nil, internalerrors.Errorf("marshalling model export: %w", err)
+	}
+	return bytes, nil
 }
 
 // DumpModels will export the models into the database agnostic
@@ -513,7 +543,7 @@ func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.Mod
 			return result, errors.Trace(err)
 		}
 
-		paramsSummary, err := makeModelSummary(ctx, summary)
+		paramsSummary, err := makeModelSummary(summary)
 		if err != nil {
 			result.Results = append(
 				result.Results,
@@ -576,7 +606,7 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 
 		modelSummary, err := services.ModelInfo().GetUserModelSummary(ctx, userUUID)
 		switch {
-		// For these errors it indiciates the the state of the controller has
+		// For these errors it indicates that the state of the controller has
 		// changed since retrieving the list of model's for the user. That is ok
 		// and we can safely ignore them.
 		case errors.Is(err, modelerrors.NotFound):
@@ -588,14 +618,14 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 		case errors.Is(err, accesserrors.AccessNotFound):
 			logger.Debugf(
 				ctx,
-				"user %q has had their access to model removed while compiling summaries",
+				"user %q has had their access to model %q removed while compiling summaries",
 				tag.Id(), modelUUID,
 			)
 		case err != nil:
 			return result, makeErrorReturn(err)
 		}
 
-		paramsSummary, err := makeUserModelSummary(ctx, modelSummary)
+		paramsSummary, err := makeUserModelSummary(modelSummary)
 		if err != nil {
 			result.Results = append(
 				result.Results,
@@ -612,12 +642,12 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 	return result, nil
 }
 
-func makeUserModelSummary(ctx context.Context, mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
+func makeUserModelSummary(mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
 	userAccess, err := commonmodel.EncodeAccess(mi.UserAccess)
 	if err != nil && !errors.Is(err, errors.NotValid) {
 		return nil, errors.Trace(err)
 	}
-	ms, err := makeModelSummary(ctx, mi.ModelSummary)
+	ms, err := makeModelSummary(mi.ModelSummary)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -626,7 +656,7 @@ func makeUserModelSummary(ctx context.Context, mi coremodel.UserModelSummary) (*
 	return ms, nil
 }
 
-func makeModelSummary(ctx context.Context, mi coremodel.ModelSummary) (*params.ModelSummary, error) {
+func makeModelSummary(mi coremodel.ModelSummary) (*params.ModelSummary, error) {
 	credTag, err := mi.CloudCredentialKey.Tag()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -789,7 +819,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = modelDomainServices.RemovalService().RemoveModel(ctx, mUUID, argForce, argMaxWait)
+		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait)
 		if err != nil && !errors.Is(err, modelerrors.NotFound) {
 			return errors.Annotatef(err, "removing model %q", modelUUID)
 		}

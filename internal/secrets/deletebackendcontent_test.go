@@ -85,7 +85,7 @@ func (s *deleteBackendSuite) TestGetBackend(c *tc.C) {
 	}
 
 	client := secrets.NewClientForContentDeletion(state, backendConfigForDeleteGetter)
-	_, _, err := client.GetBackend(c.Context(), ptr("someid"), false)
+	_, _, err := client.GetBackend(c.Context(), new("someid"), false)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 

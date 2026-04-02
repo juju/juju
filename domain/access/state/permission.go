@@ -285,6 +285,9 @@ AND     u.removed = false
 // for the given user on the given target.
 // If the access level of a user cannot be found then
 // accesserrors.AccessNotFound is returned.
+// Removed or disabled users always receive accesserrors.AccessNotFound
+// and are never allowed to fall through to the everyone@external
+// inheritance path.
 func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	userAccess := corepermission.NoAccess
 	db, err := st.DB(ctx)
@@ -300,95 +303,70 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 	}
 
 	readQuery := `
-SELECT  (u.external) AS (&dbPermissionUser.*),
-        (p.access_type, p.uuid) AS (&dbPermission.*)
+SELECT  (p.access_type, p.uuid) AS (&dbPermission.*),
+        (u.disabled, u.removed) AS (&dbUserActive.*)
 FROM    v_user_auth u
         LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbPermission.grant_on
 WHERE   u.name = $dbPermissionUser.name
-AND     u.disabled = false
-AND     u.removed = false
 `
 
-	readStmt, err := st.Prepare(readQuery, user, perm)
+	readStmt, err := st.Prepare(readQuery, user, perm, dbUserActive{})
 	if err != nil {
 		return userAccess, errors.Errorf("preparing select user access level for target statement: %w", err)
 	}
 
 	var baseExternalPerms dbPermission
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, readStmt, user, perm).Get(&user, &perm)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
-		} else if err != nil {
-			return errors.Errorf("reading user access level for target: %w", err)
+		// Reset perm and baseExternalPerms for every txn retry. This is so
+		// we don't accidentally cache the result between txn retries where
+		// a value may have changed.
+		baseExternalPerms = dbPermission{}
+		perm = dbPermission{
+			GrantOn: target.Key,
 		}
 
-		if user.External {
+		var userActive dbUserActive
+		err = tx.Query(ctx, readStmt, user, perm).Get(&perm, &userActive)
+		if errors.Is(err, sqlair.ErrNoRows) && subject.IsLocal() {
+			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			// External user has no DB record yet. Their access is
+			// determined entirely by everyone@external below.
+		} else if err != nil {
+			return errors.Errorf("reading user access level for target: %w", err)
+		} else if userActive.Removed || userActive.Disabled {
+			// The user exists but has been removed or disabled.
+			// Return AccessNotFound so that disabled/removed external
+			// users cannot fall through to everyone@external
+			// inheritance. We use AccessNotFound (rather than
+			// UserAuthenticationDisabled) because HasPermission and
+			// the delegator layer expect AccessNotFound for any
+			// "no access" situation.
+			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+		}
+
+		// For external users, also retrieve the base everyone@external
+		// access so we can return the higher of the two.
+		if !subject.IsLocal() {
 			baseExternalPerms, err = st.baseExternalAccessForTarget(ctx, tx, target)
 			if err != nil {
 				return errors.Capture(err)
 			}
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		return userAccess, errors.Capture(err)
 	}
 
 	userAccess = corepermission.Access(perm.AccessType)
-	if user.External && baseExternalAccessGreater(baseExternalPerms, userAccess) {
-		return corepermission.Access(baseExternalPerms.AccessType), nil
+	if !subject.IsLocal() && baseExternalAccessGreater(baseExternalPerms, userAccess) {
+		userAccess = corepermission.Access(baseExternalPerms.AccessType)
 	}
-	if perm.AccessType != string(corepermission.NoAccess) {
+	if userAccess != corepermission.NoAccess {
 		return userAccess, nil
 	}
 	return corepermission.NoAccess, errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
-}
-
-// EnsureExternalUserIfAuthorized checks if an external user is missing from the
-// database and has permissions on an object. If they do then they will be
-// added. This ensures that juju has a record of external users that have
-// inherited their permissions from everyone@external.
-func (st *PermissionState) EnsureExternalUserIfAuthorized(
-	ctx context.Context,
-	subject user.Name,
-	target corepermission.ID,
-) error {
-	if subject.IsLocal() {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.findUserByName(ctx, tx, subject)
-		if err == nil {
-			return nil
-		} else if !errors.Is(err, accesserrors.UserNotFound) {
-			return errors.Errorf("getting user %q", subject)
-		}
-		// We have a UserNotFound error. Check if everyone@external has permissions
-		// on the target.
-		baseExternalPerms, err := st.baseExternalAccessForTarget(ctx, tx, target)
-		if err != nil {
-			return errors.Errorf("getting everyone@external access: %w", err)
-		}
-		if corepermission.Access(baseExternalPerms.AccessType) == corepermission.NoAccess {
-			return nil
-		}
-		_, err = st.addExternalUser(ctx, tx, subject)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("adding external user %q if missing: %w", subject, err)
-	}
-	return nil
 }
 
 // addExternalUser adds an external user to the database with everyone@external

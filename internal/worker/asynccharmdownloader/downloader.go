@@ -25,6 +25,11 @@ import (
 const (
 	retryAttempts = 3
 	retryDelay    = 20 * time.Second
+
+	// downloadTimeout is the maximum amount of time to allow for a charm
+	// download before timing out. We might want to make this configurable in
+	// the future
+	downloadTimeout = 5 * time.Minute
 )
 
 type asyncDownloadWorker struct {
@@ -78,6 +83,7 @@ func (w *asyncDownloadWorker) loop() error {
 	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		// If the application is already downloading a charm, we can skip this
 		// application.
+		w.logger.Infof(ctx, "charm for application %q is already available", w.appID)
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
@@ -93,6 +99,10 @@ func (w *asyncDownloadWorker) loop() error {
 	var result *charmdownloader.DownloadResult
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
+			ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+			defer cancel()
+
+			var err error
 			result, err = w.downloader.Download(ctx, url, info.SHA256)
 			if err != nil {
 				return errors.Capture(err)
@@ -118,6 +128,10 @@ func (w *asyncDownloadWorker) loop() error {
 	}()
 
 	// The charm has been downloaded, we can now resolve the download slot.
+	//
+	// TODO: If this fails (which it sometimes does), the result is that the
+	// charm is redownloaded on the next attempt. We should re-architecture
+	// these workers to avoid this unnecessary work
 	err = w.applicationService.ResolveCharmDownload(ctx, w.appID, domainapplication.ResolveCharmDownload{
 		SHA256:    result.SHA256,
 		SHA384:    result.SHA384,
@@ -126,10 +140,12 @@ func (w *asyncDownloadWorker) loop() error {
 		Size:      result.Size,
 	})
 	if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyResolved) {
+		w.logger.Errorf(ctx, "failed to resolve charm download for application %q: %v", w.appID, err)
 		return errors.Capture(err)
 	}
 
 	// Exit cleanly, so the worker doesn't get restarted.
+	w.logger.Infof(ctx, "downloaded and resolved charm for application %q", w.appID)
 	return nil
 }
 

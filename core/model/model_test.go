@@ -92,12 +92,24 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 			err:       coreerrors.NotValid,
 		},
 		{
+			qualifier: "!",
+			err:       coreerrors.NotValid,
+		},
+		{
 			qualifier: "-invalid",
 			err:       coreerrors.NotValid,
 		},
 		{
-			qualifier: "Invalid",
-			err:       coreerrors.NotValid,
+			qualifier: "admin",
+		},
+		{
+			qualifier: "fred@external",
+		},
+		{
+			qualifier: "alice@domain.com",
+		},
+		{
+			qualifier: "fred+mary@external",
 		},
 		{
 			qualifier: "qualifier-123",
@@ -119,31 +131,21 @@ func (*ModelSuite) TestQualifierValidate(c *tc.C) {
 
 func (*ModelSuite) TestQualifierFromUserTag(c *tc.C) {
 	tests := []struct {
-		username  string
-		qualifier string
+		userTag   names.UserTag
+		qualifier Qualifier
 	}{
 		{
-			username:  "fred",
-			qualifier: "fred",
+			userTag:   names.NewUserTag("admin"),
+			qualifier: Qualifier("admin"),
 		},
 		{
-			username:  "Fred",
-			qualifier: "fred",
-		},
-		{
-			username:  "fred@external",
-			qualifier: "fred-external",
-		},
-		{
-			username:  "fred+mary@external",
-			qualifier: "fred-mary-external",
+			userTag:   names.NewUserTag("alice@external"),
+			qualifier: Qualifier("alice@external"),
 		},
 	}
 
 	for i, test := range tests {
-		c.Logf("test %d: %q", i, test.username)
-		q := QualifierFromUserTag(names.NewUserTag(test.username))
-		c.Check(q.String(), tc.Equals, test.qualifier)
+		c.Logf("test %d: %q", i, test.userTag)
+		c.Check(QualifierFromUserTag(test.userTag), tc.Equals, test.qualifier)
 	}
-
 }

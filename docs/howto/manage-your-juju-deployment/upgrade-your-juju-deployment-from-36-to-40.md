@@ -368,11 +368,16 @@ watch --color -n 1 juju status --color
 viddy juju status
 ```
 
-### 15. Importing orphaned volumes or file systems creates new storage instances
+### 15. Spaces are explicit
 
-If a storage volume or file system with no associated storage instance is migrated to `4.0`, a storage instance will be
-created. These will be of the form `orphaned/x`. The purpose of such storage instances is to allow the operator to 
-delete the linked volume or file system and its cloud resources should they desire.
+Juju `3.6` and prior treated the `alpha` space as a space agnostic request in some cases.
+
+Juju `4.0` treats spaces used for relation endpoint bindings of configuration settings as explicit requests in all 
+cases. This means that any time there is a space _other_ than the `alpha` space, care should be taken to set an 
+appropriate value for `default_space` in model configuration or choose a suitable space for all bindings.
+
+This is most relevant to MAAS, where Juju detects spaces on the cloud. This invariably means that (default) `alpha` 
+spaces does not contain any subnets.
 
 ### 16. Cross-model integration offers can only be consumed once
 

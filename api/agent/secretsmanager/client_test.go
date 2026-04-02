@@ -35,10 +35,6 @@ func (s *SecretsSuite) TestNewClient(c *tc.C) {
 	c.Assert(client, tc.NotNil)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, tc.Equals, "SecretsManager")
@@ -66,7 +62,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, err := client.GetSecretBackendConfig(c.Context(), ptr("active-id"))
+	result, err := client.GetSecretBackendConfig(c.Context(), new("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
@@ -109,7 +105,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraining(c *tc.C) {
 		return nil
 	})
 	client := secretsmanager.NewClient(apiCaller)
-	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), ptr("active-id"))
+	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), new("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -621,8 +617,8 @@ func (s *SecretsSuite) TestGrant(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	err := client.Grant(c.Context(), uri, &secretsmanager.SecretRevokeGrantArgs{
-		UnitName:    ptr("wordpress/0"),
-		RelationKey: ptr("wordpress:db mysql:server"),
+		UnitName:    new("wordpress/0"),
+		RelationKey: new("wordpress:db mysql:server"),
 		Role:        coresecrets.RoleView,
 	})
 	c.Assert(err, tc.ErrorMatches, "FAIL")
@@ -653,8 +649,8 @@ func (s *SecretsSuite) TestRevoke(c *tc.C) {
 	})
 	client := secretsmanager.NewClient(apiCaller)
 	err := client.Revoke(c.Context(), uri, &secretsmanager.SecretRevokeGrantArgs{
-		ApplicationName: ptr("wordpress"),
-		RelationKey:     ptr("wordpress:db mysql:server"),
+		ApplicationName: new("wordpress"),
+		RelationKey:     new("wordpress:db mysql:server"),
 		Role:            coresecrets.RoleView,
 	})
 	c.Assert(err, tc.ErrorMatches, "FAIL")

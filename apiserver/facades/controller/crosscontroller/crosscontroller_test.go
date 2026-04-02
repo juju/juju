@@ -73,6 +73,7 @@ func (s *CrossControllerSuite) newAPI(c *tc.C) {
 		s.localControllerInfo = nil
 		s.watchLocalControllerInfo = nil
 		s.watcher = nil
+		s.publicDnsAddress = ""
 	})
 }
 

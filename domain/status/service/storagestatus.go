@@ -34,28 +34,6 @@ func encodeFilesystemStatusType(s corestatus.Status) (status.StorageFilesystemSt
 	}
 }
 
-// decodeFilesystemStatusType maps a domain status to corresponding core status.
-func decodeFilesystemStatusType(s status.StorageFilesystemStatusType) (corestatus.Status, error) {
-	switch s {
-	case status.StorageFilesystemStatusTypePending:
-		return corestatus.Pending, nil
-	case status.StorageFilesystemStatusTypeError:
-		return corestatus.Error, nil
-	case status.StorageFilesystemStatusTypeAttaching:
-		return corestatus.Attaching, nil
-	case status.StorageFilesystemStatusTypeAttached:
-		return corestatus.Attached, nil
-	case status.StorageFilesystemStatusTypeDetaching:
-		return corestatus.Detaching, nil
-	case status.StorageFilesystemStatusTypeDetached:
-		return corestatus.Detached, nil
-	case status.StorageFilesystemStatusTypeDestroying:
-		return corestatus.Destroying, nil
-	default:
-		return corestatus.Unknown, nil
-	}
-}
-
 // encodeFilesystemStatus converts a core status info to a db status info.
 func encodeFilesystemStatus(s corestatus.StatusInfo) (status.StatusInfo[status.StorageFilesystemStatusType], error) {
 	encodedStatus, err := encodeFilesystemStatusType(s.Status)
@@ -82,10 +60,7 @@ func encodeFilesystemStatus(s corestatus.StatusInfo) (status.StatusInfo[status.S
 
 // decodeFilesystemStatus converts a db status info to a core status info.
 func decodeFilesystemStatus(s status.StatusInfo[status.StorageFilesystemStatusType]) (corestatus.StatusInfo, error) {
-	decodedStatus, err := decodeFilesystemStatusType(s.Status)
-	if err != nil {
-		return corestatus.StatusInfo{}, err
-	}
+	decodedStatus := s.Status.ToCoreStatus()
 
 	var data map[string]any
 	if len(s.Data) > 0 {
@@ -126,28 +101,6 @@ func encodeVolumeStatusType(s corestatus.Status) (status.StorageVolumeStatusType
 	}
 }
 
-// decodeVolumeStatusType maps a db status to corresponding core status.
-func decodeVolumeStatusType(s status.StorageVolumeStatusType) (corestatus.Status, error) {
-	switch s {
-	case status.StorageVolumeStatusTypePending:
-		return corestatus.Pending, nil
-	case status.StorageVolumeStatusTypeError:
-		return corestatus.Error, nil
-	case status.StorageVolumeStatusTypeAttaching:
-		return corestatus.Attaching, nil
-	case status.StorageVolumeStatusTypeAttached:
-		return corestatus.Attached, nil
-	case status.StorageVolumeStatusTypeDetaching:
-		return corestatus.Detaching, nil
-	case status.StorageVolumeStatusTypeDetached:
-		return corestatus.Detached, nil
-	case status.StorageVolumeStatusTypeDestroying:
-		return corestatus.Destroying, nil
-	default:
-		return corestatus.Unknown, nil
-	}
-}
-
 // encodeVolumeStatus converts a core status info to a db status info.
 func encodeVolumeStatus(s corestatus.StatusInfo) (status.StatusInfo[status.StorageVolumeStatusType], error) {
 	encodedStatus, err := encodeVolumeStatusType(s.Status)
@@ -174,10 +127,7 @@ func encodeVolumeStatus(s corestatus.StatusInfo) (status.StatusInfo[status.Stora
 
 // decodeVolumeStatus converts a db status info to a core status info.
 func decodeVolumeStatus(s status.StatusInfo[status.StorageVolumeStatusType]) (corestatus.StatusInfo, error) {
-	decodedStatus, err := decodeVolumeStatusType(s.Status)
-	if err != nil {
-		return corestatus.StatusInfo{}, err
-	}
+	decodedStatus := s.Status.ToCoreStatus()
 
 	var data map[string]any
 	if len(s.Data) > 0 {

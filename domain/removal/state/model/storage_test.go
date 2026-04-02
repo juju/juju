@@ -268,8 +268,7 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttached(c *tc.C)
 }
 
 // TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecondForce tests that
-// forcing returns the filesystem and volume uuids, even if they are already
-// Dying.
+// retries return filesystem and volume uuids even when already dying.
 func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecondForce(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
 	fsUUID, _ := s.addAttachedFilesystem(c)
@@ -293,7 +292,11 @@ func (s *storageSuite) TestEnsureStorageInstanceNotAliveCascadeAttachedWithSecon
 		c.Context(), siUUID, false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cascaded, tc.DeepEquals,
-		internal.CascadedStorageInstanceLifeChildren{})
+		internal.CascadedStorageInstanceLifeChildren{
+			FileSystemUUID: &fsUUID,
+			VolumeUUID:     &volUUID,
+		},
+	)
 
 	cascadeForce := true
 	cascaded, err = st.EnsureStorageInstanceNotAliveCascade(

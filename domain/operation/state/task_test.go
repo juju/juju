@@ -57,7 +57,7 @@ func (s *taskSuite) TestGetTaskAction(c *tc.C) {
 	c.Check(task.ActionName, tc.Equals, "test-action")
 	c.Check(task.Receiver, tc.Equals, "test-app/0")
 	c.Check(task.Status, tc.Equals, corestatus.Running)
-	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
+	c.Check(task.ExecutionGroup, tc.DeepEquals, new("test-group"))
 }
 
 func (s *taskSuite) TestGetTaskExec(c *tc.C) {
@@ -74,7 +74,7 @@ func (s *taskSuite) TestGetTaskExec(c *tc.C) {
 	c.Check(task.ActionName, tc.Equals, coreoperation.JujuExecActionName) // defaulted
 	c.Check(task.Receiver, tc.Equals, "0")
 	c.Check(task.Status, tc.Equals, corestatus.Pending)
-	c.Check(task.ExecutionGroup, tc.DeepEquals, ptr("test-group"))
+	c.Check(task.ExecutionGroup, tc.DeepEquals, new("test-group"))
 }
 
 func (s *taskSuite) TestGetTaskWithOutputPath(c *tc.C) {
@@ -561,8 +561,4 @@ WHERE  uuid = ?
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(completedAt.Time.IsZero(), tc.Equals, !completed, tc.Commentf("expected completed at %v", completedAt))
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

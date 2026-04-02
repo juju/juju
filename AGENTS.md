@@ -7,6 +7,11 @@ Apply both files below for any code change:
 
 If guidance conflicts, architectural rules take precedence.
 
+## Documentation
+
+- [Documentation rules](AGENTS.documentation.rules.md) — Guidelines for writing user-facing documentation.
+- [Package doc.go rules](AGENTS.doc-dot-go-rules.md) — Guidelines for writing package-level documentation.
+
 ## Build
 
 - `make install` — Full build including schema regeneration.
@@ -24,6 +29,8 @@ If guidance conflicts, architectural rules take precedence.
   - Prefer `c.Check` for value assertions.
   - Use `c.Assert` for value assertions only when needed to guard subsequent assertions (e.g. prevent nil dereference).
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
+- If a test event must occur, block on it and rely on the native test timeout
+  instead of adding an explicit timeout branch.
 
 ## Running Tests
 

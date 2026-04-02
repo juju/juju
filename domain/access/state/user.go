@@ -40,6 +40,44 @@ func NewUserState(factory database.TxnRunnerFactory, clock clock.Clock) *UserSta
 	}
 }
 
+// EnsureExternalUser ensures that the given external user exists in the
+// database, creating them if necessary.
+// If the user already exists, this is a no-op.
+func (st *UserState) EnsureExternalUser(ctx context.Context, subject user.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	userUUID, err := user.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating user UUID: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the UUID of everyone@external to use as the creator.
+		creatorUUID, err := GetUserUUIDByName(ctx, tx, permission.EveryoneUserName)
+		if errors.Is(err, accesserrors.UserNotFound) {
+			return errors.Errorf("%q (should be added on bootstrap): %w", permission.EveryoneUserName, accesserrors.UserNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, creatorUUID, st.clock.Now().UTC())
+		if errors.Is(err, accesserrors.UserAlreadyExists) {
+			// User already exists — this is the expected path for
+			// returning users and also handles the race condition
+			// of two concurrent logins for the same new user.
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return errors.Errorf("ensuring external user %q: %w", subject, err)
+	}
+	return nil
+}
+
 // AddUser adds a new user to the database and enables the user.
 // If the user already exists an error that satisfies
 // [accesserrors.UserAlreadyExists] will be returned. If the creator does not
@@ -84,6 +122,32 @@ func (st *UserState) AddUserWithPermission(
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Capture(AddUserWithPermission(ctx, tx, uuid, name, displayName, external, creatorUUID,
 			permission, st.clock.Now().UTC()))
+	})
+}
+
+// AddUserWithCreatedAt adds a new user with a specific creation date to the
+// database, preserving the original creation timestamp. This is primarily used
+// when importing external users during model migration.
+// The following error types are possible from this function:
+//   - [accesserrors.UserAlreadyExists]: If a user with the supplied name already
+//     exists.
+//   - [accesserrors.UserCreatorUUIDNotFound]: If the creator supplied for the
+//     user does not exist.
+func (st *UserState) AddUserWithCreatedAt(
+	ctx context.Context,
+	uuid user.UUID,
+	name user.Name,
+	displayName string,
+	creatorUUID user.UUID,
+	createdAt time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Errorf("getting DB access: %w", err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(AddUser(ctx, tx, uuid, name, displayName, true, creatorUUID, createdAt))
 	})
 }
 

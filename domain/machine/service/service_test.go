@@ -642,7 +642,7 @@ func (s *serviceSuite) TestGetMachinePlacement(c *tc.C) {
 
 	machineName := machine.Name("0")
 
-	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(ptr("0/lxd/42"), nil)
+	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(new("0/lxd/42"), nil)
 
 	placement, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		GetMachinePlacementDirective(c.Context(), machineName)
@@ -678,21 +678,21 @@ func (s *serviceSuite) TestGetMachineConstraintsFull(c *tc.C) {
 	machineName := machine.Name("0")
 
 	machineConstraints := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:           new("amd64"),
+		Container:      new(instance.LXD),
+		CpuCores:       new(uint64(4)),
+		Mem:            new(uint64(1024)),
+		RootDisk:       new(uint64(1024)),
+		RootDiskSource: new("root-disk-source"),
+		Tags:           new([]string{"tag1", "tag2"}),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
 	}
 	s.state.EXPECT().GetMachineConstraints(gomock.Any(), machineName.String()).Return(machineConstraints, nil)
 
@@ -700,19 +700,19 @@ func (s *serviceSuite) TestGetMachineConstraintsFull(c *tc.C) {
 		GetMachineConstraints(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.DeepEquals, coreconstraints.Value{
-		Arch:             ptr("amd64"),
-		Container:        ptr(instance.LXD),
-		CpuCores:         ptr(uint64(4)),
-		Mem:              ptr(uint64(1024)),
-		RootDisk:         ptr(uint64(1024)),
-		RootDiskSource:   ptr("root-disk-source"),
-		Tags:             ptr([]string{"tag1", "tag2"}),
-		InstanceRole:     ptr("instance-role"),
-		InstanceType:     ptr("instance-type"),
-		Spaces:           ptr([]string{"space1"}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
+		Arch:             new("amd64"),
+		Container:        new(instance.LXD),
+		CpuCores:         new(uint64(4)),
+		Mem:              new(uint64(1024)),
+		RootDisk:         new(uint64(1024)),
+		RootDiskSource:   new("root-disk-source"),
+		Tags:             new([]string{"tag1", "tag2"}),
+		InstanceRole:     new("instance-role"),
+		InstanceType:     new("instance-type"),
+		Spaces:           new([]string{"space1"}),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
 	})
 }
 

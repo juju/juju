@@ -554,12 +554,15 @@ AND state = 'available'`
 	return result, errors.Capture(err)
 }
 
-// GetResource returns the identified resource.
+// GetApplicationResource returns the identified resource linked to
+// an application.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if no such resource exists.
-func (st *State) GetResource(ctx context.Context,
-	resourceUUID coreresource.UUID) (coreresource.Resource, error) {
+//   - [resourceerrors.ResourceNotFound] if no resource is found.
+func (st *State) GetApplicationResource(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return coreresource.Resource{}, errors.Capture(err)
@@ -573,6 +576,55 @@ func (st *State) GetResource(ctx context.Context,
 SELECT &resourceView.*
 FROM v_application_resource
 WHERE uuid = $resourceIdentity.uuid`,
+		resourceParam, resourceOutput)
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, resourceParam).Get(&resourceOutput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return resourceerrors.ResourceNotFound
+		}
+
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	return resourceOutput.toResource()
+}
+
+// GetResource returns the identified resource without requiring it to be
+// linked to an application. The application name will be included if
+// available.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if no resource is found.
+func (st *State) GetResource(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+	resourceParam := resourceIdentity{
+		UUID: resourceUUID.String(),
+	}
+	resourceOutput := resourceView{}
+
+	stmt, err := st.Prepare(`
+SELECT ( r.uuid, r.name, r.created_at, r.revision, r.origin_type,
+    r.state, r.retrieved_by, r.path, r.description, r.kind_name,
+    r.size, r.sha384) AS (&resourceView.*),
+    a.name AS &resourceView.application_name
+FROM v_resource AS r
+LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+LEFT JOIN application AS a ON ar.application_uuid = a.uuid
+WHERE r.uuid = $resourceIdentity.uuid
+`,
 		resourceParam, resourceOutput)
 	if err != nil {
 		return coreresource.Resource{}, errors.Capture(err)
@@ -683,10 +735,13 @@ func (st *State) getResourceType(
 		UUID: resourceUUID.String(),
 	}
 	getResourceType, err := st.Prepare(`
-SELECT &resourceKind.kind_name 
-FROM   v_application_resource
-WHERE  uuid = $resourceKind.uuid
+SELECT crk.name AS &resourceKind.kind_name
+FROM   resource AS r
+JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
+JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
+WHERE  r.uuid = $resourceKind.uuid
 `, resKind)
+
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
@@ -2506,4 +2561,91 @@ WHERE  name = $applicationNameAndID.name
 	}
 
 	return appID.ApplicationID, nil
+}
+
+// VerifyApplicationExistsForResource returns whether an application
+// exists for the given resource UUID.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationNotFound] is returned if the
+//     application is not found.
+func (st *State) VerifyApplicationExistsForResource(ctx context.Context, resourceUUID coreresource.UUID) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := localUUID{UUID: resourceUUID.String()}
+
+	type existsResult struct {
+		Found bool `db:"found"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT found AS &existsResult.found
+FROM (
+    SELECT EXISTS (
+        SELECT 1
+        FROM application_resource
+        WHERE resource_uuid = $localUUID.uuid
+    ) AS found
+)
+`, input, existsResult{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var output existsResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		queryErr := tx.Query(ctx, stmt, input).Get(&output)
+		if errors.Is(queryErr, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if queryErr != nil {
+			return queryErr
+		}
+		return nil
+	})
+	if !output.Found {
+		return applicationerrors.ApplicationNotFound
+	}
+	return errors.Capture(err)
+}
+
+// GetResourceNameAndType returns the name and resource type for the given
+// resource UUID.
+func (st *State) GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	res := localUUID{
+		UUID: resourceUUID.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT r.charm_resource_name AS &resourceNameAndKind.name,
+       crk.name AS &resourceNameAndKind.kind
+FROM   resource AS r
+JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
+JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
+WHERE  r.uuid = $localUUID.uuid
+`, res, resourceNameAndKind{})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var output resourceNameAndKind
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		queryErr := tx.Query(ctx, stmt, res).Get(&output)
+		if errors.Is(queryErr, sqlair.ErrNoRows) {
+			return resourceerrors.ResourceNotFound
+		} else if queryErr != nil {
+			return queryErr
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return output.ResourceName, output.Kind, nil
 }

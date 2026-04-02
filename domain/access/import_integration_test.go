@@ -138,8 +138,8 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedOfferPermissions := s.getOfferPermissions(c, "v_permission_offer")
-	c.Check(obtainedOfferPermissions, tc.SameContents, []offerAccess{
+	obtainedOfferPermissions := s.getPermissions(c, "v_permission_offer")
+	c.Check(obtainedOfferPermissions, tc.SameContents, []userAccess{
 		{GrantTo: s.adminUserUUID.String(), GrantOn: offerOneUUID, AccessType: "admin"},
 		{GrantTo: joeUserUUID, GrantOn: offerOneUUID, AccessType: "consume"},
 		{GrantTo: simonUserUUID, GrantOn: offerOneUUID, AccessType: "read"},
@@ -237,8 +237,8 @@ func (s *importSuite) TestPermissionImport(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
-	obtainedOfferPermissions := s.getOfferPermissions(c, "v_permission_model")
-	c.Check(obtainedOfferPermissions, tc.SameContents, []offerAccess{
+	obtainedOfferPermissions := s.getPermissions(c, "v_permission_model")
+	c.Check(obtainedOfferPermissions, tc.SameContents, []userAccess{
 		{GrantTo: joeUserUUID, GrantOn: s.modelUUID.String(), AccessType: "write"},
 		{GrantTo: simonUserUUID, GrantOn: s.modelUUID.String(), AccessType: "admin"},
 	})
@@ -291,28 +291,282 @@ func (s *importSuite) addUserToController(c *tc.C, name string, access permissio
 	return userUUID.String()
 }
 
-type offerAccess struct {
+// seedEveryoneExternalUser inserts the special everyone@external user into the
+// controller database. This user is normally created during controller
+// bootstrap and is required as the creator when importing external users.
+func (s *importSuite) seedEveryoneExternalUser(c *tc.C) {
+	everyoneName, err := user.NewName("everyone@external")
+	c.Assert(err, tc.ErrorIsNil)
+	everyoneUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	st := state.NewState(func(context.Context) (database.TxnRunner, error) {
+		return s.ControllerTxnRunner(), nil
+	}, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err = st.AddUser(c.Context(), everyoneUUID, everyoneName, "everyone@external", true, s.adminUserUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addExternalUserToController creates an external user on the target
+// controller and returns its UUID string. It requires everyone@external to
+// already exist (call seedEveryoneExternalUser first).
+func (s *importSuite) addExternalUserToController(c *tc.C, name user.Name, displayName string) string {
+	everyoneName, _ := user.NewName("everyone@external")
+	everyoneUUID, err := s.svc.GetUserUUIDByName(c.Context(), everyoneName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	st := state.NewState(func(context.Context) (database.TxnRunner, error) {
+		return s.ControllerTxnRunner(), nil
+	}, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, name, displayName, everyoneUUID, time.Now().UTC(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return extUUID.String()
+}
+
+// TestPermissionImportWithExternalUser verifies that external users referenced
+// in an imported model description are automatically created on the target
+// controller (if they do not already exist) and are granted the correct model
+// permission.
+func (s *importSuite) TestPermissionImportWithExternalUser(c *tc.C) {
+	// Arrange
+	s.seedModel(c)
+	s.seedEveryoneExternalUser(c)
+	modelmigration.RegisterExternalUsersImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	extUserName, _ := user.NewName("bob@external")
+	displayName := "Bob External"
+	dateCreated := time.Now().Add(-48 * time.Hour).Truncate(time.Second).UTC()
+
+	desc := description.NewModel(description.ModelArgs{
+		Owner: "admin",
+		Type:  string(model.IAAS),
+		Config: map[string]interface{}{
+			config.NameKey: "test-me",
+			config.UUIDKey: s.modelUUID.String(),
+		},
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           extUserName.Name(),
+		DisplayName:    displayName,
+		CreatedBy:      "admin",
+		DateCreated:    dateCreated,
+		LastConnection: time.Now(),
+		Access:         "write",
+	})
+
+	// Act
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The external user must have been created on the controller.
+	got, err := s.svc.GetUserByName(c.Context(), extUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.Name, tc.Equals, extUserName)
+	c.Check(got.DisplayName, tc.Equals, displayName)
+	c.Check(got.CreatedAt.UTC(), tc.Equals, dateCreated)
+
+	// The external user must have the right model permission.
+	permissions := s.getPermissions(c, "v_permission_model")
+	c.Check(permissions, tc.SameContents, []userAccess{
+		{GrantTo: got.UUID.String(), GrantOn: s.modelUUID.String(), AccessType: "write"},
+	})
+}
+
+// TestPermissionImportExternalUserAlreadyExists verifies that when an external
+// user referenced in an imported model description already exists on the target
+// controller, the import silently skips re-creating the user and still grants
+// the model permission correctly.
+func (s *importSuite) TestPermissionImportExternalUserAlreadyExists(c *tc.C) {
+	// Arrange
+	s.seedModel(c)
+	s.seedEveryoneExternalUser(c)
+	modelmigration.RegisterExternalUsersImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// Pre-create the external user on the controller.
+	extUserName, _ := user.NewName("alice@external")
+	existingUUID := s.addExternalUserToController(c, extUserName, "Alice")
+
+	desc := description.NewModel(description.ModelArgs{
+		Owner: "admin",
+		Type:  string(model.IAAS),
+		Config: map[string]interface{}{
+			config.NameKey: "test-me",
+			config.UUIDKey: s.modelUUID.String(),
+		},
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           extUserName.Name(),
+		DisplayName:    "Alice (migrated)",
+		CreatedBy:      "admin",
+		DateCreated:    time.Now(),
+		LastConnection: time.Now(),
+		Access:         "admin",
+	})
+
+	// Act
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert: import succeeds without error.
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The user record must be unchanged (pre-existing user is kept as-is).
+	got, err := s.svc.GetUserByName(c.Context(), extUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.UUID.String(), tc.Equals, existingUUID)
+
+	// The external user must have the right model permission.
+	permissions := s.getPermissions(c, "v_permission_model")
+	c.Check(permissions, tc.SameContents, []userAccess{
+		{GrantTo: existingUUID, GrantOn: s.modelUUID.String(), AccessType: "admin"},
+	})
+}
+
+// TestPermissionImportWithMultipleExternalUsers verifies that multiple external
+// users referenced in an imported model description are all created and granted
+// the correct model permissions in a single import.
+func (s *importSuite) TestPermissionImportWithMultipleExternalUsers(c *tc.C) {
+	// Arrange
+	s.seedModel(c)
+	s.seedEveryoneExternalUser(c)
+	modelmigration.RegisterExternalUsersImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	bob, _ := user.NewName("bob@external")
+	carol, _ := user.NewName("carol@external")
+	dateCreated := time.Now().Add(-24 * time.Hour)
+
+	desc := description.NewModel(description.ModelArgs{
+		Owner: "admin",
+		Type:  string(model.IAAS),
+		Config: map[string]interface{}{
+			config.NameKey: "test-me",
+			config.UUIDKey: s.modelUUID.String(),
+		},
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           bob.Name(),
+		DisplayName:    "Bob",
+		CreatedBy:      "admin",
+		DateCreated:    dateCreated,
+		LastConnection: time.Now(),
+		Access:         "write",
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           carol.Name(),
+		DisplayName:    "Carol",
+		CreatedBy:      "admin",
+		DateCreated:    dateCreated,
+		LastConnection: time.Now(),
+		Access:         "read",
+	})
+
+	// Act
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotBob, err := s.svc.GetUserByName(c.Context(), bob)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotBob.DisplayName, tc.Equals, "Bob")
+
+	gotCarol, err := s.svc.GetUserByName(c.Context(), carol)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotCarol.DisplayName, tc.Equals, "Carol")
+
+	permissions := s.getPermissions(c, "v_permission_model")
+	c.Check(permissions, tc.SameContents, []userAccess{
+		{GrantTo: gotBob.UUID.String(), GrantOn: s.modelUUID.String(), AccessType: "write"},
+		{GrantTo: gotCarol.UUID.String(), GrantOn: s.modelUUID.String(), AccessType: "read"},
+	})
+}
+
+// TestPermissionImportMixedLocalAndExternalUsers verifies that when an imported
+// model has both local and external users, external users are created while
+// local users (who must already exist) are only granted permissions.
+func (s *importSuite) TestPermissionImportMixedLocalAndExternalUsers(c *tc.C) {
+	// Arrange
+	s.seedModel(c)
+	s.seedEveryoneExternalUser(c)
+	modelmigration.RegisterExternalUsersImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// Local user pre-exists on the target controller.
+	joeUUID := s.addUserToController(c, "joe", permission.LoginAccess)
+
+	extUserName, _ := user.NewName("bob@external")
+	dateCreated := time.Now().Add(-24 * time.Hour)
+
+	desc := description.NewModel(description.ModelArgs{
+		Owner: "admin",
+		Type:  string(model.IAAS),
+		Config: map[string]interface{}{
+			config.NameKey: "test-me",
+			config.UUIDKey: s.modelUUID.String(),
+		},
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           "joe",
+		CreatedBy:      "admin",
+		DateCreated:    dateCreated,
+		LastConnection: time.Now(),
+		Access:         "write",
+	})
+	desc.AddUser(description.UserArgs{
+		Name:           extUserName.Name(),
+		DisplayName:    "Bob External",
+		CreatedBy:      "admin",
+		DateCreated:    dateCreated,
+		LastConnection: time.Now(),
+		Access:         "read",
+	})
+
+	// Act
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotBob, err := s.svc.GetUserByName(c.Context(), extUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotBob.DisplayName, tc.Equals, "Bob External")
+
+	permissions := s.getPermissions(c, "v_permission_model")
+	c.Check(permissions, tc.SameContents, []userAccess{
+		{GrantTo: joeUUID, GrantOn: s.modelUUID.String(), AccessType: "write"},
+		{GrantTo: gotBob.UUID.String(), GrantOn: s.modelUUID.String(), AccessType: "read"},
+	})
+}
+
+type userAccess struct {
 	GrantOn    string `db:"grant_on"`
 	GrantTo    string `db:"grant_to"`
 	AccessType string `db:"access_type"`
 }
 
-// getOfferPermissions gets the permissions for the given table.
-func (s *importSuite) getOfferPermissions(c *tc.C, table string) []offerAccess {
+// getPermissions queries permissions from the given view and returns all rows.
+func (s *importSuite) getPermissions(c *tc.C, view string) []userAccess {
 	stmt, err := sqlair.Prepare(fmt.Sprintf(`
-SELECT * AS &offerAccess.*
+SELECT * AS &userAccess.*
 FROM %s
-`, table), offerAccess{})
+`, view), userAccess{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	var access []offerAccess
+	var access []userAccess
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&access)
 	})
 
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting offer permissions: %s",
-		errors.ErrorStack(err)))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting permissions from %s: %s",
+		view, errors.ErrorStack(err)))
 	return access
 }
 

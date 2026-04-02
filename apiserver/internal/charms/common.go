@@ -426,7 +426,3 @@ func convertCharmMounts(input []charm.Mount) []params.CharmMount {
 	}
 	return mounts
 }
-
-func ptr[T any](t T) *T {
-	return &t
-}

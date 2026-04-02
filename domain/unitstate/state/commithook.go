@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -20,26 +21,25 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 	if err != nil {
 		return errors.Capture(err)
 	}
+	unitUUID := arg.UnitUUID.String()
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		unit, err := st.getUnitUUIDForName(ctx, tx, arg.UnitName)
-		if err != nil {
-			return errors.Errorf("get unit uuid: %v", err)
-		}
+		// TODO: (hml) 31-Mar-2026
+		// Validate incoming UUIDs still exist.
 
 		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
 			return errors.Errorf("update network info: %v", err)
 		}
 
-		if err := st.updateRelationSettings(ctx, tx, arg.RelationSettings); err != nil {
+		if err := st.updateRelationSettings(ctx, tx, unitUUID, arg.RelationSettings); err != nil {
 			return errors.Errorf("update relation settings: %v", err)
 		}
 
-		if err := st.updateUnitPorts(ctx, tx, unit.UUID, arg.OpenPorts, arg.ClosePorts); err != nil {
+		if err := st.updateUnitPorts(ctx, tx, unitUUID, arg.OpenPorts, arg.ClosePorts); err != nil {
 			return errors.Errorf("update ports: %v", err)
 		}
 
-		if err := st.updateCharmState(ctx, tx, unit, arg.CharmState); err != nil {
+		if err := st.updateCharmState(ctx, tx, entityUUID{UUID: unitUUID}, arg.CharmState); err != nil {
 			return errors.Errorf("update charm state: %v", err)
 		}
 
@@ -77,11 +77,21 @@ func (st *State) updateNetworkInfo(ctx context.Context, tx *sqlair.TX, info bool
 	return nil
 }
 
-func (st *State) updateRelationSettings(ctx context.Context, tx *sqlair.TX, settings []internal.RelationSettings) error {
+func (st *State) updateRelationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID string,
+	relationSettings []internal.RelationSettings,
+) error {
+	for _, settings := range relationSettings {
+		if err := st.setRelationApplicationAndUnitSettings(ctx, tx, unitUUID, settings); err != nil {
+			return errors.Errorf("setting relation settings for relation %q: %v", settings.RelationUUID, err)
+		}
+	}
 	return nil
 }
 
-func (st *State) updateCharmState(ctx context.Context, tx *sqlair.TX, unit unitUUID, charmState *map[string]string) error {
+func (st *State) updateCharmState(ctx context.Context, tx *sqlair.TX, unit entityUUID, charmState *map[string]string) error {
 	if charmState == nil {
 		return nil
 	}
@@ -110,4 +120,26 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 
 func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, secrets []string) error {
 	return nil
+}
+
+// GetUnitUUIDByName returns the UUID for the named unit, returning an
+// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+// exist.
+func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result, err = st.getUnitUUIDForName(ctx, tx, string(name))
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coreunit.UUID(result.UUID), nil
 }

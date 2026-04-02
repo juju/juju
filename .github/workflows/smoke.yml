@@ -128,7 +128,7 @@ jobs:
         run: |
           cd tests
           export MODEL_ARCH=$(go env GOARCH)
-          export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
+          export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false --model-default logging-config='<root>=INFO;juju.worker.asynccharmdownloader=TRACE'"
 
           # Skip destroy to keep the environment up.
           export SKIP_DESTROY=true

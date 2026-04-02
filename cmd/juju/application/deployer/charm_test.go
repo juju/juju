@@ -307,7 +307,3 @@ func minimalModelConfig() map[string]interface{} {
 		"image-stream":   "testing",
 	}
 }
-
-func strptr(s string) *string {
-	return &s
-}

@@ -61,9 +61,10 @@ type ResourceService interface {
 	// OpenResource returns the details of and a reader for the resource.
 	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error)
 
-	// StoreResource adds the application resource to blob storage and updates the
-	// metadata. It also sets the retrival information for the resource.
-	StoreResource(ctx context.Context, args resource.StoreResourceArgs) error
+	// StoreResource adds the application resource to blob storage and updates
+	// the metadata. It also sets the retrieval information for the resource.
+	// Returns the updated resource.
+	StoreResource(ctx context.Context, args resource.StoreResourceArgs) (coreresource.Resource, error)
 
 	// SetUnitResource sets the unit as using the resource.
 	SetUnitResource(

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 )
 
 // NewRemoveOfferCommand returns a command used to remove a specified offer.
@@ -190,12 +189,12 @@ func makeURLFromCurrentModel(
 	}
 	if url.ModelName == "" {
 		if jujuclient.IsQualifiedModelName(modelName) {
-			modelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
+			unqualifiedName, owner, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 			if err != nil {
 				return crossmodel.OfferURL{}, errors.Trace(err)
 			}
-			url.ModelQualifier = qualifier
-			url.ModelName = modelName
+			url.ModelName = unqualifiedName
+			url.ModelQualifier = owner
 		} else {
 			url.ModelName = modelName
 		}
@@ -206,8 +205,7 @@ func makeURLFromCurrentModel(
 		if err != nil {
 			return crossmodel.OfferURL{}, errors.Trace(err)
 		}
-		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
-		url.ModelQualifier = qualifier.String()
+		url.ModelQualifier = accountDetails.User
 	}
 	return url, nil
 }

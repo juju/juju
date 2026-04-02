@@ -84,7 +84,7 @@ func (s *AddSuite) TestAdd(c *tc.C) {
 		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 		}).Return(nil)
 	s.addSecretBackendsAPI.EXPECT().Close().Return(nil)
@@ -125,7 +125,7 @@ func (s *AddSuite) TestAddFromFile(c *tc.C) {
 		apisecretbackends.CreateSecretBackend{
 			Name:                "myvault",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config: map[string]interface{}{
 				"endpoint": "http://vault",
 				"token":    "s.666",

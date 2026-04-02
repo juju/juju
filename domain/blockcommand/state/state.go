@@ -34,7 +34,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // SetBlock switches on a command block for a given type with an optional
 // message.
 // Returns an error [errors.BlockAlreadyExists].
-func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message string) error {
+func (s *State) SetBlock(ctx context.Context, blockType int8, message string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return err
@@ -45,14 +45,9 @@ func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message 
 		return errors.Errorf("generating UUID: %w", err)
 	}
 
-	bcType, err := encodeBlockType(t)
-	if err != nil {
-		return err
-	}
-
 	bc := blockCommand{
 		UUID:      uuid.String(),
-		BlockType: bcType,
+		BlockType: blockType,
 		Message:   message,
 	}
 
@@ -85,20 +80,15 @@ func (s *State) SetBlock(ctx context.Context, t blockcommand.BlockType, message 
 
 // RemoveBlock disables block of specified type for the current model.
 // Returns an error [errors.BlockNotFound].
-func (s *State) RemoveBlock(ctx context.Context, t blockcommand.BlockType) error {
+func (s *State) RemoveBlock(ctx context.Context, blockType int8) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return err
 	}
 
-	bcType, err := encodeBlockType(t)
-	if err != nil {
-		return err
-	}
+	bc := blockTypeID{ID: blockType}
 
-	bc := blockType{ID: bcType}
-
-	stmt, err := s.Prepare("DELETE FROM block_command WHERE block_command_type_id = $blockType.id", bc)
+	stmt, err := s.Prepare("DELETE FROM block_command WHERE block_command_type_id = $blockTypeID.id", bc)
 	if err != nil {
 		return errors.Errorf("preparing block command statement: %w", err)
 	}
@@ -133,7 +123,7 @@ func (s *State) RemoveAllBlocks(ctx context.Context) error {
 
 	stmt, err := s.Prepare("DELETE FROM block_command")
 	if err != nil {
-		return errors.Errorf("preparing block command statement: %w", err)
+		return errors.Errorf("preparing block command deletion: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -142,7 +132,7 @@ func (s *State) RemoveAllBlocks(ctx context.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return errors.Errorf("executing block command: %w", err)
+		return errors.Capture(err)
 	}
 
 	return nil
@@ -158,7 +148,7 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	var block blockCommand
 	stmt, err := s.Prepare("SELECT &blockCommand.* FROM block_command ORDER BY rowid", block)
 	if err != nil {
-		return nil, errors.Errorf("preparing block command statement: %w", err)
+		return nil, errors.Errorf("preparing block command select: %w", err)
 	}
 
 	var blocks []blockCommand
@@ -171,19 +161,14 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 
 		return nil
 	}); err != nil {
-		return nil, errors.Errorf("executing block command: %w", err)
+		return nil, errors.Capture(err)
 	}
 
 	var results []blockcommand.Block
 	for _, b := range blocks {
-		bt, err := decodeBlockType(b.BlockType)
-		if err != nil {
-			return nil, err
-		}
-
 		results = append(results, blockcommand.Block{
 			UUID:    b.UUID,
-			Type:    bt,
+			Type:    blockcommand.BlockType(b.BlockType),
 			Message: b.Message,
 		})
 	}
@@ -191,22 +176,18 @@ func (s *State) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	return results, nil
 }
 
-func (s *State) GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (string, error) {
+func (s *State) GetBlockMessage(ctx context.Context, blockType int8) (string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	bcType, err := encodeBlockType(t)
-	if err != nil {
-		return "", err
-	}
-
-	bc := blockType{ID: bcType}
+	bc := blockTypeID{ID: blockType}
 
 	var message blockCommandMessage
+	q := "SELECT &blockCommandMessage.* FROM block_command WHERE block_command_type_id = $blockTypeID.id"
 
-	stmt, err := s.Prepare("SELECT &blockCommandMessage.* FROM block_command WHERE block_command_type_id = $blockType.id", message, bc)
+	stmt, err := s.Prepare(q, message, bc)
 	if err != nil {
 		return "", errors.Errorf("preparing block command statement: %w", err)
 	}
@@ -224,20 +205,4 @@ func (s *State) GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (
 	}
 
 	return message.Message, nil
-}
-
-func encodeBlockType(t blockcommand.BlockType) (int8, error) {
-	switch t {
-	case blockcommand.DestroyBlock, blockcommand.RemoveBlock, blockcommand.ChangeBlock:
-		return int8(t) - 1, nil
-	}
-	return 0, errors.Errorf("invalid block type %d", t)
-}
-
-func decodeBlockType(t int8) (blockcommand.BlockType, error) {
-	bt := blockcommand.BlockType(t + 1)
-	if err := bt.Validate(); err != nil {
-		return -1, err
-	}
-	return bt, nil
 }

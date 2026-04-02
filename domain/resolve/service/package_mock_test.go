@@ -233,10 +233,10 @@ func (c *MockStateResolveUnitCall) DoAndReturn(f func(context.Context, unit.UUID
 }
 
 // UnitResolveMode mocks base method.
-func (m *MockState) UnitResolveMode(arg0 context.Context, arg1 unit.UUID) (resolve.ResolveMode, error) {
+func (m *MockState) UnitResolveMode(arg0 context.Context, arg1 unit.UUID) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitResolveMode", arg0, arg1)
-	ret0, _ := ret[0].(resolve.ResolveMode)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -254,19 +254,19 @@ type MockStateUnitResolveModeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUnitResolveModeCall) Return(arg0 resolve.ResolveMode, arg1 error) *MockStateUnitResolveModeCall {
+func (c *MockStateUnitResolveModeCall) Return(arg0 string, arg1 error) *MockStateUnitResolveModeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUnitResolveModeCall) Do(f func(context.Context, unit.UUID) (resolve.ResolveMode, error)) *MockStateUnitResolveModeCall {
+func (c *MockStateUnitResolveModeCall) Do(f func(context.Context, unit.UUID) (string, error)) *MockStateUnitResolveModeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUnitResolveModeCall) DoAndReturn(f func(context.Context, unit.UUID) (resolve.ResolveMode, error)) *MockStateUnitResolveModeCall {
+func (c *MockStateUnitResolveModeCall) DoAndReturn(f func(context.Context, unit.UUID) (string, error)) *MockStateUnitResolveModeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

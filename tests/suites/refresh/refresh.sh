@@ -1,3 +1,7 @@
+application_charm_rev() {
+	juju status --format yaml | yq -r ".applications.\"$1\".\"charm-rev\""
+}
+
 run_refresh_local() {
 	# Test a plain juju refresh with a local charm
 	echo
@@ -11,18 +15,15 @@ run_refresh_local() {
 	juju download ubuntu --no-progress - >"${charm_name}"
 	juju deploy "${charm_name}" ubuntu
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	old_revision=$(application_charm_rev "ubuntu")
 
-	OUT=$(juju refresh ubuntu --path "${charm_name}" 2>&1 || true)
-	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added local charm"; then
-		# shellcheck disable=SC2046
-		echo $(red "failed refreshing charm: ${OUT}")
+	juju refresh ubuntu --path "${charm_name}"
+	revision=$(application_charm_rev "ubuntu")
+
+	if [ "${revision}" -lt "${old_revision}" ]; then
+		echo "failed refreshing charm: charm revision regressed from ${old_revision} to ${revision}"
 		exit 5
 	fi
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
-
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "ubuntu" "$(charm_rev "ubuntu" "${revision}")"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
@@ -72,13 +73,15 @@ run_refresh_channel() {
 
 	juju deploy juju-qa-test
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	old_revision=$(application_charm_rev "juju-qa-test")
 
-	OUT=$(juju refresh juju-qa-test --channel 2.0/edge 2>&1 || true)
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
+	juju refresh juju-qa-test --channel 2.0/edge
+	revision=$(application_charm_rev "juju-qa-test")
 
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
+	if [ "${revision}" = "${old_revision}" ]; then
+		echo "failed refreshing charm: charm revision did not change after channel refresh (${revision})"
+		exit 5
+	fi
 
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "${revision}")"
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/edge")"
@@ -100,7 +103,7 @@ run_refresh_channel_no_new_revision() {
 	juju deploy juju-qa-fixed-rev
 	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 	# get revision to ensure it doesn't change
-	cs_revision=$(juju status --format json | jq -S '.applications | .["juju-qa-fixed-rev"] | .["charm-rev"]')
+	cs_revision=$(application_charm_rev "juju-qa-fixed-rev")
 
 	juju refresh juju-qa-fixed-rev --channel edge
 
@@ -128,19 +131,17 @@ run_refresh_revision() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "23")"
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	old_revision=$(application_charm_rev "juju-qa-test")
 
 	# do a generic refresh, should pick up revision from latest stable
-	OUT=$(juju refresh juju-qa-test 2>&1 || true)
-	# shellcheck disable=SC2059
-	printf "${OUT}\n"
+	juju refresh juju-qa-test
+	revision=$(application_charm_rev "juju-qa-test")
 
-	if echo "${OUT}" | head -n 1 | grep -vq "Added"; then
-		printf "refresh failed, cannot extract the revision number"
+	if [ "${revision}" -le "${old_revision}" ]; then
+		echo "refresh failed: expected revision newer than ${old_revision}, got ${revision}"
 		exit 5
 	fi
 
-	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
-	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "${revision}")"
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"

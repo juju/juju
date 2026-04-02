@@ -27,7 +27,7 @@ func (*mockMetrics) DispatchErrorsInc()                               {}
 
 func benchmarkSignal(b *testing.B, changes ChangeSet) {
 	c := &tc.TBC{TB: b}
-	sub := newSubscription(0, "foo")
+	sub := newSubscription(0, "foo", DefaultSignalTimeout)
 	defer workertest.CleanKill(c, sub)
 
 	ctx := c.Context()
@@ -92,9 +92,7 @@ func benchmarkSubscriptions(b *testing.B, numSubs, numEvents int, ns string) {
 	c := &tc.TBC{TB: b}
 	terms := make(chan changestream.Term)
 
-	em, err := New(stream{
-		terms: terms,
-	}, clock.WallClock, &mockMetrics{}, loggertesting.WrapCheckLog(b))
+	em, err := New(stream{terms: terms}, clock.WallClock, &mockMetrics{}, loggertesting.WrapCheckLog(b), DefaultSignalTimeout)
 	tc.Assert(b, err, tc.IsNil)
 	defer workertest.CleanKill(c, em)
 

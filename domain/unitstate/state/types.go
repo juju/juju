@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// unitUUID identifies a unit.
-type unitUUID struct {
+// entityUUID identifies a unit.
+type entityUUID struct {
 	// UUID is the universally unique identifier for a unit.
 	UUID string `db:"uuid"`
 }
@@ -36,6 +36,21 @@ func (pr portRange) decode() network.PortRange {
 	}
 }
 
+type relationUUIDAndRole struct {
+	// UUID is the unique identifier of the relation.
+	UUID string `db:"relation_uuid"`
+	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
+	Role string `db:"role"`
+}
+
+// endpointIdentifier is an identifier for a relation endpoint.
+type endpointIdentifier struct {
+	// ApplicationName is the name of the application the endpoint belongs to.
+	ApplicationName string `db:"application_name"`
+	// EndpointName is the name of the endpoint.
+	EndpointName string `db:"endpoint_name"`
+}
+
 // endpoint represents a network endpoint and its UUID.
 type endpoint struct {
 	UUID     string `db:"uuid"`
@@ -49,6 +64,50 @@ type endpointName struct {
 
 // endpoints represents a list of network endpoints.
 type endpoints []string
+
+type getUnitRelAndApp struct {
+	UnitUUID     string `db:"unit_uuid"`
+	RelationUUID string `db:"relation_uuid"`
+}
+
+type relationUnitAndApp struct {
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	ApplicationUUID  string `db:"application_uuid"`
+}
+
+type applicationSettingsHash struct {
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+	Hash                 string `db:"sha256"`
+}
+
+type relationSetting struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type unitSettingsHash struct {
+	RelationUnitUUID string `db:"relation_unit_uuid"`
+	Hash             string `db:"sha256"`
+}
+
+type relationAndApplicationUUID struct {
+	RelationUUID  string `db:"relation_uuid"`
+	ApplicationID string `db:"application_uuid"`
+}
+
+type relationApplicationSetting struct {
+	UUID  string `db:"relation_endpoint_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type keys []string
+
+type relationUnitSetting struct {
+	UUID  string `db:"relation_unit_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
 
 type portRangeUUIDs []string
 
@@ -110,7 +169,7 @@ type unitStateKeyVal[T comparable] struct {
 type unitCharmStateKeyVal unitStateKeyVal[string]
 type unitRelationStateKeyVal unitStateKeyVal[int]
 
-func makeUnitCharmStateKeyVals(unitUUID unitUUID, kv map[string]string) []unitCharmStateKeyVal {
+func makeUnitCharmStateKeyVals(unitUUID entityUUID, kv map[string]string) []unitCharmStateKeyVal {
 	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitCharmStateKeyVal{
@@ -122,7 +181,7 @@ func makeUnitCharmStateKeyVals(unitUUID unitUUID, kv map[string]string) []unitCh
 	return keyVals
 }
 
-func makeUnitRelationStateKeyVals(unitUUID unitUUID, kv map[int]string) []unitRelationStateKeyVal {
+func makeUnitRelationStateKeyVals(unitUUID entityUUID, kv map[int]string) []unitRelationStateKeyVal {
 	keyVals := make([]unitRelationStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitRelationStateKeyVal{

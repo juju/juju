@@ -150,11 +150,11 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportCAASUnitArg{{
 		ImportUnitArg: service.ImportUnitArg{
 			UnitName:     "prometheus/0",
-			PasswordHash: ptr("passwordhash"),
+			PasswordHash: new("passwordhash"),
 		},
-		CloudContainer: ptr(application.CloudContainerParams{
+		CloudContainer: new(application.CloudContainerParams{
 			ProviderID: "provider-id",
-			Address: ptr(network.SpaceAddress{
+			Address: new(network.SpaceAddress{
 				MachineAddress: network.MachineAddress{
 					Value: "10.6.6.6",
 					Type:  "ipv4",
@@ -162,8 +162,8 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 				},
 				SpaceID: "666",
 			}),
-			AddressOrigin: ptr(network.OriginProvider),
-			Ports:         ptr([]string{"6666"}),
+			AddressOrigin: new(network.OriginProvider),
+			Ports:         new([]string{"6666"}),
 		}),
 	}})
 }
@@ -226,7 +226,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *tc.C) {
 	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportIAASUnitArg{{
 		ImportUnitArg: service.ImportUnitArg{
 			UnitName:     "prometheus/0",
-			PasswordHash: ptr("passwordhash"),
+			PasswordHash: new("passwordhash"),
 		},
 		Machine: machine.Name("0"),
 	}})
@@ -355,20 +355,20 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *tc.C) {
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportIAASApplicationArgs) error {
 		c.Assert(args.Charm.Meta().Name, tc.Equals, "prometheus")
-		c.Check(args.ApplicationConstraints.AllocatePublicIP, tc.DeepEquals, ptr(true))
-		c.Check(args.ApplicationConstraints.Arch, tc.DeepEquals, ptr("amd64"))
-		c.Check(args.ApplicationConstraints.Container, tc.DeepEquals, ptr(instance.ContainerType("lxd")))
-		c.Check(args.ApplicationConstraints.CpuCores, tc.DeepEquals, ptr(uint64(2)))
-		c.Check(args.ApplicationConstraints.CpuPower, tc.DeepEquals, ptr(uint64(1000)))
-		c.Check(args.ApplicationConstraints.ImageID, tc.DeepEquals, ptr("foo"))
-		c.Check(args.ApplicationConstraints.InstanceType, tc.DeepEquals, ptr("baz"))
-		c.Check(args.ApplicationConstraints.VirtType, tc.DeepEquals, ptr("vm"))
-		c.Check(args.ApplicationConstraints.Mem, tc.DeepEquals, ptr(uint64(1024)))
-		c.Check(args.ApplicationConstraints.RootDisk, tc.DeepEquals, ptr(uint64(1024)))
-		c.Check(args.ApplicationConstraints.RootDiskSource, tc.DeepEquals, ptr("qux"))
-		c.Check(args.ApplicationConstraints.Spaces, tc.DeepEquals, ptr([]string{"space0", "space1"}))
-		c.Check(args.ApplicationConstraints.Tags, tc.DeepEquals, ptr([]string{"tag0", "tag1"}))
-		c.Check(args.ApplicationConstraints.Zones, tc.DeepEquals, ptr([]string{"zone0", "zone1"}))
+		c.Check(args.ApplicationConstraints.AllocatePublicIP, tc.DeepEquals, new(true))
+		c.Check(args.ApplicationConstraints.Arch, tc.DeepEquals, new("amd64"))
+		c.Check(args.ApplicationConstraints.Container, tc.DeepEquals, new(instance.ContainerType("lxd")))
+		c.Check(args.ApplicationConstraints.CpuCores, tc.DeepEquals, new(uint64(2)))
+		c.Check(args.ApplicationConstraints.CpuPower, tc.DeepEquals, new(uint64(1000)))
+		c.Check(args.ApplicationConstraints.ImageID, tc.DeepEquals, new("foo"))
+		c.Check(args.ApplicationConstraints.InstanceType, tc.DeepEquals, new("baz"))
+		c.Check(args.ApplicationConstraints.VirtType, tc.DeepEquals, new("vm"))
+		c.Check(args.ApplicationConstraints.Mem, tc.DeepEquals, new(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDisk, tc.DeepEquals, new(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDiskSource, tc.DeepEquals, new("qux"))
+		c.Check(args.ApplicationConstraints.Spaces, tc.DeepEquals, new([]string{"space0", "space1"}))
+		c.Check(args.ApplicationConstraints.Tags, tc.DeepEquals, new([]string{"tag0", "tag1"}))
+		c.Check(args.ApplicationConstraints.Zones, tc.DeepEquals, new([]string{"zone0", "zone1"}))
 		return nil
 	})
 
@@ -700,7 +700,7 @@ func (s *importSuite) TestImportCharmMetadata(c *tc.C) {
 		Containers: map[string]internalcharm.Container{
 			"container": {
 				Resource: "baz",
-				Gid:      ptr(1000),
+				Gid:      new(1000),
 				Uid:      nil,
 				Mounts: []internalcharm.Mount{
 					{
@@ -1520,7 +1520,7 @@ func (s *importSuite) TestApplicationImportSubordinate(c *tc.C) {
 	c.Check(importArgs.Units, tc.DeepEquals, []service.ImportIAASUnitArg{{
 		ImportUnitArg: service.ImportUnitArg{
 			UnitName:     "prometheus/0",
-			PasswordHash: ptr("passwordhash"),
+			PasswordHash: new("passwordhash"),
 			Principal:    "principal/0",
 		},
 		Machine: machine.Name("0"),
@@ -1610,7 +1610,7 @@ func (s *importSuite) expectDevice() {
 func (s *importSuite) expectContainer() {
 	exp := s.container.EXPECT()
 	exp.Resource().Return("baz")
-	exp.Gid().Return(ptr(1000))
+	exp.Gid().Return(new(1000))
 	exp.Uid().Return(nil)
 
 	expMount := s.containerMount.EXPECT()

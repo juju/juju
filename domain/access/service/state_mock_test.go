@@ -123,6 +123,44 @@ func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// AddUserWithCreatedAt mocks base method.
+func (m *MockState) AddUserWithCreatedAt(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddUserWithCreatedAt", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddUserWithCreatedAt indicates an expected call of AddUserWithCreatedAt.
+func (mr *MockStateMockRecorder) AddUserWithCreatedAt(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateAddUserWithCreatedAtCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithCreatedAt", reflect.TypeOf((*MockState)(nil).AddUserWithCreatedAt), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockStateAddUserWithCreatedAtCall{Call: call}
+}
+
+// MockStateAddUserWithCreatedAtCall wrap *gomock.Call
+type MockStateAddUserWithCreatedAtCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddUserWithCreatedAtCall) Return(arg0 error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddUserWithCreatedAtCall) Do(f func(context.Context, user.UUID, user.Name, string, user.UUID, time.Time) error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddUserWithCreatedAtCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, user.UUID, time.Time) error) *MockStateAddUserWithCreatedAtCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddUserWithPasswordHash mocks base method.
 func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
@@ -391,40 +429,40 @@ func (c *MockStateEnableUserAuthenticationCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// EnsureExternalUserIfAuthorized mocks base method.
-func (m *MockState) EnsureExternalUserIfAuthorized(arg0 context.Context, arg1 user.Name, arg2 permission.ID) error {
+// EnsureExternalUser mocks base method.
+func (m *MockState) EnsureExternalUser(arg0 context.Context, arg1 user.Name) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureExternalUserIfAuthorized", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "EnsureExternalUser", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// EnsureExternalUserIfAuthorized indicates an expected call of EnsureExternalUserIfAuthorized.
-func (mr *MockStateMockRecorder) EnsureExternalUserIfAuthorized(arg0, arg1, arg2 any) *MockStateEnsureExternalUserIfAuthorizedCall {
+// EnsureExternalUser indicates an expected call of EnsureExternalUser.
+func (mr *MockStateMockRecorder) EnsureExternalUser(arg0, arg1 any) *MockStateEnsureExternalUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUserIfAuthorized", reflect.TypeOf((*MockState)(nil).EnsureExternalUserIfAuthorized), arg0, arg1, arg2)
-	return &MockStateEnsureExternalUserIfAuthorizedCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUser", reflect.TypeOf((*MockState)(nil).EnsureExternalUser), arg0, arg1)
+	return &MockStateEnsureExternalUserCall{Call: call}
 }
 
-// MockStateEnsureExternalUserIfAuthorizedCall wrap *gomock.Call
-type MockStateEnsureExternalUserIfAuthorizedCall struct {
+// MockStateEnsureExternalUserCall wrap *gomock.Call
+type MockStateEnsureExternalUserCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateEnsureExternalUserIfAuthorizedCall) Return(arg0 error) *MockStateEnsureExternalUserIfAuthorizedCall {
+func (c *MockStateEnsureExternalUserCall) Return(arg0 error) *MockStateEnsureExternalUserCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureExternalUserIfAuthorizedCall) Do(f func(context.Context, user.Name, permission.ID) error) *MockStateEnsureExternalUserIfAuthorizedCall {
+func (c *MockStateEnsureExternalUserCall) Do(f func(context.Context, user.Name) error) *MockStateEnsureExternalUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureExternalUserIfAuthorizedCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) error) *MockStateEnsureExternalUserIfAuthorizedCall {
+func (c *MockStateEnsureExternalUserCall) DoAndReturn(f func(context.Context, user.Name) error) *MockStateEnsureExternalUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

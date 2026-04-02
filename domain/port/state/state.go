@@ -125,8 +125,8 @@ JOIN unit ON unit_uuid = unit.uuid
 // GetMachineOpenedPorts returns the opened ports for all the units on the given
 // machine. Opened ports are grouped first by unit and then by endpoint.
 //
-// NOTE: In the ddl machines and units both share 1-to-1 relations with net_nodes.
-// So to join units to machines we go via their net_nodes.
+// NOTE: In the ddl machines and units both share 1-to-1 relations with
+// net_nodes. So to join units to machines we go via their net_nodes.
 func (st *State) GetMachineOpenedPorts(ctx context.Context, machine string) (map[coreunit.Name]network.GroupedPortRanges, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

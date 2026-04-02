@@ -276,8 +276,8 @@ func (v *volumeSource) createOneVolume(ctx context.Context, p storage.VolumePara
 	// way to help solve the need to have zone all over the place.
 	disk := &computepb.Disk{
 		Name:   &volumeName,
-		SizeGb: ptr(size),
-		Type:   ptr(string(diskType)),
+		SizeGb: new(size),
+		Type:   new(string(diskType)),
 		Labels: resourceTagsToDiskLabels(p.ResourceTags),
 	}
 	err = v.gce.CreateDisks(ctx, zone, []*computepb.Disk{disk})

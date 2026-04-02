@@ -89,11 +89,52 @@ func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAli
 }
 
 func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAliveCascadeNotExistsSuccess(c *tc.C) {
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
+	s.createIAASApplication(c, s.setupApplicationService(c), "bar")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "foo:foo", "bar:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureRemoteApplicationOffererNotAliveCascade(c.Context(), "some-application-uuid")
+	artifacts, err := st.EnsureRemoteApplicationOffererNotAliveCascade(c.Context(), "some-application-uuid")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.IsEmpty(), tc.Equals, true)
+
+	// Verify no cascade occurred when the offerer UUID cannot be found.
+	s.checkRemoteApplicationOffererLife(c, remoteAppUUID.String(), life.Alive)
+	s.checkRelationLife(c, relUUID, life.Alive)
+}
+
+func (s *remoteApplicationOffererSuite) TestEnsureRemoteApplicationOffererNotAliveCascadeVerifiesRelationUUIDs(c *tc.C) {
+	_, remoteAppUUID := s.createRemoteApplicationOfferer(c, "foo")
+	appSvc := s.setupApplicationService(c)
+	s.createIAASApplication(c, appSvc, "bar")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "foo:foo", "bar:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	artifacts, err := st.EnsureRemoteApplicationOffererNotAliveCascade(c.Context(), remoteAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(artifacts.RelationUUIDs, tc.HasLen, 1)
+	c.Check(artifacts.RelationUUIDs[0], tc.Equals, relUUID.String())
+
+	s.checkRemoteApplicationOffererLife(c, remoteAppUUID.String(), life.Dying)
+	s.checkRelationLife(c, relUUID, life.Dying)
 }
 
 func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererScheduleRemovalNormalSuccess(c *tc.C) {

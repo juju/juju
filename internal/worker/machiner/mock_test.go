@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machiner_test
+package machiner
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -31,7 +30,7 @@ func (w *mockWatcher) Wait() error {
 }
 
 type mockMachine struct {
-	machiner.Machine
+	Machine
 	testhelpers.Stub
 	watcher mockWatcher
 	life    life.Value
@@ -75,7 +74,7 @@ type mockMachineAccessor struct {
 	machine mockMachine
 }
 
-func (a *mockMachineAccessor) Machine(_ context.Context, tag names.MachineTag) (machiner.Machine, error) {
+func (a *mockMachineAccessor) Machine(_ context.Context, tag names.MachineTag) (Machine, error) {
 	a.MethodCall(a, "Machine", tag)
 	if err := a.NextErr(); err != nil {
 		return nil, err

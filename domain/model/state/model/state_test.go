@@ -330,22 +330,22 @@ INSERT INTO space (uuid, name) VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:           new("amd64"),
+		Container:      new(instance.LXD),
+		CpuCores:       new(uint64(4)),
+		Mem:            new(uint64(1024)),
+		RootDisk:       new(uint64(1024)),
+		RootDiskSource: new("root-disk-source"),
+		Tags:           new([]string{"tag1", "tag2"}),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
-		ImageID:          ptr("image-id"),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
+		ImageID:          new("image-id"),
 	}
 
 	err = state.SetModelConstraints(c.Context(), cons)
@@ -383,7 +383,7 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *tc.C) {
 	c.Check(getCons.AllocatePublicIP, tc.IsNil)
 
 	// False Bool
-	cons.AllocatePublicIP = ptr(false)
+	cons.AllocatePublicIP = new(false)
 	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -392,7 +392,7 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *tc.C) {
 	c.Check(*getCons.AllocatePublicIP, tc.IsFalse)
 
 	// True Bool
-	cons.AllocatePublicIP = ptr(true)
+	cons.AllocatePublicIP = new(true)
 	err = state.SetModelConstraints(c.Context(), cons)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -419,22 +419,22 @@ INSERT INTO space (uuid, name) VALUES
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:           new("amd64"),
+		Container:      new(instance.LXD),
+		CpuCores:       new(uint64(4)),
+		Mem:            new(uint64(1024)),
+		RootDisk:       new(uint64(1024)),
+		RootDiskSource: new("root-disk-source"),
+		Tags:           new([]string{"tag1", "tag2"}),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
-		ImageID:          ptr("image-id"),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
+		ImageID:          new("image-id"),
 	}
 
 	err = state.SetModelConstraints(c.Context(), cons)
@@ -449,10 +449,10 @@ INSERT INTO space (uuid, name) VALUES
 	// constraints. This helps validates the internal implementation that
 	// previously set tags and spaces are removed correctly.
 	cons = constraints.Constraints{
-		Arch:    ptr("amd64"),
-		Zones:   ptr([]string{"zone2"}),
-		ImageID: ptr("image-id"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:    new("amd64"),
+		Zones:   new([]string{"zone2"}),
+		ImageID: new("image-id"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: true},
 		}),
 	}
@@ -473,8 +473,8 @@ func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 	state := NewState(runner, loggertesting.WrapCheckLog(c))
 
 	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
 	})
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
@@ -490,8 +490,8 @@ func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	state := NewState(runner, loggertesting.WrapCheckLog(c))
 
 	cons := constraints.Constraints{
-		Container: ptr(instance.ContainerType("noexist")),
-		ImageID:   ptr("image-id"),
+		Container: new(instance.ContainerType("noexist")),
+		ImageID:   new("image-id"),
 	}
 
 	err := state.SetModelConstraints(c.Context(), cons)
@@ -511,10 +511,10 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) {
 	state := NewState(runner, loggertesting.WrapCheckLog(c))
 
 	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		ImageID: ptr("image-id"),
+		ImageID: new("image-id"),
 	})
 	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 

@@ -1613,7 +1613,7 @@ SELECT
 	re.relation_uuid AS &applicationStatusDetails.relation_uuid,
 	c.reference_name AS &applicationStatusDetails.charm_reference_name,
 	c.revision AS &applicationStatusDetails.charm_revision,
-	c.source_id AS &applicationStatusDetails.charm_source_id,
+	cs.name AS &applicationStatusDetails.charm_source,
 	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
 	c.version AS &applicationStatusDetails.charm_version,
 	c.lxd_profile AS &applicationStatusDetails.lxd_profile,
@@ -1628,6 +1628,7 @@ FROM application AS a
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
 LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
+JOIN charm_source AS cs ON cs.id = c.source_id
 JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
@@ -1758,7 +1759,7 @@ SELECT
 	m.name AS &unitStatusDetails.machine_name,
 	c.reference_name AS &unitStatusDetails.charm_reference_name,
 	c.revision AS &unitStatusDetails.charm_revision,
-	c.source_id AS &unitStatusDetails.charm_source_id,
+	cs.name AS &unitStatusDetails.charm_source,
 	c.architecture_id AS &unitStatusDetails.charm_architecture_id,
 	cm.subordinate AS &unitStatusDetails.subordinate,
 	upu.name AS &unitStatusDetails.principal_name,
@@ -1786,6 +1787,7 @@ FROM unit AS u
 JOIN application AS a ON a.uuid = u.application_uuid
 JOIN net_node AS n ON n.uuid = u.net_node_uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
+JOIN charm_source AS cs ON cs.id = c.source_id
 JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid
 LEFT JOIN unit_agent_status AS uas ON uas.unit_uuid = u.uuid
@@ -2593,8 +2595,4 @@ func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, err
 			ConfigType: corenetwork.AddressConfigType(address.ConfigType),
 		},
 	}, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

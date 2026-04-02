@@ -115,7 +115,7 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		}
 	}
 
-	if err := writeTypesFile(versionToken, structs, structNames, imports); err != nil {
+	if err := writeTypesFile(versionToken, usedTableNames, structs, structNames, imports); err != nil {
 		return err
 	}
 
@@ -230,7 +230,16 @@ func generateStruct(tableName string, columns []column) (string, []string, error
 		}
 		fieldName := toCamelCase(col.Name)
 
-		if _, err := sb.WriteString(fmt.Sprintf("\t%s %s `db:%q`\n", fieldName, goType, col.Name)); err != nil {
+		if _, err := sb.WriteString(
+			fmt.Sprintf(
+				"\t%s %s `db:%q json:%q yaml:%q`\n",
+				fieldName,
+				goType,
+				col.Name,
+				col.Name,
+				col.Name,
+			),
+		); err != nil {
 			return "", nil, err
 		}
 	}
@@ -267,7 +276,13 @@ func sqliteTypeToGoType(sqliteType string, notNull bool) (string, string) {
 	return goType, imp
 }
 
-func writeTypesFile(version string, structs []string, structNames []string, imports map[string]struct{}) error {
+func writeTypesFile(
+	version string,
+	tableNames []string,
+	structs []string,
+	structNames []string,
+	imports map[string]struct{},
+) error {
 	// We should be in domain/export/generate.
 	_, filename, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(filename)
@@ -296,11 +311,13 @@ func writeTypesFile(version string, structs []string, structNames []string, impo
 	data := struct {
 		Version     string
 		Imports     []string
+		TableNames  []string
 		Structs     []string
 		StructNames []string
 	}{
 		Version:     version,
 		Imports:     sortedImports,
+		TableNames:  tableNames,
 		Structs:     structs,
 		StructNames: structNames,
 	}

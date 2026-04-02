@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
+	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/environs"
 )
 
@@ -43,7 +44,9 @@ type State interface {
 // SpaceState describes persistence layer methods for the space (sub-) domain.
 type SpaceState interface {
 	// AddSpace creates a space.
-	AddSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error
+	AddSpace(
+		ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string,
+	) error
 	// GetSpace returns the space by UUID. If the space is not found, an error
 	// is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
@@ -60,7 +63,9 @@ type SpaceState interface {
 	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
 	// RemoveSpace removes a space from the system, optionally forcing removal,
 	// or simulating it via dry run.
-	RemoveSpace(ctx context.Context, spaceName network.SpaceName, force, dryRun bool) (domainnetwork.RemoveSpaceViolations, error)
+	RemoveSpace(
+		ctx context.Context, spaceName network.SpaceName, force, dryRun bool,
+	) (domainnetwork.RemoveSpaceViolations, error)
 	// MoveSubnetsToSpace transfers a list of subnets to a specified network
 	// space. It verifies that existing machines will still satisfy their
 	// constraints and bindings. The check can be ignored if forced. In this
@@ -111,13 +116,13 @@ type NetConfigState interface {
 	// (k8s or machines).
 	//
 	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
+	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
+	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetNetNodeAddresses retrieves network space addresses associated with the
@@ -163,18 +168,24 @@ type NetConfigState interface {
 // NetworkInfoState defines a persistence layer interface for retrieving
 // network relationship details.
 type NetworkInfoState interface {
+	// IsCaasUnit returns whether the specified unit is backed by a
+	// Kubernetes service.
+	IsCaasUnit(ctx context.Context, unitUUID string) (bool, error)
 
-	// GetUnitEndpointNetworks retrieves network relationship details for a
-	// specified unit and its given endpoints.
-	// It returns a list of domainnetwork.Info, one per endpoint name,
-	// with no guaranteed order.
-	// Returns if retrieval fails, or an empty list if the unit is not found or
-	// endpoints are inconsistent.
-	GetUnitEndpointNetworks(ctx context.Context, unitUUID string, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
+	// GetUnitEgressSubnets retrieves the egress subnets for the specified
+	// unit.
+	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
 
-	// GetUnitNetwork retrieves network information for the specified unit by
-	// selecting the best candidate from *all* unit addresses.
-	// This is used on providers that do not support spaces, and therefore can
-	// not factor endpoint bindings.
-	GetUnitNetwork(ctx context.Context, unitUUID string) (domainnetwork.UnitNetwork, error)
+	// GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
+	// specified endpoints. It returns one result per endpoint name.
+	GetUnitEndpointNetworkAddresses(
+		ctx context.Context, unitUUID string, endpointNames []string,
+	) ([]networkinternal.EndpointAddresses, error)
+
+	// GetUnitNetworkAddresses retrieves all raw unit addresses for the
+	// specified unit. This is used on providers that do not support spaces and
+	// therefore cannot factor endpoint bindings.
+	GetUnitNetworkAddresses(
+		ctx context.Context, unitUUID string,
+	) ([]networkinternal.UnitAddress, error)
 }

@@ -111,10 +111,6 @@ func (s Service) validateAllMetadata(ctx context.Context, metadata []cloudimagem
 
 // validateMetadata validates a single cloud image metadata entry.
 func (s Service) validateMetadata(ctx context.Context, m cloudimagemetadata.Metadata) error {
-	if m.ImageID == "" {
-		return errors.Errorf("%w: %w", cloudimageerrors.EmptyImageID, cloudimageerrors.NotValid)
-	}
-
 	var missing []string
 	if m.Version == "" {
 		missing = append(missing, "version")
@@ -133,7 +129,11 @@ func (s Service) validateMetadata(ctx context.Context, m cloudimagemetadata.Meta
 	}
 
 	if len(missing) > 0 {
-		return cloudimageerrors.NotValidMissingFields(m.ImageID, missing)
+		imageID := m.ImageID
+		if imageID == "" {
+			imageID = "<empty image id>"
+		}
+		return cloudimageerrors.NotValidMissingFields(imageID, missing)
 	}
 
 	supportedArchitectures := s.st.SupportedArchitectures(ctx)

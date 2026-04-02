@@ -91,8 +91,13 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 		}
 	}()
 
+	opts := make([]charmhub.DownloadOption, 0)
+	if d.logger.IsLevelEnabled(logger.TRACE) {
+		opts = append(opts, charmhub.WithProgressBar(charmhub.NewLoggingProgressBar(d.logger)))
+	}
+
 	// Force the sha256 digest to be calculated on download.
-	digest, err := d.client.Download(ctx, url, tmpFile.Name())
+	digest, err := d.client.Download(ctx, url, tmpFile.Name(), opts...)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -102,7 +107,7 @@ func (d *CharmDownloader) Download(ctx context.Context, url *url.URL, hash strin
 		return nil, errors.Errorf("%w: %q, got %q", ErrInvalidDigestHash, hash, digest.SHA256)
 	}
 
-	d.logger.Debugf(ctx, "downloaded charm: %q", url)
+	d.logger.Infof(ctx, "downloaded charm: %q", url)
 
 	return &DownloadResult{
 		SHA256: digest.SHA256,

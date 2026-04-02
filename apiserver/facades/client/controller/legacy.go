@@ -29,7 +29,7 @@ func (c *ControllerAPIV12) ModelStatus(ctx context.Context, req params.Entities)
 			result.Results[i].Error = r.Error
 			continue
 		}
-		owner, err := params.ApproximateUserTagFromQualifier(model.Qualifier(r.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(r.Qualifier))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -64,7 +64,7 @@ func (c *ControllerAPIV12) AllModels(ctx context.Context) (params.UserModelListL
 		UserModels: make([]params.UserModelLegacy, 0, len(models.UserModels)),
 	}
 	for i, m := range models.UserModels {
-		owner, err := params.ApproximateUserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
 		if err != nil {
 			return params.UserModelListLegacy{}, apiservererrors.ServerError(err)
 		}
@@ -96,7 +96,7 @@ func (c *ControllerAPIV12) ListBlockedModels(ctx context.Context) (params.ModelB
 		Models: make([]params.ModelBlockInfoLegacy, 0, len(models.Models)),
 	}
 	for i, m := range models.Models {
-		owner, err := params.ApproximateUserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
 		if err != nil {
 			return params.ModelBlockInfoListLegacy{}, apiservererrors.ServerError(err)
 		}
@@ -130,7 +130,7 @@ func (c *ControllerAPIV12) HostedModelConfigs(ctx context.Context) (params.Hoste
 			}
 			continue
 		}
-		owner, err := params.ApproximateUserTagFromQualifier(model.Qualifier(m.Qualifier))
+		owner, err := params.UserTagFromQualifier(model.Qualifier(m.Qualifier))
 		if err != nil {
 			result.Models[i] = params.HostedModelConfigLegacy{
 				Error: apiservererrors.ServerError(err),

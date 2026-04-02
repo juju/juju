@@ -502,7 +502,7 @@ func (st *State) insertRemoteApplicationOfferer(
 	statusInfo := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusUnknown,
 		Message: "waiting for first status update",
-		Since:   ptr(st.clock.Now().UTC()),
+		Since:   new(st.clock.Now().UTC()),
 	}
 	if err := st.insertRemoteApplicationOffererStatus(ctx, tx, args.RemoteApplicationUUID, statusInfo); err != nil {
 		return errors.Errorf("inserting remote application offerer status: %w", err)

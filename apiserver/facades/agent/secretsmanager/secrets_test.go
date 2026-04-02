@@ -107,10 +107,6 @@ func (s *SecretsManagerSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type backendConfigParamsMatcher struct {
 	c        *tc.C
 	expected any
@@ -596,8 +592,8 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *tc.C) {
 	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unittesting.GenNewName(c, "mariadb/0"), uri, "label").Return(uri, ptr("label"), nil)
-	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, ptr("label")).
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unittesting.GenNewName(c, "mariadb/0"), uri, "label").Return(uri, new("label"), nil)
+	s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, new("label")).
 		Return(668, nil)
 
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, secret.SecretAccessor{
@@ -1248,7 +1244,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	mac := apitesting.MustNewMacaroon("id")
 
 	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), consumer, uri, "foo").
-		Return(uri, ptr("foo"), nil)
+		Return(uri, new("foo"), nil)
 
 	s.remoteClient.EXPECT().Close()
 

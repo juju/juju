@@ -3,8 +3,6 @@
 
 package blockcommand
 
-import "github.com/juju/juju/internal/errors"
-
 const (
 	// DefaultMaxMessageLength is the default maximum length of a block message.
 	DefaultMaxMessageLength = 512
@@ -15,25 +13,16 @@ type BlockType int8
 
 const (
 	// DestroyBlock type identifies block that prevents model destruction.
-	DestroyBlock BlockType = 1
+	DestroyBlock BlockType = iota
 
 	// RemoveBlock type identifies block that prevents
 	// removal of machines, applications, units or relations.
-	RemoveBlock BlockType = 2
+	RemoveBlock
 
 	// ChangeBlock type identifies block that prevents model changes such
 	// as additions, modifications, removals of model entities.
-	ChangeBlock BlockType = 3
+	ChangeBlock
 )
-
-// Validate checks if the block type is valid.
-func (t BlockType) Validate() error {
-	switch t {
-	case DestroyBlock, RemoveBlock, ChangeBlock:
-		return nil
-	}
-	return errors.Errorf("invalid block type %d", t)
-}
 
 func (t BlockType) String() string {
 	switch t {

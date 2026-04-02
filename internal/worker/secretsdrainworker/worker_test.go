@@ -168,7 +168,7 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *tc.C) {
 		s.backendClient.EXPECT().GetBackend(gomock.Any(), nil, true).Return(activeBackend, "backend-2", nil),
 		s.backendClient.EXPECT().GetRevisionContent(gomock.Any(), uri, 1).Return(secretValue, nil),
 		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("revision-1", nil),
-		s.backendClient.EXPECT().GetBackend(gomock.Any(), ptr("backend-1"), true).Return(oldBackend, "", nil),
+		s.backendClient.EXPECT().GetBackend(gomock.Any(), new("backend-1"), true).Return(oldBackend, "", nil),
 		s.facade.EXPECT().ChangeSecretBackend(
 			gomock.Any(),
 			[]secretsdrain.ChangeSecretBackendArg{
@@ -265,7 +265,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *tc.C) {
 		s.backendClient.EXPECT().GetBackend(gomock.Any(), nil, true).Return(activeBackend, "backend-2", nil),
 		s.backendClient.EXPECT().GetRevisionContent(gomock.Any(), uri, 1).Return(secretValue, nil),
 		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("", errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(gomock.Any(), ptr("backend-1"), true).Return(oldBackend, "", nil),
+		s.backendClient.EXPECT().GetBackend(gomock.Any(), new("backend-1"), true).Return(oldBackend, "", nil),
 		s.facade.EXPECT().ChangeSecretBackend(
 			gomock.Any(),
 			[]secretsdrain.ChangeSecretBackendArg{
@@ -322,13 +322,13 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *tc.C) {
 		s.backendClient.EXPECT().GetBackend(gomock.Any(), nil, true).Return(activeBackend, "backend-3", nil),
 		s.backendClient.EXPECT().GetRevisionContent(gomock.Any(), uri, 1).Return(secretValue, nil),
 		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, secretValue).Return("", errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(gomock.Any(), ptr("backend-1"), true).Return(oldBackend, "", nil),
+		s.backendClient.EXPECT().GetBackend(gomock.Any(), new("backend-1"), true).Return(oldBackend, "", nil),
 
 		// revision 2
 		s.backendClient.EXPECT().GetBackend(gomock.Any(), nil, true).Return(activeBackend, "backend-3", nil),
 		s.backendClient.EXPECT().GetRevisionContent(gomock.Any(), uri, 2).Return(secretValue, nil),
 		activeBackend.EXPECT().SaveContent(gomock.Any(), uri, 2, secretValue).Return("", errors.NotSupportedf("")),
-		s.backendClient.EXPECT().GetBackend(gomock.Any(), ptr("backend-2"), true).Return(oldBackend, "", nil),
+		s.backendClient.EXPECT().GetBackend(gomock.Any(), new("backend-2"), true).Return(oldBackend, "", nil),
 
 		s.facade.EXPECT().ChangeSecretBackend(
 			gomock.Any(),
@@ -403,8 +403,4 @@ func (s *workerSuite) TestDrainLeadershipChange(c *tc.C) {
 		}),
 	)
 	start("")
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

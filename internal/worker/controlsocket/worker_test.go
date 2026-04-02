@@ -175,7 +175,7 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *tc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
-		Password:    ptr(auth.NewPassword("bar")),
+		Password:    new(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 		Permission: permission.AccessSpec{
 			Target: s.controllerModelID,
@@ -201,7 +201,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *tc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
-		Password:    ptr(auth.NewPassword("bar")),
+		Password:    new(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 		Permission: permission.AccessSpec{
 			Target: s.controllerModelID,
@@ -230,7 +230,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *tc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
-		Password:    ptr(auth.NewPassword("bar")),
+		Password:    new(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 		Permission: permission.AccessSpec{
 			Target: s.controllerModelID,
@@ -260,7 +260,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButWrongPermissions(c *tc.
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
-		Password:    ptr(auth.NewPassword("bar")),
+		Password:    new(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 		Permission: permission.AccessSpec{
 			Target: s.controllerModelID,
@@ -292,7 +292,7 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        s.metricsUserName,
 		DisplayName: "juju-metrics-r0",
-		Password:    ptr(auth.NewPassword("bar")),
+		Password:    new(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 		Permission: permission.AccessSpec{
 			Target: s.controllerModelID,
@@ -407,8 +407,4 @@ func client(socketPath string) *http.Client {
 			},
 		},
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

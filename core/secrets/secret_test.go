@@ -144,19 +144,15 @@ func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &SecretSuite{})
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretSuite) TestValidateConfig(c *tc.C) {
 	cfg := secrets.SecretConfig{
-		RotatePolicy: ptr(secrets.RotateDaily),
+		RotatePolicy: new(secrets.RotateDaily),
 	}
 	err := cfg.Validate()
 	c.Assert(err, tc.ErrorMatches, "cannot specify a secret rotate policy without a next rotate time")
 
 	cfg = secrets.SecretConfig{
-		NextRotateTime: ptr(time.Now()),
+		NextRotateTime: new(time.Now()),
 	}
 	err = cfg.Validate()
 	c.Assert(err, tc.ErrorMatches, "cannot specify a secret rotate time without a rotate policy")

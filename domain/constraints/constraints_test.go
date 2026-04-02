@@ -34,38 +34,38 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 		{
 			Comment: "Test every value get's set as described",
 			In: constraints.Value{
-				Arch:             ptr("test"),
-				Container:        ptr(instance.LXD),
-				CpuCores:         ptr(uint64(1)),
-				CpuPower:         ptr(uint64(1)),
-				Mem:              ptr(uint64(1024)),
-				RootDisk:         ptr(uint64(100)),
-				RootDiskSource:   ptr("source"),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				InstanceRole:     ptr("instance-role"),
-				InstanceType:     ptr("instance-type"),
-				VirtType:         ptr("kvm"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
-				ImageID:          ptr("image-123"),
-				Spaces:           ptr([]string{"space1", "space2", "^space3"}),
+				Arch:             new("test"),
+				Container:        new(instance.LXD),
+				CpuCores:         new(uint64(1)),
+				CpuPower:         new(uint64(1)),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(100)),
+				RootDiskSource:   new("source"),
+				Tags:             new([]string{"tag1", "tag2"}),
+				InstanceRole:     new("instance-role"),
+				InstanceType:     new("instance-type"),
+				VirtType:         new("kvm"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
+				ImageID:          new("image-123"),
+				Spaces:           new([]string{"space1", "space2", "^space3"}),
 			},
 			Out: Constraints{
-				Arch:             ptr("test"),
-				Container:        ptr(instance.LXD),
-				CpuCores:         ptr(uint64(1)),
-				CpuPower:         ptr(uint64(1)),
-				Mem:              ptr(uint64(1024)),
-				RootDisk:         ptr(uint64(100)),
-				RootDiskSource:   ptr("source"),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				InstanceRole:     ptr("instance-role"),
-				InstanceType:     ptr("instance-type"),
-				VirtType:         ptr("kvm"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
-				ImageID:          ptr("image-123"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch:             new("test"),
+				Container:        new(instance.LXD),
+				CpuCores:         new(uint64(1)),
+				CpuPower:         new(uint64(1)),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(100)),
+				RootDiskSource:   new("source"),
+				Tags:             new([]string{"tag1", "tag2"}),
+				InstanceRole:     new("instance-role"),
+				InstanceType:     new("instance-type"),
+				VirtType:         new("kvm"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
+				ImageID:          new("image-123"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
 					{SpaceName: "space3", Exclude: true},
@@ -75,12 +75,12 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 		{
 			Comment: "Test only excluded spaces",
 			In: constraints.Value{
-				Arch:   ptr("test"),
-				Spaces: ptr([]string{"^space3"}),
+				Arch:   new("test"),
+				Spaces: new([]string{"^space3"}),
 			},
 			Out: Constraints{
-				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch: new("test"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
@@ -88,12 +88,12 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 		{
 			Comment: "Test only included spaces",
 			In: constraints.Value{
-				Arch:   ptr("test"),
-				Spaces: ptr([]string{"space3"}),
+				Arch:   new("test"),
+				Spaces: new([]string{"space3"}),
 			},
 			Out: Constraints{
-				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch: new("test"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space3", Exclude: false},
 				}),
 			},
@@ -101,10 +101,10 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 		{
 			Comment: "Test no spaces",
 			In: constraints.Value{
-				Arch: ptr("test"),
+				Arch: new("test"),
 			},
 			Out: Constraints{
-				Arch: ptr("test"),
+				Arch: new("test"),
 			},
 		},
 	}
@@ -128,77 +128,77 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 		{
 			Comment: "Test every value get's set as described",
 			In: Constraints{
-				Arch:             ptr("test"),
-				Container:        ptr(instance.LXD),
-				CpuCores:         ptr(uint64(1)),
-				CpuPower:         ptr(uint64(1)),
-				Mem:              ptr(uint64(1024)),
-				RootDisk:         ptr(uint64(100)),
-				RootDiskSource:   ptr("source"),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				InstanceRole:     ptr("instance-role"),
-				InstanceType:     ptr("instance-type"),
-				VirtType:         ptr("kvm"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
-				ImageID:          ptr("image-123"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch:             new("test"),
+				Container:        new(instance.LXD),
+				CpuCores:         new(uint64(1)),
+				CpuPower:         new(uint64(1)),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(100)),
+				RootDiskSource:   new("source"),
+				Tags:             new([]string{"tag1", "tag2"}),
+				InstanceRole:     new("instance-role"),
+				InstanceType:     new("instance-type"),
+				VirtType:         new("kvm"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
+				ImageID:          new("image-123"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
 			Out: constraints.Value{
-				Arch:             ptr("test"),
-				Container:        ptr(instance.LXD),
-				CpuCores:         ptr(uint64(1)),
-				CpuPower:         ptr(uint64(1)),
-				Mem:              ptr(uint64(1024)),
-				RootDisk:         ptr(uint64(100)),
-				RootDiskSource:   ptr("source"),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				InstanceRole:     ptr("instance-role"),
-				InstanceType:     ptr("instance-type"),
-				VirtType:         ptr("kvm"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
-				ImageID:          ptr("image-123"),
-				Spaces:           ptr([]string{"space1", "space2", "^space3"}),
+				Arch:             new("test"),
+				Container:        new(instance.LXD),
+				CpuCores:         new(uint64(1)),
+				CpuPower:         new(uint64(1)),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(100)),
+				RootDiskSource:   new("source"),
+				Tags:             new([]string{"tag1", "tag2"}),
+				InstanceRole:     new("instance-role"),
+				InstanceType:     new("instance-type"),
+				VirtType:         new("kvm"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
+				ImageID:          new("image-123"),
+				Spaces:           new([]string{"space1", "space2", "^space3"}),
 			},
 		},
 		{
 			Comment: "Test only excluded spaces",
 			In: Constraints{
-				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch: new("test"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
 			Out: constraints.Value{
-				Arch:   ptr("test"),
-				Spaces: ptr([]string{"^space3"}),
+				Arch:   new("test"),
+				Spaces: new([]string{"^space3"}),
 			},
 		},
 		{
 			Comment: "Test only included spaces",
 			In: Constraints{
-				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Arch: new("test"),
+				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space3", Exclude: false},
 				}),
 			},
 			Out: constraints.Value{
-				Arch:   ptr("test"),
-				Spaces: ptr([]string{"space3"}),
+				Arch:   new("test"),
+				Spaces: new([]string{"space3"}),
 			},
 		},
 		{
 			Comment: "Test no spaces",
 			In: Constraints{
-				Arch: ptr("test"),
+				Arch: new("test"),
 			},
 			Out: constraints.Value{
-				Arch: ptr("test"),
+				Arch: new("test"),
 			},
 		},
 	}
@@ -207,9 +207,4 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 		rval := EncodeConstraints(test.In)
 		c.Check(rval, tc.DeepEquals, test.Out, tc.Commentf(test.Comment))
 	}
-}
-
-// ptr returns a reference to a copied value of type T.
-func ptr[T any](i T) *T {
-	return &i
 }

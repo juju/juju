@@ -25,7 +25,7 @@ func (st *State) updateUnitPorts(
 	if len(openPorts)+len(closePorts) == 0 {
 		return nil
 	}
-	unitUUID := unitUUID{UUID: unit}
+	unitUUID := entityUUID{UUID: unit}
 
 	openPorts, closePorts, err := st.resolveWildcardEndpoints(ctx, tx, unitUUID, openPorts, closePorts)
 	if err != nil {
@@ -80,7 +80,7 @@ func (st *State) updateUnitPorts(
 //  4. If we close a port range on the wildcard endpoint, this should be applied
 //     to all other endpoints.
 func (st *State) resolveWildcardEndpoints(
-	ctx context.Context, tx *sqlair.TX, unitUUID unitUUID, openPorts, closePorts network.GroupedPortRanges,
+	ctx context.Context, tx *sqlair.TX, unitUUID entityUUID, openPorts, closePorts network.GroupedPortRanges,
 ) (network.GroupedPortRanges, network.GroupedPortRanges, error) {
 
 	// Clone input vars so they can be safely mutated
@@ -240,13 +240,13 @@ func verifyNoPortRangeConflicts(rangesA, rangesB []network.PortRange) error {
 
 // getColocatedOpenedPorts returns all the open ports for all units co-located with
 // the given unit. Units are considered co-located if they share the same net-node.
-func (st *State) getColocatedOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]network.PortRange, error) {
+func (st *State) getColocatedOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID entityUUID) ([]network.PortRange, error) {
 	getOpenedPorts, err := st.Prepare(`
 SELECT &portRange.*
 FROM v_port_range AS pr
 JOIN unit AS u ON unit_uuid = u.uuid
 JOIN unit AS u2 on u2.net_node_uuid = u.net_node_uuid
-WHERE u2.uuid = $unitUUID.uuid
+WHERE u2.uuid = $entityUUID.uuid
 `, portRange{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get colocated opened ports statement: %w", err)
@@ -268,11 +268,11 @@ WHERE u2.uuid = $unitUUID.uuid
 
 // getWildcardEndpointOpenedPorts returns the opened ports for the wildcard endpoint of a
 // given unit.
-func (st *State) getWildcardEndpointOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]network.PortRange, error) {
+func (st *State) getWildcardEndpointOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID entityUUID) ([]network.PortRange, error) {
 	query, err := st.Prepare(`
 SELECT &portRange.*
 FROM v_port_range
-WHERE unit_uuid = $unitUUID.uuid
+WHERE unit_uuid = $entityUUID.uuid
 AND endpoint IS NULL
 `, portRange{}, unitUUID)
 	if err != nil {
@@ -298,11 +298,11 @@ AND endpoint IS NULL
 
 // getEndpoints returns all the valid relation endpoints for a given unit. This
 // does not include the special wildcard endpoint.
-func (st *State) getEndpoints(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]string, error) {
+func (st *State) getEndpoints(ctx context.Context, tx *sqlair.TX, unitUUID entityUUID) ([]string, error) {
 	getEndpoints, err := st.Prepare(`
 SELECT &endpointName.*
 FROM v_endpoint
-WHERE unit_uuid = $unitUUID.uuid
+WHERE unit_uuid = $entityUUID.uuid
 `, endpointName{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get endpoints statement: %w", err)
@@ -328,12 +328,12 @@ WHERE unit_uuid = $unitUUID.uuid
 // We return a slice of `endpoint` structs, allowing us to identify which endpoint/relation
 // uuid is which, as order is not guaranteed.
 func (st *State) lookupRelationUUIDs(
-	ctx context.Context, tx *sqlair.TX, unitUUID unitUUID, endpointNames endpoints,
+	ctx context.Context, tx *sqlair.TX, unitUUID entityUUID, endpointNames endpoints,
 ) ([]endpoint, error) {
 	getEndpoints, err := st.Prepare(`
 SELECT &endpoint.*
 FROM v_endpoint
-WHERE unit_uuid = $unitUUID.uuid
+WHERE unit_uuid = $entityUUID.uuid
 AND endpoint IN ($endpoints[:])
 `, endpoint{}, unitUUID, endpointNames)
 	if err != nil {
@@ -364,11 +364,11 @@ AND endpoint IN ($endpoints[:])
 //
 // NOTE: This differs from GetUnitOpenedPorts in that it returns port ranges with
 // their UUIDs, which are not needed by GetUnitOpenedPorts.
-func (st *State) getUnitOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID unitUUID) ([]endpointPortRangeUUID, error) {
+func (st *State) getUnitOpenedPorts(ctx context.Context, tx *sqlair.TX, unitUUID entityUUID) ([]endpointPortRangeUUID, error) {
 	getOpenedPorts, err := st.Prepare(`
 SELECT &endpointPortRangeUUID.*
 FROM v_port_range
-WHERE unit_uuid = $unitUUID.uuid
+WHERE unit_uuid = $entityUUID.uuid
 `, endpointPortRangeUUID{}, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("preparing get opened ports statement: %w", err)
@@ -388,7 +388,7 @@ WHERE unit_uuid = $unitUUID.uuid
 // openPorts inserts the given port ranges into the database, unless they're already open.
 func (st *State) openPorts(
 	ctx context.Context, tx *sqlair.TX,
-	openPorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID, unitUUID unitUUID, endpoints []endpoint,
+	openPorts network.GroupedPortRanges, currentOpenedPorts []endpointPortRangeUUID, unitUUID entityUUID, endpoints []endpoint,
 ) error {
 	insertPortRange, err := st.Prepare("INSERT INTO port_range (*) VALUES ($unitPortRange.*)", unitPortRange{})
 	if err != nil {
