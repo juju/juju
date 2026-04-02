@@ -221,6 +221,8 @@ func (w *localWorker) loop() error {
 
 // Report provides information for the engine report.
 func (w *localWorker) Report(ctx context.Context) map[string]any {
+	ctx = w.catacomb.Context(ctx)
+
 	result := make(map[string]any)
 	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
 	result["consumer-application-uuid"] = w.consumerApplicationUUID.String()
@@ -229,9 +231,13 @@ func (w *localWorker) Report(ctx context.Context) map[string]any {
 	case <-time.After(time.Second):
 		result["error"] = "timed out waiting for report"
 
-	case <-w.catacomb.Dying():
-		result["error"] = "worker is dying"
-
+	case <-ctx.Done():
+		select {
+		case <-w.catacomb.Dying():
+			result["error"] = "worker is dying"
+		default:
+			result["error"] = ctx.Err().Error()
+		}
 	case event := <-w.reportRequests:
 		result["changed-units"] = event.UnitsSettings
 		result["all-units"] = event.AllUnits

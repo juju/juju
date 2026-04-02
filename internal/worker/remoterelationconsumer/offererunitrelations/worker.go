@@ -287,6 +287,8 @@ func (w *remoteWorker) loop() error {
 
 // Report provides information for the engine report.
 func (w *remoteWorker) Report(ctx context.Context) map[string]any {
+	ctx = w.catacomb.Context(ctx)
+
 	result := make(map[string]any)
 	result["consumer-relation-uuid"] = w.consumerRelationUUID.String()
 	result["offerer-application-uuid"] = w.offererApplicationUUID.String()
@@ -295,9 +297,13 @@ func (w *remoteWorker) Report(ctx context.Context) map[string]any {
 	case <-time.After(time.Second):
 		result["error"] = "timed out waiting for report"
 
-	case <-w.catacomb.Dying():
-		result["error"] = "worker is dying"
-
+	case <-ctx.Done():
+		select {
+		case <-w.catacomb.Dying():
+			result["error"] = "worker is dying"
+		default:
+			result["error"] = ctx.Err().Error()
+		}
 	case event := <-w.reportRequests:
 		result["changed-units"] = transform.Slice(event.ChangedUnits, func(c UnitChange) map[string]any {
 			return map[string]any{
