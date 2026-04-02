@@ -35,7 +35,7 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		}
 
 		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
-			return errors.Errorf("update network info:%w", err)
+			return errors.Errorf("update network info: %w", err)
 		}
 
 		if err := st.updateRelationSettings(ctx, tx, unitUUID, arg.RelationSettings); err != nil {
