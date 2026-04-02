@@ -147,6 +147,8 @@ func NewControllerAPI(
 			apiUser,
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
+			st.ControllerTag(),
+			authorizer,
 			resources,
 			cloudspec.MakeCloudSpecGetter(pool),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
@@ -248,42 +250,6 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	}
 	result.Result = version
 	return result, nil
-}
-
-// CloudSpec returns the cloud specs for the given models.
-func (c *ControllerAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
-	isSuperuser, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
-	if err != nil {
-		return params.CloudSpecResults{}, errors.Trace(err)
-	}
-
-	results, err := c.CloudSpecer.CloudSpec(args)
-	if err != nil {
-		return params.CloudSpecResults{}, errors.Trace(err)
-	}
-	if isSuperuser {
-		return results, nil
-	}
-	// If not a controller superusers, only model admins
-	// can see the credentials.
-	for i, r := range results.Results {
-		if r.Result == nil {
-			continue
-		}
-		tag, err := names.ParseModelTag(args.Entities[i].Tag)
-		if err != nil {
-			// Should never happen; this was parsed getting the cloud spec.
-			return params.CloudSpecResults{}, errors.Trace(err)
-		}
-		isAdmin, err := c.authorizer.HasPermission(permission.AdminAccess, tag)
-		if err != nil {
-			return params.CloudSpecResults{}, errors.Trace(err)
-		}
-		if !isAdmin {
-			r.Result.Credential = nil
-		}
-	}
-	return results, nil
 }
 
 // AllModels allows controller administrators to get the list of all the

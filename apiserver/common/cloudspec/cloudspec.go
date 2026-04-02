@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -31,8 +32,10 @@ type CloudSpecer interface {
 }
 
 type CloudSpecAPI struct {
-	resources facade.Resources
+	authorizer facade.Authorizer
+	resources  facade.Resources
 
+	controllerTag                          names.ControllerTag
 	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
@@ -50,6 +53,8 @@ type CloudSpecAPIV1 struct {
 
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
+	controllerTag names.ControllerTag,
+	authorizer facade.Authorizer,
 	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -57,15 +62,20 @@ func NewCloudSpec(
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return CloudSpecAPI{resources,
-		getCloudSpec,
-		watchCloudSpec,
-		watchCloudSpecModelCredentialReference,
-		watchCloudSpecCredentialContent,
-		getAuthFunc}
+	return CloudSpecAPI{
+		controllerTag:                          controllerTag,
+		authorizer:                             authorizer,
+		resources:                              resources,
+		getCloudSpec:                           getCloudSpec,
+		watchCloudSpec:                         watchCloudSpec,
+		watchCloudSpecModelCredentialReference: watchCloudSpecModelCredentialReference,
+		watchCloudSpecCredentialContent:        watchCloudSpecCredentialContent,
+		getAuthFunc:                            getAuthFunc}
 }
 
 func NewCloudSpecV2(
+	controllerTag names.ControllerTag,
+	authorizer facade.Authorizer,
 	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -74,6 +84,8 @@ func NewCloudSpecV2(
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPIV2 {
 	api := NewCloudSpec(
+		controllerTag,
+		authorizer,
 		resources,
 		getCloudSpec,
 		watchCloudSpec,
@@ -85,6 +97,8 @@ func NewCloudSpecV2(
 }
 
 func NewCloudSpecV1(
+	controllerTag names.ControllerTag,
+	authorizer facade.Authorizer,
 	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -93,6 +107,8 @@ func NewCloudSpecV1(
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPIV1 {
 	v2API := NewCloudSpecV2(
+		controllerTag,
+		authorizer,
 		resources,
 		k8sCloudSpecChanger(getCloudSpec),
 		watchCloudSpec,
@@ -124,26 +140,62 @@ func k8sCloudSpecChanger(
 
 // CloudSpec returns the model's cloud spec.
 func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
-	authFunc, err := s.getAuthFunc()
-	if err != nil {
-		return params.CloudSpecResults{}, err
+	// Connected clients which are the controller agent
+	// or model agent can fetch credentials with the cloud spec.
+	// Users must be superusers or model admins.
+	credAllowed := s.authorizer.AuthController() || s.authorizer.AuthModelAgent()
+	if !credAllowed && s.authorizer.AuthClient() {
+		var err error
+		credAllowed, err = s.authorizer.HasPermission(permission.SuperuserAccess, s.controllerTag)
+		if err != nil {
+			return params.CloudSpecResults{}, errors.Trace(err)
+		}
 	}
 	results := params.CloudSpecResults{
 		Results: make([]params.CloudSpecResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseModelTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !authFunc(tag) {
-			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		results.Results[i] = s.GetCloudSpec(tag)
+		results.Results[i] = s.getOneCloudSpec(arg.Tag, credAllowed)
 	}
 	return results, nil
+}
+
+func (s CloudSpecAPI) getOneCloudSpec(tagStr string, credAllowed bool) params.CloudSpecResult {
+	tag, err := names.ParseModelTag(tagStr)
+	if err != nil {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(errors.Trace(err)),
+		}
+	}
+	authFunc, err := s.getAuthFunc()
+	if err != nil {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(errors.Trace(err)),
+		}
+	}
+	if !authFunc(tag) {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
+		}
+	}
+	result := s.GetCloudSpec(tag)
+	if result.Result == nil {
+		return result
+	}
+	// If not already allowed, only model admins
+	// can see the credentials.
+	if !credAllowed && s.authorizer.AuthClient() {
+		credAllowed, err = s.authorizer.HasPermission(permission.AdminAccess, tag)
+		if err != nil {
+			return params.CloudSpecResult{
+				Error: apiservererrors.ServerError(errors.Trace(err)),
+			}
+		}
+	}
+	if !credAllowed {
+		result.Result.Credential = nil
+	}
+	return result
 }
 
 // GetCloudSpec constructs the CloudSpec for a validated and authorized model.

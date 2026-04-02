@@ -208,6 +208,17 @@ func (s *controllerSuite) TestCloudSpecModelUnprivileged(c *gc.C) {
 	s.assertCloudSpec(c, false)
 }
 
+func (s *controllerSuite) TestCloudSpecWrongModel(c *gc.C) {
+	result, err := s.controller.CloudSpec(params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewModelTag(utils.MustNewUUID().String()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+}
+
 func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
