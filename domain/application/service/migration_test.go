@@ -53,7 +53,7 @@ func (s *migrationServiceSuite) TestGetCharmIDWithoutSource(c *tc.C) {
 
 	_, err := s.service.GetCharmID(c.Context(), domaincharm.GetCharmArgs{
 		Name:     "foo",
-		Revision: ptr(42),
+		Revision: new(42),
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
@@ -72,7 +72,7 @@ func (s *migrationServiceSuite) TestGetCharmIDInvalidSource(c *tc.C) {
 
 	_, err := s.service.GetCharmID(c.Context(), domaincharm.GetCharmArgs{
 		Name:     "foo",
-		Revision: ptr(42),
+		Revision: new(42),
 		Source:   "wrong-source",
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmSourceNotValid)
@@ -317,11 +317,11 @@ func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  domaincharm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 		"baz": {
 			Type:  domaincharm.OptionBool,
-			Value: ptr("true"),
+			Value: new("true"),
 		},
 	}, application.ApplicationSettings{
 		Trust: true,
@@ -484,18 +484,18 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	unitArg := ImportIAASUnitArg{
 		ImportUnitArg: ImportUnitArg{
 			UnitName:     "ubuntu/666",
-			PasswordHash: ptr("passwordhash"),
+			PasswordHash: new("passwordhash"),
 			Principal:    "principal/0",
 		},
 		Machine: "0",
 	}
 
 	cons := constraints.Value{
-		Mem:      ptr(uint64(1024)),
-		CpuPower: ptr(uint64(1000)),
-		CpuCores: ptr(uint64(2)),
-		Arch:     ptr("arm64"),
-		Tags:     ptr([]string{"foo", "bar"}),
+		Mem:      new(uint64(1024)),
+		CpuPower: new(uint64(1000)),
+		CpuCores: new(uint64(2)),
+		Arch:     new("arm64"),
+		Tags:     new([]string{"foo", "bar"}),
 	}
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, domainconstraints.DecodeConstraints(cons)).Return(nil)
@@ -518,7 +518,7 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 			CharmOrigin: corecharm.Origin{
 				Source:   corecharm.CharmHub,
 				Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-				Revision: ptr(42),
+				Revision: new(42),
 			},
 			ApplicationConstraints: cons,
 			ReferenceName:          "ubuntu",
@@ -547,7 +547,7 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	expectedUnitArgs := []application.ImportIAASUnitArg{{
 		ImportUnitArg: application.ImportUnitArg{
 			UnitName: "ubuntu/666",
-			Password: ptr(application.PasswordInfo{
+			Password: new(application.PasswordInfo{
 				PasswordHash:  "passwordhash",
 				HashAlgorithm: 0,
 			}),
@@ -641,16 +641,16 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	unitArg := ImportCAASUnitArg{
 		ImportUnitArg: ImportUnitArg{
 			UnitName:     "ubuntu/666",
-			PasswordHash: ptr("passwordhash"),
+			PasswordHash: new("passwordhash"),
 		},
 	}
 
 	cons := constraints.Value{
-		Mem:      ptr(uint64(1024)),
-		CpuPower: ptr(uint64(1000)),
-		CpuCores: ptr(uint64(2)),
-		Arch:     ptr("arm64"),
-		Tags:     ptr([]string{"foo", "bar"}),
+		Mem:      new(uint64(1024)),
+		CpuPower: new(uint64(1000)),
+		CpuCores: new(uint64(2)),
+		Arch:     new("arm64"),
+		Tags:     new([]string{"foo", "bar"}),
 	}
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, domainconstraints.DecodeConstraints(cons)).Return(nil)
@@ -673,7 +673,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 			CharmOrigin: corecharm.Origin{
 				Source:   corecharm.CharmHub,
 				Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-				Revision: ptr(42),
+				Revision: new(42),
 			},
 			ApplicationConstraints: cons,
 			ReferenceName:          "ubuntu",
@@ -708,7 +708,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	expectedUnitArgs := []application.ImportCAASUnitArg{{
 		ImportUnitArg: application.ImportUnitArg{
 			UnitName: "ubuntu/666",
-			Password: ptr(application.PasswordInfo{
+			Password: new(application.PasswordInfo{
 				PasswordHash:  "passwordhash",
 				HashAlgorithm: 0,
 			}),

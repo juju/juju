@@ -104,7 +104,6 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	)
 
 	return NewModelManagerAPI(
-		stdCtx,
 		isAdmin,
 		apiUser,
 		modelStatusAPI,
@@ -118,8 +117,6 @@ func newFacadeV11(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 			AccessService:        domainServices.Access(),
 			ObjectStore:          ctx.ObjectStore(),
 			SecretBackendService: domainServices.SecretBackend(),
-			NetworkService:       domainServices.Network(),
-			MachineService:       domainServices.Machine(),
 			ApplicationService:   domainServices.Application(),
 			RemovalService:       domainServices.Removal(),
 		},

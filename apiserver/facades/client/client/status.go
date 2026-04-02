@@ -760,9 +760,9 @@ func (c *statusContext) makeMachineStatus(
 			// Instead of sending the has and wants vote booleans, we send the
 			// role string instead. This allows us to provide more concrete
 			// information about the cluster role of the machine.
-			status.ClusterRole = ptr(clusterInfo.Role.String())
+			status.ClusterRole = new(clusterInfo.Role.String())
 		} else {
-			status.ClusterRole = ptr("unknown")
+			status.ClusterRole = new("unknown")
 		}
 	}
 
@@ -1500,10 +1500,6 @@ func processStorage(
 	}
 
 	return storageResult, filesystemResult, volumeResult, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func hasExposedApplications(applications map[string]statusservice.Application) bool {

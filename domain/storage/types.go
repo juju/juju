@@ -172,6 +172,7 @@ type ImportFilesystemAttachmentsParams struct {
 	HostMachineName string
 	HostUnitName    string
 	MountPoint      string
+	ProviderID      string
 	ReadOnly        bool
 }
 

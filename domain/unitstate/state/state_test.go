@@ -26,11 +26,11 @@ func TestStateSuite(t *stdtesting.T) {
 func (s *stateSuite) TestSetUnitState(c *tc.C) {
 	agentState := unitstate.UnitState{
 		Name:          s.unitName,
-		CharmState:    ptr(map[string]string{"one-key": "one-value"}),
-		UniterState:   ptr("some-uniter-state-yaml"),
-		RelationState: ptr(map[int]string{1: "one-value"}),
-		StorageState:  ptr("some-storage-state-yaml"),
-		SecretState:   ptr("some-secret-state-yaml"),
+		CharmState:    new(map[string]string{"one-key": "one-value"}),
+		UniterState:   new("some-uniter-state-yaml"),
+		RelationState: new(map[int]string{1: "one-value"}),
+		StorageState:  new("some-storage-state-yaml"),
+		SecretState:   new("some-secret-state-yaml"),
 	}
 	s.state.SetUnitState(c.Context(), agentState)
 
@@ -50,7 +50,7 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 	agentState := unitstate.UnitState{
 		Name:        s.unitName,
-		UniterState: ptr("some-uniter-state-yaml"),
+		UniterState: new("some-uniter-state-yaml"),
 	}
 	s.state.SetUnitState(c.Context(), agentState)
 
@@ -72,7 +72,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 	ctx := c.Context()
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
+		return s.state.ensureUnitStateRecord(ctx, tx, entityUUID{UUID: s.unitUUID})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -80,7 +80,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
 
 	// Running again makes no change.
 	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
+		return s.state.ensureUnitStateRecord(ctx, tx, entityUUID{UUID: s.unitUUID})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -92,10 +92,10 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *tc.C) {
 	expState := "some uniter state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
+		if err := s.state.ensureUnitStateRecord(ctx, tx, entityUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return s.state.updateUnitStateUniter(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
+		return s.state.updateUnitStateUniter(ctx, tx, entityUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -113,10 +113,10 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *tc.C) {
 	expState := "some storage state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
+		if err := s.state.ensureUnitStateRecord(ctx, tx, entityUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return s.state.updateUnitStateStorage(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
+		return s.state.updateUnitStateStorage(ctx, tx, entityUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -134,10 +134,10 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *tc.C) {
 	expState := "some secret state YAML"
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
+		if err := s.state.ensureUnitStateRecord(ctx, tx, entityUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return s.state.updateUnitStateSecret(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
+		return s.state.updateUnitStateSecret(ctx, tx, entityUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -162,7 +162,7 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 	}
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitStateCharm(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
+		return s.state.setUnitStateCharm(ctx, tx, entityUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -201,7 +201,7 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	}
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
+		return s.state.setUnitStateRelation(ctx, tx, entityUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -236,7 +236,7 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 	s.addUnitStateCharm(c, 1, "one-val")
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, map[int]string{})
+		return s.state.setUnitStateRelation(ctx, tx, entityUUID{UUID: s.unitUUID}, map[int]string{})
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -34,6 +35,8 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	domainexport "github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/v4_0_4"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -72,6 +75,15 @@ type modelManagerSuite struct {
 
 func TestModelManagerSuite(t *testing.T) {
 	tc.Run(t, &modelManagerSuite{})
+}
+
+type stubExportService struct {
+	modelExport *domainexport.ModelExport
+	err         error
+}
+
+func (s stubExportService) Export(context.Context) (*domainexport.ModelExport, error) {
+	return s.modelExport, s.err
 }
 
 func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
@@ -127,7 +139,6 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 
 	cred := cloud.NewEmptyCredential()
 	s.api = modelmanager.NewModelManagerAPI(
-		c.Context(),
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,
@@ -616,15 +627,88 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *tc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
-	c.Skip("re-implement dump model")
+	defer s.setUpAPI(c).Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	expected := &domainexport.ModelExport{
+		Version: "4.0.4",
+		Payload: &v4_0_4.ModelExport{
+			AgentBinaryStore: []v4_0_4.AgentBinaryStore{{
+				Version:         "4.0.4",
+				ArchitectureID:  1,
+				ObjectStoreUUID: "object-store-uuid",
+			}},
+		},
+	}
+
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Export().Return(stubExportService{
+		modelExport: expected,
+	})
+
+	results := s.api.DumpModels(c.Context(), params.DumpModelRequest{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+
+	var wireExport struct {
+		Version string             `yaml:"version"`
+		Payload v4_0_4.ModelExport `yaml:"payload"`
+	}
+	err := yaml.Unmarshal([]byte(results.Results[0].Result), &wireExport)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(wireExport.Version, tc.Equals, "4.0.4")
+
+	expectedPayload, ok := expected.Payload.(*v4_0_4.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(&wireExport.Payload, tc.DeepEquals, expectedPayload)
 }
 
 func (s *modelManagerSuite) TestDumpModelMissingModel(c *tc.C) {
-	c.Skip("re-implement dump model")
+	defer s.setUpAPI(c).Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(nil, modelerrors.NotFound)
+
+	results := s.api.DumpModels(c.Context(), params.DumpModelRequest{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.NotNil)
+	c.Check(results.Results[0].Error.Message, tc.Matches, ".*not found.*")
 }
 
 func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
-	c.Skip("re-implement dump model")
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	user := names.NewUserTag("admin-" + modelTag.String())
+	defer s.setUpAPIWithUser(c, user).Finish()
+
+	expected := &domainexport.ModelExport{
+		Version: "4.0.4",
+		Payload: &v4_0_4.ModelExport{},
+	}
+
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Export().Return(stubExportService{
+		modelExport: expected,
+	})
+
+	results := s.api.DumpModels(c.Context(), params.DumpModelRequest{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].Result, tc.Matches, "(?s).*version: 4.0.4.*")
 }
 
 func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {
@@ -956,7 +1040,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	domainServices := s.ControllerDomainServices(c)
 
 	s.modelmanager = modelmanager.NewModelManagerAPI(
-		c.Context(),
 		user.Name() == "admin",
 		user,
 		s.modelStatusAPI,

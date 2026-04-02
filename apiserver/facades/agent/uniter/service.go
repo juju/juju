@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainlife "github.com/juju/juju/domain/life"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -57,6 +59,7 @@ type Services struct {
 	SecretService              SecretService
 	StorageProvisioningService StorageProvisioningService
 	UnitStateService           UnitStateService
+	TracingService             TracingService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -217,6 +220,14 @@ type ApplicationService interface {
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
 	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error
+
+	// GetIAASUnitContext returns the unit context for a unit running on an IAAS
+	// provider.
+	GetIAASUnitContext(context.Context, coreunit.Name) (applicationservice.IAASUnitContext, error)
+
+	// GetCAASUnitContext returns the unit context for a unit running on an CAAS
+	// provider.
+	GetCAASUnitContext(context.Context, coreunit.Name) (applicationservice.CAASUnitContext, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -529,15 +540,6 @@ type RelationService interface {
 		unitSettings map[string]string,
 	) error
 
-	// SetRelationApplicationAndUnitSettings records settings for a unit and
-	// an application in a relation.
-	SetRelationApplicationAndUnitSettings(
-		ctx context.Context,
-		unitName coreunit.Name,
-		relationUnitUUID corerelation.UUID,
-		applicationSettings, unitSettings map[string]string,
-	) error
-
 	// WatchRelationUnitApplicationLifeSuspendedStatus returns a watcher that notifies
 	// of changes to the life or suspended status any relation the unit's
 	// application is part of. If the unit is a subordinate, its principal
@@ -648,4 +650,10 @@ type StorageProvisioningService interface {
 	WatchStorageAttachment(
 		ctx context.Context, uuid domainstorage.StorageAttachmentUUID,
 	) (watcher.NotifyWatcher, error)
+}
+
+// TracingService provides methods to retrieve tracing configuration for charms.
+type TracingService interface {
+	// GetCharmTracingConfig returns the charm tracing config from the state.
+	GetCharmTracingConfig(ctx context.Context) (tracingservice.CharmTracingConfig, error)
 }

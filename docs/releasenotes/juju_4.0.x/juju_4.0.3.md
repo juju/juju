@@ -14,7 +14,7 @@
 
 N/A.
 
-* **Upgrade note**: transition behavior for storage and offers is now explicitly documented; migrating models with multiple SAAS entries for one offer may collapse to a single SAAS entry, and orphaned storage may appear as storage instances to support cleanup flows.
+* **Upgrade note**: transition behavior for storage and offers is now explicitly documented; migrating models with multiple SAAS entries for one offer may collapse to a single SAAS entry.
   [feat: add transition information for storage and offers](https://github.com/juju/juju/pull/21832#top)
 
 ## 🚀 Features (key changes)

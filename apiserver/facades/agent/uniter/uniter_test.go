@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/service"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -43,6 +45,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -56,14 +59,17 @@ type uniterSuite struct {
 	badTag  names.Tag
 	authTag names.Tag
 
-	applicationService *MockApplicationService
-	machineService     *MockMachineService
-	operationService   *MockOperationService
-	networkService     *MockNetworkService
-	portService        *MockPortService
-	resolveService     *MockResolveService
-	removalService     *MockRemovalService
-	watcherRegistry    *MockWatcherRegistry
+	applicationService    *MockApplicationService
+	machineService        *MockMachineService
+	operationService      *MockOperationService
+	networkService        *MockNetworkService
+	portService           *MockPortService
+	controllerNodeService *MockControllerNodeService
+	resolveService        *MockResolveService
+	removalService        *MockRemovalService
+	tracingService        *MockTracingService
+
+	watcherRegistry *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -1525,6 +1531,212 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestGetUnitContextUnauthorized(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/0")
+
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: s.badTag.String()})
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestGetUnitContextInvalidTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: "application-mysql"})
+
+	// Assert
+	c.Assert(err, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestGetUnitContextIAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, nil,
+	)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res, tc.DeepEquals, params.UnitContext{
+		APIAddresses:                      []string{"10.0.0.1:17070", "10.0.0.2:17070"},
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               encodeProxySettings(legacyProxySettings),
+		JujuProxySettings:                 encodeProxySettings(jujuProxySettings),
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedMachinePortRangesByEndpoint),
+	})
+}
+
+func (s *uniterSuite) TestGetUnitContextIAASUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(
+		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
+	)
+
+	_, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestGetUnitContextCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.uniter.modelType = coremodel.CAAS
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedPortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/0"): {
+			"": []network.PortRange{{
+				FromPort: 8080,
+				ToPort:   8080,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetCAASUnitContext(gomock.Any(), unitName).Return(service.CAASUnitContext{
+		CloudAPIVersion:            "v2.0.0",
+		LegacyProxySettings:        legacyProxySettings,
+		JujuProxySettings:          jujuProxySettings,
+		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, nil,
+	)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res, tc.DeepEquals, params.UnitContext{
+		APIAddresses:               []string{"10.0.0.1:17070"},
+		CloudAPIVersion:            "v2.0.0",
+		LegacyProxySettings:        encodeProxySettings(legacyProxySettings),
+		JujuProxySettings:          encodeProxySettings(jujuProxySettings),
+		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint),
+	})
+}
+
+func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+	charmTracingConfig := tracingservice.CharmTracingConfig{
+		HTTPEndpoint:  "http://tracing:4317",
+		GRPCEndpoint:  "grpc://tracing:9411",
+		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(charmTracingConfig, nil)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res.CharmTracingConfig, tc.DeepEquals, params.CharmTracingConfig{
+		HTTPEndpoint:  "http://tracing:4317",
+		GRPCEndpoint:  "grpc://tracing:9411",
+		CACertificate: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
+	})
+	c.Check(res.APIAddresses, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
+}
+
+func (s *uniterSuite) TestGetUnitContextWithCharmTracingConfigError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[coreunit.Name]network.GroupedPortRanges{
+		coreunit.Name("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+	s.tracingService.EXPECT().GetCharmTracingConfig(gomock.Any()).Return(
+		tracingservice.CharmTracingConfig{}, errors.New("tracing service error"),
+	)
+
+	res, err := s.uniter.GetUnitContext(c.Context(), params.Entity{Tag: unitTag.String()})
+
+	c.Assert(err, tc.IsNil)
+	c.Check(res.CharmTracingConfig, tc.DeepEquals, params.CharmTracingConfig{})
+	c.Check(res.APIAddresses, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
+}
+
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
 	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(coreapplication.UUID(unitName.Application()), err)
 	if err == nil {
@@ -1567,8 +1779,10 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.operationService = NewMockOperationService(ctrl)
 	s.portService = NewMockPortService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.tracingService = NewMockTracingService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	authFunc := func(ctx context.Context) (common.AuthFunc, error) {
@@ -1578,18 +1792,21 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	s.uniter = &UniterAPI{
-		applicationService: s.applicationService,
-		machineService:     s.machineService,
-		networkService:     s.networkService,
-		operationService:   s.operationService,
-		portService:        s.portService,
-		resolveService:     s.resolveService,
-		removalService:     s.removalService,
-		auth:               authorizer,
-		accessApplication:  authFunc,
-		accessMachine:      authFunc,
-		accessUnit:         authFunc,
-		watcherRegistry:    s.watcherRegistry,
+		applicationService:    s.applicationService,
+		machineService:        s.machineService,
+		networkService:        s.networkService,
+		operationService:      s.operationService,
+		portService:           s.portService,
+		controllerNodeService: s.controllerNodeService,
+		resolveService:        s.resolveService,
+		removalService:        s.removalService,
+		tracingService:        s.tracingService,
+		auth:                  authorizer,
+		accessApplication:     authFunc,
+		accessMachine:         authFunc,
+		accessUnit:            authFunc,
+		watcherRegistry:       s.watcherRegistry,
+		logger:                loggertesting.WrapCheckLog(c),
 	}
 
 	c.Cleanup(func() {
@@ -1599,8 +1816,10 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.networkService = nil
 		s.operationService = nil
 		s.portService = nil
+		s.controllerNodeService = nil
 		s.resolveService = nil
 		s.removalService = nil
+		s.tracingService = nil
 		s.watcherRegistry = nil
 	})
 
@@ -1668,8 +1887,10 @@ func (s *uniterv19Suite) SetUpTest(c *tc.C) {
 
 		s.uniter = &UniterAPIv19{
 			UniterAPIv20: &UniterAPIv20{
-				UniterAPI: &UniterAPI{
-					watcherRegistry: s.watcherRegistry,
+				UniterAPIv21: &UniterAPIv21{
+					UniterAPI: &UniterAPI{
+						watcherRegistry: s.watcherRegistry,
+					},
 				},
 			},
 		}
@@ -1694,10 +1915,12 @@ func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 		s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher1", nil).AnyTimes()
 
 		s.uniter = &UniterAPIv20{
-			UniterAPI: &UniterAPI{
-				modelUUID:       tc.Must(c, coremodel.NewUUID),
-				modelType:       coremodel.IAAS,
-				watcherRegistry: s.watcherRegistry,
+			UniterAPIv21: &UniterAPIv21{
+				UniterAPI: &UniterAPI{
+					modelUUID:       tc.Must(c, coremodel.NewUUID),
+					modelType:       coremodel.IAAS,
+					watcherRegistry: s.watcherRegistry,
+				},
 			},
 		}
 
@@ -2459,6 +2682,8 @@ func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 // TestRelationsStatusUnitTagNotUnitNorApplication test that a valid tag not of
 // the type application nor unit fails with unauthorized.
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
 	result, err := s.uniter.RelationsStatus(c.Context(), args)
@@ -2472,6 +2697,8 @@ func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c 
 // TestRelationsStatusUnitTagCannotAccess tests that a valid unit tag which is not
 // the authorized one will fail.
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}}
 	result, err := s.uniter.RelationsStatus(c.Context(), args)
@@ -2490,7 +2717,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
-		Since:  ptr(s.uniter.clock.Now()),
+		Since:  new(s.uniter.clock.Now()),
 	}
 	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
 
@@ -2509,6 +2736,8 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 }
 
 func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
 	result, err := s.uniter.SetRelationStatus(c.Context(), args)
@@ -2871,7 +3100,7 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.statusService = nil
 		s.watcherRegistry = nil
-
+		s.uniter = nil
 	})
 	return ctrl
 }
@@ -3043,6 +3272,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	// Arrange: setup basics
 	unitName, _ := coreunit.NewName("wordpress/0")
 	unitTag := names.NewUnitTag(unitName.String())
+	relationKey, _ := corerelation.NewKeyFromString("one:db two:use")
 
 	// Arrange: SetUnitStateArg
 	arg := params.CommitHookChangesArg{
@@ -3056,6 +3286,12 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 		}},
 		OpenPorts: []params.EntityPortRange{{
 			Tag: unitTag.String(), Protocol: "icmp", FromPort: 80, ToPort: 80, Endpoint: "ep1",
+		}},
+		RelationUnitSettings: []params.RelationUnitSettings{{
+			Relation:            names.NewRelationTag(relationKey.String()).String(),
+			Unit:                unitTag.String(),
+			ApplicationSettings: map[string]string{"foo": "bar"},
+			Settings:            map[string]string{"key": "value"},
 		}},
 	}
 
@@ -3073,11 +3309,16 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 				Protocol: "icmp", FromPort: 80, ToPort: 80,
 			}},
 		},
+		RelationSettings: []unitstate.RelationSettings{{
+			RelationKey:         relationKey,
+			ApplicationSettings: map[string]string{"foo": "bar"},
+			Settings:            map[string]string{"key": "value"},
+		}},
 	}
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), domainArg).Return(nil)
 
 	// Act
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg, nil, nil)
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -3100,85 +3341,10 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
 	s.uniter.modelType = coremodel.CAAS
 
 	// Act
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg, nil, nil)
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *tc.C) {
-	// arrange
-	defer s.setupMocks(c).Finish()
-	unitTag := names.NewUnitTag("wordpress/0")
-	relTag := names.NewRelationTag("wordpress:db mysql:db")
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	appSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	unitSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
-	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
-	s.expectGetRelationUUIDByKey(relKey, relUUID)
-	s.expectedSetRelationApplicationAndUnitSettings(coreunit.Name(unitTag.Id()), relUUID, appSettings, unitSettings)
-
-	canAccess := func(tag names.Tag) bool {
-		return true
-	}
-	arg := params.RelationUnitSettings{
-		Relation:            relTag.String(),
-		Unit:                unitTag.String(),
-		Settings:            unitSettings,
-		ApplicationSettings: appSettings,
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.IsNil)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(c *tc.C) {
-	// arrange
-	arg := params.RelationUnitSettings{
-		Unit: "machine-9",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, nil)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAccess(c *tc.C) {
-	// arrange
-	canAccess := func(tag names.Tag) bool {
-		return false
-	}
-	arg := params.RelationUnitSettings{
-		Unit: "unit-failauth-2",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
-func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelationTag(c *tc.C) {
-	// arrange
-	canAccess := func(tag names.Tag) bool {
-		return true
-	}
-	arg := params.RelationUnitSettings{
-		Unit:     "unit-wordpress-2",
-		Relation: "failme",
-	}
-
-	// act
-	err := s.uniter.updateUnitAndApplicationSettings(c.Context(), arg, canAccess)
-
-	// assert
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
@@ -3399,10 +3565,6 @@ func (s *commitHookChangesSuite) expectGetRelationUUIDByKey(key corerelation.Key
 
 func (s *commitHookChangesSuite) expectedSetRelationUnitSettings(unitName coreunit.Name, uuid corerelation.UUID, unitSettings map[string]string) {
 	s.relationService.EXPECT().SetRelationUnitSettings(gomock.Any(), unitName, uuid, unitSettings).Return(nil)
-}
-
-func (s *commitHookChangesSuite) expectedSetRelationApplicationAndUnitSettings(unitName coreunit.Name, uuid corerelation.UUID, appSettings, unitSettings map[string]string) {
-	s.relationService.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), unitName, uuid, appSettings, unitSettings).Return(nil)
 }
 
 func (s *commitHookChangesSuite) expectGetUnitRelationNetwork(unitName coreunit.Name, key corerelation.Key,

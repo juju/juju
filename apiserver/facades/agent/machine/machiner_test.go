@@ -85,6 +85,9 @@ func (s *machinerSuite) makeAPI(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	s.machiner = machiner
+	c.Cleanup(func() {
+		s.machiner = nil
+	})
 }
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *tc.C) {
@@ -190,6 +193,10 @@ func (s *machinerSuite) TestSetStatusMachineNotFound(c *tc.C) {
 }
 
 func (s *machinerSuite) TestSetStatusInvalidTags(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.makeAPI(c)
+
 	result, err := s.machiner.SetStatus(c.Context(), params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: "application-unknown"},
 		{Tag: "invalid-tag"},

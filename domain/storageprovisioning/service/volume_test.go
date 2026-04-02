@@ -1306,7 +1306,7 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 			SizeMiB:              0, // Non provisioned.
 			StorageID:            "11",
 			StorageName:          "kratos-keystore",
-			StorageOwnerUnitName: ptr("unit/0"), // Non shared.
+			StorageOwnerUnitName: new("unit/0"), // Non shared.
 			UUID:                 volumeUUID1,
 		},
 		{
@@ -1334,7 +1334,7 @@ func (s *volumeSuite) TestGetMachineProvisioningVolumeParams(c *tc.C) {
 			SizeMiB:              1024, // Provisioned.
 			StorageID:            "33",
 			StorageName:          "kratos-keystore",
-			StorageOwnerUnitName: ptr("unit/1"), // Non shared.
+			StorageOwnerUnitName: new("unit/1"), // Non shared.
 			UUID:                 volumeUUID3,
 		},
 	}, nil)

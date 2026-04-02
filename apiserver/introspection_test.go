@@ -48,7 +48,7 @@ func (s *introspectionSuite) TestAccess(c *tc.C) {
 		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("hunter2")),
+		Password:    new(auth.NewPassword("hunter2")),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -81,7 +81,7 @@ func (s *introspectionSuite) TestAccessDenied(c *tc.C) {
 		Name:        user.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("hunter2")),
+		Password:    new(auth.NewPassword("hunter2")),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{

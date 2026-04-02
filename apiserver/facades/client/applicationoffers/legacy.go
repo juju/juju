@@ -6,10 +6,7 @@ package applicationoffers
 import (
 	"context"
 
-	"github.com/juju/names/v6"
-
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -31,7 +28,7 @@ func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 			AllowedConsumerTags:    f.AllowedConsumerTags,
 		}
 		if f.OwnerName != "" {
-			out.Filters[i].ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(f.OwnerName)).String()
+			out.Filters[i].ModelQualifier = f.OwnerName
 		}
 	}
 	return out
@@ -65,9 +62,6 @@ func transformOfferURLs(in []string) []string {
 			updatedURLs[i] = urlStr
 			continue
 		}
-		// Older clients may try to reference an offer with a model owner username.
-		// Create a URL ensuring a valid model qualifier is always used.
-		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(url.ModelQualifier)).String()
 		updatedURLs[i] = url.String()
 	}
 	return updatedURLs

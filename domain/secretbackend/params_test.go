@@ -102,7 +102,7 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 		BackendIdentifier: BackendIdentifier{
 			ID: "backend-id",
 		},
-		NewName: ptr(""),
+		NewName: new(""),
 	}
 	err = p.Validate()
 	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
@@ -131,8 +131,4 @@ func (s *paramsSuite) TestUpdateSecretBackendParamsValidate(c *tc.C) {
 	err = p.Validate()
 	c.Check(err, tc.ErrorIs, backenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: empty config value for "backend-id"`)
-}
-
-func ptr[T any](s T) *T {
-	return &s
 }

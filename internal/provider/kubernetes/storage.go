@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/juju/collections/transform"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -821,7 +822,33 @@ func (v *filesystemSource) ensurePersistentVolumeWillRetain(
 func (v *filesystemSource) ImportFilesystem(
 	ctx context.Context,
 	filesystemId string,
+	storageName string,
 	resourceTags map[string]string,
+	force bool,
 ) (jujustorage.FilesystemInfo, error) {
 	return jujustorage.FilesystemInfo{}, errors.New("import filesystem not implemented")
+}
+
+// GetPersistentVolumeClaimIdentifiers returns a list of paired identifiers
+// representing Kubernetes persistent volume claims. Specified on the
+// jujustorage.FilesystemModelMigration interface.
+func (k *kubernetesClient) GetPersistentVolumeClaimIdentifiers(ctx context.Context) ([]jujustorage.PersistentVolumeClaimIdentifiers, error) {
+	pvcAPI := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
+	pvcList, err := pvcAPI.List(ctx, v1.ListOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.New(
+			"kubernetes PersistentVolume not found",
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting kubernetes PersistentVolume: %w", err,
+		)
+	}
+
+	return transform.Slice(pvcList.Items, func(in core.PersistentVolumeClaim) jujustorage.PersistentVolumeClaimIdentifiers {
+		return jujustorage.PersistentVolumeClaimIdentifiers{
+			UID:  string(in.UID),
+			Name: in.Name,
+		}
+	}), nil
 }

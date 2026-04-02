@@ -296,7 +296,7 @@ func transformToOfferConnectionMap(
 			Endpoint:       oc.EndpointName,
 			Status:         status.Status(oc.Status),
 			Message:        oc.StatusMessage,
-			Since:          ptr(oc.Since),
+			Since:          new(oc.Since),
 			IngressSubnets: nil,
 		}
 		if ingress, ok := relationUUID2Ingress[oc.RelationUUID]; ok {

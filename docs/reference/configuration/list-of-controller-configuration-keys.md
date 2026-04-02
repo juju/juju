@@ -345,7 +345,7 @@ created locally on the controller.
 
 **Default value:** 30s
 
-**Can be changed after bootstrap:** no
+**Can be changed after bootstrap:** yes
 
 
 (controller-config-juju-mgmt-space)=

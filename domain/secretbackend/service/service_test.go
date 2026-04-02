@@ -38,10 +38,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type providerWithConfig struct {
 	provider.ProviderConfig
 	provider.SupportAuthRefresh
@@ -1090,6 +1086,13 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *tc.C) {
 	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
 
+	err = svc.CreateSecretBackend(c.Context(), coresecrets.SecretBackend{
+		ID:   "backend-uuid",
+		Name: kubernetes.BuiltInName("foo"),
+	})
+	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "foo-local"`)
+
 	s.mockRegistry.EXPECT().Type().Return("something").AnyTimes()
 	err = svc.CreateSecretBackend(c.Context(), coresecrets.SecretBackend{
 		ID:          "backend-uuid",
@@ -1123,8 +1126,8 @@ func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 			Name: "myvault",
 		},
 		BackendType:         vault.BackendType,
-		TokenRotateInterval: ptr(200 * time.Minute),
-		NextRotateTime:      ptr(now.Add(150 * time.Minute)),
+		TokenRotateInterval: new(200 * time.Minute),
+		NextRotateTime:      new(now.Add(150 * time.Minute)),
 		Config:              addedConfig,
 	}).Return("backend-uuid", nil)
 	s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
@@ -1140,7 +1143,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 		ID:                  "backend-uuid",
 		Name:                "myvault",
 		BackendType:         vault.BackendType,
-		TokenRotateInterval: ptr(200 * time.Minute),
+		TokenRotateInterval: new(200 * time.Minute),
 		Config: map[string]interface{}{
 			"endpoint": "http://vault",
 		},
@@ -1166,12 +1169,12 @@ func (s *serviceSuite) TestUpdateSecretBackendFailed(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "secret backend not valid: both ID and name are missing")
 
 	arg.ID = "backend-uuid"
-	arg.NewName = ptr(juju.BackendName)
+	arg.NewName = new(juju.BackendName)
 	err = svc.UpdateSecretBackend(c.Context(), arg)
 	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "internal"`)
 
-	arg.NewName = ptr(provider.Auto)
+	arg.NewName = new(provider.Auto)
 	err = svc.UpdateSecretBackend(c.Context(), arg)
 	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
@@ -1240,9 +1243,9 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool)
 	}
 	s.mockState.EXPECT().UpdateSecretBackend(gomock.Any(), secretbackend.UpdateSecretBackendParams{
 		BackendIdentifier:   identifier,
-		NewName:             ptr("new-name"),
-		TokenRotateInterval: ptr(200 * time.Minute),
-		NextRotateTime:      ptr(now.Add(150 * time.Minute)),
+		NewName:             new("new-name"),
+		TokenRotateInterval: new(200 * time.Minute),
+		NextRotateTime:      new(now.Add(150 * time.Minute)),
 		Config:              updatedConfig,
 	}).Return("", nil)
 	s.mockRegistry.EXPECT().Type().Return("vault").AnyTimes()
@@ -1261,8 +1264,8 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool)
 		Reset:    []string{"namespace"},
 	}
 	arg.BackendIdentifier = identifier
-	arg.NewName = ptr("new-name")
-	arg.TokenRotateInterval = ptr(200 * time.Minute)
+	arg.NewName = new("new-name")
+	arg.TokenRotateInterval = new(200 * time.Minute)
 	arg.Config = map[string]any{
 		"tls-server-name": "server-name",
 	}
@@ -1322,7 +1325,7 @@ func (s *serviceSuite) TestRotateBackendToken(c *tc.C) {
 		ID:                  "backend-uuid",
 		Name:                "myvault",
 		BackendType:         vault.BackendType,
-		TokenRotateInterval: ptr(200 * time.Minute),
+		TokenRotateInterval: new(200 * time.Minute),
 		Config: map[string]any{
 			"endpoint": "http://vault",
 		},
@@ -1362,7 +1365,7 @@ func (s *serviceSuite) TestRotateBackendTokenRetry(c *tc.C) {
 		ID:                  "backend-uuid",
 		Name:                "myvault",
 		BackendType:         vault.BackendType,
-		TokenRotateInterval: ptr(200 * time.Minute),
+		TokenRotateInterval: new(200 * time.Minute),
 		Config: map[string]any{
 			"endpoint": "http://vault",
 		},
@@ -1561,6 +1564,17 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *tc
 
 	err := svc.SetModelSecretBackend(c.Context(), "internal")
 	c.Assert(err, tc.ErrorMatches, `secret backend name "internal" not valid`)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameK8sLocal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(c.Context(), "b-local")
+	c.Assert(err, tc.ErrorMatches, `secret backend name "b-local" not valid`)
 	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
 }
 

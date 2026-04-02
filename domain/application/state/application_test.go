@@ -75,8 +75,8 @@ func (s *applicationStateSuite) TestCreateIAASApplication(c *tc.C) {
 	ctx := c.Context()
 
 	cons := constraints.Constraints{
-		CpuCores: ptr(uint64(42)),
-		Mem:      ptr(uint64(3072)),
+		CpuCores: new(uint64(42)),
+		Mem:      new(uint64(3072)),
 	}
 
 	id, machineNames, err := s.state.CreateIAASApplication(ctx, "666", application.AddIAASApplicationArg{
@@ -140,8 +140,8 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 	ctx := c.Context()
 
 	cons := constraints.Constraints{
-		CpuCores: ptr(uint64(42)),
-		Mem:      ptr(uint64(3072)),
+		CpuCores: new(uint64(42)),
+		Mem:      new(uint64(3072)),
 	}
 	id, err := s.state.CreateCAASApplication(ctx, "666", application.AddCAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
@@ -239,7 +239,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
-			Value: ptr("bar"),
+			Value: new("bar"),
 			Type:  charm.OptionString,
 		},
 	})
@@ -321,7 +321,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *tc.C) {
 				Status:  status.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
-				Since:   ptr(now),
+				Since:   new(now),
 			},
 		},
 	}, nil)
@@ -335,7 +335,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "test",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 }
 
@@ -381,13 +381,13 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 					Status:  status.UnitAgentStatusExecuting,
 					Message: "test",
 					Data:    []byte(`{"foo": "bar"}`),
-					Since:   ptr(time.Now()),
+					Since:   new(time.Now()),
 				},
 				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "test",
 					Data:    []byte(`{"foo": "bar"}`),
-					Since:   ptr(time.Now()),
+					Since:   new(time.Now()),
 				},
 			},
 		},
@@ -700,10 +700,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *tc.
 	addResources := []resource.AddResourceDetails{
 		{
 			Name:     "foo-file",
-			Revision: ptr(75),
+			Revision: new(75),
 		}, {
 			Name:     "my-image",
-			Revision: ptr(42),
+			Revision: new(42),
 		},
 	}
 
@@ -1195,8 +1195,8 @@ func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresse
 	appName := "foo"
 	s.createCAASApplication(c, appName, life.Alive, application.AddCAASUnitArg{})
 	err := s.state.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)), application.UpdateCAASUnitParams{
-		ProviderID: ptr("provider-id-unit"),
-		Address:    ptr("10.0.0.2"),
+		ProviderID: new("provider-id-unit"),
+		Address:    new("10.0.0.2"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2071,6 +2071,25 @@ func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsNot
 	c.Check(expected, tc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsSyntheticExcludedFromMixed(c *tc.C) {
+	synthAppUUID := s.createIAASApplication(c, "foo", life.Alive)
+	appUUID := s.createIAASApplication(c, "bar", life.Alive)
+
+	// Switch the source_id of a charm to a synthetic CMR charm.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
+SELECT charm_uuid FROM application WHERE uuid = ?
+)`, synthAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected, err := s.state.GetApplicationsWithPendingCharmsFromUUIDs(c.Context(), []coreapplication.UUID{synthAppUUID, appUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(expected, tc.DeepEquals, []coreapplication.UUID{appUUID})
+}
+
 func (s *applicationStateSuite) TestGetApplicationsWithPendingCharmsFromUUIDsForSameCharm(c *tc.C) {
 	// These use the same charm, so once you set one applications charm, you
 	// set both.
@@ -2314,7 +2333,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettings(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: ptr("value"),
+			Value: new("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2346,7 +2365,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: ptr("value"),
+			Value: new("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{
@@ -2416,11 +2435,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"a": {
 			Type:  charm.OptionString,
-			Value: ptr("b"),
+			Value: new("b"),
 		},
 		"c": {
 			Type:  charm.OptionFloat,
-			Value: ptr("d"),
+			Value: new("d"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2430,7 +2449,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsForApplicatio
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"e": {
 			Type:  charm.OptionInt,
-			Value: ptr("f"),
+			Value: new("f"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2447,11 +2466,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaults(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key1": {
 			Type:  charm.OptionString,
-			Value: ptr("value1"),
+			Value: new("value1"),
 		},
 		"key2": {
 			Type:  charm.OptionString,
-			Value: ptr("defaultValue2"),
+			Value: new("defaultValue2"),
 		},
 	})
 }
@@ -2469,11 +2488,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsWithMultiple
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key1": {
 			Type:  charm.OptionString,
-			Value: ptr("value1"),
+			Value: new("value1"),
 		},
 		"key2": {
 			Type:  charm.OptionString,
-			Value: ptr("value2"),
+			Value: new("value2"),
 		},
 	})
 
@@ -2482,11 +2501,11 @@ func (s *applicationStateSuite) TestGetApplicationConfigWithDefaultsWithMultiple
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key1": {
 			Type:  charm.OptionString,
-			Value: ptr("defaultValue1"),
+			Value: new("defaultValue1"),
 		},
 		"key2": {
 			Type:  charm.OptionString,
-			Value: ptr("defaultValue2"),
+			Value: new("defaultValue2"),
 		},
 	})
 }
@@ -2628,7 +2647,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) 
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: ptr("value"),
+			Value: new("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2654,7 +2673,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsBoolean(c 
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionBool,
-			Value: ptr("true"),
+			Value: new("true"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2680,11 +2699,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMultipleCo
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 		"doink": {
 			Type:  charm.OptionInt,
-			Value: ptr("17"),
+			Value: new("17"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2714,7 +2733,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsChangesIde
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"key": {
 			Type:  charm.OptionString,
-			Value: ptr("value"),
+			Value: new("value"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2748,11 +2767,11 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsMerges(c *
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 		"bar": {
 			Type:  charm.OptionString,
-			Value: ptr("foo"),
+			Value: new("foo"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2786,7 +2805,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsOverwrites
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: ptr("baz"),
+			Value: new("baz"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2797,7 +2816,7 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsupdatesTru
 
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{},
 		application.UpdateApplicationSettingsArg{
-			Trust: ptr(true),
+			Trust: new(true),
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2841,7 +2860,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeys(c *tc.C) {
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
-			Value: ptr("d1"),
+			Value: new("d1"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -2859,7 +2878,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIncludingTrust(c *
 
 	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id,
 		map[string]application.AddApplicationConfig{},
-		application.UpdateApplicationSettingsArg{Trust: ptr(true)},
+		application.UpdateApplicationSettingsArg{Trust: new(true)},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -2902,7 +2921,7 @@ func (s *applicationStateSuite) TestUnsetApplicationConfigKeysIgnoredKeys(c *tc.
 	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"c": {
 			Type:  charm.OptionString,
-			Value: ptr("d1"),
+			Value: new("d1"),
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
@@ -3127,24 +3146,24 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		AllocatePublicIP: ptr(true),
-		Arch:             ptr("amd64"),
-		CpuCores:         ptr(uint64(2)),
-		CpuPower:         ptr(uint64(42)),
-		Mem:              ptr(uint64(8)),
-		ImageID:          ptr("image-id"),
-		Tags:             ptr([]string{"tag0", "tag1"}),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		AllocatePublicIP: new(true),
+		Arch:             new("amd64"),
+		CpuCores:         new(uint64(2)),
+		CpuPower:         new(uint64(42)),
+		Mem:              new(uint64(8)),
+		ImageID:          new("image-id"),
+		Tags:             new([]string{"tag0", "tag1"}),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space0", Exclude: false},
 			{SpaceName: "space1", Exclude: true},
 		}),
-		Zones:          ptr([]string{"zone0", "zone1"}),
-		RootDisk:       ptr(uint64(256)),
-		RootDiskSource: ptr("root-disk-source"),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Container:      ptr(instance.LXD),
-		VirtType:       ptr("virt-type"),
+		Zones:          new([]string{"zone0", "zone1"}),
+		RootDisk:       new(uint64(256)),
+		RootDiskSource: new("root-disk-source"),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Container:      new(instance.LXD),
+		VirtType:       new("virt-type"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3156,38 +3175,38 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 		{SpaceName: "space1", Exclude: true},
 	})
 	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
-	c.Check(cons.Arch, tc.DeepEquals, ptr("amd64"))
-	c.Check(cons.CpuCores, tc.DeepEquals, ptr(uint64(2)))
-	c.Check(cons.CpuPower, tc.DeepEquals, ptr(uint64(42)))
-	c.Check(cons.Mem, tc.DeepEquals, ptr(uint64(8)))
-	c.Check(cons.RootDisk, tc.DeepEquals, ptr(uint64(256)))
-	c.Check(cons.RootDiskSource, tc.DeepEquals, ptr("root-disk-source"))
-	c.Check(cons.InstanceRole, tc.DeepEquals, ptr("instance-role"))
-	c.Check(cons.InstanceType, tc.DeepEquals, ptr("instance-type"))
-	c.Check(cons.Container, tc.DeepEquals, ptr(instance.LXD))
-	c.Check(cons.VirtType, tc.DeepEquals, ptr("virt-type"))
-	c.Check(cons.AllocatePublicIP, tc.DeepEquals, ptr(true))
-	c.Check(cons.ImageID, tc.DeepEquals, ptr("image-id"))
+	c.Check(cons.Arch, tc.DeepEquals, new("amd64"))
+	c.Check(cons.CpuCores, tc.DeepEquals, new(uint64(2)))
+	c.Check(cons.CpuPower, tc.DeepEquals, new(uint64(42)))
+	c.Check(cons.Mem, tc.DeepEquals, new(uint64(8)))
+	c.Check(cons.RootDisk, tc.DeepEquals, new(uint64(256)))
+	c.Check(cons.RootDiskSource, tc.DeepEquals, new("root-disk-source"))
+	c.Check(cons.InstanceRole, tc.DeepEquals, new("instance-role"))
+	c.Check(cons.InstanceType, tc.DeepEquals, new("instance-type"))
+	c.Check(cons.Container, tc.DeepEquals, new(instance.LXD))
+	c.Check(cons.VirtType, tc.DeepEquals, new("virt-type"))
+	c.Check(cons.AllocatePublicIP, tc.DeepEquals, new(true))
+	c.Check(cons.ImageID, tc.DeepEquals, new("image-id"))
 }
 
 func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		AllocatePublicIP: ptr(true),
-		Arch:             ptr("amd64"),
-		CpuCores:         ptr(uint64(2)),
-		ImageID:          ptr("image-id"),
+		AllocatePublicIP: new(true),
+		Arch:             new("amd64"),
+		CpuCores:         new(uint64(2)),
+		ImageID:          new("image-id"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
-		Arch:             ptr("amd64"),
-		CpuCores:         ptr(uint64(2)),
-		AllocatePublicIP: ptr(true),
-		ImageID:          ptr("image-id"),
+		Arch:             new("amd64"),
+		CpuCores:         new(uint64(2)),
+		AllocatePublicIP: new(true),
+		ImageID:          new("image-id"),
 	})
 }
 
@@ -3195,14 +3214,14 @@ func (s *applicationStateSuite) TestConstraintSingleValue(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		CpuCores: ptr(uint64(2)),
+		CpuCores: new(uint64(2)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
-		CpuCores: ptr(uint64(2)),
+		CpuCores: new(uint64(2)),
 	})
 }
 
@@ -3223,24 +3242,24 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	cons := constraints.Constraints{
-		Arch:             ptr("amd64"),
-		CpuCores:         ptr(uint64(2)),
-		CpuPower:         ptr(uint64(42)),
-		Mem:              ptr(uint64(8)),
-		RootDisk:         ptr(uint64(256)),
-		RootDiskSource:   ptr("root-disk-source"),
-		InstanceRole:     ptr("instance-role"),
-		InstanceType:     ptr("instance-type"),
-		Container:        ptr(instance.LXD),
-		VirtType:         ptr("virt-type"),
-		AllocatePublicIP: ptr(true),
-		ImageID:          ptr("image-id"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:             new("amd64"),
+		CpuCores:         new(uint64(2)),
+		CpuPower:         new(uint64(42)),
+		Mem:              new(uint64(8)),
+		RootDisk:         new(uint64(256)),
+		RootDiskSource:   new("root-disk-source"),
+		InstanceRole:     new("instance-role"),
+		InstanceType:     new("instance-type"),
+		Container:        new(instance.LXD),
+		VirtType:         new("virt-type"),
+		AllocatePublicIP: new(true),
+		ImageID:          new("image-id"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space0", Exclude: false},
 			{SpaceName: "space1", Exclude: true},
 		}),
-		Tags:  ptr([]string{"tag0", "tag1"}),
-		Zones: ptr([]string{"zone0", "zone1"}),
+		Tags:  new([]string{"tag0", "tag1"}),
+		Zones: new([]string{"zone0", "zone1"}),
 	}
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3365,7 +3384,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	cons := constraints.Constraints{
-		Container: ptr(instance.ContainerType("invalid-container-type")),
+		Container: new(instance.ContainerType("invalid-container-type")),
 	}
 	err := s.state.SetApplicationConstraints(c.Context(), id, cons)
 	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
@@ -3375,7 +3394,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	cons := constraints.Constraints{
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "invalid-space", Exclude: false},
 		}),
 	}
@@ -3387,27 +3406,27 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		Mem:      ptr(uint64(8)),
-		CpuCores: ptr(uint64(2)),
+		Mem:      new(uint64(8)),
+		CpuCores: new(uint64(2)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
-		Mem:      ptr(uint64(8)),
-		CpuCores: ptr(uint64(2)),
+		Mem:      new(uint64(8)),
+		CpuCores: new(uint64(2)),
 	})
 
 	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		CpuPower: ptr(uint64(42)),
+		CpuPower: new(uint64(42)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
-		CpuPower: ptr(uint64(42)),
+		CpuPower: new(uint64(42)),
 	})
 }
 
@@ -3415,7 +3434,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *tc.C)
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		Zones: ptr([]string{"zone0", "zone1"}),
+		Zones: new([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3424,7 +3443,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *tc.C)
 	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
 
 	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		Tags: ptr([]string{"tag0", "tag1"}),
+		Tags: new([]string{"tag0", "tag1"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3437,7 +3456,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		Zones: ptr([]string{"zone0", "zone1"}),
+		Zones: new([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3446,7 +3465,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc
 	c.Check(*cons.Zones, tc.SameContents, []string{"zone0", "zone1"})
 
 	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
-		Zones: ptr([]string{"zone3"}),
+		Zones: new([]string{"zone3"}),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3456,7 +3475,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *tc.C) {
-	err := s.state.SetApplicationConstraints(c.Context(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
+	err := s.state.SetApplicationConstraints(c.Context(), "foo", constraints.Constraints{Mem: new(uint64(8))})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

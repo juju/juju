@@ -68,8 +68,8 @@ func (s *SecretGrantSuite) TestGrantSecret(c *tc.C) {
 
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		RelationKey:     ptr("wordpress:db mediawiki:db"),
-		ApplicationName: ptr("mediawiki"),
+		RelationKey:     new("wordpress:db mediawiki:db"),
+		ApplicationName: new("mediawiki"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
 	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
@@ -89,9 +89,9 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *tc.C) {
 
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		RelationKey:     ptr("wordpress:db mediawiki:db"),
-		ApplicationName: ptr("mediawiki"),
-		UnitName:        ptr("mediawiki/0"),
+		RelationKey:     new("wordpress:db mediawiki:db"),
+		ApplicationName: new("mediawiki"),
+		UnitName:        new("mediawiki/0"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RelationTag", "RemoteApplicationName", "GrantSecret")
 	s.Stub.CheckCall(c, 7, "GrantSecret", "secret:9m4e2mr0ui3e8a215n4g", args)

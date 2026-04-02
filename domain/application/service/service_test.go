@@ -30,7 +30,7 @@ func TestServiceSuite(t *testing.T) {
 
 func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
-		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
+		Channel: new(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
 			OS:           "ubuntu",
@@ -52,7 +52,7 @@ func (s *serviceSuite) TestEncodeChannelAndPlatform(c *tc.C) {
 
 func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *tc.C) {
 	ch, pl, err := encodeChannelAndPlatform(corecharm.Origin{
-		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
+		Channel: new(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
 			Architecture: "armhf",
 			OS:           "ubuntu",
@@ -74,7 +74,7 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *tc.C) {
 
 func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidRisk(c *tc.C) {
 	_, _, err := encodeChannelAndPlatform(corecharm.Origin{
-		Channel: ptr(internalcharm.MakePermissiveChannel("track", "blah", "branch")),
+		Channel: new(internalcharm.MakePermissiveChannel("track", "blah", "branch")),
 		Platform: corecharm.Platform{
 			Architecture: "armhf",
 			OS:           "ubuntu",
@@ -86,7 +86,7 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidRisk(c *tc.C) {
 
 func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidOSType(c *tc.C) {
 	_, _, err := encodeChannelAndPlatform(corecharm.Origin{
-		Channel: ptr(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
+		Channel: new(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
 		Platform: corecharm.Platform{
 			Architecture: "armhf",
 			OS:           "windows",
@@ -164,19 +164,19 @@ func (s *serviceSuite) TestRecordMachinesStatusHistory(c *tc.C) {
 	now := s.clock.Now().UTC()
 	statusHistory.EXPECT().RecordStatus(c.Context(), status.MachineNamespace.WithID("0"), corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(now),
+		Since:  new(now),
 	})
 	statusHistory.EXPECT().RecordStatus(c.Context(), status.MachineInstanceNamespace.WithID("0"), corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(now),
+		Since:  new(now),
 	})
 	statusHistory.EXPECT().RecordStatus(c.Context(), status.MachineNamespace.WithID("0/lxd/0"), corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(now),
+		Since:  new(now),
 	})
 	statusHistory.EXPECT().RecordStatus(c.Context(), status.MachineInstanceNamespace.WithID("0/lxd/0"), corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(now),
+		Since:  new(now),
 	})
 
 	s.service.recordInitMachinesStatusHistory(c.Context(), []coremachine.Name{

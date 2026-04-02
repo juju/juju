@@ -2161,47 +2161,6 @@ func (st *State) GetRelationApplicationSettings(
 	return relationSettings, nil
 }
 
-// SetRelationApplicationAndUnitSettings records settings for a unit and
-// an application in a relation.
-//
-// The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] is returned if the
-//     relation unit is not found.
-func (st *State) SetRelationApplicationAndUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	applicationSettings, unitSettings map[string]string,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), unitSettings)
-		if err != nil {
-			return errors.Errorf("setting relation unit settings: %w", err)
-		}
-
-		relationUUID, applicationUUID, err := st.getRelationAndApplicationOfRelationUnit(ctx, tx, relationUnitUUID.String())
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = st.setRelationApplicationSettings(ctx, tx, relationUUID, applicationUUID, applicationSettings)
-		if err != nil {
-			return errors.Errorf("setting relation unit settings: %w", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
 // GetRelationUnitSettings returns the relation unit settings for the given
 // relation unit.
 //
@@ -3731,34 +3690,6 @@ WHERE  u.uuid = $getPrincipal.unit_uuid
 	}
 
 	return getApplication.ApplicationUUID, nil
-}
-
-func (st *State) getRelationAndApplicationOfRelationUnit(
-	ctx context.Context,
-	tx *sqlair.TX,
-	relationUnitUUID string,
-) (relUUID string, appUUID string, err error) {
-	args := getUnitRelAndApp{
-		RelationUnitUUID: relationUnitUUID,
-	}
-	stmt, err := st.Prepare(`
-SELECT (re.relation_uuid, ae.application_uuid) AS (&getUnitRelAndApp.*)
-FROM   relation_unit ru
-JOIN   relation_endpoint re ON re.uuid = ru.relation_endpoint_uuid
-JOIN   application_endpoint ae ON ae.uuid = re.endpoint_uuid
-WHERE  ru.uuid = $getUnitRelAndApp.uuid
-`, args)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, args).Get(&args)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", "", applicationerrors.UnitNotFound
-	} else if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	return args.RelationUUID, args.ApplicationUUID, nil
 }
 
 func convertSettings(input []relationSetting) map[string]string {

@@ -97,7 +97,7 @@ func (s *actionSuite) TestActionsSuccess(c *tc.C) {
 		TaskInfo: operation.TaskInfo{
 			ID:             "42",
 			ActionName:     "charm-action-0",
-			ExecutionGroup: ptr("group-0"),
+			ExecutionGroup: new("group-0"),
 			IsParallel:     true,
 			Parameters: map[string]any{
 				"arg-0": "value-0",

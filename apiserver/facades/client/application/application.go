@@ -1700,7 +1700,7 @@ func (api *APIBase) saveExternalController(ctx context.Context, info params.Exte
 		return nil, internalerrors.Errorf("updating external controller %q: %w", controllerTag.Id(), err)
 	}
 
-	return ptr(controllerTag.Id()), nil
+	return new(controllerTag.Id()), nil
 }
 
 func (api *APIBase) saveRemoteApplicationOfferer(

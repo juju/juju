@@ -99,8 +99,8 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 		Receiver:       "unit-app-0",
 		Name:           "do",
 		Parameters:     map[string]interface{}{"k": "v"},
-		Parallel:       ptr(true),
-		ExecutionGroup: ptr("grp")}}})
+		Parallel:       new(true),
+		ExecutionGroup: new("grp")}}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,8 +112,8 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 		Receiver:       "unit-app-0",
 		Name:           "do",
 		Parameters:     map[string]interface{}{"k": "v"},
-		Parallel:       ptr(true),
-		ExecutionGroup: ptr("grp"),
+		Parallel:       new(true),
+		ExecutionGroup: new("grp"),
 	})
 }
 
@@ -138,7 +138,7 @@ func (s *enqueueSuite) TestEnqueueLeaderReceiver(c *tc.C) {
 
 	// Act
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{Receiver: "myapp/leader",
-		Name: "do", Parallel: ptr(false)}}})
+		Name: "do", Parallel: new(false)}}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -236,8 +236,8 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 			Receiver:       "unit-app-2",
 			Name:           "y",
 			Parameters:     map[string]interface{}{"a": 1},
-			Parallel:       ptr(true),
-			ExecutionGroup: ptr("eg-1"),
+			Parallel:       new(true),
+			ExecutionGroup: new("eg-1"),
 		}}})
 
 	// Assert
@@ -494,8 +494,8 @@ func (s *runSuite) TestRunSuccessMapping(c *tc.C) {
 		Units:          []string{"bass/leader", "app/1", "db/0", "boss/leader"},
 		Commands:       "echo hello",
 		Timeout:        5 * time.Second,
-		Parallel:       ptr(false),
-		ExecutionGroup: ptr("eg-1"),
+		Parallel:       new(false),
+		ExecutionGroup: new("eg-1"),
 	}
 	s.OperationService.EXPECT().AddExecOperation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, target operation.Receivers, args operation.ExecArgs) (operation.RunResult, error) {
@@ -789,8 +789,8 @@ func (s *runAllSuite) TestRunOnAllMachinesSuccess(c *tc.C) {
 	params := params.RunParams{
 		Commands:       "whoami",
 		Timeout:        time.Second,
-		Parallel:       ptr(true),
-		ExecutionGroup: ptr("test"),
+		Parallel:       new(true),
+		ExecutionGroup: new("test"),
 	}
 	s.OperationService.EXPECT().AddExecOperationOnAllMachines(gomock.Any(), operation.ExecArgs{
 		Command:        params.Commands,

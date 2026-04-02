@@ -18,7 +18,7 @@ type unitName struct {
 }
 
 type unitResolveMode struct {
-	ModeID int `db:"mode_id"`
+	Mode string `db:"mode"`
 }
 
 type statusID struct {
@@ -38,16 +38,5 @@ func encodeResolveMode(mode resolve.ResolveMode) (int, error) {
 		return 1, nil
 	default:
 		return -1, errors.Errorf("invalid resolve mode %q", mode)
-	}
-}
-
-func decodeResolveMode(id int) (resolve.ResolveMode, error) {
-	switch id {
-	case 0:
-		return resolve.ResolveModeRetryHooks, nil
-	case 1:
-		return resolve.ResolveModeNoHooks, nil
-	default:
-		return "", errors.Errorf("invalid resolve mode id %d", id)
 	}
 }

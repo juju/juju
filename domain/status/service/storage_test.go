@@ -245,7 +245,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 		{
 			UUID:  uuids[0],
 			ID:    "12",
-			Owner: ptr(unit.Name("foo/10")),
+			Owner: new(unit.Name("foo/10")),
 			Life:  life.Alive,
 			Kind:  storage.StorageKindFilesystem,
 			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -262,7 +262,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 			StorageInstanceUUID: uuids[0],
 			Life:                life.Alive,
 			Unit:                unit.Name("foo/10"),
-			Machine:             ptr(machine.Name("5")),
+			Machine:             new(machine.Name("5")),
 		},
 	}
 	s.modelState.EXPECT().GetStorageInstanceAttachments(
@@ -275,14 +275,14 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 		{
 			UUID:  uuids[0],
 			ID:    "12",
-			Owner: ptr(unit.Name("foo/10")),
+			Owner: new(unit.Name("foo/10")),
 			Kind:  storage.StorageKindFilesystem,
 			Life:  corelife.Alive,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/10": {
 					Life:    corelife.Alive,
 					Unit:    "foo/10",
-					Machine: ptr(machine.Name("5")),
+					Machine: new(machine.Name("5")),
 				},
 			},
 			Status: corestatus.StatusInfo{
@@ -304,7 +304,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 		{
 			UUID:  storageInstanceUUID,
 			ID:    "12",
-			Owner: ptr(unit.Name("foo/10")),
+			Owner: new(unit.Name("foo/10")),
 			Life:  life.Alive,
 			Kind:  storage.StorageKindFilesystem,
 			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -320,7 +320,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 			StorageInstanceUUID: storageInstanceUUID,
 			Life:                life.Alive,
 			Unit:                unit.Name("foo/10"),
-			Machine:             ptr(machine.Name("5")),
+			Machine:             new(machine.Name("5")),
 		},
 	}
 	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
@@ -332,14 +332,14 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 		{
 			UUID:  storageInstanceUUID,
 			ID:    "12",
-			Owner: ptr(unit.Name("foo/10")),
+			Owner: new(unit.Name("foo/10")),
 			Kind:  storage.StorageKindFilesystem,
 			Life:  corelife.Alive,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/10": {
 					Life:    corelife.Alive,
 					Unit:    "foo/10",
-					Machine: ptr(machine.Name("5")),
+					Machine: new(machine.Name("5")),
 				},
 			},
 			Status: corestatus.StatusInfo{
@@ -399,25 +399,25 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 		{
 			StorageInstanceUUID: storageInstanceUUID0,
 			Unit:                unit.Name("foo/0"),
-			Machine:             ptr(machine.Name("0")),
+			Machine:             new(machine.Name("0")),
 			Life:                life.Alive,
 		},
 		{
 			StorageInstanceUUID: storageInstanceUUID1,
 			Unit:                unit.Name("foo/1"),
-			Machine:             ptr(machine.Name("1")),
+			Machine:             new(machine.Name("1")),
 			Life:                life.Dying,
 		},
 		{
 			StorageInstanceUUID: storageInstanceUUID1,
 			Unit:                unit.Name("bar/0"),
-			Machine:             ptr(machine.Name("1")),
+			Machine:             new(machine.Name("1")),
 			Life:                life.Dying,
 		},
 		{
 			StorageInstanceUUID: storageInstanceUUID2,
 			Unit:                unit.Name("unit/0"),
-			Machine:             ptr(machine.Name("2")),
+			Machine:             new(machine.Name("2")),
 			Life:                life.Alive,
 			VolumeBlockDevice:   &blockDeviceUUID1,
 		},
@@ -446,7 +446,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/0": {
 					Unit:    "foo/0",
-					Machine: ptr(machine.Name("0")),
+					Machine: new(machine.Name("0")),
 					Life:    corelife.Alive,
 				},
 			},
@@ -464,12 +464,12 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/1": {
 					Unit:    "foo/1",
-					Machine: ptr(machine.Name("1")),
+					Machine: new(machine.Name("1")),
 					Life:    corelife.Dying,
 				},
 				"bar/0": {
 					Unit:    "bar/0",
-					Machine: ptr(machine.Name("1")),
+					Machine: new(machine.Name("1")),
 					Life:    corelife.Dying,
 				},
 			},
@@ -487,7 +487,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 			Attachments: map[unit.Name]StorageAttachment{
 				"unit/0": {
 					Unit:     "unit/0",
-					Machine:  ptr(machine.Name("2")),
+					Machine:  new(machine.Name("2")),
 					Life:     corelife.Alive,
 					Location: "/dev/disk/by-id/123",
 				},
@@ -519,7 +519,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 			},
 			StorageUUID: &siUUID,
 			StorageID:   "data/0",
-			VolumeID:    ptr("9"),
+			VolumeID:    new("9"),
 			ProviderID:  "provider-foo-0",
 			SizeMiB:     123,
 		},
@@ -529,8 +529,8 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 		{
 			FilesystemUUID: uuids[0],
 			Life:           life.Alive,
-			Unit:           ptr(unit.Name("foo/0")),
-			Machine:        ptr(machine.Name("0")),
+			Unit:           new(unit.Name("foo/0")),
+			Machine:        new(machine.Name("0")),
 			MountPoint:     "/foo/bar",
 			ReadOnly:       true,
 		},
@@ -550,7 +550,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 				Message: "attaching to the thing",
 			},
 			StorageID:  "data/0",
-			VolumeID:   ptr("9"),
+			VolumeID:   new("9"),
 			ProviderID: "provider-foo-0",
 			SizeMiB:    123,
 			MachineAttachments: map[machine.Name]FilesystemAttachment{
@@ -587,7 +587,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 			},
 			StorageUUID: &siUUID,
 			StorageID:   "data/0",
-			VolumeID:    ptr("9"),
+			VolumeID:    new("9"),
 			ProviderID:  "provider-foo-0",
 			SizeMiB:     123,
 		},
@@ -597,8 +597,8 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 		{
 			FilesystemUUID: fsUUID,
 			Life:           life.Alive,
-			Unit:           ptr(unit.Name("foo/0")),
-			Machine:        ptr(machine.Name("0")),
+			Unit:           new(unit.Name("foo/0")),
+			Machine:        new(machine.Name("0")),
 			MountPoint:     "/foo/bar",
 			ReadOnly:       true,
 		},
@@ -618,7 +618,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 				Message: "attaching to the thing",
 			},
 			StorageID:  "data/0",
-			VolumeID:   ptr("9"),
+			VolumeID:   new("9"),
 			ProviderID: "provider-foo-0",
 			SizeMiB:    123,
 			MachineAttachments: map[machine.Name]FilesystemAttachment{
@@ -657,7 +657,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 			},
 			StorageUUID: &siUUID0,
 			StorageID:   "data/0",
-			VolumeID:    ptr("9"),
+			VolumeID:    new("9"),
 			ProviderID:  "provider-foo-0",
 			SizeMiB:     123,
 		},
@@ -679,23 +679,23 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 		{
 			FilesystemUUID: fsUUID0,
 			Life:           life.Alive,
-			Unit:           ptr(unit.Name("foo/0")),
-			Machine:        ptr(machine.Name("0")),
+			Unit:           new(unit.Name("foo/0")),
+			Machine:        new(machine.Name("0")),
 			MountPoint:     "/foo/bar",
 			ReadOnly:       true,
 		},
 		{
 			FilesystemUUID: fsUUID1,
 			Life:           life.Alive,
-			Unit:           ptr(unit.Name("foo/3")),
-			Machine:        ptr(machine.Name("3")),
+			Unit:           new(unit.Name("foo/3")),
+			Machine:        new(machine.Name("3")),
 			MountPoint:     "/baz/x",
 			ReadOnly:       true,
 		},
 		{
 			FilesystemUUID: fsUUID1,
 			Life:           life.Dying,
-			Unit:           ptr(unit.Name("bar/8")),
+			Unit:           new(unit.Name("bar/8")),
 			MountPoint:     "/baz/y",
 			ReadOnly:       false,
 		},
@@ -715,7 +715,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 				Message: "attaching to the thing",
 			},
 			StorageID:  "data/0",
-			VolumeID:   ptr("9"),
+			VolumeID:   new("9"),
 			ProviderID: "provider-foo-0",
 			SizeMiB:    123,
 			MachineAttachments: map[machine.Name]FilesystemAttachment{
@@ -796,8 +796,8 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 		{
 			VolumeUUID:  uuids[0],
 			Life:        life.Alive,
-			Unit:        ptr(unit.Name("foo/0")),
-			Machine:     ptr(machine.Name("0")),
+			Unit:        new(unit.Name("foo/0")),
+			Machine:     new(machine.Name("0")),
 			ReadOnly:    true,
 			DeviceName:  "dvname0",
 			DeviceLinks: []string{"/dev/disk/by-id/123"},
@@ -893,8 +893,8 @@ func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
 		{
 			VolumeUUID:  volUUID,
 			Life:        life.Alive,
-			Unit:        ptr(unit.Name("foo/0")),
-			Machine:     ptr(machine.Name("0")),
+			Unit:        new(unit.Name("foo/0")),
+			Machine:     new(machine.Name("0")),
 			ReadOnly:    true,
 			DeviceName:  "dvname0",
 			DeviceLinks: []string{"/dev/disk/by-id/123"},

@@ -650,7 +650,7 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: netNodeUUID,
 		},
-		Nonce:              ptr("foo"),
+		Nonce:              new("foo"),
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        machinetesting.GenUUID(c),
 	})
@@ -682,8 +682,4 @@ WHERE u.name = ?
 	c.Assert(err, tc.ErrorIsNil)
 
 	return machineName, "foo"
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -154,8 +154,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	// body matches the hash and size in the headers. However, there is a bug
 	// for container resources exported from 3.6 where the hash the header does
 	// not match the hash in the body. For this reason, we do not check it here.
-
-	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+	return resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
 		Reader:          r.Body,
 		RetrievedBy:     retrievedBy,
@@ -163,11 +162,6 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		Size:            details.size,
 		Fingerprint:     details.fingerprint,
 	})
-	if err != nil {
-		return empty, internalerrors.Capture(err)
-	}
-
-	return resourceService.GetResource(ctx, resUUID)
 }
 
 // determineRetrievedBy determines the entity that retrieved the resource using

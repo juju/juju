@@ -298,6 +298,87 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, usererrors.PermissionTargetInvalid)
 }
 
+// TestAddUserWithCreatedAt asserts that a new user is created with the
+// specified creation date preserved, and that the user is correctly marked as
+// external.
+func (s *userStateSuite) TestAddUserWithCreatedAt(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	creatorUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	creatorName := usertesting.GenNewName(c, "creator")
+	err = st.AddUser(c.Context(), creatorUUID, creatorName, "creator", false, creatorUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	createdAt := time.Now().Add(-24 * time.Hour).Truncate(time.Second).UTC()
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob External", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetUser(c.Context(), extUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.Name, tc.Equals, extName)
+	c.Check(got.UUID, tc.Equals, extUUID)
+	c.Check(got.DisplayName, tc.Equals, "Bob External")
+	c.Check(got.CreatorUUID, tc.Equals, creatorUUID)
+	c.Check(got.CreatedAt, tc.Equals, createdAt)
+}
+
+// TestAddUserWithCreatedAtAlreadyExists asserts that adding a user that already
+// exists returns [usererrors.UserAlreadyExists].
+func (s *userStateSuite) TestAddUserWithCreatedAtAlreadyExists(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	creatorUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	creatorName := usertesting.GenNewName(c, "creator")
+	err = st.AddUser(c.Context(), creatorUUID, creatorName, "creator", false, creatorUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	createdAt := time.Now().UTC()
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID2, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID2, extName, "Bob", creatorUUID, createdAt,
+	)
+	c.Assert(err, tc.ErrorIs, usererrors.UserAlreadyExists)
+}
+
+// TestAddUserWithCreatedAtCreatorNotFound asserts that adding a user whose
+// creator does not exist returns [usererrors.UserCreatorUUIDNotFound].
+func (s *userStateSuite) TestAddUserWithCreatedAtCreatorNotFound(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+
+	nonExistentUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	extUUID, err := user.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	extName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.AddUserWithCreatedAt(
+		c.Context(), extUUID, extName, "Bob", nonExistentUUID, time.Now().UTC(),
+	)
+	c.Assert(err, tc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+}
+
 // TestGetUser asserts that we can get a user from the database.
 func (s *userStateSuite) TestGetUser(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
@@ -1687,4 +1768,58 @@ func (s *userStateSuite) modelAdminAccess(modelUUID string) permission.AccessSpe
 			Key:        modelUUID,
 		},
 	}
+}
+
+// seedEveryoneExternal creates the everyone@external user record that acts as
+// the creator of other external users. Returns the UUID assigned to the user.
+func (s *userStateSuite) seedEveryoneExternal(c *tc.C) user.UUID {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	everyoneUUID := tc.Must(c, user.NewUUID)
+	err := st.AddUser(c.Context(), everyoneUUID, permission.EveryoneUserName, "everyone@external", true, everyoneUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return everyoneUUID
+}
+
+// TestEnsureExternalUser checks that an external user is created when they
+// do not already exist.
+func (s *userStateSuite) TestEnsureExternalUser(c *tc.C) {
+	everyoneUUID := s.seedEveryoneExternal(c)
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	jim, err := st.GetUserByName(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jim.Name, tc.Equals, jimUserName)
+	c.Check(jim.DisplayName, tc.Equals, jimUserName.Name())
+	c.Check(jim.UUID, tc.IsUUID)
+	c.Check(jim.CreatorUUID, tc.Equals, everyoneUUID)
+}
+
+// TestEnsureExternalUserAlreadyExists checks that no error is returned if the
+// user already exists.
+func (s *userStateSuite) TestEnsureExternalUserAlreadyExists(c *tc.C) {
+	everyoneUUID := s.seedEveryoneExternal(c)
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	jimUUID := tc.Must(c, user.NewUUID)
+	err := st.AddUser(c.Context(), jimUUID, jimUserName, "jim", true, everyoneUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnsureExternalUserEveryoneNotFound checks that an error is returned when
+// the everyone@external user does not exist, since it is required as the
+// creator of external users and is normally seeded during bootstrap.
+func (s *userStateSuite) TestEnsureExternalUserEveryoneNotFound(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jimUserName := tc.Must1(c, user.NewName, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIs, usererrors.UserNotFound)
 }

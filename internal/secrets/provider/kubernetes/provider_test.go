@@ -131,7 +131,7 @@ func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel str
 	sa := &core.ServiceAccount{
 		TypeMeta:                     v1.TypeMeta{},
 		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: ptr(true),
+		AutomountServiceAccountToken: new(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: objMeta,
@@ -184,7 +184,7 @@ func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel str
 
 	treq := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: ptr(int64(600)),
+			ExpirationSeconds: new(int64(600)),
 		},
 	}
 
@@ -418,10 +418,6 @@ func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentControll
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}, true, false)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func (s *providerSuite) TestCleanupModel(c *tc.C) {
@@ -820,7 +816,7 @@ func (s *providerSuite) TestRefreshAuth(c *tc.C) {
 
 	treq := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: ptr(int64(3600)),
+			ExpirationSeconds: new(int64(3600)),
 		},
 	}
 	s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "default", treq, v1.CreateOptions{FieldManager: "juju"}).

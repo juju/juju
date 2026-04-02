@@ -32,10 +32,6 @@ func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
 	c.Assert(client, tc.NotNil)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
 	config := map[string]interface{}{"foo": "bar"}
 	apiCaller := testing.BestVersionCaller{
@@ -51,7 +47,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
 					Result: params.SecretBackend{
 						Name:                "foo",
 						BackendType:         "vault",
-						TokenRotateInterval: ptr(666 * time.Minute),
+						TokenRotateInterval: new(666 * time.Minute),
 						Config:              config,
 					},
 					ID:         "backend-id",
@@ -69,7 +65,7 @@ func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, []secretbackends.SecretBackend{{
 		Name:                "foo",
 		BackendType:         "vault",
-		TokenRotateInterval: ptr(666 * time.Minute),
+		TokenRotateInterval: new(666 * time.Minute),
 		Config:              config,
 		NumSecrets:          666,
 		Status:              status.Error,
@@ -83,7 +79,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *tc.C) {
 		ID:                  "backend-id",
 		Name:                "foo",
 		BackendType:         "vault",
-		TokenRotateInterval: ptr(666 * time.Minute),
+		TokenRotateInterval: new(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
 	apiCaller := testing.BestVersionCaller{
@@ -147,8 +143,8 @@ func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *tc.C) {
 func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *tc.C) {
 	backend := secretbackends.UpdateSecretBackend{
 		Name:                "foo",
-		NameChange:          ptr("new-name"),
-		TokenRotateInterval: ptr(666 * time.Minute),
+		NameChange:          new("new-name"),
+		TokenRotateInterval: new(666 * time.Minute),
 		Config:              map[string]interface{}{"foo": "bar"},
 	}
 	apiCaller := testing.BestVersionCaller{

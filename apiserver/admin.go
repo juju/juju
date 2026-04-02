@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -331,6 +332,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			startPinger = false
 			controllerConn = true
 		}
+
 	}
 	if !modelExists {
 		// Login to an unknown or migrated model.
@@ -338,6 +340,28 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
+	if result.userLogin {
+		var err error
+		result.userInfo, err = a.checkUserPermissions(ctx, authInfo, result.controllerOnlyLogin)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	// Ensure external users are persisted only after authorisation checks
+	// pass. At this point the user has been both authenticated and authorised
+	// (via checkUserPermissions above), so it is safe to create a DB record.
+	if authInfo.IsExternallyAuthenticated {
+		userTag, ok := authInfo.Tag.(names.UserTag)
+		if !ok {
+			return nil, errors.Errorf("externally authenticated entity %q is not a user", authInfo.Tag)
+		}
+		userName := coreuser.NameFromTag(userTag)
+		if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
+			logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
+			return nil, errors.Annotatef(err, "ensuring external user %q", userName)
+		}
+	}
+
 	var tag names.Tag
 	if result.anonymousLogin {
 		tag = names.NewUserTag(api.AnonymousUsername)
@@ -356,7 +380,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 	}
 
 	var lastConnection *time.Time
-	if err := a.fillLoginDetails(ctx, authInfo, result, lastConnection); err != nil {
+	if err := a.fillLoginDetails(ctx, result, lastConnection); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -444,14 +468,8 @@ func (a *admin) handleAuthError(err error) error {
 	return err
 }
 
-func (a *admin) fillLoginDetails(ctx context.Context, authInfo authentication.AuthInfo, result *authResult, lastConnection *time.Time) error {
-	// Send back user info if user
-	if result.userLogin {
-		var err error
-		result.userInfo, err = a.checkUserPermissions(ctx, authInfo, result.controllerOnlyLogin)
-		if err != nil {
-			return errors.Trace(err)
-		}
+func (a *admin) fillLoginDetails(ctx context.Context, result *authResult, lastConnection *time.Time) error {
+	if result.userLogin && result.userInfo != nil {
 		result.userInfo.LastConnection = lastConnection
 	}
 	if result.controllerOnlyLogin {

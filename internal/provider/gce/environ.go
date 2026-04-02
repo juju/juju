@@ -94,10 +94,6 @@ type ComputeService interface {
 	InstanceDisks(ctx context.Context, zone, instanceId string) ([]*computepb.AttachedDisk, error)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type environ struct {
 	common.CredentialInvalidator
 	environs.NoSpaceDiscoveryEnviron
@@ -262,7 +258,7 @@ func (env *environ) getVpcInfo(ctx context.Context) (*string, bool, error) {
 	if err != nil {
 		return nil, false, errors.Annotatef(err, "getting vpc %q", vpcID)
 	}
-	env.vpcURL = ptr(vpc.GetSelfLink())
+	env.vpcURL = new(vpc.GetSelfLink())
 	env.autoSubnets = autoCreateSubnets(vpc)
 	return env.vpcURL, env.autoSubnets, nil
 }

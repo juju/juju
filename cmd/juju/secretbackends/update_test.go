@@ -74,7 +74,7 @@ func (s *UpdateSuite) TestUpdate(c *tc.C) {
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 		}, true).Return(nil)
 	s.updateSecretBackendsAPI.EXPECT().Close().Return(nil)
@@ -92,7 +92,7 @@ func (s *UpdateSuite) TestUpdateName(c *tc.C) {
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:       "myvault",
-			NameChange: ptr("myvault2"),
+			NameChange: new("myvault2"),
 			Config:     map[string]interface{}{"endpoint": "http://vault"},
 		}, false).Return(nil)
 	s.updateSecretBackendsAPI.EXPECT().Close().Return(nil)
@@ -110,7 +110,7 @@ func (s *UpdateSuite) TestUpdateResetTokenRotate(c *tc.C) {
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
-			TokenRotateInterval: ptr(0 * time.Second),
+			TokenRotateInterval: new(0 * time.Second),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 		}, false).Return(nil)
 	s.updateSecretBackendsAPI.EXPECT().Close().Return(nil)
@@ -131,7 +131,7 @@ func (s *UpdateSuite) TestUpdateFromFile(c *tc.C) {
 		gomock.Any(),
 		apisecretbackends.UpdateSecretBackend{
 			Name:                "myvault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config: map[string]interface{}{
 				"endpoint": "http://vault",
 				"token":    "s.666",

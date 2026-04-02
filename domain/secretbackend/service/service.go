@@ -408,13 +408,25 @@ func pingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 }
 
 func validateExternalBackendName(name string) error {
-	if name == juju.BackendName ||
+	if name == provider.Auto ||
+		name == provider.Internal ||
 		name == kubernetes.BackendName ||
-		name == provider.Auto ||
-		name == provider.Internal {
+		kubernetes.IsBuiltInName(name) {
 		return errors.Errorf("%w: reserved name %q", secretbackenderrors.NotValid, name)
 	}
 	return nil
+}
+
+// GetBuiltInCaaSBackendID returns the ID of the built-in CaaS backend.
+func (s *Service) GetBuiltInKubernetesBackendID(ctx context.Context) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	result, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: kubernetes.BackendName})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.ID, nil
 }
 
 // ListBackendIDs returns the IDs of all the secret backends.

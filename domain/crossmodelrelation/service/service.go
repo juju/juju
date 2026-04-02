@@ -549,7 +549,3 @@ func (w *WatchableService) filterPublicAddresses(unitAddresses map[string]networ
 
 	return allPublicAddresses
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

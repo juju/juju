@@ -79,11 +79,11 @@ VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 			OSType:  deployment.Ubuntu,
 		},
 		Constraints: constraints.Constraints{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		},
-		InstanceID: ptr(instance.Id("foo")),
+		InstanceID: new(instance.Id("foo")),
 		HardwareCharacteristics: instance.HardwareCharacteristics{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,11 +95,11 @@ VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 			OSType:  deployment.Ubuntu,
 		},
 		Constraints: constraints.Constraints{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		},
-		InstanceID: ptr(instance.Id("bar")),
+		InstanceID: new(instance.Id("bar")),
 		HardwareCharacteristics: instance.HardwareCharacteristics{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -150,7 +150,7 @@ func (s *baseSuite) createApplicationWithRelations(c *tc.C, appName string, rela
 				Source:        charm.LocalSource,
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: new(arch.AMD64),
 			},
 		},
 	}, nil)
@@ -516,8 +516,4 @@ func (s *stateSuite) TestGetUnitUUIDNotFound(c *tc.C) {
 
 	_, err := st.GetUnitUUID(ctx, "blah")
 	c.Assert(err, tc.ErrorIs, porterrors.UnitNotFound)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

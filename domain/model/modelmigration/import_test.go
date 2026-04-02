@@ -511,9 +511,9 @@ func (i *importSuite) TestImportModelConstraints(c *tc.C) {
 	}
 
 	i.modelDetailService.EXPECT().SetModelConstraints(gomock.Any(), coreconstraints.Value{
-		Arch:             ptr("arm64"),
-		AllocatePublicIP: ptr(true),
-		Spaces:           ptr([]string{"space1", "space2"}),
+		Arch:             new("arm64"),
+		AllocatePublicIP: new(true),
+		Spaces:           new([]string{"space1", "space2"}),
 	})
 
 	model := description.NewModel(description.ModelArgs{
@@ -550,8 +550,4 @@ func (i *importSuite) TestModelActivate(c *tc.C) {
 
 	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

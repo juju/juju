@@ -219,13 +219,13 @@ VALUES ($insertMachine.*);
 
 	if err := insertMachineStatus(ctx, tx, preparer, args.MachineUUID, setStatusInfo{
 		StatusID: machineStatusID,
-		Updated:  ptr(now),
+		Updated:  new(now),
 	}); err != nil {
 		return errors.Errorf("inserting machine status: %w", err)
 	}
 	if err := insertMachineInstanceStatus(ctx, tx, preparer, args.MachineUUID, setStatusInfo{
 		StatusID: machineInstanceStatusID,
-		Updated:  ptr(now),
+		Updated:  new(now),
 	}); err != nil {
 		return errors.Errorf("inserting machine instance status: %w", err)
 	}

@@ -29,6 +29,7 @@ myst:
 - {ref}`hook-command`
 - {ref}`juju-cli`
 - {ref}`juju-dashboard`
+- {ref}`juju-db-repl`
 - {ref}`juju-web-cli`
 - {ref}`jujuc`
 - {ref}`jujud`
@@ -44,11 +45,10 @@ myst:
 - {ref}`client`
 - {ref}`cloud`
 - {ref}`configuration`
-- {ref}`cloud`
-- {ref}`configuration`
 - {ref}`constraint`
 - {ref}`controller`
 - {ref}`credential`
+- {ref}`database`
 - {ref}`log`
 - {ref}`machine`
 - {ref}`metadata`

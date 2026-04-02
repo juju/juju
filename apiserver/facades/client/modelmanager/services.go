@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
+	domainexport "github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/removal"
@@ -30,6 +31,13 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/services"
 )
+
+// ExportService describes the ability to acquire a model export.
+type ExportService interface {
+	// Export returns a complete representation of
+	// the database for the current model.
+	Export(ctx context.Context) (*domainexport.ModelExport, error)
+}
 
 // ModelDomainServices is a factory for creating model info services.
 type ModelDomainServices interface {
@@ -57,8 +65,11 @@ type ModelDomainServices interface {
 	// Status returns the status service.
 	Status() StatusService
 
+	// Export returns the model export service.
+	Export() ExportService
+
 	// Removal returns the removal service.
-	RemovalService() RemovalService
+	Removal() RemovalService
 }
 
 // DomainServicesGetter is a factory for creating model services.
@@ -289,7 +300,9 @@ type StatusService interface {
 type SecretBackendService interface {
 	// BackendSummaryInfoForModel returns a summary of the secret backends for a
 	// model.
-	BackendSummaryInfoForModel(ctx context.Context, modelUUID coremodel.UUID) ([]*secretbackendservice.SecretBackendInfo, error)
+	BackendSummaryInfoForModel(
+		ctx context.Context, modelUUID coremodel.UUID,
+	) ([]*secretbackendservice.SecretBackendInfo, error)
 }
 
 // ApplicationService instances save an application to dqlite state.
@@ -308,7 +321,9 @@ type RemovalService interface {
 	// life-cycle advancement and removal to finish before forcefully removing the
 	// model. This duration is ignored if the force argument is false.
 	// The UUID for the scheduled removal job is returned.
-	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
+	RemoveModel(
+		ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration,
+	) (removal.UUID, error)
 }
 
 // Services holds the services needed by the model manager api.
@@ -332,10 +347,6 @@ type Services struct {
 	// SecretBackendService is an interface for interacting with secret backend
 	// service.
 	SecretBackendService SecretBackendService
-	// NetworkService is an interface for interacting with the network service.
-	NetworkService NetworkService
-	// MachineService is an interface for interacting with the machine service.
-	MachineService MachineService
 	// ApplicationService is an interface for interacting with the application
 	// service.
 	ApplicationService ApplicationService
@@ -360,7 +371,9 @@ type domainServicesGetter struct {
 	ctx facade.MultiModelContext
 }
 
-func (s domainServicesGetter) DomainServicesForModel(ctx context.Context, uuid coremodel.UUID) (ModelDomainServices, error) {
+func (s domainServicesGetter) DomainServicesForModel(
+	ctx context.Context, uuid coremodel.UUID,
+) (ModelDomainServices, error) {
 	svc, err := s.ctx.DomainServicesForModel(ctx, uuid)
 	if err != nil {
 		return nil, err
@@ -400,6 +413,10 @@ func (s domainServices) Status() StatusService {
 	return s.domainServices.Status()
 }
 
-func (s domainServices) RemovalService() RemovalService {
+func (s domainServices) Export() ExportService {
+	return s.domainServices.Export()
+}
+
+func (s domainServices) Removal() RemovalService {
 	return s.domainServices.Removal()
 }

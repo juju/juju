@@ -187,7 +187,8 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *t
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
-	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(
+		resource.Resource{}, errors.New("cannot store resource"))
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		ID: "res-uuid",
 		Resource: charmresource.Resource{
@@ -280,21 +281,22 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
-	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
-		ResourceUUID:    "res-uuid",
-		Reader:          http.NoBody,
-		RetrievedByType: resource.Application,
-		Fingerprint:     s.fingerprint,
-		Size:            s.size,
-	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+	expectedResource := resource.Resource{
 		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   s.origin,
 			Revision: s.revision,
 		},
 		Timestamp: now,
-	}, nil).Times(2)
+	}
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Application,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
+	}).Return(expectedResource, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedResource, nil)
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
@@ -335,6 +337,14 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   charmresource.OriginUpload,
+			Revision: -1,
+		},
+		Timestamp: now,
+	}
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -342,15 +352,8 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 		RetrievedBy:     "username",
 		Fingerprint:     s.fingerprint,
 		Size:            s.size,
-	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		ID: "res-uuid",
-		Resource: charmresource.Resource{
-			Origin:   charmresource.OriginUpload,
-			Revision: -1,
-		},
-		Timestamp: now,
-	}, nil).Times(2)
+	}).Return(expectedRes, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
@@ -380,6 +383,14 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+		},
+		Timestamp: now,
+	}
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -387,15 +398,8 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		RetrievedBy:     "app-name",
 		Fingerprint:     s.fingerprint,
 		Size:            s.size,
-	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		ID: "res-uuid",
-		Resource: charmresource.Resource{
-			Origin:   s.origin,
-			Revision: s.revision,
-		},
-		Timestamp: now,
-	}, nil).Times(2)
+	}).Return(expectedRes, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
@@ -424,6 +428,14 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+		},
+		Timestamp: now,
+	}
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -431,15 +443,8 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 		RetrievedBy:     "app-name/0",
 		Fingerprint:     s.fingerprint,
 		Size:            s.size,
-	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		ID: "res-uuid",
-		Resource: charmresource.Resource{
-			Origin:   s.origin,
-			Revision: s.revision,
-		},
-		Timestamp: now,
-	}, nil).Times(2)
+	}).Return(expectedRes, nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)

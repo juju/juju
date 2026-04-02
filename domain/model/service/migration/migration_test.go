@@ -6,7 +6,6 @@ package migration
 import (
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -47,7 +46,7 @@ func (s *migrationServiceSuite) TestImportModelIAAS(c *tc.C) {
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			Name:      "foo",
 			Cloud:     "aws",
-			Qualifier: coremodel.QualifierFromUserTag(names.NewUserTag("jim")),
+			Qualifier: coremodel.Qualifier("jim"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -69,7 +68,7 @@ func (s *migrationServiceSuite) TestImportModelCAAS(c *tc.C) {
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			Name:      "foo",
 			Cloud:     "k8s",
-			Qualifier: coremodel.QualifierFromUserTag(names.NewUserTag("jim")),
+			Qualifier: coremodel.Qualifier("jim"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -92,7 +91,7 @@ func (s *migrationServiceSuite) TestImportModelActivate(c *tc.C) {
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			Name:      "foo",
 			Cloud:     "aws",
-			Qualifier: coremodel.QualifierFromUserTag(names.NewUserTag("jim")),
+			Qualifier: coremodel.Qualifier("jim"),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

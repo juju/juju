@@ -60,7 +60,7 @@ var (
 	testDevices = []domainnetwork.NetInterface{
 		{
 			Name:        "eth0",
-			MACAddress:  ptr("de:ad:be:ef:00:00"),
+			MACAddress:  new("de:ad:be:ef:00:00"),
 			IsAutoStart: true,
 			IsEnabled:   true,
 			Addrs: []domainnetwork.NetAddr{

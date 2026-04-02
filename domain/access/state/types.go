@@ -132,6 +132,14 @@ func (u dbPermissionUser) toCoreUserAccess() (corepermission.UserAccess, error) 
 	}, nil
 }
 
+// dbUserActive holds the active-status flags of a user row from v_user_auth.
+// It is used by ReadUserAccessLevelForTarget to distinguish "user does not
+// exist" from "user exists but is disabled/removed".
+type dbUserActive struct {
+	Disabled bool `db:"disabled"`
+	Removed  bool `db:"removed"`
+}
+
 // dbPermission represents a permission in the system.
 type dbPermission struct {
 	// UUID is the unique identifier for the permission.

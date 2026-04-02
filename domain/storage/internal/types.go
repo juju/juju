@@ -34,8 +34,8 @@ type ImportStorageInstanceAttachmentArgs struct {
 	Life                life.Life
 }
 
-// ImportFilesystemIAASArgs represents data to import a filesystem.
-type ImportFilesystemIAASArgs struct {
+// ImportFilesystemArgs represents data to import a filesystem.
+type ImportFilesystemArgs struct {
 	UUID                string
 	ID                  string
 	Life                life.Life
@@ -45,14 +45,15 @@ type ImportFilesystemIAASArgs struct {
 	Scope               storageprovisioning.ProvisionScope
 }
 
-// ImportFilesystemAttachmentIAASArgs represents data to import filesystem attachments.
-type ImportFilesystemAttachmentIAASArgs struct {
+// ImportFilesystemAttachmentArgs represents data to import filesystem attachments.
+type ImportFilesystemAttachmentArgs struct {
 	UUID           string
 	FilesystemUUID string
 	NetNodeUUID    string
 	Scope          storageprovisioning.ProvisionScope
 	Life           life.Life
 	MountPoint     string
+	ProviderID     string
 	ReadOnly       bool
 }
 

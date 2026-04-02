@@ -109,8 +109,11 @@ SELECT
   re.relation_uuid AS &fullRemoteApplicationStatus.relation_uuid
 FROM      application AS a
 JOIN      application_remote_offerer        AS aro  ON a.uuid = aro.application_uuid
-JOIN      application_remote_offerer_status AS aros ON aro.uuid = aros.application_remote_offerer_uuid
--- No need to left join, since a remote app needs at least one endpoint to make sense.
+-- We can't guarantee that there will be a status for a remote application,
+-- so we need a left join here.
+LEFT JOIN application_remote_offerer_status AS aros ON aro.uuid = aros.application_remote_offerer_uuid
+-- No need to left join, since a remote app needs at least one endpoint to
+-- make sense.
 JOIN      application_endpoint              AS ae   ON a.uuid = ae.application_uuid
 JOIN      charm_relation                    AS cr   ON ae.charm_relation_uuid = cr.uuid
 JOIN      charm_relation_role               AS crr  ON cr.role_id = crr.id
@@ -313,7 +316,7 @@ SELECT    aro.uuid AS &remoteApplicationUUID.uuid
 FROM      application AS a
 -- left join ensures we can distinguish between an application that doesn't
 -- exist and one that is not remote
-LEFT JOIN application_remote_offerer AS aro
+LEFT JOIN application_remote_offerer AS aro ON a.uuid = aro.application_uuid
 WHERE     a.name = $applicationName.name `,
 		remoteApplicationUUID{}, appIdent)
 	if err != nil {

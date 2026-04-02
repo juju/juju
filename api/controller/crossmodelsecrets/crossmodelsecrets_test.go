@@ -39,10 +39,6 @@ func (s *CrossControllerSuite) TestNewClient(c *tc.C) {
 	c.Assert(client, tc.NotNil)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 	uri := coresecrets.NewURI()
 	macs := macaroon.Slice{jujujutesting.MustNewMacaroon("test")}
@@ -56,7 +52,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 				SourceControllerUUID: coretesting.ControllerTag.Id(),
 				ApplicationToken:     "token",
 				UnitId:               666,
-				Revision:             ptr(665),
+				Revision:             new(665),
 				Macaroons:            macs,
 				BakeryVersion:        3,
 				URI:                  uri.String(),
@@ -83,7 +79,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 						Params:      map[string]interface{}{"foo": "bar"},
 					},
 				},
-				LatestRevision: ptr(666),
+				LatestRevision: new(666),
 			}},
 		}
 		return nil

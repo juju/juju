@@ -254,6 +254,45 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 	c.Assert(second.Error.Error(), tc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
+func (s *Suite) TestCloudSpec(c *tc.C) {
+	modelTag := names.NewModelTag(randomUUID())
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, tc.Equals, "Controller")
+		c.Assert(version, tc.Equals, 14)
+		c.Assert(request, tc.Equals, "CloudSpec")
+		c.Assert(arg, tc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: modelTag.String()}},
+		})
+		out := result.(*params.CloudSpecResults)
+		*out = params.CloudSpecResults{
+			Results: []params.CloudSpecResult{{
+				Result: &params.CloudSpec{
+					Type: "aws",
+					Name: "cloud",
+				},
+			}},
+		}
+		return nil
+	}, BestVersion: 14}
+	client := controller.NewClient(apiCaller)
+
+	spec, err := client.CloudSpec(c.Context(), modelTag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, environscloudspec.CloudSpec{
+		Type: "aws",
+		Name: "cloud",
+	})
+}
+
+func (s *Suite) TestCloudSpec_CallError(c *tc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+	client := controller.NewClient(apiCaller)
+	_, err := client.CloudSpec(c.Context(), names.NewModelTag(randomUUID()))
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
 	*controller.Client, *testhelpers.Stub,
 ) {

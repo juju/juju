@@ -582,7 +582,7 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 		ApplicationOrOfferToken: w.offerUUID,
 		Macaroons:               macaroon.Slice{mac},
 		BakeryVersion:           defaultBakeryVersion,
-		ForceCleanup:            ptr(true),
+		ForceCleanup:            new(true),
 	}
 	if err := w.remoteModelClient.PublishRelationChange(publishCtx, change); err != nil {
 		if !isNotFound(err) {
@@ -806,7 +806,7 @@ func (w *localConsumerWorker) handleRelationDying(
 	// relation had already been removed, we won't get any more unit departed
 	// events.
 	if forceCleanup {
-		change.ForceCleanup = ptr(true)
+		change.ForceCleanup = new(true)
 	}
 	if err := w.remoteModelClient.PublishRelationChange(ctx, change); isNotFound(err) {
 		w.logger.Debugf(ctx, "relation %q dying, but offerer side already removed", relationUUID)
@@ -1293,8 +1293,4 @@ func isNotAlive(l life.Value) bool {
 
 	// Check if the life is not alive.
 	return life.IsNotAlive(l)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

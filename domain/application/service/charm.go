@@ -832,7 +832,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	charmID, err := s.getCharmID(ctx, charm.GetCharmArgs{
 		Source:   source,
 		Name:     args.Name,
-		Revision: ptr(args.Revision),
+		Revision: new(args.Revision),
 	})
 	if err != nil {
 		return charm.CharmLocator{}, errors.Errorf("locating existing charm: %w", err)
@@ -1064,7 +1064,7 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 func argsFromLocator(locator charm.CharmLocator) charm.GetCharmArgs {
 	return charm.GetCharmArgs{
 		Name:     locator.Name,
-		Revision: ptr(locator.Revision),
+		Revision: new(locator.Revision),
 		Source:   locator.Source,
 	}
 }

@@ -32,7 +32,7 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 	}
 	firewall := computepb.Firewall{
 		Name:        &name,
-		Description: ptr(fmt.Sprintf("created by Juju with target %s", target)),
+		Description: new(fmt.Sprintf("created by Juju with target %s", target)),
 		// SourceTags is not set.
 		TargetTags:   []string{target},
 		SourceRanges: sourceCIDRs,

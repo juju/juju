@@ -27,7 +27,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			Label:                  "ownerlabel",
 			LatestRevisionChecksum: "deadbeef",
 			RotatePolicy:           secrets.RotateHourly,
-			NextRotateTime:         ptr(nextRotate),
+			NextRotateTime:         new(nextRotate),
 			CreateTime:             timestamp,
 			UpdateTime:             timestamp,
 		}, {
@@ -56,7 +56,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 					BackendID:  "backend-id",
 					RevisionID: "revision-id",
 				},
-				ExpireTime: ptr(expire),
+				ExpireTime: new(expire),
 				CreateTime: timestamp,
 				UpdateTime: timestamp,
 			}, {
@@ -68,6 +68,10 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 				Revision:   1,
 				CreateTime: timestamp,
 				UpdateTime: timestamp,
+				ValueRef: &secrets.ValueRef{
+					BackendID:  "caas-backend",
+					RevisionID: "revision-id",
+				},
 			}},
 			uri3.ID: {},
 		},
@@ -77,11 +81,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 					"foo": "bar",
 				},
 			},
-			uri2.ID: {
-				1: map[string]string{
-					"foo": "bar2",
-				},
-			},
+			uri2.ID: {},
 			uri3.ID: {},
 		},
 		Consumers: map[string][]service.ConsumerInfo{
@@ -133,8 +133,4 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			uri3.ID: nil,
 		},
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -165,7 +165,7 @@ func (s *BaseSuite) SetupEnv(c *tc.C, gce *MockComputeService) *environ {
 		gce:                   gce,
 		ecfg:                  ecfg,
 		uuid:                  cfg.UUID(),
-		vpcURL:                ptr("/path/to/vpc"),
+		vpcURL:                new("/path/to/vpc"),
 	}
 	return env
 }
@@ -221,13 +221,13 @@ func (s *BaseSuite) NewConfig(c *tc.C, updates testing.Attrs) *config.Config {
 func (s *BaseSuite) NewComputeInstance(id string) *computepb.Instance {
 	inst := &computepb.Instance{
 		Name:   &id,
-		Zone:   ptr("home-zone"),
-		Status: ptr(google.StatusRunning),
+		Zone:   new("home-zone"),
+		Status: new(google.StatusRunning),
 		ServiceAccounts: []*computepb.ServiceAccount{{
-			Email: ptr("fred@foo.com"),
+			Email: new("fred@foo.com"),
 		}},
 		Disks: []*computepb.AttachedDisk{{
-			DiskSizeGb: ptr(int64(15)),
+			DiskSizeGb: new(int64(15)),
 		}},
 	}
 	return inst

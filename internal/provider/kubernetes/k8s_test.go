@@ -49,6 +49,7 @@ import (
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -1298,6 +1299,42 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *tc.C) {
 		Type: appsv1.RollingUpdateStatefulSetStrategyType,
 		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 			Partition: pointer.Int32Ptr(10),
+		},
+	})
+}
+
+func (s *K8sBrokerSuite) TestGetPersistentVolumeClaimIdentifiers(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	s.mockPersistentVolumeClaims.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+		&core.PersistentVolumeClaimList{Items: []core.PersistentVolumeClaim{
+			{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "postgresql-k8s-pgdata-b3dd9e-postgresql-k8s-1",
+					UID:  "9f4e9281-37f4-49b0-a289-1147deadbeef",
+				},
+			}, {
+				ObjectMeta: v1.ObjectMeta{
+					Name: "postgresql-k8s-pgdata-b3dd9e-postgresql-k8s-0",
+					UID:  "9f4e9281-37f4-49b0-a289-1147e1ba8d69",
+				},
+			},
+		}}, nil)
+
+	// Act
+	pvcIdentifers, err := s.broker.GetPersistentVolumeClaimIdentifiers(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pvcIdentifers, tc.SameContents, []storage.PersistentVolumeClaimIdentifiers{
+		{
+			Name: "postgresql-k8s-pgdata-b3dd9e-postgresql-k8s-0",
+			UID:  "9f4e9281-37f4-49b0-a289-1147e1ba8d69",
+		}, {
+			Name: "postgresql-k8s-pgdata-b3dd9e-postgresql-k8s-1",
+			UID:  "9f4e9281-37f4-49b0-a289-1147deadbeef",
 		},
 	})
 }

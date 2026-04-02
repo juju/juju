@@ -24,13 +24,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 )
 
-const (
-	// MongoProfLow represents the most conservative mongo memory profile.
-	MongoProfLow = "low"
-	// MongoProfDefault represents the mongo memory profile shipped by default.
-	MongoProfDefault = "default"
-)
-
 // docs:controller-config-keys
 const (
 	// APIPort is the port used for api connections.
@@ -548,15 +541,13 @@ var (
 		SSHServerPort,
 	}
 
-	// For backwards compatibility, we must include "anything", "juju-apiserver"
-	// and "juju-mongodb" as hostnames as that is what clients specify
-	// as the hostname for verification (this certificate is used both
-	// for serving MongoDB and API server connections).  We also
-	// explicitly include localhost.
+	// For backwards compatibility, we must include "anything" and
+	// "juju-apiserver" as hostnames as that is what clients specify as the
+	// hostname for verification (this certificate is used for serving API
+	// server connections).  We also explicitly include localhost.
 	DefaultDNSNames = []string{
 		"localhost",
 		"juju-apiserver",
-		"juju-mongodb",
 		"anything",
 	}
 
@@ -1446,8 +1437,7 @@ func (c Config) validateSpaceConfig(key, topic string) error {
 	return nil
 }
 
-// AsSpaceConstraints checks to see whether config has spaces names populated
-// for management and/or HA (Mongo).
+// AsSpaceConstraints checks to see whether config has spaces names populated.
 // Non-empty values are merged with any input spaces and returned as a new
 // slice reference.
 // A slice pointer is used for congruence with the Spaces member in

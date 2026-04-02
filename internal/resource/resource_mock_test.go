@@ -204,11 +204,12 @@ func (c *MockResourceServiceSetUnitResourceCall) DoAndReturn(f func(context.Cont
 }
 
 // StoreResource mocks base method.
-func (m *MockResourceService) StoreResource(arg0 context.Context, arg1 resource0.StoreResourceArgs) error {
+func (m *MockResourceService) StoreResource(arg0 context.Context, arg1 resource0.StoreResourceArgs) (resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreResource", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // StoreResource indicates an expected call of StoreResource.
@@ -224,19 +225,19 @@ type MockResourceServiceStoreResourceCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceServiceStoreResourceCall) Return(arg0 error) *MockResourceServiceStoreResourceCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockResourceServiceStoreResourceCall) Return(arg0 resource.Resource, arg1 error) *MockResourceServiceStoreResourceCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceServiceStoreResourceCall) Do(f func(context.Context, resource0.StoreResourceArgs) error) *MockResourceServiceStoreResourceCall {
+func (c *MockResourceServiceStoreResourceCall) Do(f func(context.Context, resource0.StoreResourceArgs) (resource.Resource, error)) *MockResourceServiceStoreResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceServiceStoreResourceCall) DoAndReturn(f func(context.Context, resource0.StoreResourceArgs) error) *MockResourceServiceStoreResourceCall {
+func (c *MockResourceServiceStoreResourceCall) DoAndReturn(f func(context.Context, resource0.StoreResourceArgs) (resource.Resource, error)) *MockResourceServiceStoreResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -6,20 +6,24 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	AdoptState
 	FilesystemState
 	StoragePoolState
-	StorageImportState
 	VolumeState
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
@@ -49,6 +53,16 @@ type State interface {
 		domainstorage.StorageInstanceUUID,
 	) ([]domainstorage.StorageAttachmentUUID, error)
 
+	// GetStorageInstanceInfo returns the information about a single Storage
+	// Instance in the model.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// when no Storage Instance exists for the supplied uuid.
+	GetStorageInstanceInfo(
+		context.Context, domainstorage.StorageInstanceUUID,
+	) (internal.StorageInstanceInfo, error)
+
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.
 	//
@@ -65,7 +79,6 @@ type Service struct {
 	FilesystemService
 	StoragePoolService
 	StorageService
-	StorageImportService
 	VolumeService
 
 	logger logger.Logger
@@ -76,6 +89,7 @@ type Service struct {
 func NewService(
 	st State,
 	logger logger.Logger,
+	clock clock.Clock,
 	registryGetter corestorage.ModelStorageRegistryGetter,
 ) *Service {
 	return &Service{
@@ -89,18 +103,30 @@ func NewService(
 		},
 		StorageService: StorageService{
 			st:             st,
+			clock:          clock,
 			registryGetter: registryGetter,
-		},
-		StorageImportService: StorageImportService{
-			registryGetter: registryGetter,
-			st:             st,
-			logger:         logger,
 		},
 		VolumeService: VolumeService{
 			st: st,
 		},
 		logger: logger,
 		st:     st,
+	}
+}
+
+// NewImportService returns a new StorageImportService for interacting with the underlying state
+// during model migration import.
+func NewImportService(
+	st StorageImportState,
+	logger logger.Logger,
+	registryGetter corestorage.ModelStorageRegistryGetter,
+	ephemeralProviderRunner providertracker.EphemeralProviderRunnerGetter[internalstorage.FilesystemModelMigration],
+) *StorageImportService {
+	return &StorageImportService{
+		registryGetter:          registryGetter,
+		ephemeralProviderRunner: ephemeralProviderRunner,
+		st:                      st,
+		logger:                  logger,
 	}
 }
 

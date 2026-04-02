@@ -154,7 +154,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesContainerPlacement(c *tc.C) {
 		},
 	}).Return(machineservice.AddMachineResults{
 		MachineName:      coremachine.Name("0"),
-		ChildMachineName: ptr(coremachine.Name("0/lxd/0")),
+		ChildMachineName: new(coremachine.Name("0/lxd/0")),
 	}, nil)
 
 	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: []params.AddMachineParams{apiParams}})
@@ -187,7 +187,7 @@ func (s *AddMachineManagerSuite) TestAddMachinesContainerMembers(c *tc.C) {
 		},
 	}).Return(machineservice.AddMachineResults{
 		MachineName:      coremachine.Name("0"),
-		ChildMachineName: ptr(coremachine.Name("0/lxd/0")),
+		ChildMachineName: new(coremachine.Name("0/lxd/0")),
 	}, nil)
 
 	machines, err := s.api.AddMachines(c.Context(), params.AddMachines{MachineParams: []params.AddMachineParams{apiParams}})
@@ -737,8 +737,4 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

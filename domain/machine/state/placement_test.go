@@ -119,7 +119,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithPlatform(c *tc.C) {
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesUnsetWithNonce(c *tc.C) {
-	nonce := ptr("test-nonce")
+	nonce := new("test-nonce")
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	machineUUID := machinetesting.GenUUID(c)
 
@@ -337,7 +337,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 				},
 				MachineUUID: machinetesting.GenUUID(c),
 				NetNodeUUID: netNodeUUID,
-				Nonce:       ptr("nonce-ense"),
+				Nonce:       new("nonce-ense"),
 			})
 		return err
 	})
@@ -357,7 +357,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainer(c *tc.C) {
 
 	// Check the nonce.
 	s.checkNonceForMachine(c, machine.Name("0"), nil)
-	s.checkNonceForMachine(c, machine.Name("0/lxd/0"), ptr("nonce-ense"))
+	s.checkNonceForMachine(c, machine.Name("0/lxd/0"), new("nonce-ense"))
 }
 
 func (s *placementSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *tc.C) {
@@ -443,7 +443,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerInvalidArch(c *tc.C) {
 				Directive: "0",
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: new(arch.AMD64),
 			},
 		})
 		return err
@@ -680,7 +680,7 @@ INSERT INTO space (uuid, name) VALUES
 			MachineUUID: machinetesting.GenUUID(c),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			Constraints: constraints.Constraints{
-				Spaces: ptr([]constraints.SpaceConstraint{
+				Spaces: new([]constraints.SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: true},
 				}),
@@ -700,7 +700,7 @@ INSERT INTO space (uuid, name) VALUES
 			MachineUUID: machinetesting.GenUUID(c),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			Constraints: constraints.Constraints{
-				Spaces: ptr([]constraints.SpaceConstraint{
+				Spaces: new([]constraints.SpaceConstraint{
 					{SpaceName: "nonexistent-space", Exclude: false},
 				}),
 			},

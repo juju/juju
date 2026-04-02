@@ -191,7 +191,7 @@ func (env *environ) subnetsForInstance(ctx context.Context, args environs.StartI
 	}
 	if vpcLink == nil {
 		// No VPC so just use default network.
-		vpcLink = ptr(fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName))
+		vpcLink = new(fmt.Sprintf("%s%s", google.NetworkPathRoot, google.NetworkDefaultName))
 	}
 
 	allSubnets, err := env.gce.NetworkSubnetworks(ctx, env.cloud.Region, *vpcLink)

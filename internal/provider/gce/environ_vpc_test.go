@@ -28,13 +28,13 @@ func (s *environVpcSuite) TestValidateBootstrapSubnetAutoCreate(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(true),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(true),
+		SelfLink:              new("/path/to/network/some-vpc"),
 	}, nil)
 	s.MockService.EXPECT().NetworkFirewalls(gomock.Any(), "/path/to/network/some-vpc").
 		Return([]*computepb.Firewall{{
 			Allowed: []*computepb.Allowed{{
-				IPProtocol: ptr("tcp"),
+				IPProtocol: new("tcp"),
 				Ports:      []string{"22"},
 			}},
 		}}, nil)
@@ -51,12 +51,12 @@ func (s *environVpcSuite) TestValidateBootstrapLegacyNetwork(c *tc.C) {
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
 		AutoCreateSubnetworks: nil,
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		SelfLink:              new("/path/to/network/some-vpc"),
 	}, nil)
 	s.MockService.EXPECT().NetworkFirewalls(gomock.Any(), "/path/to/network/some-vpc").
 		Return([]*computepb.Firewall{{
 			Allowed: []*computepb.Allowed{{
-				IPProtocol: ptr("tcp"),
+				IPProtocol: new("tcp"),
 				Ports:      []string{"22"},
 			}},
 		}}, nil)
@@ -84,22 +84,22 @@ func (s *environVpcSuite) TestValidateBootstrapUsableSubnets(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(false),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(false),
+		SelfLink:              new("/path/to/network/some-vpc"),
 		Subnetworks:           []string{"/path/to/subnet1", "/path/to/subnet2"},
 	}, nil)
 	s.MockService.EXPECT().NetworkFirewalls(gomock.Any(), "/path/to/network/some-vpc").
 		Return([]*computepb.Firewall{{
 			Allowed: []*computepb.Allowed{{
-				IPProtocol: ptr("tcp"),
+				IPProtocol: new("tcp"),
 				Ports:      []string{"22"},
 			}},
 		}}, nil)
 	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", "/path/to/subnet1", "/path/to/subnet2").
 		Return([]*computepb.Subnetwork{{
-			State: ptr("READY"),
+			State: new("READY"),
 		}, {
-			State: ptr("DRAINING"),
+			State: new("DRAINING"),
 		}}, nil)
 
 	err := validateBootstrapVPC(
@@ -113,13 +113,13 @@ func (s *environVpcSuite) TestValidateBootstrapNoSSHAccess(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(true),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(true),
+		SelfLink:              new("/path/to/network/some-vpc"),
 	}, nil)
 	s.MockService.EXPECT().NetworkFirewalls(gomock.Any(), "/path/to/network/some-vpc").
 		Return([]*computepb.Firewall{{
 			Allowed: []*computepb.Allowed{{
-				IPProtocol: ptr("tcp"),
+				IPProtocol: new("tcp"),
 				Ports:      []string{"80"},
 			}},
 		}}, nil)
@@ -135,8 +135,8 @@ func (s *environVpcSuite) TestValidateBootstrapNoSubnets(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(false),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(false),
+		SelfLink:              new("/path/to/network/some-vpc"),
 	}, nil)
 
 	err := validateBootstrapVPC(
@@ -150,22 +150,22 @@ func (s *environVpcSuite) TestValidateBootstrapNoUsableSubnets(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(false),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(false),
+		SelfLink:              new("/path/to/network/some-vpc"),
 		Subnetworks:           []string{"/path/to/subnet1", "/path/to/subnet2"},
 	}, nil)
 	s.MockService.EXPECT().NetworkFirewalls(gomock.Any(), "/path/to/network/some-vpc").
 		Return([]*computepb.Firewall{{
 			Allowed: []*computepb.Allowed{{
-				IPProtocol: ptr("tcp"),
+				IPProtocol: new("tcp"),
 				Ports:      []string{"22"},
 			}},
 		}}, nil)
 	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", "/path/to/subnet1", "/path/to/subnet2").
 		Return([]*computepb.Subnetwork{{
-			State: ptr("DRAINING"),
+			State: new("DRAINING"),
 		}, {
-			State: ptr("DRAINING"),
+			State: new("DRAINING"),
 		}}, nil)
 
 	err := validateBootstrapVPC(
@@ -179,8 +179,8 @@ func (s *environVpcSuite) TestValidateModelSubnet(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(&computepb.Network{
-		AutoCreateSubnetworks: ptr(true),
-		SelfLink:              ptr("/path/to/network/some-vpc"),
+		AutoCreateSubnetworks: new(true),
+		SelfLink:              new("/path/to/network/some-vpc"),
 	}, nil)
 
 	err := validateModelVPC(c.Context(), s.MockService,

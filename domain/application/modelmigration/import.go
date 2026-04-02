@@ -403,7 +403,7 @@ func (i *importOperation) makeAddress(addr description.Address) (*network.SpaceA
 		result.SpaceID = network.AlphaSpaceId
 	}
 
-	return result, ptr(network.Origin(addr.Origin()))
+	return result, new(network.Origin(addr.Origin()))
 }
 
 type charmData struct {
@@ -1016,10 +1016,6 @@ func importBaseChannel(data string) (internalcharm.Channel, error) {
 	// not valid error if it is empty. This might be a bit too strict, but
 	// it's better to be strict than to be lenient.
 	return internalcharm.ParseChannel(data)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func importCharmParameters(parameters map[string]any) (map[string]any, error) {

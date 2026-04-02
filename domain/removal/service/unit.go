@@ -334,8 +334,16 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	if l == life.Dying && !job.Force {
 		// Can the unit be marked as dead? If the unit has any associated
 		// entities that are still alive, we cannot mark it as dead.
-		if err := s.modelState.MarkUnitAsDeadWithNoEntities(ctx, job.EntityUUID); err != nil {
-			return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
+		err := s.modelState.MarkUnitAsDeadWithNoEntities(ctx, job.EntityUUID)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			// The unit has already been removed.
+			// Indicate success so that this job will be deleted.
+			return nil
+		} else if errors.Is(err, removalerrors.EntityStillAlive) {
+			return errors.Errorf("marking unit %q as dead: %v", job.EntityUUID, err).
+				Add(removalerrors.EntityNotDead)
+		} else if err != nil {
+			return errors.Capture(err)
 		}
 	}
 
@@ -344,7 +352,11 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	// in relation scopes. If the unit is dead, it transitioned to that
 	// state itself without departing relations, and can not act in that
 	// capacity again, so we depart all remaining scopes here.
-	if err := s.leaveAllRelationScopes(ctx, unit.UUID(job.EntityUUID)); err != nil {
+	if err := s.leaveAllRelationScopes(ctx, unit.UUID(job.EntityUUID)); errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -353,13 +365,30 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	// A case has been made for the unit to create and update its own
 	// secrets directly, but for deletion we could safely remove that
 	// functionality and rely only on this code path.
-	if err := s.deleteUnitOwnedSecrets(ctx, unit.UUID(job.EntityUUID)); err != nil {
-		return errors.Capture(err)
+	if err := s.deleteUnitOwnedSecrets(ctx, unit.UUID(job.EntityUUID)); errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("deleting unit owned secrets: %w", err)
 	}
 
 	charmUUID, err := s.modelState.GetCharmForUnit(ctx, job.EntityUUID)
-	if err != nil {
-		return errors.Errorf("getting charm for unit %q: %w", job.EntityUUID, err)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting charm for unit: %w", err)
+	}
+
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting application name and unit name: %w", err)
 	}
 
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
@@ -381,11 +410,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	// sooner that the expiry of its last lease.
 	// For all other scenarios preventing lease renewal, the lease will be
 	// relinquished naturally by expiry.
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
-	if err != nil {
-		return errors.Errorf("getting application name and unit name: %w", err)
-	}
-
 	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		return errors.Errorf("revoking leadership: %w", err)
 	}

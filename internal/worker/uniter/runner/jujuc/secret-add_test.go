@@ -63,10 +63,6 @@ func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *tc.C) {
 	}
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretAddSuite) TestAddSecretExpireDuration(c *tc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
@@ -87,9 +83,9 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *tc.C) {
 	expectedArgs := &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        val,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			Description:  ptr("sssshhhh"),
-			Label:        ptr("foobar"),
+			RotatePolicy: new(coresecrets.RotateDaily),
+			Description:  new("sssshhhh"),
+			Label:        new("foobar"),
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}
@@ -126,10 +122,10 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *tc.C) {
 	args := &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        val,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			Description:  ptr("sssshhhh"),
-			Label:        ptr("foobar"),
-			ExpireTime:   ptr(expectedExpiry),
+			RotatePolicy: new(coresecrets.RotateDaily),
+			Description:  new("sssshhhh"),
+			Label:        new("foobar"),
+			ExpireTime:   new(expectedExpiry),
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "u"},
 	}

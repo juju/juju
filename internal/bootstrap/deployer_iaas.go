@@ -105,13 +105,13 @@ func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info De
 			},
 			ApplicationStatus: &status.StatusInfo{
 				Status: status.Unset,
-				Since:  ptr(b.clock.Now()),
+				Since:  new(b.clock.Now()),
 			},
 			Constraints:  b.constraints,
 			IsController: true,
 		},
 		applicationservice.AddIAASUnitArg{
-			Nonce: ptr(agent.BootstrapNonce),
+			Nonce: new(agent.BootstrapNonce),
 		},
 	); err != nil {
 		return errors.Errorf("creating IAAS controller application: %w", err)

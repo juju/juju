@@ -330,34 +330,6 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := tc.Must(c, coreapplication.NewUUID)
-	charmUUID := charmtesting.GenCharmID(c)
-
-	info := application.CharmDownloadInfo{
-		CharmUUID: charmUUID,
-		Name:      "foo",
-		SHA256:    "hash",
-		DownloadInfo: applicationcharm.DownloadInfo{
-			Provenance:         applicationcharm.ProvenanceDownload,
-			CharmhubIdentifier: "foo",
-			DownloadURL:        "https://example.com/foo",
-			DownloadSize:       42,
-		},
-	}
-
-	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, applicationerrors.CharmAlreadyResolved)
-
-	err := s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
-		CharmUUID: charmUUID,
-		Path:      "foo",
-		Size:      42,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -497,11 +469,11 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaults(c *tc.C) 
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 		"baz": {
 			Type:  applicationcharm.OptionInt,
-			Value: ptr("42"),
+			Value: new("42"),
 		},
 		"qux": {
 			Type: applicationcharm.OptionBool,
@@ -525,7 +497,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithErrors(c *tc.C) {
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionBool,
-			Value: ptr("not-a-parsable-bool"),
+			Value: new("not-a-parsable-bool"),
 		},
 	}, nil)
 
@@ -541,7 +513,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithDefaultsWithError(
 	s.state.EXPECT().GetApplicationConfigWithDefaults(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 	}, errors.Errorf("boom"))
 
@@ -620,7 +592,7 @@ func (s *applicationServiceSuite) TestGetApplicationCharmOrigin(c *tc.C) {
 			Track: "1.0",
 			Risk:  "stable",
 		},
-		Revision: ptr(42),
+		Revision: new(42),
 		Hash:     "hash",
 		ID:       "id",
 	})
@@ -690,7 +662,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfig(c *tc.C) {
 			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{
-		Trust: ptr(true),
+		Trust: new(true),
 	}).Return(nil)
 
 	err := s.service.UpdateApplicationConfig(c.Context(), appUUID, map[string]string{
@@ -719,7 +691,7 @@ func (s *applicationServiceSuite) TestUpdateApplicationConfigRemoveTrust(c *tc.C
 			Value: "bar",
 		},
 	}, application.UpdateApplicationSettingsArg{
-		Trust: ptr(false),
+		Trust: new(false),
 	}).Return(nil)
 
 	err := s.service.UpdateApplicationConfig(c.Context(), appUUID, map[string]string{
@@ -863,7 +835,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{
@@ -915,7 +887,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *tc.C) {
 		CharmName: "foo",
 		CharmOrigin: corecharm.Origin{
 			Source:   corecharm.CharmHub,
-			Revision: ptr(42),
+			Revision: new(42),
 			Platform: corecharm.Platform{
 				Architecture: arch.AMD64,
 				Channel:      "stable",
@@ -943,7 +915,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *tc
 	appConfig := map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
-			Value: ptr("bar"),
+			Value: new("bar"),
 		},
 	}
 	settings := application.ApplicationSettings{
@@ -980,7 +952,7 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *tc.C) {
 		Source:   corecharm.CharmHub,
 		ID:       "id",
 		Hash:     "hash",
-		Revision: ptr(42),
+		Revision: new(42),
 		Platform: corecharm.Platform{
 			Architecture: arch.AMD64,
 			Channel:      "stable",
@@ -1557,6 +1529,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 		s.storageService,
 		domaintesting.NoopLeaderEnsurer(),
 		s.watcherFactory,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -2619,7 +2592,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Count: ptr(count),
+				Count: new(count),
 			},
 		},
 	}
@@ -2641,7 +2614,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		applicationerrors.StorageCountLimitExceeded{
-			Maximum:     ptr(3),
+			Maximum:     new(3),
 			Minimum:     1,
 			Requested:   int(count),
 			StorageName: "data",
@@ -2898,7 +2871,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Count: ptr(uint32(4)),
+				Count: new(uint32(4)),
 			},
 		},
 	}
@@ -2975,7 +2948,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Count: ptr(uint32(2)),
+				Count: new(uint32(2)),
 			},
 		},
 	}
@@ -3049,7 +3022,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Count: ptr(uint32(6)),
+				Count: new(uint32(6)),
 			},
 		},
 	}
@@ -3121,7 +3094,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Size:     ptr(uint64(2048)),
+				Size:     new(uint64(2048)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 		},
@@ -3197,7 +3170,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Size:     ptr(uint64(512)),
+				Size:     new(uint64(512)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 		},
@@ -3269,7 +3242,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Size:     ptr(uint64(1024)),
+				Size:     new(uint64(1024)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 		},
@@ -3344,7 +3317,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"not-data": {
-				Size:     ptr(uint64(1024)),
+				Size:     new(uint64(1024)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 		},
@@ -3401,7 +3374,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"not-data": {
-				Size:     ptr(uint64(1024)),
+				Size:     new(uint64(1024)),
 				PoolUUID: &invalidPoolUUID,
 			},
 		},
@@ -3454,7 +3427,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Size:     ptr(uint64(2048)),
+				Size:     new(uint64(2048)),
 				PoolUUID: &missingPoolUUID,
 			},
 		},
@@ -3506,11 +3479,11 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	params := application.SetCharmParams{
 		StorageDirectiveOverrides: map[string]application.ApplicationStorageDirectiveOverride{
 			"data": {
-				Size:     ptr(uint64(2048)),
+				Size:     new(uint64(2048)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 			"not-data": {
-				Size:     ptr(uint64(1024)),
+				Size:     new(uint64(1024)),
 				PoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 		},

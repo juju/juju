@@ -23,7 +23,6 @@ func (s *uniterNetworkInfoSuite) TestStub(c *tc.C) {
 - TestNetworkInfoForImplicitlyBoundEndpoint
 - TestNetworkInfoUsesRelationAddressNonDefaultBinding
 - TestNetworkInfoUsesRelationAddressDefaultBinding
-- TestUpdateNetworkInfo
 - TestCommitHookChanges (should never have been added to this suite)
 - TestCommitHookChangesWhenNotLeader (should never have been added to this suite)
 `)

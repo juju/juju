@@ -227,14 +227,6 @@ type State interface {
 	// relation UUID is for a peer relation.
 	IsPeerRelation(ctx context.Context, relationUUID string) (bool, error)
 
-	// SetRelationApplicationAndUnitSettings records settings for a unit and
-	// an application in a relation.
-	SetRelationApplicationAndUnitSettings(
-		ctx context.Context,
-		relationUnitUUID corerelation.UnitUUID,
-		applicationSettings, unitSettings map[string]string,
-	) error
-
 	// SetRelationUnitSettings records settings for a specific relation unit.
 	SetRelationUnitSettings(
 		ctx context.Context,
@@ -349,55 +341,6 @@ func (s *LeadershipService) SetRelationUnitSettings(
 	}
 
 	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
-}
-
-// SetRelationApplicationAndUnitSettings records settings for a unit and
-// an application in a relation.
-//
-// The following error types can be expected to be returned:
-//   - [corelease.ErrNotHeld] if the unit is not the leader and
-//     applicationSettings has a none zero length.
-//   - [relationerrors.RelationUnitNotFound] is returned if the
-//     relation unit is not found.
-func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	applicationSettings, unitSettings map[string]string,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Note: do not check if the settings are length 0 here, as we want to
-	// enable clearing settings by passing empty maps. If the maps are nil, then
-	// it becomes a no-op.
-	if applicationSettings == nil && unitSettings == nil {
-		return nil
-	}
-
-	if err := unitName.Validate(); err != nil {
-		return errors.Capture(err)
-	}
-	if err := relationUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"%w:%w", relationerrors.RelationUUIDNotValid, err)
-	}
-
-	relationUnitUUID, err := s.st.GetRelationUnitUUID(ctx, relationUUID, unitName)
-	if err != nil {
-		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
-	}
-
-	// Unless application settings are nil, we must be the leader.
-	// This includes an empty map, which implies deletion.
-	if applicationSettings == nil {
-		return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
-	}
-	err = s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
-		err := s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
-		return errors.Capture(err)
-	})
-	return errors.Capture(err)
 }
 
 // Service provides the API for working with relations.

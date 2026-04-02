@@ -21,7 +21,13 @@ type PermissionDelegator struct {
 }
 
 // SubjectPermissions ensures that the input entity is a user,
-// then returns that user's access to the input subject.
+// then returns that user's access to the input target.
+//
+// This method is a pure permission read with no side effects.
+// External users can inherit permissions from everyone@external, including
+// first login before the external user's own DB row exists.
+// Persisting external users is handled separately by admin.authenticate()
+// after successful permission checks.
 func (p *PermissionDelegator) SubjectPermissions(
 	ctx context.Context, userName string, target permission.ID,
 ) (permission.Access, error) {
@@ -29,13 +35,6 @@ func (p *PermissionDelegator) SubjectPermissions(
 	name, err := user.NewName(userName)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
-	}
-
-	if !name.IsLocal() {
-		err := p.AccessService.EnsureExternalUserIfAuthorized(ctx, name, target)
-		if err != nil {
-			return permission.NoAccess, errors.Trace(err)
-		}
 	}
 
 	access, err := p.AccessService.ReadUserAccessLevelForTarget(ctx, name, target)

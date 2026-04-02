@@ -212,7 +212,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	gceFsUUID := tc.Must(c, storage.NewFilesystemUUID)
 	azureFsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
-	args := []internal.ImportFilesystemIAASArgs{{
+	args := []internal.ImportFilesystemArgs{{
 		UUID:                ebsFsUUID.String(),
 		ID:                  "ebs-fs-1",
 		SizeInMiB:           1024,
@@ -296,7 +296,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	ebsAttachment2UUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	gceAttachmentUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
-	fsArgs := []internal.ImportFilesystemIAASArgs{{
+	fsArgs := []internal.ImportFilesystemArgs{{
 		UUID:                ebsFsUUID.String(),
 		ID:                  "ebs-fs-1",
 		SizeInMiB:           1024,
@@ -314,12 +314,13 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		Scope:               storageprovisioning.ProvisionScopeModel,
 	}}
 
-	attachmentArgs := []internal.ImportFilesystemAttachmentIAASArgs{{
+	attachmentArgs := []internal.ImportFilesystemAttachmentArgs{{
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
 		Scope:          storageprovisioning.ProvisionScopeMachine,
 		NetNodeUUID:    netNodeUUID1.String(),
 		MountPoint:     "/mnt/ebs1",
+		ProviderID:     "provider-id",
 		ReadOnly:       false,
 	}, {
 		UUID:           ebsAttachment2UUID.String(),
@@ -352,6 +353,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		ScopeID:        int(storageprovisioning.ProvisionScopeMachine),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/ebs1",
+		ProviderID:     "provider-id",
 		ReadOnly:       false,
 	}, {
 		UUID:           ebsAttachment2UUID.String(),
@@ -1099,7 +1101,7 @@ func (s *importSuite) getFilesystemAttachments(c *tc.C) []importStorageFilesyste
 	var attachments []importStorageFilesystemAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(c.Context(), `
-SELECT uuid, storage_filesystem_uuid, net_node_uuid, provision_scope_id, life_id, mount_point, read_only
+SELECT uuid, storage_filesystem_uuid, net_node_uuid, provision_scope_id, life_id, mount_point, provider_id, read_only
 FROM storage_filesystem_attachment`)
 		if err != nil {
 			return err
@@ -1107,10 +1109,10 @@ FROM storage_filesystem_attachment`)
 
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			var uuid, fsUUID, netNodeUUID, mountPoint string
+			var uuid, fsUUID, netNodeUUID, mountPoint, providerID string
 			var scopeID, lifeID int
 			var readOnly bool
-			if err := rows.Scan(&uuid, &fsUUID, &netNodeUUID, &scopeID, &lifeID, &mountPoint, &readOnly); err != nil {
+			if err := rows.Scan(&uuid, &fsUUID, &netNodeUUID, &scopeID, &lifeID, &mountPoint, &providerID, &readOnly); err != nil {
 				return err
 			}
 			attachments = append(attachments, importStorageFilesystemAttachment{
@@ -1120,6 +1122,7 @@ FROM storage_filesystem_attachment`)
 				ScopeID:        scopeID,
 				LifeID:         lifeID,
 				MountPoint:     mountPoint,
+				ProviderID:     providerID,
 				ReadOnly:       readOnly,
 			})
 		}

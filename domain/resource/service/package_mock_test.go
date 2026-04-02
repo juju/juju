@@ -237,6 +237,45 @@ func (c *MockStateExportResourcesCall) DoAndReturn(f func(context.Context, strin
 	return c
 }
 
+// GetApplicationResource mocks base method.
+func (m *MockState) GetApplicationResource(arg0 context.Context, arg1 resource.UUID) (resource.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationResource", arg0, arg1)
+	ret0, _ := ret[0].(resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationResource indicates an expected call of GetApplicationResource.
+func (mr *MockStateMockRecorder) GetApplicationResource(arg0, arg1 any) *MockStateGetApplicationResourceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationResource", reflect.TypeOf((*MockState)(nil).GetApplicationResource), arg0, arg1)
+	return &MockStateGetApplicationResourceCall{Call: call}
+}
+
+// MockStateGetApplicationResourceCall wrap *gomock.Call
+type MockStateGetApplicationResourceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationResourceCall) Return(arg0 resource.Resource, arg1 error) *MockStateGetApplicationResourceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationResourceCall) Do(f func(context.Context, resource.UUID) (resource.Resource, error)) *MockStateGetApplicationResourceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationResourceCall) DoAndReturn(f func(context.Context, resource.UUID) (resource.Resource, error)) *MockStateGetApplicationResourceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationResourceID mocks base method.
 func (m *MockState) GetApplicationResourceID(arg0 context.Context, arg1 resource1.GetApplicationResourceIDArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()
@@ -311,6 +350,46 @@ func (c *MockStateGetResourceCall) Do(f func(context.Context, resource.UUID) (re
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetResourceCall) DoAndReturn(f func(context.Context, resource.UUID) (resource.Resource, error)) *MockStateGetResourceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetResourceNameAndType mocks base method.
+func (m *MockState) GetResourceNameAndType(arg0 context.Context, arg1 resource.UUID) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetResourceNameAndType", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetResourceNameAndType indicates an expected call of GetResourceNameAndType.
+func (mr *MockStateMockRecorder) GetResourceNameAndType(arg0, arg1 any) *MockStateGetResourceNameAndTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceNameAndType", reflect.TypeOf((*MockState)(nil).GetResourceNameAndType), arg0, arg1)
+	return &MockStateGetResourceNameAndTypeCall{Call: call}
+}
+
+// MockStateGetResourceNameAndTypeCall wrap *gomock.Call
+type MockStateGetResourceNameAndTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetResourceNameAndTypeCall) Return(arg0, arg1 string, arg2 error) *MockStateGetResourceNameAndTypeCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetResourceNameAndTypeCall) Do(f func(context.Context, resource.UUID) (string, string, error)) *MockStateGetResourceNameAndTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetResourceNameAndTypeCall) DoAndReturn(f func(context.Context, resource.UUID) (string, string, error)) *MockStateGetResourceNameAndTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -697,6 +776,44 @@ func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource1.StateUpdateUploadResourceArgs) (resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// VerifyApplicationExistsForResource mocks base method.
+func (m *MockState) VerifyApplicationExistsForResource(arg0 context.Context, arg1 resource.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyApplicationExistsForResource", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VerifyApplicationExistsForResource indicates an expected call of VerifyApplicationExistsForResource.
+func (mr *MockStateMockRecorder) VerifyApplicationExistsForResource(arg0, arg1 any) *MockStateVerifyApplicationExistsForResourceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyApplicationExistsForResource", reflect.TypeOf((*MockState)(nil).VerifyApplicationExistsForResource), arg0, arg1)
+	return &MockStateVerifyApplicationExistsForResourceCall{Call: call}
+}
+
+// MockStateVerifyApplicationExistsForResourceCall wrap *gomock.Call
+type MockStateVerifyApplicationExistsForResourceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateVerifyApplicationExistsForResourceCall) Return(arg0 error) *MockStateVerifyApplicationExistsForResourceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateVerifyApplicationExistsForResourceCall) Do(f func(context.Context, resource.UUID) error) *MockStateVerifyApplicationExistsForResourceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateVerifyApplicationExistsForResourceCall) DoAndReturn(f func(context.Context, resource.UUID) error) *MockStateVerifyApplicationExistsForResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

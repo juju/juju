@@ -145,17 +145,17 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
 		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
 		Return([]*computepb.Instance{{
-			Name: ptr("inst-0"),
-			Zone: ptr("home-zone"),
+			Name: new("inst-0"),
+			Zone: new("home-zone"),
 		}, {
-			Name: ptr("inst-1"),
-			Zone: ptr("home-a-zone"),
+			Name: new("inst-1"),
+			Zone: new("home-a-zone"),
 		}}, nil)
 	s.MockService.EXPECT().RemoveInstances(gomock.Any(), s.Prefix(env), "inst-0", "inst-1")
 
 	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
-		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
-		Status: ptr("READY"),
+		Name:   new("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: new("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},

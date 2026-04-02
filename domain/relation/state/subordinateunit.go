@@ -121,7 +121,7 @@ func (st *State) addSubordinateUnit(
 }
 
 func (st *State) makeIAASUnitStatusArgs() application.UnitStatusArg {
-	now := ptr(st.clock.Now())
+	now := new(st.clock.Now())
 	return application.UnitStatusArg{
 		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 			Status: status.UnitAgentStatusAllocating,
@@ -353,8 +353,4 @@ WHERE  uuid = $entityUUID.uuid
 	}
 
 	return network.NetNodeUUID(dbVal.NetNodeUUID), nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

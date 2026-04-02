@@ -497,9 +497,5 @@ var dialOpts = api.DialOpts{
 	// We want to ping more frequently to detect broken connections faster, but
 	// keep the default timeout for a ping to happen (30 seconds). The worst
 	// case would be 1 minute to detect a broken connection.
-	PingPeriod: ptr(30 * time.Second),
-}
-
-func ptr[T any](v T) *T {
-	return &v
+	PingPeriod: new(30 * time.Second),
 }

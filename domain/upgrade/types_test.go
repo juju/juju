@@ -27,11 +27,11 @@ func (s *typesSuite) TestUUIDValidate(c *tc.C) {
 	}{
 		{
 			uuid: "",
-			err:  ptr("empty uuid"),
+			err:  new("empty uuid"),
 		},
 		{
 			uuid: "invalid",
-			err:  ptr("invalid uuid.*"),
+			err:  new("invalid uuid.*"),
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),
@@ -49,8 +49,4 @@ func (s *typesSuite) TestUUIDValidate(c *tc.C) {
 
 		c.Check(err, tc.ErrorMatches, *test.err)
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

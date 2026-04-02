@@ -200,23 +200,19 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 		Size:            uploaded.size,
 		Fingerprint:     uploaded.fingerprint,
 	}
+	var res coreresource.Resource
 	if uploaded.pending {
-		err = service.StoreResource(req.Context(), args)
+		res, err = service.StoreResource(req.Context(), args)
 	} else {
 		// If the resource is pending this call will fail. The charm
 		// modified version exists on applications only. A pending
 		// resources indicates the application does not yet exist.
 		// The charm modified version is used to upgrade a resource
 		// independently of a charm.
-		err = service.StoreResourceAndIncrementCharmModifiedVersion(req.Context(), args)
+		res, err = service.StoreResourceAndIncrementCharmModifiedVersion(req.Context(), args)
 	}
 	if err != nil {
 		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.resourceName, uploaded.applicationName, err)
-	}
-
-	res, err := service.GetResource(req.Context(), uploaded.uuid)
-	if err != nil {
-		return nil, errors.Errorf("getting uploaded resource details: %w", err)
 	}
 
 	return &params.UploadResult{
@@ -300,7 +296,7 @@ func (h *ResourceHandler) getUploadedResource(
 
 	reader, err := h.downloader.Download(req.Context(), req.Body, uReq.Fingerprint.String(), uReq.Size)
 	if err != nil {
-		return nil, nil, errors.Errorf("downloading reosurce body: %w", err)
+		return nil, nil, errors.Errorf("downloading resource body: %w", err)
 	}
 
 	return reader, &uploadedResource{

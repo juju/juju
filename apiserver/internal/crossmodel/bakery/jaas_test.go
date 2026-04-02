@@ -179,7 +179,7 @@ func (s *jaasBakerySuite) TestCreateDischargeMacaroon(c *tc.C) {
 			offerUUIDKey:   "mysql-uuid",
 		},
 		DeclaredValues{
-			userName:        ptr("mary"),
+			userName:        new("mary"),
 			sourceModelUUID: s.modelUUID.String(),
 			relationKey:     "mediawiki:db mysql:server",
 		},

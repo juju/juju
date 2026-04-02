@@ -93,9 +93,9 @@ AND    life_id = 0;`, machineUUID)
 	selectContainerMachines, err := st.Prepare(`
 SELECT    mp.machine_uuid AS &entityUUID.uuid
 FROM      machine_parent AS mp
-JOIN      machine AS m ON mp.parent_uuid = m.uuid
+JOIN      machine AS m ON mp.machine_uuid = m.uuid
 WHERE     mp.parent_uuid = $entityUUID.uuid
-AND       m.life_id = 0;`, machineUUID)
+AND       m.life_id < 2;`, machineUUID)
 	if err != nil {
 		return cascaded, errors.Errorf("preparing container machine selection query: %w", err)
 	}
@@ -124,7 +124,7 @@ SELECT u.uuid AS &entityUUID.uuid
 FROM   unit AS u
 JOIN   machine  AS m ON m.net_node_uuid = u.net_node_uuid
 WHERE  m.uuid IN ($uuids[:])
-AND    u.life_id = 0;`, machineUUID, uuids{})
+AND    u.life_id < 2;`, machineUUID, uuids{})
 	if err != nil {
 		return cascaded, errors.Errorf("preparing unit selection query: %w", err)
 	}
@@ -189,7 +189,9 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			}
 		}
 
-		cascaded.CascadedStorageInstanceLives, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, mUUID)
+		cascaded.CascadedStorageInstanceLives, err = st.ensureMachineStorageInstancesNotAliveCascade(
+			ctx, tx, mUUID,
+		)
 		if err != nil {
 			return errors.Errorf("advancing machine storage entity lives: %w", err)
 		}
@@ -212,7 +214,9 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 			return u.UUID
 		})
 		for _, u := range cascaded.UnitUUIDs {
-			uc, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
+			uc, err := st.ensureUnitNotAliveCascade(
+				ctx, tx, u, checkEmptyMachine, destroyStorage,
+			)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
@@ -227,7 +231,7 @@ AND    u.life_id = 0;`, machineUUID, uuids{})
 	return cascaded, nil
 }
 
-// ensureMachineStorageInstancesNotAliveCascade transitions any "alive"
+// ensureMachineStorageInstancesNotAliveCascade transitions any non-dead
 // storage instances that are provisioned by the machine to "dying" and to be
 // obliterated.
 //
@@ -251,7 +255,7 @@ WITH all_instances AS (
     JOIN   storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
     JOIN   machine_volume mv ON iv.storage_volume_uuid = mv.volume_uuid
     WHERE  mv.machine_uuid = $entityUUID.uuid AND
-           i.life_id = 0
+           i.life_id < 2
     UNION
     SELECT if.storage_instance_uuid AS uuid
     FROM   storage_instance i
@@ -259,7 +263,7 @@ WITH all_instances AS (
     JOIN   machine_filesystem mf ON if.storage_filesystem_uuid = mf.filesystem_uuid
     LEFT JOIN storage_instance_volume iv ON i.uuid = iv.storage_instance_uuid
     WHERE  mf.machine_uuid = $entityUUID.uuid AND
-           i.life_id = 0 AND
+           i.life_id < 2 AND
            iv.storage_instance_uuid IS NULL
 )
 SELECT &entityUUID.* FROM all_instances`
@@ -285,7 +289,8 @@ SELECT &entityUUID.* FROM all_instances`
 	// machine will cease to exist too.
 	obliterate := true
 	cascaded, err = st.ensureStorageInstancesNotAliveCascade(
-		ctx, tx, sUUIDs, obliterate)
+		ctx, tx, sUUIDs, obliterate,
+	)
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"ensuring %d storage instances not alive: %w", len(sUUIDs), err,

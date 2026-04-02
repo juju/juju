@@ -1105,10 +1105,9 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appUUID coreapplicat
 	// This has the added benefit of returning the charm hash, so that we can
 	// verify the charm download. We don't want it to be passed in the resolve
 	// charm download, in case the caller has the wrong hash.
-	info, err := s.GetAsyncCharmDownloadInfo(ctx, appUUID)
+	info, err := s.st.GetAsyncCharmDownloadInfo(ctx, appUUID)
 	// There is nothing to do if the charm is already downloaded or resolved.
-	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) ||
-		errors.Is(err, applicationerrors.CharmAlreadyResolved) {
+	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)

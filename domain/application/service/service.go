@@ -136,7 +136,7 @@ func (s *Service) recordInitMachinesStatusHistory(
 	// Record the status history for the machines created for the application.
 	machineStatusInfo := corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(s.clock.Now().UTC()),
+		Since:  new(s.clock.Now().UTC()),
 	}
 	for _, machineName := range machineNames {
 		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
@@ -231,6 +231,7 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasProvider providertracker.ProviderGetter[CAASProvider],
+	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	modelUUID model.UUID,
@@ -245,6 +246,7 @@ func NewWatchableService(
 			agentVersionGetter,
 			provider,
 			caasProvider,
+			cloudInfoGetter,
 			charmStore,
 			statusHistory,
 			modelUUID,
@@ -806,8 +808,8 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 // TODO(jack-w-shaw): This watcher only exists to maintain backwards
 // compatibility with the uniter agent facade. Specifically, version 20 of the
 // facade implements a Watch endpoint, which can watches for _any_ change to the
-// unit doc in Mongo. Once we no longer need to support facade 20, we can drop
-// this method.
+// unit doc in 3.6 or earlier. Once we no longer need to support facade 20, we
+// can drop this method.
 func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -941,8 +943,4 @@ func encodeArchitecture(a string) architecture.Architecture {
 	default:
 		return architecture.Unknown
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -18,3 +18,16 @@ type UpdateCredentialModelResult struct {
 	// Errors contains the errors accumulated while trying to update a credential.
 	Errors []error
 }
+
+// CheckCredentialModelResult holds details of any errors
+// encountered validating a credential for a model.
+type CheckCredentialModelResult struct {
+	// ModelUUID contains model's UUID.
+	ModelUUID coremodel.UUID
+
+	// ModelName contains model name.
+	ModelName string
+
+	// Errors contains the errors accumulated while validating a credential.
+	Errors []error
+}

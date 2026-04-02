@@ -558,14 +558,10 @@ func (s *addPendingResourceSuite) expectAddResourcesBeforeApplication(resourceRe
 			{
 				Name:     s.resourceNameTwo,
 				Origin:   charmresource.OriginStore,
-				Revision: ptr(resourceRevision),
+				Revision: new(resourceRevision),
 			},
 		},
 	}
 	addResourceRetVal := []resource.UUID{s.pendingResourceIDOne, s.pendingResourceIDTwo}
 	s.resourceService.EXPECT().AddResourcesBeforeApplication(gomock.Any(), addResourceArgs).Return(addResourceRetVal, nil)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

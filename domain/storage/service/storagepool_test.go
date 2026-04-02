@@ -29,12 +29,37 @@ type registryGetter struct {
 
 // storagePoolServiceSuite is a set of tests to verify the functionality of the
 // [StoragePoolService] interface and contracts.
-type storagePoolServiceSuite struct {
+type baseStoragePoolServiceSuite struct {
 	registry                internalstorage.StaticProviderRegistry
-	state                   *MockStoragePoolState
 	storageProviderRegistry *MockProviderRegistry
 	storageRegistryGetter   *MockModelStorageRegistryGetter
 	storageProvider         *MockProvider
+}
+
+func (s *baseStoragePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.registry = internalstorage.StaticProviderRegistry{
+		Providers: map[internalstorage.ProviderType]internalstorage.Provider{},
+	}
+	s.storageProviderRegistry = NewMockProviderRegistry(ctrl)
+	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
+	s.storageProvider = NewMockProvider(ctrl)
+
+	c.Cleanup(func() {
+		s.registry = internalstorage.StaticProviderRegistry{}
+		s.storageProviderRegistry = nil
+		s.storageRegistryGetter = nil
+		s.storageProvider = nil
+	})
+
+	return ctrl
+}
+
+// storagePoolServiceSuite is a set of tests to verify the functionality of the
+// [StoragePoolService] interface and contracts.
+type storagePoolServiceSuite struct {
+	baseStoragePoolServiceSuite
+	state *MockStoragePoolState
 }
 
 // TestStoragePoolServiceSuite runs all of the tests contained within
@@ -54,21 +79,11 @@ func (r registryGetter) GetStorageRegistry(
 }
 
 func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.registry = internalstorage.StaticProviderRegistry{
-		Providers: map[internalstorage.ProviderType]internalstorage.Provider{},
-	}
+	ctrl := s.baseStoragePoolServiceSuite.setupMocks(c)
 	s.state = NewMockStoragePoolState(ctrl)
-	s.storageProviderRegistry = NewMockProviderRegistry(ctrl)
-	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
-	s.storageProvider = NewMockProvider(ctrl)
 
 	c.Cleanup(func() {
-		s.registry = internalstorage.StaticProviderRegistry{}
 		s.state = nil
-		s.storageProviderRegistry = nil
-		s.storageRegistryGetter = nil
-		s.storageProvider = nil
 	})
 
 	return ctrl
@@ -588,9 +603,33 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByNameInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }
 
+// storagePoolImportSuite is a set of tests to verify the functionality of the
+// [StorageImportService] interface and contracts for Storage Pools.
+type storagePoolImportSuite struct {
+	baseStoragePoolServiceSuite
+	state *MockStorageImportState
+}
+
+// TestStoragePoolImportSuite runs all of the tests contained within
+// [storagePoolImportSuite].
+func TestStoragePoolImportSuite(t *testing.T) {
+	tc.Run(t, &storagePoolImportSuite{})
+}
+
+func (s *storagePoolImportSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseStoragePoolServiceSuite.setupMocks(c)
+	s.state = NewMockStorageImportState(ctrl)
+
+	c.Cleanup(func() {
+		s.state = nil
+	})
+
+	return ctrl
+}
+
 // TestImportStoragePools tests the happy path where a single storage pool
 // is validated and created successfully.
-func (s *storagePoolServiceSuite) TestImportStoragePools(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePools(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -615,7 +654,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePools(c *tc.C) {
 		CreateStoragePool(gomock.Any(), createArg).
 		Return(nil)
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
@@ -638,7 +677,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePools(c *tc.C) {
 
 // TestImportStoragePoolsMultipleSuccess tests that multiple storage pools
 // are validated and created successfully when no errors occur.
-func (s *storagePoolServiceSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -674,7 +713,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C)
 			}),
 	)
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
@@ -704,7 +743,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C)
 
 // TestImportStoragePoolsInvalidUUID tests that an invalid pool UUID should return
 // an error.
-func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidUUID(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsInvalidUUID(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -715,7 +754,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidUUID(c *tc.C) {
 
 	invalidUUID := domainstorage.StoragePoolUUID("123e4567")
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
@@ -738,10 +777,10 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidUUID(c *tc.C) {
 
 // TestImportStoragePoolsInvalidProviderType tests that an invalid provider type
 // returns [domainstorageerrors.ProviderTypeInvalid].
-func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidProviderType(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsInvalidProviderType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
@@ -763,7 +802,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidProviderType(c *t
 // TestImportStoragePoolsProviderTypeNotFound tests that importing a storage
 // pool for a provider not present in the registry returns
 // [domainstorageerrors.ProviderTypeNotFound].
-func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderTypeNotFound(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsProviderTypeNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -772,7 +811,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderTypeNotFound(c *
 		StorageProvider(internalstorage.ProviderType("storagep1")).
 		Return(nil, coreerrors.NotFound)
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{registry},
 		st:             s.state,
 	}
@@ -793,7 +832,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderTypeNotFound(c *
 
 // TestImportStoragePoolsProviderRegistryError tests that unexpected
 // errors returned by the provider registry are propagated.
-func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderRegistryError(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsProviderRegistryError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -804,7 +843,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderRegistryError(c 
 		StorageProvider(internalstorage.ProviderType("storageprovider1")).
 		Return(nil, registryErr)
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{registry},
 		st:             s.state,
 	}
@@ -825,10 +864,10 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderRegistryError(c 
 
 // TestImportStoragePoolsInvalidName tests that an invalid legacy storage
 // pool name returns [domainstorageerrors.StoragePoolNameInvalid].
-func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidName(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportStoragePoolsInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
@@ -851,7 +890,7 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidName(c *tc.C) {
 // TestSetRecommendedStoragePools tests that the service correctly converts
 // recommended storage pool parameters into model arguments and delegates
 // persistence to the state layer without error.
-func (s *storagePoolServiceSuite) TestSetRecommendedStoragePools(c *tc.C) {
+func (s *storagePoolImportSuite) TestSetRecommendedStoragePools(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -869,7 +908,7 @@ func (s *storagePoolServiceSuite) TestSetRecommendedStoragePools(c *tc.C) {
 		},
 	}
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		st: s.state,
 	}
 
@@ -891,13 +930,13 @@ func (s *storagePoolServiceSuite) TestSetRecommendedStoragePools(c *tc.C) {
 // TestSetRecommendedStoragePoolsPoolNotFound tests that the service propagates
 // a [domainstorageerrors.StoragePoolNotFound] error returned by the state layer
 // when a referenced storage pool does not exist.
-func (s *storagePoolServiceSuite) TestSetRecommendedStoragePoolsPropagatesError(c *tc.C) {
+func (s *storagePoolImportSuite) TestSetRecommendedStoragePoolsPropagatesError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	expectedErr := domainstorageerrors.StoragePoolNotFound
 
-	svc := &StoragePoolService{
+	svc := &StorageImportService{
 		st: s.state,
 	}
 
@@ -916,7 +955,7 @@ func (s *storagePoolServiceSuite) TestSetRecommendedStoragePoolsPropagatesError(
 
 // TestImport tests that both user-defined storage pools and provider default
 // pools are returned and the recommended storage pools are returned accordingly.
-func (s *storagePoolServiceSuite) TestImport(c *tc.C) {
+func (s *storagePoolImportSuite) TestImport(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -937,7 +976,7 @@ func (s *storagePoolServiceSuite) TestImport(c *tc.C) {
 		Provider:   "lxd",
 		Attributes: nil,
 	})
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -971,7 +1010,7 @@ func (s *storagePoolServiceSuite) TestImport(c *tc.C) {
 // storage pools are present and that there are no provider default pools, the
 // service returns them unchanged, generates UUIDs, and does not include provider default or
 // recommended pools.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportUserPoolsOnly(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportUserPoolsOnly(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -982,7 +1021,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportUserPoolsOnly(c *tc
 		Attributes: map[string]any{"foo": "bar"},
 	})
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1009,7 +1048,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportUserPoolsOnly(c *tc
 // TestImportPickUserDefinedOnDuplicate ensures that when a user-defined storage
 // pool conflicts by name and provider with a provider default pool, the user-defined
 // pool is preferred and the conflicting default pool is skipped.
-func (s *storagePoolServiceSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) {
+func (s *storagePoolImportSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1043,7 +1082,7 @@ func (s *storagePoolServiceSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) 
 		Attributes: nil,
 	})
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: registryGetter{s.registry},
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1089,7 +1128,7 @@ func (s *storagePoolServiceSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) 
 // TestGetStoragePoolsToImportReturnsRecommendedPools verifies that provider default
 // pools are added and recommended storage pools are returned when the registry
 // supplies recommendations for specific storage kinds.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportReturnsRecommendedPools(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportReturnsRecommendedPools(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1126,7 +1165,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportReturnsRecommendedP
 		Provider:   "lxd",
 		Attributes: map[string]any{"foo": "bar"},
 	})
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: s.storageRegistryGetter,
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1203,7 +1242,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportReturnsRecommendedP
 // TestGetStoragePoolsToImportExcludeConflictingUserPool tests that if there is a recommended provider default
 // pool with conflicting name with a user-defined pool, then that pool will not be included
 // in the recommended pools because we cannot guarantee they refer to the same pool.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportExcludeConflictingUserPool(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportExcludeConflictingUserPool(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1243,7 +1282,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportExcludeConflictingU
 		Provider:   "loop",
 		Attributes: map[string]any{"foo": "bar"},
 	})
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: s.storageRegistryGetter,
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1309,7 +1348,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportExcludeConflictingU
 
 // TestGetStoragePoolsToImportRegistryGetterError asserts that an error propagated
 // correctly when the storage provider registry returns an error.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportRegistryGetterError(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportRegistryGetterError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1319,7 +1358,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportRegistryGetterError
 		GetStorageRegistry(gomock.Any()).
 		Return(nil, expectedErr)
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: s.storageRegistryGetter,
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1332,7 +1371,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportRegistryGetterError
 
 // TestGetStoragePoolsToImportProviderTypesError asserts that an error is propagated
 // correctly when fetching storage provider types returns an error.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportProviderTypesError(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportProviderTypesError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1344,7 +1383,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportProviderTypesError(
 		StorageProviderTypes().
 		Return(nil, errors.New("types boom"))
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: s.storageRegistryGetter,
 		logger:         loggertesting.WrapCheckLog(c),
 	}
@@ -1357,7 +1396,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportProviderTypesError(
 
 // TestGetStoragePoolsToImportStorageProviderError asserts that an error is propagated
 // correctly when fetching a specific storage provider returns an error.
-func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportStorageProviderError(c *tc.C) {
+func (s *storagePoolImportSuite) TestGetStoragePoolsToImportStorageProviderError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -1373,7 +1412,7 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportStorageProviderErro
 		StorageProvider(internalstorage.ProviderType("lxd")).
 		Return(nil, errors.New("provider boom"))
 
-	svc := StoragePoolService{
+	svc := StorageImportService{
 		registryGetter: s.storageRegistryGetter,
 		logger:         loggertesting.WrapCheckLog(c),
 	}

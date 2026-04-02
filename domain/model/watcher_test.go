@@ -312,6 +312,8 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	err = st.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	modelService := service.NewWatchableService(
 		st,
 		watcherFactory,

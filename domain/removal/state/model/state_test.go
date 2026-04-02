@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -209,6 +210,9 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
 		return appProvider{}, nil
 	}
+	cloudInfoGetter := func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
 		func() internalstorage.ProviderRegistry {
 			return internalstorage.NotImplementedProviderRegistry{}
@@ -230,6 +234,7 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		cloudInfoGetter,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		coremodel.UUID(s.ModelUUID()),
@@ -251,7 +256,22 @@ func (s *baseSuite) setupRelationService(c *tc.C) *relationservice.Service {
 }
 
 func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.ProviderService, name string, units ...applicationservice.AddIAASUnitArg) coreapplication.UUID {
-	ch := &stubCharm{name: "test-charm"}
+	return s.createIAASApplicationWithCharm(
+		c,
+		svc,
+		name,
+		&stubCharm{name: "test-charm"},
+		units...,
+	)
+}
+
+func (s *baseSuite) createIAASApplicationWithCharm(
+	c *tc.C,
+	svc *applicationservice.ProviderService,
+	name string,
+	ch internalcharm.Charm,
+	units ...applicationservice.AddIAASUnitArg,
+) coreapplication.UUID {
 	appID, err := svc.CreateIAASApplication(c.Context(), name, ch, corecharm.Origin{
 		Source: corecharm.CharmHub,
 		Platform: corecharm.Platform{
@@ -267,7 +287,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Provi
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -295,7 +315,7 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -324,7 +344,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -889,6 +909,14 @@ func (s *baseSuite) checkRemoteApplicationOffererLife(c *tc.C, remoteAppUUID str
 	c.Check(lifeID, tc.Equals, int(expectedLife))
 }
 
+func (s *baseSuite) checkRelationLife(c *tc.C, relationUUID relation.UUID, expectedLife life.Life) {
+	row := s.DB().QueryRow("SELECT life_id FROM relation WHERE uuid = ?", relationUUID.String())
+	var lifeID int
+	err := row.Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(expectedLife))
+}
+
 // addCharm inserts a new charm record into the database and returns its UUID as a string.
 func (s *baseSuite) addCharm(c *tc.C) string {
 	charmUUID := uuid.MustNewUUID().String()
@@ -1234,6 +1262,7 @@ func (s *baseSuite) addModelProvisionedVolume(c *tc.C) string {
 type stubCharm struct {
 	name        string
 	subordinate bool
+	storage     map[string]internalcharm.Storage
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -1273,6 +1302,7 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Type: "nvidia.com/gpu",
 			},
 		},
+		Storage: s.storage,
 	}
 }
 
@@ -1338,8 +1368,4 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	}, {
 		Id: "some-otherapp-0",
 	}}, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

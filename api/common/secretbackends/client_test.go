@@ -35,10 +35,6 @@ func (s *SecretsSuite) TestNewClient(c *tc.C) {
 	c.Assert(client, tc.NotNil)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -68,7 +64,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	result, err := client.GetSecretBackendConfig(c.Context(), ptr("active-id"))
+	result, err := client.GetSecretBackendConfig(c.Context(), new("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
@@ -115,7 +111,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), ptr("active-id"))
+	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), new("active-id"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),

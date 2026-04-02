@@ -115,22 +115,18 @@ func encodeConfigType(t charm.OptionType) (int, error) {
 func encodeConfigDefaultValue(value any) (*string, error) {
 	switch v := value.(type) {
 	case string:
-		return ptr(v), nil
+		return new(v), nil
 	case int:
-		return ptr(strconv.Itoa(v)), nil
+		return new(strconv.Itoa(v)), nil
 	case int64:
-		return ptr(strconv.FormatInt(v, 10)), nil
+		return new(strconv.FormatInt(v, 10)), nil
 	case float64:
-		return ptr(strconv.FormatFloat(v, 'f', -1, 64)), nil
+		return new(strconv.FormatFloat(v, 'f', -1, 64)), nil
 	case bool:
-		return ptr(strconv.FormatBool(v)), nil
+		return new(strconv.FormatBool(v)), nil
 	case nil:
 		return nil, nil
 	default:
 		return nil, errors.Errorf("unknown config default value type %T", value)
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

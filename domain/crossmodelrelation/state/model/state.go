@@ -37,10 +37,6 @@ func NewState(factory database.TxnRunnerFactory, modelUUID model.UUID, clock clo
 	}
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID string) error {
 	stmt, err := st.Prepare(`
 SELECT &lifeID.*

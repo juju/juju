@@ -123,7 +123,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsSingleUnit(c *tc.C) {
 	var opendPorts []network.PortRange
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, unitUUID{UUID: s.unitUUID})
+		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnits(c *tc.C)
 	var opendPorts []network.PortRange
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, unitUUID{UUID: s.unitUUID})
+		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -181,7 +181,7 @@ func (s *updateUnitPortsSuite) TestGetColocatedOpenedPortsMultipleUnitsOnNetNode
 	var opendPorts []network.PortRange
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, unitUUID{UUID: s.unitUUID})
+		opendPorts, err = s.state.getColocatedOpenedPorts(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPorts(c *tc.C) {
 	var portRanges []network.PortRange
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		portRanges, err = s.state.getWildcardEndpointOpenedPorts(ctx, tx, unitUUID{UUID: s.unitUUID})
+		portRanges, err = s.state.getWildcardEndpointOpenedPorts(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -222,7 +222,7 @@ func (s *updateUnitPortsSuite) TestGetWildcardEndpointOpenedPortsIgnoresOtherEnd
 	var portRanges []network.PortRange
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		portRanges, err = s.state.getWildcardEndpointOpenedPorts(ctx, tx, unitUUID{UUID: s.unitUUID})
+		portRanges, err = s.state.getWildcardEndpointOpenedPorts(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -239,7 +239,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForPopulatedUnit(c *tc.C) {
 	var endpoints []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		endpoints, err = s.state.getEndpoints(ctx, tx, unitUUID{UUID: s.unitUUID})
+		endpoints, err = s.state.getEndpoints(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *tc.C) {
 	var endpoints []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		endpoints, err = s.state.getEndpoints(ctx, tx, unitUUID{UUID: s.unitUUID})
+		endpoints, err = s.state.getEndpoints(ctx, tx, entityUUID{UUID: s.unitUUID})
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -714,12 +714,12 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPortRangeOnWildcardAndOthe
 }
 
 func (s *updateUnitPortsSuite) getUnitOpenedPorts(c *tc.C, unit string) []endpointPortRange {
-	unitUUID := unitUUID{UUID: unit}
+	unitUUID := entityUUID{UUID: unit}
 
 	query, err := s.state.Prepare(`
 SELECT &endpointPortRange.*
 FROM v_port_range
-WHERE unit_uuid = $unitUUID.uuid
+WHERE unit_uuid = $entityUUID.uuid
 `, endpointPortRange{}, unitUUID)
 	c.Assert(err, tc.IsNil)
 
@@ -737,7 +737,7 @@ WHERE unit_uuid = $unitUUID.uuid
 }
 
 func (s *updateUnitPortsSuite) getMachineOpenedPorts(c *tc.C, machine string) []unitEndpointPortRange {
-	type machineUUID unitUUID
+	type machineUUID entityUUID
 	mach := machineUUID{UUID: machine}
 
 	query, err := s.state.Prepare(`
@@ -792,7 +792,7 @@ func (s *updateUnitPortsSuite) createApplicationWithRelations(c *tc.C, appName s
 				Source:        charm.LocalSource,
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: new(arch.AMD64),
 			},
 		},
 	}, nil)

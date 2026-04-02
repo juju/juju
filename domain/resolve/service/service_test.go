@@ -39,7 +39,7 @@ func (s *serviceSuite) TestUnitResolveModeRetryHooks(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveModeRetryHooks, nil)
+	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(string(resolve.ResolveModeRetryHooks), nil)
 
 	mode, err := s.service.UnitResolveMode(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -53,7 +53,7 @@ func (s *serviceSuite) TestUnitResolveModeNoHooks(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveModeNoHooks, nil)
+	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(string(resolve.ResolveModeNoHooks), nil)
 
 	mode, err := s.service.UnitResolveMode(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -87,10 +87,24 @@ func (s *serviceSuite) TestUnitResolveModeNotResolved(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return(resolve.ResolveMode(""), resolveerrors.UnitNotResolved)
+	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return("", resolveerrors.UnitNotResolved)
 
 	_, err := s.service.UnitResolveMode(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIs, resolveerrors.UnitNotResolved)
+}
+
+func (s *serviceSuite) TestUnitResolveModeUnknownMode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.state.EXPECT().UnitResolveMode(gomock.Any(), unitUUID).Return("unknown-mode", nil)
+
+	mode, err := s.service.UnitResolveMode(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mode, tc.Equals, resolve.ResolveMode("unknown-mode"))
 }
 
 func (s *serviceSuite) TestResolveUnitRetryHooks(c *tc.C) {

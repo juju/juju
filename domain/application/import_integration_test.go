@@ -177,8 +177,8 @@ func (s *importSuite) TestImportMaximalCharmMetadata(c *tc.C) {
 						Location_: "/tmp",
 					},
 				},
-				Uid_: ptr(1000),
-				Gid_: ptr(1000),
+				Uid_: new(1000),
+				Gid_: new(1000),
 			},
 		},
 		Resources: map[string]description.CharmMetadataResource{
@@ -304,8 +304,8 @@ func (s *importSuite) TestImportMaximalCharmMetadata(c *tc.C) {
 						Location: "/tmp",
 					},
 				},
-				Uid: ptr(1000),
-				Gid: ptr(1000),
+				Uid: new(1000),
+				Gid: new(1000),
 			},
 		},
 		Resources: map[string]resource.Meta{
@@ -1280,10 +1280,10 @@ func (s *importSuite) TestApplicationConstraints(c *tc.C) {
 	obtainedConstraints, err := s.svc.GetApplicationConstraints(c.Context(), obtainedDetails.UUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedConstraints, tc.DeepEquals, constraints.Value{
-		AllocatePublicIP: ptr(true),
-		Arch:             ptr("arm64"),
-		Mem:              ptr(uint64(1024)),
-		Zones:            ptr([]string{"z1", "z2", "z3"}),
+		AllocatePublicIP: new(true),
+		Arch:             new("arm64"),
+		Mem:              new(uint64(1024)),
+		Zones:            new([]string{"z1", "z2", "z3"}),
 	})
 }
 
@@ -1324,8 +1324,4 @@ func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func ptr[T any](i T) *T {
-	return &i
 }

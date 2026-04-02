@@ -78,7 +78,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 			expectedError: explicitBaseError,
@@ -99,7 +99,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 			expectedError: explicitBaseError,
@@ -189,7 +189,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 			expectedError: explicitBaseErrorUbuntu,
@@ -212,7 +212,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 		},
@@ -234,7 +234,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 			expectedError: explicitBaseErrorUbuntu,
@@ -258,7 +258,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 		},
@@ -322,7 +322,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 		},
@@ -344,7 +344,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *tc.C) {
 			},
 			deployBundle: deployBundle{
 				modelConstraints: constraints.Value{
-					ImageID: strptr("ubuntu-bf2"),
+					ImageID: new("ubuntu-bf2"),
 				},
 			},
 		},

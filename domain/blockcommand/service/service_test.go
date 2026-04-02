@@ -30,7 +30,7 @@ func (s *serviceSuite) TestSwitchOnBlock(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().SetBlock(gomock.Any(), blockcommand.RemoveBlock, "block-message").Return(nil)
+	s.state.EXPECT().SetBlock(gomock.Any(), int8(blockcommand.RemoveBlock), "block-message").Return(nil)
 
 	err := s.service(c).SwitchBlockOn(c.Context(), blockcommand.RemoveBlock, "block-message")
 	c.Assert(err, tc.ErrorIsNil)
@@ -40,7 +40,8 @@ func (s *serviceSuite) TestSwitchOnBlockWithTooLargeMessage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	err := s.service(c).SwitchBlockOn(c.Context(), blockcommand.RemoveBlock, strings.Repeat("a", blockcommand.DefaultMaxMessageLength+1))
+	err := s.service(c).SwitchBlockOn(
+		c.Context(), blockcommand.RemoveBlock, strings.Repeat("a", blockcommand.DefaultMaxMessageLength+1))
 	c.Assert(err, tc.ErrorMatches, `message length exceeds maximum allowed length of \d+`)
 }
 
@@ -48,7 +49,8 @@ func (s *serviceSuite) TestSwitchOnBlockAlreadyExists(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().SetBlock(gomock.Any(), blockcommand.RemoveBlock, "block-message").Return(blockcommanderrors.AlreadyExists)
+	s.state.EXPECT().SetBlock(
+		gomock.Any(), int8(blockcommand.RemoveBlock), "block-message").Return(blockcommanderrors.AlreadyExists)
 
 	err := s.service(c).SwitchBlockOn(c.Context(), blockcommand.RemoveBlock, "block-message")
 	c.Assert(err, tc.ErrorIsNil)
@@ -58,7 +60,7 @@ func (s *serviceSuite) TestSwitchOffBlock(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().RemoveBlock(gomock.Any(), blockcommand.RemoveBlock).Return(nil)
+	s.state.EXPECT().RemoveBlock(gomock.Any(), int8(blockcommand.RemoveBlock)).Return(nil)
 
 	err := s.service(c).SwitchBlockOff(c.Context(), blockcommand.RemoveBlock)
 	c.Assert(err, tc.ErrorIsNil)
@@ -84,7 +86,7 @@ func (s *serviceSuite) TestGetBlockMessage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.state.EXPECT().GetBlockMessage(gomock.Any(), blockcommand.RemoveBlock).Return("foo", nil)
+	s.state.EXPECT().GetBlockMessage(gomock.Any(), int8(blockcommand.RemoveBlock)).Return("foo", nil)
 
 	message, err := s.service(c).GetBlockSwitchedOn(c.Context(), blockcommand.RemoveBlock)
 	c.Assert(err, tc.ErrorIsNil)

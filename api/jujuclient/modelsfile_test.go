@@ -123,11 +123,11 @@ controllers:
 var transformedControllerModels = map[string]*jujuclient.ControllerModels{
 	"kontroll": {
 		Models: map[string]jujuclient.ModelDetails{
-			"admin-external/admin":    kontrollAdminModelDetails,
-			"admin-external/my-model": kontrollMyModelModelDetails,
+			"admin@external/admin":    kontrollAdminModelDetails,
+			"admin@external/my-model": kontrollMyModelModelDetails,
 		},
-		CurrentModel:  "admin-external/my-model",
-		PreviousModel: "admin-external/admin",
+		CurrentModel:  "admin@external/my-model",
+		PreviousModel: "admin@external/admin",
 	},
 	"ctrl": {
 		Models: map[string]jujuclient.ModelDetails{

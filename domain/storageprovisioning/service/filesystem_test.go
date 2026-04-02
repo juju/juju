@@ -957,7 +957,7 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 			},
 			ID:         "spid",
 			Provider:   "myprovider",
-			ProviderID: ptr("fs-provider-id"),
+			ProviderID: new("fs-provider-id"),
 			SizeMiB:    10,
 		}, nil,
 	)
@@ -970,7 +970,7 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 		},
 		ID:         "spid",
 		Provider:   "myprovider",
-		ProviderID: ptr("fs-provider-id"),
+		ProviderID: new("fs-provider-id"),
 		SizeMiB:    10,
 	})
 }

@@ -70,7 +70,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForApp(c *tc.C) {
 
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: ptr("mediawiki"),
+		ApplicationName: new("mediawiki"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "RevokeSecret")
 	s.Stub.CheckCall(c, 1, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
@@ -88,7 +88,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForRelation(c *tc.C) {
 
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: ptr("mediawiki"),
+		ApplicationName: new("mediawiki"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RemoteApplicationName", "RevokeSecret")
 	s.Stub.CheckCall(c, 6, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)
@@ -106,8 +106,8 @@ func (s *SecretRevokeSuite) TestRevokeSecretForRelationUnit(c *tc.C) {
 
 	c.Assert(code, tc.Equals, 0)
 	args := &jujuc.SecretGrantRevokeArgs{
-		ApplicationName: ptr("mediawiki"),
-		UnitName:        ptr("mediawiki/0"),
+		ApplicationName: new("mediawiki"),
+		UnitName:        new("mediawiki/0"),
 	}
 	s.Stub.CheckCallNames(c, "HookRelation", "Id", "FakeId", "Relation", "Relation", "RemoteApplicationName", "RevokeSecret")
 	s.Stub.CheckCall(c, 6, "RevokeSecret", "secret:9m4e2mr0ui3e8a215n4g", args)

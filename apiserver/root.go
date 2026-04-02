@@ -881,12 +881,12 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 
 	return migration.NewModelImporter(
 		ctx.migrationScope,
-		ctx.DomainServices().ControllerConfig(),
 		ctx.r.domainServicesGetter,
 		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
 			storageService := domainServices.Storage()
 			return storageService.GetStorageRegistry(ctx)
 		}),
+		ctx.ControllerUUID(),
 		ctx.Logger(),
 		ctx.r.clock,
 	)

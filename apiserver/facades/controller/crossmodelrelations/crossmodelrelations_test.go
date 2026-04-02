@@ -372,7 +372,7 @@ func (s *facadeSuite) TestPublishRelationChangesLifeDead(c *tc.C) {
 			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
-			ForceCleanup:            ptr(true),
+			ForceCleanup:            new(true),
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -461,7 +461,7 @@ func (s *facadeSuite) TestPublishRelationChangesSuspended(c *tc.C) {
 			ApplicationOrOfferToken: offerUUID.String(),
 			Macaroons:               s.macaroons,
 			BakeryVersion:           bakery.LatestVersion,
-			Suspended:               ptr(true),
+			Suspended:               new(true),
 			SuspendedReason:         "front fell off",
 		}},
 	})
@@ -1613,7 +1613,7 @@ func (s *facadeSuite) TestWatchRelationChanges(c *tc.C) {
 		RelationToken:           relUUID.String(),
 		ApplicationOrOfferToken: appUUID.String(),
 		Life:                    life.Alive,
-		Suspended:               ptr(true),
+		Suspended:               new(true),
 		SuspendedReason:         "testing",
 	})
 }

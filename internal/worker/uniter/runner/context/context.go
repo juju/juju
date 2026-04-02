@@ -235,6 +235,10 @@ type HookContext struct {
 	// that the uniter knows about.
 	jujuProxySettings proxy.Settings
 
+	// charmTracingConfig is the current charm tracing config that the uniter
+	// knows about.
+	charmTracingConfig uniter.CharmTracingConfig
+
 	// a helper for recording requests to open/close port ranges for this unit.
 	portRangeChanges *portRangeChangeRecorder
 
@@ -1423,12 +1427,21 @@ func (c *HookContext) HookVars(
 		"JUJU_AVAILABILITY_ZONE="+c.availabilityZone,
 		"JUJU_VERSION="+version.Current.String(),
 		"CLOUD_API_VERSION="+c.cloudAPIVersion,
+
 		// Some of these will be empty, but that is fine, better
 		// to explicitly export them as empty.
 		"JUJU_CHARM_HTTP_PROXY="+c.jujuProxySettings.Http,
 		"JUJU_CHARM_HTTPS_PROXY="+c.jujuProxySettings.Https,
 		"JUJU_CHARM_FTP_PROXY="+c.jujuProxySettings.Ftp,
 		"JUJU_CHARM_NO_PROXY="+c.jujuProxySettings.NoProxy,
+
+		// Add charm tracing config to the environment variables (if any
+		// of the tracing config is set). This allows charms to write
+		// trace spans to the same OTEL collector without needing to have
+		// multiple charm integrations.
+		"JUJU_CHARM_TRACE_CONFIG_HTTP="+c.charmTracingConfig.HTTPEndpoint,
+		"JUJU_CHARM_TRACE_CONFIG_GRPC="+c.charmTracingConfig.GRPCEndpoint,
+		"JUJU_CHARM_TRACE_CONFIG_CA_CERT="+c.charmTracingConfig.CACertificate,
 	)
 	if r, err := c.HookRelation(); err == nil {
 		vars = append(vars,

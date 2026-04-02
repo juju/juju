@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
@@ -32,6 +33,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -140,9 +142,11 @@ func (st *State) GetCAASUnitRegistered(
 // InitialWatchStatementUnitAddressesHash returns the initial namespace query
 // for the unit addresses hash watcher as well as the tables to be watched
 // (ip_address and application_endpoint)
-func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.UUID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementUnitAddressesHash(
+	appUUID coreapplication.UUID,
+	netNodeUUID string,
+) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
-
 		var (
 			spaceAddresses   []spaceAddress
 			endpointBindings map[string]string
@@ -334,14 +338,14 @@ func (st *State) GetUnitMachineName(ctx context.Context, unitUUID string) (strin
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	arg := getUnitMachineName{
+	arg := unitMachineName{
 		UnitUUID: unitUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (m.name) AS (&getUnitMachineName.*)
+SELECT (m.name) AS (&unitMachineName.*)
 FROM   unit AS u
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.uuid = $getUnitMachineName.unit_uuid
+WHERE  u.uuid = $unitMachineName.unit_uuid
 `, arg)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -377,35 +381,76 @@ func (st *State) GetUnitMachineUUID(ctx context.Context, unitUUID string) (strin
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	arg := getUnitMachineUUID{
-		UnitUUID: unitUUID,
-	}
-	stmt, err := st.Prepare(`
-SELECT (m.uuid) AS (&getUnitMachineUUID.*)
-FROM   unit AS u
-JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
-`, arg)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
 
+	var machineUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDead(ctx, tx, unitUUID); err != nil {
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, stmt, arg).Get(&arg)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitMachineNotAssigned
+		machineUUID, err = st.getUnitMachineUUID(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Capture(err)
 		}
-		return errors.Capture(err)
+		return nil
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
+	return machineUUID, nil
+}
+
+func (st *State) getUnitMachineUUID(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
+	arg := unitMachineUUID{
+		UnitUUID: unitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (m.uuid) AS (&unitMachineUUID.*)
+FROM   unit AS u
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.uuid = $unitMachineUUID.unit_uuid
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.UnitMachineNotAssigned
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	return arg.MachineUUID, nil
+}
+
+func (st *State) getNonDeadUnitNetNodeByUnitName(ctx context.Context, tx *sqlair.TX, unitName string) (string, error) {
+	val := nameWithNetNodeAndLife{
+		Name: unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT &nameWithNetNodeAndLife.*
+FROM   unit
+WHERE  name = $nameWithNetNodeAndLife.name
+`, val)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, val).Get(&val)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	switch val.LifeID {
+	case life.Dead:
+		return "", applicationerrors.UnitIsDead
+	default:
+		return val.NetNodeUUID, nil
+	}
 }
 
 // AddIAASUnits adds the specified units to the application. Returns the unit
@@ -509,16 +554,16 @@ func (st *State) GetUnitPrincipal(
 		return "", false, errors.Capture(err)
 	}
 
-	arg := getPrincipal{
+	arg := principal{
 		SubordinateUnitName: unitName,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT principal.name AS &getPrincipal.principal_unit_name
+SELECT principal.name AS &principal.principal_unit_name
 FROM   unit AS principal
 JOIN   unit_principal AS up ON principal.uuid = up.principal_uuid
 JOIN   unit AS sub ON up.unit_uuid = sub.uuid
-WHERE  sub.name = $getPrincipal.subordinate_unit_name
+WHERE  sub.name = $principal.subordinate_unit_name
 `, arg)
 	if err != nil {
 		return "", false, errors.Capture(err)
@@ -803,7 +848,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	}
 	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
 
-	now := ptr(st.clock.Now().UTC())
+	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.CreateUnitStorageArg,
@@ -1780,8 +1825,10 @@ WHERE  u.uuid = $unitUUID.uuid
 
 // GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
 // storage instances exist for the named storage on the specified unit.
+//
 // The following error types can be expected:
-// - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+//   - [applicationerrors.StorageNameNotSupported]: when storage name is not
+//     defined in charm metadata.
 func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 ) (internalcharm.Storage, uint32, error) {
@@ -1821,6 +1868,340 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 		MinimumSize: chStorage.MinimumSize,
 		Location:    chStorage.Location,
 	}, count, nil
+}
+
+// GetIAASUnitContext returns IAAS context information required for the
+// construction of a context factory.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [applicationerrors.UnitIsDead] if the unit is dead.
+func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (applicationinternal.IAASUnitContext, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return applicationinternal.IAASUnitContext{}, errors.Capture(err)
+	}
+
+	var (
+		legacyProxySettings, jujuProxySettings applicationinternal.ProxySettings
+		machineOpenedPortRanges                []unitEndpointOpenedPortRange
+		unitAddress                            *string
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		netNodeUUID, err := st.getNonDeadUnitNetNodeByUnitName(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting net node for unit: %w", err)
+		}
+
+		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting legacy proxy settings: %w", err)
+		}
+
+		jujuProxySettings, err = st.getJujuProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting proxy settings: %w", err)
+		}
+
+		machineOpenedPortRanges, err = st.getMachineOpenedPortRanges(ctx, tx, netNodeUUID)
+		if err != nil {
+			return errors.Errorf("getting machine opened port ranges: %w", err)
+		}
+
+		unitAddress, err = st.getUnitPrivateAddress(ctx, tx, netNodeUUID)
+		if err != nil {
+			return errors.Errorf("getting private address for unit: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return applicationinternal.IAASUnitContext{}, errors.Capture(err)
+	}
+
+	decoded := port.UnitEndpointPortRanges(
+		transform.Slice(machineOpenedPortRanges,
+			func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
+				return p.decodeToUnitEndpointPortRange()
+			},
+		),
+	)
+
+	return applicationinternal.IAASUnitContext{
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		OpenedMachinePortRangesByEndpoint: decoded.ByUnitByEndpoint(),
+		PrivateAddress:                    unitAddress,
+	}, nil
+}
+
+// GetCAASUnitContext returns CAAS context information required for the
+// construction of a context factory.
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
+// - [applicationerrors.UnitIsDead] if the unit is dead.
+func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return applicationinternal.CAASUnitContext{}, errors.Capture(err)
+	}
+
+	var (
+		legacyProxySettings, jujuProxySettings applicationinternal.ProxySettings
+		unitOpenedPortRanges                   []unitEndpointOpenedPortRange
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
+			return errors.Capture(err)
+		}
+
+		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting legacy proxy settings: %w", err)
+		}
+
+		jujuProxySettings, err = st.getJujuProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting proxy settings: %w", err)
+		}
+
+		unitOpenedPortRanges, err = st.getUnitOpenedPortRanges(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting machine opened port ranges: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return applicationinternal.CAASUnitContext{}, errors.Capture(err)
+	}
+
+	decoded := port.UnitEndpointPortRanges(
+		transform.Slice(unitOpenedPortRanges,
+			func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
+				return p.decodeToUnitEndpointPortRange()
+			}),
+	)
+
+	return applicationinternal.CAASUnitContext{
+		LegacyProxySettings:        legacyProxySettings,
+		JujuProxySettings:          jujuProxySettings,
+		OpenedPortRangesByEndpoint: decoded.ByUnitByEndpoint(),
+	}, nil
+}
+
+func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (applicationinternal.ProxySettings, error) {
+	type modelConfig struct {
+		Key   string `db:"key"`
+		Value string `db:"value"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelConfig.*
+FROM model_config
+WHERE key IN ('http-proxy', 'https-proxy', 'ftp-proxy', 'no-proxy')
+`, modelConfig{})
+	if err != nil {
+		return applicationinternal.ProxySettings{}, errors.Capture(err)
+	}
+
+	var configs []modelConfig
+	err = tx.Query(ctx, stmt).GetAll(&configs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return applicationinternal.ProxySettings{}, err
+	}
+
+	proxySettings := applicationinternal.ProxySettings{}
+	for _, config := range configs {
+		switch config.Key {
+		case "http-proxy":
+			proxySettings.HTTP = config.Value
+		case "https-proxy":
+			proxySettings.HTTPS = config.Value
+		case "ftp-proxy":
+			proxySettings.FTP = config.Value
+		case "no-proxy":
+			proxySettings.NoProxy = config.Value
+		}
+	}
+	return proxySettings, nil
+}
+
+func (st *State) getJujuProxySettings(ctx context.Context, tx *sqlair.TX) (applicationinternal.ProxySettings, error) {
+	type modelConfig struct {
+		Key   string `db:"key"`
+		Value string `db:"value"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelConfig.*
+FROM model_config
+WHERE key IN ('juju-http-proxy', 'juju-https-proxy', 'juju-ftp-proxy', 'juju-no-proxy')
+`, modelConfig{})
+	if err != nil {
+		return applicationinternal.ProxySettings{}, errors.Capture(err)
+	}
+
+	var configs []modelConfig
+	err = tx.Query(ctx, stmt).GetAll(&configs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return applicationinternal.ProxySettings{}, err
+	}
+
+	proxySettings := applicationinternal.ProxySettings{}
+	for _, config := range configs {
+		switch config.Key {
+		case "juju-http-proxy":
+			proxySettings.HTTP = config.Value
+		case "juju-https-proxy":
+			proxySettings.HTTPS = config.Value
+		case "juju-ftp-proxy":
+			proxySettings.FTP = config.Value
+		case "juju-no-proxy":
+			proxySettings.NoProxy = config.Value
+		}
+	}
+	return proxySettings, nil
+}
+
+type unitEndpointOpenedPortRange struct {
+	UnitName coreunit.Name `db:"unit_name"`
+	Protocol string        `db:"protocol"`
+	FromPort int           `db:"from_port"`
+	ToPort   int           `db:"to_port"`
+	Endpoint string        `db:"endpoint"`
+}
+
+func (p unitEndpointOpenedPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
+	return port.UnitEndpointPortRange{
+		UnitName:  p.UnitName,
+		Endpoint:  p.Endpoint,
+		PortRange: p.decodeToPortRange(),
+	}
+}
+
+func (p unitEndpointOpenedPortRange) decodeToPortRange() network.PortRange {
+	return network.PortRange{
+		Protocol: p.Protocol,
+		FromPort: p.FromPort,
+		ToPort:   p.ToPort,
+	}
+}
+
+func (st *State) getMachineOpenedPortRanges(
+	ctx context.Context,
+	tx *sqlair.TX,
+	netNodeUUID string,
+) ([]unitEndpointOpenedPortRange, error) {
+	nUUID := entityUUID{UUID: netNodeUUID}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointOpenedPortRange.*
+FROM v_port_range
+JOIN unit ON unit_uuid = unit.uuid
+WHERE unit.net_node_uuid = $entityUUID.uuid
+`, unitEndpointOpenedPortRange{}, nUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing get machine opened ports statement: %w", err)
+	}
+
+	var results []unitEndpointOpenedPortRange
+	err = tx.Query(ctx, query, nUUID).GetAll(&results)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return results, nil
+}
+
+func (st *State) getUnitOpenedPortRanges(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitName string,
+) ([]unitEndpointOpenedPortRange, error) {
+	uName := unitEndpointOpenedPortRange{UnitName: coreunit.Name(unitName)}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointOpenedPortRange.*
+FROM v_port_range
+WHERE unit_name = $unitEndpointOpenedPortRange.unit_name
+`, uName)
+	if err != nil {
+		return nil, errors.Errorf("preparing get unit opened ports statement: %w", err)
+	}
+
+	var results []unitEndpointOpenedPortRange
+	err = tx.Query(ctx, query, uName).GetAll(&results)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return results, nil
+}
+
+func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID string) (*string, error) {
+	entityUUID := entityUUID{UUID: netNodeUUID}
+
+	// A unit private address is determined by looking for IP addresses
+	// associated with the unit's net node, and prioritising them as follows:
+	//
+	//  - Local cloud scoped IPv4 addresses
+	//  - Local cloud scoped IPv6 addresses
+	//  - Public or unknown scoped IPv4 addresses
+	//  - Public or unknown scoped IPv6 addresses
+	//  - Origin either from machine or provider
+	//  - Real ethernet devices over virtual ethernet devices
+	//
+	// Loopback addresses are excluded.
+	//
+	// Note: unknown scope is included as a fallback for compatibility with the
+	// openstack provider, though in practice we would expect these to be public
+	// addresses and shouldn't be used.
+
+	query, err := st.Prepare(`
+SELECT
+    a.address_value AS &unitAddress.value,
+	d.device_type_id,
+    CASE
+        WHEN a.scope_id = 2 THEN 0
+        WHEN a.scope_id IN (1, 0) THEN 1
+        ELSE 2
+    END AS scope_rank,
+    CASE
+        WHEN a.type_id = 0 THEN 0
+        WHEN a.type_id = 1 THEN 1
+        ELSE 2
+    END AS type_rank,
+	CASE
+		WHEN a.origin_id = 0 THEN 1
+		WHEN a.origin_id = 1 THEN 0
+		ELSE 2
+	END AS origin_rank
+FROM net_node n
+JOIN link_layer_device d ON n.uuid = d.net_node_uuid
+JOIN ip_address a ON d.uuid = a.device_uuid
+WHERE
+    a.scope_id IN (0, 1, 2)
+    AND a.config_type_id != 6
+    AND n.uuid = $entityUUID.uuid
+ORDER BY
+    scope_rank,
+    type_rank,
+	origin_rank,
+	d.device_type_id,
+    a.address_value
+LIMIT 1;
+`, unitAddress{}, entityUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing get unit private address statement: %w", err)
+	}
+
+	var address unitAddress
+	err = tx.Query(ctx, query, entityUUID).Get(&address)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("querying unit private address: %w", err)
+	}
+	return new(address.Value), nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

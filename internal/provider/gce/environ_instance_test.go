@@ -34,11 +34,11 @@ func (s *environInstSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.zones = []*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}, {
-		Name:   ptr("away-zone"),
-		Status: ptr("UP"),
+		Name:   new("away-zone"),
+		Status: new("UP"),
 	}}
 }
 
@@ -135,11 +135,11 @@ func (s *environInstSuite) TestControllerInstances(c *tc.C) {
 
 	inst := s.NewComputeInstance("inst-0")
 	inst.Metadata = &computepb.Metadata{Items: []*computepb.Items{{
-		Key:   ptr("juju-is-controller"),
-		Value: ptr("true"),
+		Key:   new("juju-is-controller"),
+		Value: new("true"),
 	}, {
-		Key:   ptr("juju-controller-uuid"),
-		Value: ptr(s.ControllerUUID),
+		Key:   new("juju-controller-uuid"),
+		Value: new(s.ControllerUUID),
 	}}}
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return([]*computepb.Instance{inst, s.NewComputeInstance("inst-1")}, nil)
@@ -229,15 +229,15 @@ func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("DOWN"),
+		Name:   new("home-zone"),
+		Status: new("DOWN"),
 	}}, nil)
 	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
-		Id:           ptr(uint64(0)),
-		Name:         ptr("n1-standard-1"),
-		GuestCpus:    ptr(int32(2)),
-		MemoryMb:     ptr(int32(4096)),
-		Architecture: ptr("amd64"),
+		Id:           new(uint64(0)),
+		Name:         new("n1-standard-1"),
+		GuestCpus:    new(int32(2)),
+		MemoryMb:     new(int32(4096)),
+		Architecture: new("amd64"),
 	}}, nil)
 
 	_, err := env.InstanceTypes(c.Context(), constraints.Value{})
@@ -246,8 +246,8 @@ func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 	// If a non-empty list of zones is available , we will make an API call
 	// to fetch the available machine types.
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}}, nil)
 
 	mem := uint64(1025)
@@ -259,7 +259,7 @@ func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 		CpuCores:   uint64(2),
 		Mem:        uint64(4096),
 		Arch:       "amd64",
-		VirtType:   ptr("kvm"),
+		VirtType:   new("kvm"),
 		Networking: instances.InstanceTypeNetworking{},
 	}})
 

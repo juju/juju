@@ -51,7 +51,7 @@ func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 		CpuCores: 2,
 		Mem:      3750,
 		RootDisk: 15 * 1024,
-		VirtType: ptr("kvm"),
+		VirtType: new("kvm"),
 	}
 	s.spec = &instances.InstanceSpec{
 		InstanceType: instanceType,
@@ -65,15 +65,15 @@ func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 
 func (s *environBrokerSuite) expectImageMetadata() {
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}}, nil)
 	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
-		Id:           ptr(uint64(0)),
-		Name:         ptr("n1-standard-1"),
-		GuestCpus:    ptr(int32(s.spec.InstanceType.CpuCores)),
-		MemoryMb:     ptr(int32(s.spec.InstanceType.Mem)),
-		Architecture: ptr(s.spec.InstanceType.Arch),
+		Id:           new(uint64(0)),
+		Name:         new("n1-standard-1"),
+		GuestCpus:    new(int32(s.spec.InstanceType.CpuCores)),
+		MemoryMb:     new(int32(s.spec.InstanceType.Mem)),
+		Architecture: new(s.spec.InstanceType.Arch),
 	}}, nil)
 	s.StartInstArgs.ImageMetadata = []*imagemetadata.ImageMetadata{{
 		Id:   "ubuntu-220-jammy-v20141212",
@@ -89,49 +89,49 @@ func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string, hasGpuSupp
 	var scheduling *computepb.Scheduling
 	if hasGpuSupported {
 		scheduling = &computepb.Scheduling{
-			OnHostMaintenance: ptr(google.HostMaintenanceTerminate),
+			OnHostMaintenance: new(google.HostMaintenanceTerminate),
 		}
 	}
 
 	return &computepb.Instance{
 		Name:        &instName,
-		Zone:        ptr("home-zone"),
-		MachineType: ptr("zones/home-zone/machineTypes/n1-standard-1"),
+		Zone:        new("home-zone"),
+		MachineType: new("zones/home-zone/machineTypes/n1-standard-1"),
 		Disks: []*computepb.AttachedDisk{{
-			AutoDelete: ptr(true),
-			Boot:       ptr(true),
-			Mode:       ptr("READ_WRITE"),
-			Type:       ptr("PERSISTENT"),
+			AutoDelete: new(true),
+			Boot:       new(true),
+			Mode:       new("READ_WRITE"),
+			Type:       new("PERSISTENT"),
 			InitializeParams: &computepb.AttachedDiskInitializeParams{
-				DiskSizeGb:  ptr(int64(10)),
-				SourceImage: ptr("projects/ubuntu-os-cloud/global/images/ubuntu-220-jammy-v20141212"),
+				DiskSizeGb:  new(int64(10)),
+				SourceImage: new("projects/ubuntu-os-cloud/global/images/ubuntu-220-jammy-v20141212"),
 			},
 		}},
 		NetworkInterfaces: []*computepb.NetworkInterface{{
-			Network: ptr("/path/to/vpc"),
+			Network: new("/path/to/vpc"),
 			AccessConfigs: []*computepb.AccessConfig{{
-				Name: ptr("External NAT"),
-				Type: ptr("ONE_TO_ONE_NAT"),
+				Name: new("External NAT"),
+				Type: new("ONE_TO_ONE_NAT"),
 			}},
 		}},
 		Metadata: &computepb.Metadata{
 			Items: []*computepb.Items{{
-				Key:   ptr("juju-controller-uuid"),
-				Value: ptr(s.ControllerUUID),
+				Key:   new("juju-controller-uuid"),
+				Value: new(s.ControllerUUID),
 			}, {
-				Key:   ptr("juju-is-controller"),
-				Value: ptr("true"),
+				Key:   new("juju-is-controller"),
+				Value: new("true"),
 			}, {
-				Key:   ptr("user-data"),
-				Value: ptr(string(userData)),
+				Key:   new("user-data"),
+				Value: new(string(userData)),
 			}, {
-				Key:   ptr("user-data-encoding"),
-				Value: ptr("base64"),
+				Key:   new("user-data-encoding"),
+				Value: new("base64"),
 			}},
 		},
 		Tags: &computepb.Tags{Items: []string{"juju-" + s.ModelUUID, instName}},
 		ServiceAccounts: []*computepb.ServiceAccount{{
-			Email: ptr("fred@google.com"),
+			Email: new("fred@google.com"),
 			Scopes: []string{
 				"https://www.googleapis.com/auth/compute",
 				"https://www.googleapis.com/auth/devstorage.full_control",
@@ -182,9 +182,9 @@ func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			SelfLink: ptr("/path/to/subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			SelfLink: ptr("/path/to/subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
@@ -192,8 +192,8 @@ func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	if hasGpuSupported {
 		accelerators = []*computepb.Accelerators{
 			{
-				GuestAcceleratorType:  ptr("nvidia-l4"),
-				GuestAcceleratorCount: ptr(int32(1)),
+				GuestAcceleratorType:  new("nvidia-l4"),
+				GuestAcceleratorCount: new(int32(1)),
 			},
 		}
 	}
@@ -201,16 +201,16 @@ func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: accelerators,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), hasGpuSupported)
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), hasGpuSupported)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), gceComputeArgMatcher{instArg}).Return(instResult, nil)
@@ -226,8 +226,8 @@ func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 		Mem:              &s.spec.InstanceType.Mem,
 		CpuCores:         &s.spec.InstanceType.CpuCores,
 		CpuPower:         s.spec.InstanceType.CpuPower,
-		RootDisk:         ptr(s.spec.InstanceType.RootDisk),
-		AvailabilityZone: ptr("home-zone"),
+		RootDisk:         new(s.spec.InstanceType.RootDisk),
+		AvailabilityZone: new("home-zone"),
 	}
 	c.Check(result.Hardware, tc.DeepEquals, hwc)
 }
@@ -256,25 +256,25 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			SelfLink: ptr("/path/to/subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			SelfLink: ptr("/path/to/subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), gceComputeArgMatcher{instArg}).Return(instResult, nil)
@@ -297,7 +297,7 @@ func (s *environBrokerSuite) TestStartInstanceAutoSubnet(c *tc.C) {
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
+	s.SetVpcInfo(env, new("/path/to/vpc"), true)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
@@ -306,16 +306,16 @@ func (s *environBrokerSuite) TestStartInstanceAutoSubnet(c *tc.C) {
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), gceComputeArgMatcher{instArg}).Return(instResult, nil)
@@ -338,28 +338,28 @@ func (s *environBrokerSuite) TestStartInstanceSubnetPlacement(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			Name:     ptr("subnet1"),
-			SelfLink: ptr("/path/to/subnet1"),
+			Name:     new("subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			Name:     ptr("subnet2"),
-			SelfLink: ptr("/path/to/subnet2"),
+			Name:     new("subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
-	instArg.NetworkInterfaces[0].Subnetwork = ptr("/path/to/subnet1")
+	instArg.NetworkInterfaces[0].Subnetwork = new("/path/to/subnet1")
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), gceComputeArgMatcher{instArg}).Return(instResult, nil)
@@ -383,34 +383,34 @@ func (s *environBrokerSuite) TestStartInstanceSubnetSpaces(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			Name:     ptr("subnet1"),
-			SelfLink: ptr("/path/to/subnet1"),
+			Name:     new("subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			Name:     ptr("subnet2"),
-			SelfLink: ptr("/path/to/subnet2"),
+			Name:     new("subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@google.com", nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
-	instArg.NetworkInterfaces[0].Subnetwork = ptr("/path/to/subnet1")
+	instArg.NetworkInterfaces[0].Subnetwork = new("/path/to/subnet1")
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), gceComputeArgMatcher{instArg}).Return(instResult, nil)
 
 	s.StartInstArgs.AvailabilityZone = "home-zone"
-	s.StartInstArgs.Constraints.Spaces = ptr([]string{"s1", "s2"})
+	s.StartInstArgs.Constraints.Spaces = new([]string{"s1", "s2"})
 	s.StartInstArgs.SubnetsToZones = []map[network.Id][]string{
 		{"subnet1": []string{"home-zone", "away-zone"}},
 		{"subnet2": []string{"home-zone", "away-zone"}},
@@ -436,25 +436,25 @@ func (s *environBrokerSuite) TestStartInstanceServiceAccount(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			SelfLink: ptr("/path/to/subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			SelfLink: ptr("/path/to/subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
-	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	instArg.ServiceAccounts[0].Email = new("foo@googledev.com")
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
@@ -476,25 +476,25 @@ func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *tc.C) {
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			SelfLink: ptr("/path/to/subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			SelfLink: ptr("/path/to/subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
-	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	instArg.ServiceAccounts[0].Email = new("foo@googledev.com")
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
@@ -517,25 +517,25 @@ func (s *environBrokerSuite) TestStartInstanceBootstrapInstanceRoleCredential(c 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
 		Return([]*computepb.Subnetwork{{
-			SelfLink: ptr("/path/to/subnet1"),
+			SelfLink: new("/path/to/subnet1"),
 		}, {
-			SelfLink: ptr("/path/to/subnet2"),
+			SelfLink: new("/path/to/subnet2"),
 		}}, nil)
 
 	s.MockService.EXPECT().
 		MachineType(gomock.Any(), "home-zone", s.spec.InstanceType.Name).
 		Return(&computepb.MachineType{
-			Name:         ptr(s.spec.InstanceType.Name),
+			Name:         new(s.spec.InstanceType.Name),
 			Accelerators: nil,
 		}, nil)
 
 	instArg := s.startInstanceArg(c, s.Prefix(env), false)
-	instArg.ServiceAccounts[0].Email = ptr("foo@googledev.com")
+	instArg.ServiceAccounts[0].Email = new("foo@googledev.com")
 	// Can't copy instArg as it contains a mutex.
 	instResult := s.startInstanceArg(c, s.Prefix(env), false)
-	instResult.Zone = ptr("path/to/home-zone")
+	instResult.Zone = new("path/to/home-zone")
 	instResult.Disks = []*computepb.AttachedDisk{{
-		DiskSizeGb: ptr(int64(s.spec.InstanceType.RootDisk / 1024)),
+		DiskSizeGb: new(int64(s.spec.InstanceType.RootDisk / 1024)),
 	}}
 
 	s.MockService.EXPECT().AddInstance(gomock.Any(), instArg).Return(instResult, nil)
@@ -562,10 +562,6 @@ func (s *environBrokerSuite) TestFinishInstanceConfig(c *tc.C) {
 	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), tc.Not(tc.Equals), semversion.Binary{})
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
@@ -584,7 +580,7 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *tc.C) {
 		CpuCores:   2,
 		Mem:        3750,
 		Networking: instances.InstanceTypeNetworking{},
-		VirtType:   ptr("kvm"),
+		VirtType:   new("kvm"),
 	})
 }
 
@@ -750,8 +746,8 @@ func (s *environBrokerSuite) TestHasAccelerator(c *tc.C) {
 			Name: &instanceTypeGPU,
 			Accelerators: []*computepb.Accelerators{
 				{
-					GuestAcceleratorType:  ptr("nvidia-l4"),
-					GuestAcceleratorCount: ptr(int32(1)),
+					GuestAcceleratorType:  new("nvidia-l4"),
+					GuestAcceleratorCount: new(int32(1)),
 				},
 			},
 		}, nil)

@@ -53,11 +53,11 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	modelConstraints := constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 
@@ -72,11 +72,11 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	c.Check(result, tc.DeepEquals, cons)
 }
@@ -131,12 +131,12 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *tc.C) {
 	defer ctrl.Finish()
 
 	modelCons := constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 			{SpaceName: "space2", Exclude: true},
 		}),
@@ -156,12 +156,12 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *tc.C) {
 	)
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-		Spaces:    ptr([]string{"space1", "^space2"}),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
+		Spaces:    new([]string{"space1", "^space2"}),
 	}
 	err := svc.SetModelConstraints(c.Context(), cons)
 	c.Check(err, tc.ErrorIsNil)
@@ -175,10 +175,10 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C)
 	defer ctrl.Finish()
 
 	badConstraints := coreconstraints.Value{
-		Container: ptr(instance.ContainerType("bad")),
+		Container: new(instance.ContainerType("bad")),
 	}
 	modelCons := constraints.Constraints{
-		Container: ptr(instance.ContainerType("bad")),
+		Container: new(instance.ContainerType("bad")),
 	}
 
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -203,20 +203,20 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *tc.C) 
 	defer ctrl.Finish()
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-		Spaces:    ptr([]string{"space1"}),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
+		Spaces:    new([]string{"space1"}),
 	}
 	modelCons := constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
 	}
@@ -242,18 +242,18 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *tc.C) 
 	defer ctrl.Finish()
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	modelCons := constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, m constraints.Constraints) error {
@@ -1195,9 +1195,9 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
 	}, nil)
 
 	validator := coreconstraints.NewValidator()
@@ -1205,20 +1205,20 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 
 	svc := s.providerService(c, modelUUID)
 	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.Value{
-		Arch:      ptr("arm64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("arm64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	})
 	c.Check(err, tc.ErrorIsNil)
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("arm64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("arm64"),
+		Container: new(instance.NONE),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	c.Check(result, tc.DeepEquals, cons)
 }

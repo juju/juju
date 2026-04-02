@@ -306,7 +306,7 @@ func (w *bootstrapWorker) loop() error {
 	modelUUID := w.cfg.ControllerModel.UUID
 	if err := w.cfg.StatusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelUUID.String()), corestatus.StatusInfo{
 		Status: corestatus.Available,
-		Since:  ptr(w.cfg.Clock.Now()),
+		Since:  new(w.cfg.Clock.Now()),
 	}); err != nil {
 		w.logger.Warningf(ctx, "recording status for model %q: %v", modelUUID, err)
 	}
@@ -614,8 +614,4 @@ func initialStoragePools(params map[string]internalstorage.Attrs) []StoragePoolT
 		})
 	}
 	return retVal
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -52,7 +52,7 @@ func (s *baseSuite) workloadStatus(now time.Time) *status.StatusInfo[status.Work
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 }
 

@@ -1,3 +1,7 @@
+---
+applyTo: "**/*"
+---
+
 # Main Instructions for GitHub Copilot Agents
 
 This document defines the global rules all Copilot agents MUST follow in this repository.
