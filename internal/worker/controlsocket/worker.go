@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/socketlistener"
@@ -43,6 +44,12 @@ const (
 
 	// maxPayloadBytes is the maximum size of any payload.
 	maxPayloadBytes = 1 << 20 // 1MiB
+)
+
+var (
+	// userCreatorName is the user.Name corresponding to userCreator. We panic
+	// if this is not valid, since that would be a programming error.
+	userCreatorName = must(user.NewName, userCreator)
 )
 
 // AccessService is the interface for the access service.
@@ -97,10 +104,18 @@ type PermissionService interface {
 	AddUserPermission(ctx context.Context, username user.Name, access permission.Access) error
 }
 
+// TracingService is the interface for the tracing service.
+type TracingService interface {
+	// SetCharmTracingConfig sets the charm tracing configuration to the provided values.
+	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
+}
+
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// AccessService is the user access service for the model.
 	AccessService AccessService
+	// TracingService is the tracing service for the model.
+	TracingService TracingService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -135,11 +150,13 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService AccessService
-	logger        logger.Logger
+	accessService  AccessService
+	tracingService TracingService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
+
+	logger logger.Logger
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -148,17 +165,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, internalerrors.Capture(err)
 	}
 
-	userCreatorName, err := user.NewName(userCreator)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
 	w := &Worker{
 		accessService:       config.AccessService,
-		logger:              config.Logger,
+		tracingService:      config.TracingService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
+
+		logger: config.Logger,
 	}
+
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
 		SocketName:       config.SocketName,
@@ -181,10 +196,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
+// Kill stops the worker.
 func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait waits for the worker to stop and returns any error that caused it to
+// stop.
 func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
@@ -195,10 +213,42 @@ func (w *Worker) loop() error {
 }
 
 func (w *Worker) registerHandlers(r *mux.Router) {
+	// metrics-users endpoint for managing users that can access metrics. This
+	// is a POST endpoint that accepts a JSON body with the following format:
+	//
+	// {
+	//   "username": <string>,
+	//   "password": <string>,
+	// }
+	//
+	// The username must have the prefix "juju-metrics-", and the worker will
+	// create a user with read access to the controller model. If a user with
+	// the given name already exists, it will be reused if it has the expected
+	// permissions and was created by this worker, and otherwise an error will
+	// be returned.
+	//
+	// A user created by this endpoint can be removed by sending a DELETE
+	// request to the /metrics-users/{username} endpoint.
 	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
 		Methods(http.MethodPost)
 	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
 		Methods(http.MethodDelete)
+
+	// charm-tracing-config endpoint for managing charm tracing configuration.
+	// This is a POST endpoint that accepts a JSON body with the following
+	// format:
+	//
+	// {
+	//   "http_endpoint": <string>,
+	//   "grpc_endpoint": <string>,
+	//   "ca_cert": <string>,
+	// }
+	//
+	// The worker will update the charm tracing configuration with the provided
+	// values. Any field that are omitted or empty will be removed from the
+	// charm tracing configuration.
+	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+		Methods(http.MethodPost)
 }
 
 type addMetricsUserBody struct {
@@ -338,22 +388,43 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 	return http.StatusOK, nil
 }
 
-func validateMetricsUsername(username string) (user.Name, error) {
-	if username == "" {
-		return user.Name{}, internalerrors.Errorf("missing username").Add(coreerrors.BadRequest)
+type setCharmTracingConfig struct {
+	HTTPEndpoint string `json:"http_endpoint"`
+	GRPCEndpoint string `json:"grpc_endpoint"`
+	CACert       string `json:"ca_cert"`
+}
+
+func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody setCharmTracingConfig
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %v", err))
+		}
+		return
 	}
 
-	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
-		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).
-			Add(coreerrors.BadRequest)
-	}
-
-	name, err := user.NewName(username)
+	err := w.tracingService.SetCharmTracingConfig(ctx, tracingservice.CharmTracingConfig{
+		HTTPEndpoint:  parsedBody.HTTPEndpoint,
+		GRPCEndpoint:  parsedBody.GRPCEndpoint,
+		CACertificate: parsedBody.CACert,
+	})
 	if err != nil {
-		return user.Name{}, errors.Wrap(err, errors.BadRequest)
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, err)
+		return
 	}
 
-	return name, nil
+	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
@@ -420,4 +491,30 @@ func errorf(format string, args ...any) any {
 	}{
 		Error: fmt.Sprintf(format, args...),
 	}
+}
+
+func validateMetricsUsername(username string) (user.Name, error) {
+	if username == "" {
+		return user.Name{}, internalerrors.Errorf("missing username").Add(coreerrors.BadRequest)
+	}
+
+	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
+		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).
+			Add(coreerrors.BadRequest)
+	}
+
+	name, err := user.NewName(username)
+	if err != nil {
+		return user.Name{}, errors.Wrap(err, errors.BadRequest)
+	}
+
+	return name, nil
+}
+
+func must[T any](fn func(string) (T, error), arg string) T {
+	result, err := fn(arg)
+	if err != nil {
+		panic(fmt.Sprintf("unexpected error calling %T with %q: %v", fn, arg, err))
+	}
+	return result
 }
