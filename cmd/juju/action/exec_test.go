@@ -457,13 +457,11 @@ func (s *ExecSuite) TestTimeout(c *tc.C) {
 		ctx *cmd.Context
 		err error
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, err = cmdtesting.RunCommand(c, runCmd,
 			"--format=yaml", "--all", "hostname", "--wait", "2s",
 		)
-	}()
+	})
 
 	wg.Wait()
 	c.Check(err, tc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")

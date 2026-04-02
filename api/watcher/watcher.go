@@ -86,8 +86,7 @@ func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// When the watcher has been stopped, we send a Stop request
 		// to the server, which will remove the watcher and return a
 		// CodeStopped error to any currently outstanding call to
@@ -95,7 +94,6 @@ func (w *commonWatcher) commonLoop() {
 		// been stopped, we'll get a CodeNotFound error; Either way
 		// we'll return, wait for the stop request to complete, and
 		// the watcher will die with all resources cleaned up.
-		defer wg.Done()
 		<-w.tomb.Dying()
 
 		// Give a reasonable amount of time for the watcher to stop. If it
@@ -125,17 +123,15 @@ func (w *commonWatcher) commonLoop() {
 			logger.Errorf(context.TODO(), "error trying to stop watcher: %v", err)
 			return
 		}
-	}()
+	})
 
 	ctx, cancel := context.WithCancel(w.tomb.Context(context.Background()))
 	defer cancel()
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// Because Next blocks until there are changes, we need to
 		// call it in a separate goroutine, so the watcher can be
 		// stopped normally.
-		defer wg.Done()
 		for {
 			result := w.newResult()
 			err := w.call(ctx, "Next", &result)
@@ -163,7 +159,7 @@ func (w *commonWatcher) commonLoop() {
 				// Report back the result we just got.
 			}
 		}
-	}()
+	})
 	wg.Wait()
 }
 

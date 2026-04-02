@@ -53,16 +53,12 @@ func CreateTCPServer(c *tc.C, callback func(net.Conn)) (string, chan struct{}) {
 
 	shutdown := make(chan struct{}, 0)
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-shutdown
 		listener.Close()
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			tcpConn, err := listener.Accept()
 			if err != nil {
@@ -73,7 +69,7 @@ func CreateTCPServer(c *tc.C, callback func(net.Conn)) (string, chan struct{}) {
 			c.Logf("accepted tcp connection on %s from %s", localAddress, remoteAddress)
 			callback(tcpConn)
 		}
-	}()
+	})
 
 	c.Cleanup(func() {
 		wg.Wait()

@@ -49,15 +49,13 @@ func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 	finished := sync.WaitGroup{}
 	for range totalToAcquire {
 		started.Add(1)
-		finished.Add(1)
-		go func() {
-			defer finished.Done()
+		finished.Go(func() {
 			started.Done()
 			limiter.Acquire(c.Context(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
-		}()
+		})
 	}
 	started.Wait()
 
@@ -108,15 +106,13 @@ func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 	finished := sync.WaitGroup{}
 	for range totalToAcquire {
 		started.Add(1)
-		finished.Add(1)
-		go func() {
-			defer finished.Done()
+		finished.Go(func() {
 			started.Done()
 			limiter.Acquire(c.Context(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
-		}()
+		})
 	}
 	started.Wait()
 
