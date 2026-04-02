@@ -568,6 +568,175 @@ FROM (
 	return result, err
 }
 
+// GetStorageAttachInfoForStorageInstances returns metadata and attachment
+// details for the specified storage instances.
+//
+// Duplicate storage instance UUIDs are de-duplicated and are not treated as
+// separate requests.
+//
+// The following errors can be expected:
+// - [storageerrors.StorageInstanceNotFound] when any storage instance does not
+// exist.
+func (st *State) GetStorageAttachInfoForStorageInstances(
+	ctx context.Context,
+	storageUUIDs []domainstorage.StorageInstanceUUID,
+) ([]internal.StorageInstanceInfoForAttach, error) {
+	if len(storageUUIDs) == 0 {
+		return []internal.StorageInstanceInfoForAttach{}, nil
+	}
+
+	requestedUUIDs := make(storageInstanceUUIDs, 0, len(storageUUIDs))
+	requestedUUIDs = slices.AppendSeq(requestedUUIDs, iter.TransformSeq(
+		slices.Values(storageUUIDs),
+		func(uuid domainstorage.StorageInstanceUUID) string {
+			return uuid.String()
+		},
+	))
+	slices.Sort(requestedUUIDs)
+	requestedUUIDs = slices.Compact(requestedUUIDs)
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		storageInstInfos       []storageInstanceInfoForAttach
+		storageInstAttachments []storageInstanceUnitAttachmentByStorageUUID
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+
+		storageInstInfos, err = st.getStorageInstancesInfoForAttach(
+			ctx, tx, requestedUUIDs,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instances information for attachment: %w", err,
+			)
+		}
+		if len(storageInstInfos) != len(requestedUUIDs) {
+			return errors.New(
+				"one or more storage instances do not exist",
+			).Add(storageerrors.StorageInstanceNotFound)
+		}
+
+		storageInstAttachments, err = st.getStorageInstanceUnitAttachmentsForStorageInstances(
+			ctx, tx, requestedUUIDs,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance unit attachments: %w", err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	partitioner := iter.NewPartitioner(storageInstAttachments)
+	defer partitioner.Close()
+
+	retVals := make([]internal.StorageInstanceInfoForAttach, 0, len(storageInstInfos))
+	for _, storageInstInfo := range storageInstInfos {
+		retVal := internal.StorageInstanceInfoForAttach{
+			StorageInstanceInfo: internal.StorageInstanceInfo{
+				UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
+				Life:             domainlife.Life(storageInstInfo.Life),
+				Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
+				RequestedSizeMIB: storageInstInfo.RequestedSizeMIB,
+				StorageName:      storageInstInfo.StorageName,
+			},
+		}
+
+		if storageInstInfo.CharmName.Valid {
+			retVal.StorageInstanceInfo.CharmName = new(storageInstInfo.CharmName.V)
+		}
+
+		if storageInstInfo.FilesystemUUID.Valid {
+			retVal.StorageInstanceInfo.Filesystem = &internal.StorageInstanceFilesystemInfo{
+				UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
+				Size:           storageInstInfo.FilesystemSizeMIB.V,
+			}
+		}
+		if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
+			retVal.StorageInstanceInfo.Filesystem.OwningMachineUUID =
+				new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
+		}
+
+		if storageInstInfo.VolumeUUID.Valid {
+			retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
+				UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
+				Size:           storageInstInfo.VolumeSizeMIB.V,
+			}
+		}
+		if storageInstInfo.VolumeOwnedMachineUUID.Valid {
+			retVal.StorageInstanceInfo.Volume.OwningMachineUUID =
+				new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
+		}
+
+		for row := range partitioner.NextPart(storageInstInfo.UUID) {
+			retVal.StorageInstanceAttachments = append(
+				retVal.StorageInstanceAttachments,
+				internal.StorageInstanceUnitAttachment{
+					UnitUUID: coreunit.UUID(row.UnitUUID),
+					UUID:     domainstorage.StorageAttachmentUUID(row.UUID),
+				},
+			)
+		}
+
+		retVals = append(retVals, retVal)
+	}
+
+	return retVals, nil
+}
+
+// getStorageInstanceUnitAttachmentsForStorageInstances returns storage
+// attachment rows for the supplied storage instances, ordered by storage
+// instance UUID.
+func (st *State) getStorageInstanceUnitAttachmentsForStorageInstances(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageUUIDs storageInstanceUUIDs,
+) ([]storageInstanceUnitAttachmentByStorageUUID, error) {
+	if len(storageUUIDs) == 0 {
+		return nil, nil
+	}
+
+	q := `
+SELECT &storageInstanceUnitAttachmentByStorageUUID.*
+FROM (
+	SELECT sa.storage_instance_uuid,
+	       sa.unit_uuid,
+	       sa.uuid
+	FROM   storage_attachment sa
+	WHERE  sa.storage_instance_uuid IN ($storageInstanceUUIDs[:])
+	ORDER BY sa.storage_instance_uuid, sa.unit_uuid, sa.uuid
+)
+`
+	stmt, err := st.Prepare(
+		q,
+		storageUUIDs,
+		storageInstanceUnitAttachmentByStorageUUID{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing storage instance unit attachments bulk query: %w", err,
+		)
+	}
+
+	var result []storageInstanceUnitAttachmentByStorageUUID
+	err = tx.Query(ctx, stmt, storageUUIDs).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return result, err
+}
+
 // GetUnitStorageDirectives returns the storage directives that are set for
 // a unit. If the unit does not have any storage directives set then an
 // empty result is returned.
@@ -1343,7 +1512,7 @@ func (st *State) checkStorageInstancesExistAndAlive(
 	))
 
 	slices.Sort(inputUUIDs)
-	slices.Compact(inputUUIDs)
+	inputUUIDs = slices.Compact(inputUUIDs)
 
 	q := `
 SELECT &entityUUIDLife.*
@@ -2064,6 +2233,69 @@ SELECT * AS &storageInstanceInfoForAttach.* FROM (
 	}
 
 	return siInfo, err
+}
+
+// getStorageInstancesInfoForAttach returns attach metadata for the supplied
+// storage instances, ordered by storage instance UUID.
+//
+// This helper performs no existence validation for the supplied storage
+// instance UUIDs. Callers are responsible for verifying all requested storage
+// instances are present.
+func (st *State) getStorageInstancesInfoForAttach(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageUUIDs storageInstanceUUIDs,
+) ([]storageInstanceInfoForAttach, error) {
+	if len(storageUUIDs) == 0 {
+		return nil, nil
+	}
+
+	query := `
+SELECT * AS &storageInstanceInfoForAttach.* FROM (
+    SELECT    si.uuid,
+              si.charm_name,
+              si.storage_name,
+              si.life_id,
+              si.requested_size_mib,
+              si.storage_kind_id,
+              sif.storage_filesystem_uuid AS filesystem_uuid,
+              sf.size_mib AS filesystem_size_mib,
+              sf.provision_scope_id AS filesystem_provision_scope_id,
+              mf.machine_uuid AS filesystem_owned_machine_uuid,
+              siv.storage_volume_uuid AS volume_uuid,
+              sv.size_mib AS volume_size_mib,
+              sv.provision_scope_id AS volume_provision_scope_id,
+              mv.machine_uuid AS volume_owned_machine_uuid
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    LEFT JOIN machine_volume mv ON siv.storage_volume_uuid = mv.volume_uuid
+    WHERE     si.uuid IN ($storageInstanceUUIDs[:])
+    ORDER BY  si.uuid
+)
+`
+	queryStmt, err := st.Prepare(query, storageUUIDs, storageInstanceInfoForAttach{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing query for getting storage instances info for attachment: %w",
+			err,
+		)
+	}
+
+	var siInfos []storageInstanceInfoForAttach
+	err = tx.Query(ctx, queryStmt, storageUUIDs).GetAll(&siInfos)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting storage instances information for attachment: %w", err,
+		)
+	}
+
+	return siInfos, nil
 }
 
 func (st *State) getStorageInstanceInfoForAdd(

@@ -100,6 +100,76 @@ func (s *baseSuite) getCharmMetadataName(c *tc.C, charmUUID corecharm.ID) string
 	return name
 }
 
+// newCharmWithStorage inserts a charm and a single filesystem storage
+// definition directly into the model tables and returns the charm UUID.
+func (s *baseSuite) newCharmWithStorage(
+	c *tc.C,
+	storageName string,
+	countMax int,
+) corecharm.ID {
+	charmUUID := tc.Must(c, corecharm.NewID)
+	charmName := "charm-" + charmUUID.String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm (uuid, reference_name, architecture_id, revision)
+VALUES (?, ?, 0, ?)
+`,
+			charmUUID.String(),
+			charmName,
+			1,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, ?)
+`,
+			charmUUID.String(),
+			charmName,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_storage (
+	charm_uuid,
+	name,
+	description,
+	storage_kind_id,
+	shared,
+	read_only,
+	count_min,
+	count_max,
+	minimum_size_mib,
+	location
+)
+VALUES (?, ?, ?, 1, false, false, 1, ?, 1024, '/')
+`,
+			charmUUID.String(),
+			storageName,
+			storageName,
+			countMax,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
+}
+
 // getUnitName returns the unit name for the supplied unit UUID.
 func (s *baseSuite) getUnitName(c *tc.C, unitUUID coreunit.UUID) string {
 	var name string

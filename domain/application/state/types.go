@@ -938,6 +938,19 @@ type storageInstanceUnitAttachment struct {
 	UUID     string `db:"uuid"`
 }
 
+// storageInstanceUnitAttachmentByStorageUUID holds storage attachment rows for
+// bulk queries where attachments are grouped by storage instance UUID.
+type storageInstanceUnitAttachmentByStorageUUID struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+	UUID                string `db:"uuid"`
+}
+
+// Partition returns the storage instance UUID this attachment belongs to.
+func (s storageInstanceUnitAttachmentByStorageUUID) Partition() string {
+	return s.StorageInstanceUUID
+}
+
 type storageInfoForAdd struct {
 	Name        string `db:"name"`
 	Kind        string `db:"kind"`
