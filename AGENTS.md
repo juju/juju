@@ -42,9 +42,22 @@ If guidance conflicts, architectural rules take precedence.
 
 ## Running Tests
 
+Tests must be run with the `-race` flag for code with mutexes or goroutines.
+For code with goroutines, tombs or catacombs, stress must be used to ensure
+robustness.
+
 - `go test ./path/to/package` — Run package tests.
 - `go test -run 'TestName' ./path/to/package` — Run specific test.
 - `make pre-check` — Static analysis (golangci-lint). Run before submitting.
+
+### Running `stress` Tests
+
+Compile the go package into a binary and run the test through stress.
+A timeout must wrap the `stress` command to ensure that stress halts in a good
+timeframe.
+
+ - `go test ./path/to/package -c -race`
+ - `timeout 31 stress -timeout 30s ./package.test`
 
 ## Integration Tests (bash-based)
 
