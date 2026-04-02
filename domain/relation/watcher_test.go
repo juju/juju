@@ -1039,7 +1039,7 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
 	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
 
-	config.initialAppUUID = watchedUUID
+	config.initialAppUUID = config.otherUUID
 	config.initialUnitUUIDs = []coreunit.UUID{config.other0UUID, config.other1UUID}
 	slices.Sort(config.initialUnitUUIDs)
 
@@ -1079,7 +1079,7 @@ func (s *watcherSuite) setupTestWatchRelationUnitNoRemoteUnits(c *tc.C) testWatc
 	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
 	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
 
-	config.initialAppUUID = watchedUUID
+	config.initialAppUUID = config.otherUUID
 	config.initialUnitUUIDs = nil
 	return config
 }
