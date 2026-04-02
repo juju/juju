@@ -312,7 +312,7 @@ func (w *dbWorker) loop() (err error) {
 
 	// Always check for actionable config on start-up in case
 	// it was written to disk while we couldn't be notified.
-	if err := w.handleClusterConfigChange(false); err != nil {
+	if err := w.handleClusterConfigChange(ctx, false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -363,7 +363,7 @@ func (w *dbWorker) loop() (err error) {
 
 		case <-w.cfg.ControllerConfigWatcher.Changes():
 			w.cfg.Logger.Infof(ctx, "controller configuration changed on disk")
-			if err := w.handleClusterConfigChange(true); err != nil {
+			if err := w.handleClusterConfigChange(ctx, true); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -388,6 +388,8 @@ func (w *dbWorker) Report(ctx context.Context) map[string]any {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
+	ctx = w.catacomb.Context(ctx)
+
 	// We need to guard against attempting to report when setting up or dying,
 	// so we don't end up panicking with missing information.
 	result := w.dbRunner.Report(ctx)
@@ -398,9 +400,6 @@ func (w *dbWorker) Report(ctx context.Context) map[string]any {
 		result["leader-role"] = ""
 		return result
 	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	var (
 		leader     string
@@ -792,8 +791,8 @@ func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 // the current running state of this node, and takes action as appropriate.
 // The input argument determines whether the inability to read the config
 // should be considered an error condition.
-func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
-	ctx, cancel := w.scopedContext()
+func (w *dbWorker) handleClusterConfigChange(ctx context.Context, noConfigIsFatal bool) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	log := w.cfg.Logger
