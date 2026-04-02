@@ -60,7 +60,7 @@ func TestProviderServiceSuite(t *testing.T) {
 
 func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -230,7 +230,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -296,7 +296,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 
 func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -396,7 +396,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -520,7 +520,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -948,7 +948,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	preCheckError := errors.New("precheck failure error")
@@ -1012,7 +1012,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -1227,7 +1227,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithNoArchitecture(c *tc
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNotAllResourcesResolved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
 		"not-resolved": {Name: "not-resolved"},
@@ -1260,7 +1260,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNotA
 // pending resources are mutually exclusive.
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourceBothTypes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
 		"not-resolved": {Name: "not-resolved"},
@@ -1336,7 +1336,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesInva
 
 func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *tc.C, resources ResolvedResources) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
@@ -1362,7 +1362,7 @@ func (s *providerServiceSuite) testCreateIAASApplicationWithInvalidResource(c *t
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigMissingOption(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
@@ -1405,7 +1405,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationCo
 
 func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationConfigWrongType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo"}).MinTimes(1)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
@@ -1447,7 +1447,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationCo
 
 func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	id := tc.Must(c, coreapplication.NewUUID)
 
@@ -2253,7 +2253,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	setCreateApplicationNoopStorageExpects(s.storageService)
+	setCreateApplicationNoopStorageExpects(c, s.state, s.storageService)
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
@@ -2610,7 +2610,7 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
@@ -2661,7 +2661,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
@@ -2731,7 +2731,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
@@ -2794,7 +2794,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -2875,7 +2875,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsApplicationNotFound(c *tc.C) {
 func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -2908,7 +2908,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 func (s *providerServiceSuite) TestAddIAASUnitsMachinePlacement(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-	setAddUnitNoopStorageExpects(s.storageService)
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)

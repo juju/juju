@@ -198,6 +198,7 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 		ProviderID:             "foo-666",
 		RegisterUnitStorageArg: storageArg,
 		UnitName:               "foo/666",
+		UnitUUID:               unitUUID,
 	}
 
 	var gotRCA application.RegisterCAASUnitArg

@@ -5,9 +5,9 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"net"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/proxy"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -25,6 +25,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -251,6 +253,17 @@ type UnitState interface {
 		unitUUID coreunit.UUID,
 		storageUUID domainstorage.StorageInstanceUUID,
 	) (internal.StorageInstanceInfoForUnitAttach, error)
+
+	// GetStorageAttachInfoForStorageInstances returns attachment metadata for
+	// the specified storage instances.
+	//
+	// The following errors can be expected:
+	// - [storageerrors.StorageInstanceNotFound] when a storage instance does not
+	// exist.
+	GetStorageAttachInfoForStorageInstances(
+		ctx context.Context,
+		storageInstanceUUIDs []domainstorage.StorageInstanceUUID,
+	) ([]internal.StorageInstanceInfoForAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -752,7 +765,6 @@ func (s *ProviderService) makeIAASUnitArgs(
 		}
 
 		var (
-			//placementMachineUUID *string
 			machineUUID        coremachine.UUID
 			machineNetNodeUUID domainnetwork.NetNodeUUID
 		)
@@ -770,7 +782,6 @@ func (s *ProviderService) makeIAASUnitArgs(
 			}
 			machineUUID = mUUID
 			machineNetNodeUUID = mNNUUID
-			//placementMachineUUID = ptr(mUUID.String())
 		} else {
 			// If the placement is not on to an already established machine we need
 			// to generate a new machine uuid and netnode uuid for the unit.
@@ -790,13 +801,51 @@ func (s *ProviderService) makeIAASUnitArgs(
 			}
 		}
 
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new unit uuid for IAAS unit: %w", err,
+			)
+		}
+		// We use the same netnode uuid as the machine for the unit.
+		netNodeUUID := machineNetNodeUUID
+
+		// Validate that any existing storage instance attachments requested can
+		// be used for this unit.
+		attachInfos, err := s.st.GetStorageAttachInfoForStorageInstances(
+			ctx, u.StorageInstancesToAttach,
+		)
+		if err != nil {
+			return nil, errors.Errorf(
+				"getting storage instance attachment info: %w",
+				err,
+			)
+		}
+
+		err = s.validateStorageInstanceAttachmentForNewUnit(
+			ctx,
+			unitUUID,
+			&machineUUID,
+			netNodeUUID,
+			storageDirectives,
+			attachInfos,
+		)
+		if err != nil {
+			return nil, errors.Errorf(
+				"validating storage instance attachments for new unit: %w",
+				err,
+			)
+		}
+
+		existingStorage := storageInstanceCompositionsFromAttachInfos(attachInfos)
+
 		// make unit storage args. IAAS units always have their storage
 		// attached to the machine's net node.
 		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
 			ctx,
 			machineNetNodeUUID,
 			storageDirectives,
-			nil,
+			existingStorage,
 			nil,
 		)
 		if err != nil {
@@ -817,35 +866,6 @@ func (s *ProviderService) makeIAASUnitArgs(
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
 			)
-		}
-
-		unitUUID, err := coreunit.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new unit uuid for IAAS unit: %w", err,
-			)
-		}
-		// We use the same netnode uuid as the machine for the unit.
-		netNodeUUID := machineNetNodeUUID
-
-		// Compose the storage attachments for any existing storage instances
-		// that need to be attached to the unit.
-		for _, storageInstanceUUID := range u.StorageToAttach {
-			fmt.Println(storageInstanceUUID)
-			//storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
-			//	ctx, unitUUID, storageInstanceUUID)
-			//if err != nil {
-			//	return nil, errors.Errorf(
-			//		"getting unit %q charm storage and attachment info for %q: %w",
-			//		unitUUID, storageInstanceUUID, err,
-			//	)
-			//}
-			//attachArg, err := s.makeAttachExistingStorageToUnitArgs(
-			//	ctx, storageInstanceUUID, storageAttachInfo)
-			//if err != nil {
-			//	return nil, errors.Capture(err)
-			//}
-			//unitStorageArgs.ExistingStorageToAttach = append(unitStorageArgs.ExistingStorageToAttach, attachArg)
 		}
 
 		arg := application.AddIAASUnitArg{
@@ -896,13 +916,43 @@ func (s *ProviderService) makeCAASUnitArgs(
 			)
 		}
 
+		// Get existing storage instance information for attaching to this unit.
+		attachInfos, err := s.st.GetStorageAttachInfoForStorageInstances(
+			ctx, u.StorageInstancesToAttach,
+		)
+		if err != nil {
+			return nil, errors.Errorf(
+				"getting storage instance attachment info: %w",
+				err,
+			)
+		}
+
+		// Validate that any existing storage instance attachments requested can
+		// be used for this unit.
+		err = s.validateStorageInstanceAttachmentForNewUnit(
+			ctx,
+			unitUUID,
+			nil,
+			netNodeUUID,
+			storageDirectives,
+			attachInfos,
+		)
+		if err != nil {
+			return nil, errors.Errorf(
+				"validating storage instance attachments for new unit: %w",
+				err,
+			)
+		}
+
+		existingStorage := storageInstanceCompositionsFromAttachInfos(attachInfos)
+
 		// make unit storage args. CAAS units always have their storage
 		// attached to the unit's net node.
 		unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
 			ctx,
 			netNodeUUID,
 			storageDirectives,
-			nil,
+			existingStorage,
 			nil,
 		)
 		if err != nil {

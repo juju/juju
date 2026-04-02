@@ -106,10 +106,10 @@ type AddressParams struct {
 type AddUnitArg struct {
 	// Placement is the placement of the unit.
 	Placement *instance.Placement
-	// StorageToAttach contains the list of UUIDs
-	// of existing, provisioned storage to be attached
-	// to the unit upon creation.
-	StorageToAttach []domainstorage.StorageInstanceUUID
+
+	// StorageInstancesToAttach contains the list of existing Storage instance
+	// UUIDs to be attached to this unit.
+	StorageInstancesToAttach []domainstorage.StorageInstanceUUID
 }
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to the model.

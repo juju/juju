@@ -102,8 +102,6 @@ func (s *attachStorageSuite) assertAttachStorageStateError(
 	)
 	s.storageService.EXPECT().MakeAttachStorageInstanceToUnitArg(
 		gomock.Any(),
-		attachInfo.UnitNamedStorageInfo.NetNodeUUID.String(),
-		storageUUID,
 		attachInfo,
 	).Return(
 		attachArg,
@@ -630,8 +628,6 @@ func (s *attachStorageSuite) TestAttachStorageSuccess(c *tc.C) {
 	)
 	s.storageService.EXPECT().MakeAttachStorageInstanceToUnitArg(
 		gomock.Any(),
-		attachInfo.UnitNamedStorageInfo.NetNodeUUID.String(),
-		storageUUID,
 		attachInfo,
 	).Return(
 		attachArg,
@@ -673,8 +669,6 @@ func (s *attachStorageSuite) TestAttachStorageSuccessUnitMachineOnly(c *tc.C) {
 	)
 	s.storageService.EXPECT().MakeAttachStorageInstanceToUnitArg(
 		gomock.Any(),
-		attachInfo.UnitNamedStorageInfo.NetNodeUUID.String(),
-		storageUUID,
 		attachInfo,
 	).Return(
 		attachArg,

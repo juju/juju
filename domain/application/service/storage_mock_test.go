@@ -21,7 +21,6 @@ import (
 	internal "github.com/juju/juju/domain/application/internal"
 	charm "github.com/juju/juju/domain/deployment/charm"
 	network "github.com/juju/juju/domain/network"
-	storage0 "github.com/juju/juju/domain/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -204,41 +203,41 @@ func (c *MockStorageServiceMakeApplicationStorageDirectiveArgsCall) DoAndReturn(
 	return c
 }
 
-// MakeAttachExistingStorageArgs mocks base method.
-func (m *MockStorageService) MakeAttachExistingStorageArgs(arg0 context.Context, arg1 string, arg2 storage0.StorageInstanceUUID, arg3 internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error) {
+// MakeAttachStorageInstanceToUnitArg mocks base method.
+func (m *MockStorageService) MakeAttachStorageInstanceToUnitArg(arg0 context.Context, arg1 internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakeAttachExistingStorageArgs", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "MakeAttachStorageInstanceToUnitArg", arg0, arg1)
 	ret0, _ := ret[0].(internal.AttachStorageInstanceToUnitArg)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MakeAttachExistingStorageArgs indicates an expected call of MakeAttachExistingStorageArgs.
-func (mr *MockStorageServiceMockRecorder) MakeAttachExistingStorageArgs(arg0, arg1, arg2, arg3 any) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+// MakeAttachStorageInstanceToUnitArg indicates an expected call of MakeAttachStorageInstanceToUnitArg.
+func (mr *MockStorageServiceMockRecorder) MakeAttachStorageInstanceToUnitArg(arg0, arg1 any) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeAttachExistingStorageArgs", reflect.TypeOf((*MockStorageService)(nil).MakeAttachExistingStorageArgs), arg0, arg1, arg2, arg3)
-	return &MockStorageServiceMakeAttachExistingStorageArgsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeAttachStorageInstanceToUnitArg", reflect.TypeOf((*MockStorageService)(nil).MakeAttachStorageInstanceToUnitArg), arg0, arg1)
+	return &MockStorageServiceMakeAttachStorageInstanceToUnitArgCall{Call: call}
 }
 
-// MockStorageServiceMakeAttachExistingStorageArgsCall wrap *gomock.Call
-type MockStorageServiceMakeAttachExistingStorageArgsCall struct {
+// MockStorageServiceMakeAttachStorageInstanceToUnitArgCall wrap *gomock.Call
+type MockStorageServiceMakeAttachStorageInstanceToUnitArgCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Return(arg0 internal.AttachStorageInstanceToUnitArg, arg1 error) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Return(arg0 internal.AttachStorageInstanceToUnitArg, arg1 error) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) Do(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Do(f func(context.Context, internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeAttachExistingStorageArgsCall) DoAndReturn(f func(context.Context, string, storage0.StorageInstanceUUID, internal.StorageInfoForAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachExistingStorageArgsCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) DoAndReturn(f func(context.Context, internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
