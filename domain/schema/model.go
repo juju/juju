@@ -157,6 +157,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0050-secret.PATCH.sql",
 		"0051-secret-removal.PATCH.sql",
 		"0052-resource.PATCH.sql",
+		"0053-constraint-view.PATCH.sql",
 	},
 }, {
 	version: semversion.MustParse("4.0.6"),
