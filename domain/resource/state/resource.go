@@ -554,12 +554,11 @@ AND state = 'available'`
 	return result, errors.Capture(err)
 }
 
-// GetApplicationResource returns the identified resource linked to
-// an application.
+// GetResource returns the identified resource linked to an application.
 //
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if no resource is found.
-func (st *State) GetApplicationResource(
+//   - [resourceerrors.ResourceNotFound] if no resource is found or its
+//     application is not found.
+func (st *State) GetResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, error) {
@@ -596,13 +595,13 @@ WHERE uuid = $resourceIdentity.uuid`,
 	return resourceOutput.toResource()
 }
 
-// GetResource returns the identified resource without requiring it to be
-// linked to an application. The application name will be included if
-// available.
+// GetResourceWithoutApplication returns the identified resource without
+// requiring it to be linked to an application. The application name will
+// be included if available.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if no resource is found.
-func (st *State) GetResource(
+func (st *State) GetResourceWithoutApplication(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, error) {
