@@ -563,6 +563,7 @@ func (s *RemoteSuite) TestReconnectWithBrokenConnectionMultipleUpdatesKeepProgre
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr2.String()})
 	c.Assert(attempts.Load(), tc.GreaterThan, int64(2))
+	c.Assert(attempts.Load(), tc.LessThan, int64(5))
 
 	workertest.CleanKill(c, w)
 }
