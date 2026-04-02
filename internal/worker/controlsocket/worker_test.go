@@ -84,6 +84,7 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 		strings.NewReader(test.body),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/json")
 
 	// Check server is up
 	resp, err := client(socket).Do(req)
@@ -217,7 +218,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *tc.C) {
 		endpoint:   "/metrics-users",
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusConflict,
-		response:   ".*user .* already exists.*",
+		response:   `.*user .*\(created by \\\"not-you\\\"\).*`,
 	})
 }
 
