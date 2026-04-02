@@ -1273,138 +1273,9 @@ WHERE application_uuid = ?
 
 	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
-	// Since no addresses were passed as input, this should not modify any
-	// previously known addresses.
+	// Since no addresses were passed as input, the previous addresses should
+	// be returned.
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
-}
-
-func (s *applicationStateSuite) TestDeleteCloudService(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1/8",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	var netNodeUUID string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT net_node_uuid
-FROM k8s_service
-WHERE application_uuid = ?
-		`, appUUID).Scan(&netNodeUUID)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	fqdnAddressUUID := uuid.MustNewUUID().String()
-	hostnameAddressUUID := uuid.MustNewUUID().String()
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)
-		`, fqdnAddressUUID, "foo.example.com", 1)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES (?, ?)
-		`, netNodeUUID, fqdnAddressUUID)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO hostname_address (uuid, hostname, scope_id) VALUES (?, ?, ?)
-		`, hostnameAddressUUID, "foo-host", 1)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO net_node_hostname_address (net_node_uuid, address_uuid) VALUES (?, ?)
-		`, netNodeUUID, hostnameAddressUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
-		var resultAddresses []string
-		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			rows, err := tx.QueryContext(ctx, `
-SELECT address_value
-FROM ip_address
-WHERE net_node_uuid = ?
-			`, netNodeUUID)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = rows.Close() }()
-
-			for rows.Next() {
-				var addressVal string
-				if err := rows.Scan(&addressVal); err != nil {
-					return err
-				}
-				resultAddresses = append(resultAddresses, addressVal)
-			}
-			return rows.Err()
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
-	}
-
-	checkAddresses(c, "10.0.0.1/8")
-
-	err = s.state.DeleteCloudService(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-	checkAddresses(c)
-
-	var serviceCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*)
-FROM k8s_service
-WHERE application_uuid = ?
-		`, appUUID).Scan(&serviceCount)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(serviceCount, tc.Equals, 0)
-
-	var netNodeCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*)
-FROM net_node
-WHERE uuid = ?
-		`, netNodeUUID).Scan(&netNodeCount)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(netNodeCount, tc.Equals, 0)
-
-	var fqdnReferenceCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*)
-FROM net_node_fqdn_address
-WHERE net_node_uuid = ?
-		`, netNodeUUID).Scan(&fqdnReferenceCount)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(fqdnReferenceCount, tc.Equals, 0)
-
-	var hostnameReferenceCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*)
-FROM net_node_hostname_address
-WHERE net_node_uuid = ?
-		`, netNodeUUID).Scan(&hostnameReferenceCount)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(hostnameReferenceCount, tc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
@@ -1487,6 +1358,61 @@ WHERE application_uuid = ?
 
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestSetApplicationHasK8sResources(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM application_k8s_resources_managed WHERE application_uuid = ?",
+			appUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+}
+
+func (s *applicationStateSuite) TestSetApplicationHasK8sResourcesIdempotent(c *tc.C) {
+	s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationHasK8sResources(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestSetApplicationHasK8sResourcesNotFound(c *tc.C) {
+	err := s.state.SetApplicationHasK8sResources(c.Context(), "no-such-app")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestClearApplicationHasK8sResources(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.ClearApplicationHasK8sResources(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM application_k8s_resources_managed WHERE application_uuid = ?",
+			appUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *applicationStateSuite) TestClearApplicationHasK8sResourcesNotFound(c *tc.C) {
+	err := s.state.ClearApplicationHasK8sResources(c.Context(), "no-such-app")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

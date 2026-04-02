@@ -406,13 +406,9 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Clear cloud-service state immediately after k8s termination so removal
-	// can proceed.
-	if err := applicationService.DeleteCloudService(ctx, appName); err != nil {
-		return errors.Trace(err)
-	}
 	// Clear the managed-resources flag so the removal service knows the
-	// provisioner has finished cleaning up.
+	// provisioner has finished cleaning up k8s resources. The removal domain
+	// handles all DB cleanup (cloud-service rows, etc.) independently.
 	if err := applicationService.ClearApplicationHasK8sResources(ctx, appName); err != nil {
 		return errors.Trace(err)
 	}

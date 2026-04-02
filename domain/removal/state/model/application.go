@@ -349,48 +349,6 @@ WHERE application_uuid = $entityUUID.uuid
 	return numUnits.Count, numRelations.Count, nil
 }
 
-// GetApplicationCloudServiceResourceCount returns the number of DB-tracked
-// cloud-service resources (k8s_service rows and associated IP addresses) for
-// the application.
-func (st *State) GetApplicationCloudServiceResourceCount(ctx context.Context, aUUID string) (int, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	applicationUUID := entityUUID{UUID: aUUID}
-	stmt, err := st.Prepare(`
-WITH resource_ids AS (
-	SELECT ks.uuid AS resource_id
-	FROM k8s_service AS ks
-	WHERE ks.application_uuid = $entityUUID.uuid
-	UNION ALL
-	SELECT ia.uuid AS resource_id
-	FROM ip_address AS ia
-	JOIN link_layer_device AS lld ON ia.device_uuid = lld.uuid
-	JOIN k8s_service AS ks ON lld.net_node_uuid = ks.net_node_uuid
-	WHERE ks.application_uuid = $entityUUID.uuid
-)
-SELECT COUNT(*) AS &count.count
-FROM resource_ids
-`, count{}, applicationUUID)
-	if err != nil {
-		return 0, errors.Errorf("preparing application cloud-service resource count query: %w", err)
-	}
-
-	var numResources count
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, applicationUUID).Get(&numResources); err != nil {
-			return errors.Errorf("querying application cloud-service resources: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	return numResources.Count, nil
-}
-
 // IsApplicationK8sResourcesManaged returns true if the provisioner has
 // signalled that it is managing k8s resources for the application.
 func (st *State) IsApplicationK8sResourcesManaged(ctx context.Context, aUUID string) (bool, error) {
@@ -526,6 +484,10 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application annotations: %w", err)
 		}
 
+		if err := st.deleteCloudServices(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("deleting cloud services: %w", err)
+		}
+
 		if err := st.deleteDeviceConstraintAttributes(ctx, tx, aUUID); err != nil {
 			return errors.Errorf("deleting device constraint attributes: %w", err)
 		}
@@ -604,6 +566,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"DELETE FROM application_agent WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_workload_version WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM device_constraint WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_k8s_resources_managed WHERE application_uuid = $entityUUID.uuid",
 	} {
 		deleteApplicationReferenceStmt, err := st.Prepare(table, app)
 		if err != nil {
@@ -613,6 +576,62 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
 			return errors.Errorf("deleting reference to application in %s: %w", table, err)
 		}
+	}
+	return nil
+}
+
+func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+	app := entityUUID{UUID: aUUID}
+
+	deleteFqdnAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address WHERE net_node_uuid IN (
+    SELECT net_node_uuid
+    FROM k8s_service
+    WHERE application_uuid = $entityUUID.uuid
+)`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteHostnameAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_hostname_address WHERE net_node_uuid IN (
+    SELECT net_node_uuid
+    FROM k8s_service
+    WHERE application_uuid = $entityUUID.uuid
+)`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteNodeStmt, err := st.Prepare(`
+DELETE FROM net_node WHERE uuid IN (
+    SELECT net_node_uuid
+    FROM k8s_service
+    WHERE application_uuid = $entityUUID.uuid
+)`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteCloudServiceStmt, err := st.Prepare(`
+DELETE FROM k8s_service
+WHERE application_uuid = $entityUUID.uuid
+`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteCloudServiceStmt, app).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteFqdnAddressStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting net node fqdn address for cloud service: %w", err)
+	}
+	if err := tx.Query(ctx, deleteHostnameAddressStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting net node hostname address for cloud service: %w", err)
+	}
+	if err := tx.Query(ctx, deleteNodeStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting net node for cloud service: %w", err)
 	}
 	return nil
 }

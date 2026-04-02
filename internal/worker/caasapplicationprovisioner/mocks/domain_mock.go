@@ -87,44 +87,6 @@ func (c *MockApplicationServiceClearApplicationHasK8sResourcesCall) DoAndReturn(
 	return c
 }
 
-// DeleteCloudService mocks base method.
-func (m *MockApplicationService) DeleteCloudService(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCloudService", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteCloudService indicates an expected call of DeleteCloudService.
-func (mr *MockApplicationServiceMockRecorder) DeleteCloudService(arg0, arg1 any) *MockApplicationServiceDeleteCloudServiceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloudService", reflect.TypeOf((*MockApplicationService)(nil).DeleteCloudService), arg0, arg1)
-	return &MockApplicationServiceDeleteCloudServiceCall{Call: call}
-}
-
-// MockApplicationServiceDeleteCloudServiceCall wrap *gomock.Call
-type MockApplicationServiceDeleteCloudServiceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceDeleteCloudServiceCall) Return(arg0 error) *MockApplicationServiceDeleteCloudServiceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceDeleteCloudServiceCall) Do(f func(context.Context, string) error) *MockApplicationServiceDeleteCloudServiceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceDeleteCloudServiceCall) DoAndReturn(f func(context.Context, string) error) *MockApplicationServiceDeleteCloudServiceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetAllUnitCloudContainerIDsForApplication mocks base method.
 func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()

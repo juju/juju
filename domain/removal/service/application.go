@@ -57,11 +57,6 @@ type ApplicationState interface {
 	// relations that still reference the application.
 	GetApplicationUnitAndRelationCount(ctx context.Context, appUUID string) (int, int, error)
 
-	// GetApplicationCloudServiceResourceCount returns the number of DB-tracked
-	// cloud-service resources (k8s_service rows and associated IP addresses)
-	// for the application.
-	GetApplicationCloudServiceResourceCount(ctx context.Context, appUUID string) (int, error)
-
 	// IsApplicationK8sResourcesManaged returns true if the provisioner has
 	// signalled that it is managing k8s resources for the application.
 	IsApplicationK8sResourcesManaged(ctx context.Context, appUUID string) (bool, error)
@@ -311,9 +306,9 @@ func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) err
 }
 
 // ensureApplicationProviderResourcesRemoved checks whether the CAAS
-// provisioner is still managing k8s resources for the application, and whether
-// DB-tracked cloud-service records still exist. Blocks deletion until both
-// conditions are clear.
+// provisioner is still managing k8s resources for the application. Blocks
+// deletion until the provisioner signals completion by clearing the flag.
+// All DB-level cloud-service cleanup is handled by DeleteApplication.
 func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context, appUUID string) error {
 	modelType, err := s.modelState.GetModelType(ctx)
 	if err != nil {
@@ -331,17 +326,6 @@ func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context,
 	}
 	if managed {
 		return errors.Errorf("cannot remove application %q while k8s resources are still being managed", appUUID).
-			Add(removalerrors.RemovalJobIncomplete)
-	}
-
-	numResources, err := s.modelState.GetApplicationCloudServiceResourceCount(ctx, appUUID)
-	if err != nil {
-		s.logger.Warningf(ctx, "cannot check CAAS cloud-service resources for application %q removal, will retry: %v", appUUID, err)
-		return errors.Errorf("checking CAAS cloud-service resources for application %q: %w", appUUID, err).
-			Add(removalerrors.RemovalJobIncomplete)
-	}
-	if numResources > 0 {
-		return errors.Errorf("cannot remove application %q while CAAS resources still exist", appUUID).
 			Add(removalerrors.RemovalJobIncomplete)
 	}
 

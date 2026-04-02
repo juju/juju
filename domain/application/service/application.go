@@ -75,12 +75,6 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
-	// DeleteCloudService removes the cloud service and its addresses for the
-	// specified application.
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	DeleteCloudService(ctx context.Context, appName string) error
-
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the named application. This blocks removal until
 	// cleared.
@@ -869,18 +863,7 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 	if providerID == "" {
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
-	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
-}
-
-// DeleteCloudService removes the cloud service and its addresses for the
-// specified application.
-// The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-func (s *Service) DeleteCloudService(ctx context.Context, appName string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.DeleteCloudService(ctx, appName)
+	return errors.Capture(s.st.UpsertCloudService(ctx, appName, providerID, sAddrs))
 }
 
 // SetApplicationHasK8sResources records that the provisioner is managing k8s
@@ -889,7 +872,7 @@ func (s *Service) SetApplicationHasK8sResources(ctx context.Context, appName str
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.SetApplicationHasK8sResources(ctx, appName)
+	return errors.Capture(s.st.SetApplicationHasK8sResources(ctx, appName))
 }
 
 // ClearApplicationHasK8sResources records that the provisioner has finished
@@ -898,7 +881,7 @@ func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appName s
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.ClearApplicationHasK8sResources(ctx, appName)
+	return errors.Capture(s.st.ClearApplicationHasK8sResources(ctx, appName))
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

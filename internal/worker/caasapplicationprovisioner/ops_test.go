@@ -771,7 +771,6 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 	gomock.InOrder(
 		app.EXPECT().Delete().Return(nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		applicationService.EXPECT().DeleteCloudService(gomock.Any(), "test").Return(nil),
 		applicationService.EXPECT().ClearApplicationHasK8sResources(gomock.Any(), "test").Return(nil),
 	)
 

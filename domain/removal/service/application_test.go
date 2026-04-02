@@ -455,20 +455,6 @@ func (s *applicationSuite) TestMarkApplicationAsDeadNotDying(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
-func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedCAASResourcesStillExist(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	appUUID := tc.Must(c, coreapplication.NewUUID)
-
-	exp := s.modelState.EXPECT()
-	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
-	exp.IsApplicationK8sResourcesManaged(gomock.Any(), appUUID.String()).Return(false, nil)
-	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), appUUID.String()).Return(1, nil)
-
-	err := s.newService(c).ensureApplicationProviderResourcesRemoved(c.Context(), appUUID.String())
-	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-}
-
 func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedK8sResourcesManaged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -506,8 +492,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDeadCAASReturnsIncomplete
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
-	exp.IsApplicationK8sResourcesManaged(gomock.Any(), j.EntityUUID).Return(false, nil)
-	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), j.EntityUUID).Return(1, nil)
+	exp.IsApplicationK8sResourcesManaged(gomock.Any(), j.EntityUUID).Return(true, nil)
 
 	err := s.newService(c).processApplicationRemovalJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)

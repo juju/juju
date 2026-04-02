@@ -95,10 +95,6 @@ type ApplicationService interface {
 	// UpsertCloudService updates the cloud service for the specified application.
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
-	// DeleteCloudService removes the cloud service and its addresses for the
-	// specified application.
-	DeleteCloudService(ctx context.Context, appName string) error
-
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the named application.
 	SetApplicationHasK8sResources(ctx context.Context, appName string) error

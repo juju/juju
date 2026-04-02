@@ -620,36 +620,6 @@ func (s *applicationSuite) TestGetApplicationUnitAndRelationCountWithRelations(c
 	c.Check(relationCount, tc.Equals, 1)
 }
 
-func (s *applicationSuite) TestGetApplicationCloudServiceResourceCount(c *tc.C) {
-	svc := s.setupApplicationService(c)
-	appUUID := s.createCAASApplication(c, svc, "some-app")
-
-	err := svc.UpdateCloudService(c.Context(), "some-app", "provider-id", corenetwork.ProviderAddresses{
-		{
-			MachineAddress: corenetwork.MachineAddress{
-				Value:      "10.0.0.1/8",
-				ConfigType: corenetwork.ConfigStatic,
-				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.ScopeCloudLocal,
-			},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	resourceCount, err := st.GetApplicationCloudServiceResourceCount(c.Context(), appUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resourceCount, tc.Equals, 2)
-
-	err = svc.DeleteCloudService(c.Context(), "some-app")
-	c.Assert(err, tc.ErrorIsNil)
-
-	resourceCount, err = st.GetApplicationCloudServiceResourceCount(c.Context(), appUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resourceCount, tc.Equals, 0)
-}
-
 func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app")
@@ -903,7 +873,7 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	s.checkNoCharmsExist(c)
 }
 
-func (s *applicationSuite) TestDeleteCAASApplicationWithCloudServiceRequiresPreCleanup(c *tc.C) {
+func (s *applicationSuite) TestDeleteCAASApplicationWithCloudService(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app")
 
@@ -923,12 +893,7 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithCloudServiceRequiresPreC
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
-
-	err = svc.DeleteCloudService(c.Context(), "some-app")
-	c.Assert(err, tc.ErrorIsNil)
-
+	// DeleteApplication handles cloud service cleanup internally.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
