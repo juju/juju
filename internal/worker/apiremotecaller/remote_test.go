@@ -468,6 +468,105 @@ func (s *RemoteSuite) TestConnectWithBrokenConnection(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *RemoteSuite) TestReconnectWithBrokenConnectionMultipleUpdatesKeepProgress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	reconnectStarted := make(chan struct{})
+	releaseReconnect := make(chan struct{})
+
+	var attempts atomic.Int64
+	s.apiConnectHandler = func(ctx context.Context) error {
+		switch attempts.Add(1) {
+		case 1, 3:
+			select {
+			case s.apiConnect <- struct{}{}:
+			case <-c.Context().Done():
+				c.Fatalf("waiting for API connect: %v", c.Context().Err())
+			}
+			return nil
+		case 2:
+			close(reconnectStarted)
+			select {
+			case <-releaseReconnect:
+			case <-c.Context().Done():
+				c.Fatalf("waiting for reconnect release: %v", c.Context().Err())
+			}
+			<-ctx.Done()
+			return ctx.Err()
+		default:
+			return nil
+		}
+	}
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	addr0 := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
+	addr1 := &url.URL{Scheme: "wss", Host: "10.0.0.2"}
+	addr2 := &url.URL{Scheme: "wss", Host: "10.0.0.3"}
+
+	broken := make(chan struct{})
+
+	gomock.InOrder(
+		s.apiConnection.EXPECT().Broken().Return(broken),
+		s.apiConnection.EXPECT().Close().Return(nil),
+		s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})),
+		s.apiConnection.EXPECT().Close().Return(nil),
+	)
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+	reporter := w.(interface{ Report() map[string]any })
+
+	s.ensureStartup(c)
+
+	w.UpdateAddresses([]string{addr0.String()})
+	select {
+	case <-s.apiConnect:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for initial API connect: %v", c.Context().Err())
+	}
+	s.ensureChanged(c)
+
+	close(broken)
+	select {
+	case <-reconnectStarted:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for reconnect attempt: %v", c.Context().Err())
+	}
+
+	w.UpdateAddresses([]string{addr1.String()})
+
+	secondUpdateDone := make(chan struct{})
+	go func() {
+		w.UpdateAddresses([]string{addr2.String()})
+		close(secondUpdateDone)
+	}()
+
+	select {
+	case <-secondUpdateDone:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for second address update: %v", c.Context().Err())
+	}
+
+	close(releaseReconnect)
+
+	select {
+	case <-s.apiConnect:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for reconnect API connect: %v", c.Context().Err())
+	}
+	s.ensureChanged(c)
+
+	report := reporter.Report()
+	addresses, ok := report["addresses"].([]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(addresses, tc.DeepEquals, []string{addr2.String()})
+	c.Assert(attempts.Load(), tc.GreaterThan, int64(2))
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
