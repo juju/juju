@@ -214,11 +214,14 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 		var maxBytesErr *http.MaxBytesError
 		switch {
 		case internalerrors.Is(err, io.EOF):
-			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.New("missing request body"))
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
 		case internalerrors.As(err, &maxBytesErr):
-			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge, internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
-			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("request body is not valid JSON: %v", err))
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %v", err))
 		}
 		return
 	}
@@ -240,7 +243,8 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 
 	creatorUser, err := w.accessService.GetUserByName(ctx, w.userCreatorName)
 	if err != nil {
-		return http.StatusInternalServerError, internalerrors.Errorf("retrieving creator user %q: %w", userCreator, err)
+		return http.StatusInternalServerError,
+			internalerrors.Errorf("retrieving creator user %q: %w", userCreator, err)
 	}
 
 	controllerModelID := permission.ID{
@@ -271,10 +275,12 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		// So ensure the user is identical to what we would have created, and
 		// otherwise error.
 		if user.Disabled {
-			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).Add(coreerrors.Forbidden)
+			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
+				Add(coreerrors.Forbidden)
 		}
 		if user.CreatorName != w.userCreatorName {
-			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).Add(coreerrors.AlreadyExists)
+			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
+				Add(coreerrors.AlreadyExists)
 		}
 
 		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
@@ -319,7 +325,8 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 		return http.StatusInternalServerError, err
 	}
 	if user.CreatorName != w.userCreatorName {
-		return http.StatusForbidden, internalerrors.Errorf("cannot remove user %q created by %q", user.Name, user.CreatorName).Add(coreerrors.Forbidden)
+		return http.StatusForbidden, internalerrors.Errorf("cannot remove user %q created by %q", user.Name, user.CreatorName).
+			Add(coreerrors.Forbidden)
 	}
 
 	err = w.accessService.RemoveUser(ctx, validatedName)
@@ -337,7 +344,8 @@ func validateMetricsUsername(username string) (user.Name, error) {
 	}
 
 	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
-		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).Add(coreerrors.BadRequest)
+		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).
+			Add(coreerrors.BadRequest)
 	}
 
 	name, err := user.NewName(username)
