@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/application"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
