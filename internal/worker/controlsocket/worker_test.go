@@ -475,6 +475,24 @@ func (s *workerSuite) TestCharmTracingConfigUnsupportedContentType(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestCharmTracingConfigMissingContentType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:          http.MethodPost,
+		endpoint:        "/charm-tracing-config",
+		body:            `{"http_endpoint":"http://localhost:4318"}`,
+		omitContentType: true,
+		statusCode:      http.StatusUnsupportedMediaType,
+		response:        ".*request Content-Type must be application/json.*",
+	})
+}
+
 func (s *workerSuite) TestCharmTracingConfigPayloadTooLarge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
