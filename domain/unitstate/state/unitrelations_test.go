@@ -20,7 +20,7 @@ import (
 )
 
 type unitRelationsSuite struct {
-	commitHookSuite
+	commitHookBaseSuite
 }
 
 func TestUnitRelationsSuite(t *testing.T) {

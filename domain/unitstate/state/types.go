@@ -13,6 +13,8 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type uuids []string
+
 // unitName identifies a unit.
 type unitName struct {
 	// Name uniquely identifies a unit and indicates its application.
@@ -145,6 +147,11 @@ type unitPortRange struct {
 	ToPort       int    `db:"to_port"`
 	RelationUUID string `db:"relation_uuid,omitempty"`
 	UnitUUID     string `db:"unit_uuid"`
+}
+
+// countResult holds the result of a COUNT query.
+type countResult struct {
+	Count int `db:"count"`
 }
 
 // unitState contains a YAML string representing the
