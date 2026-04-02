@@ -924,24 +924,6 @@ func (s *ConstraintsSuite) TestAddSpaceNilSlice(c *tc.C) {
 	c.Check(*val.Spaces, tc.DeepEquals, []string{"space1", "^space2"})
 }
 
-// TestAddSpaceSort is testing that spaces are sorted alphabetically by name
-// in the String() output, regardless of insertion order.
-func (s *ConstraintsSuite) TestStringSortSpace(c *tc.C) {
-	val1 := constraints.Value{}
-	val1.AddSpace("space-c", false)
-	val1.AddSpace("space-a", true)
-	val1.AddSpace("space-b", false)
-
-	c.Check(val1.String(), tc.Equals, "spaces=^space-a,space-b,space-c")
-
-	val2 := constraints.Value{}
-	val2.AddSpace("space-b", false)
-	val2.AddSpace("space-c", false)
-	val2.AddSpace("space-a", true)
-
-	c.Check(val1.String(), tc.Equals, val2.String())
-}
-
 // TestAddSpaceAppend is testing that if we add a space to an existing slice
 // the value is appended correctly.
 func (s *ConstraintsSuite) TestAddSpaceAppend(c *tc.C) {

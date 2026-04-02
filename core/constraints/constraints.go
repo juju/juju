@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -309,14 +308,7 @@ func (v Value) String() string {
 		strs = append(strs, "tags="+s)
 	}
 	if v.Spaces != nil {
-		sorted := make([]string, len(*v.Spaces))
-		copy(sorted, *v.Spaces)
-		sort.Slice(sorted, func(i, j int) bool {
-			si := strings.TrimPrefix(sorted[i], excludedPrefix)
-			sj := strings.TrimPrefix(sorted[j], excludedPrefix)
-			return si < sj
-		})
-		s := strings.Join(sorted, ",")
+		s := strings.Join(*v.Spaces, ",")
 		strs = append(strs, "spaces="+s)
 	}
 	if v.VirtType != nil {
