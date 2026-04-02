@@ -80,11 +80,20 @@ func (s *updateCloudSuite) createLocalCacheFile(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *tc.C) {
+func (s *updateCloudSuite) TestUpdateLocalCacheFromFileShortOption(c *tc.C) {
 	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
 	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.api.Calls(), tc.HasLen, 0)
+}
+
+func (s *updateCloudSuite) TestUpdateLocalCacheFromFileLongOption(c *tc.C) {
+	command, fileName := s.setupCloudFileScenario(c, garageMaasYamlFile, func(ctx context.Context) (cloud.UpdateCloudAPI, error) {
+		return nil, errors.New("")
+	})
+	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "--file", fileName, "--client")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.api.Calls(), tc.HasLen, 0)
 }

@@ -126,6 +126,7 @@ func (c *updateCloudCommand) Info() *cmd.Info {
 func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
 }
 
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
