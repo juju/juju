@@ -8,7 +8,7 @@
 Juju 2.9 series is LTS
 ```
 ### 🔸 **Juju 2.9.56**
-🗓️ 13 Mar 2025
+🗓️ 18 Mar 2025
 
 This is a security release for Juju 2.9, which includes fixes for several CVEs,
 including Mongo Bleed and other vulnerabilities.

@@ -48,7 +48,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v2 v2.0.0
-	github.com/juju/charm/v8 v8.0.6
+	github.com/juju/charm/v8 v8.1.0
 	github.com/juju/charmrepo/v6 v6.0.3
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.0
@@ -105,8 +105,8 @@ require (
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.uber.org/mock v0.6.0
-	golang.org/x/crypto v0.48.0
-	golang.org/x/net v0.51.0
+	golang.org/x/crypto v0.49.0
+	golang.org/x/net v0.52.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.42.0
@@ -258,9 +258,9 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/term v0.40.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/term v0.41.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
 	google.golang.org/grpc v1.77.0 // indirect
