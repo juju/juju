@@ -5,7 +5,7 @@ package caasprobebinder
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/internal/worker/caasprober"

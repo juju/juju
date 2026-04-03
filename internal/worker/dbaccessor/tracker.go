@@ -13,7 +13,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
 	corecontext "github.com/juju/juju/core/context"
@@ -310,8 +310,8 @@ func (w *trackedDBWorker) Wait() error {
 }
 
 // Report provides information for the engine report.
-func (w *trackedDBWorker) Report() map[string]any {
-	return w.report.Report()
+func (w *trackedDBWorker) Report(ctx context.Context) map[string]any {
+	return w.report.Report(ctx)
 }
 
 func (w *trackedDBWorker) loop() error {
@@ -501,7 +501,7 @@ type report struct {
 }
 
 // Report provides information for the engine report.
-func (r *report) Report() map[string]any {
+func (r *report) Report(_ context.Context) map[string]any {
 	r.Lock()
 	defer r.Unlock()
 

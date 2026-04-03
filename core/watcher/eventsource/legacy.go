@@ -6,8 +6,8 @@ package eventsource
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/internal/errors"
 )
@@ -70,7 +70,7 @@ func (w *StringsNotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *StringsNotifyWatcher) Report() map[string]any {
+func (w *StringsNotifyWatcher) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"type": "StringsNotifyWatcher",
 	}

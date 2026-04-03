@@ -13,7 +13,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/leadership"

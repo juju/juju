@@ -20,8 +20,8 @@ import (
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 
 	proxyupdaterapi "github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/watcher"

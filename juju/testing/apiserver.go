@@ -23,8 +23,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/api"
@@ -769,6 +769,6 @@ func (r *testRegistry) loop() error {
 	return r.catacomb.ErrDying()
 }
 
-func (r *testRegistry) Report() map[string]any {
+func (r *testRegistry) Report(ctx context.Context) map[string]any {
 	return map[string]any{}
 }

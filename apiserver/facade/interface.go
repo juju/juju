@@ -14,7 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/macaroon.v2"
 
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"

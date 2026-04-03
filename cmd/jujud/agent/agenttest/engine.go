@@ -12,8 +12,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	goyaml "gopkg.in/yaml.v2"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -171,7 +171,7 @@ func (tracker *EngineTracker) startFunc(id string, names []string) dependency.St
 		var report map[string]interface{}
 		var reporter dependency.Reporter
 		if err := getter.Get("self", &reporter); err == nil {
-			report = reporter.Report()
+			report = reporter.Report(ctx)
 		}
 
 		select {

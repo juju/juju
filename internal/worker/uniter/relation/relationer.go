@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/deployment/charm/hooks"

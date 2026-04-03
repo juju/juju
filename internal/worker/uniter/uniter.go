@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent/tools"
@@ -929,7 +929,7 @@ func (u *Uniter) Terminate() error {
 }
 
 // Report provides information for the engine report.
-func (u *Uniter) Report() map[string]interface{} {
+func (u *Uniter) Report(ctx stdcontext.Context) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	// We need to guard against attempting to report when setting up or dying,
@@ -938,13 +938,13 @@ func (u *Uniter) Report() map[string]interface{} {
 		result["unit"] = u.unit.Name()
 	}
 	if u.operationExecutor != nil {
-		result["local-state"] = u.operationExecutor.State().Report()
+		result["local-state"] = u.operationExecutor.State().Report(ctx)
 	}
 	if u.relationStateTracker != nil {
-		result["relations"] = u.relationStateTracker.Report()
+		result["relations"] = u.relationStateTracker.Report(ctx)
 	}
 	if u.secretsTracker != nil {
-		result["secrets"] = u.secretsTracker.Report()
+		result["secrets"] = u.secretsTracker.Report(ctx)
 	}
 
 	return result

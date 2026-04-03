@@ -4,12 +4,13 @@
 package sshserver
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -375,7 +376,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 	reporter, ok := w.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
 
-	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]interface{}{
 		"workers": map[string]any{
 			"ssh-server": map[string]any{
 				"test": "test",
@@ -389,7 +390,7 @@ type reportWorker struct {
 	worker.Worker
 }
 
-func (r *reportWorker) Report() map[string]interface{} {
+func (r *reportWorker) Report(ctx context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"test": "test",
 	}

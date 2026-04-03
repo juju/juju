@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
@@ -163,7 +163,7 @@ func (c *APIAddressUpdater) TearDown() error {
 }
 
 // Report shows up in the dependency engine report.
-func (c *APIAddressUpdater) Report() map[string]interface{} {
+func (c *APIAddressUpdater) Report(ctx context.Context) map[string]interface{} {
 	report := make(map[string]interface{})
 	c.mu.Lock()
 	defer c.mu.Unlock()

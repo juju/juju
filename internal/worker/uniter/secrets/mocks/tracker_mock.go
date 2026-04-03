@@ -193,17 +193,17 @@ func (c *MockSecretStateTrackerPrepareHookCall) DoAndReturn(f func(context.Conte
 }
 
 // Report mocks base method.
-func (m *MockSecretStateTracker) Report() map[string]any {
+func (m *MockSecretStateTracker) Report(arg0 context.Context) map[string]any {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Report")
+	ret := m.ctrl.Call(m, "Report", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	return ret0
 }
 
 // Report indicates an expected call of Report.
-func (mr *MockSecretStateTrackerMockRecorder) Report() *MockSecretStateTrackerReportCall {
+func (mr *MockSecretStateTrackerMockRecorder) Report(arg0 any) *MockSecretStateTrackerReportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockSecretStateTracker)(nil).Report))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockSecretStateTracker)(nil).Report), arg0)
 	return &MockSecretStateTrackerReportCall{Call: call}
 }
 
@@ -219,13 +219,13 @@ func (c *MockSecretStateTrackerReportCall) Return(arg0 map[string]any) *MockSecr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretStateTrackerReportCall) Do(f func() map[string]any) *MockSecretStateTrackerReportCall {
+func (c *MockSecretStateTrackerReportCall) Do(f func(context.Context) map[string]any) *MockSecretStateTrackerReportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretStateTrackerReportCall) DoAndReturn(f func() map[string]any) *MockSecretStateTrackerReportCall {
+func (c *MockSecretStateTrackerReportCall) DoAndReturn(f func(context.Context) map[string]any) *MockSecretStateTrackerReportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -713,7 +713,7 @@ func (manager *Manager) finishedRevoke() {
 }
 
 // Report is part of dependency.Reporter
-func (manager *Manager) Report() map[string]interface{} {
+func (manager *Manager) Report(_ context.Context) map[string]interface{} {
 	out := make(map[string]interface{})
 	out["entity-uuid"] = manager.config.EntityUUID
 	out["outstanding-claims"] = atomic.LoadInt64(&manager.outstandingClaims)

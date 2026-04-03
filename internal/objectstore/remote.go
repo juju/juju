@@ -7,8 +7,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
@@ -21,7 +21,7 @@ import (
 type ReportableWorker interface {
 	worker.Worker
 	// Report returns a map of internal state for the worker.
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 }
 
 // remoteFileObjectStore is a facade for the object store that uses a remote
@@ -115,10 +115,10 @@ func (c *remoteFileObjectStore) RemoveAll(ctx context.Context) error {
 }
 
 // Report returns a map of internal state for the remoteFileObjectStore.
-func (c *remoteFileObjectStore) Report() map[string]any {
+func (c *remoteFileObjectStore) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
-	report["object-store"] = c.objectStore.Report()
-	report["remote-worker"] = c.remoteWorker.Report()
+	report["object-store"] = c.objectStore.Report(ctx)
+	report["remote-worker"] = c.remoteWorker.Report(ctx)
 	return report
 }
 

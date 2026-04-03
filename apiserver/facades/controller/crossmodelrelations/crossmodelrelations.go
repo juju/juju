@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/macaroon.v2"
 
 	apimacaroon "github.com/juju/juju/api/macaroon"

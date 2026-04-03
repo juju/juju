@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -380,7 +380,7 @@ func (s *suite) TestReport(c *tc.C) {
 
 		reporter, ok := w.(worker.Reporter)
 		c.Assert(ok, tc.IsTrue)
-		report := reporter.Report()
+		report := reporter.Report(c.Context())
 		c.Assert(report, tc.NotNil)
 		// TODO: pass a clock through in the worker config so it can be passed
 		// to the worker.Runner used in the model to control time.

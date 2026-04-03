@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
@@ -944,7 +944,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 			// A report during a term, shouldn't be blocked. This test proves
 			// that case.
-			data := stream.Report()
+			data := stream.Report(c.Context())
 			c.Check(data["last-recorded-watermark"], tc.Equals, "")
 
 			term.Done(false, make(chan struct{}))
@@ -958,7 +958,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	// closed before we update the watermark.
 	syncPoint := func(c *tc.C) map[string]any {
 		for range 3 {
-			data := stream.Report()
+			data := stream.Report(c.Context())
 			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
 			}
@@ -988,7 +988,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 	s.expectWaterMark(c, id, 1)
 
-	data = stream.Report()
+	data = stream.Report(c.Context())
 	c.Check(data, tc.DeepEquals, map[string]any{
 		"id":                      id,
 		"watermarks":              constructWatermark(1, changestream.DefaultNumTermWatermarks),

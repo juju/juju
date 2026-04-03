@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -175,8 +175,8 @@ func (p *firewaller) observeApplicationFirewallChange(
 // settings.
 //
 // Report implements the [worker.Reporter] interface.
-func (p *firewaller) Report() map[string]any {
-	return p.appWorkerRunner.Report()
+func (p *firewaller) Report(ctx context.Context) map[string]any {
+	return p.appWorkerRunner.Report(ctx)
 }
 
 // startApplicationWorker ensures that a firewall worker exists for the

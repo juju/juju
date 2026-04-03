@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"

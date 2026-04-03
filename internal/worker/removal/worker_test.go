@@ -11,8 +11,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -290,7 +290,7 @@ func (s *workerSuite) TestWorkerReport(c *tc.C) {
 		time.Sleep(10 * time.Millisecond)
 
 		if len(rw.runner.WorkerNames()) == 2 {
-			r = rw.Report()
+			r = rw.Report(c.Context())
 			c.Assert(r, tc.HasLen, 1)
 
 			rm, ok := r["workers"].(map[string]any)

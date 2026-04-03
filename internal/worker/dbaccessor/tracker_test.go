@@ -17,7 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -64,7 +64,9 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	report := w.(interface{ Report() map[string]any }).Report()
+	report := w.(interface {
+		Report(ctx context.Context) map[string]any
+	}).Report(c.Context())
 	c.Assert(report, MapHasKeys, []string{
 		"db-replacements",
 		"max-ping-duration",

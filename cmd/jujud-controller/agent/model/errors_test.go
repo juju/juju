@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
 	"github.com/juju/juju/internal/testhelpers"

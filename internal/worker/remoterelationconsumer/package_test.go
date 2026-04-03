@@ -4,10 +4,11 @@
 package remoterelationconsumer
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
@@ -105,7 +106,7 @@ type reportableWorker struct {
 	worker.Worker
 }
 
-func (w reportableWorker) Report() map[string]any {
+func (w reportableWorker) Report(_ context.Context) map[string]any {
 	return make(map[string]any)
 }
 

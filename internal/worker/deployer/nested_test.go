@@ -14,8 +14,8 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/dependency"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -148,7 +148,7 @@ func (s *NestedContextSuite) newContext(c *tc.C) deployer.Context {
 func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	// Create a context and make sure the clean kill is good.
 	ctx := s.newContext(c)
-	report := ctx.Report()
+	report := ctx.Report(c.Context())
 	c.Assert(report, tc.DeepEquals, map[string]interface{}{
 		"deployed": []string{},
 		"units": map[string]interface{}{
@@ -238,7 +238,7 @@ func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 		s.workers.waitForStart(c, unitName)
 	}
 
-	report := ctx.Report()
+	report := ctx.Report(c.Context())
 	// There is a race condition here between the worker, which says the
 	// start function was called, and the engine report itself having recorded
 	// that the worker has started, and updated the engine report. In manual
@@ -258,7 +258,7 @@ func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 		}
 		select {
 		case <-time.After(veryShortWait):
-			report = ctx.Report()
+			report = ctx.Report(c.Context())
 		case <-maxTime:
 			c.Fatal("third unit worker did not start")
 		}
@@ -273,7 +273,7 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
 	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
-	c.Assert(ctx.Report(), check, map[string]interface{}{
+	c.Assert(ctx.Report(c.Context()), check, map[string]interface{}{
 		"deployed": []string{"first/0", "second/0", "third/0"},
 		"units": map[string]interface{}{
 			"workers": map[string]interface{}{

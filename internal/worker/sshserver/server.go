@@ -14,7 +14,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 
@@ -308,7 +308,7 @@ func (s *ServerWorker) newEmbeddedSSHServer(ctx ssh.Context, info virtualhostnam
 }
 
 // Report returns a map of metrics from the server worker.
-func (s *ServerWorker) Report() map[string]any {
+func (s *ServerWorker) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"concurrent_connections": s.concurrentConnections.Load(),
 	}

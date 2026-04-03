@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/retry"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -109,7 +109,7 @@ func (w *prunerWorker) Wait() error {
 }
 
 // Report shows up in the dependency engine report.
-func (w *prunerWorker) Report() map[string]interface{} {
+func (w *prunerWorker) Report(ctx context.Context) map[string]interface{} {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return map[string]interface{}{

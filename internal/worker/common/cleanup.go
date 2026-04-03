@@ -4,9 +4,10 @@
 package common
 
 import (
+	"context"
 	"sync"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 )
 
 // NewCleanupWorker returns a worker that ensures a cleanup function
@@ -40,9 +41,9 @@ func (w *CleanupWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (w *CleanupWorker) Report() map[string]interface{} {
+func (w *CleanupWorker) Report(ctx context.Context) map[string]interface{} {
 	if r, ok := w.Worker.(worker.Reporter); ok {
-		return r.Report()
+		return r.Report(ctx)
 	}
 	return nil
 }

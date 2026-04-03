@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/objectstore"
@@ -164,8 +164,8 @@ func (t *controllerWorker) RemoveAll(ctx context.Context) (err error) {
 	return nil
 }
 
-func (t *controllerWorker) Report() map[string]any {
-	report := t.objectStore.Report()
+func (t *controllerWorker) Report(ctx context.Context) map[string]any {
+	report := t.objectStore.Report(ctx)
 	report["modelUUID"] = database.ControllerNS
 	return report
 }

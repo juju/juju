@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -34,7 +34,7 @@ type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
 	objectstore.ObjectStoreRemover
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -377,8 +377,8 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 }
 
 // Report returns a map of internal state for the worker.
-func (w *objectStoreWorker) Report() map[string]any {
-	return w.runner.Report()
+func (w *objectStoreWorker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
