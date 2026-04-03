@@ -45,6 +45,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/charm/metrics",
 		"core/constraints",
 		"core/credential",
+		"core/database",
 		"core/devices",
 		"core/errors",
 		"core/facades",

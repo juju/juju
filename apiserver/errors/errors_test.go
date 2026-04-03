@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
@@ -201,6 +202,14 @@ var errorTransformTests = []struct {
 	code:   "",
 	targetTester: func(e error) bool {
 		return e.Error() == "foo"
+	},
+}, {
+	err:        coredatabase.ErrDBNotFound,
+	code:       params.CodeNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeNotFound,
+	targetTester: func(e error) bool {
+		return errors.Is(e, errors.NotFound)
 	},
 }, {
 	err:        apiservererrors.UnknownModelError,

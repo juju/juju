@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -191,6 +192,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretBackendNotFound
 	case errors.Is(err, modelerrors.NotFound):
 		code = params.CodeModelNotFound
+	case errors.Is(err, coredatabase.ErrDBNotFound):
+		code = params.CodeNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
 	case errors.Is(err, secretbackenderrors.AlreadyExists):
