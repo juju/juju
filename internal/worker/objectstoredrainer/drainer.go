@@ -88,7 +88,7 @@ func (w *drainWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *drainWorker) Report(ctx context.Context) map[string]any {
+func (w *drainWorker) Report(_ context.Context) map[string]any {
 	return map[string]any{
 		"namespace":  w.namespace,
 		"rootBucket": w.rootBucket,

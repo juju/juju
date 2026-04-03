@@ -225,7 +225,7 @@ func (w *connectionTracker) Wait() error {
 }
 
 // Report returns a map of internal state for the connectionTracker.
-func (w *connectionTracker) Report(ctx context.Context) map[string]any {
+func (w *connectionTracker) Report(_ context.Context) map[string]any {
 	report := make(map[string]any)
 	report["controller-id"] = w.controllerID
 	report["connected"] = w.connected.Load()

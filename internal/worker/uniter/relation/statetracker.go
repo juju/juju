@@ -490,7 +490,7 @@ func (r *relationStateTracker) LocalUnitAndApplicationLife(ctx stdcontext.Contex
 }
 
 // Report provides information for the engine report.
-func (r *relationStateTracker) Report(ctx stdcontext.Context) map[string]interface{} {
+func (r *relationStateTracker) Report(_ stdcontext.Context) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	stateMgr, ok := r.stateMgr.(*stateManager)

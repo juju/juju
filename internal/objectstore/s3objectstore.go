@@ -342,7 +342,7 @@ func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 }
 
 // Report returns a map of internal state for the s3 object store.
-func (t *s3ObjectStore) Report(ctx context.Context) map[string]any {
+func (t *s3ObjectStore) Report(_ context.Context) map[string]any {
 	report := make(map[string]any)
 
 	report["type"] = "s3-object-store"

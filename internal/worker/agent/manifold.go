@@ -66,9 +66,9 @@ func (w *agentWorker) Wait() error {
 }
 
 // Report shows up in the dependency engine report.
-func (w *agentWorker) Report(ctx context.Context) map[string]interface{} {
+func (w *agentWorker) Report(_ context.Context) map[string]any {
 	cfg := w.agent.CurrentConfig()
-	return map[string]interface{}{
+	return map[string]any{
 		"agent":      cfg.Tag().String(),
 		"model-uuid": cfg.Model().Id(),
 		"version":    version.Current.String(),

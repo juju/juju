@@ -43,7 +43,7 @@ func (w *todoWatcher[T]) Changes() <-chan T {
 	return w.ch
 }
 
-func (w *todoWatcher[T]) Report(ctx context.Context) map[string]any {
+func (w *todoWatcher[T]) Report(_ context.Context) map[string]any {
 	return map[string]any{
 		"type": "TODOWatcher",
 	}

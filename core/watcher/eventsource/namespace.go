@@ -103,7 +103,7 @@ func (w *NamespaceWatcher) Changes() <-chan []string {
 }
 
 // Report returns a summary of the watcher state.
-func (w *NamespaceWatcher) Report(ctx context.Context) map[string]any {
+func (w *NamespaceWatcher) Report(_ context.Context) map[string]any {
 	return map[string]any{
 		"type":    "NamespaceWatcher",
 		"summary": w.summary,

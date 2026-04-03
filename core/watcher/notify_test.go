@@ -106,7 +106,7 @@ func (nh *notifyHandler) CheckActions(c *tc.C, actions ...string) {
 	c.Check(nh.actions, tc.DeepEquals, actions)
 }
 
-func (nh *notifyHandler) Report(ctx context.Context) map[string]interface{} {
+func (nh *notifyHandler) Report(_ context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"test": true,
 	}

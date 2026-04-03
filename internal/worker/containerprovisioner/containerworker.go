@@ -151,10 +151,10 @@ func (w *ContainerSetupAndProvisioner) Wait() error {
 }
 
 // Report provides information for the engine report.
-func (w *ContainerSetupAndProvisioner) Report(ctx context.Context) map[string]interface{} {
+func (w *ContainerSetupAndProvisioner) Report(_ context.Context) map[string]any {
 	w.mu.Lock()
 
-	result := make(map[string]interface{}, 0)
+	result := make(map[string]any, 0)
 
 	if w.containerWatcher != nil {
 		watcherName := fmt.Sprintf("%s-container-watcher", string(w.cs.containerType))

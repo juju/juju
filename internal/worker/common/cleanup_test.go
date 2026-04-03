@@ -64,7 +64,7 @@ func (w *fakeWorker) Wait() error {
 	return w.stub.NextErr()
 }
 
-func (w *fakeWorker) Report(ctx context.Context) map[string]interface{} {
+func (w *fakeWorker) Report(_ context.Context) map[string]interface{} {
 	return map[string]interface{}{
 		"fake": true,
 	}

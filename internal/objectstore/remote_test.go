@@ -232,6 +232,6 @@ func (w *reportableWorker) Wait() error {
 	return w.worker.Wait()
 }
 
-func (w *reportableWorker) Report(ctx context.Context) map[string]any {
+func (w *reportableWorker) Report(_ context.Context) map[string]any {
 	return make(map[string]any)
 }

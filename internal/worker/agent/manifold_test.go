@@ -97,7 +97,7 @@ func (s *ManifoldSuite) TestReport(c *tc.C) {
 
 	reporter, ok := agentWorker.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"agent":      "machine-42",
 		"model-uuid": "model-uuid",
 		"version":    "3.2.1",
