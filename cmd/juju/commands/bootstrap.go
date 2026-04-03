@@ -249,6 +249,12 @@ type bootstrapCommand struct {
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
 
+	ControllerSnapPath       string
+	ControllerSnapAssertPath string
+	ControllerSnapChannelStr string
+	ControllerSnapChannel    charm.Channel
+	ControllerSnapRevision   string
+
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }
@@ -378,6 +384,15 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+
+	if featureflag.Enabled(featureflag.ControllerSnap) {
+		f.StringVar(&c.ControllerSnapPath, "controller-snap-path", "", "Path to a downloaded snap")
+		f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a downloaded snap assert file")
+		f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
+			fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
+			"The snap channel to install the controller snap from")
+		f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision")
+	}
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -410,6 +425,28 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("controller charm channel %q", c.ControllerCharmChannelStr)
 	}
 
+	if featureflag.Enabled(featureflag.ControllerSnap) {
+		if c.ControllerSnapPath != "" {
+			_, err := c.Filesystem().Stat(c.ControllerSnapPath)
+			if err != nil {
+				return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
+			}
+		}
+		if c.ControllerSnapAssertPath != "" {
+			_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
+			if err != nil {
+				return errors.Annotatef(err, "--controller-snap-assert-path %q cannot be read", c.ControllerSnapAssertPath)
+			}
+		}
+
+		if c.ControllerSnapChannelStr != "" {
+			c.ControllerSnapChannel, err = parseControllerCharmChannel(c.ControllerSnapChannelStr)
+			if err != nil {
+				return errors.NotValidf("controller snap channel %q", c.ControllerSnapChannelStr)
+			}
+		}
+	}
+
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -427,7 +464,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	// supports provider-specific placement directives.
 	if c.Placement != "" {
 		_, err = instance.ParsePlacement(c.Placement)
-		if err != instance.ErrPlacementScopeMissing {
+		if !errors.Is(err, instance.ErrPlacementScopeMissing) {
 			// We only support unscoped placement directives for bootstrap.
 			return errors.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
@@ -850,6 +887,10 @@ to create a new model to deploy %sworkloads.
 		StoragePools:                  bootstrapCfg.storagePools,
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,
+		ControllerSnapPath:            c.ControllerSnapPath,
+		ControllerSnapAssertPath:      c.ControllerSnapAssertPath,
+		ControllerSnapChannel:         c.ControllerSnapChannel,
+		ControllerSnapRevision:        c.ControllerSnapRevision,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
