@@ -1044,8 +1044,8 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 }
 
 // SetApplicationHasK8sResources records that the provisioner is managing k8s
-// resources for the named application. This blocks removal until cleared.
-func (st *State) SetApplicationHasK8sResources(ctx context.Context, appName string) error {
+// resources for the given application. This blocks removal until cleared.
+func (st *State) SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1060,21 +1060,23 @@ ON CONFLICT (application_uuid) DO NOTHING
 		return errors.Capture(err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, insertStmt, cloudService{ApplicationUUID: appDetails.UUID}).Run(); err != nil {
-			return errors.Errorf("setting k8s resources managed for application %q: %w", appName, err)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, insertStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+			if internaldatabase.IsErrConstraintForeignKey(err) {
+				return errors.Errorf("application %q not found", appUUID).Add(applicationerrors.ApplicationNotFound)
+			}
+			return errors.Errorf("setting k8s resources managed for application %q: %w", appUUID, err)
 		}
 		return nil
-	}))
+	}); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // ClearApplicationHasK8sResources records that the provisioner has finished
-// managing k8s resources for the named application, unblocking removal.
-func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appName string) error {
+// managing k8s resources for the given application, unblocking removal.
+func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1089,12 +1091,8 @@ WHERE application_uuid = $cloudService.application_uuid
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, deleteStmt, cloudService{ApplicationUUID: appDetails.UUID}).Run(); err != nil {
-			return errors.Errorf("clearing k8s resources managed for application %q: %w", appName, err)
+		if err := tx.Query(ctx, deleteStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+			return errors.Errorf("clearing k8s resources managed for application %q: %w", appUUID, err)
 		}
 		return nil
 	}))

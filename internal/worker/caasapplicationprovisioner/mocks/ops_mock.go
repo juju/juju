@@ -84,17 +84,17 @@ func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, str
 }
 
 // AppDead mocks base method.
-func (m *MockApplicationOps) AppDead(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 caasapplicationprovisioner.ApplicationService, arg4 clock.Clock, arg5 logger.Logger) error {
+func (m *MockApplicationOps) AppDead(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 caasapplicationprovisioner.ApplicationService, arg5 clock.Clock, arg6 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppDead", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "AppDead", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AppDead indicates an expected call of AppDead.
-func (mr *MockApplicationOpsMockRecorder) AppDead(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockApplicationOpsAppDeadCall {
+func (mr *MockApplicationOpsMockRecorder) AppDead(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockApplicationOpsAppDeadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppDead", reflect.TypeOf((*MockApplicationOps)(nil).AppDead), arg0, arg1, arg2, arg3, arg4, arg5)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppDead", reflect.TypeOf((*MockApplicationOps)(nil).AppDead), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockApplicationOpsAppDeadCall{Call: call}
 }
 
@@ -110,13 +110,13 @@ func (c *MockApplicationOpsAppDeadCall) Return(arg0 error) *MockApplicationOpsAp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppDeadCall) Do(f func(context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
+func (c *MockApplicationOpsAppDeadCall) Do(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.ApplicationService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
+func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.ApplicationService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

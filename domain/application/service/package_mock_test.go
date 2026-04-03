@@ -819,7 +819,7 @@ func (c *MockStateCheckApplicationsForMigrationCall) DoAndReturn(f func(context.
 }
 
 // ClearApplicationHasK8sResources mocks base method.
-func (m *MockState) ClearApplicationHasK8sResources(arg0 context.Context, arg1 string) error {
+func (m *MockState) ClearApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClearApplicationHasK8sResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -845,13 +845,13 @@ func (c *MockStateClearApplicationHasK8sResourcesCall) Return(arg0 error) *MockS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateClearApplicationHasK8sResourcesCall) Do(f func(context.Context, string) error) *MockStateClearApplicationHasK8sResourcesCall {
+func (c *MockStateClearApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockStateClearApplicationHasK8sResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateClearApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, string) error) *MockStateClearApplicationHasK8sResourcesCall {
+func (c *MockStateClearApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockStateClearApplicationHasK8sResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -5239,7 +5239,7 @@ func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Cont
 }
 
 // SetApplicationHasK8sResources mocks base method.
-func (m *MockState) SetApplicationHasK8sResources(arg0 context.Context, arg1 string) error {
+func (m *MockState) SetApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationHasK8sResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -5265,13 +5265,13 @@ func (c *MockStateSetApplicationHasK8sResourcesCall) Return(arg0 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationHasK8sResourcesCall) Do(f func(context.Context, string) error) *MockStateSetApplicationHasK8sResourcesCall {
+func (c *MockStateSetApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockStateSetApplicationHasK8sResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, string) error) *MockStateSetApplicationHasK8sResourcesCall {
+func (c *MockStateSetApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockStateSetApplicationHasK8sResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

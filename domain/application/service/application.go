@@ -76,18 +76,18 @@ type ApplicationState interface {
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing
-	// k8s resources for the named application. This blocks removal until
+	// k8s resources for the given application. This blocks removal until
 	// cleared.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	SetApplicationHasK8sResources(ctx context.Context, appName string) error
+	SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
 
 	// ClearApplicationHasK8sResources records that the provisioner has
-	// finished managing k8s resources for the named application, unblocking
+	// finished managing k8s resources for the given application, unblocking
 	// removal.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	ClearApplicationHasK8sResources(ctx context.Context, appName string) error
+	ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
@@ -867,21 +867,21 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 }
 
 // SetApplicationHasK8sResources records that the provisioner is managing k8s
-// resources for the named application. This blocks removal until cleared.
-func (s *Service) SetApplicationHasK8sResources(ctx context.Context, appName string) error {
+// resources for the given application. This blocks removal until cleared.
+func (s *Service) SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return errors.Capture(s.st.SetApplicationHasK8sResources(ctx, appName))
+	return errors.Capture(s.st.SetApplicationHasK8sResources(ctx, appUUID))
 }
 
 // ClearApplicationHasK8sResources records that the provisioner has finished
-// managing k8s resources for the named application, unblocking removal.
-func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appName string) error {
+// managing k8s resources for the given application, unblocking removal.
+func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return errors.Capture(s.st.ClearApplicationHasK8sResources(ctx, appName))
+	return errors.Capture(s.st.ClearApplicationHasK8sResources(ctx, appUUID))
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

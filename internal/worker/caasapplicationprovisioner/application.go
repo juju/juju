@@ -172,7 +172,7 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
-			err = a.ops.AppDead(ctx, name, app,
+			err = a.ops.AppDead(ctx, name, a.appUUID, app,
 				a.applicationService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
@@ -293,7 +293,7 @@ func (a *appWorker) loop() error {
 				}
 				// Signal that we are managing k8s resources for this app,
 				// blocking removal until we explicitly clear the flag.
-				if err := a.applicationService.SetApplicationHasK8sResources(ctx, name); err != nil {
+				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
 					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
 				}
 				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
@@ -341,7 +341,7 @@ func (a *appWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(ctx, name, app,
+				err = a.ops.AppDead(ctx, name, a.appUUID, app,
 					a.applicationService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)

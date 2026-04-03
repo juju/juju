@@ -765,16 +765,17 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 
 	app := caasmocks.NewMockApplication(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	appUUID := tc.Must(c, application.NewUUID)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 
 	gomock.InOrder(
 		app.EXPECT().Delete().Return(nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		applicationService.EXPECT().ClearApplicationHasK8sResources(gomock.Any(), "test").Return(nil),
+		applicationService.EXPECT().ClearApplicationHasK8sResources(gomock.Any(), appUUID).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", app, applicationService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", appUUID, app, applicationService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
