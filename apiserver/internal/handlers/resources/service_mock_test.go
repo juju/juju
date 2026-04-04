@@ -224,6 +224,45 @@ func (c *MockResourceServiceGetResourceUUIDByApplicationAndResourceNameCall) DoA
 	return c
 }
 
+// GetResourceWithoutApplication mocks base method.
+func (m *MockResourceService) GetResourceWithoutApplication(arg0 context.Context, arg1 resource.UUID) (resource.Resource, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetResourceWithoutApplication", arg0, arg1)
+	ret0, _ := ret[0].(resource.Resource)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetResourceWithoutApplication indicates an expected call of GetResourceWithoutApplication.
+func (mr *MockResourceServiceMockRecorder) GetResourceWithoutApplication(arg0, arg1 any) *MockResourceServiceGetResourceWithoutApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceWithoutApplication", reflect.TypeOf((*MockResourceService)(nil).GetResourceWithoutApplication), arg0, arg1)
+	return &MockResourceServiceGetResourceWithoutApplicationCall{Call: call}
+}
+
+// MockResourceServiceGetResourceWithoutApplicationCall wrap *gomock.Call
+type MockResourceServiceGetResourceWithoutApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceGetResourceWithoutApplicationCall) Return(arg0 resource.Resource, arg1 error) *MockResourceServiceGetResourceWithoutApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceGetResourceWithoutApplicationCall) Do(f func(context.Context, resource.UUID) (resource.Resource, error)) *MockResourceServiceGetResourceWithoutApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceGetResourceWithoutApplicationCall) DoAndReturn(f func(context.Context, resource.UUID) (resource.Resource, error)) *MockResourceServiceGetResourceWithoutApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // OpenResource mocks base method.
 func (m *MockResourceService) OpenResource(arg0 context.Context, arg1 resource.UUID) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
