@@ -207,6 +207,15 @@ type BootstrapConfig struct {
 	// ControllerCharm is a local controller charm to be used.
 	ControllerCharm string
 
+	// ControllerSnapPath is the local path to a controller snap to embed
+	// in cloud-init during bootstrap provisioning.
+	ControllerSnapPath string
+
+	// ControllerSnapAssertPath is the local path to the snap assertion file
+	// accompanying ControllerSnapPath. When empty the snap is installed in
+	// dangerous mode.
+	ControllerSnapAssertPath string
+
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
@@ -645,6 +654,36 @@ func (cfg *InstanceConfig) SetControllerCharm(controllerCharmPath string) error 
 	}
 
 	cfg.Bootstrap.ControllerCharm = controllerCharmPath
+
+	return nil
+}
+
+// SetControllerSnap annotates the instance configuration with the locations of
+// a locally provided controller snap (and optionally its assertion file) to
+// upload during the instance's provisioning. If assertPath is empty the snap
+// will be installed in dangerous mode.
+func (cfg *InstanceConfig) SetControllerSnap(snapPath, assertPath string) error {
+	if snapPath == "" && assertPath != "" {
+		return errors.New("assertPath is provided without snapPath") //TODO const err
+	}
+	if snapPath == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(snapPath); err != nil {
+		return errors.Annotatef(err, "unable to set local controller snap (at %s)", snapPath)
+	}
+
+	if assertPath != "" {
+		if _, err := os.Stat(assertPath); err != nil {
+			return errors.Annotatef(err, "unable to set local controller snap assert (at %s)", assertPath)
+		}
+	}
+
+	cfg.Bootstrap.ControllerSnapPath = snapPath
+	cfg.Bootstrap.ControllerSnapAssertPath = assertPath
+
+	logger.Debugf(context.TODO(), "Set local controller snap path to %s and assert path to %s", snapPath, assertPath)
 
 	return nil
 }

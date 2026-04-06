@@ -43,6 +43,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/featureflag"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -1024,7 +1025,74 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCharmChannel, tc.Equals, ch)
 }
 
-// createImageMetadata creates some image metadata in a local directory.
+func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	err := os.WriteFile(snapPath, []byte("snap"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapAssertPath, tc.Equals, "")
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "juju-controller.snap")
+	assertPath := filepath.Join(dir, "juju-controller.assert")
+	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SSHServerHostKey:         coretesting.SSHServerHostKey,
+			SupportedBootstrapBases:  supportedJujuBases,
+			ControllerSnapPath:       snapPath,
+			ControllerSnapAssertPath: assertPath,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapAssertPath, tc.Equals, assertPath)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapNotPlumbedWithoutFeatureFlag(c *tc.C) {
+	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	err := os.WriteFile(snapPath, []byte("snap"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
+}
 func createImageMetadata(c *tc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
 	return createImageMetadataForArch(c, "amd64")
 }

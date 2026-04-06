@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	corestorage "github.com/juju/juju/internal/storage"
@@ -647,6 +648,13 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 	instanceConfig.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+
+	// Set the controller snap to be installed on the bootstrap instance.
+	if featureflag.Enabled(featureflag.ControllerSnap) {
+		if err := instanceConfig.SetControllerSnap(args.ControllerSnapPath, args.ControllerSnapAssertPath); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
