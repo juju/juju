@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -19,6 +20,7 @@ type fakeStorage struct {
 	storagecommon.StorageAccess
 	storagecommon.FilesystemAccess
 	storageInstance           func(names.StorageTag) (state.StorageInstance, error)
+	storageAttachments        func(names.StorageTag) ([]state.StorageAttachment, error)
 	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
 	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
 	volumeAttachment          func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
@@ -30,6 +32,14 @@ type fakeStorage struct {
 func (s *fakeStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
 	s.MethodCall(s, "StorageInstance", tag)
 	return s.storageInstance(tag)
+}
+
+func (s *fakeStorage) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
+	s.MethodCall(s, "StorageAttachments", tag)
+	if s.storageAttachments == nil {
+		return nil, nil
+	}
+	return s.storageAttachments(tag)
 }
 
 func (s *fakeStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
@@ -67,6 +77,7 @@ type fakeStorageInstance struct {
 	tag   names.StorageTag
 	owner names.Tag
 	kind  state.StorageKind
+	life  state.Life
 }
 
 func (i *fakeStorageInstance) StorageTag() names.StorageTag {
@@ -85,13 +96,27 @@ func (i *fakeStorageInstance) Kind() state.StorageKind {
 	return i.kind
 }
 
+func (i *fakeStorageInstance) Life() state.Life {
+	return i.life
+}
+
 type fakeStorageAttachment struct {
 	state.StorageAttachment
 	storageTag names.StorageTag
+	unitTag    names.UnitTag
+	life       state.Life
 }
 
 func (a *fakeStorageAttachment) StorageInstance() names.StorageTag {
 	return a.storageTag
+}
+
+func (a *fakeStorageAttachment) Unit() names.UnitTag {
+	return a.unitTag
+}
+
+func (a *fakeStorageAttachment) Life() state.Life {
+	return a.life
 }
 
 type fakeVolume struct {
@@ -99,6 +124,7 @@ type fakeVolume struct {
 	tag    names.VolumeTag
 	params *state.VolumeParams
 	info   *state.VolumeInfo
+	status *corestatus.StatusInfo
 }
 
 func (v *fakeVolume) VolumeTag() names.VolumeTag {
@@ -121,6 +147,13 @@ func (v *fakeVolume) Info() (state.VolumeInfo, error) {
 		return state.VolumeInfo{}, errors.NotProvisionedf("volume %v", v.tag.Id())
 	}
 	return *v.info, nil
+}
+
+func (v *fakeVolume) Status() (corestatus.StatusInfo, error) {
+	if v.status == nil {
+		return corestatus.StatusInfo{Status: corestatus.Attached}, nil
+	}
+	return *v.status, nil
 }
 
 type fakeVolumeAttachment struct {
@@ -161,6 +194,7 @@ type fakeFilesystem struct {
 	tag    names.FilesystemTag
 	params *state.FilesystemParams
 	info   *state.FilesystemInfo
+	status *corestatus.StatusInfo
 }
 
 func (v *fakeFilesystem) FilesystemTag() names.FilesystemTag {
@@ -183,6 +217,13 @@ func (v *fakeFilesystem) Info() (state.FilesystemInfo, error) {
 		return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem %v", v.tag.Id())
 	}
 	return *v.info, nil
+}
+
+func (v *fakeFilesystem) Status() (corestatus.StatusInfo, error) {
+	if v.status == nil {
+		return corestatus.StatusInfo{Status: corestatus.Attached}, nil
+	}
+	return *v.status, nil
 }
 
 type fakeFilesystemAttachment struct {
