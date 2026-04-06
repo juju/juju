@@ -4,6 +4,8 @@
 package storagecommon
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -34,36 +36,63 @@ func StorageDetails(
 	// Get information from underlying volume or filesystem.
 	var persistent bool
 	var statusEntity status.StatusGetter
-	if si.Kind() == state.StorageKindFilesystem {
-		// TODO(axw) when we support persistent filesystems,
-		// e.g. CephFS, we'll need to do set "persistent"
-		// here too.
-		filesystem, err := sb.StorageInstanceFilesystem(si.StorageTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		statusEntity = filesystem
-	} else {
-		volume, err := sb.StorageInstanceVolume(si.StorageTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if info, err := volume.Info(); err == nil {
-			persistent = info.Persistent
-		}
-		statusEntity = volume
-	}
-	aStatus, err := statusEntity.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Get unit storage attachments.
-	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
+	var aStatus status.StatusInfo
+	since := time.Now()
 	storageAttachments, err := sb.StorageAttachments(si.StorageTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if si.Kind() == state.StorageKindFilesystem {
+		// TODO(axw) when we support persistent filesystems,
+		// e.g. CephFS, we'll need to do set "persistent"
+		// here too.
+		filesystem, fsErr := sb.StorageInstanceFilesystem(si.StorageTag())
+		if errors.Is(fsErr, errors.NotFound) {
+			var err error
+			aStatus, err = missingBackingStorageStatus(
+				storageAttachments, unitToMachine, fsErr,
+				"waiting for filesystem to be provisioned", since,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		} else if fsErr != nil {
+			return nil, errors.Trace(fsErr)
+		} else {
+			statusEntity = filesystem
+		}
+	} else {
+		volume, volErr := sb.StorageInstanceVolume(si.StorageTag())
+		if errors.Is(volErr, errors.NotFound) {
+			var err error
+			aStatus, err = missingBackingStorageStatus(
+				storageAttachments, unitToMachine, volErr,
+				"waiting for volume to be provisioned", since,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		} else if volErr != nil {
+			return nil, errors.Trace(volErr)
+		} else {
+			statusEntity = volume
+			if info, err := volume.Info(); err == nil {
+				persistent = info.Persistent
+			}
+		}
+
+	}
+	if statusEntity != nil {
+		var err error
+		aStatus, err = statusEntity.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// Get unit storage attachments.
+	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
 	if len(storageAttachments) > 0 {
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
 		for _, a := range storageAttachments {
@@ -119,4 +148,55 @@ func storageAttachmentInfo(
 		return names.MachineTag{}, "", errors.Trace(err)
 	}
 	return machineTag, info.Location, nil
+}
+
+// missingBackingStorageStatus classifies storage status when the backing
+// volume/filesystem record is missing.
+func missingBackingStorageStatus(
+	attachments []state.StorageAttachment,
+	unitToMachine UnitAssignedMachineFunc,
+	notFoundErr error,
+	pendingMessage string,
+	since time.Time,
+) (status.StatusInfo, error) {
+	if len(attachments) == 0 {
+		return status.StatusInfo{
+			Status: status.Detached,
+			Since:  &since,
+		}, nil
+	}
+	assigned, err := allAttachedUnitsAssigned(attachments, unitToMachine)
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+	// When a unit is assigned to a machine, the machine assignment
+	// transaction [AssignToMachine] func guarantees that the backing
+	// volume/filesystem document is created. A NotFound error when the unit
+	// is assigned indicates something has gone wrong, so propagate this error.
+	if assigned {
+		return status.StatusInfo{}, notFoundErr
+	}
+	return status.StatusInfo{
+		Status:  status.Pending,
+		Message: pendingMessage,
+		Since:   &since,
+	}, nil
+}
+
+// allAttachedUnitsAssigned returns true if all units in attachments are
+// assigned to a machine.
+func allAttachedUnitsAssigned(
+	attachments []state.StorageAttachment,
+	unitToMachine UnitAssignedMachineFunc,
+) (bool, error) {
+	for _, a := range attachments {
+		_, err := unitToMachine(a.Unit())
+		if errors.Is(err, errors.NotAssigned) {
+			return false, nil
+		} else if err != nil {
+			return false, errors.Trace(err)
+		}
+
+	}
+	return true, nil
 }
