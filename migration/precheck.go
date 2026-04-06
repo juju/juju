@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/application"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -234,11 +235,13 @@ func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, erro
 		return nil, errors.Annotate(err, "retrieving model")
 	}
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
-	// TODO(adisazhar123): In a follow-up PR we have to reject if there are ongoing
-	// scaling or storage resize operations.
 	for _, app := range apps {
 		if app.Life() != state.Alive {
 			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())
+		}
+		ps := app.ProvisioningState()
+		if ps != nil && ps.CurrentOperation != application.NoOperation {
+			return nil, errors.Errorf("application %s has an ongoing %s operation", app.Name(), ps.CurrentOperation)
 		}
 		units, err := app.AllUnits()
 		if err != nil {

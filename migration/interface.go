@@ -73,6 +73,7 @@ type PrecheckApplication interface {
 	CharmURL() (*string, bool)
 	AllUnits() ([]PrecheckUnit, error)
 	MinUnits() int
+	ProvisioningState() *state.ApplicationProvisioningState
 }
 
 // PrecheckUnit describes state interface for a unit needed by

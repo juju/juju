@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -3559,6 +3560,42 @@ func (s *MigrationImportSuite) TestGenerateMissingVirtualHostKeys(c *gc.C) {
 	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machine.Tag().Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(newVirtualHostKey.HostKey()), gc.Matches, `(?s)-----BEGIN OPENSSH PRIVATE KEY-----.*`)
+}
+
+func (s *MigrationImportSuite) TestCAASApplicationProvisioningStateWithLegacyFormat(c *gc.C) {
+	caasSt := s.Factory.MakeCAASModel(c, nil)
+	s.AddCleanup(func(_ *gc.C) { _ = caasSt.Close() })
+
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "20.04"}
+	_, app, _ := s.setupSourceApplications(c, caasSt, cons, platform, true)
+
+	newSt := s.importModel(c, caasSt, func(desc map[string]interface{}) {
+		applications := desc["applications"].(map[interface{}]interface{})
+		appsList := applications["applications"].([]interface{})
+		for _, item := range appsList {
+			appMap := item.(map[interface{}]interface{})
+			// Inject the old-format provisioning state with "scaling: true"
+			// into the serialized description before import.
+			if appMap["name"] == app.Name() {
+				appMap["provisioning-state"] = map[interface{}]interface{}{
+					"scaling":      true,
+					"scale-target": 3,
+					"version":      1,
+				}
+				break
+			}
+		}
+	})
+	defer func() { _ = newSt.Close() }()
+
+	importedApp, err := newSt.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	ps := importedApp.ProvisioningState()
+	c.Assert(ps, gc.NotNil)
+	c.Assert(ps.ScaleTarget, gc.Equals, 3)
+	c.Assert(ps.CurrentOperation, gc.Equals, application.ScaleOperation)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

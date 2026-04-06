@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/application"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -471,6 +472,52 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	}}
 	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, `unit remote-mysql/0 hasn't joined relation "foo:db remote-mysql:db" yet`)
+}
+
+func (s *SourcePrecheckSuite) TestApplicationWithNoProvisioningOperation(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				provisioningState: &state.ApplicationProvisioningState{
+					CurrentOperation: application.NoOperation,
+				},
+				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
+			},
+		},
+	}
+	err := sourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SourcePrecheckSuite) TestApplicationWithScalingOperation(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				provisioningState: &state.ApplicationProvisioningState{
+					CurrentOperation: application.ScaleOperation,
+				},
+			},
+		},
+	}
+	err := sourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "application foo has an ongoing scale operation")
+}
+
+func (s *SourcePrecheckSuite) TestApplicationWithStorageResizeOperation(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				provisioningState: &state.ApplicationProvisioningState{
+					CurrentOperation: application.StorageUpdateOperation,
+				},
+			},
+		},
+	}
+	err := sourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "application foo has an ongoing storage update operation")
 }
 
 type TargetPrecheckSuite struct {
@@ -1062,11 +1109,12 @@ func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
 }
 
 type fakeApp struct {
-	name     string
-	life     state.Life
-	charmURL string
-	units    []migration.PrecheckUnit
-	minunits int
+	name              string
+	life              state.Life
+	charmURL          string
+	units             []migration.PrecheckUnit
+	minunits          int
+	provisioningState *state.ApplicationProvisioningState
 }
 
 func (a *fakeApp) Name() string {
@@ -1091,6 +1139,10 @@ func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
 
 func (a *fakeApp) MinUnits() int {
 	return a.minunits
+}
+
+func (a *fakeApp) ProvisioningState() *state.ApplicationProvisioningState {
+	return a.provisioningState
 }
 
 type fakeUnit struct {

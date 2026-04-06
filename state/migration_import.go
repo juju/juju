@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -1403,8 +1404,16 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		HasResources:         a.HasResources(),
 		StorageUniqueID:      a.StorageUniqueID(),
 	}
-	// TODO(adisazhar123): In a follow-up PR, we have to write the provisioning-state
-	// to new format for incoming models from older controllers.
+
+	if ps := a.ProvisioningState(); ps != nil {
+		if ps.Scaling() {
+			appDoc.ProvisioningState = &ApplicationProvisioningState{
+				ScaleTarget:      ps.ScaleTarget(),
+				CurrentOperation: application.ScaleOperation,
+			}
+		}
+	}
+
 	return appDoc, nil
 }
 

@@ -7,6 +7,20 @@ package application
 // being performed on an application.
 type ProvisioningOperation string
 
+// String returns a human-readable representation of the ProvisioningOperation.
+func (p ProvisioningOperation) String() string {
+	switch p {
+	case NoOperation:
+		return "idle"
+	case ScaleOperation:
+		return "scale"
+	case StorageUpdateOperation:
+		return "storage update"
+	default:
+		return string(p)
+	}
+}
+
 const (
 	// NoOperation indicates no provisioning operation is in progress.
 	NoOperation ProvisioningOperation = ""
