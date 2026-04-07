@@ -28,6 +28,8 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		st.ControllerTag(),
+		ctx.Auth(),
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),

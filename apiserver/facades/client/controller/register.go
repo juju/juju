@@ -87,6 +87,8 @@ func newControllerAPIv9(ctx facade.Context) (*ControllerAPIv9, error) {
 		return nil, errors.Trace(err)
 	}
 	v10.CloudSpecer = cloudspec.NewCloudSpecV1(
+		ctx.State().ControllerTag(),
+		ctx.Auth(),
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),

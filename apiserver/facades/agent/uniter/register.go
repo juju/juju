@@ -109,7 +109,10 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
-	cloudSpec := cloudspec.NewCloudSpecV2(resources,
+	cloudSpec := cloudspec.NewCloudSpecV2(
+		st.ControllerTag(),
+		authorizer,
+		resources,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
@@ -171,7 +174,10 @@ func newUniterAPIV17(context facade.Context) (*UniterAPIV17, error) {
 		return nil, errors.Trace(err)
 	}
 
-	uniterAPI.cloudSpecer = cloudspec.NewCloudSpecV1(context.Resources(),
+	uniterAPI.cloudSpecer = cloudspec.NewCloudSpecV1(
+		context.State().ControllerTag(),
+		context.Auth(),
+		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(context.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(context.State()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(context.State()),
