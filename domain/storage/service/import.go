@@ -737,10 +737,14 @@ func (s *StorageImportService) getPersistentVolumeClaimIdentifiers(ctx context.C
 	return uidToNames, nil
 }
 
-// ImportStoragePools creates new storage pools with the slice of [domainstorage.ImportStoragePoolParams]
-// . This is slightly different to [CreateStoragePools] because:
+// ImportStoragePools creates new storage pools from the supplied
+// [domainstorage.UserStoragePoolParams]. Provider default and recommended
+// storage pools are discovered and computed internally based on the provider
+// types referenced by these parameters.
+// This is slightly different to [CreateStoragePools] because:
 //  1. the storage pool name validation uses a legacy regex and,
-//  2. the storage pools could be user-defined and provider default.
+//  2. only user-defined pools are provided explicitly; provider default and
+//     recommended pools are derived by the service.
 //
 // The following errors may be returned:
 // - [domainstorageerrors.StoragePoolNameInvalid] when the supplied storage
@@ -765,11 +769,9 @@ func (s *StorageImportService) ImportStoragePools(
 		return errors.Capture(err)
 	}
 
-	s.logger.Infof(ctx, "[adis] pools: %+v", pools)
-
 	for _, pool := range pools {
-		err := s.validateStoragePoolCreation(ctx, pool.Name, domainstorage.ProviderType(pool.Type),
-			pool.Attrs,
+		err := validateStoragePoolCreation(ctx, s.registryGetter, pool.Name,
+			domainstorage.ProviderType(pool.Type), pool.Attrs,
 			domainstorage.IsValidStoragePoolNameWithLegacy)
 		if err != nil {
 			return err
@@ -808,62 +810,11 @@ func (s *StorageImportService) ImportStoragePools(
 	return nil
 }
 
-func (s *StorageImportService) validateStoragePoolCreation(
-	ctx context.Context,
-	name string,
-	providerType domainstorage.ProviderType,
-	attrs map[string]any,
-	isValidStoragePoolName func(string) bool,
-) error {
-	if !isValidStoragePoolName(name) {
-		return errors.New("new storage pool name is not valid").Add(
-			domainstorageerrors.StoragePoolNameInvalid,
-		)
-	}
-	if !providerType.IsValid() {
-		// We don't include the invalid storage provider type on purpose. It's
-		// contents are unknown and so we would shouldn't process the occupied
-		// memory any further.
-		return errors.New("storage provider type is not valid").Add(
-			domainstorageerrors.ProviderTypeInvalid,
-		)
-	}
-
-	providerRegistry, err := s.registryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return errors.Errorf("getting storage provider registry: %w", err)
-	}
-
-	s.logger.Infof(ctx, "[adis] providerType: %+v", providerType)
-	storageProvider, err := providerRegistry.StorageProvider(
-		internalstorage.ProviderType(providerType),
-	)
-	if errors.Is(err, coreerrors.NotFound) {
-		return errors.Errorf(
-			"storage provider %q does not exist in the model",
-			providerType.String(),
-		).Add(domainstorageerrors.ProviderTypeNotFound)
-	} else if err != nil {
-		return errors.Errorf(
-			"getting storage provider %q: %w", providerType.String(), err,
-		)
-	}
-
-	// NOTE (tlm): We need to create better long term support with storage
-	// providers around their error contract for validation. They should return
-	// a better typed error describing the attribute key that failed and the
-	// reasons for this. Having this will allow this service func to give better
-	// context to the caller and in returned the user.
-	return validateNewStoragePoolConfig(
-		ctx, storageProvider, name, providerType, attrs,
-	)
-}
-
 // getStoragePoolsToImport resolves the full set of storage pools to create during
 // model import.
 //
-// It starts with user-defined storage pools from the description model, ensuring
-// they take precedence over provider default pools on name and provider conflicts.
+// It starts with user-defined storage pools provided as input, ensuring they
+// take precedence over provider default pools on name and provider conflicts.
 // Provider default pools are then added where safe, followed by resolving any
 // recommended storage pools from the registry.
 //
@@ -909,8 +860,6 @@ func (s *StorageImportService) getStoragePoolsToImport(
 			"getting storage provider types for model storage registry: %w", err,
 		)
 	}
-
-	s.logger.Infof(ctx, "[adis] providerTypes: %+v", providerTypes)
 
 	for _, providerType := range providerTypes {
 		provider, err := modelStorageRegistry.StorageProvider(providerType)

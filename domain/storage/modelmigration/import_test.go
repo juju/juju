@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/juju/description/v12"
@@ -90,8 +91,8 @@ func (s *importSuite) TestImportEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImportStoragePools tests that Execute imports both user-defined and provider default
-// storage pools and sets the recommended pools.
+// TestImportStoragePools tests that Execute storage pool imports for a supplied
+// user-defined pool.
 func (s *importSuite) TestImportStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -118,6 +119,37 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 	op := s.newImportOperation()
 	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportStoragePoolsError tests that an error returned from [ImportStoragePools]
+// is propagated correctly.
+func (s *importSuite) TestImportStoragePoolsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "ebs-fast",
+		Provider:   "ebs",
+		Attributes: map[string]any{"foo": "bar"},
+	})
+
+	ctx := c.Context()
+
+	poolsToImport := []domainstorage.UserStoragePoolParams{
+		{
+			Name:       "ebs-fast",
+			Provider:   "ebs",
+			Attributes: map[string]interface{}{"foo": "bar"},
+		},
+	}
+	badErr := errors.New("something bad")
+	s.service.EXPECT().ImportStoragePools(ctx, poolsToImport).Return(badErr)
+
+	op := s.newImportOperation()
+	err := op.Execute(ctx, model)
+	c.Assert(err, tc.ErrorIs, badErr)
 }
 
 func (s *importSuite) TestImportStorageInstances(c *tc.C) {

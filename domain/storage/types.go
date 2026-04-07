@@ -321,5 +321,5 @@ func (i ImportVolumeAttachmentPlanParams) Validate() error {
 type UserStoragePoolParams struct {
 	Name       string
 	Provider   string
-	Attributes map[string]interface{}
+	Attributes map[string]any
 }
