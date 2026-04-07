@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -162,6 +163,94 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
 	_, _, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
+}
+
+func (s *apiclientSuite) TestVerifyCAUsesProxyForCAProbe(c *gc.C) {
+	decodedCACert, _ := pem.Decode([]byte(jtesting.CACert))
+	serverCert, _ := tls.X509KeyPair([]byte(jtesting.ServerCert), []byte(jtesting.ServerKey))
+	serverCert.Certificate = append(serverCert.Certificate, decodedCACert.Bytes)
+
+	tlsConf := &tls.Config{Certificates: []tls.Certificate{serverCert}}
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConf)
+	c.Assert(err, jc.ErrorIsNil)
+	defer listener.Close()
+
+	var targetConnCount int32
+	go func() {
+		buf := make([]byte, 4)
+		for {
+			client, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			atomic.AddInt32(&targetConnCount, 1)
+			_, _ = client.Read(buf)
+			_ = client.Close()
+		}
+	}()
+
+	var proxyConnectCount int32
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect {
+			http.Error(w, "invalid method", http.StatusMethodNotAllowed)
+			return
+		}
+		atomic.AddInt32(&proxyConnectCount, 1)
+
+		targetConn, err := net.Dial("tcp", r.Host)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			_ = targetConn.Close()
+			http.Error(w, "hijacking not supported", http.StatusInternalServerError)
+			return
+		}
+		clientConn, _, err := hijacker.Hijack()
+		if err != nil {
+			_ = targetConn.Close()
+			return
+		}
+
+		_, _ = io.WriteString(clientConn, "HTTP/1.1 200 Connection Established\r\n\r\n")
+		go func() {
+			_, _ = io.Copy(targetConn, clientConn)
+			_ = targetConn.Close()
+		}()
+		go func() {
+			_, _ = io.Copy(clientConn, targetConn)
+			_ = clientConn.Close()
+		}()
+	}))
+	defer proxyServer.Close()
+
+	err = proxy.DefaultConfig.Set(proxyutils.Settings{Http: proxyServer.Listener.Addr().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	defer proxy.DefaultConfig.Set(proxyutils.Settings{})
+
+	info := s.APIInfo(c)
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	c.Assert(err, jc.ErrorIsNil)
+	info.Addrs = []string{"testing.local:" + port}
+
+	_, _, err = api.DialAPI(info, api.DialOpts{
+		RetryDelay: 0,
+		VerifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
+			return nil
+		},
+		IPAddrResolver: apitesting.IPAddrResolverMap{
+			"testing.local": {"127.0.0.1"},
+		},
+		DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+			return nil, errors.New("boom")
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "unable to connect to API: boom")
+	c.Assert(atomic.LoadInt32(&proxyConnectCount), gc.Equals, int32(1))
+	c.Assert(atomic.LoadInt32(&targetConnCount), gc.Equals, int32(1))
 }
 
 func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
