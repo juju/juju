@@ -23,6 +23,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/iter"
@@ -344,7 +345,7 @@ func makeStorageInstanceComposition(dbVal storageInstanceComposition) internal.S
 	return v
 }
 
-// GetUnitOwnedStorageInstances returns the storage compositions for all
+// GetUnitOwnedStorageInstances returns attachment metadata for all
 // storage instances owned by the unit in the model. If the unit does not
 // currently own any storage instances then an empty result is returned.
 //
@@ -354,7 +355,7 @@ func (st *State) GetUnitOwnedStorageInstances(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 ) (
-	[]internal.StorageInstanceComposition,
+	[]internal.StorageInstanceInfoForAttach,
 	[]internal.StorageAttachmentComposition,
 	error,
 ) {
@@ -364,29 +365,6 @@ func (st *State) GetUnitOwnedStorageInstances(
 	}
 
 	uuidInput := entityUUID{UUID: unitUUID.String()}
-
-	compositionQ := `
-SELECT &storageInstanceComposition.*
-FROM (
-    SELECT    sf.uuid AS filesystem_uuid,
-              sf.provision_scope_id AS filesystem_provision_scope,
-              si.storage_name AS storage_name,
-              si.uuid AS uuid,
-              sv.uuid AS volume_uuid,
-              sv.provision_scope_id AS volume_provision_scope
-    FROM      storage_unit_owner suo
-    JOIN      storage_instance si ON suo.storage_instance_uuid = si.uuid
-    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
-    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
-    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    WHERE     suo.unit_uuid = $entityUUID.uuid
-)
-`
-	stmt, err := st.Prepare(compositionQ, uuidInput, storageInstanceComposition{})
-	if err != nil {
-		return nil, nil, errors.Capture(err)
-	}
 
 	attachmentCompositionQ := `
 SELECT &storageAttachmentComposition.*
@@ -416,8 +394,9 @@ FROM (
 		return nil, nil, errors.Capture(err)
 	}
 
-	var dbVals []storageInstanceComposition
 	var dbAttachmentVals []storageAttachmentComposition
+	var storageInstInfos []storageInstanceInfoForAttach
+	var storageInstAttachments []storageInstanceUnitAttachmentByStorageUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID.String())
 		if err != nil {
@@ -431,58 +410,36 @@ FROM (
 			)
 		}
 
-		err = tx.Query(ctx, stmt, uuidInput).GetAll(&dbVals)
+		storageInstInfos, err = st.getStorageInstancesInfoForUnitOwnedStorage(
+			ctx, tx, unitUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting owned storage instances information for attachment: %w",
+				err,
+			)
+		}
+
+		err = tx.Query(ctx, attachmentStmt, uuidInput).GetAll(&dbAttachmentVals)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
-		err = tx.Query(ctx, attachmentStmt, uuidInput).GetAll(&dbAttachmentVals)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+
+		storageInstAttachments, err = st.getStorageInstanceUnitAttachmentsForUnitOwnedStorage(
+			ctx, tx, unitUUID,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting owned storage instance unit attachments: %w",
+				err,
+			)
 		}
-		return err
+
+		return nil
 	})
 
 	if err != nil {
 		return nil, nil, errors.Capture(err)
-	}
-
-	attachmentsByStorageInstance := make(map[string][]storageAttachmentComposition)
-	for _, dbVal := range dbAttachmentVals {
-		attachmentsByStorageInstance[dbVal.UUID] = append(
-			attachmentsByStorageInstance[dbVal.UUID], dbVal,
-		)
-	}
-
-	retInstComp := make([]internal.StorageInstanceComposition, 0, len(dbVals))
-	for _, dbVal := range dbVals {
-		v := internal.StorageInstanceComposition{
-			StorageName: domainstorage.Name(dbVal.StorageName),
-			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
-		}
-
-		if dbVal.FilesystemUUID.Valid {
-			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorage.ProvisionScope(
-					dbVal.FilesystemProvisionScope.V,
-				),
-				UUID: domainstorage.FilesystemUUID(
-					dbVal.FilesystemUUID.V,
-				),
-			}
-		}
-
-		if dbVal.VolumeUUID.Valid {
-			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorage.ProvisionScope(
-					dbVal.VolumeProvisionScope.V,
-				),
-				UUID: domainstorage.VolumeUUID(
-					dbVal.VolumeUUID.V,
-				),
-			}
-		}
-
-		retInstComp = append(retInstComp, v)
 	}
 
 	retAttachmentComp := make(
@@ -528,7 +485,116 @@ FROM (
 		retAttachmentComp = append(retAttachmentComp, v)
 	}
 
-	return retInstComp, retAttachmentComp, nil
+	return makeStorageInstanceInfosForAttach(
+		storageInstInfos,
+		storageInstAttachments,
+	), retAttachmentComp, nil
+}
+
+// getStorageInstancesInfoForUnitOwnedStorage returns attach metadata for all
+// storage instances owned by the supplied unit, ordered by storage UUID.
+func (st *State) getStorageInstancesInfoForUnitOwnedStorage(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+) ([]storageInstanceInfoForAttach, error) {
+	inUUID := entityUUID{UUID: unitUUID.String()}
+
+	q := `
+SELECT * AS &storageInstanceInfoForAttach.* FROM (
+    SELECT    si.uuid,
+              si.charm_name,
+              si.storage_name,
+              si.life_id,
+              si.requested_size_mib,
+              si.storage_kind_id,
+              sif.storage_filesystem_uuid AS filesystem_uuid,
+              sf.size_mib AS filesystem_size_mib,
+              sf.provision_scope_id AS filesystem_provision_scope_id,
+              mf.machine_uuid AS filesystem_owned_machine_uuid,
+              siv.storage_volume_uuid AS volume_uuid,
+              sv.size_mib AS volume_size_mib,
+              sv.provision_scope_id AS volume_provision_scope_id,
+              mv.machine_uuid AS volume_owned_machine_uuid
+    FROM      storage_unit_owner suo
+    JOIN      storage_instance si ON suo.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    LEFT JOIN machine_volume mv ON siv.storage_volume_uuid = mv.volume_uuid
+    WHERE     suo.unit_uuid = $entityUUID.uuid
+    ORDER BY  si.uuid
+)
+`
+	queryStmt, err := st.Prepare(q, inUUID, storageInstanceInfoForAttach{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing query for getting unit-owned storage instances info for attachment: %w",
+			err,
+		)
+	}
+
+	var siInfos []storageInstanceInfoForAttach
+	err = tx.Query(ctx, queryStmt, inUUID).GetAll(&siInfos)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting unit-owned storage instances information for "+
+				"attachment: %w",
+			err,
+		)
+	}
+
+	return siInfos, nil
+}
+
+// getStorageInstanceUnitAttachmentsForUnitOwnedStorage returns storage
+// instance attachments for all storage instances owned by the supplied unit.
+//
+// The attachments returned are not exclusively to the unit that is the subject
+// of this function.
+//
+// Results are ordered by storage instance UUID.
+func (st *State) getStorageInstanceUnitAttachmentsForUnitOwnedStorage(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+) ([]storageInstanceUnitAttachmentByStorageUUID, error) {
+	inUUID := entityUUID{UUID: unitUUID.String()}
+
+	q := `
+SELECT &storageInstanceUnitAttachmentByStorageUUID.*
+FROM (
+	SELECT sa.storage_instance_uuid,
+	       sa.unit_uuid,
+	       sa.uuid
+	FROM   storage_attachment sa
+	JOIN   storage_unit_owner suo ON sa.storage_instance_uuid = suo.storage_instance_uuid
+	WHERE  suo.unit_uuid = $entityUUID.uuid
+	ORDER BY sa.storage_instance_uuid
+)
+`
+	stmt, err := st.Prepare(
+		q,
+		inUUID,
+		storageInstanceUnitAttachmentByStorageUUID{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing unit-owned storage instance unit attachments query: %w",
+			err,
+		)
+	}
+
+	var result []storageInstanceUnitAttachmentByStorageUUID
+	err = tx.Query(ctx, stmt, inUUID).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return result, err
 }
 
 // getStorageInstanceUnitAttachments returns the units attached to a storage
@@ -636,10 +702,33 @@ func (st *State) GetStorageAttachInfoForStorageInstances(
 		return nil, errors.Capture(err)
 	}
 
+	return makeStorageInstanceInfosForAttach(
+		storageInstInfos,
+		storageInstAttachments,
+	), nil
+}
+
+// makeStorageInstanceInfosForAttach merges storage instance and attachment
+// rows into values used by attach decision logic.
+//
+// Both arguments MUST be ordered by storage instance UID (UUID) so
+// partitioning can align attachment rows with their storage instance.
+func makeStorageInstanceInfosForAttach(
+	storageInstInfos []storageInstanceInfoForAttach,
+	storageInstAttachments []storageInstanceUnitAttachmentByStorageUUID,
+) []internal.StorageInstanceInfoForAttach {
+	if len(storageInstInfos) == 0 {
+		return []internal.StorageInstanceInfoForAttach{}
+	}
+
 	partitioner := iter.NewPartitioner(storageInstAttachments)
 	defer partitioner.Close()
 
-	retVals := make([]internal.StorageInstanceInfoForAttach, 0, len(storageInstInfos))
+	retVals := make(
+		[]internal.StorageInstanceInfoForAttach,
+		0,
+		len(storageInstInfos),
+	)
 	for _, storageInstInfo := range storageInstInfos {
 		retVal := internal.StorageInstanceInfoForAttach{
 			StorageInstanceInfo: internal.StorageInstanceInfo{
@@ -656,25 +745,34 @@ func (st *State) GetStorageAttachInfoForStorageInstances(
 		}
 
 		if storageInstInfo.FilesystemUUID.Valid {
-			retVal.StorageInstanceInfo.Filesystem = &internal.StorageInstanceFilesystemInfo{
-				UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
-				ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
-				Size:           storageInstInfo.FilesystemSizeMIB.V,
-			}
+			retVal.StorageInstanceInfo.Filesystem =
+				&internal.StorageInstanceFilesystemInfo{
+					UUID: domainstorage.FilesystemUUID(
+						storageInstInfo.FilesystemUUID.V,
+					),
+					ProvisionScope: domainstorageprov.ProvisionScope(
+						storageInstInfo.FilesystemProvisionScopeID.V,
+					),
+					Size: storageInstInfo.FilesystemSizeMIB.V,
+				}
 		}
-		if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
+		if storageInstInfo.FilesystemOwnedMachineUUID.Valid &&
+			retVal.StorageInstanceInfo.Filesystem != nil {
 			retVal.StorageInstanceInfo.Filesystem.OwningMachineUUID =
 				new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
 		}
 
 		if storageInstInfo.VolumeUUID.Valid {
 			retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
-				UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
-				ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
-				Size:           storageInstInfo.VolumeSizeMIB.V,
+				UUID: domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
+				ProvisionScope: domainstorageprov.ProvisionScope(
+					storageInstInfo.VolumeProvisionScopeID.V,
+				),
+				Size: storageInstInfo.VolumeSizeMIB.V,
 			}
 		}
-		if storageInstInfo.VolumeOwnedMachineUUID.Valid {
+		if storageInstInfo.VolumeOwnedMachineUUID.Valid &&
+			retVal.StorageInstanceInfo.Volume != nil {
 			retVal.StorageInstanceInfo.Volume.OwningMachineUUID =
 				new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
 		}
@@ -692,7 +790,7 @@ func (st *State) GetStorageAttachInfoForStorageInstances(
 		retVals = append(retVals, retVal)
 	}
 
-	return retVals, nil
+	return retVals
 }
 
 // getStorageInstanceUnitAttachmentsForStorageInstances returns storage

@@ -143,43 +143,74 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstancesNoStorage(c *tc.C) {
 	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]
 
-	insts, _, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
+	insts, attachments, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(insts, tc.HasLen, 0)
+	c.Check(attachments, tc.HasLen, 0)
 }
 
 func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]
 
-	st1UUID, fs1UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
-	st2UUID, fs2UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st1UUID := u.newStorageInstanceWithValues(
+		c,
+		"st1",
+		domainstorage.StorageKindFilesystem,
+		life.Alive,
+		"bar",
+		2048,
+	)
+	st2UUID := u.newStorageInstanceWithValues(
+		c,
+		"st2",
+		domainstorage.StorageKindBlock,
+		life.Alive,
+		"bar",
+		3072,
+	)
+	fs1UUID := u.newModelFilesystemForStorageInstance(c, st1UUID)
+	v2UUID := u.newModelVolumeForStorageInstance(c, st2UUID)
+
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
 	owned, _, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
 
-	expected := []internal.StorageInstanceComposition{
+	expected := []internal.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           fs1UUID,
+			StorageInstanceInfo: internal.StorageInstanceInfo{
+				UUID:      st1UUID,
+				CharmName: new("bar"),
+				Filesystem: &internal.StorageInstanceFilesystemInfo{
+					UUID:           fs1UUID,
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+					Size:           1024,
+				},
+				Kind:             domainstorage.StorageKindFilesystem,
+				Life:             life.Alive,
+				RequestedSizeMIB: 2048,
+				StorageName:      "st1",
 			},
-			UUID: st1UUID,
 		},
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           fs2UUID,
+			StorageInstanceInfo: internal.StorageInstanceInfo{
+				UUID:      st2UUID,
+				CharmName: new("bar"),
+				Volume: &internal.StorageInstanceVolumeInfo{
+					UUID:           v2UUID,
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+					Size:           2048,
+				},
+				Kind:             domainstorage.StorageKindBlock,
+				Life:             life.Alive,
+				RequestedSizeMIB: 3072,
+				StorageName:      "st2",
 			},
-			UUID: st2UUID,
 		},
 	}
-
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_[_].StorageName", tc.Ignore)
-	c.Check(owned, mc, expected)
+	c.Check(owned, tc.SameContents, expected)
 }
 
 func (u *unitStorageSuite) getUnitCharmUUID(c *tc.C, unitUUID coreunit.UUID) corecharm.ID {
@@ -600,23 +631,36 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 
 	inst, attach, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(inst, tc.SameContents, []internal.StorageInstanceComposition{
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: 0,
-				UUID:           fs1UUID,
-			},
-			StorageName: "st1",
-			UUID:        si1UUID,
-		}, {
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: 0,
-				UUID:           fs2UUID,
-			},
-			StorageName: "st2",
-			UUID:        si2UUID,
-		},
-	})
+	c.Assert(inst, tc.HasLen, 2)
+	expectedStorageNames := map[domainstorage.StorageInstanceUUID]string{
+		si1UUID: "st1",
+		si2UUID: "st2",
+	}
+	expectedFilesystemUUIDs := map[domainstorage.StorageInstanceUUID]domainstorage.FilesystemUUID{
+		si1UUID: fs1UUID,
+		si2UUID: fs2UUID,
+	}
+	expectedAttachmentUUIDs := map[domainstorage.StorageInstanceUUID]domainstorage.StorageAttachmentUUID{
+		si1UUID: sa1UUID,
+		si2UUID: sa2UUID,
+	}
+	for _, instance := range inst {
+		c.Assert(instance.Filesystem, tc.NotNil)
+		c.Check(instance.StorageName, tc.Equals, expectedStorageNames[instance.UUID])
+		c.Check(
+			instance.Filesystem.UUID,
+			tc.Equals,
+			expectedFilesystemUUIDs[instance.UUID],
+		)
+		c.Assert(instance.StorageInstanceAttachments, tc.HasLen, 1)
+		c.Check(instance.StorageInstanceAttachments[0], tc.DeepEquals, internal.StorageInstanceUnitAttachment{
+			UnitUUID: unitUUID,
+			UUID:     expectedAttachmentUUIDs[instance.UUID],
+		})
+		c.Check(instance.Filesystem.ProvisionScope, tc.Equals, domainstorageprov.ProvisionScopeModel)
+		c.Check(instance.Life, tc.Equals, life.Alive)
+		c.Check(instance.Kind, tc.Equals, domainstorage.StorageKindFilesystem)
+	}
 	c.Assert(attach, tc.SameContents, []internal.StorageAttachmentComposition{
 		{
 			UUID:                sa1UUID,

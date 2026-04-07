@@ -93,6 +93,26 @@ func (s *storageHelper) newStoragePool(c *tc.C,
 func (s *storageHelper) newStorageInstanceWithName(
 	c *tc.C, storageName string,
 ) domainstorage.StorageInstanceUUID {
+	return s.newStorageInstanceWithValues(
+		c,
+		storageName,
+		domainstorage.StorageKindFilesystem,
+		domainlife.Alive,
+		"bar",
+		1024,
+	)
+}
+
+// newStorageInstanceWithValues creates a new storage instance with the supplied
+// values and no backing filesystem or volume.
+func (s *storageHelper) newStorageInstanceWithValues(
+	c *tc.C,
+	storageName string,
+	kind domainstorage.StorageKind,
+	life domainlife.Life,
+	charmName string,
+	requestedSizeMIB int,
+) domainstorage.StorageInstanceUUID {
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	storagePoolUUID := s.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
 
@@ -101,18 +121,100 @@ func (s *storageHelper) newStorageInstanceWithName(
 		`
 INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
                               life_id, storage_pool_uuid, charm_name, requested_size_mib)
-VALUES (?, ?, 1, ?, ?, ?, ?, 1024)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		storageInstanceUUID.String(),
 		storageName,
+		kind,
 		storageInstanceUUID.String(),
-		domainlife.Alive,
+		life,
 		storagePoolUUID.String(),
-		"bar",
+		charmName,
+		requestedSizeMIB,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstanceUUID
+}
+
+// newModelFilesystemForStorageInstance creates a model filesystem and links it
+// to the supplied storage instance using default values.
+//
+// The filesystem created has life set to alive, model provision scope and
+// size 1024 MiB.
+func (s *storageHelper) newModelFilesystemForStorageInstance(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+) domainstorage.FilesystemUUID {
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, ?, ?)
+`,
+		filesystemUUID.String(),
+		filesystemUUID.String(),
+		domainlife.Alive,
+		0,
+		1024,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid,
+                                         storage_filesystem_uuid)
+VALUES (?, ?)
+`,
+		storageInstanceUUID.String(),
+		filesystemUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return filesystemUUID
+}
+
+// newModelVolumeForStorageInstance creates a model volume and links it to the
+// supplied storage instance using default values.
+//
+// The volume created has life set to alive, model provision scope and
+// size 2048 MiB.
+func (s *storageHelper) newModelVolumeForStorageInstance(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+) domainstorage.VolumeUUID {
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, ?, ?)
+`,
+		volumeUUID.String(),
+		volumeUUID.String(),
+		domainlife.Alive,
+		0,
+		2048,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance_volume (storage_instance_uuid,
+                                     storage_volume_uuid)
+VALUES (?, ?)
+`,
+		storageInstanceUUID.String(),
+		volumeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volumeUUID
 }
 
 // newModelFilesystemStorageInstance creates a new storage instance backed by a
