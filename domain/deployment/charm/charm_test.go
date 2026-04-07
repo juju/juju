@@ -26,12 +26,12 @@ func checkDummy(c *tc.C, f charm.Charm) {
 			ActionSpecs: map[string]charm.ActionSpec{
 				"snapshot": {
 					Description: "Take a snapshot of the database.",
-					Params: map[string]interface{}{
+					Params: map[string]any{
 						"type":        "object",
 						"description": "Take a snapshot of the database.",
 						"title":       "snapshot",
-						"properties": map[string]interface{}{
-							"outfile": map[string]interface{}{
+						"properties": map[string]any{
+							"outfile": map[string]any{
 								"description": "The file to write out to.",
 								"type":        "string",
 								"default":     "foo.bz2",
@@ -54,14 +54,14 @@ func checkDummy(c *tc.C, f charm.Charm) {
 	})
 }
 
-type YamlHacker map[interface{}]interface{}
+type YamlHacker map[any]any
 
 func ReadYaml(r io.Reader) YamlHacker {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		panic(err)
 	}
-	m := make(map[interface{}]interface{})
+	m := make(map[any]any)
 	err = yaml.Unmarshal(data, m)
 	if err != nil {
 		panic(err)

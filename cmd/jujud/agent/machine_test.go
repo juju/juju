@@ -59,10 +59,10 @@ func defaultVersions(agentVersion semversion.Number) []semversion.Binary {
 }
 
 func (s *MachineSuite) SetUpTest(c *tc.C) {
-	s.ControllerConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]any{
 		controller.AuditingEnabled: true,
 	}
-	s.ControllerModelConfigAttrs = map[string]interface{}{
+	s.ControllerModelConfigAttrs = map[string]any{
 		"agent-version": coretesting.CurrentVersion().Number.String(),
 	}
 	s.WithLeaseManager = true

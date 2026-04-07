@@ -34,7 +34,7 @@ const (
 
 // Attrs represents configuration attributes from either the command-line
 // (key=value arguments) or a yaml file.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 // ConfigCommandBase provides a common interface/functionality for configuration
 // commands (such as config and model-config). It defines SetFlags and Init

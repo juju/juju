@@ -286,7 +286,7 @@ func (s *Suite) TestExportIAAS(c *tc.C) {
 func (s *Suite) TestExportCAAS(c *tc.C) {
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "caas",
-		Config:             map[string]interface{}{"uuid": s.modelUUID},
+		Config:             map[string]any{"uuid": s.modelUUID},
 		Owner:              "admin",
 		LatestToolsVersion: jujuversion.Current.String(),
 	})

@@ -163,8 +163,8 @@ func (c *APIAddressUpdater) TearDown() error {
 }
 
 // Report shows up in the dependency engine report.
-func (c *APIAddressUpdater) Report(ctx context.Context) map[string]interface{} {
-	report := make(map[string]interface{})
+func (c *APIAddressUpdater) Report(ctx context.Context) map[string]any {
+	report := make(map[string]any)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var servers [][]string

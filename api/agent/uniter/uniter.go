@@ -284,7 +284,7 @@ func (client *Client) ActionBegin(ctx context.Context, tag names.ActionTag) erro
 }
 
 // ActionFinish captures the structured output of an action.
-func (client *Client) ActionFinish(ctx context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+func (client *Client) ActionFinish(ctx context.Context, tag names.ActionTag, status string, results map[string]any, message string) error {
 	var outcome params.ErrorResults
 
 	args := params.ActionExecutionResults{

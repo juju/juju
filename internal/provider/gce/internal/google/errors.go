@@ -21,7 +21,7 @@ type InvalidConfigValueError struct {
 	Key string
 
 	// Value is the invalid value.
-	Value interface{}
+	Value any
 }
 
 // IsInvalidConfigValueError returns whether or not the cause of

@@ -56,7 +56,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 					ModelName:      "fred",
 					Config: params.SecretBackendConfig{
 						BackendType: "controller",
-						Params:      map[string]interface{}{"foo": "bar"},
+						Params:      map[string]any{"foo": "bar"},
 					},
 				},
 			},
@@ -75,7 +75,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "controller",
-					Config:      map[string]interface{}{"foo": "bar"},
+					Config:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -103,7 +103,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 					ModelName:      "fred",
 					Config: params.SecretBackendConfig{
 						BackendType: "controller",
-						Params:      map[string]interface{}{"foo": "bar"},
+						Params:      map[string]any{"foo": "bar"},
 					},
 				},
 			},
@@ -119,7 +119,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "controller",
-			Config:      map[string]interface{}{"foo": "bar"},
+			Config:      map[string]any{"foo": "bar"},
 		},
 	})
 	c.Assert(activeID, tc.Equals, "active-id")
@@ -194,7 +194,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 					Draining:       true,
 					Config: params.SecretBackendConfig{
 						BackendType: "some-backend",
-						Params:      map[string]interface{}{"foo": "bar"},
+						Params:      map[string]any{"foo": "bar"},
 					},
 				},
 			}},
@@ -214,7 +214,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 		ModelName:      "model",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "some-backend",
-			Config:      map[string]interface{}{"foo": "bar"},
+			Config:      map[string]any{"foo": "bar"},
 		},
 	})
 	c.Assert(draining, tc.IsTrue)
@@ -350,7 +350,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 					Draining:       true,
 					Config: params.SecretBackendConfig{
 						BackendType: "some-backend",
-						Params:      map[string]interface{}{"foo": "bar"},
+						Params:      map[string]any{"foo": "bar"},
 					},
 				},
 			}},
@@ -370,7 +370,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 		ModelName:      "model",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "some-backend",
-			Config:      map[string]interface{}{"foo": "bar"},
+			Config:      map[string]any{"foo": "bar"},
 		},
 	})
 	c.Assert(draining, tc.IsTrue)

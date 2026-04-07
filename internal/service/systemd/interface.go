@@ -18,8 +18,8 @@ type DBusAPI interface {
 	LinkUnitFiles([]string, bool, bool) ([]dbus.LinkUnitFileChange, error)
 	EnableUnitFiles([]string, bool, bool) (bool, []dbus.EnableUnitFileChange, error)
 	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
-	GetUnitProperties(string) (map[string]interface{}, error)
-	GetUnitTypeProperties(string, string) (map[string]interface{}, error)
+	GetUnitProperties(string) (map[string]any, error)
+	GetUnitTypeProperties(string, string) (map[string]any, error)
 	Reload() error
 }
 

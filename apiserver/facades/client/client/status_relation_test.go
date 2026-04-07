@@ -71,7 +71,7 @@ func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 		Status: status.StatusInfo{
 			Status:  "joined",
 			Message: "Hey man !",
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "bar",
 			},
 		},

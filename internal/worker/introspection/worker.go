@@ -32,7 +32,7 @@ var logger = internallogger.GetLogger("juju.worker.introspection")
 type DependencyEngine interface {
 	// Report returns a map describing the state of the receiver. It is expected
 	// to be goroutine-safe.
-	Report(ctx context.Context) map[string]interface{}
+	Report(ctx context.Context) map[string]any
 }
 
 // Reporter provides a simple method that the introspection

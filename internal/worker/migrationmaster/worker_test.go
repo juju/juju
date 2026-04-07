@@ -70,7 +70,7 @@ var (
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenControllerCall = testhelpers.StubCall{
 		FuncName: "apiOpen",
-		Args: []interface{}{
+		Args: []any{
 			&api.Info{
 				Addrs:    []string{"1.2.3.4:5"},
 				CACert:   "cert",
@@ -82,13 +82,13 @@ var (
 	}
 	importCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Import",
-		Args: []interface{}{
+		Args: []any{
 			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Activate",
-		Args: []interface{}{
+		Args: []any{
 			params.ActivateModelArgs{
 				ModelTag:        modelTag.String(),
 				ControllerTag:   sourceControllerTag.String(),
@@ -101,13 +101,13 @@ var (
 	}
 	checkMachinesCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.CheckMachines",
-		Args: []interface{}{
+		Args: []any{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	adoptResourcesCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.AdoptResources",
-		Args: []interface{}{
+		Args: []any{
 			params.AdoptResourcesArgs{
 				ModelTag:                modelTag.String(),
 				SourceControllerVersion: jujuversion.Current,
@@ -116,14 +116,14 @@ var (
 	}
 	latestLogTimeCall = testhelpers.StubCall{
 		FuncName: "MigrationTarget.LatestLogTime",
-		Args: []interface{}{
+		Args: []any{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
 	apiCloseCall = testhelpers.StubCall{FuncName: "Connection.Close"}
 	abortCall    = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Abort",
-		Args: []interface{}{
+		Args: []any{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
@@ -134,9 +134,9 @@ var (
 	}
 	prechecksCalls = []testhelpers.StubCall{
 		{FuncName: "facade.ModelInfo", Args: nil},
-		{FuncName: "facade.Prechecks", Args: []interface{}{}},
+		{FuncName: "facade.Prechecks", Args: []any{}},
 		apiOpenControllerCall,
-		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{params.MigrationModelInfo{
+		{FuncName: "MigrationTarget.Prechecks", Args: []any{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
 			Qualifier:    modelQualifier.String(),
@@ -153,13 +153,13 @@ var (
 		apiCloseCall,
 	}
 	abortCalls = []testhelpers.StubCall{
-		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORT}},
+		{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORT}},
 		apiOpenControllerCall,
 		abortCall,
 		apiCloseCall,
-		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
+		{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
 	}
-	openDestLogStreamCall = testhelpers.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
+	openDestLogStreamCall = testhelpers.StubCall{FuncName: "ConnectControllerStream", Args: []any{
 		"/migrate/logtransfer",
 		url.Values{},
 		http.Header{
@@ -256,13 +256,13 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 		},
 		prechecksCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.IMPORT}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.IMPORT}},
 
 			//IMPORT
 			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
 			importCall,
-			{FuncName: "UploadBinaries", Args: []interface{}{
+			{FuncName: "UploadBinaries", Args: []any{
 				[]string{"charm0", "charm1"},
 				fakeCharmService,
 				map[string]semversion.Binary{
@@ -274,11 +274,11 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 				s.facade,
 			}},
 			apiCloseCall, // for target controller
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.PROCESSRELATIONS}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.PROCESSRELATIONS}},
 
 			// PROCESSRELATIONS
-			{FuncName: "facade.ProcessRelations", Args: []interface{}{""}},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.VALIDATION}},
+			{FuncName: "facade.ProcessRelations", Args: []any{""}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.VALIDATION}},
 
 			// VALIDATION
 			{FuncName: "facade.WatchMinionReports", Args: nil},
@@ -288,7 +288,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			activateCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.SUCCESS}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.SUCCESS}},
 
 			// SUCCESS
 			{FuncName: "facade.WatchMinionReports", Args: nil},
@@ -296,19 +296,19 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 
 			// REAP
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		}),
 	)
 }
@@ -340,7 +340,7 @@ func (s *Suite) TestIncompatibleTarget(c *tc.C) {
 		// QUIESCE
 		[]testhelpers.StubCall{
 			{FuncName: "facade.ModelInfo", Args: nil},
-			{FuncName: "facade.Prechecks", Args: []interface{}{}},
+			{FuncName: "facade.Prechecks", Args: []any{}},
 			apiOpenControllerCall,
 			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			apiCloseCall,
@@ -364,15 +364,15 @@ func (s *Suite) TestMigrationResume(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 }
@@ -500,7 +500,7 @@ func (s *Suite) TestQUIESCEWrongController(c *tc.C) {
 		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ModelInfo", Args: nil},
-			{FuncName: "facade.Prechecks", Args: []interface{}{}},
+			{FuncName: "facade.Prechecks", Args: []any{}},
 			apiOpenControllerCall,
 			apiCloseCall,
 		},
@@ -518,7 +518,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
 		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.ModelInfo", Args: nil},
-			{FuncName: "facade.Prechecks", Args: []interface{}{}},
+			{FuncName: "facade.Prechecks", Args: []any{}},
 		},
 		abortCalls,
 	))
@@ -563,7 +563,7 @@ func (s *Suite) TestProcessRelationsFailure(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.ProcessRelations", Args: []interface{}{""}},
+			{FuncName: "facade.ProcessRelations", Args: []any{""}},
 		},
 		abortCalls,
 	))
@@ -595,9 +595,9 @@ func (s *Suite) TestAPIOpenFailure(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORT}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORT}},
 			apiOpenControllerCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -756,15 +756,15 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 }
@@ -789,15 +789,15 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 }
@@ -832,15 +832,15 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 }
@@ -898,7 +898,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{
 				FuncName: "apiOpen",
-				Args: []interface{}{
+				Args: []any{
 					&api.Info{
 						Addrs:     []string{"1.2.3.4:5"},
 						CACert:    "cert",
@@ -910,7 +910,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 			},
 			abortCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -944,7 +944,7 @@ func (s *Suite) TestAPIConnectionWithToken(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{
 				FuncName: "apiOpen",
-				Args: []interface{}{
+				Args: []any{
 					&api.Info{
 						Addrs:  []string{"1.2.3.4:5"},
 						CACert: "cert",
@@ -955,7 +955,7 @@ func (s *Suite) TestAPIConnectionWithToken(c *tc.C) {
 			},
 			abortCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -1001,7 +1001,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			apiCloseCall,
 		},
 	))
@@ -1018,7 +1018,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
 		},
@@ -1038,7 +1038,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
 		},
@@ -1075,12 +1075,12 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 	c.Assert(s.connection.logStream.written, tc.DeepEquals, []params.LogRecord{
@@ -1146,12 +1146,12 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{FuncName: "StreamModelLog", Args: []interface{}{t}},
+			{FuncName: "StreamModelLog", Args: []any{t}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
 			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
 		},
 	))
 }
@@ -1499,7 +1499,7 @@ func (c *stubConnection) BestFacadeVersion(string) int {
 	return c.facadeVersion
 }
 
-func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, request string, args, response interface{}) error {
+func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, request string, args, response any) error {
 	c.stub.AddCall(objType+"."+request, args)
 
 	if objType == "MigrationTarget" {
@@ -1619,7 +1619,7 @@ type mockStream struct {
 	closeCount int
 }
 
-func (s *mockStream) WriteJSON(v interface{}) error {
+func (s *mockStream) WriteJSON(v any) error {
 	if s.writeErr != nil {
 		return s.writeErr
 	}

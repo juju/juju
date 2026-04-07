@@ -156,7 +156,7 @@ func InstanceConfig(
 		return nil, errors.Annotate(err, "initializing instance config")
 	}
 
-	icfg.ControllerConfig = make(map[string]interface{})
+	icfg.ControllerConfig = make(map[string]any)
 	maps.Copy(icfg.ControllerConfig, controllerConfig)
 
 	if dataDir != "" {

@@ -79,10 +79,10 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *tc.C, expected expectedMetad
 	data, err := os.ReadFile(indexpath)
 	c.Assert(err, tc.ErrorIsNil)
 	content := string(data)
-	var indices interface{}
+	var indices any
 	err = json.Unmarshal(data, &indices)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(indices.(map[string]interface{})["format"], tc.Equals, "index:1.0")
+	c.Assert(indices.(map[string]any)["format"], tc.Equals, "index:1.0")
 	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", expected.version, expected.arch)
 	c.Assert(content, tc.Contains, prodId)
 	c.Assert(content, tc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
@@ -93,10 +93,10 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *tc.C, expected expectedMetad
 	data, err = os.ReadFile(imagepath)
 	c.Assert(err, tc.ErrorIsNil)
 	content = string(data)
-	var images interface{}
+	var images any
 	err = json.Unmarshal(data, &images)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(images.(map[string]interface{})["format"], tc.Equals, "products:1.0")
+	c.Assert(images.(map[string]any)["format"], tc.Equals, "products:1.0")
 	c.Assert(content, tc.Contains, prodId)
 	c.Assert(content, tc.Contains, `"id": "1234"`)
 	if expected.virtType != "" {
@@ -142,7 +142,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *tc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *tc.C) {
-	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+	ec2Config, err := config.New(config.UseDefaults, map[string]any{
 		"name":            "ec2-latest-lts",
 		"type":            "ec2",
 		"uuid":            testing.ModelTag.Id(),

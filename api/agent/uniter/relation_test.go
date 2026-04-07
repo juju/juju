@@ -27,7 +27,7 @@ func TestRelationSuite(t *stdtesting.T) {
 }
 
 func (s *relationSuite) TestRelation(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "Relation")
 		c.Assert(arg, tc.DeepEquals, params.RelationUnits{
@@ -85,7 +85,7 @@ func (s *relationSuite) TestRelation(c *tc.C) {
 }
 
 func (s *relationSuite) TestRefresh(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "Relation")
 		c.Assert(arg, tc.DeepEquals, params.RelationUnits{
@@ -113,7 +113,7 @@ func (s *relationSuite) TestRefresh(c *tc.C) {
 }
 
 func (s *relationSuite) TestSuspended(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
@@ -126,7 +126,7 @@ func (s *relationSuite) TestSuspended(c *tc.C) {
 
 func (s *relationSuite) TestSetStatus(c *tc.C) {
 	statusSet := false
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "SetRelationStatus")
 		c.Assert(arg, tc.DeepEquals, params.RelationStatusArgs{
@@ -152,7 +152,7 @@ func (s *relationSuite) TestSetStatus(c *tc.C) {
 }
 
 func (s *relationSuite) TestRelationById(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "RelationById")
 		c.Assert(arg, tc.DeepEquals, params.RelationIds{RelationIds: []int{666}})

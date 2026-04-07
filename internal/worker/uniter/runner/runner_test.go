@@ -243,9 +243,9 @@ type MockContext struct {
 	id              string
 	actionData      *context.ActionData
 	actionDataErr   error
-	actionParams    map[string]interface{}
+	actionParams    map[string]any
 	actionParamsErr error
-	actionResults   map[string]interface{}
+	actionResults   map[string]any
 	expectPid       int
 	flushBadge      string
 	flushFailure    error
@@ -300,11 +300,11 @@ func (ctx *MockContext) Flush(_ stdcontext.Context, badge string, failure error)
 	return ctx.flushResult
 }
 
-func (ctx *MockContext) ActionParams() (map[string]interface{}, error) {
+func (ctx *MockContext) ActionParams() (map[string]any, error) {
 	return ctx.actionParams, ctx.actionParamsErr
 }
 
-func (ctx *MockContext) UpdateActionResults(keys []string, value interface{}) error {
+func (ctx *MockContext) UpdateActionResults(keys []string, value any) error {
 	for _, key := range keys {
 		ctx.actionResults[key] = value
 	}
@@ -341,7 +341,7 @@ func (s *RunMockContextSuite) assertRecordedPid(c *tc.C, expectPid int) {
 }
 
 func (s *RunMockContextSuite) TestBadContextId(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "echo 1",
 		"timeout": 0,
 	}
@@ -352,7 +352,7 @@ func (s *RunMockContextSuite) TestBadContextId(c *tc.C) {
 			Params: params,
 		},
 		actionParams:  params,
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	start := make(chan struct{})
 	done := make(chan struct{})
@@ -442,7 +442,7 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *tc.C) {
 func (s *RunHookSuite) TestRunActionDispatchingHookHandler(c *tc.C) {
 	ctx := &MockContext{
 		actionData:    &context.ActionData{},
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 
 	paths := runnertesting.NewRealPaths(c)
@@ -464,7 +464,7 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *tc.C) {
 	ctx := &MockContext{
 		flushResult:   expectErr,
 		actionData:    &context.ActionData{},
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	makeCharm(c, hookSpec{
 		dir:    "actions",
@@ -479,7 +479,7 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *tc.C) {
 	c.Assert(ctx.flushBadge, tc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, tc.IsNil)
 	s.assertRecordedPid(c, ctx.expectPid)
-	c.Assert(ctx.actionResults, tc.DeepEquals, map[string]interface{}{
+	c.Assert(ctx.actionResults, tc.DeepEquals, map[string]any{
 		"return-code": 0, "stderr": "world\n", "stdout": "hello\n",
 	})
 }
@@ -489,7 +489,7 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *tc.C) {
 	ctx := &MockContext{
 		flushResult:   expectErr,
 		actionData:    &context.ActionData{},
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
@@ -515,7 +515,7 @@ func (s *RunMockContextSuite) TestRunActionDataFailure(c *tc.C) {
 }
 
 func (s *RunMockContextSuite) TestRunActionSuccessful(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "echo 1",
 		"timeout": 0,
 	}
@@ -524,7 +524,7 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *tc.C) {
 			Params: params,
 		},
 		actionParams:  params,
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	_, err := runner.NewRunner(ctx, s.paths).RunAction(c.Context(), "juju-exec")
 	c.Assert(err, tc.ErrorIsNil)
@@ -536,7 +536,7 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *tc.C) {
 }
 
 func (s *RunMockContextSuite) TestRunActionError(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "echo 1\nexit 3",
 		"timeout": 0,
 	}
@@ -545,7 +545,7 @@ func (s *RunMockContextSuite) TestRunActionError(c *tc.C) {
 			Params: params,
 		},
 		actionParams:  params,
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	_, err := runner.NewRunner(ctx, s.paths).RunAction(c.Context(), "juju-exec")
 	c.Assert(err, tc.ErrorIsNil)
@@ -558,7 +558,7 @@ func (s *RunMockContextSuite) TestRunActionError(c *tc.C) {
 
 func (s *RunMockContextSuite) TestRunActionCancelled(c *tc.C) {
 	timeout := 1 * time.Nanosecond
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "sleep 10",
 		"timeout": float64(timeout.Nanoseconds()),
 	}
@@ -567,7 +567,7 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *tc.C) {
 			Params: params,
 		},
 		actionParams:  params,
-		actionResults: map[string]interface{}{},
+		actionResults: map[string]any{},
 	}
 	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
 		select {

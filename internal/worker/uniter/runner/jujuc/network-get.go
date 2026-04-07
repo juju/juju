@@ -147,7 +147,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Write the specific articles requested.
-	keyValues := make(map[string]interface{})
+	keyValues := make(map[string]any)
 	if c.egressSubnets {
 		keyValues[egressSubnetsKey] = ni.EgressSubnets
 	}

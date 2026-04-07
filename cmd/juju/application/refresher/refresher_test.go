@@ -639,6 +639,6 @@ func refresherConfigWithOrigin(curl *charm.URL, ref string, platform corecharm.P
 type fakeLogger struct {
 }
 
-func (fakeLogger) Infof(_ string, _ ...interface{})    {}
-func (fakeLogger) Warningf(_ string, _ ...interface{}) {}
-func (fakeLogger) Verbosef(_ string, _ ...interface{}) {}
+func (fakeLogger) Infof(_ string, _ ...any)    {}
+func (fakeLogger) Warningf(_ string, _ ...any) {}
+func (fakeLogger) Verbosef(_ string, _ ...any) {}

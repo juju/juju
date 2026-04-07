@@ -20,7 +20,7 @@ type SizeGetter interface {
 	Get(int) *remotecommand.TerminalSize
 }
 
-func getFdInfo(in interface{}) (inFd int) {
+func getFdInfo(in any) (inFd int) {
 	if file, ok := in.(*os.File); ok {
 		inFd = int(file.Fd())
 	}

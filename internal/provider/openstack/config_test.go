@@ -28,8 +28,8 @@ func TestConfigSuite(t *stdtesting.T) {
 type configTest struct {
 	summary                 string
 	config                  testing.Attrs
-	change                  map[string]interface{}
-	expect                  map[string]interface{}
+	change                  map[string]any
+	expect                  map[string]any
 	useDefaultSecurityGroup bool
 	network                 string
 	externalNetwork         string

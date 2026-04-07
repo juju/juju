@@ -1166,9 +1166,9 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerel
 	return key, nil
 }
 
-func settingsMap(in map[string]interface{}) (map[string]string, error) {
+func settingsMap(in map[string]any) (map[string]string, error) {
 	var errs error
-	return transform.Map(in, func(k string, v interface{}) (string, string) {
+	return transform.Map(in, func(k string, v any) (string, string) {
 		switch v.(type) {
 		case string:
 		default:

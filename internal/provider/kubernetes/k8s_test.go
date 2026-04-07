@@ -70,7 +70,7 @@ func getBasicPodspec() *specs.PodSpec {
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
-		EnvConfig: map[string]interface{}{
+		EnvConfig: map[string]any{
 			"foo":        "bar",
 			"restricted": "yes",
 			"bar":        true,

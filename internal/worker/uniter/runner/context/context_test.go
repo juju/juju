@@ -196,12 +196,12 @@ func (s *InterfaceSuite) TestUnitStatus(c *tc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
+	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]any{"hello": "world"})()
 	status, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(status.Status, tc.Equals, "maintenance")
 	c.Check(status.Info, tc.Equals, "working")
-	c.Check(status.Data, tc.DeepEquals, map[string]interface{}{"hello": "world"})
+	c.Check(status.Data, tc.DeepEquals, map[string]any{"hello": "world"})
 }
 
 func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
@@ -220,13 +220,13 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
 	s.unit.EXPECT().UnitStatus(gomock.Any()).Return(params.StatusResult{
 		Status: "maintenance",
 		Info:   "doing work",
-		Data:   map[string]interface{}{},
+		Data:   map[string]any{},
 	}, nil)
 	unitStatus, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "maintenance")
 	c.Check(unitStatus.Info, tc.Equals, "doing work")
-	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]any{})
 }
 
 func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *tc.C) {
@@ -276,20 +276,20 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *tc.C) {
 	s.unit.EXPECT().UnitStatus(gomock.Any()).Return(params.StatusResult{
 		Status: "waiting",
 		Info:   "waiting for machine",
-		Data:   map[string]interface{}{},
+		Data:   map[string]any{},
 	}, nil)
 	unitStatus, err := ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "waiting")
 	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
-	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]any{})
 
 	// Second call does not hit backend.
 	unitStatus, err = ctx.UnitStatus(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(unitStatus.Status, tc.Equals, "waiting")
 	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
-	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]any{})
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *tc.C) {
@@ -402,37 +402,37 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *tc.C) {
 // as expected.
 func (s *InterfaceSuite) TestUpdateActionResults(c *tc.C) {
 	tests := []struct {
-		initial  map[string]interface{}
+		initial  map[string]any
 		keys     []string
 		value    string
-		expected map[string]interface{}
+		expected map[string]any
 	}{{
-		initial: map[string]interface{}{},
+		initial: map[string]any{},
 		keys:    []string{"foo"},
 		value:   "bar",
-		expected: map[string]interface{}{
+		expected: map[string]any{
 			"foo": "bar",
 		},
 	}, {
-		initial: map[string]interface{}{
+		initial: map[string]any{
 			"foo": "bar",
 		},
 		keys:  []string{"foo", "bar"},
 		value: "baz",
-		expected: map[string]interface{}{
-			"foo": map[string]interface{}{
+		expected: map[string]any{
+			"foo": map[string]any{
 				"bar": "baz",
 			},
 		},
 	}, {
-		initial: map[string]interface{}{
-			"foo": map[string]interface{}{
+		initial: map[string]any{
+			"foo": map[string]any{
 				"bar": "baz",
 			},
 		},
 		keys:  []string{"foo"},
 		value: "bar",
-		expected: map[string]interface{}{
+		expected: map[string]any{
 			"foo": "bar",
 		},
 	}}
@@ -1124,7 +1124,7 @@ func (s *HookContextSuite) TestActionFlushError(c *tc.C) {
 
 	client := api.NewMockUniterClient(ctrl)
 	hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
-	resultData := map[string]interface{}{
+	resultData := map[string]any{
 		"stderr":      "flush failed",
 		"return-code": "1",
 	}
@@ -1262,7 +1262,7 @@ func (s *HookContextSuite) TestSecretGet(c *tc.C) {
 	})
 
 	uri := coresecrets.NewURI()
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "SecretsManager")
 		c.Assert(version, tc.Equals, 0)
 		c.Assert(id, tc.Equals, "")
@@ -1319,7 +1319,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 	s.mockLeadership.EXPECT().IsLeader().Return(isLeader, nil)
 
 	uri := coresecrets.NewURI()
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "SecretsManager")
 		c.Assert(version, tc.Equals, 0)
 		c.Assert(id, tc.Equals, "")
@@ -1541,7 +1541,7 @@ func (s *HookContextSuite) assertSecretCreate(c *tc.C, owner coresecrets.Owner) 
 	data := map[string]string{"foo": "bar"}
 	value := coresecrets.NewSecretValue(data)
 	expiry := time.Now()
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "SecretsManager")
 		c.Assert(version, tc.Equals, 0)
 		c.Assert(id, tc.Equals, "")
@@ -1597,7 +1597,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 
 	data := map[string]string{"foo": "bar"}
 	value := coresecrets.NewSecretValue(data)
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "SecretsManager")
 		c.Assert(version, tc.Equals, 0)
 		c.Assert(id, tc.Equals, "")
@@ -2170,7 +2170,7 @@ func (s *HookContextSuite) TestSecretsMetadataLazyLoaded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	called := false
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(called, tc.IsFalse)
 		called = true
 		c.Assert(objType, tc.Equals, "SecretsManager")

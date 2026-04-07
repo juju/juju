@@ -43,7 +43,7 @@ func (s *externalUserLoginSuite) SetUpTest(c *tc.C) {
 		},
 	)
 	// Set the identity URL so that admin.authenticate() uses external macaroon auth.
-	s.ControllerConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]any{
 		jujucontroller.IdentityURL: s.discharger.Location(),
 	}
 	s.ApiServerSuite.SetUpTest(c)

@@ -365,7 +365,7 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *tc.C) {
 				ID:          "another-vault-id",
 				Name:        "another-vault",
 				BackendType: vault.BackendType,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"endpoint": "http://another-vault",
 				},
 			},
@@ -392,7 +392,7 @@ func (s *serviceSuite) TestBackendSummaryInfoForModel(c *tc.C) {
 				ID:          "vault-backend-id",
 				Name:        "myvault",
 				BackendType: vault.BackendType,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"endpoint": "http://vault",
 				},
 			},
@@ -504,7 +504,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *tc.C) {
 					ID:          "another-vault-id",
 					Name:        "another-vault",
 					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"endpoint": "http://another-vault",
 					},
 				},
@@ -531,7 +531,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllCAAS(c *tc.C) {
 					ID:          "vault-backend-id",
 					Name:        "myvault",
 					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"endpoint": "http://vault",
 					},
 				},
@@ -564,7 +564,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *tc.C) {
 					ID:          "another-vault-id",
 					Name:        "another-vault",
 					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"endpoint": "http://another-vault",
 					},
 				},
@@ -585,7 +585,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterAllIAAS(c *tc.C) {
 					ID:          "vault-backend-id",
 					Name:        "myvault",
 					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"endpoint": "http://vault",
 					},
 				},
@@ -618,7 +618,7 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNames(c *tc.C) {
 					ID:          "another-vault-id",
 					Name:        "another-vault",
 					BackendType: vault.BackendType,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"endpoint": "http://another-vault",
 					},
 				},
@@ -1115,7 +1115,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 		},
 	)
 
-	addedConfig := map[string]interface{}{
+	addedConfig := map[string]any{
 		"endpoint":  "http://vault",
 		"namespace": "foo",
 	}
@@ -1144,7 +1144,7 @@ func (s *serviceSuite) TestCreateSecretBackend(c *tc.C) {
 		Name:                "myvault",
 		BackendType:         vault.BackendType,
 		TokenRotateInterval: new(200 * time.Minute),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"endpoint": "http://vault",
 		},
 	})
@@ -1216,7 +1216,7 @@ func (s *serviceSuite) assertUpdateSecretBackend(c *tc.C, byName, skipPing bool)
 		identifier = secretbackend.BackendIdentifier{Name: "myvault"}
 	}
 
-	updatedConfig := map[string]interface{}{
+	updatedConfig := map[string]any{
 		"endpoint":        "http://vault",
 		"namespace":       "foo",
 		"tls-server-name": "server-name",

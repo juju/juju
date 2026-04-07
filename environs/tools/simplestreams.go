@@ -160,7 +160,7 @@ func (t *ToolsMetadata) productId() (string, error) {
 // server.
 type SimplestreamsFetcher interface {
 	NewDataSource(simplestreams.Config) simplestreams.DataSource
-	GetMetadata(context.Context, []simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
+	GetMetadata(context.Context, []simplestreams.DataSource, simplestreams.GetMetadataParams) ([]any, *simplestreams.ResolveInfo, error)
 }
 
 // Fetch returns a list of tools for the specified cloud matching the constraint.
@@ -209,8 +209,8 @@ func (b byVersion) Less(i, j int) bool { return b[i].sortString() < b[j].sortStr
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified os type. If a tools record already exists in matchingTools, it is not overwritten.
-func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
-	tools map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
+func appendMatchingTools(source simplestreams.DataSource, matchingTools []any,
+	tools map[string]any, cons simplestreams.LookupConstraint) ([]any, error) {
 
 	toolsMap := make(map[semversion.Binary]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
@@ -387,7 +387,7 @@ func ReadAllMetadata(ctx context.Context, ss SimplestreamsFetcher, store storage
 // removeMetadataUpdated unmarshalls simplestreams metadata, clears the
 // updated attribute, and then marshalls back to a string.
 func removeMetadataUpdated(metadataBytes []byte) (string, error) {
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	err := json.Unmarshal(metadataBytes, &metadata)
 	if err != nil {
 		return "", err

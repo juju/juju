@@ -475,7 +475,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.Context) (constraints.
 			constraints.Arch,
 		},
 	)
-	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]any) error {
 		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
 		if !ok {
 			return nil

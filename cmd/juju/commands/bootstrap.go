@@ -1330,11 +1330,11 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 // bootstrapConfigs is a deconstructed representation of all of the config
 // options supplied by a user at bootstrap time into their various buckets.
 type bootstrapConfigs struct {
-	bootstrapModel           map[string]interface{}
+	bootstrapModel           map[string]any
 	controller               controller.Config
 	bootstrap                bootstrap.Config
-	inheritedControllerAttrs map[string]interface{}
-	userConfigAttrs          map[string]interface{}
+	inheritedControllerAttrs map[string]any
+	userConfigAttrs          map[string]any
 	storagePools             map[string]storage.Attrs
 }
 
@@ -1358,7 +1358,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 
 	// Create a model config, and split out any controller
 	// and bootstrap config attributes.
-	combinedConfig := map[string]interface{}{
+	combinedConfig := map[string]any{
 		"type":         cloud.Type,
 		"name":         bootstrap.ControllerModelName,
 		config.UUIDKey: controllerModelUUID.String(),
@@ -1376,9 +1376,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
-	var providerAttrs map[string]interface{}
+	var providerAttrs map[string]any
 	if ps, ok := provider.(config.ConfigSchemaSource); ok {
-		providerAttrs = make(map[string]interface{})
+		providerAttrs = make(map[string]any)
 		for attr := range ps.ConfigSchema() {
 			// Start with the model defaults, and if also specified
 			// in the user config attrs, they override the model default.
@@ -1395,7 +1395,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 			return bootstrapConfigs{},
 				errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
 		}
-		providerAttrs = coercedAttrs.(map[string]interface{})
+		providerAttrs = coercedAttrs.(map[string]any)
 	}
 
 	storagePoolAttrs, err := c.storagePool.ReadAttrs(ctx)
@@ -1422,11 +1422,11 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools[poolName] = storagePoolAttrs
 	}
 
-	bootstrapConfigAttrs := make(map[string]interface{})
-	controllerConfigAttrs := make(map[string]interface{})
+	bootstrapConfigAttrs := make(map[string]any)
+	controllerConfigAttrs := make(map[string]any)
 	// Based on the attribute names in clouds.yaml, create
 	// a map of shared config for all models on this cloud.
-	inheritedControllerAttrs := make(map[string]interface{})
+	inheritedControllerAttrs := make(map[string]any)
 	for k, v := range cloud.Config {
 		switch {
 		case bootstrap.IsBootstrapAttribute(k):
@@ -1488,7 +1488,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 	}
 
-	bootstrapModelConfig := make(map[string]interface{})
+	bootstrapModelConfig := make(map[string]any)
 	for k, v := range combinedConfig {
 		switch {
 		case bootstrap.IsBootstrapAttribute(k):

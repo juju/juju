@@ -22,7 +22,7 @@ var (
 )
 
 type patcher interface {
-	PatchValue(interface{}, interface{})
+	PatchValue(any, any)
 }
 
 // PatchConnectRemote ensures that the ConnectImageRemote function always returns

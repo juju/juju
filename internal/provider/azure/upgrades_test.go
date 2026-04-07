@@ -128,7 +128,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	unmarshalRequestBody(c, s.requests[2], &actual)
 	c.Assert(actual.Properties, tc.NotNil)
 	c.Assert(actual.Properties.Template, tc.NotNil)
-	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	resources, ok := actual.Properties.Template.(map[string]any)["resources"].([]any)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(resources, tc.HasLen, 2)
 }

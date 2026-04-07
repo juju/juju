@@ -162,7 +162,7 @@ type PrintConfigSchema struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-func FormatConfigSchema(values interface{}) (string, error) {
+func FormatConfigSchema(values any) (string, error) {
 	out := &bytes.Buffer{}
 	err := cmd.FormatSmart(out, values)
 	if err != nil {

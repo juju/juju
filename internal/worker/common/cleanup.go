@@ -41,7 +41,7 @@ func (w *CleanupWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (w *CleanupWorker) Report(ctx context.Context) map[string]interface{} {
+func (w *CleanupWorker) Report(ctx context.Context) map[string]any {
 	if r, ok := w.Worker.(worker.Reporter); ok {
 		return r.Report(ctx)
 	}

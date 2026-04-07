@@ -490,8 +490,8 @@ func (r *relationStateTracker) LocalUnitAndApplicationLife(ctx stdcontext.Contex
 }
 
 // Report provides information for the engine report.
-func (r *relationStateTracker) Report(_ stdcontext.Context) map[string]interface{} {
-	result := make(map[string]interface{})
+func (r *relationStateTracker) Report(_ stdcontext.Context) map[string]any {
+	result := make(map[string]any)
 
 	stateMgr, ok := r.stateMgr.(*stateManager)
 	if !ok {
@@ -502,7 +502,7 @@ func (r *relationStateTracker) Report(_ stdcontext.Context) map[string]interface
 	stateMgr.mu.Unlock()
 
 	for id, st := range relationState {
-		report := map[string]interface{}{
+		report := map[string]any{
 			"application-members": st.ApplicationMembers,
 			"members":             st.Members,
 			"is-peer":             r.isPeerRelation[id],

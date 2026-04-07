@@ -165,7 +165,7 @@ func NewDefaultsCommand() cmd.Command {
 	return modelcmd.WrapController(defaultsCmd)
 }
 
-type defaultAttrs map[string]interface{}
+type defaultAttrs map[string]any
 
 // CoerceFormat attempts to convert the defaultAttrs values from the complex
 // type to the more simple type. This is because the output of this command
@@ -184,7 +184,7 @@ type defaultAttrs map[string]interface{}
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
 func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
-	coerced := make(map[string]interface{})
+	coerced := make(map[string]any)
 
 	fields := schema.FieldMap(schema.Fields{
 		"default":    schema.Any(),
@@ -206,14 +206,14 @@ func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
 			continue
 		}
 
-		m := out.(map[string]interface{})
+		m := out.(map[string]any)
 		v = m["default"]
 		if ctrl, ok := m["controller"]; ok && region == "" {
 			v = ctrl
 		}
-		if regions, ok := m["regions"].([]interface{}); ok && regions != nil {
+		if regions, ok := m["regions"].([]any); ok && regions != nil {
 			for _, r := range regions {
-				regionMap, ok := r.(map[string]interface{})
+				regionMap, ok := r.(map[string]any)
 				if !ok {
 					continue
 				}
@@ -273,7 +273,7 @@ type defaultsCommandAPI interface {
 
 	// SetModelDefaults sets the default config values to use
 	// when creating new models.
-	SetModelDefaults(ctx context.Context, cloud, region string, config map[string]interface{}) error
+	SetModelDefaults(ctx context.Context, cloud, region string, config map[string]any) error
 
 	// UnsetModelDefaults clears the default model
 	// configuration values.
@@ -593,7 +593,7 @@ func (c *defaultsCommand) verifyKnownKeys(ctx context.Context, client defaultsCo
 }
 
 // formatConfigTabular writes a tabular summary of default config information.
-func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
+func formatDefaultConfigTabular(writer io.Writer, value any) error {
 	defaultValues, ok := value.(envconfig.ModelDefaultAttributes)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", defaultValues, value)
@@ -605,7 +605,7 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	p := func(name string, value envconfig.AttributeDefaultValues) {
-		var c, d interface{}
+		var c, d any
 		switch value.Default {
 		case nil:
 			d = "-"

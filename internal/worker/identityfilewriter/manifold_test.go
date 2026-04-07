@@ -88,7 +88,7 @@ func (c *fakeConfig) Tag() names.Tag {
 }
 
 func mockAPICaller(job model.MachineJob) apitesting.APICallerFunc {
-	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		if res, ok := result.(*params.AgentGetEntitiesResults); ok {
 			res.Entities = []params.AgentGetEntitiesResult{
 				{Jobs: []model.MachineJob{

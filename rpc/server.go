@@ -37,13 +37,13 @@ type Codec interface {
 	// is a request; if not, it's a response.  The body value will
 	// be a non-nil struct pointer, or nil to signify that the body
 	// should be read and discarded.
-	ReadBody(body interface{}, isRequest bool) error
+	ReadBody(body any, isRequest bool) error
 
 	// WriteMessage writes a message with the given header and body.
 	// The body will always be a struct. It may be called concurrently
 	// with ReadHeader and ReadBody, but will not be called
 	// concurrently with itself.
-	WriteMessage(hdr *Header, body interface{}) error
+	WriteMessage(hdr *Header, body any) error
 
 	// Close closes the codec. It may be called concurrently
 	// and should cause the Read methods to unblock.
@@ -78,7 +78,7 @@ type Header struct {
 	// error.
 	// TODO (stickupkid): This should have been metadata for all responses
 	// not just errors.
-	ErrorInfo map[string]interface{}
+	ErrorInfo map[string]any
 
 	// Version defines the wire format of the request and response structure.
 	Version int
@@ -127,8 +127,8 @@ type RecorderFactory func() Recorder
 // audit logging), and when it does the request should be failed as
 // well.
 type Recorder interface {
-	HandleRequest(hdr *Header, body interface{}) error
-	HandleReply(req Request, replyHdr *Header, body interface{}) error
+	HandleRequest(hdr *Header, body any) error
+	HandleReply(req Request, replyHdr *Header, body any) error
 }
 
 type noopTracingRoot struct {
@@ -274,7 +274,7 @@ func (conn *Conn) Start(ctx context.Context) {
 // set of methods being served by the connection. This will have
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
-func (conn *Conn) Serve(root interface{}, factory RecorderFactory, transformErrors func(error) error) {
+func (conn *Conn) Serve(root any, factory RecorderFactory, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
 		conn.serve(noopTracingRoot{
@@ -399,7 +399,7 @@ type ErrorCoder interface {
 // information as a map.
 type ErrorInfoProvider interface {
 	Error() string
-	ErrorInfo() map[string]interface{}
+	ErrorInfo() map[string]any
 }
 
 // Root represents a type that can be used to lookup a Method and place
@@ -478,7 +478,7 @@ func (conn *Conn) loop() error {
 	}
 }
 
-func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
+func (conn *Conn) readBody(resp any, isRequest bool) error {
 	if resp == nil {
 		resp = &struct{}{}
 	}
@@ -505,7 +505,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// already transformed it and returned a zero req.
 		return conn.writeErrorResponse(hdr, err, recorder)
 	}
-	var argp interface{}
+	var argp any
 	var arg reflect.Value
 	if req.ParamsType() != nil {
 		v := reflect.New(req.ParamsType())
@@ -532,7 +532,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// up the problem and abort.
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
-	var body interface{} = struct{}{}
+	var body any = struct{}{}
 	if req.ParamsType() != nil {
 		body = arg.Interface()
 	}
@@ -707,7 +707,7 @@ func (conn *Conn) callRequest(
 			SpanID:     req.hdr.SpanID,
 			TraceFlags: req.hdr.TraceFlags,
 		}
-		var rvi interface{}
+		var rvi any
 		if rv.IsValid() {
 			rvi = rv.Interface()
 		} else {
@@ -777,6 +777,6 @@ func ensureFactory(f RecorderFactory) RecorderFactory {
 
 type nopRecorder struct{}
 
-func (nopRecorder) HandleRequest(hdr *Header, body interface{}) error { return nil }
+func (nopRecorder) HandleRequest(hdr *Header, body any) error { return nil }
 
-func (nopRecorder) HandleReply(req Request, hdr *Header, body interface{}) error { return nil }
+func (nopRecorder) HandleReply(req Request, hdr *Header, body any) error { return nil }

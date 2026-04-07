@@ -60,7 +60,7 @@ func (s *MacaroonSuite) SetUpTest(c *tc.C) {
 		}
 		return []checkers.Caveat{checkers.DeclaredCaveat("username", username)}, nil
 	})
-	s.ApiServerSuite.ControllerConfigAttrs = map[string]interface{}{
+	s.ApiServerSuite.ControllerConfigAttrs = map[string]any{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 

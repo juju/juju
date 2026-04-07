@@ -14,7 +14,7 @@ var (
 )
 
 type patcher interface {
-	PatchValue(interface{}, interface{})
+	PatchValue(any, any)
 }
 
 // PatchNewMachineInitReader replaces the local init reader factory method

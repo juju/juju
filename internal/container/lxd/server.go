@@ -126,7 +126,7 @@ func (s *Server) UpdateServerConfig(cfg map[string]string) error {
 		return errors.Trace(err)
 	}
 	if svr.Config == nil {
-		svr.Config = make(map[string]interface{})
+		svr.Config = make(map[string]any)
 	}
 	for k, v := range cfg {
 		svr.Config[k] = v

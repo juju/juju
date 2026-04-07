@@ -107,7 +107,7 @@ type InstanceConfig struct {
 
 	// CloudInitUserData defines key/value pairs from the model-config
 	// specified by the user.
-	CloudInitUserData map[string]interface{}
+	CloudInitUserData map[string]any
 
 	// MachineId identifies the new machine.
 	MachineId string
@@ -310,7 +310,7 @@ type StateInitializationParams struct {
 	// ("the controller cloud"). These default config attributes do not actually
 	// get applied to every model in reality just to models that use the same
 	// cloud as the controller.
-	ControllerInheritedConfig map[string]interface{}
+	ControllerInheritedConfig map[string]any
 
 	// RegionInheritedConfig holds region specific configuration attributes to
 	// be shared across all models in the same controller on a particular
@@ -355,7 +355,7 @@ type stateInitializationParamsInternal struct {
 	ControllerModelConfig                   map[string]any                    `yaml:"controller-model-config"`
 	ControllerModelAuthorizedKeys           []string                          `yaml:"controller-model-authorized-keys"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
-	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
+	ControllerInheritedConfig               map[string]any                    `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	StoragePools                            map[string]storage.Attrs          `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
@@ -799,7 +799,7 @@ func NewBootstrapInstanceConfig(
 		return nil, err
 	}
 	icfg.PublicImageSigningKey = publicImageSigningKey
-	icfg.ControllerConfig = make(map[string]interface{})
+	icfg.ControllerConfig = make(map[string]any)
 	maps.Copy(icfg.ControllerConfig, config)
 	icfg.Bootstrap = &BootstrapConfig{
 		StateInitializationParams: StateInitializationParams{
@@ -881,7 +881,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	proxyCfg ProxyConfiguration,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
-	cloudInitUserData map[string]interface{},
+	cloudInitUserData map[string]any,
 	profiles []string,
 ) error {
 	if icfg.AgentEnvironment == nil {

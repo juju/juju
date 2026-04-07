@@ -88,7 +88,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *tc.C) {
 	store := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(c.Context(), c)
 	uuid := uuid.MustNewUUID().String()
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"type": "dummy",
 		"name": "admin-model",
 		"uuid": uuid,

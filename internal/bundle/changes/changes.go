@@ -160,7 +160,7 @@ type Change interface {
 	// of the change.
 	Description() []string
 	// Args returns a map of arguments that are named.
-	Args() (map[string]interface{}, error)
+	Args() (map[string]any, error)
 	// setId is used to set the identifier for the change.
 	setId(string)
 }
@@ -217,7 +217,7 @@ type AddCharmChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *AddCharmChange) Args() (map[string]interface{}, error) {
+func (ch *AddCharmChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -291,7 +291,7 @@ type UpgradeCharmChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *UpgradeCharmChange) Args() (map[string]interface{}, error) {
+func (ch *UpgradeCharmChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -360,7 +360,7 @@ type AddMachineChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *AddMachineChange) Args() (map[string]interface{}, error) {
+func (ch *AddMachineChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -441,7 +441,7 @@ type AddRelationChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *AddRelationChange) Args() (map[string]interface{}, error) {
+func (ch *AddRelationChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -485,7 +485,7 @@ type AddApplicationChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *AddApplicationChange) Args() (map[string]interface{}, error) {
+func (ch *AddApplicationChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -538,7 +538,7 @@ type AddApplicationParams struct {
 	// For Kubernetes models, this will be used to scale the application.
 	NumUnits int `json:"num-units,omitempty"`
 	// Options holds application options.
-	Options map[string]interface{} `json:"options,omitempty"`
+	Options map[string]any `json:"options,omitempty"`
 	// Constraints holds the optional application constraints.
 	Constraints string `json:"constraints,omitempty"`
 	// Storage holds the optional storage directives.
@@ -580,7 +580,7 @@ type AddUnitChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *AddUnitChange) Args() (map[string]interface{}, error) {
+func (ch *AddUnitChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -650,7 +650,7 @@ type ExposeChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *ExposeChange) Args() (map[string]interface{}, error) {
+func (ch *ExposeChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -824,7 +824,7 @@ type ScaleChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *ScaleChange) Args() (map[string]interface{}, error) {
+func (ch *ScaleChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -864,7 +864,7 @@ type SetAnnotationsChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *SetAnnotationsChange) Args() (map[string]interface{}, error) {
+func (ch *SetAnnotationsChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -913,7 +913,7 @@ type SetOptionsChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *SetOptionsChange) Args() (map[string]interface{}, error) {
+func (ch *SetOptionsChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -927,7 +927,7 @@ type SetOptionsParams struct {
 	// Application is the name of the application.
 	Application string `json:"application"`
 	// Options holds the changed options for the application.
-	Options map[string]interface{} `json:"options,omitempty"`
+	Options map[string]any `json:"options,omitempty"`
 }
 
 // newSetConstraintsChange creates a new change for setting application constraints.
@@ -948,7 +948,7 @@ type SetConstraintsChange struct {
 }
 
 // Args implements Change.Args.
-func (ch *SetConstraintsChange) Args() (map[string]interface{}, error) {
+func (ch *SetConstraintsChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -984,7 +984,7 @@ func newCreateOfferChange(params CreateOfferParams, requires ...string) *CreateO
 }
 
 // Args implements Change.Args.
-func (ch *CreateOfferChange) Args() (map[string]interface{}, error) {
+func (ch *CreateOfferChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -1027,7 +1027,7 @@ func newConsumeOfferChange(params ConsumeOfferParams, requires ...string) *Consu
 }
 
 // Args implements Change.Args.
-func (ch *ConsumeOfferChange) Args() (map[string]interface{}, error) {
+func (ch *ConsumeOfferChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -1062,7 +1062,7 @@ func newGrantOfferAccessChange(params GrantOfferAccessParams, requires ...string
 }
 
 // Args implements Change.Args.
-func (ch *GrantOfferAccessChange) Args() (map[string]interface{}, error) {
+func (ch *GrantOfferAccessChange) Args() (map[string]any, error) {
 	return paramsToArgs(ch.Params)
 }
 
@@ -1071,7 +1071,7 @@ func (ch *GrantOfferAccessChange) Description() []string {
 	return []string{fmt.Sprintf("grant user %s %s access to offer %s", ch.Params.User, ch.Params.Access, ch.Params.Offer)}
 }
 
-func paramsToArgs(params interface{}) (map[string]interface{}, error) {
+func paramsToArgs(params any) (map[string]any, error) {
 	if params == nil {
 		return nil, nil
 	}
@@ -1079,7 +1079,7 @@ func paramsToArgs(params interface{}) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(bytes, &result); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -26,14 +26,14 @@ func (s *extraBindingsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *extraBindingsSuite) TestSchemaOkay(c *tc.C) {
-	raw := map[interface{}]interface{}{
+	raw := map[any]any{
 		"foo": nil,
 		"bar": nil,
 	}
 	v, err := charm.ExtraBindingsSchema.Coerce(raw, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, tc.DeepEquals, map[interface{}]interface{}{
+	c.Check(v, tc.DeepEquals, map[any]any{
 		"foo": nil,
 		"bar": nil,
 	})

@@ -198,7 +198,7 @@ type Application struct {
 	Name             string
 	Charm            string // The charm URL.
 	Scale            int
-	Options          map[string]interface{}
+	Options          map[string]any
 	Annotations      map[string]string
 	Constraints      string // TODO: not updated yet.
 	Exposed          bool
@@ -391,11 +391,11 @@ func (a *Application) changedAnnotations(annotations map[string]string) map[stri
 	return changes
 }
 
-func (a *Application) changedOptions(options map[string]interface{}) map[string]interface{} {
+func (a *Application) changedOptions(options map[string]any) map[string]any {
 	if a == nil || len(a.Options) == 0 {
 		return options
 	}
-	changes := make(map[string]interface{})
+	changes := make(map[string]any)
 	for key, value := range options {
 		current, found := a.Options[key]
 		// options should have been validated by now to only contain comparable

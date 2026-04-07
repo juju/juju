@@ -174,7 +174,7 @@ snapshot        Take a snapshot of the database.
 }
 
 func checkFullSchema(c *tc.C, expected map[string]actionapi.ActionSpec, actual []byte) {
-	expectedOutput := make(map[string]interface{})
+	expectedOutput := make(map[string]any)
 	for k, v := range expected {
 		expectedOutput[k] = v.Params
 	}

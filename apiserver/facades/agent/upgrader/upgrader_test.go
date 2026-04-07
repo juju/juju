@@ -57,7 +57,7 @@ func TestUpgraderSuite(t *testing.T) {
 
 func (s *upgraderSuite) SetUpTest(c *tc.C) {
 	s.mockModelUUID = tc.Must0(c, coremodel.NewUUID)
-	s.ControllerModelConfigAttrs = map[string]interface{}{
+	s.ControllerModelConfigAttrs = map[string]any{
 		"agent-version": coretesting.CurrentVersion().Number.String(),
 	}
 	s.ApiServerSuite.SetUpTest(c)

@@ -125,7 +125,7 @@ func assertNextOp(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, d time.
 	}
 }
 
-func assertReady(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...interface{}) {
+func assertReady(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...any) {
 	ready := s.Ready(clock.Now())
 	c.Assert(ready, tc.DeepEquals, expect)
 }

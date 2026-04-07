@@ -212,7 +212,7 @@ func ProviderDefaults(
 	coercedMap := coercedAttrs.(map[string]any)
 	rval := make(map[string]any, len(coercedMap)+len(modelDefaults))
 
-	maps.Copy(rval, coercedAttrs.(map[string]interface{}))
+	maps.Copy(rval, coercedAttrs.(map[string]any))
 
 	maps.Copy(rval, modelDefaults)
 

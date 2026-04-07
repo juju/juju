@@ -173,13 +173,13 @@ var relationGetFormatTests = []struct {
 	relid   int
 	unit    string
 	args    []string
-	out     interface{}
+	out     any
 }{
 	{
 		summary: "formatting 1",
 		relid:   1,
 		unit:    "m/0",
-		out:     map[string]interface{}{"pew": "pew\npew\n"},
+		out:     map[string]any{"pew": "pew\npew\n"},
 	}, {
 		summary: "formatting 2",
 		relid:   1,

@@ -1983,7 +1983,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 
 	s.ensureMocks(c, ctrl)
 
-	attr := map[string]interface{}{
+	attr := map[string]any{
 		"name":               "name",
 		"uuid":               coretesting.ModelTag.Id(),
 		"type":               "foo",

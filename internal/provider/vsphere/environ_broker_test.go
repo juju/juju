@@ -82,7 +82,7 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *tc.C) environs.Sta
 		InstanceConfig:   instanceConfig,
 		Tools:            tools,
 		Constraints:      cons,
-		StatusCallback: func(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
+		StatusCallback: func(ctx context.Context, status status.Status, info string, data map[string]any) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
 		},
@@ -342,7 +342,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *tc.C) {
 	cfg := s.env.Config()
-	cfg, err := cfg.Apply(map[string]interface{}{
+	cfg, err := cfg.Apply(map[string]any{
 		"datastore": "datastore0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -442,7 +442,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c 
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *tc.C) {
 	cfg := s.env.Config()
-	cfg, err := cfg.Apply(map[string]interface{}{
+	cfg, err := cfg.Apply(map[string]any{
 		"datastore": "datastore0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -459,7 +459,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *tc.C) {
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *tc.C) {
 	cfg := s.env.Config()
-	cfg, err := cfg.Apply(map[string]interface{}{
+	cfg, err := cfg.Apply(map[string]any{
 		"datastore": "datastore0",
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -546,8 +546,8 @@ func addCertificate(data []byte) (string, []byte, error) {
 	return filename, alt, err
 }
 
-func ensureStringMaps(in string) (map[string]interface{}, error) {
-	userDataMap := make(map[string]interface{})
+func ensureStringMaps(in string) (map[string]any, error) {
+	userDataMap := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
 		return nil, errors.Annotate(err, "must be valid YAML")
 	}
@@ -555,7 +555,7 @@ func ensureStringMaps(in string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return out.(map[string]interface{}), nil
+	return out.(map[string]any), nil
 }
 
 func queryName(

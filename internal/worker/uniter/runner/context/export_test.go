@@ -220,7 +220,7 @@ func RelationBroken(context jujuc.Context, relId int) bool {
 	return context.(*HookContext).relations[relId].broken
 }
 
-func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
+func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]any) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
 	hctx.status = &jujuc.StatusInfo{
@@ -233,7 +233,7 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 	}
 }
 
-func WithActionContext(ctx *HookContext, in map[string]interface{}, cancel <-chan struct{}) {
+func WithActionContext(ctx *HookContext, in map[string]any, cancel <-chan struct{}) {
 	ctx.actionData = &ActionData{
 		Tag:        names.NewActionTag("2"),
 		ResultsMap: in,

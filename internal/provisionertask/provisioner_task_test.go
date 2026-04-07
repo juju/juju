@@ -179,7 +179,7 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *tc.C)
 	close(s.instanceBroker.callsChan)
 	s.instanceBroker.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "AllRunningInstances"},
-		{FuncName: "StopInstances", Args: []interface{}{[]instance.Id{"zero"}}},
+		{FuncName: "StopInstances", Args: []any{[]instance.Id{"zero"}}},
 	})
 	c.Assert(m0.markForRemoval, tc.IsTrue)
 	c.Assert(m1.markForRemoval, tc.IsTrue)
@@ -255,10 +255,10 @@ func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *tc.C, m *testMachine, st
 }
 
 var (
-	validCloudInitUserData = map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	validCloudInitUserData = map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false,
 	}
 	possibleImageMetadata = []*imagemetadata.ImageMetadata{{
@@ -1242,7 +1242,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 				Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
 				RootDisk: &params.VolumeParams{
 					Provider:   "static",
-					Attributes: map[string]interface{}{"persistent": true},
+					Attributes: map[string]any{"persistent": true},
 				},
 			},
 		}}}, nil)
@@ -1255,7 +1255,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 	startArg := machineStartInstanceArg("0")
 	startArg.RootDisk = &storage.VolumeParams{
 		Provider:   "static",
-		Attributes: map[string]interface{}{"persistent": true},
+		Attributes: map[string]any{"persistent": true},
 	}
 	exp.StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
@@ -1292,7 +1292,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 					VolumeTag:  "volume-1",
 					SizeMiB:    2048,
 					Provider:   "persistent-pool",
-					Attributes: map[string]interface{}{"persistent": true},
+					Attributes: map[string]any{"persistent": true},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: "machine-0",
 					},
@@ -1329,7 +1329,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *t
 		Tag:        names.NewVolumeTag("1"),
 		Size:       2048,
 		Provider:   "persistent-pool",
-		Attributes: map[string]interface{}{"persistent": true},
+		Attributes: map[string]any{"persistent": true},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Machine: mTag,
@@ -1932,7 +1932,7 @@ func (m *testMachine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.id)
 }
 
-func (m *testMachine) SetInstanceStatus(ctx context.Context, status status.Status, message string, _ map[string]interface{}) error {
+func (m *testMachine) SetInstanceStatus(ctx context.Context, status status.Status, message string, _ map[string]any) error {
 	m.mu.Lock()
 	m.instStatus = status
 	m.instStatusMsg = message
@@ -1949,7 +1949,7 @@ func (m *testMachine) InstanceStatus(context.Context) (status.Status, string, er
 	return m.instStatus, m.instStatusMsg, nil
 }
 
-func (m *testMachine) SetStatus(_ context.Context, status status.Status, _ string, _ map[string]interface{}) error {
+func (m *testMachine) SetStatus(_ context.Context, status status.Status, _ string, _ map[string]any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.machineStatus = status
@@ -2024,7 +2024,7 @@ type startInstanceParamsMatcher struct {
 	failMsg  string
 }
 
-func (m *startInstanceParamsMatcher) Matches(params interface{}) bool {
+func (m *startInstanceParamsMatcher) Matches(params any) bool {
 	siParams := params.(environs.StartInstanceParams)
 	for msg, match := range m.matchers {
 		if !match(siParams) {

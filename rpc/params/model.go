@@ -13,8 +13,8 @@ import (
 // ConfigValue encapsulates a configuration
 // value and its source.
 type ConfigValue struct {
-	Value  interface{} `json:"value"`
-	Source string      `json:"source"`
+	Value  any    `json:"value"`
+	Source string `json:"source"`
 }
 
 // ModelConfigResults contains the result of client API calls
@@ -30,10 +30,10 @@ type ModelConfigResults struct {
 type HostedModelConfig struct {
 	Name string `json:"name"`
 	// Qualifier is the model owner identifier used to disambiguate Name.
-	Qualifier string                 `json:"qualifier"`
-	Config    map[string]interface{} `json:"config,omitempty"`
-	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
-	Error     *Error                 `json:"error,omitempty"`
+	Qualifier string         `json:"qualifier"`
+	Config    map[string]any `json:"config,omitempty"`
+	CloudSpec *CloudSpec     `json:"cloud-spec,omitempty"`
+	Error     *Error         `json:"error,omitempty"`
 }
 
 // HostedModelConfigsResults contains an entry for each hosted model
@@ -63,21 +63,21 @@ type ModelSequencesResult struct {
 // ModelDefaults holds the settings for a given ModelDefaultsResult config
 // attribute.
 type ModelDefaults struct {
-	Default    interface{}      `json:"default,omitempty"`
-	Controller interface{}      `json:"controller,omitempty"`
+	Default    any              `json:"default,omitempty"`
+	Controller any              `json:"controller,omitempty"`
 	Regions    []RegionDefaults `json:"regions,omitempty"`
 }
 
 // RegionDefaults contains the settings for regions in a ModelDefaults.
 type RegionDefaults struct {
-	RegionName string      `json:"region-name"`
-	Value      interface{} `json:"value"`
+	RegionName string `json:"region-name"`
+	Value      any    `json:"value"`
 }
 
 // ModelSet contains the arguments for ModelSet client API
 // call.
 type ModelSet struct {
-	Config map[string]interface{} `json:"config"`
+	Config map[string]any `json:"config"`
 }
 
 // ModelUnset contains the arguments for ModelUnset client API
@@ -95,9 +95,9 @@ type SetModelDefaults struct {
 // ModelDefaultValues contains the default model values for
 // a cloud/region.
 type ModelDefaultValues struct {
-	CloudTag    string                 `json:"cloud-tag,omitempty"`
-	CloudRegion string                 `json:"cloud-region,omitempty"`
-	Config      map[string]interface{} `json:"config"`
+	CloudTag    string         `json:"cloud-tag,omitempty"`
+	CloudRegion string         `json:"cloud-region,omitempty"`
+	Config      map[string]any `json:"config"`
 }
 
 // ModelUnsetKeys contains the config keys to unset for

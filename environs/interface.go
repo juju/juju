@@ -187,7 +187,7 @@ type FinalizeCredentialContext interface {
 
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
-	Verbosef(string, ...interface{})
+	Verbosef(string, ...any)
 }
 
 // FinalizeCredentialParams contains the parameters for
@@ -223,7 +223,7 @@ type FinalizeCloudContext interface {
 
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
-	Verbosef(string, ...interface{})
+	Verbosef(string, ...any)
 }
 
 // CloudFinalizer is an interface that an EnvironProvider implements

@@ -728,7 +728,7 @@ func (s *environSuite) TestBootstrapFlexibleShape(c *tc.C) {
 
 type noPublicIPMatcher struct{}
 
-func (noPublicIPMatcher) Matches(arg interface{}) bool {
+func (noPublicIPMatcher) Matches(arg any) bool {
 	li := arg.(ociCore.LaunchInstanceRequest)
 	assign := *li.CreateVnicDetails.AssignPublicIp
 	return !assign

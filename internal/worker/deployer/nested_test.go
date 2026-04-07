@@ -149,10 +149,10 @@ func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	// Create a context and make sure the clean kill is good.
 	ctx := s.newContext(c)
 	report := ctx.Report(c.Context())
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"deployed": []string{},
-		"units": map[string]interface{}{
-			"workers": map[string]interface{}{},
+		"units": map[string]any{
+			"workers": map[string]any{},
 		},
 	})
 }
@@ -246,12 +246,12 @@ func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 	// machines it may well be more frequent, so have a loop here to test.
 	maxTime := time.After(testing.LongWait)
 	for {
-		units := report["units"].(map[string]interface{})
-		workers := units["workers"].(map[string]interface{})
+		units := report["units"].(map[string]any)
+		workers := units["workers"].(map[string]any)
 
-		first := workers["first/0"].(map[string]interface{})
-		second := workers["second/0"].(map[string]interface{})
-		third := workers["third/0"].(map[string]interface{})
+		first := workers["first/0"].(map[string]any)
+		second := workers["second/0"].(map[string]any)
+		third := workers["third/0"].(map[string]any)
 
 		if first["state"] == "started" && second["state"] == "started" && third["state"] == "started" {
 			break
@@ -273,14 +273,14 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
 	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
-	c.Assert(ctx.Report(c.Context()), check, map[string]interface{}{
+	c.Assert(ctx.Report(c.Context()), check, map[string]any{
 		"deployed": []string{"first/0", "second/0", "third/0"},
-		"units": map[string]interface{}{
-			"workers": map[string]interface{}{
-				"first/0": map[string]interface{}{
-					"report": map[string]interface{}{
-						"manifolds": map[string]interface{}{
-							"worker": map[string]interface{}{
+		"units": map[string]any{
+			"workers": map[string]any{
+				"first/0": map[string]any{
+					"report": map[string]any{
+						"manifolds": map[string]any{
+							"worker": map[string]any{
 								"inputs":      []string{},
 								"start-count": 1,
 								"started":     "2020-07-24 03:01:20",
@@ -292,10 +292,10 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 					"started": "2020-07-24 03:01:20",
 					"state":   "started",
 				},
-				"second/0": map[string]interface{}{
-					"report": map[string]interface{}{
-						"manifolds": map[string]interface{}{
-							"worker": map[string]interface{}{
+				"second/0": map[string]any{
+					"report": map[string]any{
+						"manifolds": map[string]any{
+							"worker": map[string]any{
 								"inputs":      []string{},
 								"start-count": 1,
 								"started":     "2020-07-24 03:01:20",
@@ -307,10 +307,10 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 					"started": "2020-07-24 03:01:20",
 					"state":   "started",
 				},
-				"third/0": map[string]interface{}{
-					"report": map[string]interface{}{
-						"manifolds": map[string]interface{}{
-							"worker": map[string]interface{}{
+				"third/0": map[string]any{
+					"report": map[string]any{
+						"manifolds": map[string]any{
+							"worker": map[string]any{
 								"inputs":      []string{},
 								"start-count": 1,
 								"started":     "2020-07-24 03:01:20",

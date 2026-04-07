@@ -86,7 +86,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root encryption",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"encrypted": true,
 			},
 		},
@@ -96,7 +96,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root custom key encryption",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"encrypted":  true,
 				"kms-key-id": "1234",
 			},
@@ -107,7 +107,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root volume type",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "magnetic",
 			},
 		},
@@ -117,7 +117,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp3",
 				"throughput":  "10",
 			},
@@ -128,7 +128,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp3",
 				"throughput":  "1G",
 			},

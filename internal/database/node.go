@@ -444,7 +444,7 @@ func (m *NodeManager) nodeClusterStore() (*client.YamlNodeStore, error) {
 }
 
 func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
-	return func(level client.LogLevel, msg string, args ...interface{}) {
+	return func(level client.LogLevel, msg string, args ...any) {
 		if level != client.LogWarn {
 			m.appLogFunc(level, msg, args...)
 			return
@@ -464,7 +464,7 @@ func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
 	}
 }
 
-func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...interface{}) {
+func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...any) {
 	translatedLevel := logger.TRACE
 	switch level {
 	case client.LogDebug:

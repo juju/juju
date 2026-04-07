@@ -104,7 +104,7 @@ type ModelCredential struct {
 }
 
 // ModelStatusReason extracts the reason, if any, from a status data bag.
-func ModelStatusReason(data map[string]interface{}) string {
+func ModelStatusReason(data map[string]any) string {
 	reason, _ := data["reason"].(string)
 	return strings.Trim(reason, "\n")
 }

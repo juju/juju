@@ -189,7 +189,7 @@ func PermissionFromToken(token jwt.Token, subject permission.ID) (permission.Acc
 	default:
 		return "", errors.NotValidf("%q as a target", subject)
 	}
-	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
+	accessClaims, ok := token.PrivateClaims()["access"].(map[string]any)
 	if !ok || len(accessClaims) == 0 {
 		return permission.NoAccess, nil
 	}

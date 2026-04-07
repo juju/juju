@@ -70,12 +70,12 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 	templateCisp := baseCisp()
 	templateCisp.EntityName = args.TemplateName
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "CreateImportSpec", Args: []interface{}{
+		{FuncName: "CreateImportSpec", Args: []any{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 			templateCisp,
 		}},
-		{FuncName: "ImportVApp", Args: []interface{}{
+		{FuncName: "ImportVApp", Args: []any{
 			&types.VirtualMachineImportSpec{
 				ConfigSpec: types.VirtualMachineConfigSpec{
 					Name: "vm-name",
@@ -85,8 +85,8 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 		{FuncName: "CreatePropertyCollector", Args: nil},
 		{FuncName: "CreateFilter", Args: nil},
 		{FuncName: "WaitForUpdatesEx", Args: nil},
-		{FuncName: "HttpNfcLeaseComplete", Args: []interface{}{"FakeLease"}},
-		{FuncName: "ReconfigVM_Task", Args: []interface{}{
+		{FuncName: "HttpNfcLeaseComplete", Args: []any{"FakeLease"}},
+		{FuncName: "ReconfigVM_Task", Args: []any{
 			types.VirtualMachineConfigSpec{
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: ArchTag, Value: "amd64"},
@@ -96,7 +96,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 		{FuncName: "CreatePropertyCollector", Args: nil},
 		{FuncName: "CreateFilter", Args: nil},
 		{FuncName: "WaitForUpdatesEx", Args: nil},
-		{FuncName: "MarkAsTemplate", Args: []interface{}{"FakeVm0"}},
+		{FuncName: "MarkAsTemplate", Args: []any{"FakeVm0"}},
 	})
 }
 
@@ -158,7 +158,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeVm0"),
 		retrievePropertiesStubCall("FakeVm0"),
-		{FuncName: "CloneVM_Task", Args: []interface{}{
+		{FuncName: "CloneVM_Task", Args: []any{
 			types.ManagedObjectReference{
 				Type: "Folder", Value: "FakeControllerVmFolder",
 			},

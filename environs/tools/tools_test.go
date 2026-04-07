@@ -64,8 +64,8 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]interface{}) {
-	final := map[string]interface{}{
+func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]any) {
+	final := map[string]any{
 		"agent-metadata-url": utils.MakeFileURL(s.customToolsDir),
 		"agent-stream":       "proposed",
 	}
@@ -96,7 +96,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *tc.C, versions toolstesting.S
 	return toolstesting.UploadToDirectory(c, s.publicToolsDir, versions)
 }
 
-func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]interface{}) {
+func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]any) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
 	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c.Context(), c),

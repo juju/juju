@@ -49,7 +49,7 @@ type mockDependencyGetter struct {
 	env *mockEnviron
 }
 
-func (m *mockDependencyGetter) Get(name string, out interface{}) error {
+func (m *mockDependencyGetter) Get(name string, out any) error {
 	if name == "environ" {
 		*(out.(*environs.Environ)) = m.env
 	}

@@ -104,7 +104,7 @@ func (c *secretGetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	var val interface{}
+	var val any
 	val, err = value.Values()
 	if err != nil {
 		return err

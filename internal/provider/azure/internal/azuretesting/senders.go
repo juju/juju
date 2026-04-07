@@ -254,7 +254,7 @@ const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 // NewSenderWithValue returns a *mocks.Sender that marshals the provided object
 // to JSON and sets it as the content. This function will panic if marshalling
 // fails.
-func NewSenderWithValue(v interface{}) *MockSender {
+func NewSenderWithValue(v any) *MockSender {
 	content, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

@@ -196,7 +196,7 @@ func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []te
 		}
 		calls[i] = testhelpers.StubCall{
 			FuncName: "apiOpen",
-			Args: []interface{}{info, api.DialOpts{
+			Args: []any{info, api.DialOpts{
 				DialAddressInterval: 200 * time.Millisecond,
 				DialTimeout:         3 * time.Second,
 				Timeout:             time.Minute,

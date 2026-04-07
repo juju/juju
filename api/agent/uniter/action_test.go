@@ -31,12 +31,12 @@ func (s *actionSuite) TestAction(c *tc.C) {
 	actionResult := params.ActionResult{
 		Action: &params.Action{
 			Name:           "backup",
-			Parameters:     map[string]interface{}{"foo": "bar"},
+			Parameters:     map[string]any{"foo": "bar"},
 			Parallel:       &parallel,
 			ExecutionGroup: &group,
 		},
 	}
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "Actions")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
@@ -58,7 +58,7 @@ func (s *actionSuite) TestAction(c *tc.C) {
 }
 
 func (s *actionSuite) TestActionError(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "Actions")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
@@ -77,7 +77,7 @@ func (s *actionSuite) TestActionError(c *tc.C) {
 }
 
 func (s *actionSuite) TestActionBegin(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "BeginActions")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
@@ -93,13 +93,13 @@ func (s *actionSuite) TestActionBegin(c *tc.C) {
 }
 
 func (s *actionSuite) TestActionFinish(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "FinishActions")
 		c.Assert(arg, tc.DeepEquals, params.ActionExecutionResults{Results: []params.ActionExecutionResult{{
 			ActionTag: "action-666",
 			Status:    "failed",
-			Results:   map[string]interface{}{"foo": "bar"},
+			Results:   map[string]any{"foo": "bar"},
 			Message:   "oops",
 		}}})
 		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
@@ -109,12 +109,12 @@ func (s *actionSuite) TestActionFinish(c *tc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	err := client.ActionFinish(c.Context(), names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
+	err := client.ActionFinish(c.Context(), names.NewActionTag("666"), "failed", map[string]any{"foo": "bar"}, "oops")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *actionSuite) TestActionStatus(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "ActionStatus")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
@@ -131,7 +131,7 @@ func (s *actionSuite) TestActionStatus(c *tc.C) {
 }
 
 func (s *actionSuite) TestLogActionMessage(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "LogActionsMessages")
 		c.Assert(arg, tc.DeepEquals, params.ActionMessageParams{
@@ -152,7 +152,7 @@ func (s *actionSuite) TestLogActionMessage(c *tc.C) {
 }
 
 func (s *actionSuite) TestWatchActionNotifications(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
 				c.Fatalf("unexpected watcher request %q", request)
@@ -184,7 +184,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *tc.C) {
 }
 
 func (s *actionSuite) TestWatchActionNotificationsError(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("boom")
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
@@ -195,7 +195,7 @@ func (s *actionSuite) TestWatchActionNotificationsError(c *tc.C) {
 }
 
 func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "WatchActionNotifications")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
@@ -215,7 +215,7 @@ func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *tc.C) {
 }
 
 func (s *actionSuite) TestWatchActionNotificationsNoResults(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{}
 		return nil
@@ -228,7 +228,7 @@ func (s *actionSuite) TestWatchActionNotificationsNoResults(c *tc.C) {
 }
 
 func (s *actionSuite) TestWatchActionNotificationsMoreResults(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{}, {}},

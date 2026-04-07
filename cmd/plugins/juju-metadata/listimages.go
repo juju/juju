@@ -128,7 +128,7 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 
 	info := convertDetailsToInfo(found)
 
-	var output interface{}
+	var output any
 	switch c.out.Name() {
 	case "yaml", "json":
 		output = groupMetadata(info)

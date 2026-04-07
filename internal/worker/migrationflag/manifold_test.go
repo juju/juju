@@ -101,7 +101,7 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": dependency.ErrMissing,
 	})
 	manifold := migrationflag.Manifold(validManifoldConfig())
@@ -113,7 +113,7 @@ func (*ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
 
 func (*ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 	expectCaller := &stubCaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": expectCaller,
 	})
 	config := validManifoldConfig()
@@ -129,7 +129,7 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": &stubCaller{},
 	})
 	expectFacade := &struct{ migrationflag.Facade }{}
@@ -151,7 +151,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": &stubCaller{},
 	})
 	expectWorker := &struct{ worker.Worker }{}

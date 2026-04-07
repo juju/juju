@@ -37,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent": s.agent,
 	})
 	s.agentConfigChanged = voyeur.NewValue(0)
@@ -61,7 +61,7 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(c.Context(), getter)

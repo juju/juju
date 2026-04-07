@@ -183,7 +183,7 @@ func (s *DestroySuite) TestDestroy(c *tc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+			[]any{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -196,7 +196,7 @@ func (s *DestroySuite) TestDestroyWithPartModelUUID(c *tc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+			[]any{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -209,7 +209,7 @@ func (s *DestroySuite) TestDestroyWithForce(c *tc.C) {
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), (*time.Duration)(nil)}},
+		{"DestroyModel", []any{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -223,7 +223,7 @@ func (s *DestroySuite) TestDestroyWithForceTimeout(c *tc.C) {
 	force := true
 	timeout := 30 * time.Minute
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), &timeout}},
+		{"DestroyModel", []any{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil), &timeout}},
 	})
 }
 
@@ -243,7 +243,7 @@ func (s *DestroySuite) TestDestroyWithForceNoWait(c *tc.C) {
 	force := true
 	maxWait := 0 * time.Second
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait, (*time.Duration)(nil)}},
+		{"DestroyModel", []any{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait, (*time.Duration)(nil)}},
 	})
 }
 
@@ -272,7 +272,7 @@ func (s *DestroySuite) TestDestroyDestroyStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := true
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+		{"DestroyModel", []any{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -282,7 +282,7 @@ func (s *DestroySuite) TestDestroyReleaseStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	destroyStorage := false
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+		{"DestroyModel", []any{names.NewModelTag("test2-uuid"), &destroyStorage, (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -325,7 +325,7 @@ func (s *DestroySuite) TestDestroyDestroyFlagUnspecifiedWithStorageNotDetachable
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"DestroyModel",
-			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
+			[]any{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil), (*time.Duration)(nil)}},
 	})
 }
 

@@ -23,7 +23,7 @@ type SecretBackendsSuite struct {
 }
 
 func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
@@ -31,7 +31,7 @@ func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
 }
 
 func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "SecretBackendsManager")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -49,7 +49,7 @@ func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 }
 
 func (s *SecretBackendsSuite) TestRotateBackendTokens(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "SecretBackendsManager")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

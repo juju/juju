@@ -67,7 +67,7 @@ func (*RemoveConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.Re
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: ""})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: ""})
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
@@ -77,7 +77,7 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *tc.C) {
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})

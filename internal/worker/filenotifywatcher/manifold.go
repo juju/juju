@@ -70,7 +70,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func fileNotifyWatcherOutput(in worker.Worker, out interface{}) error {
+func fileNotifyWatcherOutput(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}

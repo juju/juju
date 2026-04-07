@@ -26,7 +26,7 @@ func TestMachineSuite(t *testing.T) {
 }
 
 func (s *machineSuite) TestMachine(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -51,7 +51,7 @@ func (s *machineSuite) TestMachine(c *tc.C) {
 
 func (s *machineSuite) TestInstanceId(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -88,7 +88,7 @@ func (s *machineSuite) TestInstanceId(c *tc.C) {
 
 func (s *machineSuite) TestWatchUnits(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -123,7 +123,7 @@ func (s *machineSuite) TestWatchUnits(c *tc.C) {
 
 func (s *machineSuite) TestIsManual(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

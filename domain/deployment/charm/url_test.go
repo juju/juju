@@ -212,8 +212,8 @@ func (s *URLSuite) TestWithRevision(c *tc.C) {
 
 var codecs = []struct {
 	Name      string
-	Marshal   func(interface{}) ([]byte, error)
-	Unmarshal func([]byte, interface{}) error
+	Marshal   func(any) ([]byte, error)
+	Unmarshal func([]byte, any) error
 }{{
 	Name:      "json",
 	Marshal:   json.Marshal,

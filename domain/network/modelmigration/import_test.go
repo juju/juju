@@ -391,7 +391,7 @@ type lldArgMatcher struct {
 	expected []internal.ImportLinkLayerDevice
 }
 
-func (m lldArgMatcher) Matches(x interface{}) bool {
+func (m lldArgMatcher) Matches(x any) bool {
 	input, ok := x.([]internal.ImportLinkLayerDevice)
 	if !ok {
 		return false

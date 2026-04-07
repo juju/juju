@@ -232,7 +232,7 @@ func contextsFromConfig(config *clientcmdapi.Config) (map[string]Context, error)
 
 func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string]CloudConfig, error) {
 	clusterToCloud := func(cluster *clientcmdapi.Cluster) (CloudConfig, error) {
-		attrs := map[string]interface{}{}
+		attrs := map[string]any{}
 
 		k8sCAData := cluster.CertificateAuthorityData
 		if len(cluster.CertificateAuthorityData) == 0 && cluster.CertificateAuthority != "" {

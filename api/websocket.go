@@ -82,7 +82,7 @@ type DeadlineStream struct {
 }
 
 // WriteJSON is part of base.Stream.
-func (s *DeadlineStream) WriteJSON(v interface{}) error {
+func (s *DeadlineStream) WriteJSON(v any) error {
 	// This uses a real clock rather than trying to use a clock passed
 	// in because the websocket will use a real clock to determine
 	// whether the deadline has passed anyway.
@@ -141,10 +141,10 @@ func (s fakeStreamReader) Write([]byte) (int, error) {
 	return 0, errors.NotImplementedf("Write")
 }
 
-func (s fakeStreamReader) ReadJSON(v interface{}) error {
+func (s fakeStreamReader) ReadJSON(v any) error {
 	return errors.NotImplementedf("ReadJSON")
 }
 
-func (s fakeStreamReader) WriteJSON(v interface{}) error {
+func (s fakeStreamReader) WriteJSON(v any) error {
 	return errors.NotImplementedf("WriteJSON")
 }

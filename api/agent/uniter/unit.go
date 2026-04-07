@@ -116,7 +116,7 @@ func (u *Unit) Refresh(ctx context.Context) error {
 }
 
 // SetUnitStatus sets the status of the unit.
-func (u *Unit) SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]any) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -153,7 +153,7 @@ func (u *Unit) UnitStatus(ctx context.Context) (params.StatusResult, error) {
 }
 
 // SetAgentStatus sets the status of the unit agent.
-func (u *Unit) SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]any) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{

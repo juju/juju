@@ -20,20 +20,20 @@ type Factory struct {
 
 // FactoryRegister describe registration details for building a new proxy.
 type FactoryRegister struct {
-	ConfigFn func() interface{}
-	MakerFn  func(interface{}) (proxy.Proxier, error)
+	ConfigFn func() any
+	MakerFn  func(any) (proxy.Proxier, error)
 }
 
 // FactoryMaker is shell object used for facilitating the making of a proxy
 // object
 type FactoryMaker struct {
-	RawConfig interface{}
+	RawConfig any
 	Register  FactoryRegister
 }
 
 // Config returns a raw config for a given proxy type that can be used to
 // unmarshal against.
-func (f *FactoryMaker) Config() interface{} {
+func (f *FactoryMaker) Config() any {
 	if f.RawConfig == nil {
 		f.RawConfig = f.Register.ConfigFn()
 	}
@@ -66,8 +66,8 @@ func NewDefaultFactory() (*Factory, error) {
 	if err := factory.Register(
 		k8sproxy.ProxierTypeKey,
 		FactoryRegister{
-			ConfigFn: func() interface{} { return k8sproxy.NewProxierConfig() },
-			MakerFn:  func(c interface{}) (proxy.Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
+			ConfigFn: func() any { return k8sproxy.NewProxierConfig() },
+			MakerFn:  func(c any) (proxy.Proxier, error) { return k8sproxy.NewProxierFromRawConfig(c) },
 		}); err != nil {
 		return factory, err
 	}
@@ -85,7 +85,7 @@ func NewFactory() *Factory {
 // ProxierFromConfig is a utility function for making a proxier from this
 // factory using raw config data within in a map[string]interface{}. The type
 // key cannot be an empty string.
-func (f *Factory) ProxierFromConfig(typeKey string, config map[string]interface{}) (proxy.Proxier, error) {
+func (f *Factory) ProxierFromConfig(typeKey string, config map[string]any) (proxy.Proxier, error) {
 	if typeKey == "" {
 		return nil, errors.NotValidf("type key for proxier cannot be empty")
 	}

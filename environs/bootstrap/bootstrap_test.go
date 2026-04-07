@@ -282,7 +282,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapBase(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cfg, err := env.Config().Apply(map[string]interface{}{
+	cfg, err := env.Config().Apply(map[string]any{
 		"default-base": "ubuntu@20.04",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -306,7 +306,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapBase(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cfg, err := env.Config().Apply(map[string]interface{}{
+	cfg, err := env.Config().Apply(map[string]any{
 		"default-base": jujuversion.DefaultSupportedLTSBase().String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -328,7 +328,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapBase(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cfg, err := env.Config().Apply(map[string]interface{}{
+	cfg, err := env.Config().Apply(map[string]any{
 		"default-base": "ubuntu@22.04",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -353,7 +353,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapBase(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *tc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cfg, err := env.Config().Apply(map[string]interface{}{
+	cfg, err := env.Config().Apply(map[string]any{
 		"default-base": "ubuntu@22.04",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -893,7 +893,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *tc.C) {
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+	env := newEnviron("foo", useDefaultKeys, map[string]any{
 		"agent-stream": "proposed"})
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		bootstrap.BootstrapParams{
@@ -916,7 +916,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *tc.C) {
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+	env := newEnviron("foo", useDefaultKeys, map[string]any{
 		"development": true})
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		bootstrap.BootstrapParams{
@@ -1252,7 +1252,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *tc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		bootstrap.BootstrapParams{
 			ControllerConfig:          coretesting.FakeControllerConfig(),
-			ControllerInheritedConfig: map[string]interface{}{"ftp-proxy": "http://proxy"},
+			ControllerInheritedConfig: map[string]any{"ftp-proxy": "http://proxy"},
 			Cloud:                     dummyCloud,
 			AdminSecret:               password,
 			CAPrivateKey:              coretesting.CAKey,
@@ -1267,7 +1267,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *tc.C) {
 		CACert:   coretesting.CACert,
 		ModelTag: coretesting.ModelTag,
 	})
-	c.Check(icfg.Bootstrap.ControllerInheritedConfig, tc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
+	c.Check(icfg.Bootstrap.ControllerInheritedConfig, tc.DeepEquals, map[string]any{"ftp-proxy": "http://proxy"})
 	c.Check(icfg.Bootstrap.RegionInheritedConfig, tc.DeepEquals, cloud.RegionConfig{
 		"a-region": cloud.Attrs{
 			"a-key": "a-value",
@@ -1550,7 +1550,7 @@ type bootstrapEnviron struct {
 	checkToolsFunc func(tools.List)
 }
 
-func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
+func newEnviron(name string, defaultKeys bool, extraAttrs map[string]any) *bootstrapEnviron {
 	m := coretesting.FakeConfig().Merge(extraAttrs)
 	if !defaultKeys {
 		m = m.Delete(
@@ -1661,7 +1661,7 @@ type bootstrapEnvironWithHardwareDetection struct {
 	detectedHW   *instance.HardwareCharacteristics
 }
 
-func newBootstrapEnvironWithHardwareDetection(name string, detectedBase corebase.Base, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
+func newBootstrapEnvironWithHardwareDetection(name string, detectedBase corebase.Base, detectedArch string, defaultKeys bool, extraAttrs map[string]any) *bootstrapEnvironWithHardwareDetection {
 	var hw = new(instance.HardwareCharacteristics)
 	if detectedArch != "" {
 		hw.Arch = &detectedArch

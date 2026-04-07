@@ -75,7 +75,7 @@ var cloudSchema = &jsonschema.Schema{
 		cloud.AuthTypesKey: {
 			// don't need a prompt, since there's only one choice.
 			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
+			Enum: []any{[]string{string(cloud.UserPassAuthType)}},
 		},
 		cloud.RegionsKey: {
 			Type:     []jsonschema.Type{jsonschema.ObjectType},

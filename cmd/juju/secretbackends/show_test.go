@@ -53,7 +53,7 @@ func (s *ShowSuite) TestShowYAML(c *tc.C) {
 			Name:                "myvault",
 			BackendType:         "vault",
 			TokenRotateInterval: new(666 * time.Minute),
-			Config:              map[string]interface{}{"endpoint": "http://vault"},
+			Config:              map[string]any{"endpoint": "http://vault"},
 			NumSecrets:          666,
 			Status:              status.Error,
 			Message:             "vault is sealed",

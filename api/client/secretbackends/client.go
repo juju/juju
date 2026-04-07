@@ -38,7 +38,7 @@ type SecretBackend struct {
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
-	Config              map[string]interface{}
+	Config              map[string]any
 	NumSecrets          int
 	Status              status.Status
 	Message             string
@@ -87,7 +87,7 @@ type CreateSecretBackend struct {
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
-	Config              map[string]interface{}
+	Config              map[string]any
 }
 
 // AddSecretBackend adds the specified secret backend.
@@ -120,7 +120,7 @@ type UpdateSecretBackend struct {
 	Name                string
 	NameChange          *string
 	TokenRotateInterval *time.Duration
-	Config              map[string]interface{}
+	Config              map[string]any
 	Reset               []string
 }
 

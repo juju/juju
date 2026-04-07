@@ -76,7 +76,7 @@ const (
 var logger = internallogger.GetLogger("juju.api")
 
 type rpcConnection interface {
-	Call(ctx context.Context, req rpc.Request, params, response interface{}) error
+	Call(ctx context.Context, req rpc.Request, params, response any) error
 	Dead() <-chan struct{}
 	Close() error
 }
@@ -1251,7 +1251,7 @@ func isX509Error(err error) bool {
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
-func (c *conn) APICall(ctx context.Context, facade string, vers int, id, method string, args, response interface{}) error {
+func (c *conn) APICall(ctx context.Context, facade string, vers int, id, method string, args, response any) error {
 	err := c.client.Call(ctx, rpc.Request{
 		Type:    facade,
 		Version: vers,

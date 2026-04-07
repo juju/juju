@@ -107,7 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func dbAccessorOutput(in worker.Worker, out interface{}) error {
+func dbAccessorOutput(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}

@@ -51,7 +51,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateWithAttrArgs(c *tc.C) {
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
-	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]interface{}{"lollypop": "true"})
+	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]any{"lollypop": "true"})
 }
 
 func (s *PoolUpdateSuite) TestPoolUpdateAttrMissingKey(c *tc.C) {
@@ -72,7 +72,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateAttrEmptyValue(c *tc.C) {
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
-	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "\"\""})
+	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]any{"something": "\"\""})
 }
 
 func (s *PoolUpdateSuite) TestPoolUpdateOneAttr(c *tc.C) {
@@ -81,7 +81,7 @@ func (s *PoolUpdateSuite) TestPoolUpdateOneAttr(c *tc.C) {
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
-	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too"})
+	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]any{"something": "too"})
 }
 
 func (s *PoolUpdateSuite) TestPoolUpdateManyAttrs(c *tc.C) {
@@ -90,20 +90,20 @@ func (s *PoolUpdateSuite) TestPoolUpdateManyAttrs(c *tc.C) {
 	c.Assert(len(s.mockAPI.Updates), tc.Equals, 1)
 	updatedConfigs := s.mockAPI.Updates[0]
 	c.Assert(updatedConfigs.Name, tc.Equals, "sunshine")
-	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
+	c.Assert(updatedConfigs.Config, tc.DeepEquals, map[string]any{"something": "too", "another": "one"})
 }
 
 type mockUpdateData struct {
 	Name     string
 	Provider string
-	Config   map[string]interface{}
+	Config   map[string]any
 }
 
 type mockPoolUpdateAPI struct {
 	Updates []mockUpdateData
 }
 
-func (s *mockPoolUpdateAPI) UpdatePool(ctx context.Context, pname, provider string, pconfig map[string]interface{}) error {
+func (s *mockPoolUpdateAPI) UpdatePool(ctx context.Context, pname, provider string, pconfig map[string]any) error {
 	s.Updates = append(s.Updates, mockUpdateData{Name: pname, Provider: provider, Config: pconfig})
 	return nil
 }

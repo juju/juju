@@ -47,7 +47,7 @@ func (s *MachineStartupSuite) TestInputs(c *tc.C) {
 }
 
 func (s *MachineStartupSuite) TestStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": new(mockAPIConn),
 	})
 	worker, err := s.manifold.Start(c.Context(), getter)

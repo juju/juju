@@ -35,7 +35,7 @@ const (
 // value and its source.
 type ConfigValue struct {
 	// Value is the configuration value.
-	Value interface{}
+	Value any
 
 	// Source is the name of the inherited config
 	// source from where the value originates.
@@ -46,8 +46,8 @@ type ConfigValue struct {
 type ConfigValues map[string]ConfigValue
 
 // AllAttrs returns just the attribute values from the config.
-func (c ConfigValues) AllAttrs() map[string]interface{} {
-	result := make(map[string]interface{})
+func (c ConfigValues) AllAttrs() map[string]any {
+	result := make(map[string]any)
 	for attr, val := range c {
 		result[attr] = val
 	}
@@ -77,8 +77,8 @@ type ModelDefaultAttributes map[string]AttributeDefaultValues
 // setting.
 type AttributeDefaultValues struct {
 	// Default and Controller represent the values as set at those levels.
-	Default    interface{} `json:"default,omitempty" yaml:"default,omitempty"`
-	Controller interface{} `json:"controller,omitempty" yaml:"controller,omitempty"`
+	Default    any `json:"default,omitempty" yaml:"default,omitempty"`
+	Controller any `json:"controller,omitempty" yaml:"controller,omitempty"`
 	// Regions is a slice of Region representing the values as set in each
 	// region.
 	Regions []RegionDefaultValue `json:"regions,omitempty" yaml:"regions,omitempty"`
@@ -89,5 +89,5 @@ type RegionDefaultValue struct {
 	// Name represents the region name for this specific setting.
 	Name string `json:"name" yaml:"name"`
 	// Value is the value of the setting this represents in the named region.
-	Value interface{} `json:"value" yaml:"value"`
+	Value any `json:"value" yaml:"value"`
 }

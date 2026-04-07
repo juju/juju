@@ -58,7 +58,7 @@ func (s *legacyLoginProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		var err error
 		if modelUUID != "" && modelUUID != testing.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)

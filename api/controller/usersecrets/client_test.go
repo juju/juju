@@ -24,7 +24,7 @@ type secretSuite struct {
 }
 
 func (s *secretSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := usersecrets.NewClient(apiCaller)
@@ -32,7 +32,7 @@ func (s *secretSuite) TestNewClient(c *tc.C) {
 }
 
 func (s *secretSuite) TestWatchRevisionsToPrune(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "UserSecretsManager")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -50,7 +50,7 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *tc.C) {
 }
 
 func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "UserSecretsManager")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

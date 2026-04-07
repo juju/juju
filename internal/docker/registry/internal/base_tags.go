@@ -36,7 +36,7 @@ func getRepositoryOnly(s string) string {
 }
 
 type tagFetcher interface {
-	url(string, ...interface{}) string
+	url(string, ...any) string
 	fetchTags(string, tagsGetter) (tools.Versions, error)
 	ImageRepoDetails() docker.ImageRepoDetails
 }

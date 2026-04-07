@@ -31,8 +31,8 @@ func (m *Manifest) Validate() error {
 	return nil
 }
 
-func (m *Manifest) UnmarshalYAML(f func(interface{}) error) error {
-	raw := make(map[interface{}]interface{})
+func (m *Manifest) UnmarshalYAML(f func(any) error) error {
+	raw := make(map[any]any)
 	err := f(&raw)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (m *Manifest) UnmarshalYAML(f func(interface{}) error) error {
 		return internalerrors.Errorf("coerce: %w", err)
 	}
 
-	newV, ok := v.([]interface{})
+	newV, ok := v.([]any)
 	if !ok {
 		return internalerrors.Errorf("converting: %w", err)
 	}
@@ -56,15 +56,15 @@ func (m *Manifest) UnmarshalYAML(f func(interface{}) error) error {
 	return nil
 }
 
-func parseBases(input interface{}) ([]Base, error) {
+func parseBases(input any) ([]Base, error) {
 	var err error
 	if input == nil {
 		return nil, nil
 	}
 	var res []Base
-	for _, v := range input.([]interface{}) {
+	for _, v := range input.([]any) {
 		var base Base
-		baseMap := v.(map[string]interface{})
+		baseMap := v.(map[string]any)
 		if value, ok := baseMap["name"]; ok {
 			base.Name = value.(string)
 		}
@@ -114,11 +114,11 @@ var baseSchema = schema.FieldMap(
 		"architectures": schema.Omit,
 	})
 
-func parseArchitectureList(list interface{}) []string {
+func parseArchitectureList(list any) []string {
 	if list == nil {
 		return nil
 	}
-	slice := list.([]interface{})
+	slice := list.([]any)
 	result := make([]string, 0, len(slice))
 	for _, elem := range slice {
 		result = append(result, arch.NormaliseArch(elem.(string)))

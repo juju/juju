@@ -67,7 +67,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // outputFunc extracts a bool from a *stateConfigWatcher. If true, the
 // agent is a state server.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*stateConfigWatcher)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

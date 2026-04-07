@@ -133,7 +133,7 @@ func (s *storageSuite) TestCreateFilesystems(c *tc.C) {
 		ResourceTags: map[string]string{
 			"key": "value",
 		},
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"lxd-pool": "radiance",
 			"driver":   "btrfs",
 		},
@@ -169,7 +169,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *tc.C) {
 		ResourceTags: map[string]string{
 			"key": "value",
 		},
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"lxd-pool": "radiance",
 			"driver":   "dir",
 		},
@@ -208,7 +208,7 @@ func (s *storageSuite) TestCreateFilesystemsInvalidCredentials(c *tc.C) {
 		ResourceTags: map[string]string{
 			"key": "value",
 		},
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"lxd-pool": "radiance",
 			"driver":   "btrfs",
 		},
@@ -236,8 +236,8 @@ func (s *storageSuite) TestDestroyFilesystems(c *tc.C) {
 	c.Check(results[2], tc.ErrorMatches, "boom")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool0", "custom", "filesystem-0"}},
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"pool1", "custom", "filesystem-1"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"pool0", "custom", "filesystem-0"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"pool1", "custom", "filesystem-1"}},
 	})
 }
 
@@ -298,10 +298,10 @@ func (s *storageSuite) TestReleaseFilesystems(c *tc.C) {
 	}
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
-		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
-		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-1"}},
-		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-1", update1, "eTag"}},
+		{FuncName: "GetStoragePoolVolume", Args: []any{"foo", "custom", "filesystem-0"}},
+		{FuncName: "UpdateStoragePoolVolume", Args: []any{"foo", "custom", "filesystem-0", update0, "eTag"}},
+		{FuncName: "GetStoragePoolVolume", Args: []any{"foo", "custom", "filesystem-1"}},
+		{FuncName: "UpdateStoragePoolVolume", Args: []any{"foo", "custom", "filesystem-1", update1, "eTag"}},
 	})
 }
 
@@ -321,7 +321,7 @@ func (s *storageSuite) TestReleaseFilesystemsInvalidCredentials(c *tc.C) {
 	c.Check(results[0], tc.ErrorMatches, "not authorized")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "filesystem-0"}},
+		{FuncName: "GetStoragePoolVolume", Args: []any{"foo", "custom", "filesystem-0"}},
 	})
 }
 
@@ -394,10 +394,10 @@ func (s *storageSuite) TestAttachFilesystems(c *tc.C) {
 	// container as config.
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
-		Args:     []interface{}{"juju-f75cba-"},
+		Args:     []any{"juju-f75cba-"},
 	}, {
 		FuncName: "WriteContainer",
-		Args:     []interface{}{&s.Client.Containers[0]},
+		Args:     []any{&s.Client.Containers[0]},
 	}})
 }
 
@@ -524,13 +524,13 @@ func (s *storageSuite) TestDetachFilesystems(c *tc.C) {
 	// ensure it represents the removed device.
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
-		Args:     []interface{}{"juju-f75cba-"},
+		Args:     []any{"juju-f75cba-"},
 	}, {
 		FuncName: "WriteContainer",
-		Args:     []interface{}{&s.Client.Containers[0]},
+		Args:     []any{&s.Client.Containers[0]},
 	}, {
 		FuncName: "WriteContainer",
-		Args:     []interface{}{&s.Client.Containers[0]},
+		Args:     []any{&s.Client.Containers[0]},
 	}})
 }
 
@@ -625,8 +625,8 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		},
 	}
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "GetStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar"}},
-		{FuncName: "UpdateStoragePoolVolume", Args: []interface{}{"foo", "custom", "bar", update, "eTag"}},
+		{FuncName: "GetStoragePoolVolume", Args: []any{"foo", "custom", "bar"}},
+		{FuncName: "UpdateStoragePoolVolume", Args: []any{"foo", "custom", "bar", update, "eTag"}},
 	})
 }
 

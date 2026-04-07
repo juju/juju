@@ -85,7 +85,7 @@ func (s *cloudSuite) TestParseCloudsConfig(c *tc.C) {
 	c.Assert(testingCloud, tc.DeepEquals, cloud.Cloud{
 		Name: "testing",
 		Type: "dummy",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"k1": "v1",
 			"k2": float64(2.0),
 		},
@@ -113,13 +113,13 @@ func (s *cloudSuite) TestParseCloudsRegionConfig(c *tc.C) {
 	c.Assert(testingCloud, tc.DeepEquals, cloud.Cloud{
 		Name: "testing",
 		Type: "dummy",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"k1": "v1",
 			"k2": float64(2.0),
 		},
 		RegionConfig: cloud.RegionConfig{
 			"region1": cloud.Attrs{
-				"mascot": []interface{}{"eggs", "ham"},
+				"mascot": []any{"eggs", "ham"},
 			},
 
 			"region2": cloud.Attrs{

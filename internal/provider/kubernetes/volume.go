@@ -64,7 +64,7 @@ func (k *kubernetesClient) getPVC(ctx context.Context, name string) (*core.Persi
 }
 
 // ValidateStorageClass returns an error if the storage config is not valid.
-func (k *kubernetesClient) ValidateStorageClass(ctx context.Context, config map[string]interface{}) error {
+func (k *kubernetesClient) ValidateStorageClass(ctx context.Context, config map[string]any) error {
 	cfg, err := storage.ParseStorageConfig(config)
 	if err != nil {
 		return errors.Trace(err)

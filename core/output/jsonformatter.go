@@ -65,7 +65,7 @@ func bufferedWriter() (*bytes.Buffer, *ansiterm.Writer) {
 }
 
 // marshal JSON data with default options
-func marshal(jsonObj interface{}) ([]byte, error) {
+func marshal(jsonObj any) ([]byte, error) {
 	return NewFormatter().Marshal(jsonObj)
 }
 
@@ -81,7 +81,7 @@ func (f *JSONFormatter) writeObjSep(buf *bytes.Buffer) {
 
 // Marshal traverses the value jsonObj recursively, encoding each field and appending it
 // with ansi escape sequence for colored output.
-func (f *JSONFormatter) Marshal(jsonObj interface{}) ([]byte, error) {
+func (f *JSONFormatter) Marshal(jsonObj any) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	f.marshalValue(jsonObj, &buffer, f.InitialDepth)
 	return buffer.Bytes(), nil
@@ -98,7 +98,7 @@ func (f *JSONFormatter) marshalString(str string, buf *bytes.Buffer) {
 	f.buff.Reset()
 }
 
-func (f *JSONFormatter) marshalMap(m map[string]interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 	remaining := len(m)
 
 	if remaining == 0 {
@@ -136,7 +136,7 @@ func (f *JSONFormatter) marshalMap(m map[string]interface{}, buf *bytes.Buffer, 
 	buf.WriteString(endMap)
 }
 
-func (f *JSONFormatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalArray(a []any, buf *bytes.Buffer, depth int) {
 	if len(a) == 0 {
 		buf.WriteString(emptyArray)
 		return
@@ -157,12 +157,12 @@ func (f *JSONFormatter) marshalArray(a []interface{}, buf *bytes.Buffer, depth i
 	buf.WriteString(endArray)
 }
 
-func (f *JSONFormatter) marshalValue(val interface{}, buf *bytes.Buffer, depth int) {
+func (f *JSONFormatter) marshalValue(val any, buf *bytes.Buffer, depth int) {
 
 	switch v := val.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		f.marshalMap(v, buf, depth)
-	case []interface{}:
+	case []any:
 		f.marshalArray(v, buf, depth)
 	case string:
 		f.marshalString(v, buf)
@@ -184,7 +184,7 @@ func (f *JSONFormatter) marshalValue(val interface{}, buf *bytes.Buffer, depth i
 		f.buff.Reset()
 	default:
 		b, _ := json.Marshal(val)
-		var m interface{}
+		var m any
 		_ = json.Unmarshal(b, &m)
 		f.marshalValue(m, buf, depth)
 	}

@@ -37,7 +37,7 @@ func (s *storageSuite) TestValidateConfig(c *tc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider()
-	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]any{
 		"storage-class":       "my-storage",
 		"storage-provisioner": "aws-storage",
 		"storage-label":       "storage-fred",
@@ -57,7 +57,7 @@ func (s *storageSuite) TestValidateConfigError(c *tc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider()
-	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]any{
 		"storage-class":       "",
 		"storage-provisioner": "aws-storage",
 	})
@@ -126,11 +126,11 @@ func (s *storageSuite) TestValidateStorageProvider(c *tc.C) {
 	prov := s.k8sProvider()
 
 	for _, t := range []struct {
-		attrs map[string]interface{}
+		attrs map[string]any
 		err   string
 	}{
 		{
-			attrs: map[string]interface{}{"storage-medium": "foo"},
+			attrs: map[string]any{"storage-medium": "foo"},
 			err:   `storage medium "foo" not valid`,
 		},
 		{

@@ -483,7 +483,7 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 	}
 
 	model := description.NewModel(description.ModelArgs{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"uuid": newUUID.String(),
 		},
 	})
@@ -491,7 +491,7 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	model = description.NewModel(description.ModelArgs{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"uuid": newUUID.String(),
 		},
 	})
@@ -517,7 +517,7 @@ func (i *importSuite) TestImportModelConstraints(c *tc.C) {
 	})
 
 	model := description.NewModel(description.ModelArgs{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"uuid": newUUID.String(),
 		},
 	})

@@ -38,8 +38,8 @@ const (
 	StubUnitNm        = "stub-unit/0"
 )
 
-func (s *ClientSuite) apiCaller(c *tc.C, check func(request string, arg, result interface{}) error) base.APICaller {
-	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+func (s *ClientSuite) apiCaller(c *tc.C, check func(request string, arg, result any) error) base.APICaller {
+	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result any) error {
 		c.Check(facade, tc.Equals, "LeadershipService")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -52,7 +52,7 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *tc.C) {
 	const claimTime = 5 * time.Hour
 	numStubCalls := 0
 
-	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
+	apiCaller := s.apiCaller(c, func(request string, arg, result any) error {
 		numStubCalls++
 		c.Check(request, tc.Equals, "ClaimLeadership")
 		c.Check(arg, tc.DeepEquals, params.ClaimLeadershipBulkParams{
@@ -80,7 +80,7 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *tc.C) {
 func (s *ClientSuite) TestClaimLeadershipDeniedError(c *tc.C) {
 
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+	apiCaller := s.apiCaller(c, func(_ string, _, result any) error {
 		numStubCalls++
 		switch result := result.(type) {
 		case *params.ClaimLeadershipBulkResults:
@@ -104,7 +104,7 @@ func (s *ClientSuite) TestClaimLeadershipUnknownError(c *tc.C) {
 
 	errMsg := "I'm trying!"
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+	apiCaller := s.apiCaller(c, func(_ string, _, result any) error {
 		numStubCalls++
 		switch result := result.(type) {
 		case *params.ClaimLeadershipBulkResults:
@@ -126,7 +126,7 @@ func (s *ClientSuite) TestClaimLeadershipUnknownError(c *tc.C) {
 func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *tc.C) {
 	errMsg := "well, I just give up."
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
+	apiCaller := s.apiCaller(c, func(_ string, _, _ any) error {
 		numStubCalls++
 		return errors.New(errMsg)
 	})
@@ -140,7 +140,7 @@ func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *tc.C) {
 func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
+	apiCaller := s.apiCaller(c, func(request string, arg, result any) error {
 		numStubCalls++
 		c.Check(request, tc.Equals, "BlockUntilLeadershipReleased")
 		c.Check(arg, tc.DeepEquals, names.NewApplicationTag(StubApplicationNm))
@@ -162,7 +162,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *tc.C) {
 func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *tc.C) {
 
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+	apiCaller := s.apiCaller(c, func(_ string, _, result any) error {
 		numStubCalls++
 		switch result := result.(type) {
 		case *params.ErrorResult:
@@ -183,7 +183,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *tc.C) {
 func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *tc.C) {
 	errMsg := "well, I just give up."
 	numStubCalls := 0
-	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
+	apiCaller := s.apiCaller(c, func(_ string, _, _ any) error {
 		numStubCalls++
 		return errors.New(errMsg)
 	})

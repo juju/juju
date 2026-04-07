@@ -154,7 +154,7 @@ type destroyControllerAPI interface {
 
 type modelConfigAPI interface {
 	Close() error
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 }
 
 // Info implements Command.Info.
@@ -484,7 +484,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 			models, err := api.ListBlockedModels(ctx)
 			out := &bytes.Buffer{}
 			if err == nil {
-				var info interface{}
+				var info any
 				info, err = block.FormatModelBlockInfo(models)
 				if err != nil {
 					return errors.Trace(err)

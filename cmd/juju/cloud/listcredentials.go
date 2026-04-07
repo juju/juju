@@ -373,7 +373,7 @@ func removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential, cloud
 }
 
 // formatCredentialsTabular writes a tabular summary of cloud information.
-func formatCredentialsTabular(writer io.Writer, value interface{}) error {
+func formatCredentialsTabular(writer io.Writer, value any) error {
 	credentials, ok := value.(credentialsMap)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", credentials, value)

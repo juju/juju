@@ -43,7 +43,7 @@ func (s *FortressSuite) TestOutputBadTarget(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
-	var out interface{}
+	var out any
 	err := fix.manifold.Output(fix.worker, &out)
 	c.Check(err.Error(), tc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
 	c.Check(out, tc.IsNil)

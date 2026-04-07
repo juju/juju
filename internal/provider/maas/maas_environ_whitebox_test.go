@@ -1829,7 +1829,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesMachinesError(c *tc
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func getArgs(c *tc.C, calls []testhelpers.StubCall, callNum, argNum int) interface{} {
+func getArgs(c *tc.C, calls []testhelpers.StubCall, callNum, argNum int) any {
 	c.Assert(len(calls), tc.Not(tc.LessThan), callNum)
 	args := calls[callNum].Args
 	c.Assert(len(args), tc.Not(tc.LessThan), argNum)

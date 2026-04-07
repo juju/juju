@@ -211,7 +211,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	controllerModelConfigAttrs := make(map[string]interface{})
+	controllerModelConfigAttrs := make(map[string]any)
 
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.

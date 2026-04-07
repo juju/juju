@@ -288,7 +288,7 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2")
@@ -311,7 +311,7 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *tc.C) {
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, true, gomock.Any(), "1", "2")
 

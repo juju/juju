@@ -27,7 +27,7 @@ var providerConfigDefaults = schema.Defaults{}
 
 type brokerConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (p kubernetesEnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {

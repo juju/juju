@@ -116,7 +116,7 @@ func (f findWriter) Print() error {
 			f.warningf("%v", err)
 		}
 
-		colValues := make([]interface{}, 0, len(colNames))
+		colValues := make([]any, 0, len(colNames))
 		for _, name := range f.columns.Names() {
 			switch name {
 			case ColumnNameName:

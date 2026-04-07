@@ -1895,7 +1895,7 @@ func decodeApplicationConfig(cfg map[string]application.ApplicationConfig) (inte
 	return result, nil
 }
 
-func coerceValue(t charm.OptionType, value string) (interface{}, error) {
+func coerceValue(t charm.OptionType, value string) (any, error) {
 	switch t {
 	case charm.OptionString, charm.OptionSecret:
 		return value, nil

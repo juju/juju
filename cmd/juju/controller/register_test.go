@@ -191,7 +191,7 @@ func (s *RegisterSuite) testRegisterSuccess(c *tc.C, stdio io.ReadWriter, contro
 		SecretKey:      mockSecretKey,
 		ControllerName: "controller-name",
 	}
-	rawConfig := map[string]interface{}{
+	rawConfig := map[string]any{
 		"api-host":              "https://127.0.0.1:16443",
 		"ca-cert":               "cert====",
 		"namespace":             "controller-controller-name",

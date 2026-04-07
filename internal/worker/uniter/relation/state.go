@@ -144,7 +144,7 @@ func (s *State) YamlString() (string, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *State) UnmarshalYAML(unmarshal func(any) error) error {
 	type StateCopy State
 	var sc StateCopy
 	err := unmarshal(&sc)

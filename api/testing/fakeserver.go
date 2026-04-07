@@ -14,7 +14,7 @@ import (
 // FakeAPIServer returns a net.Conn implementation
 // that serves the RPC server defined by the given
 // root object (see rpc.Conn.Serve).
-func FakeAPIServer(root interface{}) net.Conn {
+func FakeAPIServer(root any) net.Conn {
 	c0, c1 := net.Pipe()
 	serverCodec := jsoncodec.NewNet(c1)
 	serverRPC := rpc.NewConn(serverCodec, nil)

@@ -41,7 +41,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.agent.conf.setControllerAgentInfo(true)
 	s.agent.conf.tag = names.NewMachineTag("99")
 
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent": s.agent,
 	})
 
@@ -57,7 +57,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(c.Context(), getter)

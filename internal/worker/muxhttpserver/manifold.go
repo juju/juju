@@ -38,7 +38,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inServer, ok := in.(*Server)
 	if !ok {
 		return errors.Errorf("expected Server, got %T", in)

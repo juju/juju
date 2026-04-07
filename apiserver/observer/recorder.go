@@ -51,7 +51,7 @@ type combinedRecorder struct {
 }
 
 // HandleRequest implements rpc.Recorder.
-func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) error {
+func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body any) error {
 	cr.observer.ServerRequest(context.Background(), hdr, body)
 	if cr.recorder == nil {
 		return nil
@@ -74,7 +74,7 @@ func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) err
 }
 
 // HandleReply implements rpc.Recorder.
-func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body interface{}) error {
+func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body any) error {
 	cr.observer.ServerReply(context.Background(), req, replyHdr, body)
 	if cr.recorder == nil {
 		return nil
@@ -94,7 +94,7 @@ func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, b
 	}))
 }
 
-func extractErrors(body interface{}) []*auditlog.Error {
+func extractErrors(body any) []*auditlog.Error {
 	// To find errors in the API responses, we look for a struct where
 	// there is an attribute that is:
 	// * a slice of structs that have an attribute that is *Error or

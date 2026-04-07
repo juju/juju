@@ -42,7 +42,7 @@ type ActionSpec struct {
 	Description    string
 	Parallel       bool
 	ExecutionGroup string
-	Params         map[string]interface{}
+	Params         map[string]any
 }
 
 // ValidateParams validates the passed params map against the given ActionSpec
@@ -50,7 +50,7 @@ type ActionSpec struct {
 // Usage:
 //
 //	err := ch.Actions().ActionSpecs["snapshot"].ValidateParams(someMap)
-func (spec *ActionSpec) ValidateParams(params map[string]interface{}) error {
+func (spec *ActionSpec) ValidateParams(params map[string]any) error {
 	// Load the schema from the Charm.
 	specLoader := gjs.NewGoLoader(spec.Params)
 	schema, err := gjs.NewSchema(specLoader)
@@ -60,7 +60,7 @@ func (spec *ActionSpec) ValidateParams(params map[string]interface{}) error {
 
 	// Load the params as a document to validate.
 	// If an empty map was passed, we need an empty map to validate against.
-	p := map[string]interface{}{}
+	p := map[string]any{}
 	if len(params) > 0 {
 		p = params
 	}
@@ -87,7 +87,7 @@ func (spec *ActionSpec) ValidateParams(params map[string]interface{}) error {
 // defaults.
 //
 // The returned map will be the transformed or created target map.
-func (spec *ActionSpec) InsertDefaults(target map[string]interface{}) (map[string]interface{}, error) {
+func (spec *ActionSpec) InsertDefaults(target map[string]any) (map[string]any, error) {
 	specLoader := gjs.NewGoLoader(spec.Params)
 	schema, err := gjs.NewSchema(specLoader)
 	if err != nil {
@@ -108,7 +108,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 		ActionSpecs: map[string]ActionSpec{},
 	}
 
-	var unmarshaledActions map[string]map[string]interface{}
+	var unmarshaledActions map[string]map[string]any
 	if err := yaml.Unmarshal(data, &unmarshaledActions); err != nil {
 		return nil, err
 	}
@@ -127,11 +127,11 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 		desc := "No description"
 		parallel := false
 		executionGroup := ""
-		thisActionSchema := map[string]interface{}{
+		thisActionSchema := map[string]any{
 			"description":          desc,
 			"type":                 "object",
 			"title":                name,
-			"properties":           map[string]interface{}{},
+			"properties":           map[string]any{},
 			"additionalProperties": false,
 		}
 
@@ -153,7 +153,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 				}
 				thisActionSchema[key] = typed
 			case "required":
-				typed, ok := value.([]interface{})
+				typed, ok := value.([]any)
 				if !ok {
 					return nil, internalerrors.Errorf("value for schema key %q must be a YAML list", key)
 				}
@@ -179,7 +179,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 				}
 
 				// JSON-Schema must be a map
-				typed, ok := cleansedParams.(map[string]interface{})
+				typed, ok := cleansedParams.(map[string]any)
 				if !ok {
 					return nil, internalerrors.Errorf("params failed to parse as a map")
 				}
@@ -215,11 +215,11 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 
 // cleanse rejects schemas containing references or maps keyed with non-
 // strings, and coerces acceptable maps to contain only maps with string keys.
-func cleanse(input interface{}) (interface{}, error) {
+func cleanse(input any) (any, error) {
 	switch typedInput := input.(type) {
 	// In this case, recurse in.
-	case map[string]interface{}:
-		newMap := make(map[string]interface{})
+	case map[string]any:
+		newMap := make(map[string]any)
 		for key, value := range typedInput {
 
 			if prohibitedSchemaKeys[key] {
@@ -235,8 +235,8 @@ func cleanse(input interface{}) (interface{}, error) {
 		return newMap, nil
 
 	// Coerce keys to strings and error out if there's a problem; then recurse.
-	case map[interface{}]interface{}:
-		newMap := make(map[string]interface{})
+	case map[any]any:
+		newMap := make(map[string]any)
 		for key, value := range typedInput {
 			typedKey, ok := key.(string)
 			if !ok {
@@ -247,8 +247,8 @@ func cleanse(input interface{}) (interface{}, error) {
 		return cleanse(newMap)
 
 	// Recurse
-	case []interface{}:
-		newSlice := make([]interface{}, 0)
+	case []any:
+		newSlice := make([]any, 0)
 		for _, sliceValue := range typedInput {
 			newSliceValue, err := cleanse(sliceValue)
 			if err != nil {

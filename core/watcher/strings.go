@@ -150,8 +150,8 @@ func (sw *StringsWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (sw *StringsWorker) Report(ctx context.Context) map[string]interface{} {
-	report := map[string]interface{}{
+func (sw *StringsWorker) Report(ctx context.Context) map[string]any {
+	report := map[string]any{
 		"type": "StringsWorker",
 	}
 

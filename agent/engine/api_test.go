@@ -54,7 +54,7 @@ func (s *APIManifoldSuite) TestOutput(c *tc.C) {
 }
 
 func (s *APIManifoldSuite) TestStartAPIMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller-name": dependency.ErrMissing,
 	})
 
@@ -65,7 +65,7 @@ func (s *APIManifoldSuite) TestStartAPIMissing(c *tc.C) {
 
 func (s *APIManifoldSuite) TestStartFailure(c *tc.C) {
 	expectAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller-name": expectAPICaller,
 	})
 	s.SetErrors(errors.New("some error"))
@@ -75,13 +75,13 @@ func (s *APIManifoldSuite) TestStartFailure(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAPICaller},
+		Args:     []any{expectAPICaller},
 	}})
 }
 
 func (s *APIManifoldSuite) TestStartSuccess(c *tc.C) {
 	expectAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller-name": expectAPICaller,
 	})
 
@@ -90,6 +90,6 @@ func (s *APIManifoldSuite) TestStartSuccess(c *tc.C) {
 	c.Check(worker, tc.Equals, s.worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAPICaller},
+		Args:     []any{expectAPICaller},
 	}})
 }

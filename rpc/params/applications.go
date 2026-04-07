@@ -191,14 +191,14 @@ type ApplicationGet struct {
 
 // ApplicationGetResults holds results of the application Get call.
 type ApplicationGetResults struct {
-	Application       string                 `json:"application"`
-	Charm             string                 `json:"charm"`
-	CharmConfig       map[string]interface{} `json:"config"`
-	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
-	Constraints       constraints.Value      `json:"constraints"`
-	Base              Base                   `json:"base"`
-	Channel           string                 `json:"channel"`
-	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
+	Application       string            `json:"application"`
+	Charm             string            `json:"charm"`
+	CharmConfig       map[string]any    `json:"config"`
+	ApplicationConfig map[string]any    `json:"application-config,omitempty"`
+	Constraints       constraints.Value `json:"constraints"`
+	Base              Base              `json:"base"`
+	Channel           string            `json:"channel"`
+	EndpointBindings  map[string]string `json:"endpoint-bindings,omitempty"`
 }
 
 // ConfigSetArgs holds the parameters for setting application and
@@ -503,8 +503,8 @@ type ApplicationInfoResults struct {
 
 // RelationData holds information about a unit's relation.
 type RelationData struct {
-	InScope  bool                   `yaml:"in-scope"`
-	UnitData map[string]interface{} `yaml:"data"`
+	InScope  bool           `yaml:"in-scope"`
+	UnitData map[string]any `yaml:"data"`
 }
 
 // EndpointRelationData holds information about a relation to a given endpoint.
@@ -513,7 +513,7 @@ type EndpointRelationData struct {
 	Endpoint         string                  `json:"endpoint"`
 	CrossModel       bool                    `json:"cross-model"`
 	RelatedEndpoint  string                  `json:"related-endpoint"`
-	ApplicationData  map[string]interface{}  `yaml:"application-relation-data"`
+	ApplicationData  map[string]any          `yaml:"application-relation-data"`
 	UnitRelationData map[string]RelationData `json:"unit-relation-data"`
 }
 

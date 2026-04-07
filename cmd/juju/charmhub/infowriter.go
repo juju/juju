@@ -58,7 +58,7 @@ const (
 	baseModeBoth
 )
 
-func (iw infoWriter) print(info interface{}) error {
+func (iw infoWriter) print(info any) error {
 	encoder := yaml.NewEncoder(iw.w)
 	defer func() { _ = encoder.Close() }()
 	return encoder.Encode(info)
@@ -197,20 +197,20 @@ func (b bundleInfoWriter) Print() error {
 }
 
 type charmInfoOutput struct {
-	Name        string                 `yaml:"name,omitempty"`
-	Publisher   string                 `yaml:"publisher,omitempty"`
-	Summary     string                 `yaml:"summary,omitempty"`
-	Description string                 `yaml:"description,omitempty"`
-	StoreURL    string                 `yaml:"store-url,omitempty"`
-	ID          string                 `yaml:"charm-id,omitempty"`
-	Supports    string                 `yaml:"supports,omitempty"`
-	Tags        string                 `yaml:"tags,omitempty"`
-	Subordinate bool                   `yaml:"subordinate"`
-	Relations   relationOutput         `yaml:"relations,omitempty"`
-	Channels    string                 `yaml:"channels,omitempty"`
-	Installed   string                 `yaml:"installed,omitempty"`
-	Config      map[string]interface{} `yaml:"config,omitempty"`
-	Message     string                 `yaml:"message,omitempty"`
+	Name        string         `yaml:"name,omitempty"`
+	Publisher   string         `yaml:"publisher,omitempty"`
+	Summary     string         `yaml:"summary,omitempty"`
+	Description string         `yaml:"description,omitempty"`
+	StoreURL    string         `yaml:"store-url,omitempty"`
+	ID          string         `yaml:"charm-id,omitempty"`
+	Supports    string         `yaml:"supports,omitempty"`
+	Tags        string         `yaml:"tags,omitempty"`
+	Subordinate bool           `yaml:"subordinate"`
+	Relations   relationOutput `yaml:"relations,omitempty"`
+	Channels    string         `yaml:"channels,omitempty"`
+	Installed   string         `yaml:"installed,omitempty"`
+	Config      map[string]any `yaml:"config,omitempty"`
+	Message     string         `yaml:"message,omitempty"`
 }
 
 type relationOutput struct {
@@ -242,7 +242,7 @@ func (c charmInfoWriter) Print() error {
 	if c.in.Charm != nil {
 		out.Subordinate = c.in.Charm.Subordinate
 		if c.displayConfig && c.in.Charm.Config != nil {
-			out.Config = make(map[string]interface{}, 1)
+			out.Config = make(map[string]any, 1)
 			out.Config["settings"] = c.in.Charm.Config.Options
 		}
 	}

@@ -84,7 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.MuxName},
 		Start:  config.Start,
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			controller, _ := in.(*Controller)
 			if controller == nil {
 				return errors.Errorf("expected Controller in")

@@ -15,7 +15,7 @@ import (
 func TestClaimHasJujuLabel(t *testing.T) {
 	tests := []struct {
 		Name   string
-		Obj    interface{}
+		Obj    any
 		Result bool
 	}{
 		{
@@ -101,7 +101,7 @@ func TestClaimHasJujuLabelNilData(t *testing.T) {
 func TestClaimIsManagedByJuju(t *testing.T) {
 	tests := []struct {
 		Name   string
-		Obj    interface{}
+		Obj    any
 		Result bool
 	}{
 		{
@@ -216,10 +216,10 @@ func TestClaimOrAggregateWithEmptyClaimsReturnsFalse(t *testing.T) {
 
 func TestClaimAggregateOrReturnsTrue(t *testing.T) {
 	r, err := ClaimAggregateOr(
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return false, nil
 		}),
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return true, nil
 		}),
 	).Assert(nil)
@@ -233,10 +233,10 @@ func TestClaimAggregateOrReturnsTrue(t *testing.T) {
 
 func TestClaimAggregateOrReturnsFalse(t *testing.T) {
 	r, err := ClaimAggregateOr(
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return false, nil
 		}),
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return false, nil
 		}),
 	).Assert(nil)
@@ -250,10 +250,10 @@ func TestClaimAggregateOrReturnsFalse(t *testing.T) {
 
 func TestClaimAggregateOrReturnsError(t *testing.T) {
 	r, err := ClaimAggregateOr(
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return false, nil
 		}),
-		ClaimFn(func(_ interface{}) (bool, error) {
+		ClaimFn(func(_ any) (bool, error) {
 			return false, errors.New("some-error")
 		}),
 	).Assert(nil)
@@ -268,7 +268,7 @@ func TestClaimAggregateOrReturnsError(t *testing.T) {
 func TestClaimJujuOwnership(t *testing.T) {
 	tests := []struct {
 		Name   string
-		Obj    interface{}
+		Obj    any
 		Result bool
 	}{
 		{

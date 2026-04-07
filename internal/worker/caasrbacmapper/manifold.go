@@ -34,7 +34,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inMapper, ok := in.(Mapper)
 	if !ok {
 		return errors.Errorf("expected Mapper, got %T", in)

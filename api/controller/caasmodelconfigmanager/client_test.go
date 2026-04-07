@@ -27,7 +27,7 @@ func newClient(f basetesting.APICallerFunc) (*caasmodelconfigmanager.Client, err
 }
 
 func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *tc.C) {
-	client, err := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
+	client, err := newClient(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CAASModelConfigManager")
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "ControllerConfig")

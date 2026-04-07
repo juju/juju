@@ -528,7 +528,7 @@ func makeResourceGroupNotFoundSender(pattern string) *azuretesting.MockSender {
 	return &sender
 }
 
-func makeSender(pattern string, v interface{}) *azuretesting.MockSender {
+func makeSender(pattern string, v any) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(v)
 	sender.PathPattern = pattern
 	return sender
@@ -618,14 +618,14 @@ func makeToolsList(osType string) tools.List {
 	}}
 }
 
-func unmarshalRequestBody(c *tc.C, req *http.Request, out interface{}) {
+func unmarshalRequestBody(c *tc.C, req *http.Request, out any) {
 	bytes, err := io.ReadAll(req.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(bytes, out)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func assertRequestBody(c *tc.C, req *http.Request, expect interface{}) {
+func assertRequestBody(c *tc.C, req *http.Request, expect any) {
 	unmarshalled := reflect.New(reflect.TypeOf(expect).Elem()).Interface()
 	unmarshalRequestBody(c, req, unmarshalled)
 	c.Assert(unmarshalled, tc.DeepEquals, expect)
@@ -678,7 +678,7 @@ func (s *environSuite) TestStartInstanceConflictRetry(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceRootDiskAccountTypeSetsStorageAccountType(c *tc.C) {
-	rootDiskSourceParams := map[string]interface{}{
+	rootDiskSourceParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-des",
 		"account-type":             "Premium_LRS",
@@ -687,7 +687,7 @@ func (s *environSuite) TestStartInstanceRootDiskAccountTypeSetsStorageAccountTyp
 }
 
 func (s *environSuite) assertStartInstance(
-	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
+	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]any,
 	publicIP, withQuotaRetry, withHypervisorGenRetry, withConflictRetry bool,
 ) {
 	env := s.openEnviron(c)
@@ -926,7 +926,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 	var expectedCalls []testhelpers.StubCall
 	for range failures {
 		expectedCalls = append(expectedCalls, testhelpers.StubCall{
-			FuncName: "After", Args: []interface{}{5 * time.Second},
+			FuncName: "After", Args: []any{5 * time.Second},
 		})
 	}
 	s.retryClock.CheckCalls(c, expectedCalls)
@@ -1432,7 +1432,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			DependsOn:  []string{"Microsoft.Compute/virtualMachines/juju-06f00d-0"},
 		})
 	}
-	templateMap := map[string]interface{}{
+	templateMap := map[string]any{
 		"$schema":        "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
 		"contentVersion": "1.0.0.0",
 		"resources":      templateResources,
@@ -1533,7 +1533,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	unmarshalRequestBody(c, startInstanceRequests.deployment, &actual)
 	c.Assert(actual.Properties, tc.NotNil)
 	c.Assert(actual.Properties.Template, tc.NotNil)
-	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	resources, ok := actual.Properties.Template.(map[string]any)["resources"].([]any)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(resources, tc.HasLen, len(templateResources))
 
@@ -1541,19 +1541,19 @@ func (s *environSuite) assertStartInstanceRequests(
 	if args.vmExtension != nil {
 		vmResourceIndex--
 	}
-	vmResource := resources[vmResourceIndex].(map[string]interface{})
-	vmResourceProperties := vmResource["properties"].(map[string]interface{})
-	osProfile := vmResourceProperties["osProfile"].(map[string]interface{})
+	vmResource := resources[vmResourceIndex].(map[string]any)
+	vmResourceProperties := vmResource["properties"].(map[string]any)
+	osProfile := vmResourceProperties["osProfile"].(map[string]any)
 	osProfile["customData"] = "<juju-goes-here>"
 
 	// Fix the round tripping of the vm identities.
-	resources, ok = expected.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	resources, ok = expected.Properties.Template.(map[string]any)["resources"].([]any)
 	c.Assert(ok, tc.IsTrue)
-	identity, _ := resources[vmResourceIndex].(map[string]interface{})["identity"]
+	identity, _ := resources[vmResourceIndex].(map[string]any)["identity"]
 	if identity != nil {
-		userAssignedIdentities, _ := identity.(map[string]interface{})["userAssignedIdentities"].(map[string]interface{})
+		userAssignedIdentities, _ := identity.(map[string]any)["userAssignedIdentities"].(map[string]any)
 		for k := range userAssignedIdentities {
-			userAssignedIdentities[k] = map[string]interface{}{}
+			userAssignedIdentities[k] = map[string]any{}
 		}
 	}
 
@@ -2353,10 +2353,10 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 	resourcesResult := makeResourcesResult()
 
 	res1 := resourcesResult.Value[0]
-	res1.Properties = &map[string]interface{}{"has-properties": true}
+	res1.Properties = &map[string]any{"has-properties": true}
 
 	res2 := resourcesResult.Value[1]
-	res2.Properties = &map[string]interface{}{"has-properties": true}
+	res2.Properties = &map[string]any{"has-properties": true}
 
 	env := s.openEnviron(c)
 
@@ -2409,7 +2409,7 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 		rTags := resource.Tags
 		c.Check(toValue(rTags["something else"]), tc.Equals, "good")
 		c.Check(toValue(rTags[tags.JujuController]), tc.Equals, "new-controller")
-		c.Check(resource.Properties, tc.DeepEquals, map[string]interface{}{"has-properties": true})
+		c.Check(resource.Properties, tc.DeepEquals, map[string]any{"has-properties": true})
 	}
 	checkTagsAndProperties(5)
 	checkTagsAndProperties(7)
@@ -2659,7 +2659,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *tc.C) {
-	rootDiskParams := map[string]interface{}{
+	rootDiskParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 	}
@@ -2667,7 +2667,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *tc.C) {
-	rootDiskParams := map[string]interface{}{
+	rootDiskParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 		"vault-name-prefix":        "my-vault",

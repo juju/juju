@@ -148,7 +148,7 @@ type gceComputeArgMatcher struct {
 	want fmt.Stringer
 }
 
-func (m gceComputeArgMatcher) Matches(x interface{}) bool {
+func (m gceComputeArgMatcher) Matches(x any) bool {
 	if reflect.TypeOf(x).Name() != reflect.TypeOf(m.want).Name() {
 		return false
 	}

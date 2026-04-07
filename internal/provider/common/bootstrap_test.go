@@ -82,7 +82,7 @@ func minimalConfig(c *tc.C) *config.Config {
 }
 
 func minimalConfigWithBase(c *tc.C, base corebase.Base) *config.Config {
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		"name":               "whatever",
 		"type":               "anything, really",
 		"uuid":               coretesting.ModelTag.Id(),
@@ -535,7 +535,7 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *tc.C) {
 	) {
 		c.Assert(args.RootDisk, tc.DeepEquals, &corestorage.VolumeParams{
 			Provider: "dummy",
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"type": "dummy",
 				"foo":  "bar",
 			},
@@ -735,10 +735,10 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *tc.C) {
 		Timeout: coretesting.ShortWait,
 	})
 	c.Assert(err, tc.ErrorMatches, "waited for 50ms without being able to connect.*")
-	c.Assert(innerInstanceConfig.CloudInitUserData, tc.DeepEquals, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	c.Assert(innerInstanceConfig.CloudInitUserData, tc.DeepEquals, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false})
 }
 

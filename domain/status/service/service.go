@@ -1321,7 +1321,7 @@ func (s *Service) statusFromModelContext(
 		return corestatus.StatusInfo{
 			Status:  corestatus.Suspended,
 			Message: "suspended since cloud credential is not valid",
-			Data:    map[string]interface{}{"reason": modelStatusCtx.InvalidCloudCredentialReason},
+			Data:    map[string]any{"reason": modelStatusCtx.InvalidCloudCredentialReason},
 			Since:   &now,
 		}
 	}

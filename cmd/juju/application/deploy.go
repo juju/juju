@@ -111,7 +111,7 @@ func (a *deployAPIAdaptor) AddCharm(ctx context.Context, curl *charm.URL, origin
 }
 
 type modelGetter interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 }
 
 func agentVersion(ctx context.Context, c modelGetter) (semversion.Number, error) {

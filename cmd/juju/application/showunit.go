@@ -202,8 +202,8 @@ func (c *showUnitCommand) formatUnitInfos(all []application.UnitInfo) (map[strin
 }
 
 type UnitRelationData struct {
-	InScope  bool                   `yaml:"in-scope" json:"in-scope"`
-	UnitData map[string]interface{} `yaml:"data" json:"data"`
+	InScope  bool           `yaml:"in-scope" json:"in-scope"`
+	UnitData map[string]any `yaml:"data" json:"data"`
 }
 
 type RelationData struct {
@@ -211,7 +211,7 @@ type RelationData struct {
 	Endpoint                string                      `yaml:"endpoint" json:"endpoint"`
 	CrossModel              bool                        `yaml:"cross-model,omitempty" json:"cross-model,omitempty"`
 	RelatedEndpoint         string                      `yaml:"related-endpoint" json:"related-endpoint"`
-	ApplicationRelationData map[string]interface{}      `yaml:"application-data" json:"application-data"`
+	ApplicationRelationData map[string]any              `yaml:"application-data" json:"application-data"`
 	MyData                  UnitRelationData            `yaml:"local-unit,omitempty" json:"local-unit,omitempty"`
 	Data                    map[string]UnitRelationData `yaml:"related-units,omitempty" json:"related-units,omitempty"`
 }
@@ -258,7 +258,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 			Endpoint:                rdparams.Endpoint,
 			RelatedEndpoint:         rdparams.RelatedEndpoint,
 			CrossModel:              rdparams.CrossModel,
-			ApplicationRelationData: make(map[string]interface{}),
+			ApplicationRelationData: make(map[string]any),
 			Data:                    make(map[string]UnitRelationData),
 		}
 		maps.Copy(rd.ApplicationRelationData, rdparams.ApplicationData)
@@ -275,7 +275,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 				data := rdparams.UnitRelationData[remoteUnit]
 				urd := UnitRelationData{
 					InScope:  data.InScope,
-					UnitData: make(map[string]interface{}),
+					UnitData: make(map[string]any),
 				}
 				maps.Copy(urd.UnitData, data.UnitData)
 				rd.MyData = urd
@@ -288,7 +288,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 			data := rdparams.UnitRelationData[remoteUnit]
 			urd := UnitRelationData{
 				InScope:  data.InScope,
-				UnitData: make(map[string]interface{}),
+				UnitData: make(map[string]any),
 			}
 			maps.Copy(urd.UnitData, data.UnitData)
 			rd.Data[remoteUnit] = urd

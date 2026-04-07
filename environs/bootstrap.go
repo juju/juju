@@ -129,8 +129,8 @@ type BootstrapLogger interface {
 	GetStdout() io.Writer
 	GetStderr() io.Writer
 
-	Infof(format string, params ...interface{})
-	Verbosef(format string, params ...interface{})
+	Infof(format string, params ...any)
+	Verbosef(format string, params ...any)
 }
 
 // BootstrapContext is an interface that is passed to

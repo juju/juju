@@ -29,8 +29,8 @@ func CloudSpec() environscloudspec.CloudSpec {
 	}
 }
 
-func MinimalConfigValues() map[string]interface{} {
-	return map[string]interface{}{
+func MinimalConfigValues() map[string]any {
+	return map[string]any{
 		"name":            "test",
 		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),

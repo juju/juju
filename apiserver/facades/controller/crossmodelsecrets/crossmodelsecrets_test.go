@@ -206,7 +206,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 						ModelName:      "fred",
 						BackendConfig: provider.BackendConfig{
 							BackendType: "vault",
-							Config:      map[string]interface{}{"foo": "bar"},
+							Config:      map[string]any{"foo": "bar"},
 						},
 					},
 				},
@@ -254,7 +254,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 			LatestRevision: new(668),

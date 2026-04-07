@@ -10,38 +10,38 @@ import (
 
 type loggerAdaptor struct{}
 
-func (l loggerAdaptor) Fatal(args ...interface{}) {
+func (l loggerAdaptor) Fatal(args ...any) {
 	logger.Criticalf(context.Background(), fmt.Sprint(args...))
 }
 
-func (l loggerAdaptor) Fatalf(msg string, args ...interface{}) {
+func (l loggerAdaptor) Fatalf(msg string, args ...any) {
 	logger.Criticalf(context.Background(), msg, args...)
 }
 
-func (l loggerAdaptor) Fatalln(args ...interface{}) {
+func (l loggerAdaptor) Fatalln(args ...any) {
 	logger.Criticalf(context.Background(), fmt.Sprint(args...))
 }
 
-func (l loggerAdaptor) Panic(args ...interface{}) {
+func (l loggerAdaptor) Panic(args ...any) {
 	logger.Criticalf(context.Background(), fmt.Sprint(args...))
 }
 
-func (l loggerAdaptor) Panicf(msg string, args ...interface{}) {
+func (l loggerAdaptor) Panicf(msg string, args ...any) {
 	logger.Criticalf(context.Background(), msg, args...)
 }
 
-func (l loggerAdaptor) Panicln(args ...interface{}) {
+func (l loggerAdaptor) Panicln(args ...any) {
 	logger.Criticalf(context.Background(), fmt.Sprint(args...))
 }
 
-func (l loggerAdaptor) Print(args ...interface{}) {
+func (l loggerAdaptor) Print(args ...any) {
 	logger.Infof(context.Background(), fmt.Sprint(args...))
 }
 
-func (l loggerAdaptor) Printf(msg string, args ...interface{}) {
+func (l loggerAdaptor) Printf(msg string, args ...any) {
 	logger.Infof(context.Background(), msg, args...)
 }
 
-func (l loggerAdaptor) Println(args ...interface{}) {
+func (l loggerAdaptor) Println(args ...any) {
 	logger.Infof(context.Background(), fmt.Sprint(args...))
 }

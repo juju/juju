@@ -106,8 +106,8 @@ func (nh *notifyHandler) CheckActions(c *tc.C, actions ...string) {
 	c.Check(nh.actions, tc.DeepEquals, actions)
 }
 
-func (nh *notifyHandler) Report(_ context.Context) map[string]interface{} {
-	return map[string]interface{}{
+func (nh *notifyHandler) Report(_ context.Context) map[string]any {
+	return map[string]any{
 		"test": true,
 	}
 }
@@ -323,9 +323,9 @@ func (s *notifyWorkerSuite) TestWorkerReport(c *tc.C) {
 	// handler.
 	reporter, ok := s.worker.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"type": "NotifyWorker",
-		"handler": map[string]interface{}{
+		"handler": map[string]any{
 			"test": true,
 		},
 	})

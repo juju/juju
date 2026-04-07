@@ -218,8 +218,8 @@ var validArches = map[string]bool{
 // imagemetadata.ImageConstraints. So this really only let's us filter on a
 // file type.
 func Filter(ftype string) simplestreams.AppendMatchingFunc {
-	return func(source simplestreams.DataSource, matchingImages []interface{},
-		images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
+	return func(source simplestreams.DataSource, matchingImages []any,
+		images map[string]any, cons simplestreams.LookupConstraint) ([]any, error) {
 
 		imagesMap := make(map[imageKey]*Metadata, len(matchingImages))
 		for _, val := range matchingImages {

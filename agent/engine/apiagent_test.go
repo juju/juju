@@ -57,7 +57,7 @@ func (s *AgentAPIManifoldSuite) TestOutput(c *tc.C) {
 }
 
 func (s *AgentAPIManifoldSuite) TestStartAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": dependency.ErrMissing,
 	})
 
@@ -67,7 +67,7 @@ func (s *AgentAPIManifoldSuite) TestStartAgentMissing(c *tc.C) {
 }
 
 func (s *AgentAPIManifoldSuite) TestStartAPIConnMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
@@ -80,7 +80,7 @@ func (s *AgentAPIManifoldSuite) TestStartAPIConnMissing(c *tc.C) {
 func (s *AgentAPIManifoldSuite) TestStartFailure(c *tc.C) {
 	expectAgent := &dummyAgent{}
 	expectAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      expectAgent,
 		"api-caller-name": expectAPICaller,
 	})
@@ -91,14 +91,14 @@ func (s *AgentAPIManifoldSuite) TestStartFailure(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAgent, expectAPICaller},
+		Args:     []any{expectAgent, expectAPICaller},
 	}})
 }
 
 func (s *AgentAPIManifoldSuite) TestStartSuccess(c *tc.C) {
 	expectAgent := &dummyAgent{}
 	expectAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      expectAgent,
 		"api-caller-name": expectAPICaller,
 	})
@@ -108,7 +108,7 @@ func (s *AgentAPIManifoldSuite) TestStartSuccess(c *tc.C) {
 	c.Check(worker, tc.Equals, s.worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAgent, expectAPICaller},
+		Args:     []any{expectAgent, expectAPICaller},
 	}})
 }
 

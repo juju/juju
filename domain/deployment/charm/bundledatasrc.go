@@ -20,7 +20,7 @@ import (
 // present when the document was parsed. This map is used by the overlay merge
 // code to figure out whether empty/nil field values were actually specified as
 // such in the yaml document.
-type FieldPresenceMap map[interface{}]interface{}
+type FieldPresenceMap map[any]any
 
 func (fpm FieldPresenceMap) fieldPresent(fieldName string) bool {
 	_, exists := fpm[fieldName]

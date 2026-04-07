@@ -29,12 +29,12 @@ type ExtraBinding struct {
 // endpoint name must be left out (i.e. "foo": <anything> is invalid).
 var extraBindingsSchema = schema.Map(schema.NonEmptyString("binding name"), schema.Nil(""))
 
-func parseMetaExtraBindings(data interface{}) (map[string]ExtraBinding, error) {
+func parseMetaExtraBindings(data any) (map[string]ExtraBinding, error) {
 	if data == nil {
 		return nil, nil
 	}
 
-	bindingsMap := data.(map[interface{}]interface{})
+	bindingsMap := data.(map[any]any)
 	result := make(map[string]ExtraBinding)
 	for name := range bindingsMap {
 		stringName := name.(string)

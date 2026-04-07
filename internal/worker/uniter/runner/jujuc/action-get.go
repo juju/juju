@@ -68,7 +68,7 @@ func (c *ActionGetCommand) Init(args []string) error {
 // recurseMapOnKeys returns the value of a map keyed recursively by the
 // strings given in "keys".  Thus, recurseMapOnKeys({a,b}, {a:{b:{c:d}}})
 // would return {c:d}.
-func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}, bool) {
+func recurseMapOnKeys(keys []string, params map[string]any) (any, bool) {
 	key, rest := keys[0], keys[1:]
 	answer, ok := params[key]
 
@@ -85,11 +85,11 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 
 	switch typed := answer.(type) {
 	// If our value is a map[s]i{}, we can keep recursing.
-	case map[string]interface{}:
+	case map[string]any:
 		return recurseMapOnKeys(keys[1:], typed)
 		// If it's a map[i{}]i{}, we need to check whether it's a map[s]i{}.
-	case map[interface{}]interface{}:
-		m := make(map[string]interface{})
+	case map[any]any:
+		m := make(map[string]any)
 		for k, v := range typed {
 			if tK, ok := k.(string); ok {
 				m[tK] = v
@@ -118,13 +118,13 @@ func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	var answer interface{}
+	var answer any
 
 	if len(c.keys) == 0 {
 		// If no parameters were returned we still want to print an
 		// empty object, not nil.
 		if params == nil {
-			answer = make(map[string]interface{})
+			answer = make(map[string]any)
 		} else {
 			answer = params
 		}

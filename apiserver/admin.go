@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
+type adminAPIFactory func(*Server, *apiHandler, observer.Observer) any
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
@@ -49,7 +49,7 @@ type admin struct {
 	loggedIn bool
 }
 
-func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer) interface{} {
+func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer) any {
 	return &admin{
 		srv:         srv,
 		root:        root,

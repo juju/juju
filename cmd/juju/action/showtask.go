@@ -181,7 +181,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
-	info := make(map[string]interface{})
+	info := make(map[string]any)
 	info[c.requestedId] = formatted
 	return c.out.Write(ctx, info)
 }

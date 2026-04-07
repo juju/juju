@@ -113,12 +113,12 @@ type ApiServerSuite struct {
 	// ControllerConfigAttrs can be set up before SetUpTest
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller configuration.
-	ControllerConfigAttrs map[string]interface{}
+	ControllerConfigAttrs map[string]any
 
 	// ControllerModelConfigAttrs can be set up before SetUpTest
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller model configuration.
-	ControllerModelConfigAttrs map[string]interface{}
+	ControllerModelConfigAttrs map[string]any
 
 	// These are exposed for the tests to use.
 	Server            *apiserver.Server

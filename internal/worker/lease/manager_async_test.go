@@ -52,7 +52,7 @@ func (s *AsyncSuite) TestRevokeTimeout(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "RevokeLease",
-			args:   []interface{}{key("requiem"), "verdi"},
+			args:   []any{key("requiem"), "verdi"},
 			err:    corelease.ErrTimeout,
 			callback: func(_ leaseMap) {
 				select {
@@ -63,7 +63,7 @@ func (s *AsyncSuite) TestRevokeTimeout(c *tc.C) {
 			},
 		}, {
 			method: "RevokeLease",
-			args:   []interface{}{key("requiem"), "verdi"},
+			args:   []any{key("requiem"), "verdi"},
 			callback: func(leases leaseMap) {
 				delete(leases, key("requiem"))
 				close(revokeCalls)
@@ -109,7 +109,7 @@ func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *tc.C) {
 	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "RevokeLease",
-			args:   []interface{}{key("requiem"), "verdi"},
+			args:   []any{key("requiem"), "verdi"},
 			err:    corelease.ErrTimeout,
 			callback: func(_ leaseMap) {
 				select {
@@ -186,7 +186,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				key("dmdc"),
 				corelease.Request{"terry", time.Minute},
 			},
@@ -211,7 +211,7 @@ func (s *AsyncSuite) TestClaimSlow(c *tc.C) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("antiquisearchers"),
 				corelease.Request{"art", time.Minute},
 			},
@@ -281,7 +281,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *tc.C) {
 		expectDirty: true,
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("one"),
 				corelease.Request{"terry", time.Minute},
 			},
@@ -296,7 +296,7 @@ func (s *AsyncSuite) TestClaimTwoErrors(c *tc.C) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("two"),
 				corelease.Request{"lance", time.Minute},
 			},
@@ -369,7 +369,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *tc.C) {
 	fix := Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("icecream"),
 				corelease.Request{"rosie", time.Minute},
 			},
@@ -383,7 +383,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *tc.C) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("icecream"),
 				corelease.Request{"rosie", time.Minute},
 			},
@@ -434,7 +434,7 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("icecream"),
 				corelease.Request{"rosie", time.Minute},
 			},
@@ -446,7 +446,7 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *tc.C) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("fudge"),
 				corelease.Request{"chocolate", time.Minute},
 			},
@@ -490,7 +490,7 @@ func (s *AsyncSuite) TestClaimRepeatedTimeout(c *tc.C) {
 	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("icecream"),
 				corelease.Request{"rosie", time.Minute},
 			},
@@ -558,7 +558,7 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *tc.C) {
 	for range lease.MaxRetries {
 		calls = append(calls, call{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("icecream"),
 				corelease.Request{"rosie", time.Minute},
 			},
@@ -633,7 +633,7 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				key("blooadoath"),
 				corelease.Request{"hand", time.Minute},
 			},

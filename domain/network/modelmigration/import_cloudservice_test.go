@@ -182,7 +182,7 @@ type cloudServiceMatcher struct {
 	expected []internal.ImportCloudService
 }
 
-func (m cloudServiceMatcher) Matches(x interface{}) bool {
+func (m cloudServiceMatcher) Matches(x any) bool {
 	input, ok := x.([]internal.ImportCloudService)
 	if !ok {
 		return false

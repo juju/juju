@@ -101,12 +101,12 @@ type azureStorageConfig struct {
 	storageType armcompute.DiskStorageAccountTypes
 }
 
-func newAzureStorageConfig(attrs map[string]interface{}) (*azureStorageConfig, error) {
+func newAzureStorageConfig(attrs map[string]any) (*azureStorageConfig, error) {
 	coerced, err := azureStorageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating Azure storage config")
 	}
-	attrs = coerced.(map[string]interface{})
+	attrs = coerced.(map[string]any)
 	azureStorageConfig := &azureStorageConfig{
 		storageType: armcompute.DiskStorageAccountTypes(attrs[accountTypeAttr].(string)),
 	}

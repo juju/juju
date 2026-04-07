@@ -83,7 +83,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // outputFunc extracts an API connection from a *apiConnWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Unwrap()
 	}

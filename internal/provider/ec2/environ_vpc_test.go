@@ -930,8 +930,8 @@ func makeVPCNotFoundError(vpcID string) error {
 	)
 }
 
-func makeArgsFromNames(names ...types.AccountAttributeName) []interface{} {
-	args := make([]interface{}, len(names))
+func makeArgsFromNames(names ...types.AccountAttributeName) []any {
+	args := make([]any, len(names))
 	for i := range names {
 		args[i] = names[i]
 	}

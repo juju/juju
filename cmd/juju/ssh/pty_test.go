@@ -122,7 +122,7 @@ func (s *PTYSuite) TestRunPTYLogic(c *tc.C) {
 		mock := &mockSSHProvider{}
 		sshCmd := &sshCommand{
 			provider:   mock,
-			isTerminal: func(interface{}) bool { return t.isTerminal },
+			isTerminal: func(any) bool { return t.isTerminal },
 			// sshMachine/sshContainer embedded fields are zero-valued
 		}
 

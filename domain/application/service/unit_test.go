@@ -149,19 +149,19 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 		AgentStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Allocating,
 			Message: "agent status",
-			Data:    map[string]interface{}{"foo": "bar"},
+			Data:    map[string]any{"foo": "bar"},
 			Since:   new(now),
 		}),
 		WorkloadStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Waiting,
 			Message: "workload status",
-			Data:    map[string]interface{}{"foo": "bar"},
+			Data:    map[string]any{"foo": "bar"},
 			Since:   new(now),
 		}),
 		CloudContainerStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Running,
 			Message: "container status",
-			Data:    map[string]interface{}{"foo": "bar"},
+			Data:    map[string]any{"foo": "bar"},
 			Since:   new(now),
 		}),
 	}

@@ -144,7 +144,7 @@ const (
 
 func NewSSHCommand(
 	hostChecker jujussh.ReachableChecker,
-	isTerminal func(interface{}) bool,
+	isTerminal func(any) bool,
 	retryStrategy retry.CallArgs,
 	publicKeyRetryStrategy retry.CallArgs,
 ) cmd.Command {
@@ -182,7 +182,7 @@ type sshCommand struct {
 	provider sshProvider
 
 	hostChecker jujussh.ReachableChecker
-	isTerminal  func(interface{}) bool
+	isTerminal  func(any) bool
 	pty         autoBoolValue
 
 	retryStrategy          retry.CallArgs
@@ -321,7 +321,7 @@ func (b *autoBoolValue) Set(s string) error {
 	return nil
 }
 
-func (b *autoBoolValue) Get() interface{} {
+func (b *autoBoolValue) Get() any {
 	if b.b != nil {
 		return *b.b
 	}
@@ -366,7 +366,7 @@ func (c *leaderResolver) maybeResolveLeaderUnit(ctx context.Context, target stri
 	return c.resolvedLeader, errors.Trace(err)
 }
 
-func isTerminal(f interface{}) bool {
+func isTerminal(f any) bool {
 	f_, ok := f.(*os.File)
 	if !ok {
 		return false

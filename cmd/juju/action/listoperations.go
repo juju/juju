@@ -184,7 +184,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	out := make(map[string]interface{})
+	out := make(map[string]any)
 	var operationResults byId = results.Operations
 	if len(operationResults) == 0 {
 		ctx.Infof("no matching operations")
@@ -222,7 +222,7 @@ type operationLine struct {
 
 const maxTaskIDs = 5
 
-func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{}) error {
+func (c *listOperationsCommand) formatTabular(writer io.Writer, value any) error {
 	results, ok := value.(byId)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", results, value)
@@ -314,18 +314,18 @@ type timingInfo struct {
 }
 
 type actionSummary struct {
-	Name       string                 `yaml:"name" json:"name"`
-	Parameters map[string]interface{} `yaml:"parameters" json:"parameters"`
+	Name       string         `yaml:"name" json:"name"`
+	Parameters map[string]any `yaml:"parameters" json:"parameters"`
 }
 
 type taskInfo struct {
-	Name    string                 `yaml:"name,omitempty" json:"name,omitempty"`
-	Host    string                 `yaml:"host" json:"host"`
-	Status  string                 `yaml:"status" json:"status"`
-	Timing  timingInfo             `yaml:"timing,omitempty" json:"timing,omitempty"`
-	Log     []string               `yaml:"log,omitempty" json:"log,omitempty"`
-	Message string                 `yaml:"message,omitempty" json:"message,omitempty"`
-	Results map[string]interface{} `yaml:"results,omitempty" json:"results,omitempty"`
+	Name    string         `yaml:"name,omitempty" json:"name,omitempty"`
+	Host    string         `yaml:"host" json:"host"`
+	Status  string         `yaml:"status" json:"status"`
+	Timing  timingInfo     `yaml:"timing,omitempty" json:"timing,omitempty"`
+	Log     []string       `yaml:"log,omitempty" json:"log,omitempty"`
+	Message string         `yaml:"message,omitempty" json:"message,omitempty"`
+	Results map[string]any `yaml:"results,omitempty" json:"results,omitempty"`
 }
 
 // formatOperationResult inserts the remaining ones in a map[string]interface{} for cmd.Output to
@@ -381,7 +381,7 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 		if i == 0 {
 			singleAction = actionSummary{
 				Name:       task.Action.Name,
-				Parameters: make(map[string]interface{}),
+				Parameters: make(map[string]any),
 			}
 			maps.Copy(singleAction.Parameters, task.Action.Parameters)
 			continue

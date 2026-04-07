@@ -98,7 +98,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 }
 
 // outputFunc extracts an API connection from a *apiConnWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*apiConnWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

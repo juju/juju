@@ -57,7 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(AuthorityWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got a %T", inWorker, in)

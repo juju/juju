@@ -24,7 +24,7 @@ func TestLoggerSuite(t *stdtesting.T) {
 }
 
 func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Logger")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -47,7 +47,7 @@ func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Logger")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

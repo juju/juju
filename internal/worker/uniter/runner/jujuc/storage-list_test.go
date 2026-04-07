@@ -76,7 +76,7 @@ func (s *storageListSuite) TestOutputNoMatches(c *tc.C) {
 	)
 }
 
-func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, expect interface{}) {
+func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, expect any) {
 	hctx := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-list")
 	c.Assert(err, tc.ErrorIsNil)
@@ -85,7 +85,7 @@ func (s *storageListSuite) testOutputFormat(c *tc.C, args []string, format int, 
 	c.Assert(code, tc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
-	var out interface{}
+	var out any
 	var outSlice []string
 	switch format {
 	case formatYaml:

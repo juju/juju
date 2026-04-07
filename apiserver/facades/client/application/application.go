@@ -122,7 +122,7 @@ type APIBase struct {
 }
 
 type CaasBrokerInterface interface {
-	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
+	ValidateStorageClass(ctx context.Context, config map[string]any) error
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
@@ -400,13 +400,13 @@ func splitTrustFromApplicationConfigFromYAML(inYaml, appName string) (
 	applicationConfig charm.Config,
 	_ error,
 ) {
-	var allSettings map[string]interface{}
+	var allSettings map[string]any
 	if err := goyaml.Unmarshal([]byte(inYaml), &allSettings); err != nil {
 		return false, nil, errors.Annotate(err, "cannot parse settings data")
 	}
 
-	if val, ok := allSettings[appName].(map[interface{}]interface{}); ok {
-		subSettings := make(map[string]interface{})
+	if val, ok := allSettings[appName].(map[any]any); ok {
+		subSettings := make(map[string]any)
 		for k, v := range val {
 			strK, ok := k.(string)
 			if !ok {
@@ -631,7 +631,7 @@ func parseApplicationConfig(
 
 	trustFromMap, applicationConfigFromMap := splitTrustFromApplicationConfig(transform.Map(
 		cfg,
-		func(k string, v string) (string, interface{}) { return k, v }),
+		func(k string, v string) (string, any) { return k, v }),
 	)
 
 	trustFromYAML, applicationConfigFromYAML, err := splitTrustFromApplicationConfigFromYAML(configYaml, appName)
@@ -2381,7 +2381,7 @@ func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.
 		for k, v := range endpointData.UnitRelationData {
 			unitRelationData[k] = params.RelationData{
 				InScope: v.InScope,
-				UnitData: transform.Map(v.UnitData, func(k, v string) (string, interface{}) {
+				UnitData: transform.Map(v.UnitData, func(k, v string) (string, any) {
 					return k, v
 				}),
 			}
@@ -2391,7 +2391,7 @@ func (api *APIBase) relationData(ctx context.Context, appName string) ([]params.
 			Endpoint:        endpointData.Endpoint,
 			CrossModel:      false,
 			RelatedEndpoint: endpointData.RelatedEndpoint,
-			ApplicationData: transform.Map(endpointData.ApplicationData, func(k, v string) (string, interface{}) {
+			ApplicationData: transform.Map(endpointData.ApplicationData, func(k, v string) (string, any) {
 				return k, v
 			}),
 			UnitRelationData: unitRelationData,

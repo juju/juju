@@ -111,7 +111,7 @@ func (c *applicationGetConstraintsCommand) Info() *cmd.Info {
 	})
 }
 
-func formatConstraints(writer io.Writer, value interface{}) error {
+func formatConstraints(writer io.Writer, value any) error {
 	fmt.Fprintln(writer, value.(constraints.Value).String())
 	return nil
 }

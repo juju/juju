@@ -25,7 +25,7 @@ func TestMachineUpgraderSuite(t *stdtesting.T) {
 }
 
 func (s *machineUpgraderSuite) TestSetVersion(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Upgrader")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -50,7 +50,7 @@ func (s *machineUpgraderSuite) TestSetVersion(c *tc.C) {
 
 func (s *machineUpgraderSuite) TestTools(c *tc.C) {
 	toolsResult := tools.List{{URL: "https://tools"}}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Upgrader")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -72,7 +72,7 @@ func (s *machineUpgraderSuite) TestTools(c *tc.C) {
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Upgrader")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -94,7 +94,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *tc.C) {
 	versResult := coretesting.CurrentVersion().Number
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Upgrader")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

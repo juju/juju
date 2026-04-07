@@ -177,5 +177,5 @@ type ProviderSpaceInfo struct {
 
 	// Any provider-specific information to needed to identify the
 	// network within the cloud, e.g. VPC ID for EC2.
-	ProviderAttributes map[string]interface{}
+	ProviderAttributes map[string]any
 }

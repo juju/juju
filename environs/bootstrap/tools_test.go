@@ -143,7 +143,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
-		extra := map[string]interface{}{"development": test.dev}
+		extra := map[string]any{"development": test.dev}
 		if test.streams != nil {
 			extra["agent-stream"] = test.streams[0]
 		}
@@ -178,7 +178,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *tc.C) {
 	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+	env := newEnviron("foo", useDefaultKeys, map[string]any{
 		"agent-version": "1.17.1",
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())

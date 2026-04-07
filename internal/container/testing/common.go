@@ -67,7 +67,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 ) instances.Instance {
-	callback := func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error {
+	callback := func(ctx context.Context, settableStatus status.Status, info string, data map[string]any) error {
 		return nil
 	}
 	inst, hardware, err := manager.CreateContainer(

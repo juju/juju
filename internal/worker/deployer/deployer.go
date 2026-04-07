@@ -49,7 +49,7 @@ type Unit interface {
 	Name() string
 	Remove(ctx context.Context) error
 	SetPassword(ctx context.Context, password string) error
-	SetStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
+	SetStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]any) error
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -75,7 +75,7 @@ type Context interface {
 	// running the deployer.
 	AgentConfig() agent.Config
 
-	Report(ctx context.Context) map[string]interface{}
+	Report(ctx context.Context) map[string]any
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
@@ -97,7 +97,7 @@ func NewDeployer(client Client, logger logger.Logger, ctx Context) (worker.Worke
 }
 
 // Report is shown in the engine report.
-func (d *Deployer) Report(ctx context.Context) map[string]interface{} {
+func (d *Deployer) Report(ctx context.Context) map[string]any {
 	// Get the report from the context.
 	return d.ctx.Report(ctx)
 }

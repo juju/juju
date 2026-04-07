@@ -102,7 +102,7 @@ func (s *Suite) TestSuccess(c *tc.C) {
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.Equals, dependency.ErrUninstall)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{{
-		"ReportKeys", []interface{}{"42", []string{"dsa", "ecdsa", "rsa"}},
+		"ReportKeys", []any{"42", []string{"dsa", "ecdsa", "rsa"}},
 	}})
 }
 

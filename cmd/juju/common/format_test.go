@@ -108,84 +108,84 @@ func TestConformSuite(t *testing.T) {
 func (s *ConformSuite) TestConformYAML(c *tc.C) {
 	var goodInterfaceTests = []struct {
 		description       string
-		inputInterface    interface{}
-		expectedInterface map[string]interface{}
+		inputInterface    any
+		expectedInterface map[string]any
 		expectedError     string
 	}{{
 		description: "An interface requiring no changes.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
 	}, {
 		description: "Substitute a single inner map[i]i.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[interface{}]interface{}{
+			"key3": map[any]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
 	}, {
 		description: "Substitute nested inner map[i]i.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1a": "val1a",
 			"key2a": "val2a",
-			"key3a": map[interface{}]interface{}{
+			"key3a": map[any]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c"}}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1a": "val1a",
 			"key2a": "val2a",
-			"key3a": map[string]interface{}{
+			"key3a": map[string]any{
 				"key1b": "val1b",
-				"key2b": map[string]interface{}{
+				"key2b": map[string]any{
 					"key1c": "val1c"}}},
 	}, {
 		description: "Substitute nested map[i]i within []i.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1a": "val1a",
-			"key2a": []interface{}{5, "foo", map[string]interface{}{
+			"key2a": []any{5, "foo", map[string]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c"}}}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1a": "val1a",
-			"key2a": []interface{}{5, "foo", map[string]interface{}{
+			"key2a": []any{5, "foo", map[string]any{
 				"key1b": "val1b",
-				"key2b": map[string]interface{}{
+				"key2b": map[string]any{
 					"key1c": "val1c"}}}},
 	}, {
 		description: "An inner map[interface{}]interface{} with an int key.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[interface{}]interface{}{
+			"key3": map[any]any{
 				"foo1": "val1",
 				5:      "val2"}},
 		expectedError: "map keyed with non-string value",
 	}, {
 		description: "An inner []interface{} containing a map[i]i with an int key.",
-		inputInterface: map[string]interface{}{
+		inputInterface: map[string]any{
 			"key1a": "val1b",
 			"key2a": "val2b",
-			"key3a": []interface{}{"foo1", 5, map[interface{}]interface{}{
+			"key3a": []any{"foo1", 5, map[any]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c",
 					5:       "val2c"}}}},
 		expectedError: "map keyed with non-string value",

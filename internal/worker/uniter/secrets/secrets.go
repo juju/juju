@@ -224,11 +224,11 @@ func (s *Secrets) SecretsRemoved(
 }
 
 // Report provides information for the engine report.
-func (s *Secrets) Report(ctx context.Context) map[string]interface{} {
+func (s *Secrets) Report(ctx context.Context) map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	obsolete := make(map[string][]int)
 	for u, v := range s.secretsState.SecretObsoleteRevisions {
 		rCopy := make([]int, len(v))

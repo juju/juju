@@ -43,7 +43,7 @@ func ManifoldEx(lock Lock) dependency.Manifold {
 			})
 			return w, nil
 		},
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			inWorker, _ := in.(*gate)
 			if inWorker == nil {
 				return errors.Errorf("in should be a *gate; is %#v", in)

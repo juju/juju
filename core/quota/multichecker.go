@@ -5,7 +5,7 @@ package quota
 
 // Checker is implemented by types that can perform quota limit checks.
 type Checker interface {
-	Check(interface{})
+	Check(any)
 	Outcome() error
 }
 
@@ -25,7 +25,7 @@ func NewMultiChecker(checkers ...Checker) *MultiChecker {
 }
 
 // Check passes v to the Check method for each one of the composed Checkers.
-func (c MultiChecker) Check(v interface{}) {
+func (c MultiChecker) Check(v any) {
 	for _, checker := range c.checkers {
 		checker.Check(v)
 	}

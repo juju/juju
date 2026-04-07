@@ -19,7 +19,7 @@ import (
 // and subsequent ones get forwarded on.
 type bufferedLog struct {
 	mu          sync.Mutex
-	buffer      []interface{}
+	buffer      []any
 	dest        auditlog.AuditLog
 	interesting func(auditlog.Request) bool
 }
@@ -81,7 +81,7 @@ func (l *bufferedLog) Close() error {
 	return errors.Trace(l.dest.Close())
 }
 
-func (l *bufferedLog) deferMessage(m interface{}) {
+func (l *bufferedLog) deferMessage(m any) {
 	l.buffer = append(l.buffer, m)
 }
 

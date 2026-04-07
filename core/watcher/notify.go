@@ -158,8 +158,8 @@ func (nw *NotifyWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (nw *NotifyWorker) Report(ctx context.Context) map[string]interface{} {
-	report := map[string]interface{}{
+func (nw *NotifyWorker) Report(ctx context.Context) map[string]any {
+	report := map[string]any{
 		"type": "NotifyWorker",
 	}
 

@@ -222,7 +222,7 @@ that port).
 inside the model. It's useful for clouds without support for either
 global or per instance security groups.`,
 		Type:      configschema.Tstring,
-		Values:    []interface{}{FwInstance, FwGlobal, FwNone},
+		Values:    []any{FwInstance, FwGlobal, FwNone},
 		Immutable: true,
 		Group:     configschema.EnvironGroup,
 	},

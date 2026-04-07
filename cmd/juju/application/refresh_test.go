@@ -1295,10 +1295,10 @@ type mockModelConfigGetter struct {
 	deployer.ModelConfigGetter
 	testhelpers.Stub
 
-	cfg map[string]interface{}
+	cfg map[string]any
 }
 
-func (m *mockModelConfigGetter) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (m *mockModelConfigGetter) ModelGet(ctx context.Context) (map[string]any, error) {
 	m.MethodCall(m, "ModelGet")
 	return m.cfg, m.NextErr()
 }

@@ -1079,7 +1079,7 @@ func (s *importSuite) TestApplicationConfig(c *tc.C) {
 			},
 		},
 	})
-	app.SetCharmConfig(map[string]interface{}{"foo": "test-value"})
+	app.SetCharmConfig(map[string]any{"foo": "test-value"})
 
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 

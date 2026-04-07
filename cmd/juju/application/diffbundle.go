@@ -43,7 +43,7 @@ const (
 
 // ModelConfigGetter defines an interface for getting model configuration.
 type ModelConfigGetter interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 }
 
 // ModelConstraintsGetter defines an interface for getting model constraints.
@@ -441,7 +441,7 @@ func (e *extractorImpl) GetConstraints(ctx context.Context, applications ...stri
 }
 
 // GetConfig is part of ModelExtractor.
-func (e *extractorImpl) GetConfig(ctx context.Context, applications ...string) ([]map[string]interface{}, error) {
+func (e *extractorImpl) GetConfig(ctx context.Context, applications ...string) ([]map[string]any, error) {
 	return e.application.GetConfig(ctx, applications...)
 }
 

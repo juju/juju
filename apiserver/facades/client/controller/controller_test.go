@@ -628,7 +628,7 @@ func (s *controllerSuite) TestConfigSet(c *tc.C) {
 	c.Assert(config.AuditingEnabled(), tc.Equals, false)
 	c.Assert(config.SSHServerPort(), tc.Equals, 17022)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"auditing-enabled": true,
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -653,7 +653,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = endpoint.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = endpoint.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"something": 23,
 	}})
 
@@ -669,36 +669,36 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), tc.Equals, "")
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
 
 	err = controllerConfigService.UpdateControllerConfig(
 		c.Context(),
-		map[string]interface{}{
+		map[string]any{
 			"caas-image-repo": "jujusolutions",
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: repository read-only, only authentication can be updated`)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
 
 	err = controllerConfigService.UpdateControllerConfig(
 		c.Context(),
-		map[string]interface{}{
+		map[string]any{
 			"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorIsNil)

@@ -144,7 +144,7 @@ func (t *Tests) TearDownTest(c *tc.C) {
 
 func (t *Tests) TestStartStop(c *tc.C) {
 	e := t.Prepare(c)
-	cfg, err := e.Config().Apply(map[string]interface{}{
+	cfg, err := e.Config().Apply(map[string]any{
 		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)

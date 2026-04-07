@@ -43,7 +43,7 @@ func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.fakeCaller = &fakeCaller{}
 	s.fakeLock = machinelock.Lock(nil)
 
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"wut":     s.fakeAgent,
 		"exactly": s.fakeCaller,
 	})
@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 		AgentName:     "wut",
 		APICallerName: "exactly",
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"wut": dependency.ErrMissing,
 	})
 
@@ -94,7 +94,7 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *tc.C) {
 		AgentName:     "wut",
 		APICallerName: "exactly",
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"wut":     &fakeAgent{},
 		"exactly": dependency.ErrMissing,
 	})
@@ -142,7 +142,7 @@ func (s *ManifoldSuite) TestInvalidTag(c *tc.C) {
 		NewWorker:     s.newWorker(fakeWorker, nil),
 		MachineLock:   s.fakeLock,
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"wut":     &fakeAgent{tag: fakeTagErr},
 		"exactly": s.fakeCaller,
 	})

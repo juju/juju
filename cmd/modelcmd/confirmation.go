@@ -27,7 +27,7 @@ func (c *DestroyConfirmationCommandBase) NeedsConfirmation() bool {
 }
 
 type ModelConfigAPI interface {
-	ModelGet(context.Context) (map[string]interface{}, error)
+	ModelGet(context.Context) (map[string]any, error)
 }
 
 // RemoveConfirmationCommandBase provides common attributes and methods that

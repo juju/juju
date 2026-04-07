@@ -76,7 +76,7 @@ type RelationStateTracker interface {
 	LocalUnitAndApplicationLife(stdcontext.Context) (life.Value, life.Value, error)
 
 	// Report provides information for the engine report.
-	Report(ctx stdcontext.Context) map[string]interface{}
+	Report(ctx stdcontext.Context) map[string]any
 }
 
 // SubordinateDestroyer destroys all subordinates of a unit.

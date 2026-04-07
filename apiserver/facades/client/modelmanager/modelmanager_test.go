@@ -303,7 +303,7 @@ func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Qualifier: "prod",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"bar": "baz",
 		},
 		CloudTag:           "cloud-dummy",
@@ -327,7 +327,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Qualifier: "admin",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"bar": "baz",
 		},
 		CloudTag:           "cloud-dummy",
@@ -388,7 +388,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Qualifier: "admin",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
 		},
@@ -428,7 +428,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 	args := params.ModelCreateArgs{
 		Name:      "foo",
 		Qualifier: "admin",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"bar":                  "baz",
 			config.AgentVersionKey: jujuversion.Current.String(),
 			config.AgentStreamKey:  "released",
@@ -493,7 +493,7 @@ func (s *modelManagerSuite) TestSetModelCloudDefaults(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
 		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	defaults := map[string]interface{}{
+	defaults := map[string]any{
 		"attr3": "val3",
 		"attr4": "val4",
 	}
@@ -511,7 +511,7 @@ func (s *modelManagerSuite) TestSetModelRegionDefaults(c *tc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), blockcommand.ChangeBlock).
 		Return("", blockcommanderrors.NotFound).AnyTimes()
 
-	defaults := map[string]interface{}{
+	defaults := map[string]any{
 		"attr3": "val3",
 		"attr4": "val4",
 	}
@@ -604,7 +604,7 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *tc.C) {
 
 	got, err := s.api.SetModelDefaults(c.Context(), params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"ftp-proxy": "http://charlie",
 			}}}})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
@@ -1002,7 +1002,7 @@ func (s *modelManagerStateSuite) SetUpSuite(c *tc.C) {
 func (s *modelManagerStateSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
 
-	s.ControllerModelConfigAttrs = map[string]interface{}{
+	s.ControllerModelConfigAttrs = map[string]any{
 		"agent-version": jujuversion.Current.String(),
 	}
 	s.ApiServerSuite.SetUpTest(c)

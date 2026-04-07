@@ -25,7 +25,7 @@ const (
 
 // formatShowTabular returns a tabular summary of remote applications or
 // errors out if parameter is not of expected type.
-func formatShowTabular(writer io.Writer, value interface{}) error {
+func formatShowTabular(writer io.Writer, value any) error {
 	endpoints, ok := value.(map[string]ShowOfferedApplication)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", endpoints, value)

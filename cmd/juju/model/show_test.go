@@ -135,7 +135,7 @@ func (s *ShowCommandSuite) TestShow(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand())
 	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []testhelpers.StubCall{
-		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
+		{"ModelInfo", []any{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
 }
@@ -144,7 +144,7 @@ func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "deadbeef")
 	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []testhelpers.StubCall{
-		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
+		{"ModelInfo", []any{[]names.ModelTag{testing.ModelTag}}},
 		{"Close", nil},
 	})
 }
@@ -676,7 +676,7 @@ func noOpRefresh(_ context.Context, _ jujuclient.ClientStore, _ string) error {
 	return nil
 }
 
-type attrs map[string]interface{}
+type attrs map[string]any
 
 type fakeModelShowClient struct {
 	testhelpers.Stub

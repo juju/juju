@@ -329,7 +329,7 @@ type unitStateMatcher struct {
 	expected map[int]string
 }
 
-func (m unitStateMatcher) Matches(x interface{}) bool {
+func (m unitStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok {
 		return false

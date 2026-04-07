@@ -37,13 +37,13 @@ func (f *fakeDumpClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
+func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag) (map[string]any, error) {
 	f.MethodCall(f, "DumpModel", model)
 	err := f.NextErr()
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"model-uuid": "fake uuid",
 	}, nil
 }
@@ -69,7 +69,7 @@ func (s *DumpCommandSuite) TestDump(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
 	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "DumpModel", Args: []interface{}{testing.ModelTag}},
+		{FuncName: "DumpModel", Args: []any{testing.ModelTag}},
 		{FuncName: "Close", Args: nil},
 	})
 

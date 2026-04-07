@@ -281,7 +281,7 @@ type configFlag interface {
 	AbsoluteFileNames(ctx *cmd.Context) ([]string, error)
 
 	// ReadConfigPairs returns just the k=v attributes
-	ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error)
+	ReadConfigPairs(ctx *cmd.Context) (map[string]any, error)
 }
 
 // ProcessConfig processes the config defined by the config flag and returns
@@ -365,7 +365,7 @@ func CombinedConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOpti
 		settings[k] = v
 	}
 	// Return to the expected yaml format for over the wire
-	settingsForYaml := map[interface{}]interface{}{appName: settings}
+	settingsForYaml := map[any]any{appName: settings}
 	configYaml, err := goyaml.Marshal(settingsForYaml)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -373,7 +373,7 @@ func CombinedConfig(ctx *cmd.Context, filesystem modelcmd.Filesystem, configOpti
 	return string(configYaml), nil
 }
 
-func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string) (map[interface{}]interface{}, error) {
+func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string) (map[any]any, error) {
 	var configYAML []byte
 	files, err := configOptions.AbsoluteFileNames(ctx)
 	if err != nil {
@@ -381,7 +381,7 @@ func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string
 	}
 	switch len(files) {
 	case 0:
-		return make(map[interface{}]interface{}), nil
+		return make(map[any]any), nil
 	case 1:
 		configYAML, err = os.ReadFile(files[0])
 		if err != nil {
@@ -390,11 +390,11 @@ func settingsFromYaml(ctx *cmd.Context, configOptions configFlag, appName string
 	default:
 		return nil, errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
 	}
-	var allSettings map[string]interface{}
+	var allSettings map[string]any
 	if err := goyaml.Unmarshal(configYAML, &allSettings); err != nil {
 		return nil, errors.Annotate(err, "cannot parse settings data")
 	}
-	settings, ok := allSettings[appName].(map[interface{}]interface{})
+	settings, ok := allSettings[appName].(map[any]any)
 	if !ok {
 		return nil, errors.Trace(err)
 	}

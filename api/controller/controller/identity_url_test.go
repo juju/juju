@@ -16,7 +16,7 @@ import (
 func (s *Suite) TestIdentityProviderURLCallError(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
-		APICallerFunc: func(string, int, string, string, interface{}, interface{}) error {
+		APICallerFunc: func(string, int, string, string, any, any) error {
 			return errors.New("boom")
 		},
 	}
@@ -30,7 +30,7 @@ func (s *Suite) TestIdentityProviderURL(c *tc.C) {
 	expURL := "https://api.jujucharms.com/identity"
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
-		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "Controller")
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "IdentityProviderURL")
@@ -51,7 +51,7 @@ func (s *Suite) TestIdentityProviderURL(c *tc.C) {
 func (s *Suite) TestIdentityProviderURLWithErrorResult(c *tc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 7,
-		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "Controller")
 			c.Check(id, tc.Equals, "")
 			c.Check(request, tc.Equals, "IdentityProviderURL")

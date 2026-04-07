@@ -37,7 +37,7 @@ func (s *applicationSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *applicationSuite) apiCallerFunc(c *tc.C) basetesting.APICallerFunc {
-	return func(objType string, version int, id, request string, arg, result interface{}) error {
+	return func(objType string, version int, id, request string, arg, result any) error {
 		if objType == "NotifyWatcher" {
 			if request != "Next" && request != "Stop" {
 				c.Fatalf("unexpected watcher request %q", request)
@@ -95,7 +95,7 @@ func (s *applicationSuite) apiCallerFunc(c *tc.C) basetesting.APICallerFunc {
 						Tag:    "unit-mysql-0",
 						Status: "blocked",
 						Info:   "app blocked",
-						Data:   map[string]interface{}{"foo": "bar"},
+						Data:   map[string]any{"foo": "bar"},
 					},
 				},
 			})
@@ -178,7 +178,7 @@ func (s *applicationSuite) TestSetApplicationStatus(c *tc.C) {
 	app, err := client.Application(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = app.SetStatus(c.Context(), "mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
+	err = app.SetStatus(c.Context(), "mysql/0", status.Blocked, "app blocked", map[string]any{"foo": "bar"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.statusSet, tc.IsTrue)
 }

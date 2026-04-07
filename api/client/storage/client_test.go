@@ -213,7 +213,7 @@ func (s *storageMockSuite) TestCreatePool(c *tc.C) {
 
 	poolName := "poolName"
 	poolType := "poolType"
-	poolConfig := map[string]interface{}{
+	poolConfig := map[string]any{
 		"test": "one",
 		"pass": true,
 	}
@@ -850,7 +850,7 @@ func (s *storageMockSuite) TestUpdatePool(c *tc.C) {
 
 	poolName := "poolName"
 	providerType := "loop"
-	poolConfig := map[string]interface{}{
+	poolConfig := map[string]any{
 		"test": "one",
 		"pass": true,
 	}

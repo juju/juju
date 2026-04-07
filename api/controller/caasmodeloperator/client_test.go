@@ -32,7 +32,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	ver, err := semversion.Parse("1.2.3")
 	c.Assert(err, tc.ErrorIsNil)
 
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CAASModelOperator")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -61,7 +61,7 @@ func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
 		called   = false
 		password = "fee75f71b1b3ddf4e7996ce5ce8ad1a49ff16c9a10c025c7db2d8600d0921bb0"
 	)
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, a, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASModelOperator")
 		c.Check(id, tc.Equals, "")

@@ -120,8 +120,8 @@ type HookUnit interface {
 	Name() string
 	NetworkInfo(ctx context.Context, bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	RequestReboot(context.Context) error
-	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
-	SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]interface{}) error
+	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]any) error
+	SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]any) error
 	State(context.Context) (params.UnitStateResult, error)
 	Tag() names.UnitTag
 	UnitStatus(context.Context) (params.StatusResult, error)
@@ -1267,7 +1267,7 @@ func (c *HookContext) cloudSpecK8s(ctx context.Context) (*params.CloudSpec, erro
 
 // ActionParams simply returns the arguments to the Action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
-func (c *HookContext) ActionParams() (map[string]interface{}, error) {
+func (c *HookContext) ActionParams() (map[string]any, error) {
 	c.actionDataMu.Lock()
 	defer c.actionDataMu.Unlock()
 	if c.actionData == nil {
@@ -1316,7 +1316,7 @@ func (c *HookContext) SetActionFailed() error {
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
-func (c *HookContext) UpdateActionResults(keys []string, value interface{}) error {
+func (c *HookContext) UpdateActionResults(keys []string, value any) error {
 	c.actionDataMu.Lock()
 	defer c.actionDataMu.Unlock()
 	if c.actionData == nil {
@@ -1790,7 +1790,7 @@ func (c *HookContext) finalizeAction(ctx context.Context, err, flushErr error) e
 	}
 	if flushErr != nil {
 		if results == nil {
-			results = map[string]interface{}{}
+			results = map[string]any{}
 		}
 		if stderr, ok := results["stderr"].(string); ok {
 			results["stderr"] = stderr + "\n" + flushErr.Error()

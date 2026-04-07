@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
-	var outputNonsense interface{}
+	var outputNonsense any
 	err = manifold.Output(agentWorker, &outputNonsense)
 	c.Check(err.Error(), tc.Equals, "expected *agent.agentWorker->*agent.Agent; got *agent.agentWorker->*interface {}")
 }

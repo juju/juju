@@ -120,7 +120,7 @@ func (ctx *Context) IsSerial() bool {
 	return ctx.serialisable
 }
 
-func (ctx *Context) write(format string, params ...interface{}) {
+func (ctx *Context) write(format string, params ...any) {
 	output := fmt.Sprintf(format, params...)
 	if !strings.HasSuffix(output, "\n") {
 		output = output + "\n"
@@ -130,7 +130,7 @@ func (ctx *Context) write(format string, params ...interface{}) {
 
 // Infof will write the formatted string to Stderr if quiet is false, but if
 // quiet is true the message is logged.
-func (ctx *Context) Infof(format string, params ...interface{}) {
+func (ctx *Context) Infof(format string, params ...any) {
 	if ctx.quiet {
 		logger.Helper()
 		//Here we use the Loggo.logger method `Logf` as opposed to
@@ -148,7 +148,7 @@ func (ctx *Context) Infof(format string, params ...interface{}) {
 // command's context. This is useful for logging errors which do not cause a
 // command to fail (e.g. an error message used as a deprecation warning that
 // will be upgraded to a real error message at some point in the future.)
-func (ctx *Context) Warningf(format string, params ...interface{}) {
+func (ctx *Context) Warningf(format string, params ...any) {
 	logger.Helper()
 	// Here we use the Loggo.logger method `Logf` as opposed to
 	// `logger.Warningf` to avoid introducing an additional call stack level
@@ -159,7 +159,7 @@ func (ctx *Context) Warningf(format string, params ...interface{}) {
 
 // Verbosef will write the formatted string to Stderr if the verbose is true,
 // and to the logger if not.
-func (ctx *Context) Verbosef(format string, params ...interface{}) {
+func (ctx *Context) Verbosef(format string, params ...any) {
 	if ctx.verbose {
 		ctx.write(format, params...)
 	} else {
@@ -178,7 +178,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 // Usually these errors are logged by returning them in Run, but that is
 // not always sufficient. For instance, if the client has performed multiple
 // actions
-func (ctx *Context) Errorf(format string, params ...interface{}) {
+func (ctx *Context) Errorf(format string, params ...any) {
 	logger.Helper()
 	// Here we use the Loggo.logger method `Logf` as opposed to
 	// `logger.Errorf` to avoid introducing an additional call stack

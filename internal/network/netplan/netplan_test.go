@@ -1793,7 +1793,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *tc.C) {
 	examples := readExampleStrings(c)
 	for _, example := range examples {
 		c.Logf("example: %s", example.filename)
-		var orig map[interface{}]interface{}
+		var orig map[any]any
 		err := yaml.UnmarshalStrict([]byte(example.content), &orig)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("failed to unmarshal as map %s", example.filename))
 		np := MustNetplanFromYaml(c, example.content)
@@ -1802,7 +1802,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *tc.C) {
 		// (We might also change boolean 'no' to 'false', etc.
 		out, err := netplan.Marshal(np)
 		c.Check(err, tc.ErrorIsNil, tc.Commentf("failed to marshal %s", example.filename))
-		var roundtripped map[interface{}]interface{}
+		var roundtripped map[any]any
 		err = yaml.UnmarshalStrict(out, &roundtripped)
 		c.Assert(err, tc.ErrorIsNil)
 		if !reflect.DeepEqual(orig, roundtripped) {

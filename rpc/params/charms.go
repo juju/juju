@@ -52,9 +52,9 @@ type CharmsListResult struct {
 
 // CharmOption mirrors charm.Option
 type CharmOption struct {
-	Type        string      `json:"type"`
-	Description string      `json:"description,omitempty"`
-	Default     interface{} `json:"default,omitempty"`
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+	Default     any    `json:"default,omitempty"`
 }
 
 // CharmRelation mirrors charm.Relation.
@@ -140,10 +140,10 @@ type CharmActions struct {
 
 // CharmActionSpec mirrors charm.ActionSpec.
 type CharmActionSpec struct {
-	Description    string                 `json:"description"`
-	Parallel       bool                   `json:"parallel,omitempty"`
-	Params         map[string]interface{} `json:"params"`
-	ExecutionGroup string                 `json:"execution-group,omitempty"`
+	Description    string         `json:"description"`
+	Parallel       bool           `json:"parallel,omitempty"`
+	Params         map[string]any `json:"params"`
+	ExecutionGroup string         `json:"execution-group,omitempty"`
 }
 
 // CharmMetric mirrors charm.Metric.

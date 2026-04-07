@@ -24,7 +24,7 @@ func TestCloudNativeUniterSuite(t *stdtesting.T) {
 }
 
 func (s *cloudNativeUniterSuite) TestCloudSpec(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "CloudSpec")
 		c.Assert(arg, tc.IsNil)

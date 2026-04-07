@@ -45,13 +45,13 @@ type MachineProvisioner interface {
 	Refresh(context.Context) error
 
 	// SetInstanceStatus sets the status for the provider instance.
-	SetInstanceStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error
+	SetInstanceStatus(ctx context.Context, status status.Status, message string, data map[string]any) error
 
 	// InstanceStatus returns the status of the provider instance.
 	InstanceStatus(ctx context.Context) (status.Status, string, error)
 
 	// SetStatus sets the status of the machine.
-	SetStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error
+	SetStatus(ctx context.Context, status status.Status, info string, data map[string]any) error
 
 	// Status returns the status of the machine.
 	Status(ctx context.Context) (status.Status, string, error)
@@ -170,7 +170,7 @@ func (m *Machine) Refresh(ctx context.Context) error {
 }
 
 // SetInstanceStatus implements MachineProvisioner.SetInstanceStatus.
-func (m *Machine) SetInstanceStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error {
+func (m *Machine) SetInstanceStatus(ctx context.Context, status status.Status, message string, data map[string]any) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
@@ -204,7 +204,7 @@ func (m *Machine) InstanceStatus(ctx context.Context) (status.Status, string, er
 }
 
 // SetStatus implements MachineProvisioner.SetStatus.
-func (m *Machine) SetStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(ctx context.Context, status status.Status, info string, data map[string]any) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{

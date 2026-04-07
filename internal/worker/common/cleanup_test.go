@@ -46,7 +46,7 @@ func (s *cleanupSuite) TestReport(c *tc.C) {
 
 	reporter, ok := cw.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"fake": true,
 	})
 }
@@ -64,8 +64,8 @@ func (w *fakeWorker) Wait() error {
 	return w.stub.NextErr()
 }
 
-func (w *fakeWorker) Report(_ context.Context) map[string]interface{} {
-	return map[string]interface{}{
+func (w *fakeWorker) Report(_ context.Context) map[string]any {
+	return map[string]any{
 		"fake": true,
 	}
 }

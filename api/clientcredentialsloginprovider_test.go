@@ -31,7 +31,7 @@ func TestClientCredentialsLoginProviderProviderSuite(t *stdtesting.T) {
 	tc.Run(t, &clientCredentialsLoginProviderProviderSuite{})
 }
 func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		var err error
 		if modelUUID != "" && modelUUID != testing.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
@@ -54,7 +54,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin
 	clientID := "test-client-id"
 	clientSecret := "test-client-secret"
 
-	s.PatchValue(api.LoginWithClientCredentialsAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginWithClientCredentialsAPICall, func(ctx context.Context, _ base.APICaller, request any, response any) error {
 		data, err := json.Marshal(request)
 		if err != nil {
 			return errors.Trace(err)
@@ -147,7 +147,7 @@ type callStub struct {
 	base.APICaller
 }
 
-func (c callStub) APICall(_ context.Context, objType string, version int, id string, request string, params interface{}, response interface{}) error {
+func (c callStub) APICall(_ context.Context, objType string, version int, id string, request string, params any, response any) error {
 	if r, ok := response.(*jujuparams.LoginResult); ok {
 		r.ServerVersion = "3.6.9"
 	} else {

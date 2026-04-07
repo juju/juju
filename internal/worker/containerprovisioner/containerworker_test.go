@@ -233,7 +233,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(6, notifySource).Return(nil).AnyTimes()
 
 	modelCfgSource := params.ModelConfigResult{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"uuid":           s.modelUUID.String(),
 			"type":           "maas",
 			"name":           "container-init-test-model",
@@ -263,7 +263,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(6, watchSource).Return(nil).AnyTimes()
 
 	controllerCfgSource := params.ControllerConfigResult{
-		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
+		Config: map[string]any{"controller-uuid": s.controllerUUID.String()},
 	}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(6, controllerCfgSource).Return(nil).AnyTimes()
 }

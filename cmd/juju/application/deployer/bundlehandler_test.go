@@ -123,7 +123,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *tc.C) {
 	c.Assert(s.deployArgs, tc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
-	s.assertDeployArgsConfig(c, "mysql", map[string]interface{}{"foo": "bar"})
+	s.assertDeployArgsConfig(c, "mysql", map[string]any{"foo": "bar"})
 
 	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
@@ -281,7 +281,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *tc.C)
 	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "24.04")
 	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "24.04")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Directive{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
-	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
+	s.assertDeployArgsConfig(c, "mariadb", map[string]any{"dataset-size": "70%"})
 
 	c.Check(s.output.String(), tc.Equals, ""+
 		"Located charm \"gitlab-k8s\" in charm-hub\n"+
@@ -967,7 +967,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *tc.C
 	}
 	s.expectCharmInfo(wordpressCurl.String(), wpCharmInfo)
 
-	s.expectSetConfig(c, "wordpress", map[string]interface{}{"blog-title": "new title"})
+	s.expectSetConfig(c, "wordpress", map[string]any{"blog-title": "new title"})
 	s.expectSetConstraints("wordpress", "spaces=new cores=8")
 
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeConstraints)
@@ -2108,8 +2108,8 @@ func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *tc.C, appName s
 	c.Assert(arg.Storage, tc.DeepEquals, storage)
 }
 
-func (s *BundleDeployRepositorySuite) assertDeployArgsConfig(c *tc.C, appName string, options map[string]interface{}) {
-	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
+func (s *BundleDeployRepositorySuite) assertDeployArgsConfig(c *tc.C, appName string, options map[string]any) {
+	cfg, err := yaml.Marshal(map[string]map[string]any{appName: options})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("cannot marshal options for application %q", appName))
 	configYAML := string(cfg)
 	arg, found := s.deployArgs[appName]
@@ -2395,7 +2395,7 @@ func (s *BundleDeployRepositorySuite) expectAddLocalCharm(curl *charm.URL, force
 
 type charmInterfaceMatcher struct{}
 
-func (m charmInterfaceMatcher) Matches(arg interface{}) bool {
+func (m charmInterfaceMatcher) Matches(arg any) bool {
 	_, ok := arg.(charm.Charm)
 	return ok
 }
@@ -2471,8 +2471,8 @@ func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit str
 	s.deployerAPI.EXPECT().AddUnits(gomock.Any(), args).Return([]string{name + "/" + unit}, nil)
 }
 
-func (s *BundleDeployRepositorySuite) expectSetConfig(c *tc.C, appName string, options map[string]interface{}) {
-	cfg, err := yaml.Marshal(map[string]map[string]interface{}{appName: options})
+func (s *BundleDeployRepositorySuite) expectSetConfig(c *tc.C, appName string, options map[string]any) {
+	cfg, err := yaml.Marshal(map[string]map[string]any{appName: options})
 	c.Assert(err, tc.ErrorIsNil)
 	s.deployerAPI.EXPECT().SetConfig(gomock.Any(), appName, string(cfg), gomock.Any())
 }
@@ -2495,7 +2495,7 @@ type setCharmConfigMatcher struct {
 	name string
 }
 
-func (m setCharmConfigMatcher) Matches(arg interface{}) bool {
+func (m setCharmConfigMatcher) Matches(arg any) bool {
 	cfg, ok := arg.(application.SetCharmConfig)
 	if !ok {
 		return false

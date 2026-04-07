@@ -165,8 +165,8 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
-	resources := map[string]interface{}{
+func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
+	resources := map[string]any{
 		"agent":               s.agent,
 		"authenticator":       s.authenticator,
 		"clock":               s.clock,

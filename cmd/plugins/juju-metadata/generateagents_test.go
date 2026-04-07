@@ -48,7 +48,7 @@ func TestGenerateAgentsSuite(t *testing.T) {
 
 func (s *GenerateAgentsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"uuid":            coretesting.ModelTag.Id(),
@@ -108,7 +108,7 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 	t := template.Must(template.New("").Parse(templ))
 
 	var buf bytes.Buffer
-	err := t.Execute(&buf, map[string]interface{}{"Stream": stream, "ToolsDir": toolsDir})
+	err := t.Execute(&buf, map[string]any{"Stream": stream, "ToolsDir": toolsDir})
 	if err != nil {
 		panic(err)
 	}

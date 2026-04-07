@@ -93,7 +93,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		Status: status.StatusInfo{
 			Status:  status.Active,
 			Message: "nice message",
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"nice": "data",
 			},
 		},

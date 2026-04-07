@@ -23,9 +23,9 @@ type ItemChange struct {
 	// Key is the setting being changed.
 	Key string
 	// OldValue is the previous value for the setting.
-	OldValue interface{}
+	OldValue any
 	// NewValue is the settings value resulting from this change.
-	NewValue interface{}
+	NewValue any
 }
 
 // IsAddition returns true if this change indicates a settings value
@@ -62,7 +62,7 @@ func (c *ItemChange) String() string {
 
 // MakeAddition returns an itemChange indicating a modification of the input
 // key, with its new value.
-func MakeAddition(key string, newVal interface{}) ItemChange {
+func MakeAddition(key string, newVal any) ItemChange {
 	return ItemChange{
 		Type:     added,
 		Key:      key,
@@ -72,7 +72,7 @@ func MakeAddition(key string, newVal interface{}) ItemChange {
 
 // MakeModification returns an ItemChange indicating a modification of the
 // input key, with its old and new values.
-func MakeModification(key string, oldVal, newVal interface{}) ItemChange {
+func MakeModification(key string, oldVal, newVal any) ItemChange {
 	return ItemChange{
 		Type:     modified,
 		Key:      key,
@@ -83,7 +83,7 @@ func MakeModification(key string, oldVal, newVal interface{}) ItemChange {
 
 // MakeDeletion returns an ItemChange indicating a deletion of the input key,
 // with its old value.
-func MakeDeletion(key string, oldVal interface{}) ItemChange {
+func MakeDeletion(key string, oldVal any) ItemChange {
 	return ItemChange{
 		Type:     deleted,
 		Key:      key,
@@ -147,8 +147,8 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 
 // EffectiveChanges returns the effective changes resulting from the
 // application of these changes to the input defaults.
-func (c ItemChanges) EffectiveChanges(defaults charm.Config) map[string]interface{} {
-	result := make(map[string]interface{})
+func (c ItemChanges) EffectiveChanges(defaults charm.Config) map[string]any {
+	result := make(map[string]any)
 	for _, change := range c {
 		key := change.Key
 

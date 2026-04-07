@@ -41,11 +41,11 @@ func RunAgentAPIManifold(
 	}
 	if apiCaller == nil {
 		apiCaller = basetesting.APICallerFunc(
-			func(string, int, string, string, interface{}, interface{}) error {
+			func(string, int, string, string, any, any) error {
 				return nil
 			})
 	}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      agent,
 		"api-caller-name": apiCaller,
 	})

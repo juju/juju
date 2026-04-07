@@ -5,18 +5,18 @@ package params
 
 // Cloud holds information about a cloud.
 type Cloud struct {
-	Type              string                            `json:"type"`
-	HostCloudRegion   string                            `json:"host-cloud-region,omitempty"`
-	AuthTypes         []string                          `json:"auth-types,omitempty"`
-	Endpoint          string                            `json:"endpoint,omitempty"`
-	IdentityEndpoint  string                            `json:"identity-endpoint,omitempty"`
-	StorageEndpoint   string                            `json:"storage-endpoint,omitempty"`
-	Regions           []CloudRegion                     `json:"regions,omitempty"`
-	CACertificates    []string                          `json:"ca-certificates,omitempty"`
-	SkipTLSVerify     bool                              `json:"skip-tls-verify,omitempty"`
-	Config            map[string]interface{}            `json:"config,omitempty"`
-	RegionConfig      map[string]map[string]interface{} `json:"region-config,omitempty"`
-	IsControllerCloud bool                              `json:"is-controller-cloud,omitempty"`
+	Type              string                    `json:"type"`
+	HostCloudRegion   string                    `json:"host-cloud-region,omitempty"`
+	AuthTypes         []string                  `json:"auth-types,omitempty"`
+	Endpoint          string                    `json:"endpoint,omitempty"`
+	IdentityEndpoint  string                    `json:"identity-endpoint,omitempty"`
+	StorageEndpoint   string                    `json:"storage-endpoint,omitempty"`
+	Regions           []CloudRegion             `json:"regions,omitempty"`
+	CACertificates    []string                  `json:"ca-certificates,omitempty"`
+	SkipTLSVerify     bool                      `json:"skip-tls-verify,omitempty"`
+	Config            map[string]any            `json:"config,omitempty"`
+	RegionConfig      map[string]map[string]any `json:"region-config,omitempty"`
+	IsControllerCloud bool                      `json:"is-controller-cloud,omitempty"`
 }
 
 // CloudRegion holds information about a cloud region.

@@ -1256,8 +1256,8 @@ func (c *statusContext) processMachine(ctx context.Context, m statusservice.Mach
 
 // filterStatusData limits what agent StatusData data is passed over
 // the API. This prevents unintended leakage of internal-only data.
-func filterStatusData(status map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
+func filterStatusData(status map[string]any) map[string]any {
+	out := make(map[string]any)
 	for name, value := range status {
 		// use a set here if we end up with a larger whitelist
 		if name == "relation-id" {

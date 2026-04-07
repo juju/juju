@@ -109,10 +109,10 @@ func (w *prunerWorker) Wait() error {
 }
 
 // Report shows up in the dependency engine report.
-func (w *prunerWorker) Report(ctx context.Context) map[string]interface{} {
+func (w *prunerWorker) Report(ctx context.Context) map[string]any {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return map[string]interface{}{
+	return map[string]any{
 		"max-age":     w.maxAge,
 		"max-size-mb": w.maxSizeMB,
 		"last-update": w.lastUpdate,

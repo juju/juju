@@ -70,7 +70,7 @@ var configSchema = configschema.Fields{
 var configDefaults = schema.Defaults{}
 
 type backendConfig struct {
-	validAttrs map[string]interface{}
+	validAttrs map[string]any
 }
 
 func (c *backendConfig) endpoint() string {
@@ -162,7 +162,7 @@ func (p vaultProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, token
 	return nil
 }
 
-func newConfig(attrs map[string]interface{}) (*backendConfig, error) {
+func newConfig(attrs map[string]any) (*backendConfig, error) {
 	cfg, err := coreconfig.NewConfig(attrs, configSchema, configDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)

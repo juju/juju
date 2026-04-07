@@ -118,8 +118,8 @@ func (c *listRegionsCommand) Init(args []string) error {
 }
 
 type FoundRegions struct {
-	Local  interface{} `yaml:"client-cloud-regions,omitempty" json:"client-cloud-regions,omitempty"`
-	Remote interface{} `yaml:"controller-cloud-regions,omitempty" json:"controller-cloud-regions,omitempty"`
+	Local  any `yaml:"client-cloud-regions,omitempty" json:"client-cloud-regions,omitempty"`
+	Remote any `yaml:"controller-cloud-regions,omitempty" json:"controller-cloud-regions,omitempty"`
 }
 
 func (f *FoundRegions) IsEmpty() bool {
@@ -186,7 +186,7 @@ func (c *listRegionsCommand) findLocalRegions(ctxt *cmd.Context) error {
 	return nil
 }
 
-func (c *listRegionsCommand) parseRegions(aCloud jujucloud.Cloud) interface{} {
+func (c *listRegionsCommand) parseRegions(aCloud jujucloud.Cloud) any {
 	if c.out.Name() == "json" {
 		details := make(map[string]RegionDetails)
 		for _, r := range aCloud.Regions {
@@ -210,7 +210,7 @@ func (c *listRegionsCommand) parseRegions(aCloud jujucloud.Cloud) interface{} {
 	return details
 }
 
-func (c *listRegionsCommand) formatRegionsListTabular(writer io.Writer, value interface{}) error {
+func (c *listRegionsCommand) formatRegionsListTabular(writer io.Writer, value any) error {
 	regions, ok := value.(FoundRegions)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", regions, value)

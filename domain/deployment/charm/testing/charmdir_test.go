@@ -39,12 +39,12 @@ func checkDummy(c *tc.C, f charm.Charm) {
 			ActionSpecs: map[string]charm.ActionSpec{
 				"snapshot": {
 					Description: "Take a snapshot of the database.",
-					Params: map[string]interface{}{
+					Params: map[string]any{
 						"type":        "object",
 						"description": "Take a snapshot of the database.",
 						"title":       "snapshot",
-						"properties": map[string]interface{}{
-							"outfile": map[string]interface{}{
+						"properties": map[string]any{
+							"outfile": map[string]any{
 								"description": "The file to write out to.",
 								"type":        "string",
 								"default":     "foo.bz2",

@@ -18,9 +18,9 @@ func callName(narg, nret int, retErr bool) string {
 }
 
 type callInfo struct {
-	rcvr   interface{}
+	rcvr   any
 	method string
-	arg    interface{}
+	arg    any
 }
 
 type callError callInfo
@@ -43,7 +43,7 @@ type Root struct {
 	contextInst *ContextMethods
 }
 
-func (r *Root) callError(rcvr interface{}, name string, arg interface{}) error {
+func (r *Root) callError(rcvr any, name string, arg any) error {
 	if r.returnErr {
 		return &callError{rcvr, name, arg}
 	}
@@ -112,7 +112,7 @@ func (r *Root) ChangeAPIMethods(string) (*ChangeAPIMethods, error) {
 	return &ChangeAPIMethods{r}, nil
 }
 
-func (t *Root) called(rcvr interface{}, method string, arg interface{}) {
+func (t *Root) called(rcvr any, method string, arg any) {
 	t.mu.Lock()
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
 	t.mu.Unlock()

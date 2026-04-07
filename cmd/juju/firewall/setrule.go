@@ -120,7 +120,7 @@ func (c *setFirewallRuleCommand) validateCIDRS(value string) error {
 // SetFirewallRuleAPI defines the API methods that the set firewall rules command uses.
 type SetFirewallRuleAPI interface {
 	Close() error
-	ModelSet(ctx context.Context, config map[string]interface{}) error
+	ModelSet(ctx context.Context, config map[string]any) error
 }
 
 var deprecationWarning = `
@@ -144,9 +144,9 @@ func (c *setFirewallRuleCommand) Run(ctx *cmd.Context) error {
 
 	switch c.service {
 	case firewall.SSHRule:
-		err = client.ModelSet(ctx, map[string]interface{}{config.SSHAllowKey: c.allowlist})
+		err = client.ModelSet(ctx, map[string]any{config.SSHAllowKey: c.allowlist})
 	case firewall.JujuApplicationOfferRule:
-		err = client.ModelSet(ctx, map[string]interface{}{config.SAASIngressAllowKey: c.allowlist})
+		err = client.ModelSet(ctx, map[string]any{config.SAASIngressAllowKey: c.allowlist})
 	default:
 		return errors.NotSupportedf("service %v", c.service)
 	}

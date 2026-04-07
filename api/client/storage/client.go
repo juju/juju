@@ -91,7 +91,7 @@ func (c *Client) ListPools(ctx context.Context, providers, names []string) ([]pa
 }
 
 // CreatePool creates pool with specified parameters.
-func (c *Client) CreatePool(ctx context.Context, pname, provider string, attrs map[string]interface{}) error {
+func (c *Client) CreatePool(ctx context.Context, pname, provider string, attrs map[string]any) error {
 	// Older facade did not support bulk calls.
 	var results params.ErrorResults
 	args := params.StoragePoolArgs{
@@ -123,7 +123,7 @@ func (c *Client) RemovePool(ctx context.Context, pname string) error {
 }
 
 // UpdatePool updates a  pool with specified parameters.
-func (c *Client) UpdatePool(ctx context.Context, pname, provider string, attrs map[string]interface{}) error {
+func (c *Client) UpdatePool(ctx context.Context, pname, provider string, attrs map[string]any) error {
 	var results params.ErrorResults
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{
@@ -236,7 +236,7 @@ func (c *Client) Remove(ctx context.Context, storageIds []string, destroyAttachm
 		}
 	}
 	results := params.ErrorResults{}
-	var args interface{}
+	var args any
 	aStorage := make([]params.RemoveStorageInstance, len(storageIds))
 	for i, id := range storageIds {
 		aStorage[i] = params.RemoveStorageInstance{

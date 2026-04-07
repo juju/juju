@@ -388,7 +388,7 @@ func (s *deployerSuite) newBaseDeployer(c *tc.C, cfg BaseDeployerConfig) baseDep
 
 func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 	uuid := testing.ModelTag.Id()
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name":         "model",
 		"type":         "type",
 		"uuid":         uuid,

@@ -29,7 +29,7 @@ type updateSecretBackendCommand struct {
 	// Attributes from a file.
 	ConfigFile cmd.FileVar
 	// Attributes from key value args.
-	KeyValueAttrs map[string]interface{}
+	KeyValueAttrs map[string]any
 	Reset         []string
 }
 

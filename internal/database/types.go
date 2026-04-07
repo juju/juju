@@ -21,7 +21,7 @@ func NewNullDuration(d time.Duration) NullDuration {
 }
 
 // Scan implements the sql.Scanner interface.
-func (nd *NullDuration) Scan(value interface{}) error {
+func (nd *NullDuration) Scan(value any) error {
 	if value == nil {
 		nd.Duration, nd.Valid = 0, false
 		return nil

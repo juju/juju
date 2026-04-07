@@ -204,12 +204,12 @@ func (c *nestedContext) Wait() error {
 
 // Report shows both the expected units and the status of the
 // engine reports for those units.
-func (c *nestedContext) Report(ctx context.Context) map[string]interface{} {
+func (c *nestedContext) Report(ctx context.Context) map[string]any {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	deployed := c.deployedUnits()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"deployed": deployed.SortedValues(),
 	}
 	if c.runner != nil {

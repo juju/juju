@@ -31,7 +31,7 @@ func (s *retryStrategySuite) TestRetryStrategyOk(c *tc.C) {
 		ShouldRetry: true,
 	}
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -61,7 +61,7 @@ func (s *retryStrategySuite) TestRetryStrategyOk(c *tc.C) {
 func (s *retryStrategySuite) TestRetryStrategyResultError(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -94,7 +94,7 @@ func (s *retryStrategySuite) TestRetryStrategyResultError(c *tc.C) {
 func (s *retryStrategySuite) TestRetryStrategyMoreResults(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -122,7 +122,7 @@ func (s *retryStrategySuite) TestRetryStrategyMoreResults(c *tc.C) {
 func (s *retryStrategySuite) TestRetryStrategyError(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -148,7 +148,7 @@ func (s *retryStrategySuite) TestRetryStrategyError(c *tc.C) {
 func (s *retryStrategySuite) TestWatchRetryStrategyError(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -176,7 +176,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyError(c *tc.C) {
 func (s *retryStrategySuite) TestWatchRetryStrategyResultError(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")
@@ -209,7 +209,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyResultError(c *tc.C) {
 func (s *retryStrategySuite) TestWatchRetryStrategyMoreResults(c *tc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response any) error {
 		called = true
 
 		c.Check(objType, tc.Equals, "RetryStrategy")

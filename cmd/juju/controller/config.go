@@ -144,7 +144,7 @@ func (c *configCommand) Init(args []string) error {
 type controllerAPI interface {
 	Close() error
 	ControllerConfig(context.Context) (controller.Config, error)
-	ConfigSet(context.Context, map[string]interface{}) error
+	ConfigSet(context.Context, map[string]any) error
 }
 
 func (c *configCommand) getAPI(ctx context.Context) (controllerAPI, error) {
@@ -281,7 +281,7 @@ func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, att
 		return errors.Trace(err)
 	}
 
-	values := make(map[string]interface{})
+	values := make(map[string]any)
 	for k := range attrs {
 		if field, ok := fields[k]; ok {
 			v, err := field.Coerce(attrs[k], []string{k})
@@ -299,8 +299,8 @@ func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, att
 
 // ConfigDetailsUpdatable gets information about the controller config
 // attributes that are updatable.
-func ConfigDetailsUpdatable() (map[string]interface{}, error) {
-	specifics := make(map[string]interface{})
+func ConfigDetailsUpdatable() (map[string]any, error) {
+	specifics := make(map[string]any)
 	for key, attr := range controller.ConfigSchema {
 		if !controller.AllowedUpdateConfigAttributes.Contains(key) {
 			continue
@@ -327,7 +327,7 @@ func attrToPrintSchema(attr configschema.Attr) common.PrintConfigSchema {
 	}
 }
 
-func formatConfigTabular(writer io.Writer, value interface{}) error {
+func formatConfigTabular(writer io.Writer, value any) error {
 	controllerConfig, ok := value.(controller.Config)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", controllerConfig, value)

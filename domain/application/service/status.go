@@ -234,7 +234,7 @@ func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType])
 		return nil, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return nil, errors.Errorf("unmarshalling status data: %w", err)
@@ -305,7 +305,7 @@ func decodeUnitWorkloadStatus(s *status.UnitStatusInfo[status.WorkloadStatusType
 		return nil, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return nil, errors.Errorf("unmarshalling status data: %w", err)

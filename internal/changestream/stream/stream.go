@@ -522,9 +522,9 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 		}
 		defer rows.Close()
 
-		dest := func(i int) []interface{} {
+		dest := func(i int) []any {
 			changes = append(changes, changeEvent{})
-			return []interface{}{
+			return []any{
 				&changes[i].id,
 				&changes[i].changeType,
 				&changes[i].namespace,

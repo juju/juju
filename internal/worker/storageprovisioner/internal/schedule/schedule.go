@@ -18,7 +18,7 @@ import (
 type Schedule struct {
 	time  clock.Clock
 	items scheduleItems
-	m     map[interface{}]*scheduleItem
+	m     map[any]*scheduleItem
 }
 
 // NewSchedule constructs a new schedule, using the given Clock for the Next
@@ -26,7 +26,7 @@ type Schedule struct {
 func NewSchedule(clock clock.Clock) *Schedule {
 	return &Schedule{
 		time: clock,
-		m:    make(map[interface{}]*scheduleItem),
+		m:    make(map[any]*scheduleItem),
 	}
 }
 
@@ -43,8 +43,8 @@ func (s *Schedule) Next() <-chan time.Time {
 // "now", and removes them from the schedule. The resulting slices are in
 // order of time; items scheduled for the same time have no defined relative
 // order.
-func (s *Schedule) Ready(now time.Time) []interface{} {
-	var ready []interface{}
+func (s *Schedule) Ready(now time.Time) []any {
+	var ready []any
 	for len(s.items) > 0 && !s.items[0].t.After(now) {
 		item := heap.Pop(&s.items).(*scheduleItem)
 		delete(s.m, item.key)
@@ -56,7 +56,7 @@ func (s *Schedule) Ready(now time.Time) []interface{} {
 // Add adds an item with the specified value, with the corresponding key
 // and time to the schedule. Add will panic if there already exists an item
 // with the same key.
-func (s *Schedule) Add(key, value interface{}, t time.Time) {
+func (s *Schedule) Add(key, value any, t time.Time) {
 	if _, ok := s.m[key]; ok {
 		panic(errors.Errorf("duplicate key %v", key))
 	}
@@ -67,7 +67,7 @@ func (s *Schedule) Add(key, value interface{}, t time.Time) {
 
 // Remove removes the item corresponding to the specified key from the
 // schedule. If no item with the specified key exists, this is a no-op.
-func (s *Schedule) Remove(key interface{}) {
+func (s *Schedule) Remove(key any) {
 	if item, ok := s.m[key]; ok {
 		heap.Remove(&s.items, item.i)
 		delete(s.m, key)
@@ -78,8 +78,8 @@ type scheduleItems []*scheduleItem
 
 type scheduleItem struct {
 	i     int
-	key   interface{}
-	value interface{}
+	key   any
+	value any
 	t     time.Time
 }
 
@@ -97,13 +97,13 @@ func (s scheduleItems) Swap(i, j int) {
 	s[j].i = j
 }
 
-func (s *scheduleItems) Push(x interface{}) {
+func (s *scheduleItems) Push(x any) {
 	item := x.(*scheduleItem)
 	item.i = len(*s)
 	*s = append(*s, item)
 }
 
-func (s *scheduleItems) Pop() interface{} {
+func (s *scheduleItems) Pop() any {
 	n := len(*s) - 1
 	x := (*s)[n]
 	*s = (*s)[:n]

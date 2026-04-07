@@ -34,7 +34,7 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 		func(objType string,
 			version int,
 			id, request string,
-			a, response interface{},
+			a, response any,
 		) error {
 
 			// We don't test the api call. We test that NewWorker is

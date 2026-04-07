@@ -31,7 +31,7 @@ func newClient(f basetesting.APICallerFunc) *caasapplicationprovisioner.Client {
 
 func (s *provisionerSuite) TestProvisioningInfo(c *tc.C) {
 	vers := semversion.MustParse("2.99.0")
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ProvisioningInfo")
@@ -71,7 +71,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfoArity(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ProvisioningInfo")
@@ -88,7 +88,7 @@ func (s *provisionerSuite) TestProvisioningInfoArity(c *tc.C) {
 
 func (s *provisionerSuite) TestRemoveUnit(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
@@ -109,7 +109,7 @@ func (s *provisionerSuite) TestRemoveUnit(c *tc.C) {
 
 func (s *provisionerSuite) TestWatchStorageConstraints(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
@@ -133,7 +133,7 @@ func (s *provisionerSuite) TestWatchStorageConstraints(c *tc.C) {
 
 func (s *provisionerSuite) TestDestroyUnits(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
@@ -162,7 +162,7 @@ func (s *provisionerSuite) TestDestroyUnits(c *tc.C) {
 
 func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
@@ -194,7 +194,7 @@ func (s *provisionerSuite) TestDestroyUnitsMismatchResults(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
@@ -206,7 +206,7 @@ func (s *provisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
 					StorageName: "data",
 					Provider:    "kubernetes",
 					Size:        1024,
-					Attributes:  map[string]interface{}{"storage-class": "fast"},
+					Attributes:  map[string]any{"storage-class": "fast"},
 					Tags:        map[string]string{"env": "prod"},
 					Attachment: &params.KubernetesFilesystemAttachmentParams{
 						MountPoint: "/data",
@@ -237,7 +237,7 @@ func (s *provisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
 				StorageName:  "data",
 				Provider:     storage.ProviderType("kubernetes"),
 				Size:         1024,
-				Attributes:   map[string]interface{}{"storage-class": "fast"},
+				Attributes:   map[string]any{"storage-class": "fast"},
 				ResourceTags: map[string]string{"env": "prod"},
 				Attachments: []storage.KubernetesFilesystemAttachmentParams{
 					{
@@ -257,7 +257,7 @@ func (s *provisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestFilesystemProvisioningInfoEmpty(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
@@ -272,7 +272,7 @@ func (s *provisionerSuite) TestFilesystemProvisioningInfoEmpty(c *tc.C) {
 }
 
 func (s *provisionerSuite) TestFilesystemProvisioningInfoWithoutAttachment(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")
@@ -303,7 +303,7 @@ func (s *provisionerSuite) TestFilesystemProvisioningInfoWithoutAttachment(c *tc
 }
 
 func (s *provisionerSuite) TestFilesystemProvisioningInfoInvalidUnitTag(c *tc.C) {
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		c.Check(objType, tc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "FilesystemProvisioningInfo")

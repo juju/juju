@@ -24,7 +24,7 @@ func TestKeyupdaterSuite(t *stdtesting.T) {
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "KeyUpdater")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -48,7 +48,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *tc.C) {
 }
 
 func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "KeyUpdater")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

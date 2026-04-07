@@ -18,7 +18,7 @@ var logger = internallogger.GetLogger("juju.worker.common.runner")
 // MessageReceiver instances are fed messages written to stdout/stderr
 // when running hooks/actions.
 type MessageReceiver interface {
-	Messagef(isPrefix bool, message string, args ...interface{})
+	Messagef(isPrefix bool, message string, args ...any)
 }
 
 // NewHookLogger creates a new hook logger.

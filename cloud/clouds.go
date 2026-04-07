@@ -132,7 +132,7 @@ const (
 // Attrs serves as a map to hold regions specific configuration attributes.
 // This serves to reduce confusion over having a nested map, i.e.
 // map[string]map[string]interface{}
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 // RegionConfig holds a map of regions and the attributes that serve as the
 // region specific configuration options. This allows model inheritance to
@@ -182,7 +182,7 @@ type Cloud struct {
 	// when bootstrapping Juju in this cloud. The cloud configuration
 	// will be combined with Juju-generated, and user-supplied values;
 	// user-supplied values taking precedence.
-	Config map[string]interface{}
+	Config map[string]any
 
 	// RegionConfig contains optional region specific configuration.
 	// Like Config above, this will be combined with Juju-generated and user
@@ -258,20 +258,20 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
-	Name              string                 `yaml:"name,omitempty"`
-	Type              string                 `yaml:"type"`
-	HostCloudRegion   string                 `yaml:"host-cloud-region,omitempty"`
-	Description       string                 `yaml:"description,omitempty"`
-	AuthTypes         []AuthType             `yaml:"auth-types,omitempty,flow"`
-	Endpoint          string                 `yaml:"endpoint,omitempty"`
-	IdentityEndpoint  string                 `yaml:"identity-endpoint,omitempty"`
-	StorageEndpoint   string                 `yaml:"storage-endpoint,omitempty"`
-	Regions           regions                `yaml:"regions,omitempty"`
-	Config            map[string]interface{} `yaml:"config,omitempty"`
-	RegionConfig      RegionConfig           `yaml:"region-config,omitempty"`
-	CACertificates    []string               `yaml:"ca-certificates,omitempty"`
-	SkipTLSVerify     bool                   `yaml:"skip-tls-verify,omitempty"`
-	IsControllerCloud bool                   `yaml:"is-controller-cloud,omitempty"`
+	Name              string         `yaml:"name,omitempty"`
+	Type              string         `yaml:"type"`
+	HostCloudRegion   string         `yaml:"host-cloud-region,omitempty"`
+	Description       string         `yaml:"description,omitempty"`
+	AuthTypes         []AuthType     `yaml:"auth-types,omitempty,flow"`
+	Endpoint          string         `yaml:"endpoint,omitempty"`
+	IdentityEndpoint  string         `yaml:"identity-endpoint,omitempty"`
+	StorageEndpoint   string         `yaml:"storage-endpoint,omitempty"`
+	Regions           regions        `yaml:"regions,omitempty"`
+	Config            map[string]any `yaml:"config,omitempty"`
+	RegionConfig      RegionConfig   `yaml:"region-config,omitempty"`
+	CACertificates    []string       `yaml:"ca-certificates,omitempty"`
+	SkipTLSVerify     bool           `yaml:"skip-tls-verify,omitempty"`
+	IsControllerCloud bool           `yaml:"is-controller-cloud,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -453,7 +453,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
 
 	// Unmarshal with a generic type first
-	yamlMap := make(map[string]interface{})
+	yamlMap := make(map[string]any)
 	if err := yaml.Unmarshal(data, &yamlMap); err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
@@ -644,12 +644,12 @@ func cloudFromInternal(in cloud) Cloud {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (r regions) MarshalYAML() (interface{}, error) {
+func (r regions) MarshalYAML() (any, error) {
 	return r.Slice, nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (r *regions) UnmarshalYAML(f func(interface{}) error) error {
+func (r *regions) UnmarshalYAML(f func(any) error) error {
 	if err := f(&r.Map); err != nil {
 		return err
 	}
@@ -674,7 +674,7 @@ var tagsForType = make(structTags)
 
 // RegisterStructTags ensures the yaml tags for the given structs are able to be used
 // when parsing cloud metadata.
-func RegisterStructTags(vals ...interface{}) {
+func RegisterStructTags(vals ...any) {
 	tags := mkTags(vals...)
 	maps.Copy(tagsForType, tags)
 }
@@ -683,7 +683,7 @@ func init() {
 	RegisterStructTags(Cloud{}, Region{})
 }
 
-func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
+func mkTags(vals ...any) map[reflect.Type]map[string]int {
 	typeMap := make(map[reflect.Type]map[string]int)
 	for _, v := range vals {
 		t := reflect.TypeOf(v)
@@ -721,7 +721,7 @@ func yamlTags(t reflect.Type) map[string]int {
 
 // inherit sets any blank fields in dst to their equivalent values in fields in src that have matching json tags.
 // The dst parameter must be a pointer to a struct.
-func inherit(dst, src interface{}) {
+func inherit(dst, src any) {
 	for tag := range tags(dst) {
 		setFieldByTag(dst, tag, fieldByTag(src, tag), false)
 	}
@@ -729,7 +729,7 @@ func inherit(dst, src interface{}) {
 
 // tags returns the field offsets for the JSON tags defined by the given value, which must be
 // a struct or a pointer to a struct.
-func tags(x interface{}) map[string]int {
+func tags(x any) map[string]int {
 	t := reflect.TypeOf(x)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -745,7 +745,7 @@ func tags(x interface{}) map[string]int {
 }
 
 // fieldByTag returns the value for the field in x with the given JSON tag, or "" if there is no such field.
-func fieldByTag(x interface{}, tag string) string {
+func fieldByTag(x any, tag string) string {
 	tagm := tags(x)
 	v := reflect.ValueOf(x)
 	if v.Kind() == reflect.Ptr {
@@ -759,7 +759,7 @@ func fieldByTag(x interface{}, tag string) string {
 
 // setFieldByTag sets the value for the field in x with the given JSON tag to val.
 // The override parameter specifies whether the value will be set even if the original value is non-empty.
-func setFieldByTag(x interface{}, tag, val string, override bool) {
+func setFieldByTag(x any, tag, val string, override bool) {
 	i, ok := tags(x)[tag]
 	if !ok {
 		return

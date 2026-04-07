@@ -515,7 +515,7 @@ type unitStateMatcher struct {
 	expected string
 }
 
-func (m unitStateMatcher) Matches(x interface{}) bool {
+func (m unitStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.UniterState == nil {
 		return false
@@ -536,7 +536,7 @@ func (m unitStateMatcher) String() string {
 type uniterCharmUpgradeStateMatcher struct {
 }
 
-func (m uniterCharmUpgradeStateMatcher) Matches(x interface{}) bool {
+func (m uniterCharmUpgradeStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.UniterState == nil {
 		return false
@@ -551,7 +551,7 @@ func (m uniterCharmUpgradeStateMatcher) String() string {
 type uniterRunHookStateMatcher struct {
 }
 
-func (m uniterRunHookStateMatcher) Matches(x interface{}) bool {
+func (m uniterRunHookStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.UniterState == nil {
 		return false
@@ -566,7 +566,7 @@ func (m uniterRunHookStateMatcher) String() string {
 type uniterRunActionStateMatcher struct {
 }
 
-func (m uniterRunActionStateMatcher) Matches(x interface{}) bool {
+func (m uniterRunActionStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.UniterState == nil {
 		return false
@@ -581,7 +581,7 @@ func (m uniterRunActionStateMatcher) String() string {
 type uniterContinueStateMatcher struct {
 }
 
-func (m uniterContinueStateMatcher) Matches(x interface{}) bool {
+func (m uniterContinueStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.UniterState == nil {
 		return false
@@ -596,7 +596,7 @@ func (m uniterContinueStateMatcher) String() string {
 type uniterSecretsStateMatcher struct {
 }
 
-func (m uniterSecretsStateMatcher) Matches(x interface{}) bool {
+func (m uniterSecretsStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.SecretState == nil {
 		return false
@@ -613,7 +613,7 @@ func (m uniterSecretsStateMatcher) String() string {
 type uniterStorageStateMatcher struct {
 }
 
-func (m uniterStorageStateMatcher) Matches(x interface{}) bool {
+func (m uniterStorageStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.StorageState == nil {
 		return false
@@ -630,7 +630,7 @@ func (m uniterStorageStateMatcher) String() string {
 type uniterRelationStateMatcher struct {
 }
 
-func (m uniterRelationStateMatcher) Matches(x interface{}) bool {
+func (m uniterRelationStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok || obtained.RelationState == nil {
 		return false
@@ -1221,7 +1221,7 @@ type waitUnitAgent struct {
 	statusGetter func(ctx *testContext) statusfunc
 	status       status.Status
 	info         string
-	data         map[string]interface{}
+	data         map[string]any
 	charm        int
 	resolved     params.ResolvedMode
 }
@@ -1419,7 +1419,7 @@ func (s updateStatusHookTick) step(c tc.LikeC, ctx *testContext) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-type changeConfig map[string]interface{}
+type changeConfig map[string]any
 
 func (s changeConfig) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.configCh, "config change event", ctx.app.configHash(s))
@@ -1427,7 +1427,7 @@ func (s changeConfig) step(c tc.LikeC, ctx *testContext) {
 
 type addAction struct {
 	name   string
-	params map[string]interface{}
+	params map[string]any
 }
 
 func (s addAction) step(c tc.LikeC, ctx *testContext) {

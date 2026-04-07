@@ -16,7 +16,7 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead pass one passed as manifold config.
-type logger interface{}
+type logger any
 
 var _ logger = struct{}{}
 

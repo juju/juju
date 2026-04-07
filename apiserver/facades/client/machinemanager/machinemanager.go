@@ -320,14 +320,14 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		if !p.All && !wanted.Contains(machineName.String()) {
 			continue
 		}
-		if err := mm.maybeUpdateInstanceStatus(ctx, p.All, machineName, map[string]interface{}{"transient": true}); err != nil {
+		if err := mm.maybeUpdateInstanceStatus(ctx, p.All, machineName, map[string]any{"transient": true}); err != nil {
 			result.Results = append(result.Results, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 		}
 	}
 	return result, nil
 }
 
-func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all bool, machineName coremachine.Name, data map[string]interface{}) error {
+func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all bool, machineName coremachine.Name, data map[string]any) error {
 	existingStatusInfo, err := mm.statusService.GetInstanceStatus(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return errors.NotFoundf("machine %q", machineName)
