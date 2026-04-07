@@ -245,11 +245,11 @@ FROM (
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
 	ids []string,
-) ([]internal.StorageInstanceComposition, error) {
+) ([]internal.StorageInstanceInfoForAttach, error) {
 	// Early exit if no ids are supplied. We cannot have empty values with an
 	// IN expression.
 	if len(ids) == 0 {
-		return nil, nil
+		return []internal.StorageInstanceInfoForAttach{}, nil
 	}
 
 	db, err := st.DB(ctx)
@@ -259,24 +259,58 @@ func (st *State) GetStorageInstancesForProviderIDs(
 
 	providerIDsInput := storageProviderIDs(ids)
 
-	/*
-		id	parent	notused	detail
-		15	0     	0      	SCAN si USING INDEX sqlite_autoindex_storage_instance_1
-		19	0     	0      	USING INDEX sqlite_autoindex_storage_unit_owner_1 FOR IN-OPERATOR
-		29	0     	0      	SEARCH sif USING INDEX sqlite_autoindex_storage_instance_filesystem_1 (storage_instance_uuid=?) LEFT-JOIN
-		36	0     	0      	SEARCH sf USING INDEX sqlite_autoindex_storage_filesystem_1 (uuid=?) LEFT-JOIN
-		44	0     	0      	SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
-		51	0     	0      	SEARCH sv USING INDEX sqlite_autoindex_storage_volume_1 (uuid=?) LEFT-JOIN
-	*/
-	compositionQ := `
-SELECT &storageInstanceComposition.*
-FROM (
-    SELECT    sf.uuid AS filesystem_uuid,
-              sf.provision_scope_id AS filesystem_provision_scope,
-              si.storage_name AS storage_name,
-              si.uuid AS uuid,
-              sv.uuid AS volume_uuid,
-              sv.provision_scope_id AS volume_provision_scope
+	var (
+		storageInstInfos       []storageInstanceInfoForAttach
+		storageInstAttachments []storageInstanceUnitAttachmentByStorageUUID
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		storageInstInfos, err = st.getStorageInstancesInfoForAttachByProviderIDs(
+			ctx, tx, providerIDsInput,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instances information for provider IDs: %w",
+				err,
+			)
+		}
+
+		storageInstAttachments, err = st.getStorageInstanceUnitAttachmentsForProviderIDs(
+			ctx, tx, providerIDsInput,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance unit attachments for provider IDs: %w",
+				err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return makeStorageInstanceInfosForAttach(
+		storageInstInfos,
+		storageInstAttachments,
+	), nil
+}
+
+// getStorageInstancesInfoForAttachByProviderIDs returns attach metadata for
+// storage instances that match any supplied provider ID and are not owned by a
+// unit.
+//
+// Provider IDs are matched against the storage filesystem and storage volume
+// rows associated with each storage instance.
+//
+// Returned values are ordered by storage instance UUID.
+func (st *State) getStorageInstancesInfoForAttachByProviderIDs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	providerIDsInput storageProviderIDs,
+) ([]storageInstanceInfoForAttach, error) {
+	q := `
+WITH matched_storage_instances AS (
+    SELECT DISTINCT si.uuid
     FROM      storage_instance si
     LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
@@ -284,43 +318,118 @@ FROM (
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
     WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
                               FROM storage_unit_owner)
-    AND	     (sf.provider_id IN ($storageProviderIDs[:])
-           OR sv.provider_id IN ($storageProviderIDs[:]))
+    AND       (sf.provider_id IN ($storageProviderIDs[:])
+           OR  sv.provider_id IN ($storageProviderIDs[:]))
+)
+SELECT * AS &storageInstanceInfoForAttach.* FROM (
+    SELECT    si.uuid,
+              si.charm_name,
+              si.storage_name,
+              si.life_id,
+              si.requested_size_mib,
+              si.storage_kind_id,
+              sif.storage_filesystem_uuid AS filesystem_uuid,
+              sf.size_mib AS filesystem_size_mib,
+              sf.provision_scope_id AS filesystem_provision_scope_id,
+              mf.machine_uuid AS filesystem_owned_machine_uuid,
+              siv.storage_volume_uuid AS volume_uuid,
+              sv.size_mib AS volume_size_mib,
+              sv.provision_scope_id AS volume_provision_scope_id,
+              mv.machine_uuid AS volume_owned_machine_uuid
+    FROM      matched_storage_instances msi
+    JOIN      storage_instance si ON si.uuid = msi.uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    LEFT JOIN machine_volume mv ON siv.storage_volume_uuid = mv.volume_uuid
+    ORDER BY  si.uuid
 )
 `
-
-	stmt, err := st.Prepare(
-		compositionQ,
+	queryStmt, err := st.Prepare(
+		q,
 		providerIDsInput,
-		storageInstanceComposition{},
+		storageInstanceInfoForAttach{},
 	)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"preparing storage instances info for provider IDs query: %w", err,
+		)
 	}
 
-	var dbVals []storageInstanceComposition
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, providerIDsInput).GetAll(&dbVals)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
+	var siInfos []storageInstanceInfoForAttach
+	err = tx.Query(ctx, queryStmt, providerIDsInput).GetAll(&siInfos)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// No results is not an error
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting storage instances info for provider IDs: %w", err,
+		)
 	}
 
-	rval := makeStorageInstanceCompositions(dbVals)
-	return rval, nil
+	return siInfos, nil
 }
 
-func makeStorageInstanceCompositions(dbVals []storageInstanceComposition) []internal.StorageInstanceComposition {
-	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
-	for _, dbVal := range dbVals {
-		v := makeStorageInstanceComposition(dbVal)
-		rval = append(rval, v)
+// getStorageInstanceUnitAttachmentsForProviderIDs returns storage attachment
+// rows for storage instances that match any supplied provider ID and are not
+// owned by a unit.
+//
+// Returned values are ordered by storage instance UUID.
+func (st *State) getStorageInstanceUnitAttachmentsForProviderIDs(
+	ctx context.Context,
+	tx *sqlair.TX,
+	providerIDsInput storageProviderIDs,
+) ([]storageInstanceUnitAttachmentByStorageUUID, error) {
+	q := `
+WITH matched_storage_instances AS (
+    SELECT DISTINCT si.uuid
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
+                              FROM storage_unit_owner)
+    AND       (sf.provider_id IN ($storageProviderIDs[:])
+           OR  sv.provider_id IN ($storageProviderIDs[:]))
+)
+SELECT &storageInstanceUnitAttachmentByStorageUUID.*
+FROM (
+    SELECT    sa.storage_instance_uuid,
+              sa.unit_uuid,
+              sa.uuid
+    FROM      storage_attachment sa
+    JOIN      matched_storage_instances msi ON sa.storage_instance_uuid = msi.uuid
+    ORDER BY  sa.storage_instance_uuid, sa.unit_uuid, sa.uuid
+)
+`
+	queryStmt, err := st.Prepare(
+		q,
+		providerIDsInput,
+		storageInstanceUnitAttachmentByStorageUUID{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing storage instance unit attachments for provider IDs query: %w",
+			err,
+		)
 	}
-	return rval
+
+	var attachments []storageInstanceUnitAttachmentByStorageUUID
+	err = tx.Query(ctx, queryStmt, providerIDsInput).GetAll(&attachments)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// No result is not a error
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"getting storage instance unit attachments for provider IDs: %w",
+			err,
+		)
+	}
+
+	return attachments, nil
 }
 
 func makeStorageInstanceComposition(dbVal storageInstanceComposition) internal.StorageInstanceComposition {
