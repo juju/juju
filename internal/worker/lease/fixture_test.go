@@ -84,9 +84,7 @@ func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)
 	var wg sync.WaitGroup
 	testDone := make(chan struct{})
 	storeDone := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// Dirty tests will probably have stopped the manager anyway, but no
 		// sense leaving them around if things aren't exactly as we expect.
 		timeout := time.After(coretesting.LongWait)
@@ -107,13 +105,11 @@ func (fix *Fixture) RunTest(c *tc.C, test func(*lease.Manager, *testclock.Clock)
 		if !fix.expectDirty {
 			c.Check(err, tc.ErrorIsNil)
 		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		store.Wait(c)
 		close(storeDone)
-	}()
+	})
 	waitAlarms(c, clock, 1)
 	test(manager, clock)
 	close(testDone)

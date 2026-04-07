@@ -83,12 +83,10 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 		// refuses. After claiming, we wait 50ms to let the refresh happen, then
 		// we notice that we are the holder, so we Extend instead of Claim.
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 			c.Check(err, tc.ErrorIsNil)
-			wg.Done()
-		}()
+		})
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
@@ -121,12 +119,10 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *tc.C) {
 		// does not have the most up-to-date information. We then wake up again
 		// and see that our leases have expired and thus let things go.
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
-			wg.Done()
-		}()
+		})
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
@@ -243,12 +239,10 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 		// reloaded our Leases and see that *nobody* is the holder. So then we try
 		// again and successfully Claim the lease.
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 			c.Check(err, tc.ErrorIsNil)
-			wg.Done()
-		}()
+		})
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
@@ -287,12 +281,10 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *tc.C) {
 		// does not have the most up-to-date information. We then wake up again
 		// and see that our leases have expired and thus let things go.
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
-			wg.Done()
-		}()
+		})
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})
@@ -331,12 +323,10 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *tc.C) {
 		// does not have the most up-to-date information. We then wake up again
 		// and see that our leases have expired and thus let things go.
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			err := getClaimer(c, manager).Claim("redis", "redis/0", time.Minute)
 			c.Check(err, tc.Equals, corelease.ErrClaimDenied)
-			wg.Done()
-		}()
+		})
 		c.Check(clock.WaitAdvance(50*time.Millisecond, testhelpers.LongWait, 2), tc.ErrorIsNil)
 		wg.Wait()
 	})

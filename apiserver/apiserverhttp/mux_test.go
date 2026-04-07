@@ -98,14 +98,12 @@ func (s *MuxSuite) TestConcurrentAddHandler(c *tc.C) {
 	// bN is the number of add and remove handlers to make.
 	const bN = 1000
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range bN {
 			s.mux.AddHandler("POST", "/", http.NotFoundHandler())
 			s.mux.RemoveHandler("POST", "/")
 		}
-	}()
+	})
 	defer wg.Wait()
 
 	for range bN {

@@ -390,11 +390,9 @@ func (s *ShowTaskSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		ctx *cmd.Context
 		err error
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
-	}()
+	})
 
 	wg.Wait()
 

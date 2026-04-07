@@ -156,8 +156,7 @@ func (s *ServerSuite) TestLocks(c *tc.C) {
 	var wg sync.WaitGroup
 	t0 := time.Now()
 	for range 4 {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			dir := c.MkDir()
 			resp, err := s.Call(c, jujuc.Request{
 				ContextId:   "validCtx",
@@ -167,8 +166,7 @@ func (s *ServerSuite) TestLocks(c *tc.C) {
 			})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(resp.Code, tc.Equals, 0)
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 	t1 := time.Now()
