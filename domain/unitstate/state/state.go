@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/unitstate"
-	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -33,7 +33,7 @@ func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
 
 // GetUnitState returns the full unit state. The state may be
 // empty.
-// If no unit with the namw exists, a [errors.UnitNotFound] error is returned.
+// If no unit with the name exists, a [errors.UnitNotFound] error is returned.
 func (st *State) GetUnitState(ctx context.Context, name string) (unitstate.RetrievedUnitState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -299,7 +299,7 @@ func (st *State) getUnitUUIDForName(ctx context.Context, tx *sqlair.TX, name str
 
 	err = tx.Query(ctx, stmt, uName).Get(&uuid)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return entityUUID{}, uniterrors.UnitNotFound
+		return entityUUID{}, applicationerrors.UnitNotFound
 	} else if err != nil {
 		return entityUUID{}, errors.Errorf("getting unit UUID for %q: %w", name, err)
 	}

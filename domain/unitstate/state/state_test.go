@@ -11,8 +11,8 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/unitstate"
-	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 )
 
 type stateSuite struct {
@@ -65,7 +65,7 @@ func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 
 func (s *stateSuite) TestGetUnitStateUnitNotFound(c *tc.C) {
 	_, err := s.state.GetUnitState(c.Context(), "bad-uuid")
-	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestEnsureUnitStateRecord(c *tc.C) {
