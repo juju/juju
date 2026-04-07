@@ -140,6 +140,10 @@ func k8sCloudSpecChanger(
 
 // CloudSpec returns the model's cloud spec.
 func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+	authFunc, err := s.getAuthFunc()
+	if err != nil {
+		return params.CloudSpecResults{}, errors.Trace(err)
+	}
 	// Connected clients which are the controller agent
 	// or model agent can fetch credentials with the cloud spec.
 	// Users must be superusers or model admins.
@@ -155,19 +159,13 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 		Results: make([]params.CloudSpecResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		results.Results[i] = s.getOneCloudSpec(arg.Tag, credAllowed)
+		results.Results[i] = s.getOneCloudSpec(arg.Tag, credAllowed, authFunc)
 	}
 	return results, nil
 }
 
-func (s CloudSpecAPI) getOneCloudSpec(tagStr string, credAllowed bool) params.CloudSpecResult {
+func (s CloudSpecAPI) getOneCloudSpec(tagStr string, credAllowed bool, authFunc common.AuthFunc) params.CloudSpecResult {
 	tag, err := names.ParseModelTag(tagStr)
-	if err != nil {
-		return params.CloudSpecResult{
-			Error: apiservererrors.ServerError(errors.Trace(err)),
-		}
-	}
-	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.CloudSpecResult{
 			Error: apiservererrors.ServerError(errors.Trace(err)),
