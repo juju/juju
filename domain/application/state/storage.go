@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -1412,7 +1411,7 @@ func makeInsertUnitStorageAttachmentArgs(
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
 		rval = append(rval, insertStorageInstanceAttachment{
-			LifeID:              int(life.Alive),
+			LifeID:              int(domainlife.Alive),
 			StorageInstanceUUID: sa.StorageInstanceUUID.String(),
 			UnitUUID:            unitUUID,
 			UUID:                sa.UUID.String(),
@@ -1920,7 +1919,7 @@ FROM (
 
 	// Merge the two results together and sort based on storage instance uuid.
 	// This has to be done this way instead of SQL due to limitations in sqlair.
-	slices.Grow(expectedVals, len(unexpectedVals))
+	expectedVals = slices.Grow(expectedVals, len(unexpectedVals))
 	groupedVals := append(expectedVals, unexpectedVals...)
 	slices.SortFunc(groupedVals, func(a, b storageInstanceAttachmentCheckCount) int {
 		return strings.Compare(a.StorageInstanceUUID, b.StorageInstanceUUID)
@@ -2086,7 +2085,7 @@ func (st *State) addStorageForUnit(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	if unitLifeID != life.Alive {
+	if unitLifeID != domainlife.Alive {
 		return nil, errors.Errorf("unit %q is not alive", unitUUID).Add(applicationerrors.UnitNotAlive)
 	}
 
@@ -2320,28 +2319,6 @@ func (st *State) DetachStorageForUnit(ctx context.Context, storageUUID domainsto
 func (st *State) DetachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID) error {
 	// TODO implement me
 	return errors.New("not implemented")
-}
-
-func (st *State) getStorageDetails(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (storageInstance, error) {
-	inst := storageInstance{StorageUUID: storageUUID}
-	query := `
-SELECT &storageInstance.*
-FROM   storage_instance
-WHERE  uuid = $storageInstance.uuid
-`
-	queryStmt, err := st.Prepare(query, inst)
-	if err != nil {
-		return storageInstance{}, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, queryStmt, inst).Get(&inst)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return storageInstance{}, errors.Errorf("querying storage %q life: %w", storageUUID, err)
-		}
-		return storageInstance{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
-	}
-	return inst, nil
 }
 
 func (st *State) checkStorageInstanceExists(

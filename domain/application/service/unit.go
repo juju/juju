@@ -519,7 +519,7 @@ func (s *ProviderService) validateStorageInstanceForUnitAttachment(
 			return applicationerrors.StorageCountLimitExceeded{
 				Maximum:     &charmStorageDef.CountMax,
 				Minimum:     charmStorageDef.CountMin,
-				Requested:   int(wantCount),
+				Requested:   wantCount,
 				StorageName: charmStorageDef.Name,
 			}
 		}

@@ -1062,10 +1062,10 @@ func makeUnitStorageInstancesFromDirective(
 // This function does not perform validation; callers must validate inputs
 // before invoking it.
 func (s Service) MakeAttachStorageInstanceToUnitArg(
-	ctx context.Context,
+	unusedCtx context.Context,
 	storageAttachInfo internal.StorageInstanceInfoForUnitAttach,
 ) (internal.AttachStorageInstanceToUnitArg, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(unusedCtx, trace.NameFromFunc())
 	defer span.End()
 
 	// Build up a composition of the StorageInstance to generate the new

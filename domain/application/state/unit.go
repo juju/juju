@@ -32,7 +32,6 @@ import (
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
-	"github.com/juju/juju/domain/life"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -74,7 +73,7 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
-func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, uuid string) (life.Life, string, error) {
+func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, uuid string) (domainlife.Life, string, error) {
 	unitUUID := unitUUID{UnitUUID: uuid}
 	queryUnit := `
 SELECT &unitLifeAndNetNode.*
@@ -94,7 +93,7 @@ WHERE uuid = $unitUUID.uuid
 		return 0, "", errors.Errorf("querying unit %q life: %w", unitUUID, err)
 	}
 
-	return life.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
+	return domainlife.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
 }
 
 // GetCAASUnitRegistered checks if a caas unit by the provided name is already
@@ -879,7 +878,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
 			return errors.Errorf("querying life for application %q: %w", appName, err)
-		} else if appDetails.LifeID != life.Alive {
+		} else if appDetails.LifeID != domainlife.Alive {
 			return errors.Errorf("registering application %q: %w", appName, applicationerrors.ApplicationNotAlive)
 		} else if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("registering unit for synthetic application %q", appName)
@@ -920,7 +919,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
 		}
-		if unitLife == life.Dead {
+		if unitLife == domainlife.Dead {
 			return errors.Errorf("dead unit %q already exists", arg.UnitName).Add(applicationerrors.UnitAlreadyExists)
 		}
 
@@ -1879,7 +1878,7 @@ func (st *State) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]appl
 	}
 
 	deadLife := entityLife{
-		LifeID: int(life.Dead),
+		LifeID: int(domainlife.Dead),
 	}
 
 	infoQuery := `
