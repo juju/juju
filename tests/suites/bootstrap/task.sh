@@ -11,4 +11,5 @@ test_bootstrap() {
 	check_juju_dependencies metadata
 
 	test_bootstrap_simplestream
+	test_bootstrap_controller_snap_local
 }
