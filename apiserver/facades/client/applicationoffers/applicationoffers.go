@@ -25,6 +25,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -276,9 +277,6 @@ func (api *OffersAPI) getApplicationOffersDetails(
 			offerDetails.OfferURL = corecrossmodel.MakeURL(m.Qualifier.String(), m.Name, offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
-
-		// TODO (cmr)
-		// Add offer connections if apiUser is superuser, model or offer admin
 	}
 	return result, nil
 }
@@ -385,6 +383,30 @@ func (api *OffersAPI) applicationOffersFromModel(
 			CharmURL:                  charmURL,
 		})
 	}
+
+	// Populate offer connections when the caller requires admin access.
+	// At this point the user has been verified as superuser or model admin
+	// by checkModelPermission above.
+	if requiredAccess == permission.AdminAccess && len(results) > 0 {
+		offerUUIDs := make([]string, len(results))
+		offerIndexByUUID := make(map[string]int, len(results))
+		for i, r := range results {
+			offerUUIDs[i] = r.OfferUUID
+			offerIndexByUUID[r.OfferUUID] = i
+		}
+		connections, err := crossModelRelationService.GetOfferConnections(ctx, offerUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, conn := range connections {
+			idx, ok := offerIndexByUUID[conn.OfferUUID]
+			if !ok {
+				continue
+			}
+			results[idx].Connections = append(results[idx].Connections, makeOfferConnection(conn))
+		}
+	}
+
 	return results, nil
 }
 
@@ -456,6 +478,21 @@ func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) per
 		}
 	}
 	return permission.NoAccess
+}
+
+func makeOfferConnection(conn crossmodelrelation.OfferConnectionDetail) params.OfferConnection {
+	return params.OfferConnection{
+		SourceModelTag: names.NewModelTag(conn.SourceModelUUID).String(),
+		RelationId:     conn.RelationID,
+		Username:       conn.Username,
+		Endpoint:       conn.Endpoint,
+		Status: params.EntityStatus{
+			Status: status.Status(conn.Status),
+			Info:   conn.Message,
+			Since:  conn.StatusSince,
+		},
+		IngressSubnets: conn.IngressSubnets,
+	}
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelationservice.OfferFilter, error) {

@@ -670,6 +670,48 @@ func (m createOfferArgsMatcher) String() string {
 	return "match CreateOfferArgs"
 }
 
+func (s *offerServiceSuite) TestGetOfferConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+	expected := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUIDs[0],
+			SourceModelUUID: uuid.MustNewUUID().String(),
+			RelationID:      42,
+			Username:        "consumer-user",
+			Endpoint:        "db",
+			Status:          "joined",
+			Message:         "",
+			IngressSubnets:  []string{"10.0.0.0/24"},
+		},
+	}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(expected, nil)
+
+	// Act
+	result, err := s.service(c).GetOfferConnections(c.Context(), offerUUIDs)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
+}
+
+func (s *offerServiceSuite) TestGetOfferConnectionsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).
+		Return(nil, errors.New("boom"))
+
+	// Act
+	_, err := s.service(c).GetOfferConnections(c.Context(), offerUUIDs)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *offerServiceSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -54,6 +54,11 @@ type ModelOfferState interface {
 	// the cross model relation UUID, returning an error satisfying
 	// [crossmodelrelationerrors.OfferNotFound] if the relation is not found.
 	GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error)
+
+	// GetOfferConnections returns the connection details for all offers
+	// with the given UUIDs. An empty result is returned if no connections
+	// are found.
+	GetOfferConnections(ctx context.Context, offerUUIDs []string) ([]crossmodelrelation.OfferConnectionDetail, error)
 }
 
 // GetOfferUUID returns the uuid for the provided offer URL.
@@ -267,6 +272,19 @@ func (s *Service) addOfferUsers(
 	}
 
 	return output, nil
+}
+
+// GetOfferConnections returns the connection details for all offers with the
+// given UUIDs. An empty result is returned if no connections are found.
+func (s *Service) GetOfferConnections(
+	ctx context.Context,
+	offerUUIDs []string,
+) ([]crossmodelrelation.OfferConnectionDetail, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	offerConnections, err := s.modelState.GetOfferConnections(ctx, offerUUIDs)
+	return offerConnections, errors.Capture(err)
 }
 
 func encodeInternalOfferFilter(

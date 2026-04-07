@@ -258,6 +258,18 @@ type offerConnectionQuery struct {
 	OfferUUID string `db:"offer_uuid"`
 }
 
+// offerConnectionDetail maps the result of the offer connection details query.
+type offerConnectionDetail struct {
+	OfferUUID         string         `db:"offer_uuid"`
+	RelationID        int            `db:"relation_id"`
+	Username          string         `db:"username"`
+	ConsumerModelUUID string         `db:"consumer_model_uuid"`
+	EndpointName      string         `db:"endpoint_name"`
+	Status            string         `db:"status"`
+	Message           sql.NullString `db:"message"`
+	StatusSince       *time.Time     `db:"updated_at"`
+}
+
 type relation struct {
 	UUID       string `db:"uuid"`
 	LifeID     int    `db:"life_id"`
@@ -432,6 +444,14 @@ type relationNetworkIngress struct {
 
 type cidr struct {
 	CIDR string `db:"cidr"`
+}
+
+// offerConnectionIngress is used to fetch ingress CIDRs keyed by
+// offer UUID and relation ID, so they can be matched to connection details.
+type offerConnectionIngress struct {
+	OfferUUID  string `db:"offer_uuid"`
+	RelationID int    `db:"relation_id"`
+	CIDR       string `db:"cidr"`
 }
 
 type lifeID struct {

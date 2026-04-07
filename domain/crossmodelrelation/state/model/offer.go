@@ -486,6 +486,121 @@ WHERE  offer_uuid = $uuid.uuid`, uuid{})
 	return nil
 }
 
+// GetOfferConnections returns the connection details for all offers with the
+// given UUIDs. An empty result is returned if no connections are found.
+func (st *State) GetOfferConnections(
+	ctx context.Context,
+	offerUUIDs []string,
+) ([]crossmodelrelation.OfferConnectionDetail, error) {
+	if len(offerUUIDs) == 0 {
+		return nil, nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type uuids []string
+
+	// Query connection details: relation id, username, consumer model UUID,
+	// endpoint name, and relation status.
+	connStmt, err := st.Prepare(`
+SELECT oc.offer_uuid            AS &offerConnectionDetail.offer_uuid,
+       r.relation_id            AS &offerConnectionDetail.relation_id,
+       oc.username              AS &offerConnectionDetail.username,
+       arc.consumer_model_uuid  AS &offerConnectionDetail.consumer_model_uuid,
+       cr.name                  AS &offerConnectionDetail.endpoint_name,
+       rst.name                 AS &offerConnectionDetail.status,
+       rs.message               AS &offerConnectionDetail.message,
+       rs.updated_at            AS &offerConnectionDetail.updated_at
+FROM   offer_connection AS oc
+JOIN   relation AS r ON oc.remote_relation_uuid = r.uuid
+JOIN   application_remote_consumer AS arc ON oc.uuid = arc.offer_connection_uuid
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   application_endpoint AS ae
+       ON re.endpoint_uuid = ae.uuid
+       AND ae.application_uuid = arc.offerer_application_uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   relation_status AS rs ON r.uuid = rs.relation_uuid
+JOIN   relation_status_type AS rst ON rs.relation_status_type_id = rst.id
+WHERE  oc.offer_uuid IN ($uuids[:])
+`, offerConnectionDetail{}, uuids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing offer connection detail query: %w", err)
+	}
+
+	// Query ingress subnets separately to avoid row multiplication.
+	ingressStmt, err := st.Prepare(`
+SELECT oc.offer_uuid   AS &offerConnectionIngress.offer_uuid,
+       r.relation_id   AS &offerConnectionIngress.relation_id,
+       rni.cidr         AS &offerConnectionIngress.cidr
+FROM   offer_connection AS oc
+JOIN   relation AS r ON oc.remote_relation_uuid = r.uuid
+JOIN   relation_network_ingress AS rni ON oc.remote_relation_uuid = rni.relation_uuid
+WHERE  oc.offer_uuid IN ($uuids[:])
+`, offerConnectionIngress{}, uuids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing offer connection ingress query: %w", err)
+	}
+
+	var connDetails []offerConnectionDetail
+	var ingressRows []offerConnectionIngress
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Fetch connection details.
+		err = tx.Query(ctx, connStmt, uuids(offerUUIDs)).GetAll(&connDetails)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("fetching offer connection details: %w", err)
+		}
+
+		// Fetch ingress subnets.
+		err = tx.Query(ctx, ingressStmt, uuids(offerUUIDs)).GetAll(&ingressRows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("fetching offer connection ingress: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Build a map of (offerUUID, relationID) → ingress CIDRs.
+	type connKey struct {
+		OfferUUID  string
+		RelationID int
+	}
+	ingressMap := make(map[connKey][]string)
+	for _, row := range ingressRows {
+		key := connKey{OfferUUID: row.OfferUUID, RelationID: row.RelationID}
+		ingressMap[key] = append(ingressMap[key], row.CIDR)
+	}
+
+	// Convert to domain types.
+	return transform.Slice(connDetails, func(detail offerConnectionDetail) crossmodelrelation.OfferConnectionDetail {
+		key := connKey{OfferUUID: detail.OfferUUID, RelationID: detail.RelationID}
+		res := crossmodelrelation.OfferConnectionDetail{
+			OfferUUID:       detail.OfferUUID,
+			SourceModelUUID: detail.ConsumerModelUUID,
+			RelationID:      detail.RelationID,
+			Username:        detail.Username,
+			Endpoint:        detail.EndpointName,
+			Status:          detail.Status,
+			StatusSince:     detail.StatusSince,
+			IngressSubnets:  ingressMap[key],
+		}
+		if detail.Message.Valid {
+			res.Message = detail.Message.String
+		}
+		return res
+	}), nil
+}
+
 func (st *State) createOfferEndpoints(ctx context.Context, tx *sqlair.TX, offerUUID, applicationUUID string, endpoints []string) error {
 	endpointUUIDs, err := st.getEndpointUUIDs(ctx, tx, applicationUUID, endpoints)
 	if err != nil {
