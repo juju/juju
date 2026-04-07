@@ -408,6 +408,9 @@ type SecretBackendReference struct {
 	ModelID coremodel.UUID `db:"model_uuid"`
 	// SecretRevisionID is the unique identifier for the secret revision.
 	SecretRevisionID string `db:"secret_revision_uuid"`
+	// SecretID is the logical secret identifier (URI ID), shared across all
+	// revisions of the same secret.
+	SecretID string `db:"secret_id"`
 }
 
 // Count is a helper struct to count the number of rows.

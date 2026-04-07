@@ -262,7 +262,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err != nil {
 		return errors.Errorf("getting model uuid: %w", err)
 	}
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String())
+	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String(), uri.ID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -325,7 +325,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return errors.Errorf("getting model uuid: %w", err)
 	}
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String())
+	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String(), uri.ID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -437,7 +437,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 				return errors.Errorf("getting model uuid: %w", err)
 			}
 			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				innerCtx, p.ValueRef, modelID, revisionID.String())
+				innerCtx, p.ValueRef, modelID, revisionID.String(), uri.ID)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -514,7 +514,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 				return errors.Errorf("getting model uuid: %w", err)
 			}
 			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				innerCtx, p.ValueRef, modelID, revisionID.String())
+				innerCtx, p.ValueRef, modelID, revisionID.String(), uri.ID)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -968,7 +968,7 @@ func (s *SecretService) ChangeSecretBackend(
 
 	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
 		rollBack, err := s.secretBackendState.UpdateSecretBackendReference(
-			innerCtx, params.ValueRef, modelID, revisionID.String())
+			innerCtx, params.ValueRef, modelID, revisionID.String(), uri.ID)
 		if err != nil {
 			return errors.Capture(err)
 		}

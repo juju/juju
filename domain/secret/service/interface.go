@@ -134,14 +134,18 @@ type State interface {
 type SecretBackendReferenceMutator interface {
 	// AddSecretBackendReference adds a reference to the
 	// secret backend for the given secret revision.
+	// secretID is the logical secret identifier (URI ID), shared across
+	// all revisions of the same secret.
 	AddSecretBackendReference(
-		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 	) (func() error, error)
 
 	// UpdateSecretBackendReference updates the reference
 	// to the secret backend for the given secret revision.
+	// secretID is the logical secret identifier (URI ID), shared across
+	// all revisions of the same secret.
 	UpdateSecretBackendReference(
-		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 	) (func() error, error)
 }
 

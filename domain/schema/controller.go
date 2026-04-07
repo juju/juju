@@ -70,6 +70,11 @@ var controllerPostPatchFilesByVersion = []struct {
 		"0028-object-store-node-id.PATCH.sql",
 		"0029-tracing.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.6"),
+	files: []string{
+		"0030-secret-backend.PATCH.sql",
+	},
 }}
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
