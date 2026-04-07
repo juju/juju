@@ -174,10 +174,16 @@ type BootstrapParams struct {
 	// validating against the bootstrap base.
 	SupportedBootstrapBases []corebase.Base
 
-	// ControllerSnapPath is the path of a local snap file.
+	// ControllerSnapPath is the path of a local snap file either downloaded from
+	// snap store or built locally.
 	ControllerSnapPath string
 
-	// ControllerSnapPath is the path of a local snap assert file.
+	// ControllerSnapPath is the path of a local snap assert file associated with
+	// the downloaded controller snap file. Assert file is a cryptographically
+	// signed document that verifies the authenticity, origin, and policy
+	// constraints of a snap package. Without an assertion, a snap is an
+	// unverified package that requires the --dangerous flag to install and will
+	// never receive automatic updates from the store.
 	ControllerSnapAssertPath string
 
 	// ControllerSnapChannel is used when fetching the controller snap from the

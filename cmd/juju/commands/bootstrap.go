@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	jujuclock "github.com/juju/clock"
@@ -390,7 +391,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a downloaded snap assert file")
 		f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
 			fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
-			"The snap channel to install the controller snap from")
+			"The channel to install the controller snap from")
 		f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision")
 	}
 }
@@ -445,6 +446,18 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 				return errors.NotValidf("controller snap channel %q", c.ControllerSnapChannelStr)
 			}
 		}
+
+		// Verify ControllerSnapRevision is an integer greater than 0
+		if c.ControllerSnapRevision != "" {
+			rev, err := strconv.Atoi(c.ControllerSnapRevision)
+			if err != nil {
+				return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
+			}
+			if rev < 0 {
+				return errors.NotValidf("controller snap revision %q is negative", c.ControllerSnapRevision)
+			}
+		}
+
 	}
 
 	if c.showClouds && c.showRegionsForCloud != "" {

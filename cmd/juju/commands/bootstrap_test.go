@@ -2136,7 +2136,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *tc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapControllerSnapFlagValidation(c *tc.C) {
-	s.enableControllerSnapFlag(c)
+	s.SetFeatureFlags(featureflag.ControllerSnap)
 
 	tests := []struct {
 		name string
@@ -2195,18 +2195,6 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapFlagDisabled(c *tc.C) {
 			c.Assert(err, tc.ErrorMatches, test.err)
 		})
 	}
-}
-
-func (s *BootstrapSuite) enableControllerSnapFlag(c *tc.C) {
-	original := os.Getenv(osenv.JujuFeatureFlagEnvKey)
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.ControllerSnap)
-	c.Assert(err, tc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	c.Cleanup(func() {
-		err := os.Setenv(osenv.JujuFeatureFlagEnvKey, original)
-		c.Assert(err, tc.ErrorIsNil)
-		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	})
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
