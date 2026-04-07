@@ -84,13 +84,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		},
 	}
 
-	// TODO(secrets) - move to crossmodelrelation domain
-	// s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri2, 668)
-	//s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri2, unittesting.GenNewName(c, "mysql/0"), coresecrets.SecretConsumerMetadata{
-	//	Label:           "remote label",
-	//	CurrentRevision: 666,
-	//})
-
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil).AnyTimes()
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -154,10 +147,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
-	// TODO(secrets) - move to crossmodelrelation domain
-	//s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), coresecrets.SecretConsumerMetadata{
-	//	CurrentRevision: 668,
-	//})
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   3,
 		ScopeUUID:     relUUID.String(),
