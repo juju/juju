@@ -2321,6 +2321,8 @@ func (st *State) DetachStorage(ctx context.Context, storageUUID domainstorage.St
 	return errors.New("not implemented")
 }
 
+// checkStorageInstanceExists returns true when the storage instance exists in
+// state and false when it does not.
 func (st *State) checkStorageInstanceExists(
 	ctx context.Context,
 	tx *sqlair.TX,
