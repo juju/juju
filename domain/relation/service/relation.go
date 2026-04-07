@@ -474,7 +474,16 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	subordinateUnitStatusHistoryData, err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	warning := func(key string) {
+		s.logger.Warningf(ctx, "dropping empty value for key %q in unit %q settings of relation %q",
+			key, unitName, relationUUID)
+	}
+	subordinateUnitStatusHistoryData, err := s.st.EnterScope(
+		ctx,
+		relationUUID,
+		unitName,
+		ensureNoEmptySettingsValues(warning, settings),
+	)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
 	} else if err != nil {
@@ -564,20 +573,48 @@ func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
 		if err := unitName.Validate(); err != nil {
 			return errors.Capture(err)
 		}
+		warningUnit := func(key string) {
+			s.logger.Warningf(ctx, "dropping empty value for key %q in unit %s settings of relation %q",
+				key, unitName, relationUUID)
+		}
+		uSettings[unitName.String()] = ensureNoEmptySettingsValues(warningUnit, settings)
+	}
 
-		uSettings[unitName.String()] = settings
+	warningApp := func(key string) {
+		s.logger.Warningf(ctx, "dropping empty value for key %q in application %q settings of relation %q",
+			key, applicationUUID, relationUUID)
 	}
 
 	// Enter the units into the relation scope.
 	if err := s.st.SetRelationRemoteApplicationAndUnitSettings(
 		ctx,
-		applicationUUID.String(), relationUUID.String(),
-		applicationSettings, uSettings,
+		applicationUUID.String(),
+		relationUUID.String(),
+		ensureNoEmptySettingsValues(warningApp, applicationSettings),
+		uSettings,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
+}
+
+func ensureNoEmptySettingsValues(
+	warning func(string),
+	settings map[string]string,
+) map[string]string {
+	if len(settings) == 0 {
+		return nil
+	}
+	out := make(map[string]string)
+	for k, v := range settings {
+		if v == "" {
+			warning(k)
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // SetRemoteRelationSuspendedState sets the suspended state of the specified
@@ -1186,16 +1223,4 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerel
 	}
 
 	return key, nil
-}
-
-func settingsMap(in map[string]any) (map[string]string, error) {
-	var errs error
-	return transform.Map(in, func(k string, v any) (string, string) {
-		switch v.(type) {
-		case string:
-		default:
-			errs = errors.Join(errs, errors.Errorf("%+v no a string", v))
-		}
-		return k, fmt.Sprintf("%v", v)
-	}), errs
 }

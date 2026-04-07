@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -84,8 +85,8 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 	peerRelUUID := args[0].UUID
 	relUUID := args[1].UUID
 
-	s.expectImportPeerRelation(c, peerRelUUID, ep1[0], uint64(7), charm.ScopeContainer)
-	s.expectImportRelation(c, relUUID, ep2[0], ep2[1], uint64(8), charm.ScopeGlobal)
+	s.expectImportPeerRelation(peerRelUUID, ep1[0], uint64(7), charm.ScopeContainer)
+	s.expectImportRelation(relUUID, ep2[0], ep2[1], uint64(8), charm.ScopeGlobal)
 	app1ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[0].ApplicationName)
 	app2ID := s.expectGetApplicationUUIDByName(c, args[1].Endpoints[0].ApplicationName)
 	app3ID := s.expectGetApplicationUUIDByName(c, args[1].Endpoints[1].ApplicationName)
@@ -154,18 +155,49 @@ func (s *migrationServiceSuite) TestExportRelationsStateError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 }
 
+func (s *migrationServiceSuite) TestImportNoEmptySettingsValues(c *tc.C) {
+	// Arrange
+	in := map[string]any{
+		"one":   "two",
+		"three": "",
+	}
+	expected := map[string]string{
+		"one": "two",
+	}
+
+	// Act
+	obtained, err := settingsMap(func(string) {}, in)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, expected)
+}
+
+func (s *migrationServiceSuite) TestImportSettingsValuesMustBeStrings(c *tc.C) {
+	// Arrange
+	in := map[string]any{
+		"one":   "two",
+		"three": map[string]string{"foo": "bar"},
+	}
+
+	// Act
+	_, err := settingsMap(func(string) {}, in)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".* not a string")
+}
+
 func (s *migrationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockMigrationState(ctrl)
 
-	s.service = NewMigrationService(s.state)
+	s.service = NewMigrationService(s.state, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
 
 func (s *migrationServiceSuite) expectImportPeerRelation(
-	c *tc.C,
 	relUUID corerelation.UUID,
 	endpoint corerelation.EndpointIdentifier,
 	id uint64,
@@ -175,7 +207,6 @@ func (s *migrationServiceSuite) expectImportPeerRelation(
 }
 
 func (s *migrationServiceSuite) expectImportRelation(
-	c *tc.C,
 	relUUID corerelation.UUID,
 	ep2, ep3 corerelation.EndpointIdentifier,
 	id uint64,
@@ -195,7 +226,7 @@ func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 	id coreapplication.UUID,
 	settings map[string]any,
 ) {
-	appSettings, _ := settingsMap(settings)
+	appSettings, _ := settingsMap(func(string) {}, settings)
 	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, appSettings).Return(nil)
 }
 
@@ -204,7 +235,7 @@ func (s *migrationServiceSuite) expectEnterScope(
 	name coreunit.Name,
 	settings map[string]any,
 ) {
-	unitSettings, _ := settingsMap(settings)
+	unitSettings, _ := settingsMap(func(string) {}, settings)
 	data := internal.SubordinateUnitStatusHistoryData{}
 	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(data, nil)
 }

@@ -641,9 +641,11 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	// Arrange.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
-	settings := map[string]string{"ingress": "x.x.x.x"}
+	expectedSettings := map[string]string{"ingress": "x.x.x.x"}
 	data := internal.SubordinateUnitStatusHistoryData{}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(data, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, expectedSettings).Return(data, nil)
+
+	settings := map[string]string{"ingress": "x.x.x.x", "empty": ""}
 
 	// Act.
 	err := s.service.EnterScope(
@@ -755,14 +757,21 @@ func (s *relationServiceSuite) TestSetRelationRemoteApplicationAndUnitSettings(c
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
-	applicationSettings := map[string]string{"foo": "bar"}
+	expectedApplicationSettings := map[string]string{"foo": "bar"}
+	expectedUnitSettings := map[string]map[string]string{
+		unitName.String(): {"ingress": "x.x.x.x"},
+	}
+	s.state.EXPECT().SetRelationRemoteApplicationAndUnitSettings(gomock.Any(),
+		applicationUUID.String(),
+		relationUUID.String(),
+		expectedApplicationSettings,
+		expectedUnitSettings,
+	).Return(nil)
+
+	applicationSettings := map[string]string{"foo": "bar", "empty": ""}
 	unitSettings := map[coreunit.Name]map[string]string{
 		coreunit.Name("app1/0"): {"ingress": "x.x.x.x"},
 	}
-	expectedUnitSettings := map[string]map[string]string{
-		unitName.String(): unitSettings[unitName],
-	}
-	s.state.EXPECT().SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), applicationUUID.String(), relationUUID.String(), applicationSettings, expectedUnitSettings).Return(nil)
 
 	// Act.
 	err := s.service.SetRelationRemoteApplicationAndUnitSettings(
@@ -1482,7 +1491,7 @@ func (s *relationLeadershipServiceSuite) TestGetRelationApplicationSettingsWithL
 	unitName := coreunittesting.GenNewName(c, "app/0")
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	applicationID := tc.Must(c, coreapplication.NewUUID)
-	s.expectWithLeader(c, unitName)
+	s.expectWithLeader(unitName)
 	expectedSettings := map[string]string{
 		"key": "value",
 	}
@@ -1584,7 +1593,7 @@ func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 
 // expectWithLeader expects a call to with leader and executes the function to
 // be run with leadership.
-func (s *relationLeadershipServiceSuite) expectWithLeader(c *tc.C, unitName coreunit.Name) {
+func (s *relationLeadershipServiceSuite) expectWithLeader(unitName coreunit.Name) {
 	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
 			return fn(ctx)
