@@ -54,6 +54,32 @@ import (
 // UniterAPI implements the latest version (v21) of the Uniter API.
 type UniterAPI struct {
 	*StatusAPI
+<<<<<<< HEAD
+=======
+	*common.DeadEnsurer
+	*common.AgentEntityWatcher
+	*common.APIAddresser
+	*common.ModelWatcher
+	*common.RebootRequester
+	*common.UpgradeSeriesAPI
+	*common.UnitStateAPI
+	*leadershipapiserver.LeadershipSettingsAccessor
+	*secretsmanager.SecretsManagerAPI
+	meterstatus.MeterStatus
+	lxdProfileAPI       *LXDProfileAPIv2
+	m                   *state.Model
+	st                  *state.State
+	secrets             state.SecretsStore
+	clock               clock.Clock
+	cancel              <-chan struct{}
+	auth                facade.Authorizer
+	resources           facade.Resources
+	leadershipChecker   leadership.Checker
+	accessUnit          common.GetAuthFunc
+	accessApplication   common.GetAuthFunc
+	accessMachine       common.GetAuthFunc
+	containerBrokerFunc caas.NewContainerBrokerFunc
+>>>>>>> 3.6
 	*StorageAPI
 
 	*common.APIAddresser
@@ -3031,7 +3057,24 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
+<<<<<<< HEAD
 	return nil
+=======
+
+	// Remove any secret reservations that, by this point, have not been
+	// turned into a secret. Secrets are reserved by the uniter in a call to
+	// CreateSecretURIs.
+	modelOps = append(modelOps, u.secrets.RemoveSecretReservations(unitTag))
+
+	// Expire any secret issued backend tokens that, by this point, should no
+	// longer be used by this agent.
+	modelOps = append(
+		modelOps, u.secrets.ExpireSecretBackendIssuedTokensForConsumer(unitTag),
+	)
+
+	// Apply all changes in a single transaction.
+	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+>>>>>>> 3.6
 }
 
 func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.Name) error {

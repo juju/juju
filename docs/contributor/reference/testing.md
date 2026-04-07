@@ -12,7 +12,6 @@ tests should cover as much of the new code as practical; for code changes, the t
 shown that the existing tests suffice. Either way, before requesting a review, you need to show that there is already
 test coverage and that the new code / refactoring didn't break anything.
 
-
 ```{toctree}
 :titlesonly:
 :glob:

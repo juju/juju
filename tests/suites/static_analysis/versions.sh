@@ -10,8 +10,12 @@ run_check_go_version() {
 
 check_go_version() {
 	exit_code=0
+<<<<<<< HEAD
 	target_version="$(go mod edit -json | jq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')"
 	target_minor_version="$(go mod edit -json | jq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2".0"}')"
+=======
+	target_version="$(go mod edit -json | yq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')"
+>>>>>>> 3.6
 
 	
 	juju_build_steps="$(yq -r '.parts | .["juju"] | .override-build' snap/snapcraft.yaml)"

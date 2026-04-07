@@ -7,8 +7,6 @@ myst:
 (manage-storage)=
 # How to manage storage
 
-<!-- This doc has been crafted from https://discourse.charmhub.io/t/how-to-define-and-use-storage/1079 and https://discourse.charmhub.io/t/how-to-remove-storage/5890 -->
-
 ```{ibnote}
 See also: {ref}`storage`
 ```
@@ -166,10 +164,6 @@ juju import-filesystem aws vol-123456 pgdata
 
 
 Note: The determination of the provider ID  is dependent upon the cloud type. A provider ID from another cloud may look entirely different.
-
-<!--
-It is not possible to add new storage to a model without also attaching it to a unit. However, with the `juju import-filesystem` command, you can add storage to a model that has been previously released from a removed model.
--->
 
 ```{ibnote}
 See more: {ref}`command-juju-import-filesystem`, {ref}`storage-provider-lxd`

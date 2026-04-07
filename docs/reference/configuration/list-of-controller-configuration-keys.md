@@ -348,6 +348,33 @@ created locally on the controller.
 **Can be changed after bootstrap:** no
 
 
+<<<<<<< HEAD
+=======
+(controller-config-juju-db-snap-channel)=
+## `juju-db-snap-channel`
+
+`juju-db-snap-channel` selects the channel to use when installing Mongo
+snaps for focal or later. The value is ignored for older releases.
+
+**Type:** string
+
+**Default value:** 4.4.30/stable
+
+**Can be changed after bootstrap:** no
+
+
+(controller-config-juju-ha-space)=
+## `juju-ha-space`
+
+`juju-ha-space` is the network space within which the MongoDB replica-set
+should communicate.
+
+**Type:** string
+
+**Can be changed after bootstrap:** yes
+
+
+>>>>>>> 3.6
 (controller-config-juju-mgmt-space)=
 ## `juju-mgmt-space`
 

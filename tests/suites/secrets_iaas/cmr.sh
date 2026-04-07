@@ -23,9 +23,15 @@ run_secrets_cmr() {
 	wait_for "1" '.offers["dummy-source"]["active-connected-count"]'
 
 	echo "Create and share a secret on the offer side"
+<<<<<<< HEAD
 	secret_uri=$(juju exec -m model-secrets-offer --unit dummy-source/0 -- secret-add foo=bar)
 	relation_id=$(juju --show-log show-unit -m model-secrets-offer dummy-source/0 --format json | jq '."dummy-source/0"."relation-info"[0]."relation-id"')
 	juju exec -m model-secrets-offer --unit dummy-source/0 -- secret-grant "$secret_uri" -r "$relation_id"
+=======
+	secret_uri=$(juju exec --unit dummy-source/0 -- secret-add foo=bar)
+	relation_id=$(juju --show-log show-unit -m model-secrets-offer dummy-source/0 --format json | yq '."dummy-source/0"."relation-info"[0]."relation-id"')
+	juju exec --unit dummy-source/0 -- secret-grant "$secret_uri" -r "$relation_id"
+>>>>>>> 3.6
 
 	echo "Checking: the secret can be read by the consumer"
 	juju switch "model-secrets-consume"

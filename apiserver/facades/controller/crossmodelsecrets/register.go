@@ -40,7 +40,12 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+<<<<<<< HEAD
 		return domainServices.Secret(), nil
+=======
+		defer closer.Release()
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), sameController, []string{backendID}, false, consumer, leadershipChecker, nil)
+>>>>>>> 3.6
 	}
 	crossModelRelationServiceGetter := func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error) {
 		domainServices, err := ctx.DomainServicesForModel(stdCtx, modelUUID)

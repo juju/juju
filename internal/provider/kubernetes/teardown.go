@@ -10,7 +10,6 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/core/watcher"
@@ -95,31 +94,44 @@ func (k *kubernetesClient) deleteClusterScopeAPIExtensionResourcesModelTeardown(
 	defer subwg.Wait()
 
 	selector = mergeSelectors(selector, lifecycleModelTeardownSelector)
-	// Delete CRs first then CRDs.
-	k.deleteClusterScopeCustomResourcesModelTeardown(ctx, selector, clk, &subwg, errChan)
+	// Delete CRs everywhere first then CRDs. Finalizers are stripped from all
+	// matching CRs before deletion so that resources are not left stuck in a
+	// terminating state.
+	k.deleteAllNamespacesCustomResourcesModelTeardown(ctx, selector, clk, &subwg, errChan)
 	k.deleteCustomResourceDefinitionsModelTeardown(ctx, selector, clk, &subwg, errChan)
 }
 
-func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
+// deleteAllNamespacesCustomResourcesModelTeardown deletes custom resources
+// matching the selector everywhere. Before issuing the delete it strips all
+// finalizers from every matching CR so that nothing is left stuck in a
+// terminating state. This must only ever be called during model teardown.
+func (k *kubernetesClient) deleteAllNamespacesCustomResourcesModelTeardown(
 	ctx context.Context,
 	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	getSelector := func(crd apiextensionsv1.CustomResourceDefinition) k8slabels.Selector {
-		if !isCRDScopeNamespaced(crd.Spec.Scope) {
-			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
-			return selector
-		}
-		return k8slabels.NewSelector()
-	}
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+<<<<<<< HEAD
 		func(ctx context.Context, _ k8slabels.Selector) error {
 			return k.deleteCustomResources(ctx, getSelector)
 		},
 		func(ctx context.Context, _ k8slabels.Selector) error {
 			_, err := k.listCustomResources(ctx, getSelector)
+=======
+		func(selector k8slabels.Selector) error {
+			// Remove finalizers first so that the subsequent DeleteCollection
+			// is not blocked by termination hooks.
+			err := k.removeAllCustomResourceFinalizers(ctx, selector)
+			if err != nil {
+				return err
+			}
+			return k.deleteAllCustomResourcesAllNamespaces(ctx, selector)
+		},
+		func(selector k8slabels.Selector) error {
+			_, err := k.listAllCustomResourcesAllNamespaces(ctx, selector)
+>>>>>>> 3.6
 			return err
 		},
 	)

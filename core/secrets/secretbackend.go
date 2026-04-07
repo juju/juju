@@ -13,6 +13,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	// IssuedTokenValidity is the expected minimum duration for a token issued
+	// from a secret backend.
+	IssuedTokenValidity = 10 * time.Minute
+)
+
 // IsInternalSecretBackendID returns true if the supplied backend ID is the internal backend ID.
 func IsInternalSecretBackendID(backendID string) bool {
 	// TODO: Fix me!!! This is not correct anymore because secret backend IDs now are all UUIDs.

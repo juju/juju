@@ -11,18 +11,18 @@ run_deploy_kubeflow() {
 	juju deploy kubeflow --trust --channel 1.9
 
 	echo "==> Checking kubeflow deployment"
-	num_apps=$(juju status --format json | jq '.applications | length')
+	num_apps=$(juju status --format json | yq '.applications | length')
 	wait_for "training-operator" "$(active_idle_condition "training-operator" $((num_apps - 1)))" 1800
-	jupyter_ip=$(microk8s kubectl -n kubeflow get svc istio-ingressgateway-workload -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+	jupyter_ip=$(kubectl -n kubeflow get svc istio-ingressgateway-workload -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143,SC2091,SC2086
-	until $(check_contains "$(curl ${jupyter_ip})" "Found" >/dev/null 2>&1); do
+	until check_contains "$(curl ${jupyter_ip})" "Found" >/dev/null 2>&1; do
 		echo "[+] (attempt ${attempt}) jupyter ui"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		if [[ ${attempt} -gt 10 ]]; then
+		if [[ ${attempt} -gt 30 ]]; then
 			echo "failed waiting for jupyter ui"
 			exit 1
 		fi

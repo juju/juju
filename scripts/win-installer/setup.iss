@@ -4,7 +4,11 @@
 #if GetEnv('JUJU_VERSION') != ""
 #define MyAppVersion=GetEnv('JUJU_VERSION')
 #else
+<<<<<<< HEAD
 #define MyAppVersion="4.0.4"
+=======
+#define MyAppVersion="3.6.21"
+>>>>>>> 3.6
 #endif
 
 #define MyAppName "Juju"

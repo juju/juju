@@ -1,6 +1,5 @@
 # `juju-mgmt-space`
 
-
 This document describes the `juju-mgmt-space` controller configuration key.
 
 |Key|Type|Default|Valid values|Purpose|
@@ -13,6 +12,7 @@ The space associated with `juju-mgmt-space` affects the communication between {r
 
 Using this option with the `bootstrap` or `enable-ha` commands effectively adds constraints to machine provisioning. These commands will emit an error if such constraints cannot be satisfied.
 
+<<<<<<< HEAD
 
 <!--
 From List of controller configuration keys:
@@ -25,3 +25,5 @@ The space associated with `juju-mgmt-space` affects the communication between {r
 Using these options with the `bootstrap` or `enable-ha` commands effectively adds constraints to machine provisioning. These commands will emit an error if such constraints cannot be satisfied.
 
 -->
+=======
+>>>>>>> 3.6

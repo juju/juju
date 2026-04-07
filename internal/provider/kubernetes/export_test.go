@@ -7,10 +7,21 @@ import (
 	"context"
 	"sync"
 
+<<<<<<< HEAD
 	"github.com/juju/tc"
+=======
+	jujuclock "github.com/juju/clock"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+>>>>>>> 3.6
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+<<<<<<< HEAD
+=======
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
+>>>>>>> 3.6
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -28,8 +39,15 @@ var (
 	NewK8sBroker            = newK8sBroker
 	ProcessSecretData       = processSecretData
 
+<<<<<<< HEAD
 	CompileK8sCloudCheckers               = compileK8sCloudCheckers
 	CompileLifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector
+=======
+	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
+	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
+	CompileLifecycleModelTeardownSelector      = compileLifecycleModelTeardownSelector
+	LabelSetToRequirements                     = labelSetToRequirements
+>>>>>>> 3.6
 
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	DecideKubeConfigDir          = decideKubeConfigDir
@@ -117,6 +135,10 @@ func NewProviderCredentials(
 
 func (k *kubernetesClient) DeleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	k.deleteClusterScopeResourcesModelTeardown(ctx, wg, errChan)
+}
+
+func (k *kubernetesClient) DeleteClusterScopeAPIExtensionResourcesModelTeardown(ctx context.Context, selector k8slabels.Selector, clk jujuclock.Clock, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteClusterScopeAPIExtensionResourcesModelTeardown(ctx, selector, clk, wg, errChan)
 }
 
 func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {

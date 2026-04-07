@@ -53,6 +53,16 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 		return nil, errors.Trace(err)
 	}
 
+<<<<<<< HEAD
+=======
+	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		return commonsecrets.BackendConfigInfo(commonsecrets.SecretsModel(model), true, backendIDs, wantAll, authTag, leadershipChecker, nil)
+	}
+	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		return commonsecrets.DrainBackendConfigInfo(backendID, commonsecrets.SecretsModel(model), authTag, leadershipChecker)
+	}
+
+>>>>>>> 3.6
 	return &SecretsDrainAPI{
 		SecretsDrainAPI:      commonDrainAPI,
 		modelUUID:            ctx.ModelUUID(),

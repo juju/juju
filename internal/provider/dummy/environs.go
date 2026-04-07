@@ -631,6 +631,7 @@ func (e *environ) StartInstance(ctx context.Context, args environs.StartInstance
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
+<<<<<<< HEAD
 			Arch:     args.Constraints.Arch,
 			Mem:      args.Constraints.Mem,
 			RootDisk: args.Constraints.RootDisk,
@@ -640,6 +641,16 @@ func (e *environ) StartInstance(ctx context.Context, args environs.StartInstance
 		}
 		if zone != "" {
 			hc.AvailabilityZone = &zone
+=======
+			Arch:             args.Constraints.Arch,
+			Mem:              args.Constraints.Mem,
+			RootDisk:         args.Constraints.RootDisk,
+			CpuCores:         args.Constraints.CpuCores,
+			CpuPower:         args.Constraints.CpuPower,
+			Tags:             args.Constraints.Tags,
+			AvailabilityZone: &zone,
+			RootDiskSource:   args.Constraints.RootDiskSource,
+>>>>>>> 3.6
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {

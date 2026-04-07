@@ -7,10 +7,16 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/rbac_test.go
 	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
+=======
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
+	gc "gopkg.in/check.v1"
+>>>>>>> 3.6:secrets/provider/kubernetes/rbac_test.go
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -53,6 +59,7 @@ func (s *rbacSuite) SetUpTest(c *tc.C) {
 	s.k8sclient = s.getFakeClient(c)
 }
 
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/rbac_test.go
 func (s *rbacSuite) TestEnsureRoleBinding(c *tc.C) {
 	ctx := c.Context()
 	rbName := "rb-name"
@@ -105,6 +112,10 @@ func (s *rbacSuite) TestEnsureRoleBinding(c *tc.C) {
 
 func (s *rbacSuite) TestUpdateClusterRole(c *tc.C) {
 	ctx := c.Context()
+=======
+func (s *rbacSuite) TestUpdateClusterRole(c *gc.C) {
+	ctx := context.Background()
+>>>>>>> 3.6:secrets/provider/kubernetes/rbac_test.go
 
 	// Assert that the cluster role update fails if the cluster role does not exist.
 	clusterRoleUpdate := &rbacv1.ClusterRole{
@@ -149,6 +160,7 @@ func (s *rbacSuite) TestUpdateClusterRole(c *tc.C) {
 	c.Assert(cr.Name, tc.Equals, "cluster-role-name")
 	c.Assert(cr.Rules, tc.DeepEquals, clusterRoleUpdate.Rules)
 }
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/rbac_test.go
 
 func (s *rbacSuite) makeSA(ns, name string, lbls, ann map[string]string) *core.ServiceAccount {
 	return &core.ServiceAccount{
@@ -312,3 +324,5 @@ func (s *rbacSuite) TestEnsureBinding_CreateRoleAndNotCreateBinding(c *tc.C) {
 	c.Assert(role.Annotations, tc.DeepEquals, sa.Annotations)
 	c.Assert(role.Rules, tc.DeepEquals, rulesForSecretAccess(ns, false, nil, owned, read, removed))
 }
+=======
+>>>>>>> 3.6:secrets/provider/kubernetes/rbac_test.go

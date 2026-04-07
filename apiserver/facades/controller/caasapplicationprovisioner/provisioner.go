@@ -620,17 +620,57 @@ func (a *API) Watch(ctx context.Context, args params.Entities) (params.NotifyWat
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
 
+<<<<<<< HEAD
 		watcherID, err := a.watchEntity(ctx, tag.Id())
 		result.Results[i].NotifyWatcherId = watcherID
 		result.Results[i].Error = apiservererrors.ServerError(err)
+=======
+	ps := app.ProvisioningState()
+	if ps == nil {
+		return result, nil
+	}
+
+	result.ProvisioningState = &params.CAASApplicationProvisioningState{
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     ps.ReplicaCount,
+		CurrentOperation: ps.CurrentOperation,
+>>>>>>> 3.6
 	}
 	return result, nil
 }
 
+<<<<<<< HEAD
 func (a *API) watchEntity(ctx context.Context, appName string) (string, error) {
 	watcher, err := a.applicationService.WatchApplication(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return "", errors.NotFoundf("application %q", appName)
+=======
+// SetProvisioningState sets the provisioning state for the application.
+func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+
+	appTag, err := names.ParseApplicationTag(args.Application.Tag)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	app, err := a.state.Application(appTag.Id())
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	ps := state.ApplicationProvisioningState{
+		ScaleTarget:      args.ProvisioningState.ScaleTarget,
+		ReplicaCount:     args.ProvisioningState.ReplicaCount,
+		CurrentOperation: args.ProvisioningState.CurrentOperation,
+	}
+	err = app.SetProvisioningState(ps)
+	if errors.Is(err, stateerrors.ProvisioningStateInconsistent) {
+		result.Error = apiservererrors.ServerError(apiservererrors.ErrTryAgain)
+		return result, nil
+>>>>>>> 3.6
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}

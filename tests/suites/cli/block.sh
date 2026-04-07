@@ -63,7 +63,7 @@ run_block_all() {
 
 	# juju status and offers should still work when 'all' commands
 	# are disabled.
-	juju status --format json | jq '.applications | .["ubuntu"] | .exposed' | check true
+	juju status --format json | yq '.applications | .["ubuntu"] | .exposed' | check true
 	juju offers | grep -q 'Offer' || true
 
 	juju deploy ntp --base ubuntu@24.04 | grep -q 'the operation has been blocked' || true
@@ -78,7 +78,7 @@ run_block_all() {
 	wait_for "ntp" "$(idle_subordinate_condition "ntp" "ubuntu" 0)"
 
 	juju unexpose ubuntu
-	juju status --format json | jq '.applications | .["ubuntu"] | .exposed' | check false
+	juju status --format json | yq '.applications | .["ubuntu"] | .exposed' | check false
 
 	destroy_model "${model_name}"
 }

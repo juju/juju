@@ -31,13 +31,11 @@ On Kubernetes clouds, both the cloud definition and the cloud credentials are ad
 
 ### Authentication types
 
-
 #### `certificate`
 Attributes:
 - ClientCertificateData: the kubernetes certificate data (required)
 - Token: the kubernetes service account bearer token (required)
 - rbac-id: the unique ID key name of the rbac resources (optional)
-
 
 #### `clientcertificate`
 Attributes:
@@ -56,13 +54,10 @@ Attributes:
 - ClientKeyData: the kubernetes private key data (required)
 - Token: the kubernetes token (required)
 
-
 #### `userpass`
 Attributes:
 - username: The username to authenticate with. (required)
 - password: The password for the specified username. (required)
-
-
 
 ## Cloud-specific model configuration keys
 
@@ -88,8 +83,11 @@ The preferred storage class used to provision workload storage.
 
 ## Supported constraints
 
+<<<<<<< HEAD
 Only `cpu-power`, `mem`, and `tags` are supported. They apply to the containers provisioned through the Kubernetes cloud.
 
+=======
+>>>>>>> 3.6
 | {ref}`CONSTRAINT <constraint>`         |                                               |
 |----------------------------------------|-----------------------------------------------|
 | conflicting:                           | `instance-type` vs. `[cores, cpu-power, mem]` |
@@ -108,11 +106,6 @@ Only `cpu-power`, `mem`, and `tags` are supported. They apply to the containers 
 | - {ref}`constraint-tags`               | &#10003; <br> Used for affinity.              |
 | - {ref}`constraint-virt-type`          | &#10005;                                      |
 | - {ref}`constraint-zones`              | &#10005;                                      |
-
-
-<!--
-Sadly, the mem and cpu-power constraints do not properly do what's needed for requests and limits; what we have is very simplistic.
--->
 
 ## Placement directives
 

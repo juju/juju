@@ -43,6 +43,7 @@ test_dashboard_deploy() {
 }
 
 open_dashboard() {
+<<<<<<< HEAD
 	# The DashboardConnectionInfo call in `juju dashboard` is
 	# currently returning an NotImplemented error as the functionality
 	# needs to be reimplemented in the controller charm.
@@ -50,10 +51,16 @@ open_dashboard() {
 	#
 	juju dashboard &
 	PID=$!
+=======
+	push_daemon_scope
+	local expected_scope_depth
+	expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	# shellcheck disable=SC2064
+	trap "pop_daemon_scope ${expected_scope_depth}" RETURN
+
+	daemon juju dashboard
+>>>>>>> 3.6
 	sleep 10
 	# TODO: capture url from dashboard output
 	curl -L http://localhost:31666 | grep "Juju Dashboard"
-	kill -SIGINT "$PID"
-	# TODO: why isn't this killing the child ssh process?
-	#   lsof -n -i | grep 31666
 }

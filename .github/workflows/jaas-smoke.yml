@@ -13,12 +13,26 @@ permissions:
 jobs:
   smoke:
     name: JAAS Smoke Test
+<<<<<<< HEAD
     runs-on: [self-hosted, linux, x64, aws, large]
     if: github.event.pull_request.draft == false
+=======
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - large
+
+>>>>>>> 3.6
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v1
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.github/squid.sh
 
       - name: Install Dependencies
         shell: bash
@@ -33,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Setup env
@@ -46,7 +60,7 @@ jobs:
         shell: bash
         run: |
           make go-install
-          
+
       - name: Start JIMM, bootstrap a Juju controller and add it to JIMM.
         uses: canonical/jimm/.github/actions/test-server@v3
         id: jaas
@@ -55,7 +69,7 @@ jobs:
           ghcr-pat: ${{ secrets.GITHUB_TOKEN }}
           dump-logs: true
           use-charmed-k8s-action: "false"
-      
+
       - name: Create a model, deploy an application and run juju status
         run: |
           juju add-model foo && \

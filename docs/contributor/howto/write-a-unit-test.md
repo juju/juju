@@ -10,6 +10,47 @@ myst:
 
 This document demonstrates how to write a unit test for Juju.
 
+<<<<<<< HEAD
+=======
+## Prepare for the test
+
+### Create `package_test.go`
+
+[note type=caution]
+This step is necessary only if this file doesn't already exist.
+[/note]
+
+Each package requires a `package_test.go` file if we wish any of our tests to run.
+
+Below is a standard `package_test.go` file for an example package called `magic`. We import the "testing" package from
+the standard library and then the `gocheck` package as `gc`. We also create a function `Test` that will be the
+entry-point into our test suites.
+
+```go
+// Copyright 20XX Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package magic_test
+
+import (
+  "testing"
+
+  gc "gopkg.in/check.v1"
+)
+
+func Test(t *testing.T) {
+  gc.TestingT(t)
+}
+```
+
+[note type=caution]
+You will sometimes see `package_test.go` files which use `testing.MgoTestPackage` as their entrypoint. This is required
+to run old-style `JujuConnSuite` tests, which test against a running instance of MongoDB.
+
+These tests are deprecated and are actively being removed. No more should be added.
+[/note]
+
+>>>>>>> 3.6
 ### Create
 
 `
@@ -91,7 +132,20 @@ go test github.com/juju/juju/x/y/magic/
 
 This will run all the tests registered in the `magic` package, including the one we just wrote.
 
+<<<<<<< HEAD
 You can also chose to run specific tests or suites, using the normal go test.
+=======
+You can also chose to run specific tests or suites, using the `-check.f` flag for gocheck
+
+```bash
+go test github.com/juju/juju/x/y/magic/ -check.f magicSuite         # run the magicSuite only
+go test github.com/juju/juju/x/y/magic/ -check.f magicSuite.TestSum # run the test TestSum in magicSuite only
+```
+
+[note type=information]
+See more here [`gocheck` > Selecting which tests to run](https://labix.org/gocheck) .
+[/note]
+>>>>>>> 3.6
 
 ## Debug a test
 
@@ -105,3 +159,7 @@ stress you may still need to rsync over the build environment as some tests look
 ```{tip}
 **How many times to run?** It has been noticed that, if the test runs 100 times without failure, things are probably all right.
 ```
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3.6

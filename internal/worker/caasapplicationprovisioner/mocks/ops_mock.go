@@ -197,6 +197,20 @@ func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// EnsureStorage mocks base method.
+func (m *MockApplicationOps) EnsureStorage(arg0 string, arg1 caas.Application, arg2 string, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 clock.Clock, arg5 caasapplicationprovisioner.Logger) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureStorage indicates an expected call of EnsureStorage.
+func (mr *MockApplicationOpsMockRecorder) EnsureStorage(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplicationOps)(nil).EnsureStorage), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
 // EnsureTrust mocks base method.
 func (m *MockApplicationOps) EnsureTrust(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 caasapplicationprovisioner.ApplicationService, arg4 logger.Logger) error {
 	m.ctrl.T.Helper()
@@ -275,14 +289,21 @@ func (c *MockApplicationOpsProvisioningInfoCall) DoAndReturn(f func(context.Cont
 }
 
 // ReconcileDeadUnitScale mocks base method.
+<<<<<<< HEAD
 func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 caasapplicationprovisioner.ApplicationService, arg6 logger.Logger) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcileDeadUnitScale", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+=======
+func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.Logger) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReconcileDeadUnitScale", arg0, arg1, arg2, arg3, arg4)
+>>>>>>> 3.6
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReconcileDeadUnitScale indicates an expected call of ReconcileDeadUnitScale.
+<<<<<<< HEAD
 func (mr *MockApplicationOpsMockRecorder) ReconcileDeadUnitScale(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileDeadUnitScale", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileDeadUnitScale), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
@@ -310,6 +331,11 @@ func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Do(f func(context.Context
 func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
+=======
+func (mr *MockApplicationOpsMockRecorder) ReconcileDeadUnitScale(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileDeadUnitScale", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileDeadUnitScale), arg0, arg1, arg2, arg3, arg4)
+>>>>>>> 3.6
 }
 
 // RefreshApplicationStatus mocks base method.

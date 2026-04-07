@@ -9,12 +9,9 @@ myst:
 
 If you are on Juju 3.2+, and your `juju status` suggests the agent is lost, you may have a core dump issue. This document shows how to validate this suspicion and then get the backtrace so the issue can eventually be reproduced and addressed.
 
-
 ## Check if you do in fact have a core dump issue
 
-
 Check the database logs:
-
 
 ```text
 $ juju debug-log | grep "core dump"
@@ -39,7 +36,6 @@ Assertion failed: type == SQLITE_INTEGER || type == SQLITE_NULL (src/query.c: va
 signal: aborted (core dumped)
 ```
 ````
-
 
 ## Retrieve the core dump backtrace
 
@@ -80,3 +76,7 @@ gdb> bt
 ```
 
 Grab the output of the backtrace and share it with the Juju team. They will be able to help you diagnose the issue further.
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3.6

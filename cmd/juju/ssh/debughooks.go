@@ -217,7 +217,18 @@ func (c *debugHooksCommand) validateHooksOrActions(ctx context.Context) error {
 
 func (c *debugHooksCommand) getValidActions(actions *charm.Actions) (set.Strings, error) {
 	validActions := set.NewStrings()
+<<<<<<< HEAD
 	for name := range actions.ActionSpecs {
+=======
+
+	// A charm can have no actions defined, but that is not an error. In that
+	// case, return an empty set of actions.
+	if ch.Actions() == nil {
+		return validActions, nil
+	}
+
+	for name := range ch.Actions().ActionSpecs {
+>>>>>>> 3.6
 		validActions.Add(name)
 	}
 	return validActions, nil
@@ -264,6 +275,13 @@ func (c *debugHooksCommand) commonRun(
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; chmod +x $F; exec $F`, b64Script)
 	args := []string{fmt.Sprintf(c.decideEntryPoint(ctx), innercmd)}
 	c.provider.setArgs(args)
+
+	// debug-hooks and debug-code always need a PTY because they launch a
+	// tmux session on the remote side. Force PTY allocation so that the
+	// enablePty heuristic (which disables PTY when args are present) does
+	// not prevent it.
+	_ = c.pty.Set("true")
+
 	return c.sshCommand.Run(ctx)
 }
 

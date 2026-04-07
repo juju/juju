@@ -59,6 +59,3 @@ function.
 > [example usage of
 `Manifold` in the firewaller worker](https://github.com/juju/juju/blob/HEAD/internal/worker/firewaller/manifold.go)
 
-<!--
-cmd/jujud/main.go has the jujud.Register calls for its sub-commands. Within the ones that start agents (machine, model) you'll see calls to dependency.NewEngine to create an engine with its config, then later dependency.Install, which accepts a Manifolds value and starts the graph of workers that it represents
--->

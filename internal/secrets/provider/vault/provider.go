@@ -6,6 +6,7 @@ package vault
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -14,9 +15,14 @@ import (
 	"github.com/juju/errors"
 	vault "github.com/mittwald/vaultgo"
 
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	"github.com/juju/juju/core/secrets"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider"
+=======
+	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/secrets/provider"
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 )
 
 var logger = internallogger.GetLogger("juju.secrets.vault")
@@ -87,10 +93,18 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 // CleanupModel deletes all secrets and policies associated with the model.
 func (p vaultProvider) CleanupModel(ctx context.Context, cfg *provider.ModelBackendConfig) (err error) {
 	defer func() {
-		if err != nil && strings.HasSuffix(err.Error(), "no route to host") {
+		if err == nil {
+			return
+		} else if strings.HasSuffix(err.Error(), "no route to host") ||
+			strings.HasSuffix(err.Error(), "connection refused") {
 			// There is nothing we can do now, so just log the error and continue.
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 			err = nil
 			logger.Warningf(context.TODO(), "failed to cleanup secrets for model %q: %v", cfg.ModelUUID, err)
+=======
+			logger.Warningf("failed to cleanup secrets for model %q: %v", cfg.ModelUUID, err)
+			err = nil
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 		}
 	}()
 
@@ -178,13 +192,60 @@ func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBa
 	return nil
 }
 
+// IssuesTokens returns true if this secret backend provider needs to issue
+// a token to provide a restricted (delegated) config.
+func (p vaultProvider) IssuesTokens() bool {
+	return true
+}
+
+// CleanupIssuedTokens removes all ACLs/tokens related to the given issued
+// token UUIDs. It returns, even during error, the list of tokens it revoked
+// so far.
+func (p vaultProvider) CleanupIssuedTokens(
+	adminCfg *provider.ModelBackendConfig, issuedTokenUUIDs []string,
+) ([]string, error) {
+	// Get an admin backend client so we can set up the policies.
+	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
+	backend, err := p.newBackend(mountPath, &adminCfg.BackendConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sys := backend.client.Sys()
+	ctx := context.TODO()
+
+	for i, issuedTokenUUID := range issuedTokenUUIDs {
+		policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
+		err := sys.DeletePolicyWithContext(ctx, policyName)
+		if err != nil && !isNotFound(err) {
+			// Return the tokens deleted so far.
+			return issuedTokenUUIDs[:i], errors.New(
+				"removing vault secret backend issued tokens",
+			)
+		}
+	}
+
+	return issuedTokenUUIDs, nil
+}
+
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given accessor.
 func (p vaultProvider) RestrictedConfig(
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	ctx context.Context, adminCfg *provider.ModelBackendConfig, _, forDrain bool, accessor secrets.Accessor, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	adminUser := accessor.Kind == secrets.ModelAccessor
+=======
+	adminCfg *provider.ModelBackendConfig,
+	sameController, forDrain bool,
+	issuedTokenUUID string,
+	consumer names.Tag,
+	owned []string,
+	ownedRevs provider.SecretRevisions,
+	readRevs provider.SecretRevisions,
+) (*provider.BackendConfig, error) {
+	adminUser := consumer == nil
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 	// Get an admin backend client so we can set up the policies.
 	modelPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
 	backend, err := p.newBackend(modelPath, &adminCfg.BackendConfig)
@@ -193,7 +254,9 @@ func (p vaultProvider) RestrictedConfig(
 	}
 	mountPath := backend.mountPath
 	sys := backend.client.Sys()
+	ctx := context.TODO()
 
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	var policies []string
 	if forDrain {
 		// For drain worker, we need to be able to update a secret.
@@ -212,20 +275,37 @@ func (p vaultProvider) RestrictedConfig(
 	// Agents, drain workers and admin users (creates user secrets) can create new secrets in the model.
 	if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
 		return nil, errors.Trace(err)
+=======
+	var rules []string
+	if forDrain && (adminUser || consumer.Kind() == names.ModelTagKind) {
+		// For controller drain worker, we need to be able to update a secret.
+		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
+		// before it can update the secret to the new backend, we need to allow the worker to update the content
+		// after it's coming up again.
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
+		rules = append(rules, rule)
 	}
+	if adminUser {
+		// For admin users, all secrets for the model can be read.
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, mountPath)
+		rules = append(rules, rule)
+>>>>>>> 3.6:secrets/provider/vault/provider.go
+	}
+
 	// Any secrets owned by the agent can be updated/deleted etc.
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	logger.Debugf(context.TODO(), "owned secrets: %#v", owned)
 	for id := range owned {
+=======
+	logger.Debugf("owned secrets: %#v", owned)
+	for _, id := range owned {
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
-		policyName := fmt.Sprintf("%s-%s-owner", mountPath, id)
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating owner policy for %q", id)
-		}
-		policies = append(policies, policyName)
+		rules = append(rules, rule)
 	}
 
 	// Any secrets consumed by the agent can be read etc.
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	logger.Debugf(context.TODO(), "consumed secrets: %#v", read)
 	for id := range read {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, mountPath, id)
@@ -233,14 +313,37 @@ func (p vaultProvider) RestrictedConfig(
 		err = sys.PutPolicyWithContext(ctx, policyName, rule)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating read policy for %q", id)
+=======
+	logger.Debugf("consumed secret revisions: %#v", readRevs)
+	for _, revs := range readRevs {
+		for _, revId := range revs.Values() {
+			rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revId)
+			rules = append(rules, rule)
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 		}
-		policies = append(policies, policyName)
 	}
+<<<<<<< HEAD:internal/secrets/provider/vault/provider.go
 	logger.Tracef(context.TODO(), "policies: %#v", policies)
+=======
+
+	policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
+	err = sys.PutPolicyWithContext(ctx, policyName, strings.Join(rules, "\n"))
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating policy %q", policyName)
+	}
+	logger.Tracef("policy rules for %q: %#v", policyName, rules)
+
+	ttl := fmt.Sprintf(
+		"%dm", int(math.Ceil(coresecrets.IssuedTokenValidity.Minutes())),
+	)
+>>>>>>> 3.6:secrets/provider/vault/provider.go
 	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
-		TTL:             "10m", // 10 minutes for now, can configure later.
+		TTL:             ttl,
 		NoDefaultPolicy: true,
-		Policies:        policies,
+		Policies:        []string{policyName},
+		Metadata: map[string]string{
+			"juju-issued-token-uuid": issuedTokenUUID,
+		},
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secret access token")

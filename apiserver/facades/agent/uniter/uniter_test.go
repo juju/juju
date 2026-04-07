@@ -2142,12 +2142,437 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *tc.C) {
 	}}
 	result, err := s.uniter.ReadSettings(c.Context(), args)
 
+<<<<<<< HEAD
 	// assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
+=======
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"})
+	req, _ := b.Build()
+
+	// Test-suite uses an older API version
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `checking leadership continuity: "wordpress/1" is not leader of "wordpress"`}},
+		},
+	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
+	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	s.leadershipChecker.isLeader = true
+	store := state.NewSecrets(s.State)
+	uri2 := secrets.NewURI()
+	_, err := store.CreateSecret(uri2, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &token{isLeader: true},
+			Data:        map[string]string{"foo2": "bar"},
+		},
+		Owner: s.wordpress.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri2, state.SecretAccessParams{
+		LeaderToken: &token{isLeader: true},
+		Scope:       s.wordpress.Tag(),
+		Subject:     s.wordpress.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	uri3 := secrets.NewURI()
+	_, err = store.CreateSecret(uri3, state.CreateSecretParams{
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &token{isLeader: true},
+			Data:        map[string]string{"foo3": "bar"},
+		},
+		Owner: s.wordpress.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.GrantSecretAccess(uri3, state.SecretAccessParams{
+		LeaderToken: &token{isLeader: true},
+		Scope:       s.wordpress.Tag(),
+		Subject:     s.wordpress.Tag(),
+		Role:        secrets.RoleManage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// This secret will be not found.
+	uri4 := secrets.NewURI()
+
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	uri := secrets.NewURI()
+	b.AddSecretCreates([]apiuniter.SecretCreateArg{{
+		SecretUpsertArg: apiuniter.SecretUpsertArg{
+			URI:      uri,
+			Label:    ptr("foobar"),
+			Value:    secrets.NewSecretValue(map[string]string{"foo": "bar"}),
+			Checksum: "checksum",
+		},
+		OwnerTag: s.wordpress.Tag(),
+	}})
+	b.AddSecretUpdates([]apiuniter.SecretUpsertArg{{
+		URI:          uri,
+		RotatePolicy: ptr(secrets.RotateDaily),
+		Description:  ptr("a secret"),
+		Label:        ptr("foobar"),
+		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+		Checksum:     "checksum2",
+	}, {
+		URI:      uri3,
+		Value:    secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
+		Checksum: "checksum3",
+	}})
+	b.AddTrackLatest([]string{uri3.ID})
+	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{
+		URI: uri3, Revisions: []int{1},
+	}, {
+		URI: uri4,
+	}})
+	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
+		URI:             uri,
+		ApplicationName: ptr(s.mysql.Name()),
+		Role:            secrets.RoleView,
+	}, {
+		URI:             uri2,
+		ApplicationName: ptr(s.mysql.Name()),
+		Role:            secrets.RoleView,
+	}})
+	b.AddSecretRevokes([]apiuniter.SecretGrantRevokeArgs{{
+		URI:             uri2,
+		ApplicationName: ptr(s.mysql.Name()),
+	}})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify state
+	_, _, err = store.GetSecretValue(uri3, 1)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	md, err := store.GetSecret(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.Description, gc.Equals, "a secret")
+	c.Assert(md.Label, gc.Equals, "foobar")
+	c.Assert(md.LatestRevisionChecksum, gc.Equals, "checksum2")
+	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
+	val, _, err := store.GetSecretValue(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+	access, err := s.State.SecretAccess(uri, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleView)
+	access, err = s.State.SecretAccess(uri2, s.mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, secrets.RoleNone)
+
+	info, err := s.State.GetSecretConsumer(uri3, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.CurrentRevision, gc.Equals, 2)
+	c.Assert(info.LatestRevision, gc.Equals, 2)
+}
+
+func (s *uniterSuite) TestCommitHookChangesRemovesSecretReservations(c *gc.C) {
+	store := state.NewSecrets(s.State)
+
+	// Reserve some secrets for the unit.
+	for range 10 {
+		u := secrets.NewURI()
+		err := store.ReserveSecret(u, s.wordpressUnit.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	reserved, err := store.ListReservedSecrets([]names.Tag{
+		s.wordpressUnit.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, gc.HasLen, 10)
+
+	// Commit the hook changes.
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Check all the secret reservations were removed.
+	reserved, err = store.ListReservedSecrets([]names.Tag{s.wordpressUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reserved, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestCommitHookChangesExpiresSecretBackendTokens(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	now := time.Now()
+
+	// Create some secret backend issued tokens that are not expired yet.
+	for range 10 {
+		issuedToken := state.SecretBackendIssuedToken{
+			UUID:       utils.MustNewUUID().String(),
+			ExpireTime: now.Add(time.Hour),
+			BackendID:  "backend-id",
+			Consumer:   s.wordpressUnit.Tag(),
+		}
+		err := store.CreateSecretBackendIssuedToken(issuedToken)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	tokens, err := store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 0)
+	tokens, err = store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now.Add(time.Hour).Add(time.Minute), s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 10)
+
+	// Commit the hook changes.
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Check that the secret backend issued tokens are all expired now.
+	tokens, err = store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 10)
+}
+
+func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
+	// We need to set up a unit that has storage metadata defined.
+	ch := s.AddTestingCharm(c, "storage-block2") // supports multiple storage instances
+	application := s.AddTestingApplication(c, "storage-block2", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	oldVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+
+	stCount := uint64(1)
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("80-81/tcp"))
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange(allEndpoints, network.MustParsePortRange("7337/tcp"))
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	b.AddStorage(map[string][]params.StorageConstraints{
+		"multi1to10": {{Count: &stCount}},
+	})
+	req, _ := b.Build()
+
+	// Test-suite uses an older API version. Create a new one and override
+	// authorizer to allow access to the unit we just created.
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: unit.Tag(),
+	}
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify state
+	unitPortRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+
+	unitState, err := unit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	charmState, _ := unitState.CharmState()
+	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	newVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
+}
+
+func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c, true)
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+
+	b.OpenPortRange("db", network.MustParsePortRange("80/tcp"))
+	b.OpenPortRange("db", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("db", network.MustParsePortRange("7337/tcp"))
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	appPortRanges, err := app.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 80}})
+
+	portRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(portRanges.ByEndpoint(), jc.DeepEquals, network.GroupedPortRanges{
+		"db": []network.PortRange{network.MustParsePortRange("80/tcp")},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
+
+	s.leadershipChecker.isLeader = true
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	if isRaw {
+		b.SetRawK8sSpec(gitlab.ApplicationTag(), &rawK8sSpec)
+	} else {
+		b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	}
+
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	if isRaw {
+		spec, err := cm.PodSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, "")
+
+		spec, err = cm.RawK8sSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, rawK8sSpec)
+	} else {
+		spec, err := cm.PodSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, podSpec)
+
+		spec, err = cm.RawK8sSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, "")
+	}
+	// Verify expected unit state
+	unitState, err := gitlabUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	charmState, _ := unitState.CharmState()
+	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASPodSpec(c *gc.C) {
+	s.assertCommitHookChangesCAAS(c, false)
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASRawK8sSpec(c *gc.C) {
+	s.assertCommitHookChangesCAAS(c, true)
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
+
+	s.leadershipChecker.isLeader = false
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `checking leadership continuity: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotAllowSetPodSpecAndSetRawK8sSpec(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c, false)
+
+	s.leadershipChecker.isLeader = true
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+
+	// Not allowed to set both.
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	b.SetRawK8sSpec(gitlab.ApplicationTag(), &rawK8sSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{
+				Message: `either SetPodSpec or SetRawK8sSpec can be set for each application, but not both`,
+				Code:    params.CodeForbidden,
+>>>>>>> 3.6
 			}},
 		},
 	})

@@ -5,7 +5,12 @@ package secrets_test
 
 import (
 	"fmt"
+<<<<<<< HEAD
 	"testing"
+=======
+	"slices"
+	"strings"
+>>>>>>> 3.6
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -84,13 +89,26 @@ ID                    Name       Owner    Rotation  Revision  Last updated
 func (s *ListSuite) TestListYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
+<<<<<<< HEAD
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
+=======
+	// Sorted list for test output stability.
+	uris := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+	slices.SortFunc(uris, func(a *coresecrets.URI, b *coresecrets.URI) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
+>>>>>>> 3.6
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri, RotatePolicy: coresecrets.RotateHourly,
+				URI: uris[0], RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
 				Description: "my secret",
 				Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
@@ -99,13 +117,22 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
+<<<<<<< HEAD
 				URI: uri2, Version: 1, LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+=======
+				URI: uris[1], Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
+>>>>>>> 3.6
 			},
 			Error: "boom",
 		}, {
 			Metadata: coresecrets.SecretMetadata{
+<<<<<<< HEAD
 				URI: uri3, Version: 1, LatestRevision: 1,
 				Label: "my-secret", Owner: coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
+=======
+				URI: uris[2], Version: 1, LatestRevision: 1,
+				Label: "my-secret", OwnerTag: coretesting.ModelTag.String(),
+>>>>>>> 3.6
 			},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
@@ -113,7 +140,11 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
+<<<<<<< HEAD
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
+=======
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
+>>>>>>> 3.6
 %s:
   revision: 2
   rotation: hourly
@@ -122,19 +153,25 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
   label: foobar
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
+`[1:], uris[0].ID))
+
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: mariadb
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
   error: boom
+`[1:], uris[1].ID))
+
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: <model>
   name: my-secret
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
-`[1:], uri.ID, uri2.ID, uri3.ID))
+`[1:], uris[2].ID))
 }
 
 func (s *ListSuite) TestListJSON(c *tc.C) {

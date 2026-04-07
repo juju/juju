@@ -9,7 +9,6 @@ myst:
 
 Juju is designed with performance in mind. With Juju, your cloud operations become:
 
-
 - **Quick and easy.**
 
 Juju is intuitive. To deploy an application, run `juju deploy`. To configure it, run `juju config`.  And so on.

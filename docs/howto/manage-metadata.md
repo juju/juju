@@ -9,14 +9,6 @@ myst:
 ```{ibnote}
 See also: {ref}`metadata`
 ```
-<!--
-Using this to replace https://juju.is/docs/juju/cloud-image-metadata (https://discourse.charmhub.io/t/how-to-configure-machine-image-metadata-for-your-openstack-cloud/1137), because the recipe here is actually generic -- not specific to OpenStack.
-
-Still, revisit that doc to see if there's anything else we'd like to bring here to make the story clearer.
-
-Also consider this section in our Ref vsphere doc: https://discourse.charmhub.io/t/vmware-vsphere-and-juju/1099#heading--using-templates
-
--->
 
 When Juju creates a controller it needs two critical pieces of information:
 
@@ -82,8 +74,6 @@ juju metadata validate-images
 
 The key model attributes may be overridden using command arguments, so
 that the validation may be performed on arbitrary metadata.
-
-<!-- A key use case is to validate newly generated metadata prior to deployment to production. In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc), and the validation is performed for each supported region and base. -->
 
 ```{ibnote}
 See more: {ref}`plugin-juju-metadata` > `validate-images`

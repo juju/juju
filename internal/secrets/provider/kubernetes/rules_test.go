@@ -4,18 +4,24 @@
 package kubernetes
 
 import (
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/rules_test.go
 	"testing"
 
 	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/juju/juju/internal/testhelpers"
+=======
+	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
+>>>>>>> 3.6:secrets/provider/kubernetes/rules_test.go
 )
 
 type rulesSuite struct {
 	testhelpers.IsolationSuite
 }
 
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/rules_test.go
 func TestRulesSuite(t *testing.T) {
 	tc.Run(t, &rulesSuite{})
 }
@@ -244,3 +250,6 @@ func (s *rulesSuite) TestRulesForSecretAccessControllerModelUpdate(c *tc.C) {
 		},
 	})
 }
+=======
+var _ = gc.Suite(&rulesSuite{})
+>>>>>>> 3.6:secrets/provider/kubernetes/rules_test.go

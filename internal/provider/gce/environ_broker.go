@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/internal/google"
+	"github.com/juju/juju/storage"
 )
 
 // StartInstance implements environs.InstanceBroker.
@@ -46,8 +47,13 @@ func (env *environ) StartInstance(ctx context.Context, args environs.StartInstan
 	envInst := newInstance(inst, env)
 
 	// Build the result.
+<<<<<<< HEAD
 	hwc := env.getHardwareCharacteristics(spec, envInst)
 	logger.Infof(ctx, "started instance %q in zone %q", inst.GetName(), *hwc.AvailabilityZone)
+=======
+	hwc := env.getHardwareCharacteristics(spec, envInst, args.Constraints)
+	logger.Infof("started instance %q in zone %q", inst.GetName(), *hwc.AvailabilityZone)
+>>>>>>> 3.6
 	result := environs.StartInstanceResult{
 		Instance: envInst,
 		Hardware: hwc,
@@ -149,7 +155,15 @@ func formatMachineType(zone, name string) string {
 	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
 }
 
+<<<<<<< HEAD
 func (env *environ) serviceAccount(ctx context.Context, args environs.StartInstanceParams) (string, error) {
+=======
+func formatDiskType(zone, name string) string {
+	return fmt.Sprintf("zones/%s/diskTypes/%s", zone, name)
+}
+
+func (env *environ) serviceAccount(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+>>>>>>> 3.6
 	var serviceAccount string
 
 	// For controllers, the service account can come from the credential.
@@ -218,7 +232,11 @@ func (env *environ) startInstance(
 	}
 	imageURL := imageURLBase + imageID
 
+<<<<<<< HEAD
 	disks, err := getDisks(ctx, imageURL, args.Constraints, os)
+=======
+	disks, err := getDisks(imageURL, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
+>>>>>>> 3.6
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -337,7 +355,11 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
+<<<<<<< HEAD
 func getDisks(ctx context.Context, imageURL string, cons constraints.Value, os ostype.OSType) ([]*computepb.AttachedDisk, error) {
+=======
+func getDisks(imageURL string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
+>>>>>>> 3.6
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -365,6 +387,40 @@ func getDisks(ctx context.Context, imageURL string, cons constraints.Value, os o
 		// Interface (defaults to SCSI)
 		// DeviceName (GCE sets this, persistent disk only)
 	}
+
+	// If root disk is not nil,
+	// it means we have a storage pool as the root-disk-source,
+	// but we would still need to validate the disk type.
+	if rootDisk != nil {
+		if val, ok := rootDisk.Attributes[diskTypeAttribute].(string); ok && val != "" {
+			dt := google.DiskType(val)
+			switch dt {
+			case google.DiskPersistentSSD, google.DiskPersistentStandard:
+				dtStr := formatDiskType(zone, string(dt))
+				disk.InitializeParams.DiskType = &dtStr
+			case google.DiskLocalSSD:
+				return nil, errors.NotValidf("local SSD disk storage")
+			default:
+				return nil, errors.NotValidf("disk type %q for root disk", val)
+			}
+		}
+	} else if cons.HasRootDiskSource() {
+		// If root disk does not exist, we check if
+		// root disk source exists, we could use the disk type
+		// if it were specified as the root disk source,
+		// otherwise we return an error.
+		dt := google.DiskType(*cons.RootDiskSource)
+		switch dt {
+		case google.DiskPersistentSSD, google.DiskPersistentStandard:
+			dtStr := formatDiskType(zone, string(dt))
+			disk.InitializeParams.DiskType = &dtStr
+		case google.DiskLocalSSD:
+			return nil, errors.NotValidf("local SSD disk storage")
+		default:
+			return nil, errors.NotValidf("root disk source %q", dt)
+		}
+	}
+
 	return []*computepb.AttachedDisk{disk}, nil
 }
 
@@ -389,7 +445,7 @@ func (env *environ) hasAccelerator(ctx context.Context, zone string, instanceTyp
 
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
-func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
+func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance, cons constraints.Value) *instance.HardwareCharacteristics {
 	rootDiskMB := uint64(0)
 	if len(inst.base.Disks) > 0 {
 		rootDiskMB = uint64(inst.base.Disks[0].GetDiskSizeGb() * 1024)
@@ -403,6 +459,10 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 		RootDisk:         &rootDiskMB,
 		AvailabilityZone: &zone,
 		// Tags: not supported in GCE.
+	}
+
+	if cons.HasRootDiskSource() {
+		hwc.RootDiskSource = cons.RootDiskSource
 	}
 	return &hwc
 }

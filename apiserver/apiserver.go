@@ -767,7 +767,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
 	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		tagKindAuthorizer{names.ControllerAgentTagKind},
+		controllerAuthorizer{},
 		controllerAdminAuthorizer,
 		modelPermissionAuthorizer{
 			perm: permission.ReadAccess,
@@ -833,9 +834,82 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
+<<<<<<< HEAD
 
 	resourceAuthFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
 		return httpCtxt.authenticatedTagFromRequest(req, tagKinds...)
+=======
+	var resourcesUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.WriteAccess,
+		},
+	}
+	resourceUploadHandler := srv.monitoredHandler(&ResourcesUploadHandler{
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst := st.Resources()
+			return rst, st, entity.Tag(), nil
+		},
+		ChangeAllowedFunc: func(req *http.Request) error {
+			st, err := httpCtxt.stateForRequestUnauthenticated(req)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			defer st.Release()
+
+			blockChecker := common.NewBlockChecker(st)
+			if err := blockChecker.ChangeAllowed(); err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		},
+	}, "applications")
+	var resourcesDownloadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.ReadAccess,
+		},
+		tagKindAuthorizer{names.ControllerAgentTagKind, names.MachineTagKind, names.ApplicationTagKind},
+	}
+	resourceDownloadHandler := srv.monitoredHandler(&ResourcesDownloadHandler{
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst := st.Resources()
+			return rst, st, entity.Tag(), nil
+		},
+	}, "applications")
+	unitResourcesHandler := srv.monitoredHandler(&UnitResourcesHandler{
+		NewOpener: func(req *http.Request, tagKinds ...string) (resources.Opener, state.PoolHelper, error) {
+			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+
+			tagStr := req.URL.Query().Get(":unit")
+			tag, err := names.ParseUnitTag(tagStr)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			opener, err := resource.NewResourceOpener(st.State, srv.getResourceDownloadLimiter, tag.Id())
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			return opener, st, nil
+		},
+	}, "units")
+
+	migrateCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+>>>>>>> 3.6
 	}
 	resourceChangeAllowedFunc := func(ctx context.Context) error {
 		serviceFactory, err := httpCtxt.domainServicesForRequestContext(ctx)
@@ -949,8 +1023,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		handler: resourcesHandler,
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"GET"},
+		handler:    resourceDownloadHandler,
+		authorizer: resourcesDownloadAuthorizer,
+	}, {
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"PUT"},
+		handler:    resourceUploadHandler,
+		authorizer: resourcesUploadAuthorizer,
 	}, {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,

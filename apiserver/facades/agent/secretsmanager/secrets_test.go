@@ -236,11 +236,18 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *tc.C) {
 func (s *SecretsManagerSuite) TestCreateSecretURIs(c *tc.C) {
 	defer s.setup(c).Finish()
 
+<<<<<<< HEAD
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	s.secretService.EXPECT().CreateSecretURIs(gomock.Any(), 2).Return([]*coresecrets.URI{uri1, uri2}, nil)
 
 	results, err := s.facade.CreateSecretURIs(c.Context(), params.CreateSecretURIsArg{
+=======
+	s.secretsState.EXPECT().ReserveSecret(
+		gomock.Any(), s.authTag).Return(nil).Times(2)
+
+	results, err := s.facade.CreateSecretURIs(params.CreateSecretURIsArg{
+>>>>>>> 3.6
 		Count: 2,
 	})
 	c.Assert(err, tc.ErrorIsNil)

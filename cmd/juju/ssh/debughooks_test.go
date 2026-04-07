@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -19,6 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 	goyaml "gopkg.in/yaml.v2"
 
+<<<<<<< HEAD
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
@@ -26,6 +28,10 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/domain/deployment/charm"
 	jujussh "github.com/juju/juju/internal/network/ssh"
+=======
+	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/testcharms"
+>>>>>>> 3.6
 )
 
 func TestDebugHooksSuite(t *testing.T) {
@@ -56,6 +62,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
+		enablePty:       true,
 		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
@@ -65,12 +72,23 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
+		enablePty:       true,
 		withProxy:       true,
 		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "pty enabled",
 	args:        []string{"--pty=true", "mysql/0"},
+	hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
+	expected: &argsSpec{
+		hostKeyChecking: "yes",
+		knownHosts:      "0",
+		enablePty:       true,
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
+	},
+}, {
+	info:        "pty=false overridden by debug-hooks",
+	args:        []string{"--pty=false", "mysql/0"},
 	hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
@@ -226,4 +244,14 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 	c.Check(args, tc.DeepEquals, map[string]interface{}{
 		"hooks": []interface{}{"install", "start"},
 	})
+}
+
+func (s *DebugHooksSuite) TestGetValidActionsReturnsEmptySetWhenNoActions(c *gc.C) {
+	ch, err := charm.ReadCharmDir(testcharms.Repo.CharmDirPath("actionless"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := &debugHooksCommand{}
+	validActions, err := cmd.getValidActions(ch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(validActions.SortedValues(), gc.DeepEquals, []string{})
 }

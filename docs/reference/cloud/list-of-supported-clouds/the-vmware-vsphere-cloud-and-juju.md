@@ -7,7 +7,6 @@ myst:
 (cloud-vsphere)=
 # The VMware vSphere cloud and Juju
 
-
 This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
 ```{ibnote}
@@ -109,9 +108,9 @@ An external network that VMs will be connected to. The resulting IP address for 
 | immutable | false |
 | mandatory | false |
 
-
 ## Supported constraints
 
+<<<<<<< HEAD
 | {ref}`CONSTRAINT <constraint>`         |                                                     |
 |----------------------------------------|-----------------------------------------------------|
 | conflicting:                           | `instance-type` vs. `[arch, cores, cpu-power, mem]` |
@@ -130,6 +129,27 @@ An external network that VMs will be connected to. The resulting IP address for 
 | - {ref}`constraint-tags`               | &#10005;                                            |
 | - {ref}`constraint-virt-type`          | &#10005;                                            |
 | - {ref}`constraint-zones`              | &#10003;                                            |
+=======
+| {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                                                                                                                                                                                                      |
+|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| conflicting:                           |                                                                                                                                                                                                                                                                                                                                      |
+| supported?                             |                                                                                                                                                                                                                                                                                                                                      |
+| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-arch`               | &#10003; <br> Valid values: `[amd64]`.                                                                                                                                                                                                                                                                                |
+| - {ref}`constraint-container`          | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-cores`              | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-cpu-power`          | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-image-id`           | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-instance-role`      | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-instance-type`      | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-mem`                | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-root-disk`          | &#10003;                                                                                                                                                                                                                                                                                                                    |
+| - {ref}`constraint-root-disk-source`   | &#10003;  <br> `root-disk-source` is the datastore for the root disk                                                                                                                                                                                                                                                        |
+| - {ref}`constraint-spaces`             | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-tags`               | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-virt-type`          | &#10005;                                                                                                                                                                                                                                                                                                                             |
+| - {ref}`constraint-zones`              | &#10003;  <p> Use to specify  resurce pools within a host or cluster, e.g. <p> `juju deploy myapp --constraints zones=myhost` <p> `juju deploy myapp --constraints zones=myfolder/myhost`<p> `juju deploy myapp --constraints zones=mycluster/mypool` <p> `juju deploy myapp --constraints zones=mycluster/myparent/mypool` |
+>>>>>>> 3.6
 
 ## Supported placement directives
 

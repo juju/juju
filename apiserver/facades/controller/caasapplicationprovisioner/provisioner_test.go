@@ -16,6 +16,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+<<<<<<< HEAD
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -33,6 +34,15 @@ import (
 	envconfig "github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+=======
+	"github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/resources"
+	jujuresource "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
+>>>>>>> 3.6
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -315,11 +325,31 @@ func (s *CAASApplicationProvisionerSuite) TestDestroyUnitsNotFound(c *tc.C) {
 	unitName := coreunit.Name("foo/0")
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(coreunit.UUID(""), applicationerrors.UnitNotFound)
 
+<<<<<<< HEAD
 	// Act
 	res, err := s.api.DestroyUnits(c.Context(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{{
 			UnitTag: names.NewUnitTag(unitName.String()).String(),
 		}},
+=======
+	setResult, err := s.api.SetProvisioningState(params.CAASApplicationProvisioningStateArg{
+		Application: params.Entity{Tag: "application-gitlab"},
+		ProvisioningState: params.CAASApplicationProvisioningState{
+			CurrentOperation: application.ScaleOperation,
+			ScaleTarget:      10,
+			ReplicaCount:     0,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(setResult.Error, gc.IsNil)
+
+	result, err = s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      10,
+		ReplicaCount:     0,
+>>>>>>> 3.6
 	})
 
 	// Assert

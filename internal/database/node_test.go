@@ -4,6 +4,13 @@
 package database
 
 import (
+<<<<<<< HEAD:internal/database/node_test.go
+=======
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+>>>>>>> 3.6:database/node_test.go
 	"fmt"
 	"math/rand"
 	"net"
@@ -341,7 +348,112 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+<<<<<<< HEAD:internal/database/node_test.go
 func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *tc.C) {
+=======
+func (s *nodeManagerSuite) TestDqliteTLSConfigSuccess(c *gc.C) {
+	listen, dial, err := dqliteTLSConfig(
+		jujutesting.CACert, jujutesting.ServerCert, jujutesting.ServerKey,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(listen.ClientAuth, gc.Equals, tls.RequireAndVerifyClientCert)
+	c.Check(listen.ClientCAs, gc.NotNil)
+	c.Check(listen.Certificates, gc.HasLen, 1)
+
+	c.Check(dial.InsecureSkipVerify, jc.IsFalse)
+	c.Check(dial.RootCAs, gc.NotNil)
+	c.Check(dial.Certificates, gc.HasLen, 1)
+	c.Check(dial.ServerName, gc.Equals, firstCertificateDNSName(c, jujutesting.ServerCert))
+}
+
+func (s *nodeManagerSuite) TestWithTLSOptionRejectsClientWithoutCertificate(c *gc.C) {
+	cfg := fakeAgentConfig{}
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m.port = dqlitetesting.FindTCPPort(c)
+
+	withTLS, err := m.WithTLSOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"), withTLS)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := dqliteApp.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err = dqliteApp.Ready(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pool := x509.NewCertPool()
+	ok := pool.AppendCertsFromPEM([]byte(jujutesting.CACert))
+	c.Assert(ok, jc.IsTrue)
+
+	conn, err := tls.Dial("tcp", dqliteApp.Address(), &tls.Config{
+		RootCAs:    pool,
+		ServerName: firstCertificateDNSName(c, jujutesting.ServerCert),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	err = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var buf [1]byte
+	_, err = conn.Read(buf[:])
+	c.Assert(err, gc.ErrorMatches, ".*(tls:.*(certificate required|handshake failure|bad certificate)|EOF).*")
+}
+
+func (s *nodeManagerSuite) TestWithTLSOptionJoinClusterSuccess(c *gc.C) {
+	cfg := fakeAgentConfig{}
+
+	m0 := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m0.port = dqlitetesting.FindTCPPort(c)
+
+	withTLS0, err := m0.WithTLSOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app0, err := app.New(c.MkDir(), m0.WithAddressOption("127.0.0.1"), withTLS0)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := app0.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err = app0.Ready(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m1 := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m1.port = dqlitetesting.FindTCPPort(c)
+
+	withTLS1, err := m1.WithTLSOption()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app1, err := app.New(
+		c.MkDir(),
+		m1.WithAddressOption("127.0.0.1"),
+		app.WithCluster([]string{app0.Address()}),
+		withTLS1,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := app1.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	err = app1.Ready(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *gc.C) {
+>>>>>>> 3.6:database/node_test.go
 	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{})
 
@@ -468,6 +580,17 @@ func (cfg fakeAgentConfig) APIAddresses() ([]string, error) {
 // DqlitePort implements agent.Config.
 func (cfg fakeAgentConfig) DqlitePort() (int, bool) {
 	return 0, false
+}
+
+func firstCertificateDNSName(c *gc.C, certPEM string) string {
+	block, _ := pem.Decode([]byte(certPEM))
+	c.Assert(block, gc.NotNil)
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(cert.DNSNames), gc.Not(gc.Equals), 0)
+
+	return cert.DNSNames[0]
 }
 
 type slowQuerySuite struct {

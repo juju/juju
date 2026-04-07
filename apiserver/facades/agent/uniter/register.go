@@ -14,6 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+<<<<<<< HEAD
+=======
+	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"github.com/juju/juju/state"
+>>>>>>> 3.6
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -139,6 +145,7 @@ func newUniterAPIWithServices(
 		lxdProfileAPI:      extLXDProfile,
 		StatusAPI:          statusAPI,
 
+<<<<<<< HEAD
 		modelUUID:               context.ModelUUID(),
 		modelType:               modelInfo.Type,
 		clock:                   aClock,
@@ -169,5 +176,22 @@ func newUniterAPIWithServices(
 		statusService:             services.StatusService,
 		secretService:             services.SecretService,
 		unitStateService:          services.UnitStateService,
+=======
+		m:                 m,
+		st:                st,
+		secrets:           state.NewSecrets(st),
+		clock:             aClock,
+		cancel:            context.Cancel(),
+		cacheModel:        cacheModel,
+		auth:              authorizer,
+		resources:         resources,
+		leadershipChecker: leadershipChecker,
+		accessUnit:        accessUnit,
+		accessApplication: accessApplication,
+		accessMachine:     accessMachine,
+		accessCloudSpec:   accessCloudSpec,
+		cloudSpecer:       cloudSpec,
+		StorageAPI:        storageAPI,
+>>>>>>> 3.6
 	}, nil
 }

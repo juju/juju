@@ -11,11 +11,24 @@ on:
 jobs:
   checks:
     name: Checks
+<<<<<<< HEAD
     runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
+=======
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+>>>>>>> 3.6
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.github/squid.sh
 
       - name: Set up Go
         uses: actions/setup-go@v6

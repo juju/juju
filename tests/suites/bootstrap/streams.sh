@@ -12,7 +12,6 @@ run_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/bootstrap/streams/"
 
-	add_clean_func "kill_server"
 	start_server "./tests/suites/bootstrap/streams/tools"
 
 	# Find a routable address to the server that isn't the loopback address.
@@ -27,13 +26,24 @@ run_simplestream_metadata() {
 
 	name="test-bootstrap-stream"
 
+	local extra_opts
+	if [[ ${JUJUD_VERSION} == "3.6.14" ]]; then
+		extra_opts="--config juju-db-snap-channel=4.4/stable"
+	fi
+
 	file="${TEST_DIR}/test-bootstrap-stream.log"
 	juju bootstrap "lxd" "${name}" \
 		--show-log \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
+<<<<<<< HEAD
 		--bootstrap-base="${BOOTSTRAP_BASE}" \
 		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
+=======
+		--add-model=default \
+		--bootstrap-series="${BOOTSTRAP_SERIES}" \
+		--agent-version="${JUJUD_VERSION}" ${extra_opts:-} 2>&1 | OUTPUT "${file}"
+>>>>>>> 3.6
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model default

@@ -19,7 +19,11 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
+<<<<<<< HEAD:core/version/version.go
 const version = "4.0.4"
+=======
+const version = "3.6.21"
+>>>>>>> 3.6:version/version.go
 
 // UserAgentVersion defines a user agent version used for communication for
 // outside resources.

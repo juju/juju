@@ -17,12 +17,10 @@ A controller is needed to perform any further Juju operations, such as deploying
 (bootstrapping-on-a-kubernetes-cloud)=
 ### Bootstrapping on a Kubernetes cloud
 
-
 #### The process
 
 ![JujuOnKubernetesBootstrapProcess](juju-architecture-bootstrap-kubernetes-process.png)
 <br> *Bootstrapping a controller on a Kubernetes cloud: The process.*<br>
-
 
 #### The result
 
@@ -46,7 +44,6 @@ See more: {ref}`bootstrap-a-controller`
 ![JujuOnMachinesBootstrapResult](juju-architecture-bootstrap-machines-result.png)
 
 <br> *Bootstrapping a controller on a machine cloud: The result. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*<br>
-
 
 (deploying)=
 ## Deploying

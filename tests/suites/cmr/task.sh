@@ -12,7 +12,11 @@ test_cmr() {
 	# Only bootstrap the shared controller when at least one test that uses it
 	# will run. This avoids an unnecessary bootstrap/destroy cycle when only
 	# test_offer_find_external_user is selected (it manages its own controller).
+<<<<<<< HEAD
 	if [ -z "$(skip 'test_offer_consume')" ] || [ -z "$(skip 'test_offer_permissions')" ] || [ -z "$(skip 'test_offer_find_non_admin')" ]; then
+=======
+	if [ -z "$(skip 'test_offer_consume' 'test_offer_find_non_admin')" ]; then
+>>>>>>> 3.6
 		file="${TEST_DIR}/test-cmr.log"
 
 		bootstrap "test-cmr" "${file}"

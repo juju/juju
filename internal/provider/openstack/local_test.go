@@ -520,12 +520,23 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *tc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	env := s.ensureAMDImages(c)
 	err := bootstrapEnv(c, env)
+<<<<<<< HEAD
 	c.Assert(err, tc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64"))
 	c.Check(*hc.Arch, tc.Equals, "amd64")
 	c.Check(*hc.Mem, tc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, tc.Equals, uint64(1))
 	c.Assert(hc.CpuPower, tc.IsNil)
+=======
+	c.Assert(err, jc.ErrorIsNil)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64 root-disk-source=local"))
+	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(*hc.Mem, gc.Equals, uint64(2048))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Assert(hc.CpuPower, gc.IsNil)
+	c.Assert(hc.RootDiskSource, gc.NotNil)
+	c.Check(*hc.RootDiskSource, gc.Equals, "local")
+>>>>>>> 3.6
 }
 
 func (s *localServerSuite) TestInstanceName(c *tc.C) {

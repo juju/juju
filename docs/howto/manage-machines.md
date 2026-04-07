@@ -7,12 +7,6 @@ myst:
 (manage-machines)=
 # How to manage machines
 
-<!--FIGURE OUT A GOOD PLACE FOR THIS:
-An interactive pseudo-terminal (pty) is enabled by default. For the OpenSSH client, this corresponds to the `-t` option ("force pseudo-terminal allocation").
-
-Remote commands can be run as expected. For example: `juju ssh 1 lsb_release -c`. For complex commands the recommended method is by way of the `run` command.
--->
-
 ```{ibnote}
 See also: {ref}`machine`
 ```
@@ -291,21 +285,6 @@ First, make sure you have `admin` access to the model and your public SSH key ha
 If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
 ```
 
-<!--
-<h3 id="heading--providing-access-to-non-initial-controller-admin-juju-users">Providing access to non-initial controller admin Juju users</h3>
-
-In order for a non-initial controller admin user to connect with `juju ssh` that user must:
-
-- be created (`add-user`)
-- have registered the controller (`register`)
-- be logged in (`login`)
-- have 'admin' access to the model
-- have their public SSH key reside within the model
-- be in possession of the corresponding private SSH key
-
-As previously explained, 'admin' model access and installed model keys can be obtained by creating the model. Otherwise access needs to be granted (`grant`) by a controller admin and keys need to be added (`add-ssh-key` or `import-ssh-key`) by a controller admin or the model admin.
--->
-
 Then, to initiate an SSH session or execute a command on a Juju machine (or container), use the `juju ssh` command followed by the target machine (or container). This target can be specified using a machine (or container) ID or using the ID of the unit that it hosts. Both can be retrieved from the output of `juju status`. For example, below we `ssh` into machine 0 and inside of it run `echo hello`:
 
 ```text
@@ -317,20 +296,6 @@ By passing further arguments and options, you can also run this on behalf of a d
 ```{ibnote}
 See more: {ref}`command-juju-ssh`
 ```
-
-<!--
-Alternatively, you can pass a private key. The easiest way to ensure it is used is to have it stored as `~/.ssh/id_rsa`. Otherwise, you can do one of two things:
-
-1. Use `ssh-agent`
-
-1. Specify the key manually
-
-The second option above, applied to the previous example, will look like this:
-
-```text
-juju ssh 0 -i ~/.ssh/my-private-key
-```
--->
 
 ### Use the OpenSSH `ssh` command
 

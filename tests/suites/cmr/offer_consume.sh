@@ -28,7 +28,7 @@ run_offer_consume() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Check list-offer output"
-	juju list-offers --format=json | jq -r 'has("dummy-offer")' | check true
+	juju list-offers --format=json | yq -r 'has("dummy-offer")' | check true
 
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
@@ -37,8 +37,13 @@ run_offer_consume() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
+<<<<<<< HEAD
 	echo "Check find-offers output"
 	juju find-offers --format=json | jq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+=======
+	echo "Check find-offer output"
+	juju find-offers --format=json | yq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+>>>>>>> 3.6
 
 	echo "Relate workload in consume model with offer"
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
@@ -83,7 +88,7 @@ run_offer_consume_cross_controller() {
 	file="${TEST_DIR}/test-offer-consume-cross-controller.log"
 	ensure "model-offer" "${file}"
 
-	offer_controller="$(juju controllers --format=json | jq -r '."current-controller"')"
+	offer_controller="$(juju controllers --format=json | yq -r '."current-controller"')"
 
 	# Ensure we have another controller available.
 	echo "Bootstrap consume offer controller"
@@ -172,8 +177,8 @@ run_offer_find_non_admin() {
 	# (the non-admin user has no models of their own).
 
 	JUJU_MODEL="test-offer-find:admin/model-offer-find" JUJU_DATA=/tmp/offeruser \
-		juju find-offers --format=json |
-		jq -r 'has("test-offer-find:admin/model-offer-find.dummy-offer")' |
+		juju find-offers --format=yaml |
+		yq -r 'keys | .[] | select(. == "test-offer-find:admin/model-offer-find.dummy-offer")' |
 		check true
 
 	echo "Clean up"
@@ -191,32 +196,26 @@ run_offer_find_non_admin() {
 run_offer_find_external_user() {
 	echo
 
-	# Build the test identity provider binary (CWD is repo root via "cd ..").
-	TEST_IDP_TMPDIR=$(mktemp -d)
-	TEST_IDP_BIN="${TEST_IDP_TMPDIR}/test-identity-provider"
-	MAIN_SH_DIR="$(dirname "$(readlink -f "$0")")"
-	go build -o "${TEST_IDP_BIN}" "${MAIN_SH_DIR}/tests/tools/test-identity-provider/"
-
 	# Start the discharger in the background; wait for it to write its two
 	# output lines (URL then public key).
 	IDP_OUTPUT="${TEST_DIR}/idp-output.txt"
-	"${TEST_IDP_BIN}" --username testextuser >"${IDP_OUTPUT}" 2>&1 &
-	IDP_PID=$!
+	go run -exec "$(track_daemon_exec_trampoline)" \
+		github.com/juju/juju/tests/tools/test-identity-provider \
+		--username testextuser >"${IDP_OUTPUT}" 2>&1 &
 
 	IDP_URL=""
 	IDP_PUBKEY=""
-	for _ in $(seq 1 20); do
+	for i in $(seq 1 20); do
 		if [[ $(wc -l <"${IDP_OUTPUT}" 2>/dev/null) -ge 2 ]]; then
 			IDP_URL=$(sed -n '1p' "${IDP_OUTPUT}")
 			IDP_PUBKEY=$(sed -n '2p' "${IDP_OUTPUT}")
 			break
 		fi
-		sleep 0.5
+		sleep $i
 	done
 
 	if [[ -z ${IDP_URL} || -z ${IDP_PUBKEY} ]]; then
 		echo "ERROR: test identity provider failed to start"
-		kill "${IDP_PID}" 2>/dev/null || true
 		exit 1
 	fi
 	echo "Identity provider running at ${IDP_URL}"
@@ -243,27 +242,25 @@ run_offer_find_external_user() {
 
 	# Retrieve one of the API endpoints for the external-user login step.
 	CTRL_ENDPOINT=$(juju show-controller ctrl-extuser-idp --format=json |
-		jq -r '."ctrl-extuser-idp".details."api-endpoints"[0]')
+		yq -r '."ctrl-extuser-idp".details."api-endpoints"[0]')
 
 	echo "Login as testextuser@external (auto-approved by test identity provider)"
-	rm -rf /tmp/extuser
-	mkdir -p /tmp/extuser
+	TEST_EXTUSER_DIR="$(mktemp -d)"
 
 	# --no-prompt suppresses all interactive input including the CA cert trust
 	# prompt; --trust auto-approves the self-signed controller certificate.
 	# The bakery discharger auto-approves the login, so no browser is needed.
-	JUJU_DATA=/tmp/extuser juju login "${CTRL_ENDPOINT}" \
+	JUJU_DATA="${TEST_EXTUSER_DIR}" juju login "${CTRL_ENDPOINT}" \
 		-c ctrl-extuser-idp --no-prompt --trust
 
 	echo "Check find-offers output as external user"
-	JUJU_MODEL="ctrl-extuser-idp:admin/model-offer-ext" JUJU_DATA=/tmp/extuser \
+	JUJU_MODEL="ctrl-extuser-idp:admin/model-offer-ext" JUJU_DATA="${TEST_EXTUSER_DIR}" \
 		juju find-offers --format=json |
-		jq -r 'has("ctrl-extuser-idp:admin/model-offer-ext.dummy-offer")' |
+		yq -r 'has("ctrl-extuser-idp:admin/model-offer-ext.dummy-offer")' |
 		check true
 
 	echo "Clean up"
-	kill "${IDP_PID}" 2>/dev/null || true
-	rm -rf /tmp/extuser "${TEST_IDP_TMPDIR}"
+	rm -rf "${TEST_EXTUSER_DIR}"
 	destroy_controller "ctrl-extuser-idp"
 }
 

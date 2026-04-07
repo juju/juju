@@ -18,16 +18,17 @@ test_cloud_gce() {
 
 	file="${TEST_DIR}/test-cloud-gce.log"
 
-	bootstrap "test-cloud-gce" "${file}"
+	if [ -z "$(skip 'test_pro_images' 'test_deploy_gpu_instance' 'test_create_storage_pool' 'test_root_disk_source')" ]; then
+		bootstrap "test-cloud-gce" "${file}"
 
-	test_pro_images
-	test_deploy_gpu_instance
+		test_pro_images
+		test_deploy_gpu_instance
+		test_create_storage_pool
+		test_root_disk_source
 
-	test_create_storage_pool
-
-	destroy_controller "test-cloud-gce"
+		destroy_controller "test-cloud-gce"
+	fi
 
 	# This test bootstraps a custom controller.
 	test_serviceaccount_credential
-
 }

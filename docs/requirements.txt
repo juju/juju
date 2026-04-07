@@ -15,6 +15,7 @@ sphinxext-opengraph
 sphinx-config-options>=0.1.0
 sphinx-contributor-listing>=0.1.0
 sphinx-filtered-toctree>=0.1.0
+sphinx-llm @ git+https://github.com/NVIDIA/sphinx-llm
 sphinx-related-links>=0.1.1
 sphinx-roles>=0.1.0
 sphinx-terminal>=1.0.2

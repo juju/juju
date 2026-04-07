@@ -45,8 +45,6 @@ Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 (your-juju-deployment-the-birds-eye-view)=
 ## Your Juju deployment: the bird's eye view
 
-<!--*Get a high-level view of how to do things in Juju, from {ref}`setting up your deployment environment and setting up a basic deployment <manage-your-deployment-environment>` through {ref}`hardening <harden-your-deployment>` and {ref}`upgrading <upgrade-your-deployment>`  your deployment all the way to {ref}`troubleshooting procedures <troubleshoot-your-deployment>` and {ref}`steps to take your deployment offline <take-your-deployment-offline>`.*-->
-
 Get a quick sense of how to do things in Juju, from preparing your deployment environment and setting up a basic deployment through hardening and upgrading your deployment all the way to troubleshooting procedures and steps to take your deployment offline.
 
 - {ref}`Manage your deployment <manage-your-deployment>`

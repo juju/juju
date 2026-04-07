@@ -18,7 +18,7 @@ run_machines_in_spaces() {
 	wait_for_machine_agent_status "2" "started"
 
 	echo "Verify machines are assigned to correct spaces"
-	alpha_cidrs="$(juju spaces --format json | jq -r '.spaces[] | select(.name == "alpha").subnets | to_entries[] | select(.value["provider-id"] | contains("INFAN") | not) | .key')"
+	alpha_cidrs="$(juju spaces --format json | yq -r '.spaces[] | select(.name == "alpha").subnets | to_entries[] | select(.value["provider-id"] | contains("INFAN") | not) | .key')"
 	assert_machine_ip_is_in_cidrs "0" "${alpha_cidrs}"
 	machine_1_space_ip=$(assert_machine_ip_is_in_cidrs "1" "${alpha_cidrs}")
 	machine_2_space_ip=$(assert_machine_ip_is_in_cidrs "2" "10.104.0.0/20")

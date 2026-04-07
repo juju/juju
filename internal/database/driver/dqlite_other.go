@@ -8,7 +8,11 @@ package driver
 import (
 	"database/sql/driver"
 
+<<<<<<< HEAD:internal/database/driver/dqlite_other.go
 	"github.com/juju/juju/internal/database/client"
+=======
+	"github.com/juju/juju/database/client"
+>>>>>>> 3.6:database/driver/dqlite_other.go
 )
 
 type Error struct {

@@ -19,9 +19,13 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
 	"github.com/juju/juju/internal/testing"
 )
@@ -88,7 +92,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 			},
 		},
 	}
-	// CRs of this namespaced scope CRD will be skipped.
+	// CRs of this namespaced scope CRD will also be deleted (across all namespaces).
 	crdNamespacedScope := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "tfjobs.kubeflow.org",
@@ -167,7 +171,23 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
+	crdLabelSelector := "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"
+
+	// list cluster wide all custom resource definitions (used by removeAllCustomResourceFinalizers,
+	// deleteAllCustomResourcesAllNamespaces and listAllCustomResourcesAllNamespaces).
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: crdLabelSelector,
+	}).AnyTimes().Return(
+		&apiextensionsv1.CustomResourceDefinitionList{
+			Items: []apiextensionsv1.CustomResourceDefinition{
+				*crdClusterScope, *crdNamespacedScope,
+			},
+		},
+		nil,
+	).Times(3)
+
 	// timer +1.
+<<<<<<< HEAD
 	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
 		// list all custom resources for crd "v1alpha2".
 		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
@@ -229,6 +249,18 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
+=======
+	s.mockDynamicClient.EXPECT().Resource(
+		gomock.Any(),
+	).Return(s.mockNamespaceableResourceClient).AnyTimes()
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		gomock.Any(), gomock.Any(),
+	).Return(&unstructured.UnstructuredList{}, nil).AnyTimes()
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		gomock.Any(),
+	).Return(nil).AnyTimes()
+>>>>>>> 3.6
 
 	// timer +1.
 	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).AnyTimes().
@@ -285,6 +317,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	defer cancel()
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
+	// 6 parallel tasks, then 1 more tick for the CR list checker.
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
@@ -356,7 +389,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 			},
 		},
 	}
-	// CRs of this namespaced scope CRD will be skipped.
+	// CRs of this namespaced scope CRD will also be deleted (across all namespaces).
 	crdNamespacedScope := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "tfjobs.kubeflow.org",
@@ -423,9 +456,31 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 	).Return(s.k8sNotFoundError())
 
-	// delete all custom resources for crd "v1alpha2".
+	crdLabelSelector := "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"
+
+	// list cluster wide all custom resource definitions (used by removeAllCustomResourceFinalizers,
+	// deleteAllCustomResourcesAllNamespaces and listAllCustomResourcesAllNamespaces).
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: crdLabelSelector,
+	}).AnyTimes().Return(
+		&apiextensionsv1.CustomResourceDefinitionList{
+			Items: []apiextensionsv1.CustomResourceDefinition{
+				*crdClusterScope, *crdNamespacedScope,
+			},
+		},
+		nil,
+	)
+
+	// timer +1.
+	s.mockDynamicClient.EXPECT().Resource(
+		gomock.Any(),
+	).Return(s.mockNamespaceableResourceClient).AnyTimes()
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		gomock.Any(), gomock.Any(),
+	).Return(&unstructured.UnstructuredList{}, nil).AnyTimes()
 	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
+<<<<<<< HEAD
 		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 	).Return(nil).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -454,6 +509,10 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
+=======
+		gomock.Any(),
+	).Return(nil).AnyTimes()
+>>>>>>> 3.6
 
 	s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
@@ -500,7 +559,219 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 	}
 }
 
+<<<<<<< HEAD
 func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
+=======
+// TestDeleteClusterScopeAPIExtensionResourcesNamespacedCRFinalizersStripped verifies
+// that when a namespaced CRD has a CR with a finalizer in a namespace other than the
+// model namespace, the finalizer is patched away (against the correct namespace) before
+// the DeleteCollection is issued.
+func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesNamespacedCRFinalizersStripped(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	crdNamespaced := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{Name: "widgets.example.com"},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{Name: "v1", Served: true, Storage: true},
+			},
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "widgets", Kind: "Widget", Singular: "widget",
+			},
+		},
+	}
+
+	crWithFinalizer := unstructured.Unstructured{}
+	crWithFinalizer.SetName("my-widget")
+	crWithFinalizer.SetNamespace("other-model-ns")
+	crWithFinalizer.SetFinalizers([]string{"foregroundDeletion"})
+
+	crdLabelSelector := "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"
+	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+
+	// CRD list is called three times: removeAllCustomResourceFinalizers,
+	// deleteAllCustomResourcesAllNamespaces, listAllCustomResourcesAllNamespaces.
+	s.mockCustomResourceDefinitionV1.EXPECT().List(
+		gomock.Any(),
+		v1.ListOptions{
+			LabelSelector: crdLabelSelector,
+		},
+	).Return(&apiextensionsv1.CustomResourceDefinitionList{
+		Items: []apiextensionsv1.CustomResourceDefinition{*crdNamespaced},
+	}, nil).Times(3)
+
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		gomock.Any(), gomock.Any(),
+	).Return(&unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{crWithFinalizer},
+	}, nil)
+	s.mockNamespaceableResourceClient.EXPECT().Namespace("other-model-ns").Return(s.mockResourceClient)
+	s.mockResourceClient.EXPECT().Patch(
+		gomock.Any(),
+		"my-widget",
+		types.MergePatchType,
+		gomock.Any(),
+		v1.PatchOptions{},
+	).Return(&crWithFinalizer, nil)
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+		gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		gomock.Any(),
+	).Return(nil)
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		gomock.Any(), gomock.Any(),
+	).Return(&unstructured.UnstructuredList{}, nil)
+
+	// CRD deletion.
+	s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		v1.ListOptions{LabelSelector: crdLabelSelector},
+	).Return(nil)
+	// CRD checker: empty list signals deletion complete.
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(),
+		v1.ListOptions{LabelSelector: crdLabelSelector},
+	).Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errCh := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	modelSelector := k8slabels.NewSelector().Add(
+		provider.LabelSetToRequirements(utils.LabelsForModel(
+			s.broker.ModelName(), s.broker.ModelUUID(), s.broker.ControllerUUID(), s.broker.LabelVersion(),
+		))...,
+	)
+	go s.broker.DeleteClusterScopeAPIExtensionResourcesModelTeardown(
+		ctx, modelSelector, s.clock, &wg, errCh,
+	)
+
+	// The two sub-functions run sequentially, so we advance the clock twice:
+	// once for the CR deletion checker, then once for the CRD deletion checker.
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for DeleteClusterScopeAPIExtensionResourcesModelTeardown to return")
+	}
+	select {
+	case err := <-errCh:
+		c.Fatalf("unexpected error: %v", err)
+	default:
+	}
+}
+
+// TestDeleteClusterScopeAPIExtensionResourcesAllNamespacesDeleted verifies that CRs
+// belonging to a namespaced CRD are deleted across ALL namespaces (via an unscoped
+// DeleteCollection), not just the model's own namespace.
+func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesAllNamespacesDeleted(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	crdNamespaced := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{Name: "foos.example.com"},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{Name: "v1", Served: true, Storage: true},
+			},
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural: "foos", Kind: "Foo", Singular: "foo",
+			},
+		},
+	}
+
+	crdLabelSelector := "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"
+	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "foos"}
+
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: crdLabelSelector,
+	}).Return(
+		&apiextensionsv1.CustomResourceDefinitionList{
+			Items: []apiextensionsv1.CustomResourceDefinition{*crdNamespaced},
+		}, nil,
+	).Times(3)
+
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(), gomock.Any()).
+		Return(&unstructured.UnstructuredList{}, nil)
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		gomock.Any(),
+	).Return(nil)
+	s.mockDynamicClient.EXPECT().Resource(gvr).Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(), gomock.Any()).
+		Return(&unstructured.UnstructuredList{}, nil)
+
+	// CRD deletion.
+	s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		v1.ListOptions{LabelSelector: crdLabelSelector},
+	).Return(nil)
+	// CRD checker: empty list signals deletion complete.
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(),
+		v1.ListOptions{LabelSelector: crdLabelSelector},
+	).Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	errCh := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	modelSelector := k8slabels.NewSelector().Add(
+		provider.LabelSetToRequirements(utils.LabelsForModel(
+			s.broker.ModelName(), s.broker.ModelUUID(), s.broker.ControllerUUID(), s.broker.LabelVersion(),
+		))...,
+	)
+	go s.broker.DeleteClusterScopeAPIExtensionResourcesModelTeardown(
+		ctx, modelSelector, s.clock, &wg, errCh,
+	)
+
+	// The two sub-functions run sequentially, so we advance the clock twice:
+	// once for the CR deletion checker, then once for the CRD deletion checker.
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for DeleteClusterScopeAPIExtensionResourcesModelTeardown to return")
+	}
+	select {
+	case err := <-errCh:
+		c.Fatalf("unexpected error: %v", err)
+	default:
+	}
+}
+
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
+>>>>>>> 3.6
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

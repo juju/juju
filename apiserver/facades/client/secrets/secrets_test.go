@@ -42,7 +42,31 @@ func TestSecretsSuite(t *testing.T) {
 	tc.Run(t, &SecretsSuite{})
 }
 
+<<<<<<< HEAD
 func (s *SecretsSuite) SetUpTest(c *tc.C) {
+=======
+func backendConfigGetterForUserSecretsWrite(c *gc.C) func(string, []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
+	return func(backendID string, _ []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "some-model",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "active-type",
+						Config:      map[string]interface{}{"foo": "active-type"},
+					},
+				},
+			},
+		}, nil
+	}
+}
+
+func (s *SecretsSuite) SetUpTest(c *gc.C) {
+>>>>>>> 3.6
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authTag = names.NewUserTag("foo")
@@ -383,6 +407,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
+<<<<<<< HEAD
 	uri := coresecrets.NewURI()
 	uriStrPtr := new(uri.String())
 	s.secretService.EXPECT().CreateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateUserSecretParams) error {
@@ -393,6 +418,44 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 		c.Assert(params.UpdateUserSecretParams.Data, tc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
 		c.Assert(params.UpdateUserSecretParams.Checksum, tc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
+=======
+	var uri *coresecrets.URI
+	s.secretsState.EXPECT().ReserveSecret(
+		gomock.Any(), coretesting.ModelTag,
+	).DoAndReturn(func(arg1 *coresecrets.URI, owner names.Tag) error {
+		uri = arg1
+		return nil
+	})
+
+	if isInternal {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("", errors.NotSupportedf("not supported"))
+	} else {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("rev-id", nil)
+	}
+	s.secretsState.EXPECT().CreateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
+		c.Assert(arg1, gc.DeepEquals, uri)
+		c.Assert(params.Version, gc.Equals, 1)
+		c.Assert(params.Owner, gc.Equals, coretesting.ModelTag)
+		c.Assert(params.UpdateSecretParams.Description, gc.DeepEquals, ptr("this is a user secret."))
+		c.Assert(params.UpdateSecretParams.Label, gc.DeepEquals, ptr("label"))
+		if isInternal {
+			c.Assert(params.UpdateSecretParams.ValueRef, gc.IsNil)
+			c.Assert(params.UpdateSecretParams.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		} else {
+			c.Assert(params.UpdateSecretParams.ValueRef, gc.DeepEquals, &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			})
+			c.Assert(params.UpdateSecretParams.Data, gc.IsNil)
+		}
+		c.Assert(params.UpdateSecretParams.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
+		if finalStepFailed {
+			return nil, errors.New("some error")
+		}
+		return &coresecrets.SecretMetadata{URI: uri}, nil
+>>>>>>> 3.6
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -401,7 +464,6 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
-				URI:      uriStrPtr,
 				UpsertSecretArg: params.UpsertSecretArg{
 					Description: new("this is a user secret."),
 					Label:       new("label"),
@@ -428,7 +490,16 @@ func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {
 	if uri == nil {
 		existingLabel = "my-secret"
 		uri = coresecrets.NewURI()
+<<<<<<< HEAD
 		s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").Return(uri, nil)
+=======
+		s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+			Labels:    []string{"my-secret"},
+			OwnerTags: []names.Tag{coretesting.ModelTag},
+		}).Return([]*coresecrets.SecretMetadata{{
+			URI: uri,
+		}}, nil)
+>>>>>>> 3.6
 	} else {
 		uriString = uri.String()
 	}
@@ -617,6 +688,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
+<<<<<<< HEAD
 	s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").Return(uri, nil)
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, arg *coresecrets.URI, params secret.SecretAccessParams) error {
@@ -626,6 +698,20 @@ func (s *SecretsSuite) TestGrantSecretByName(c *tc.C) {
 			c.Assert(params.Subject, tc.DeepEquals,
 				secret.SecretAccessor{Kind: secret.ApplicationAccessor, ID: "gitlab"})
 			c.Assert(params.Role, tc.Equals, coresecrets.RoleView)
+=======
+	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		Labels:    []string{"my-secret"},
+		OwnerTags: []names.Tag{coretesting.ModelTag},
+	}).Return([]*coresecrets.SecretMetadata{{
+		URI: uri,
+	}}, nil)
+	s.secretConsumer.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(arg *coresecrets.URI, params state.SecretAccessParams) error {
+			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(params.Scope, gc.Equals, coretesting.ModelTag)
+			c.Assert(params.Subject, gc.Equals, names.NewApplicationTag("gitlab"))
+			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+>>>>>>> 3.6
 			return nil
 		},
 	)

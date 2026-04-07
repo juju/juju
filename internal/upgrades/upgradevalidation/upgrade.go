@@ -27,7 +27,13 @@ func ModelValidatorsForControllerModelUpgrade(
 	targetVersion semversion.Number,
 ) []Validator {
 	validators := []Validator{
+<<<<<<< HEAD:internal/upgrades/upgradevalidation/upgrade.go
 		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
+=======
+		getCheckTargetVersionForModel(targetVersion),
+		checkModelMigrationModeForControllerUpgrade,
+		checkNoWinMachinesForModel,
+>>>>>>> 3.6:upgrades/upgradevalidation/upgrade.go
 		checkForDeprecatedUbuntuSeriesForModel,
 	}
 	return validators

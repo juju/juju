@@ -6,9 +6,16 @@ package kubernetes
 import (
 	"context"
 	"encoding/base64"
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/backend.go
 	"fmt"
+=======
+	"math"
+	"time"
+>>>>>>> 3.6:secrets/provider/kubernetes/backend.go
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +26,19 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
+const (
+	transientFailureRetryCount = 10
+	transientFailureRetryDelay = time.Second
+)
+
+var (
+	// transientFailureBackoff is a slow growing exponential back-off capped at
+	// one minute retries.
+	// 1.6, 2.6, 4.2, 6.9, 11.0, 17.9, 29.0, 47.0, 60.0, 60.0
+	transientFailureBackoff = retry.ExpBackoff(
+		transientFailureRetryDelay, time.Minute, math.Phi, true)
+)
+
 type k8sBackend struct {
 	serviceAccount string
 	namespace      string
@@ -26,6 +46,7 @@ type k8sBackend struct {
 	modelUUID      string
 
 	client kubernetes.Interface
+	clock  clock.Clock
 }
 
 // Ping implements SecretsBackend.
@@ -51,10 +72,11 @@ func (k *k8sBackend) Ping() (err error) {
 }
 
 // getSecret returns a secret resource.
-func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Secret, error) {
+func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*resources.Secret, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
+<<<<<<< HEAD:internal/secrets/provider/kubernetes/backend.go
 	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -62,6 +84,35 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 		} else if k8serrors.IsForbidden(err) {
 			return nil, errors.Unauthorizedf("cannot access %q", secretName)
 		}
+=======
+	secret := resources.NewSecret(k.client.CoreV1().Secrets(k.namespace), k.namespace, secretName, nil)
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			return secret.Get(ctx)
+		},
+		IsFatalError: isFatalError,
+		NotifyFunc: func(lastError error, attempt int) {
+			logFn := logger.Warningf
+			if attempt <= 1 {
+				// It is expected that this may fail at least once due to etcd
+				// eventual consistency, silence the first warning.
+				logFn = logger.Debugf
+			}
+			logFn(
+				"error getting secret (attempt %d): %s",
+				attempt, lastError.Error(),
+			)
+		},
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
+		Clock:       k.clock,
+		Stop:        ctx.Done(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("secret %q", secretName)
+	} else if err != nil {
+>>>>>>> 3.6:secrets/provider/kubernetes/backend.go
 		return nil, errors.Trace(err)
 	}
 	return secret, nil
@@ -104,7 +155,30 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision
 		return "", errors.Trace(err)
 	}
 	secret := resources.NewSecret(k.client.CoreV1().Secrets(k.namespace), k.namespace, name, in)
-	if err = secret.Apply(ctx); err != nil {
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			return secret.Apply(ctx)
+		},
+		IsFatalError: isFatalError,
+		NotifyFunc: func(lastError error, attempt int) {
+			logFn := logger.Warningf
+			if attempt <= 1 {
+				// It is expected that this may fail at least once due to etcd
+				// eventual consistency, silence the first warning.
+				logFn = logger.Debugf
+			}
+			logFn(
+				"error saving secret content (attempt %d): %s",
+				attempt, lastError.Error(),
+			)
+		},
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
+		Clock:       k.clock,
+		Stop:        ctx.Done(),
+	})
+	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return name, nil
@@ -122,5 +196,43 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 		logger.Tracef(context.TODO(), "deleting secret %q: %v", revisionId, err)
 		return errors.Trace(err)
 	}
-	return resources.NewSecret(k.client.CoreV1().Secrets(k.namespace), k.namespace, secret.Name, secret).Delete(ctx)
+
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			return secret.Delete(ctx)
+		},
+		IsFatalError: isFatalError,
+		NotifyFunc: func(lastError error, attempt int) {
+			logFn := logger.Warningf
+			if attempt <= 1 {
+				// It is expected that this may fail at least once due to etcd
+				// eventual consistency, silence the first warning.
+				logFn = logger.Debugf
+			}
+			logFn(
+				"error deleting secret content (attempt %d): %s",
+				attempt, lastError.Error(),
+			)
+		},
+		Attempts:    transientFailureRetryCount,
+		Delay:       transientFailureRetryDelay,
+		BackoffFunc: transientFailureBackoff,
+		Clock:       k.clock,
+		Stop:        ctx.Done(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func isFatalError(err error) bool {
+	temporary := k8serrors.IsForbidden(err) ||
+		k8serrors.IsInternalError(err) ||
+		k8serrors.IsServiceUnavailable(err) ||
+		k8serrors.IsConflict(err) ||
+		k8serrors.IsTooManyRequests(err) ||
+		k8serrors.IsServerTimeout(err)
+	return !temporary
 }

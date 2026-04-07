@@ -3,9 +3,50 @@ wait_for_controller_no_leader() {
 	# before we start waiting for the backstop behaviour to be pending
 	# (see wait_for_controller_leader below).
 	# shellcheck disable=SC2143
+<<<<<<< HEAD
 	until ! [[ "$(juju exec -m controller --unit controller/leader uptime | grep load)" ]]; do
 		echo "[+] waiting for no controller leadership"
 	done
+=======
+	until [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
+		echo "[+] (attempt ${attempt}) polling started machines during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 25 ]]; then
+			echo "enable-ha failed waiting for only 1 started machine"
+			exit 1
+		fi
+	done
+
+	attempt=0
+	# shellcheck disable=SC2143
+	until [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "stopped") | .current' | wc -l | grep 0)" ]]; do
+		echo "[+] (attempt ${attempt}) polling stopped machines during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 25 ]]; then
+			echo "enable-ha failed waiting for machines to tear down"
+			exit 1
+		fi
+	done
+
+	if [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "error") | .current' | wc -l)" -gt 0 ]]; then
+		echo "machine in controller model with error during ha tear down"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
+		exit 1
+	fi
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling machines')"
+		juju machines -m controller 2>&1 | sed 's/^/    | /g'
+
+		sleep "${SHORT_TIMEOUT}"
+	fi
+>>>>>>> 3.6
 }
 
 wait_for_controller_leader() {
@@ -26,7 +67,7 @@ run_controller_limit_access_in_ha() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2" | "gce")
 		machine_info="$(juju list-machines -m controller --format=json)"
-		instance_id="$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		instance_id="$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
 		region_or_az=$(region_or_availability_zone)
 		network_tag_or_group=$(instance_network_tag_or_group)
 
@@ -92,7 +133,7 @@ run_enable_ha() {
 	wait_for_controller_leader
 
 	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
+	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | (.[] | select(.["instance-id"] == null)) as $i ireduce (0; . + 1)' | grep 0
 
 	destroy_model "enable-ha"
 }

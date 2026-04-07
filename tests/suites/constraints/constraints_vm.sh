@@ -14,12 +14,12 @@ run_constraints_vm() {
 	wait_for_machine_agent_status "1" "started"
 
 	echo "Ensure machine 0 has 16G root disk"
-	machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
+	machine0_hardware=$(juju machines --format json | yq -r '.["machines"]["0"]["hardware"]')
 	machine0_rootdisk=$(echo "$machine0_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
 	check_ge "${machine0_rootdisk}" "root-disk=16384M"
 
 	echo "Ensure machine 1 has 4 cores and 16G root disk"
-	machine1_hardware=$(juju machines --format json | jq -r '.["machines"]["1"]["hardware"]')
+	machine1_hardware=$(juju machines --format json | yq -r '.["machines"]["1"]["hardware"]')
 	machine1_cores=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
 	machine1_rootdisk=$(echo "$machine1_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /root-disk/){print $i}}}')
 	check_ge "${machine1_cores}" "cores=4"

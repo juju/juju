@@ -9,8 +9,6 @@ myst:
 ```{ibnote}
 See also: {ref}`upgrade-your-deployment`
 ```
-<!--TODO Revisit. We might not need this doc in this form anymore.-->
-
 
 In Juju, upgrades can happen at the level of the `juju` CLI client, the controller, the model, the application, and the machine.
 
@@ -37,7 +35,6 @@ Upgrades to the client, the controller, and the model are typically related: You
    you need to bootstrap a new controller, migrate your models to it, and then run `upgrade-model`. (This is because upgrades are risky, and model migration is a relatively safer way to upgrade than upgrading in place.) It is also important to pay attention to the allowed upgrade paths -- for example, to update from `juju v2.2` to `juju v3.0`, one must first upgrade the client, controller, and model to `juju v2.9` and then perform a second upgrade to `juju v3.0`.
 
 Application upgrades, which affect the version of an application's backing charm, are usually completely independent of this. See more: {ref}`upgrade-your-deployment`.
-
 
 ## Agent software and related components
 

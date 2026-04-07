@@ -14,8 +14,12 @@ updated, or at least the tests that already exist that cover the refactored
 code should be identified when requesting a review to show that there is already
 test coverage, and that the refactoring didn't break anything.
 
+<<<<<<< HEAD
 
 ## go test and tc
+=======
+## go test and gocheck
+>>>>>>> 3.6
 
 The `go test` command is used to run the tests.  Juju uses the `tc` package
 ("github.com/juju/tc") to provide a checkers and assert methods for the test
@@ -34,7 +38,6 @@ import (
 )
 ```
 
-
 ## Setting up tests for new packages
 
 Let's say we are creating a new provider for "magic" cloud, and we have a package
@@ -42,8 +45,32 @@ called "magic" that lives at `github.com/juju/juju/internal/provider/magic`.  Th
 general approach for testing in juju is to have the tests in a separate package.
 Continuing with this example the tests would be in a package called "magic_test".
 
+<<<<<<< HEAD
 If the package uses additional helper functionality, you will need to implement a
 `TestMain` function to ensure it is ready for your test suites.
+=======
+A common idiom that has occurred in juju is to setup to gocheck hooks in a special
+file called `package_test.go` that would look like this:
+
+```go
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package magic_test
+
+import (
+	"testing"
+
+	gc "gopkg.in/check.v1"
+)
+
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}
+```
+
+or
+>>>>>>> 3.6
 
 ```go
 // Copyright 2014 Canonical Ltd.
@@ -65,6 +92,16 @@ func TestMain(m *stdtesting.M) {
 
 ```
 
+<<<<<<< HEAD
+=======
+The key difference here is that the first one just hooks up `gocheck`
+so it looks for the `gocheck` suites in the package.  The second makes
+sure that there is a mongo available for the duration of the package tests.
+
+A general rule is not to setup mongo for a package unless you really
+need to as it is extra overhead.
+
+>>>>>>> 3.6
 ## Writing the test files
 
 Normally there will be a test file for each file with code in the package.
@@ -187,7 +224,6 @@ network access in it, it is a good idea to use the BaseSuite as a base:
  * if someone does add logging later, it is captured and doesn't pollute
    the logging output
 
-
 ## Patching variables and the environment
 
 Inside a test, and assuming that the Suite has a CleanupSuite somewhere
@@ -208,7 +244,6 @@ func (s *someTest) TestFubar(c *tc.C) {
 ```
 
 PatchValue works with any matching type. This includes function variables.
-
 
 ## Checkers
 
@@ -244,7 +279,19 @@ The key checkers in the `tc` module that juju uses most frequently are:
 	* `Matches` - a regular expression match where the observed value is a string
     * `HasLen` - the expected value is an integer, and works happily on nil
       slices or maps
+<<<<<<< HEAD
 	* `IsTrue` - just an easier way to say `tc.Equals, true`
+=======
+
+Over time in the juju project there were repeated patterns of testing that
+were then encoded into new and more complicated checkers.  These are found
+in `github.com/juju/testing/checkers`, and are normally imported with the
+alias `jc`.
+
+The matchers there include (not an exclusive list):
+
+	* `IsTrue` - just an easier way to say `gc.Equals, true`
+>>>>>>> 3.6
 	* `IsFalse` - observed value must be false
 	* `GreaterThan` - for integer or float types
 	* `LessThan` - for integer or float types
@@ -265,8 +312,6 @@ The key checkers in the `tc` module that juju uses most frequently are:
 	  the path element is a directory
 	* `DoesNotExist` - also works with a string or `Stringer`, and passes if
 	  the path element does not exist
-
-
 
 ## Good tests
 

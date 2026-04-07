@@ -95,10 +95,6 @@ See {ref}`action`, {ref}`manage-actions`.
 See also: {ref}`application-configuration`
 ```
 
-<!-- Application configuration here = configuration of the application, which comes from the charm. Not to be confused with application configuration = something like trust (juju deploy --trust, juju trust) and a couple of things for podspec charms (not important since podspec charms are functionally deprecated).-->
-
-<!--When deploying an application, the charm you use will often support or even require specific configuration options to be set.-->
-
 Most charms ship with a sensible default configuration out of the box. However, for some use cases, it may be desirable or necessary to override the default application configuration options.
 
 **Get values.** The way to view the existing configuration for an application depends on whether the application has been deployed or not.
@@ -233,8 +229,6 @@ See more: [Charmhub > `<your charm of interest`](https://charmhub.io/)
 See more: {ref}`scale-an-application-horizontally`
 ```
 
-<!-- TODO Add example scenarios for charms that support scaling natively and charms that require a proxy. -->
-
 Every time a unit is added to an application, Juju will spread out that application's units, distributing them evenly as supported by the provider (e.g., across multiple availability zones) to best ensure high availability. So long as a cloud's availability zones don't all fail at once, and the charm and the charm's workload are well-written (changing leaders, coordinating across units, etc.), you can rest assured that cloud downtime will not affect your application.
 
 (integrate-an-application-with-another-application)=
@@ -363,20 +357,6 @@ juju deploy redis -n 2 --constraints zones=us-east-1a,us-east-1d
 ````
 
 ```{ibnote}
-See more: {ref}`command-juju-deploy`
-```
-
-<!--CLARIFY:
---base on its own does two things: (1) it determines the OS to be used on the provisioned machines; (2) it determines the charm revision to be deployed on the provisioned machines. In conjunction with `image-id`, though, it only does (2) -- part (1) is overridden by the (unknown) OS specified in the image chosen via `image-id`.
--->
-
-- To set constraints for an application after deployment, run the `set-constraints` command followed by the desired ("-enclosed list of) key-value pair(s), as below. This will affect any future units you may add to the application.
-
-``` text
-juju set-constraints mariadb cores=2
-```
-
-```{ibnote}
 See more: {ref}`command-juju-set-constraints`
 ```
 
@@ -422,16 +402,6 @@ juju bind <application> new-default endpoint-1=space-1
 ```{ibnote}
 See more: {ref}`command-juju-bind`
 ```
-
-<!-- Feels better suited for the upstream. As a matter of policy, we should only document charm solutions when pertaining to juju core material, e.g., the controller charm or the juju-dashboard charm.
-(observe-an-application)=
-## Observe an application
-
-To observe an application, on a separate Kubernetes model deploy the Canonical Observability Stack, then set up all the necessary cross-model relations. Alternatively, you can deploy only the charms pieces in the stack that you need immediately.
-
-
-> See more: [Charmhub | Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack)
--->
 
 (upgrade-an-application)=
 ## Upgrade an application

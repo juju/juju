@@ -1,7 +1,6 @@
 (list-of-model-configuration-keys)=
 # List of model configuration keys
 
-
 This document gives a list of all the configuration keys that can be applied to a Juju model.
 
 ```{important}
@@ -145,9 +144,13 @@ The apt-mirror option is often used to point to a local mirror.
 (model-config-apt-no-proxy)=
 ## `apt-no-proxy`
 
+<<<<<<< HEAD
 List of domain addresses not to be proxied for APT (comma-separated).
 
 **Default value:** `""`
+=======
+`apt-no-proxy` is the list of domain addresses not to be proxied for APT (comma-separated).
+>>>>>>> 3.6
 
 **Type:** string
 
@@ -297,7 +300,132 @@ line (like the config command)
 
 **Default value:** `false`
 
+<<<<<<< HEAD
 **Type:** bool
+=======
+**Default value:** false
+
+## `automatically-retry-hooks`
+
+`automatically-retry-hooks` determines whether the uniter should automatically retry failed hooks.
+
+**Type:** boolean
+
+**Default value:** true
+
+**Details:**
+
+Juju retries failed hooks automatically using an exponential backoff algorithm. They will be retried after 5, 10, 20, 40 seconds up to a period of 5 minutes, and then every 5 minutes. The logic behind this is that some hook errors are caused by timing issues or the temporary unavailability of other applications - automatic retry enables the Juju model to heal itself without troubling the user.
+
+However, in some circumstances, such as debugging charms, this behaviour can be distracting and unwelcome. For this reason, it is possible to set the `automatically-retry-hooks` option to 'false' to disable this behaviour. In this case, users will have to manually retry any hook which fails, using the command above, as with earlier versions of Juju.
+
+```{important}
+
+Even with the automatic retry enabled, it is still possible to use the `juju resolved unit-name/#` command to retry manually.
+
+```
+
+## `backup-dir`
+
+`backup-dir` is the directory used to store the backup working directory.
+
+**Type:** string
+
+**Default value:** ""
+
+## `charmhub-url`
+
+`charmhub-url`  is the url for Charmhub API calls.
+
+**Type:**
+
+**Default value:** [https://api.charmhub.io](https://api.charmhub.io)
+
+## `cloudinit-userdata`
+
+```{caution}
+
+This is a sharp knife feature - be careful with it.
+
+```
+
+`cloudinit-userdata` is the cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model.
+
+**Type:** string
+
+**Default value:** ""
+
+**Details:**
+
+The `cloudinit-userdata` allows the user to provide additional cloudinit data to be included in the cloudinit data created by Juju.
+
+Specifying a key will overwrite what juju puts in the cloudinit file with the following caveats:
+1. `users` and `bootcmd` keys will cause an error
+2. The `packages` key will be appended to the packages listed by juju
+3. The `runcmds` key will cause an error.  You can specify `preruncmd` and `postruncmd` keys to prepend and append the runcmd created by Juju.
+
+### Use cases
+
+- setting a default locale for deployments that wish to use their own locale settings
+- adding custom CA certificates for models that are sitting behind an HTTPS proxy
+- adding a private apt mirror to enable private packages to be installed
+- add SSH fingerprints to a deny list to prevent them from being printed to the console for security-focused deployments
+
+### Background
+
+Juju uses [`cloud-init`](https://cloud-init.io/) to customise instances once they have been provisioned by the cloud. The `cloudinit-userdata` model configuration setting (model config) allows you to tweak what happens to machines when they are created up via the "user data" feature.
+
+From the website:
+
+> Cloud images are operating system templates and every instance starts out as an identical clone of every other instance. *It is the user data that gives every cloud instance its personality and cloud-init is the tool that applies user data to your instances automatically.*
+
+### How-to
+
+#### Provide custom user data to cloudinit
+
+Create a file, `cloudinit-userdata.yaml`, which starts with the `cloudinit-userdata` key and data you wish to include in the cloudinit file.  Note: juju reads the value as a string, though formatted as YAML.
+
+Template `cloudinit-userdata.yaml`:
+
+```text
+cloudinit-userdata: |
+    <key>: <value>
+    <key>: <value>
+```
+
+Provide the path your file to the `model-config` command:
+
+```text
+juju model-config --file cloudinit-userdata.yaml
+```
+
+#### Read the current setting
+
+To read the current value, provide the `cloudinit-userdata` key to the `model-config` command as a command-line parameter. Adding the `--format yaml` option ensures that it is properly formatted.
+
+```text
+juju model-config cloudinit-userdata --format yaml
+```
+
+Sample output:
+
+    cloudinit-userdata: |
+      packages:
+        - 'python-keystoneclient'
+        - 'python-glanceclient'
+
+#### Clear the current custom user data
+
+Use the `--reset` option to the `model-config` command to clear anything that has been previously set.
+
+```text
+juju model-config --reset cloudinit-userdata
+```
+
+### Known issues
+
+- custom cloudinit-userdata must be passed via file, not as options on the command line (like the `config` command)
+>>>>>>> 3.6
 
 (model-config-container-image-metadata-url)=
 ## `container-image-metadata-url`
@@ -346,11 +474,18 @@ For MAAS v.2.5 or greater the parameters are:
 
 For example:
 
+<<<<<<< HEAD
 	juju model-config container-inherit-properties="ca-certs, apt-sources"
 
 
 
 (model-config-container-networking-method)=
+=======
+```text
+juju model-config container-inherit-properties="ca-certs, apt-sources"
+```
+
+>>>>>>> 3.6
 ## `container-networking-method`
 
 Method of container networking setup - one of "provider", "local", or "" (auto-configure).
@@ -498,8 +633,15 @@ Arbitrary user specified string data that is stored against the model.
 
 **Type:** string
 
+<<<<<<< HEAD
 
 (model-config-firewall-mode)=
+=======
+**Default value:** ""
+
+**Valid values:** `overlay_CIDR<par>=<par>underlay_CIDR`
+
+>>>>>>> 3.6
 ## `firewall-mode`
 
 *Note: This value cannot be changed after model creation.*
@@ -555,6 +697,22 @@ The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environmen
 
 **Type:** string
 
+<<<<<<< HEAD
+=======
+**Default value:** ""
+
+**Valid values:** url
+
+## `ignore-machine-addresses`
+
+`ignore-machine-addresses` determines whether the machine worker should discover machine addresses on startup.
+
+**Type:** boolean
+
+**Default value:** false
+
+**Valid values:**
+>>>>>>> 3.6
 
 (model-config-image-metadata-defaults-disabled)=
 ## `image-metadata-defaults-disabled`
@@ -574,8 +732,15 @@ The URL at which the metadata used to locate OS image ids is located.
 
 **Type:** string
 
+<<<<<<< HEAD
 
 (model-config-image-stream)=
+=======
+**Default value:** ""
+
+**Valid values:** url
+
+>>>>>>> 3.6
 ## `image-stream`
 
 The simplestreams stream used to identify which image ids to search when starting an instance.
@@ -607,12 +772,20 @@ The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment 
 (model-config-juju-http-proxy)=
 ## `juju-http-proxy`
 
+<<<<<<< HEAD
 The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
 **Default value:** `""`
 
 **Type:** string
 
+=======
+`juju-http-proxy` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
+
+**Type:** string
+
+**Default value:** ""
+>>>>>>> 3.6
 
 (model-config-juju-https-proxy)=
 ## `juju-https-proxy`
@@ -633,6 +806,16 @@ List of domain addresses not to be proxied (comma-separated), may contain CIDRs.
 
 **Type:** string
 
+<<<<<<< HEAD
+=======
+## `logforward-enabled`
+
+`logforward-enabled` determines whether syslog forwarding is enabled.
+
+**Type:** boolean
+
+**Default value:** false
+>>>>>>> 3.6
 
 (model-config-logging-config)=
 ## `logging-config`
@@ -685,10 +868,18 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 | `DEBUG` | Information intended to assist developers in debugging.
 | `TRACE` | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
 
+<<<<<<< HEAD
 When you set `logging-config` to `module=level`, then Juju saves that module's logs
 for the given severity level **and above.** For example, setting `logging-config`
 to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs
 for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
+=======
+When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
+
+```{ibnote}
+See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```
+>>>>>>> 3.6
 
 **Examples:**
 
@@ -712,14 +903,30 @@ To view details about each API request:
 
 	juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
+<<<<<<< HEAD
 
+=======
+## `logging-output`
+
+`logging-output` is the logging output destination: database and/or syslog.
+
+**Type:** string
+
+**Default value:** ""
+
+**Valid values:**
+>>>>>>> 3.6
 
 (model-config-lxd-snap-channel)=
 ## `lxd-snap-channel`
 
+<<<<<<< HEAD
 The channel to use when installing LXD from a snap (cosmic and later).
 
 **Default value:** `5.0/stable`
+=======
+`lxd-snap-channel` is the  channel to use when installing LXD from a snap (cosmic and later).
+>>>>>>> 3.6
 
 **Type:** string
 
@@ -747,6 +954,7 @@ The maximum size for the action collection, in human-readable memory format.
 (model-config-mode)=
 ## `mode`
 
+<<<<<<< HEAD
 Mode is a comma-separated list which sets the
 mode the model should run in. So far only one is implemented
 - If 'requires-prompts' is present, clients will ask for confirmation before removing
@@ -754,6 +962,11 @@ potentially valuable resources.
 (default "").
 
 **Default value:** `requires-prompts`
+=======
+## `max-status-history-size`
+
+`max-status-history-size` is the maximum size for the status history collection, in human-readable memory format.
+>>>>>>> 3.6
 
 **Type:** string
 
@@ -771,8 +984,11 @@ The name of the current model.
 
 **Type:** string
 
+<<<<<<< HEAD
 
 (model-config-net-bond-reconfigure-delay)=
+=======
+>>>>>>> 3.6
 ## `net-bond-reconfigure-delay`
 
 The amount of time in seconds to sleep between ifdown and ifup when bridging.
@@ -789,6 +1005,25 @@ List of domain addresses not to be proxied (comma-separated).
 
 **Default value:** `127.0.0.1,localhost,::1`
 
+<<<<<<< HEAD
+=======
+## `num-container-provision-workers`
+
+`num-container-provision-workers` is the number of container provisioning workers to use per machine.
+
+**Default value:** 4
+
+## `num-provision-workers`
+
+`num-provision-workers` is the number of provisioning workers to use per model.
+
+**Default value:** 16
+
+## `provisioner-harvest-mode`
+
+`provisioner-harvest-mode` sets what to do with unknown machines (default destroyed).
+
+>>>>>>> 3.6
 **Type:** string
 
 
@@ -801,6 +1036,7 @@ The number of container provisioning workers to use per machine.
 
 **Type:** int
 
+<<<<<<< HEAD
 
 (model-config-num-provision-workers)=
 ## `num-provision-workers`
@@ -813,6 +1049,8 @@ The number of provisioning workers to use per model.
 
 
 (model-config-proxy-ssh)=
+=======
+>>>>>>> 3.6
 ## `proxy-ssh`
 
 Whether SSH commands should be proxied through the API server.
@@ -846,9 +1084,13 @@ CIDRs specifying what ingress can be applied to offers in this model.
 (model-config-snap-http-proxy)=
 ## `snap-http-proxy`
 
+<<<<<<< HEAD
 The HTTP proxy value for installing snaps.
 
 **Default value:** `""`
+=======
+`snap-http-proxy`  is the HTTP proxy value to for installing snaps.
+>>>>>>> 3.6
 
 **Type:** string
 
@@ -904,8 +1146,11 @@ Currently only the aws, gce, and openstack providers support ssh-allow.
 
 **Type:** string
 
+<<<<<<< HEAD
 
 (model-config-ssl-hostname-verification)=
+=======
+>>>>>>> 3.6
 ## `ssl-hostname-verification`
 
 Whether SSL hostname verification is enabled (default true).
@@ -946,8 +1191,11 @@ data of the store. (default false).
 
 **Type:** bool
 
+<<<<<<< HEAD
 
 (model-config-transmit-vendor-metrics)=
+=======
+>>>>>>> 3.6
 ## `transmit-vendor-metrics`
 
 Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics.

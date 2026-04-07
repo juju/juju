@@ -456,7 +456,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc f
 			},
 		},
 	}
-	// CRs of this namespaced scope CRD will be skipped.
+	// CRs of this namespaced scope CRD will also be deleted (across all namespaces).
 	crdNamespacedScope := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
@@ -540,17 +540,18 @@ func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc f
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
-	// timer +1.
-	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
-		// list all custom resources for crd "v1alpha2".
-		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
-	).Return(&unstructured.UnstructuredList{}, nil).After(
-		s.mockDynamicClient.EXPECT().Resource(
-			schema.GroupVersionResource{
-				Group:    crdClusterScope.Spec.Group,
-				Version:  "v1alpha2",
-				Resource: crdClusterScope.Spec.Names.Plural,
+	crdLabelSelector := "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"
+
+	// list cluster wide all custom resource definitions (used by removeAllCustomResourceFinalizers,
+	// deleteAllCustomResourcesAllNamespaces and listAllCustomResourcesAllNamespaces).
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: crdLabelSelector,
+	}).Times(1).Return(
+		&apiextensionsv1.CustomResourceDefinitionList{
+			Items: []apiextensionsv1.CustomResourceDefinition{
+				*crdClusterScope, *crdNamespacedScope,
 			},
+<<<<<<< HEAD
 		).Return(s.mockNamespaceableResourceClient).Call,
 	).After(
 		// list all custom resources for crd "v1".
@@ -601,12 +602,29 @@ func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc f
 		// list cluster wide all custom resource definitions for deleting custom resources.
 		s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1.CustomResourceDefinitionList{Items: []apiextensionsv1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
+=======
+		},
+		nil,
+>>>>>>> 3.6
 	)
+
+	// timer +1.
+	s.mockDynamicClient.EXPECT().Resource(
+		gomock.Any(),
+	).Return(s.mockNamespaceableResourceClient).AnyTimes()
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		gomock.Any(), gomock.Any(),
+	).Return(&unstructured.UnstructuredList{}, nil).AnyTimes()
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		gomock.Any(),
+	).Return(nil).AnyTimes()
 
 	// timer +1.
 	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
 		LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test",
 	}).AnyTimes().
+<<<<<<< HEAD
 		Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
@@ -614,6 +632,13 @@ func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc f
 				v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
+=======
+		Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil)
+	s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
+	).Return(s.k8sNotFoundError())
+>>>>>>> 3.6
 
 	// timer +1.
 	s.mockMutatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).

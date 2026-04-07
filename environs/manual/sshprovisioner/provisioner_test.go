@@ -13,10 +13,16 @@ import (
 	stdtesting "testing"
 	"time"
 
+<<<<<<< HEAD
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/shell"
+=======
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
+	gc "gopkg.in/check.v1"
+>>>>>>> 3.6
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -27,12 +33,19 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+<<<<<<< HEAD
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+=======
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/juju/testing"
+>>>>>>> 3.6
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -207,6 +220,11 @@ func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
+<<<<<<< HEAD
 	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
 	c.Assert(script, tc.Equals, expectedScript)
+=======
+	expectedScript := removeLogFile + common.DumpOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
+	c.Assert(script, gc.Equals, expectedScript)
+>>>>>>> 3.6
 }

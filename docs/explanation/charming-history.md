@@ -21,11 +21,9 @@ Charms can be written in any language - that was as true in 2009 as it is today.
 
 ## 2014: The Services Framework
 
-
 The Services Framework evolved from the [charmhelpers](https://github.com/juju/charm-helpers) library; it aimed to standardise an approach to event handling and Charm structure. The services framework provided the first steps toward more declarative operators, and more consistency across the charm landscape.
 
 ## 2015: The Reactive Framework
-
 
 Derived from [reactive programming](https://en.wikipedia.org/wiki/Reactive_programming), the [charms.reactive](https://charmsreactive.readthedocs.io/) library was first announced on the [Ubuntu Blog](https://ubuntu.com/blog/charming-2-0-now-with-100-more-awesome). It enabled developers to continue authoring Charm actions in the familiar “hook contexts” that were fundamental to the Services Framework, but favoured an event driven approach that simplified the development of charms. The Reactive framework also saw the introduction of *layers*, which could be reused and composed into new charms.
 

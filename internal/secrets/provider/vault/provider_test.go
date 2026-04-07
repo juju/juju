@@ -4,7 +4,9 @@
 package vault_test
 
 import (
+	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,7 +96,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -103,6 +105,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 			},
 		},
 	}
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 
 	accessor := secrets.Accessor{
 		Kind: secrets.UnitAccessor,
@@ -110,12 +113,19 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 	}
 	_, err = p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, tc.ErrorMatches, "boom")
+=======
+	issuedTokenUUID := "some-uuid"
+	_, err = p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, nil, nil, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "boom")
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 }
 
 func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 	ctrl, newVaultClient := s.newVaultClient(c, nil)
 	defer ctrl.Finish()
 
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
@@ -147,6 +157,46 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 				}, nil
 			},
 		),
+=======
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, gc.Equals, strings.Join([]string{
+				`path "fred-06f00d/*" {capabilities = ["read"]}`,
+			}, "\n"))
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(nil),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, jc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo"}}`)),
+			}, nil
+		},
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 	)
 
 	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
@@ -159,7 +209,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -168,6 +218,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 			},
 		},
 	}
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 
 	accessor := secrets.Accessor{
 		Kind: secrets.ModelAccessor,
@@ -176,6 +227,13 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
+=======
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], gc.Equals, "foo")
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 }
 
 func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
@@ -184,6 +242,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-create`)
 			return &http.Response{
 				Request:    req,
@@ -205,6 +264,19 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-read-1-read`)
+=======
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, gc.Equals, strings.Join([]string{
+				`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+				`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+			}, "\n"))
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -214,7 +286,21 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 	)
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+=======
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, jc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -233,7 +319,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -242,12 +328,14 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 			},
 		},
 	}
+	ownedNames := []string{"owned-1"}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 
 	accessor := secrets.Accessor{
 		Kind: secrets.UnitAccessor,
@@ -256,6 +344,15 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
+=======
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, names.NewUnitTag("ubuntu/0"),
+		ownedNames, ownedRevs, readRevs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], gc.Equals, "foo")
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 }
 
 func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
@@ -264,6 +361,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-update`)
 			return &http.Response{
 				Request:    req,
@@ -295,6 +393,19 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-read-1-read`)
+=======
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, gc.Equals, strings.Join([]string{
+				`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+				`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+			}, "\n"))
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -304,7 +415,21 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 	)
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+=======
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, jc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -323,7 +448,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -332,12 +457,14 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 			},
 		},
 	}
+	ownedNames := []string{"owned-1"}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
+<<<<<<< HEAD:internal/secrets/provider/vault/provider_test.go
 
 	accessor := secrets.Accessor{
 		Kind: secrets.ModelAccessor,
@@ -346,6 +473,15 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, true, accessor, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
+=======
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(
+		adminCfg, true, true, issuedTokenUUID,
+		names.NewUnitTag("ubuntu/0"), ownedNames, ownedRevs, readRevs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], gc.Equals, "foo")
+>>>>>>> 3.6:secrets/provider/vault/provider_test.go
 }
 
 func (s *providerSuite) TestNewBackend(c *tc.C) {
@@ -360,7 +496,7 @@ func (s *providerSuite) TestNewBackend(c *tc.C) {
 		ModelUUID: coretesting.ModelTag.Id(),
 		BackendConfig: provider.BackendConfig{
 			BackendType: jujuvault.BackendType,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",

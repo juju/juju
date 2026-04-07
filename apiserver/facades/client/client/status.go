@@ -150,10 +150,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 
 	var noStatus params.FullStatus
+<<<<<<< HEAD
 	context := statusContext{
 		applicationService:        c.applicationService,
 		statusService:             c.statusService,
 		crossModelRelationService: c.crossModelRelationService,
+=======
+	var context statusContext
+	context.appCharmCache = map[string]string{}
+>>>>>>> 3.6
 
 		machineJobFetcher: machineJobFetcher,
 	}
@@ -332,7 +337,13 @@ type statusContext struct {
 	machineJobFetcher MachineJobFetcherFunc
 
 	providerType string
+<<<<<<< HEAD
 	model        model.ModelInfo
+=======
+	model        *state.Model
+	status       *state.ModelStatus
+	presence     common.ModelPresenceContext
+>>>>>>> 3.6
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
@@ -924,6 +935,7 @@ func (c *statusContext) processApplication(ctx context.Context, name string, app
 		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
 	}
+<<<<<<< HEAD
 	units := application.Units
 	if !application.Subordinate {
 		processedStatus.Units = c.processUnits(ctx, units, charmURL)
@@ -931,6 +943,84 @@ func (c *statusContext) processApplication(ctx context.Context, name string, app
 
 	if application.WorkloadVersion != nil {
 		processedStatus.WorkloadVersion = *application.WorkloadVersion
+=======
+	units := context.allAppsUnitsCharmBindings.units[application.Name()]
+
+	expectWorkload := false
+	if context.model.Type() == state.ModelTypeCAAS {
+		if charm.MetaFormat(applicationCharm) == charm.FormatV1 {
+			cm, err := context.model.CAASModel()
+			if err != nil {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			_, err = cm.PodSpec(application.ApplicationTag())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			expectWorkload = err == nil
+		}
+	}
+	if application.IsPrincipal() {
+		processedStatus.Units = context.processUnits(
+			units, applicationCharm.URL(), expectWorkload)
+	}
+
+	applicationStatus, err := application.Status()
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		processedStatus.Err = apiservererrors.ServerError(err)
+		return processedStatus
+	}
+	if applicationStatus.Status == status.Unset {
+		// Derive the application status from the non-presence affected unit
+		// workload status
+		statuses := make([]status.StatusInfo, 0, len(units))
+		for unitName := range units {
+			status, err := context.status.UnitWorkload(unitName, expectWorkload)
+			if errors.Is(err, errors.NotFound) {
+				continue
+			} else if err != nil {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			statuses = append(statuses, status)
+		}
+		derivedApplicationStatus := status.DeriveStatus(statuses)
+		if derivedApplicationStatus.Since == nil {
+			derivedApplicationStatus.Since = applicationStatus.Since
+		}
+		applicationStatus = derivedApplicationStatus
+	}
+
+	if context.model.Type() == state.ModelTypeCAAS {
+		operatorStatus, err := application.OperatorStatus()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			processedStatus.Err = apiservererrors.ServerError(err)
+			return processedStatus
+		}
+		applicationStatus = status.ApplicationDisplayStatus(
+			applicationStatus, operatorStatus, expectWorkload)
+	}
+
+	processedStatus.Status.Status = applicationStatus.Status.String()
+	processedStatus.Status.Info = applicationStatus.Message
+	processedStatus.Status.Data = applicationStatus.Data
+	processedStatus.Status.Since = applicationStatus.Since
+
+	versions := make([]status.StatusInfo, 0, len(units))
+	for _, unit := range units {
+		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
+		if err != nil {
+			processedStatus.Err = apiservererrors.ServerError(err)
+			return processedStatus
+		}
+		versions = append(versions, workloadVersion)
+	}
+	if len(versions) > 0 {
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
+>>>>>>> 3.6
 	}
 
 	processedStatus.EndpointBindings = transform.Map(

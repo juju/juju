@@ -39,6 +39,7 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 		return nil, errors.Trace(err)
 	}
 
+<<<<<<< HEAD
 	backendService := domainServices.SecretBackend()
 	secretService := domainServices.Secret()
 
@@ -50,6 +51,28 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 	)
 	remoteClientGetter := func(stdCtx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(stdCtx, params.Entities{Entities: []params.Entity{{
+=======
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker, nil)
+	}
+	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+	}
+	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
+	}
+	systemState, err := context.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerAPI := common.NewStateControllerConfig(systemState)
+	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
+		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
+>>>>>>> 3.6
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
 		}}})
 		if err != nil {

@@ -1327,9 +1327,13 @@ func (e *Environ) startInstance(
 		inst.floatingIP = publicIP
 	}
 
+	hc := inst.hardwareCharacteristics()
+	if args.Constraints.HasRootDiskSource() {
+		hc.RootDiskSource = args.Constraints.RootDiskSource
+	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
-		Hardware: inst.hardwareCharacteristics(),
+		Hardware: hc,
 	}, nil
 }
 

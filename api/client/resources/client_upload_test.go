@@ -16,6 +16,11 @@ import (
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
+<<<<<<< HEAD
+=======
+	gc "gopkg.in/check.v1"
+	"gopkg.in/errgo.v1"
+>>>>>>> 3.6
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
@@ -112,7 +117,11 @@ func (s *UploadSuite) TestUploadBadApplication(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `.*invalid application.*`)
 }
 
+<<<<<<< HEAD
 func (s *UploadSuite) TestUploadFailed(c *tc.C) {
+=======
+func (s *UploadSuite) assertUploadFailed(c *gc.C, uploadErr error, expectedMsg string) {
+>>>>>>> 3.6
 	defer s.setup(c).Finish()
 
 	data := "<data>"
@@ -126,10 +135,29 @@ func (s *UploadSuite) TestUploadFailed(c *tc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
 	req.ContentLength = int64(len(data))
 
+<<<<<<< HEAD
 	ctx := c.Context()
 	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, tc.ErrorMatches, "boom")
+=======
+	ctx := context.TODO()
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(uploadErr)
+	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	c.Assert(err, gc.ErrorMatches, expectedMsg)
+}
+
+func (s *UploadSuite) TestUploadFailed(c *gc.C) {
+	s.assertUploadFailed(c, errors.New("upload failed"), "upload failed")
+}
+
+func (s *UploadSuite) TestUploadAuthError(c *gc.C) {
+	authErr := errgo.Mask(params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "user unauthorized",
+	})
+	s.assertUploadFailed(c, authErr, "permission denied")
+>>>>>>> 3.6
 }
 
 func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
@@ -298,7 +326,123 @@ func newUploadPendingResourceArgsNoData(res []coreresources.Resource) resources.
 	}
 }
 
+<<<<<<< HEAD
 func newResourceResult(c *tc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
+=======
+func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	res, apiResult := newResourceResult(c, "spam")
+	args := params.AddPendingResourcesArgsV2{
+		Entity:    params.Entity{Tag: "application-a-application"},
+		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
+	}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := uuid.String()
+	results := params.AddPendingResourcesResult{
+		PendingIDs: []string{expected},
+	}
+	data := "<data>"
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.ContentLength = int64(len(data))
+	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
+
+	ctx := context.TODO()
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
+
+	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uploadID, gc.Equals, expected)
+}
+
+func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	res, apiResult := newResourceResult(c, "spam")
+	args := params.AddPendingResourcesArgsV2{
+		Entity:    params.Entity{Tag: "application-a-application"},
+		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
+	}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := uuid.String()
+	results := params.AddPendingResourcesResult{
+		PendingIDs: []string{expected},
+	}
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+
+	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uploadID, gc.Equals, expected)
+}
+
+func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	res, _ := newResourceResult(c, "spam")
+	_, err := s.client.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
+	c.Assert(err, gc.ErrorMatches, `.*invalid application.*`)
+}
+
+func (s *UploadSuite) assertUploadPendingResourceFailed(c *gc.C, uploadErr error, expectedMsg string) {
+	defer s.setup(c).Finish()
+
+	res, apiResult := newResourceResult(c, "spam")
+	args := params.AddPendingResourcesArgsV2{
+		Entity:    params.Entity{Tag: "application-a-application"},
+		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
+	}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := uuid.String()
+	results := params.AddPendingResourcesResult{
+		PendingIDs: []string{expected},
+	}
+	data := "<data>"
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.ContentLength = int64(len(data))
+	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
+
+	ctx := context.TODO()
+	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(uploadErr)
+
+	_, err = s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	c.Assert(err, gc.ErrorMatches, expectedMsg)
+}
+
+func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
+	s.assertUploadPendingResourceFailed(c, errors.New("upload failed"), "upload failed")
+}
+
+func (s *UploadSuite) TestUploadPendingResourceAuthError(c *gc.C) {
+	authErr := errgo.Mask(params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "user unauthorized",
+	})
+	s.assertUploadPendingResourceFailed(c, authErr, "permission denied")
+}
+
+func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {
+>>>>>>> 3.6
 	var res []coreresources.Resource
 	var apiResult params.ResourcesResult
 	for _, name := range names {

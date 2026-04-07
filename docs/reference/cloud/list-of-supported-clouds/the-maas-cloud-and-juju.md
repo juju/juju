@@ -7,7 +7,6 @@ myst:
 (cloud-maas)=
 # The MAAS cloud and Juju
 
-
 This document describes details specific to using your existing MAAS cloud with Juju.
 
 ```{ibnote}
@@ -22,7 +21,6 @@ See more: {ref}`cloud-differences`
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
 
-
 ## Requirements
 
 Starting with `juju v.3.0`, versions of MAAS <2 are no longer supported.
@@ -35,7 +33,6 @@ Name in Juju: User-defined.
 
 ## Notes on `juju add-credential`
 
-
 ### Authentication types
 
 #### `oauth1`
@@ -46,14 +43,6 @@ Attributes:
 
 `maas-oauth` is your MAAS API key. See more: MAAS | How to add an API key for a user](https://maas.io/docs/how-to-enhance-maas-security#p-9102-manage-api-keys)
 ```
-
-<!--
-## Notes on `juju bootstrap`
--->
-
-<!--
-## Cloud-specific model configuration keys
--->
 
 ## Supported constraints
 
