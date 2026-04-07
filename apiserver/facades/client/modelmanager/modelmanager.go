@@ -337,7 +337,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, modelUUID)
+	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
 	if err != nil {
 		return result, err
 	}
@@ -873,7 +873,13 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			}
 		}
 
-		modelInfo, err := m.getModelInfo(ctx, coremodel.UUID(tag.Id()))
+		modelUUID := coremodel.UUID(tag.Id())
+		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+
+		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -886,18 +892,12 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			valid := !cred.Invalid
-			modelInfo.CloudCredentialValidity = &valid
+			modelInfo.CloudCredentialValidity = new(!cred.Invalid)
 		}
 		if !canWrite {
 			return modelInfo, nil
 		}
 
-		modelUUID := coremodel.UUID(tag.Id())
-		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
 		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
 			return params.ModelInfo{}, err
 		}
@@ -938,13 +938,12 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.UUID) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	modelDomainServices ModelDomainServices,
+) (params.ModelInfo, error) {
 	modelTag := names.NewModelTag(modelUUID.String())
-
-	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
 	modelInfoService := modelDomainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if err != nil {
