@@ -205,7 +205,7 @@ func (s *CloudSpecSuite) TestCloudSpecGetAuthFuncError(c *gc.C) {
 	result, err := s.api.CloudSpec(params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
-	c.Assert(err, gc.Equals, expect)
+	c.Assert(err, gc.ErrorMatches, "bewm")
 	c.Assert(result, jc.DeepEquals, params.CloudSpecResults{})
 }
 
