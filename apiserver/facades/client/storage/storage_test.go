@@ -57,8 +57,8 @@ func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
+		storageInstanceFilesystemCall,
 		storageInstanceCall,
 		storageInstanceFilesystemCall,
 		storageInstanceFilesystemAttachmentCall,
@@ -81,8 +81,8 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
+		storageInstanceVolumeCall,
 		storageInstanceCall,
 		storageInstanceVolumeCall,
 	}
@@ -130,8 +130,8 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
+		storageInstanceFilesystemCall,
 		storageInstanceCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -155,7 +155,6 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -174,8 +173,8 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
+		storageInstanceFilesystemCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -199,6 +198,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceAttachmentsCall,
 		storageInstanceFilesystemCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -219,8 +219,8 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
-		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
+		storageInstanceFilesystemCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
