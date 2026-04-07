@@ -470,7 +470,7 @@ var SliceContains tc.Checker = &sliceContainsChecker[string]{
 	&tc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
 }
 
-func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
+func (checker *sliceContainsChecker[T]) Check(params []any, names []string) (result bool, error string) {
 	expected, ok := params[1].(T)
 	if !ok {
 		var t T
@@ -497,7 +497,7 @@ var MapHasKeys tc.Checker = &hasKeysChecker[string]{
 	&tc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
 }
 
-func (checker *hasKeysChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
+func (checker *hasKeysChecker[T]) Check(params []any, names []string) (result bool, error string) {
 	expected, ok := params[1].([]T)
 	if !ok {
 		var t T

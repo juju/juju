@@ -193,7 +193,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 		Endpoint:         "https://6.6.6.6:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           map[string]interface{}{"workload-storage": workloadStorage},
+		Config:           map[string]any{"workload-storage": workloadStorage},
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"fakecadata2"},
 	}
@@ -217,7 +217,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 					IdentityEndpoint: "",
 					StorageEndpoint:  "",
 					Regions:          []cloud.Region(nil),
-					Config:           map[string]interface{}(nil),
+					Config:           map[string]any(nil),
 					RegionConfig:     cloud.RegionConfig(nil),
 				},
 				"mrcloud2": {
@@ -229,7 +229,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 					IdentityEndpoint: "",
 					StorageEndpoint:  "",
 					Regions:          []cloud.Region(nil),
-					Config:           map[string]interface{}(nil),
+					Config:           map[string]any(nil),
 					RegionConfig:     cloud.RegionConfig(nil),
 				},
 				"myk8s": expectedCloudToUpdate,

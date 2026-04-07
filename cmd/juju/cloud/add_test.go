@@ -1085,7 +1085,7 @@ func testInteractiveOpenstackCloudCert(c *tc.C, fakeCertFilename, input, addStdE
 		CACertificates: []string{fakeCert},
 	}
 
-	fakeCertMap := map[string]interface{}{
+	fakeCertMap := map[string]any{
 		"ca-certificates": []string{fakeCert},
 	}
 	fakeCertYaml, err := yaml.Marshal(fakeCertMap)

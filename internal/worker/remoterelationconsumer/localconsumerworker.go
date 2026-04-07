@@ -236,8 +236,8 @@ func (w *localConsumerWorker) ConsumeVersion() int {
 }
 
 // Report provides information for the engine report.
-func (w *localConsumerWorker) Report(ctx context.Context) map[string]interface{} {
-	result := make(map[string]interface{})
+func (w *localConsumerWorker) Report(ctx context.Context) map[string]any {
+	result := make(map[string]any)
 
 	result["remote-model-uuid"] = w.offererModelUUID
 	result["offer-uuid"] = w.offerUUID

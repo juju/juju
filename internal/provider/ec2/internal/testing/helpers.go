@@ -30,7 +30,7 @@ func (c *counter) reset() {
 	atomic.StoreInt32(&c.value, 0)
 }
 
-func apiError(code string, f string, a ...interface{}) smithy.APIError {
+func apiError(code string, f string, a ...any) smithy.APIError {
 	return &smithy.GenericAPIError{
 		Code:    code,
 		Message: fmt.Sprintf(f, a...),

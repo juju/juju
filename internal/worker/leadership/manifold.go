@@ -75,7 +75,7 @@ var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, clock 
 }
 
 // outputFunc extracts the coreleadership.TrackerWorker from a *Tracker passed in as a Worker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*Tracker)
 	if inWorker == nil {
 		return errors.Errorf("expected *Tracker input; got %T", in)

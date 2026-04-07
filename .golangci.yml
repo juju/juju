@@ -72,7 +72,6 @@ linters:
           disabled: false
     modernize:
       disable:
-        - any
         - omitzero
   exclusions:
     generated: lax

@@ -18,8 +18,8 @@ type (
 		prot string
 		num  int
 	}
-	IS []interface{}
-	M  map[string]interface{}
+	IS []any
+	M  map[string]any
 )
 
 type NetworkSuite struct{}
@@ -45,10 +45,10 @@ func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 		}
 		return pr
 	}
-	mkResults := func(rs ...interface{}) M {
+	mkResults := func(rs ...any) M {
 		return M{"results": rs}
 	}
-	mkResult := func(err, ports interface{}) M {
+	mkResult := func(err, ports any) M {
 		result := M{"ports": ports}
 		if err != nil {
 			result["error"] = err

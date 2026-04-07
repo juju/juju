@@ -200,11 +200,11 @@ func (c *statusHistoryCommand) Init(args []string) error {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  status.Status          `yaml:"status,omitempty" json:"status,omitempty"`
-	Message string                 `yaml:"message,omitempty" json:"message,omitempty"`
-	Data    map[string]interface{} `yaml:"data,omitempty" json:"data,omitempty"`
-	Since   *time.Time             `yaml:"since,omitempty" json:"since,omitempty"`
-	Kind    status.HistoryKind     `yaml:"type,omitempty" json:"type,omitempty"`
+	Status  status.Status      `yaml:"status,omitempty" json:"status,omitempty"`
+	Message string             `yaml:"message,omitempty" json:"message,omitempty"`
+	Data    map[string]any     `yaml:"data,omitempty" json:"data,omitempty"`
+	Since   *time.Time         `yaml:"since,omitempty" json:"since,omitempty"`
+	Kind    status.HistoryKind `yaml:"type,omitempty" json:"type,omitempty"`
 }
 
 // History holds the status results.
@@ -311,7 +311,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, history)
 }
 
-func (c *statusHistoryCommand) formatTabular(writer io.Writer, value interface{}) error {
+func (c *statusHistoryCommand) formatTabular(writer io.Writer, value any) error {
 	h, ok := value.(History)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", History{}, value)
@@ -334,7 +334,7 @@ func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses History) 
 }
 
 type warningLogger interface {
-	Warningf(format string, args ...interface{})
+	Warningf(format string, args ...any)
 }
 
 func (c *statusHistoryCommand) getStatusHistoryClients(ctx context.Context, warningLogger warningLogger) ([]HistoryAPI, bool, error) {

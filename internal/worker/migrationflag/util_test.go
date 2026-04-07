@@ -93,7 +93,7 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, tc.DeepEquals, []interface{}{validUUID})
+		c.Check(call.Args, tc.DeepEquals, []any{validUUID})
 	}
 }
 

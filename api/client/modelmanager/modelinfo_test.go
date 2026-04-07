@@ -30,14 +30,14 @@ func (s *modelInfoSuite) checkCall(c *tc.C, objType string, id, request string) 
 	c.Check(request, tc.Equals, "ModelInfo")
 }
 
-func (s *modelInfoSuite) assertResponse(c *tc.C, result interface{}) *params.ModelInfoResults {
+func (s *modelInfoSuite) assertResponse(c *tc.C, result any) *params.ModelInfoResults {
 	c.Assert(result, tc.FitsTypeOf, &params.ModelInfoResults{})
 	return result.(*params.ModelInfoResults)
 }
 
 func (s *modelInfoSuite) assertExpectedModelInfo(c *tc.C, expectedInfo params.ModelInfoResults) {
 	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: func(objType string, version int, id, request string, a, result interface{}) error {
+		APICallerFunc: func(objType string, version int, id, request string, a, result any) error {
 			s.checkCall(c, objType, id, request)
 			resp := s.assertResponse(c, result)
 			*resp = expectedInfo
@@ -103,7 +103,7 @@ func (s *modelInfoSuite) TestModelInfoWithSupportedFeatures(c *tc.C) {
 
 func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: func(objType string, version int, id, request string, a, result interface{}) error {
+		APICallerFunc: func(objType string, version int, id, request string, a, result any) error {
 			s.checkCall(c, objType, id, request)
 			c.Assert(a, tc.DeepEquals, params.Entities{
 				Entities: []params.Entity{{Tag: testing.ModelTag.String()}, {Tag: testing.ModelTag.String()}},

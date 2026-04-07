@@ -56,7 +56,7 @@ func (e Error) ErrorCode() string {
 
 // ErrorInfo implements the rpc.ErrorInfoProvider interface which enables
 // API error attachments to be returned as part of RPC error responses.
-func (e Error) ErrorInfo() map[string]interface{} {
+func (e Error) ErrorInfo() map[string]any {
 	return e.Info
 }
 
@@ -70,7 +70,7 @@ func (e Error) GoString() string {
 // field of a RequestError into an AdditionalErrorInfo instance a pointer to
 // which is passed via the to argument. The method will return an error if a
 // non-pointer arg is provided.
-func (e Error) UnmarshalInfo(to interface{}) error {
+func (e Error) UnmarshalInfo(to any) error {
 	if reflect.ValueOf(to).Kind() != reflect.Ptr {
 		return errors.New("UnmarshalInfo expects a pointer as an argument")
 	}
@@ -115,7 +115,7 @@ type DischargeRequiredErrorInfo struct {
 }
 
 // AsMap encodes the error info as a map that can be attached to an Error.
-func (e DischargeRequiredErrorInfo) AsMap() map[string]interface{} {
+func (e DischargeRequiredErrorInfo) AsMap() map[string]any {
 	return serializeToMap(e)
 }
 
@@ -135,21 +135,21 @@ type RedirectErrorInfo struct {
 }
 
 // AsMap encodes the error info as a map that can be attached to an Error.
-func (e RedirectErrorInfo) AsMap() map[string]interface{} {
+func (e RedirectErrorInfo) AsMap() map[string]any {
 	return serializeToMap(e)
 }
 
 // serializeToMap is a convenience function for marshaling v into a
 // map[string]interface{}. It works by marshalling v into json and then
 // unmarshaling back to a map.
-func serializeToMap(v interface{}) map[string]interface{} {
+func serializeToMap(v any) map[string]any {
 	data, err := json.Marshal(v)
 	if err != nil {
 		logger.Criticalf(context.TODO(), "serializeToMap: marshal to json failed: %v", err)
 		return nil
 	}
 
-	var asMap map[string]interface{}
+	var asMap map[string]any
 	err = json.Unmarshal(data, &asMap)
 	if err != nil {
 		logger.Criticalf(context.TODO(), "serializeToMap: unmarshal to map failed: %v", err)

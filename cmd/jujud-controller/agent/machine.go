@@ -655,7 +655,7 @@ var (
 type noopStatusSetter struct{}
 
 // SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
+func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ string, _ map[string]any) error {
 	return nil
 }
 

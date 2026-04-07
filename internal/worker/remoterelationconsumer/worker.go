@@ -487,6 +487,6 @@ func (w *Worker) handleModelDying(ctx context.Context) error {
 }
 
 // Report provides information for the engine report.
-func (w *Worker) Report(ctx context.Context) map[string]interface{} {
+func (w *Worker) Report(ctx context.Context) map[string]any {
 	return w.runner.Report(ctx)
 }

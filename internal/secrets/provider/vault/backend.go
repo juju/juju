@@ -60,7 +60,7 @@ func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revisio
 	}()
 
 	path := uri.Name(revision)
-	val := make(map[string]interface{})
+	val := make(map[string]any)
 	for k, v := range value.EncodedValues() {
 		val[k] = v
 	}

@@ -91,7 +91,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := secretspruner.Manifold(s.config)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)

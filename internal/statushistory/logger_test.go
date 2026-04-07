@@ -47,7 +47,7 @@ func (s *loggerSuite) TestRecord(c *tc.C) {
 		Status:  "active",
 		Message: "foo",
 		Time:    "2019-01-01T00:00:00Z",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"bar": "baz",
 		},
 	})

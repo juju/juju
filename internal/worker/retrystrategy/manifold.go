@@ -54,7 +54,7 @@ func (mc ManifoldConfig) start(ctx context.Context, a agent.Agent, apiCaller bas
 	})
 }
 
-func (mc ManifoldConfig) output(in worker.Worker, out interface{}) error {
+func (mc ManifoldConfig) output(in worker.Worker, out any) error {
 	inWorker, _ := in.(*RetryStrategyWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a *retryStrategyWorker; is %T", in)

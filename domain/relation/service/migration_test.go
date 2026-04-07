@@ -50,8 +50,8 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 				{
 					ApplicationName:     ep1[0].ApplicationName,
 					EndpointName:        ep1[0].EndpointName,
-					ApplicationSettings: map[string]interface{}{"five": "six"},
-					UnitSettings: map[string]map[string]interface{}{
+					ApplicationSettings: map[string]any{"five": "six"},
+					UnitSettings: map[string]map[string]any{
 						"ubuntu/0": {"one": "two"},
 					},
 				},
@@ -65,15 +65,15 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 				{
 					ApplicationName:     ep2[0].ApplicationName,
 					EndpointName:        ep2[0].EndpointName,
-					ApplicationSettings: map[string]interface{}{"foo": "six"},
-					UnitSettings: map[string]map[string]interface{}{
+					ApplicationSettings: map[string]any{"foo": "six"},
+					UnitSettings: map[string]map[string]any{
 						"ubuntu/0": {"test": "two"},
 					},
 				}, {
 					ApplicationName:     ep2[1].ApplicationName,
 					EndpointName:        ep2[1].EndpointName,
-					ApplicationSettings: map[string]interface{}{"three": "four"},
-					UnitSettings: map[string]map[string]interface{}{
+					ApplicationSettings: map[string]any{"three": "four"},
+					UnitSettings: map[string]map[string]any{
 						"ntp/0": {"seven": "six"},
 					},
 				},
@@ -193,7 +193,7 @@ func (s *migrationServiceSuite) expectGetApplicationUUIDByName(c *tc.C, name str
 func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 	uuid corerelation.UUID,
 	id coreapplication.UUID,
-	settings map[string]interface{},
+	settings map[string]any,
 ) {
 	appSettings, _ := settingsMap(settings)
 	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, appSettings).Return(nil)
@@ -202,7 +202,7 @@ func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 func (s *migrationServiceSuite) expectEnterScope(
 	uuid corerelation.UUID,
 	name coreunit.Name,
-	settings map[string]interface{},
+	settings map[string]any,
 ) {
 	unitSettings, _ := settingsMap(settings)
 	data := internal.SubordinateUnitStatusHistoryData{}

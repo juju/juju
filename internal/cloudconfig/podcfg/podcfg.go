@@ -311,7 +311,7 @@ func NewBootstrapControllerPodConfig(
 	if err != nil {
 		return nil, err
 	}
-	pcfg.Controller = make(map[string]interface{})
+	pcfg.Controller = make(map[string]any)
 	maps.Copy(pcfg.Controller, config)
 	pcfg.Bootstrap = &BootstrapConfig{
 		BootstrapConfig: instancecfg.BootstrapConfig{

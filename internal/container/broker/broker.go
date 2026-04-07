@@ -272,10 +272,10 @@ var newMachineInitReader = cloudconfig.NewMachineInitReader
 // combinedCloudInitData returns a combined map of the given cloudInitData
 // and instance cloud init properties provided.
 func combinedCloudInitData(
-	cloudInitData map[string]interface{},
+	cloudInitData map[string]any,
 	containerInheritProperties string, base corebase.Base,
 	log corelogger.Logger,
-) (map[string]interface{}, error) {
+) (map[string]any, error) {
 	if containerInheritProperties == "" {
 		return cloudInitData, nil
 	}
@@ -294,7 +294,7 @@ func combinedCloudInitData(
 	}
 
 	if cloudInitData == nil {
-		cloudInitData = make(map[string]interface{})
+		cloudInitData = make(map[string]any)
 	}
 
 	props := strings.Split(containerInheritProperties, ",")

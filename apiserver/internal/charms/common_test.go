@@ -92,9 +92,9 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			"bar": {
 				Parallel:    true,
 				Description: "baz",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"foo": "bar",
-					"blah": map[string]interface{}{
+					"blah": map[string]any{
 						"alpha": "omega",
 					},
 				},
@@ -171,9 +171,9 @@ func (s *exportSuite) TestExport(c *tc.C) {
 				"bar": {
 					Parallel:    true,
 					Description: "baz",
-					Params: map[string]interface{}{
+					Params: map[string]any{
 						"foo": "bar",
-						"blah": map[string]interface{}{
+						"blah": map[string]any{
 							"alpha": "omega",
 						},
 					},

@@ -46,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 			},
 		},
 	}
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent": s.agent,
 	})
 	s.manifold = apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
@@ -59,7 +59,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(c.Context(), getter)

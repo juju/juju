@@ -102,7 +102,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 		},
 		Start: config.start,
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			return engine.FlagOutput(in, out)
 		},
 		Filter: func(err error) error {

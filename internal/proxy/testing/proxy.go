@@ -7,7 +7,7 @@ import "context"
 
 type MockProxier struct {
 	// See Proxier interface
-	RawConfigFn func() (map[string]interface{}, error)
+	RawConfigFn func() (map[string]any, error)
 
 	// See Proxier interface
 	StartFn func() error
@@ -35,9 +35,9 @@ func NewMockTunnelProxier() *MockTunnelProxier {
 	}
 }
 
-func (mp *MockProxier) RawConfig() (map[string]interface{}, error) {
+func (mp *MockProxier) RawConfig() (map[string]any, error) {
 	if mp.RawConfigFn == nil {
-		return map[string]interface{}{}, nil
+		return map[string]any{}, nil
 	}
 	return mp.RawConfigFn()
 }
@@ -49,7 +49,7 @@ func (mp *MockProxier) Start(_ context.Context) error {
 	return mp.StartFn()
 }
 
-func (mp *MockProxier) MarshalYAML() (interface{}, error) { return nil, nil }
+func (mp *MockProxier) MarshalYAML() (any, error) { return nil, nil }
 
 func (mp *MockProxier) Insecure() {}
 

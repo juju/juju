@@ -25,7 +25,7 @@ type ExternalControllerUpdaterSuite struct {
 }
 
 func (s *ExternalControllerUpdaterSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := externalcontrollerupdater.New(apiCaller)
@@ -33,7 +33,7 @@ func (s *ExternalControllerUpdaterSuite) TestNewClient(c *tc.C) {
 }
 
 func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfo(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "ExternalControllerUpdater")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -66,7 +66,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfo(c *tc.C) {
 }
 
 func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.ExternalControllerInfoResults)) = params.ExternalControllerInfoResults{
 			Results: []params.ExternalControllerInfoResult{{
 				Error: &params.Error{Code: params.CodeNotFound},
@@ -81,7 +81,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *tc.C
 }
 
 func (s *ExternalControllerUpdaterSuite) TestSetExternalControllerInfo(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "ExternalControllerUpdater")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -115,7 +115,7 @@ func (s *ExternalControllerUpdaterSuite) TestSetExternalControllerInfo(c *tc.C) 
 }
 
 func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllers(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "ExternalControllerUpdater")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

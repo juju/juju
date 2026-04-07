@@ -30,7 +30,7 @@ type VolumeParams struct {
 }
 
 // ParseVolumeParams returns a volume param.
-func ParseVolumeParams(name string, size resource.Quantity, storageAttr map[string]interface{}) (*VolumeParams, error) {
+func ParseVolumeParams(name string, size resource.Quantity, storageAttr map[string]any) (*VolumeParams, error) {
 	storageConfig, err := ParseStorageConfig(storageAttr)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid storage configuration for %v", name)
@@ -83,12 +83,12 @@ const (
 )
 
 // ParseStorageConfig returns storage config.
-func ParseStorageConfig(attrs map[string]interface{}) (*StorageConfig, error) {
+func ParseStorageConfig(attrs map[string]any) (*StorageConfig, error) {
 	out, err := storageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage config")
 	}
-	coerced := out.(map[string]interface{})
+	coerced := out.(map[string]any)
 	storageConfig := &StorageConfig{}
 	if storageClassName, ok := coerced[k8sconstants.StorageClass].(string); ok {
 		storageConfig.StorageClass = storageClassName
@@ -124,7 +124,7 @@ var storageModeChecker = schema.FieldMap(
 )
 
 // ParseStorageMode returns k8s persistent volume access mode.
-func ParseStorageMode(attrs map[string]interface{}) (*corev1.PersistentVolumeAccessMode, error) {
+func ParseStorageMode(attrs map[string]any) (*corev1.PersistentVolumeAccessMode, error) {
 	parseMode := func(m string) (*corev1.PersistentVolumeAccessMode, error) {
 		var out corev1.PersistentVolumeAccessMode
 		switch m {
@@ -144,7 +144,7 @@ func ParseStorageMode(attrs map[string]interface{}) (*corev1.PersistentVolumeAcc
 	if err != nil {
 		return nil, errors.Annotate(err, "validating storage mode")
 	}
-	coerced := out.(map[string]interface{})
+	coerced := out.(map[string]any)
 	return parseMode(coerced[k8sconstants.StorageMode].(string))
 }
 

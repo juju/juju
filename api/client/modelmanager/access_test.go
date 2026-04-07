@@ -53,13 +53,13 @@ func checkCall(c *tc.C, objType string, id, request string) {
 	c.Check(request, tc.Equals, "ModifyModelAccess")
 }
 
-func assertRequest(c *tc.C, a interface{}) params.ModifyModelAccessRequest {
+func assertRequest(c *tc.C, a any) params.ModifyModelAccessRequest {
 	req, ok := a.(params.ModifyModelAccessRequest)
 	c.Assert(ok, tc.IsTrue, tc.Commentf("wrong request type"))
 	return req
 }
 
-func assertResponse(c *tc.C, result interface{}) *params.ErrorResults {
+func assertResponse(c *tc.C, result any) *params.ErrorResults {
 	resp, ok := result.(*params.ErrorResults)
 	c.Assert(ok, tc.IsTrue, tc.Commentf("wrong response type"))
 	return resp
@@ -67,7 +67,7 @@ func assertResponse(c *tc.C, result interface{}) *params.ErrorResults {
 
 func (s *accessSuite) readOnlyUser(c *tc.C, action params.ModelAction) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+		func(objType string, version int, id, request string, a, result any) error {
 			checkCall(c, objType, id, request)
 
 			req := assertRequest(c, a)
@@ -96,7 +96,7 @@ func (s *accessSuite) TestRevokeModelAdminUser(c *tc.C) {
 
 func (s *accessSuite) adminUser(c *tc.C, action params.ModelAction) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+		func(objType string, version int, id, request string, a, result any) error {
 			checkCall(c, objType, id, request)
 
 			req := assertRequest(c, a)
@@ -125,7 +125,7 @@ func (s *accessSuite) TestRevokeThreeModels(c *tc.C) {
 
 func (s *accessSuite) threeModels(c *tc.C, action params.ModelAction) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+		func(objType string, version int, id, request string, a, result any) error {
 			checkCall(c, objType, id, request)
 
 			req := assertRequest(c, a)
@@ -156,7 +156,7 @@ func (s *accessSuite) TestRevokeErrorResult(c *tc.C) {
 
 func (s *accessSuite) errorResult(c *tc.C, action params.ModelAction) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+		func(objType string, version int, id, request string, a, result any) error {
 			checkCall(c, objType, id, request)
 
 			req := assertRequest(c, a)
@@ -178,7 +178,7 @@ func (s *accessSuite) errorResult(c *tc.C, action params.ModelAction) {
 
 func (s *accessSuite) TestInvalidResultCount(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, a, result interface{}) error {
+		func(objType string, version int, id, request string, a, result any) error {
 			checkCall(c, objType, id, request)
 			assertRequest(c, a)
 

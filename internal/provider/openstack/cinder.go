@@ -58,12 +58,12 @@ type cinderConfig struct {
 	volumeType string
 }
 
-func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
+func newCinderConfig(attrs map[string]any) (*cinderConfig, error) {
 	out, err := cinderConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating Cinder storage config")
 	}
-	coerced := out.(map[string]interface{})
+	coerced := out.(map[string]any)
 	volumeType, _ := coerced[cinderVolumeType].(string)
 	cinderConfig := &cinderConfig{
 		volumeType: volumeType,
@@ -288,7 +288,7 @@ func (s *cinderVolumeSource) createVolume(
 		return nil, errors.Trace(err)
 	}
 
-	var metadata interface{}
+	var metadata any
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
 	}

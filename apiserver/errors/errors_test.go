@@ -265,8 +265,8 @@ var sampleRedirectError = func() *apiservererrors.RedirectError {
 	}
 }()
 
-func asMap(v interface{}) map[string]interface{} {
-	var m map[string]interface{}
+func asMap(v any) map[string]any {
+	var m map[string]any
 	d, _ := json.Marshal(v)
 	_ = json.Unmarshal(d, &m)
 

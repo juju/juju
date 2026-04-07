@@ -242,7 +242,7 @@ func (s *BaseSuiteUnpatched) NewConfig(c *tc.C, updates testing.Attrs) *config.C
 	return cfg
 }
 
-func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{}) {
+func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]any) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, tc.ErrorIsNil)
 	s.setConfig(c, cfg)
@@ -344,11 +344,11 @@ func NewConfig(cfg *config.Config) *Config {
 	return &Config{ecfg}
 }
 
-func (ecfg *Config) Values(c *tc.C) (ConfigValues, map[string]interface{}) {
+func (ecfg *Config) Values(c *tc.C) (ConfigValues, map[string]any) {
 	c.Assert(ecfg.attrs, tc.DeepEquals, ecfg.UnknownAttrs())
 
 	var values ConfigValues
-	extras := make(map[string]interface{})
+	extras := make(map[string]any)
 	for k, v := range ecfg.attrs {
 		switch k {
 		default:
@@ -358,7 +358,7 @@ func (ecfg *Config) Values(c *tc.C) (ConfigValues, map[string]interface{}) {
 	return values, extras
 }
 
-func (ecfg *Config) Apply(c *tc.C, updates map[string]interface{}) *Config {
+func (ecfg *Config) Apply(c *tc.C, updates map[string]any) *Config {
 	cfg, err := ecfg.Config.Apply(updates)
 	c.Assert(err, tc.ErrorIsNil)
 	return NewConfig(cfg)
@@ -761,7 +761,7 @@ type EnvironSuite struct {
 
 func (s *EnvironSuite) NewEnviron(c *tc.C,
 	srv Server,
-	cfgEdit map[string]interface{},
+	cfgEdit map[string]any,
 	cloudSpec environscloudspec.CloudSpec,
 	invalidator environs.CredentialInvalidator,
 ) environs.Environ {
@@ -793,7 +793,7 @@ func (s *EnvironSuite) NewEnviron(c *tc.C,
 
 func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 	srv ServerFactory,
-	cfgEdit map[string]interface{},
+	cfgEdit map[string]any,
 	invalidator environs.CredentialInvalidator,
 ) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)

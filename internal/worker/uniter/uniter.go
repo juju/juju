@@ -895,7 +895,7 @@ func (u *Uniter) reportHookError(ctx stdcontext.Context, hookInfo hook.Info) err
 	// after attempting a runHookOp.
 	hookName := string(hookInfo.Kind)
 	hookMessage := string(hookInfo.Kind)
-	statusData := map[string]interface{}{}
+	statusData := map[string]any{}
 	if hookInfo.Kind.IsRelation() {
 		statusData["relation-id"] = hookInfo.RelationId
 		if hookInfo.RemoteUnit != "" {
@@ -929,8 +929,8 @@ func (u *Uniter) Terminate() error {
 }
 
 // Report provides information for the engine report.
-func (u *Uniter) Report(ctx stdcontext.Context) map[string]interface{} {
-	result := make(map[string]interface{})
+func (u *Uniter) Report(ctx stdcontext.Context) map[string]any {
+	result := make(map[string]any)
 
 	// We need to guard against attempting to report when setting up or dying,
 	// so we don't end up panic'ing with missing information.

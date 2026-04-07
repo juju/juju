@@ -211,7 +211,7 @@ func (v *mockVolumeAccessor) VolumeParams(_ context.Context, volumes []names.Vol
 			VolumeTag: tag.String(),
 			SizeMiB:   1024,
 			Provider:  "dummy",
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"persistent": tag.String() == "volume-1",
 			},
 			Tags: map[string]string{
@@ -743,7 +743,7 @@ func (s *dummyFilesystemSource) DetachFilesystems(ctx context.Context, params []
 type mockManagedFilesystemSource struct {
 	blockDevices        map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems         map[names.FilesystemTag]storage.Filesystem
-	attachedFilesystems chan interface{}
+	attachedFilesystems chan any
 }
 
 func (s *mockManagedFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {

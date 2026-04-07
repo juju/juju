@@ -37,7 +37,7 @@ func (c Context) isEmpty() bool {
 type CloudConfig struct {
 	Endpoint      string
 	SkipTLSVerify bool
-	Attributes    map[string]interface{}
+	Attributes    map[string]any
 }
 
 // If existing CAAS cloud has Cluster_A and User_A, here's what happens when we try to define a new CAAS cloud:

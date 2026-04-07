@@ -1275,7 +1275,7 @@ func (s *uniterSuite) TestActions(c *tc.C) {
 	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), tagOne.Id()).Return("bar/0", nil)
 	taskOne := operation.TaskArgs{
 		ActionName: "one",
-		Parameters: map[string]interface{}{"foo": "bar"},
+		Parameters: map[string]any{"foo": "bar"},
 	}
 	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagOne.Id()).Return(taskOne, nil)
 
@@ -1283,7 +1283,7 @@ func (s *uniterSuite) TestActions(c *tc.C) {
 	s.operationService.EXPECT().GetReceiverFromTaskID(gomock.Any(), tagTwo.Id()).Return("bar/0", nil)
 	taskTwo := operation.TaskArgs{
 		ActionName: "two",
-		Parameters: map[string]interface{}{"baz": "bar"},
+		Parameters: map[string]any{"baz": "bar"},
 	}
 	s.operationService.EXPECT().GetPendingTaskByTaskID(gomock.Any(), tagTwo.Id()).Return(taskTwo, nil)
 
@@ -1298,11 +1298,11 @@ func (s *uniterSuite) TestActions(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Check(results.Results[0].Action, tc.DeepEquals, &params.Action{
 		Name:       "one",
-		Parameters: map[string]interface{}{"foo": "bar"},
+		Parameters: map[string]any{"foo": "bar"},
 	})
 	c.Check(results.Results[1].Action, tc.DeepEquals, &params.Action{
 		Name:       "two",
-		Parameters: map[string]interface{}{"baz": "bar"},
+		Parameters: map[string]any{"baz": "bar"},
 	})
 }
 

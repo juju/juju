@@ -17,7 +17,7 @@ type Printer interface {
 }
 
 // Log describes a log format function to output to.
-type Log = func(format string, params ...interface{})
+type Log = func(format string, params ...any)
 
 // CharmHubClient represents a CharmHub Client for making queries to the CharmHub API.
 type CharmHubClient interface {

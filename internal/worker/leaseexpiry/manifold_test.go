@@ -92,7 +92,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *manifoldSuite) newGetter() *dt.Getter {
-	return dt.StubGetter(map[string]interface{}{
+	return dt.StubGetter(map[string]any{
 		"clock-name":       clock.WallClock,
 		"db-accessor-name": stubDBGetter{runner: noopTxnRunner{}},
 		"trace-name":       stubTracerGetter{},

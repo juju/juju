@@ -143,7 +143,7 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 	crbApi := resources.NewClusterRoleBinding(s.client.RbacV1().ClusterRoleBindings(), "test", clusterRoleBinding)
 	_, err := crbApi.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -162,7 +162,7 @@ func (s *clusterRoleBindingSuite) TestEnsureClusterRoleBindingRegressionOnLabelC
 
 	crbApi.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -206,7 +206,7 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *tc.C) {
 
 	_, err := clusterRoleBinding.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -246,7 +246,7 @@ func (s *clusterRoleBindingSuite) TestEnsureRecreatesOnRoleRefChange(c *tc.C) {
 
 	_, err = clusterRoleBinding1.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }

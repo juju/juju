@@ -201,7 +201,7 @@ func (s *RESTSuite) TestGet(c *tc.C) {
 
 	client := newHTTPRESTClient(mockHTTPClient)
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(recievedURL, tc.Equals, "http://api.foo.bar")
@@ -216,7 +216,7 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *tc.C) {
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	var result interface{}
+	var result any
 	_, err := client.Get(nil, base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
@@ -232,7 +232,7 @@ func (s *RESTSuite) TestGetWithFailure(c *tc.C) {
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
@@ -254,7 +254,7 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *tc.C) {
 
 	base := MustMakePath(c, server.URL)
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Assert(called, tc.Equals, 3)
@@ -277,7 +277,7 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *tc.C) {
 
 	base := MustMakePath(c, server.URL)
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Assert(called, tc.Equals, 1)
@@ -302,7 +302,7 @@ func (s *RESTSuite) TestGetWithNoRetry(c *tc.C) {
 
 	base := MustMakePath(c, server.URL)
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.Equals, 1)
@@ -319,7 +319,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *tc.C) {
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	var result interface{}
+	var result any
 	_, err := client.Get(c.Context(), base, &result)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }

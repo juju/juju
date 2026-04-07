@@ -191,7 +191,7 @@ func (p k8sProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBack
 }
 
 func cloudSpecToBackendConfig(spec cloudspec.CloudSpec) (*provider.BackendConfig, error) {
-	cfg := map[string]interface{}{
+	cfg := map[string]any{
 		endpointKey: spec.Endpoint,
 		caCertsKey:  spec.CACertificates,
 	}
@@ -283,7 +283,7 @@ func (p k8sProvider) RestrictedConfig(
 		}
 	}
 
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		endpointKey:  endpoint,
 		namespaceKey: cfg.namespace(),
 		caCertsKey:   cfg.caCerts(),
@@ -505,7 +505,7 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 	var out *rbacv1.Role
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			patch := map[string]interface{}{
+			patch := map[string]any{
 				"rules": role.Rules,
 			}
 			data, err := json.Marshal(patch)
@@ -826,7 +826,7 @@ func (k *kubernetesClient) updateClusterRole(ctx context.Context, clusterRole *r
 	var out *rbacv1.ClusterRole
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			patch := map[string]interface{}{
+			patch := map[string]any{
 				"rules": clusterRole.Rules,
 			}
 			data, err := json.Marshal(patch)

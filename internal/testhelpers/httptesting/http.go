@@ -56,7 +56,7 @@ type JSONCallParams struct {
 	// be ignored and the Content-Type header will
 	// be set to application/json. The request
 	// body will implement io.Seeker.
-	JSONBody interface{}
+	JSONBody any
 
 	// Body holds the body to send in the request.
 	Body io.Reader
@@ -84,7 +84,7 @@ type JSONCallParams struct {
 	// This may be a function of type BodyAsserter in which case it
 	// will be called with the http response body to check the
 	// result.
-	ExpectBody interface{}
+	ExpectBody any
 
 	// ExpectHeader holds any HTTP headers that must be present in the response.
 	// Note that the response may also contain headers not in this field.
@@ -129,7 +129,7 @@ func AssertJSONCall(c *tc.C, p JSONCallParams) {
 // recorded the given HTTP status, response body and content type. If
 // expectBody is of type BodyAsserter it will be called with the response
 // body to ensure the response is correct.
-func AssertJSONResponse(c *tc.C, rec *httptest.ResponseRecorder, expectStatus int, expectBody interface{}) {
+func AssertJSONResponse(c *tc.C, rec *httptest.ResponseRecorder, expectStatus int, expectBody any) {
 	c.Assert(rec.Code, tc.Equals, expectStatus, tc.Commentf("body: %s", rec.Body.Bytes()))
 
 	// Ensure the response includes the expected body.
@@ -187,7 +187,7 @@ type DoRequestParams struct {
 	// be ignored and the Content-Type header will
 	// be set to application/json. The request
 	// body will implement io.Seeker.
-	JSONBody interface{}
+	JSONBody any
 
 	// Body holds the body to send in the request.
 	Body io.Reader

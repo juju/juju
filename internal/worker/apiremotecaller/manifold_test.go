@@ -51,7 +51,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 
@@ -61,7 +61,7 @@ func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":                 &fakeAgent{missingAPIinfo: true},
 		"object-store-services": objectStoreServices{},
 	})
@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 		return &fakeWorker{}, nil
 	}
 
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":                 &fakeAgent{tag: names.NewMachineTag("42")},
 		"object-store-services": objectStoreServices{},
 	})

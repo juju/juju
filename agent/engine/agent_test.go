@@ -54,7 +54,7 @@ func (s *AgentManifoldSuite) TestOutput(c *tc.C) {
 }
 
 func (s *AgentManifoldSuite) TestStartAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": dependency.ErrMissing,
 	})
 
@@ -65,7 +65,7 @@ func (s *AgentManifoldSuite) TestStartAgentMissing(c *tc.C) {
 
 func (s *AgentManifoldSuite) TestStartFailure(c *tc.C) {
 	expectAgent := &dummyAgent{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": expectAgent,
 	})
 	s.SetErrors(errors.New("some error"))
@@ -75,13 +75,13 @@ func (s *AgentManifoldSuite) TestStartFailure(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAgent},
+		Args:     []any{expectAgent},
 	}})
 }
 
 func (s *AgentManifoldSuite) TestStartSuccess(c *tc.C) {
 	expectAgent := &dummyAgent{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": expectAgent,
 	})
 
@@ -90,6 +90,6 @@ func (s *AgentManifoldSuite) TestStartSuccess(c *tc.C) {
 	c.Check(worker, tc.Equals, s.worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectAgent},
+		Args:     []any{expectAgent},
 	}})
 }

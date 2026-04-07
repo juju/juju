@@ -17,13 +17,13 @@ import (
 )
 
 var (
-	loginDeviceAPICall = func(ctx context.Context, caller base.APICaller, request interface{}, response interface{}) error {
+	loginDeviceAPICall = func(ctx context.Context, caller base.APICaller, request any, response any) error {
 		return caller.APICall(ctx, "Admin", 4, "", "LoginDevice", request, response)
 	}
-	getDeviceSessionTokenAPICall = func(ctx context.Context, caller base.APICaller, request interface{}, response interface{}) error {
+	getDeviceSessionTokenAPICall = func(ctx context.Context, caller base.APICaller, request any, response any) error {
 		return caller.APICall(ctx, "Admin", 4, "", "GetDeviceSessionToken", request, response)
 	}
-	loginWithSessionTokenAPICall = func(ctx context.Context, caller base.APICaller, request interface{}, response interface{}) error {
+	loginWithSessionTokenAPICall = func(ctx context.Context, caller base.APICaller, request any, response any) error {
 		return caller.APICall(ctx, "Admin", 4, "", "LoginWithSessionToken", request, response)
 	}
 )

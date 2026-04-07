@@ -20,9 +20,9 @@ func TestFieldsSuite(t *testing.T) {
 
 type valueTest struct {
 	about       string
-	val         interface{}
+	val         any
 	expectError string
-	expectVal   interface{}
+	expectVal   any
 }
 
 var validationSchemaTests = []struct {
@@ -55,33 +55,33 @@ var validationSchemaTests = []struct {
 	},
 	tests: []valueTest{{
 		about: "all fields ok",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"stringvalue":           "hello",
 			"mandatory-stringvalue": "goodbye",
 			"intvalue":              320.0,
 			"boolvalue":             true,
 			"attrvalue":             "a=b c=d",
-			"listvalue":             []interface{}{"a", "b", "c"},
+			"listvalue":             []any{"a", "b", "c"},
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"stringvalue":           "hello",
 			"intvalue":              320,
 			"mandatory-stringvalue": "goodbye",
 			"boolvalue":             true,
 			"attrvalue":             map[string]string{"a": "b", "c": "d"},
-			"listvalue":             []interface{}{"a", "b", "c"},
+			"listvalue":             []any{"a", "b", "c"},
 		},
 	}, {
 		about: "non-mandatory fields missing",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 		},
 	}, {
 		about: "wrong type for string",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"stringvalue":           123,
 			"mandatory-stringvalue": "goodbye",
 			"intvalue":              0,
@@ -90,72 +90,72 @@ var validationSchemaTests = []struct {
 		expectError: `stringvalue: expected string, got int\(123\)`,
 	}, {
 		about: "int value specified as string",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"intvalue":              "100",
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"intvalue":              100,
 			"mandatory-stringvalue": "goodbye",
 		},
 	}, {
 		about: "wrong type for int value",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"intvalue":              false,
 		},
 		expectError: `intvalue: expected number, got bool\(false\)`,
 	}, {
 		about: "attr type specified as list",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
-			"attrvalue":             []interface{}{"a=b", "c=d"},
+			"attrvalue":             []any{"a=b", "c=d"},
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"attrvalue":             map[string]string{"a": "b", "c": "d"},
 		},
 	}, {
 		about: "attr type specified as map",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
-			"attrvalue":             map[interface{}]interface{}{"a": "b", "c": "d"},
+			"attrvalue":             map[any]any{"a": "b", "c": "d"},
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"attrvalue":             map[string]string{"a": "b", "c": "d"},
 		},
 	}, {
 		about: "invalid attrs string value",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"attrvalue":             "a=b d f=gh",
 		},
 		expectError: `attrvalue: expected "key=value", got "d"`,
 	}, {
 		about: "invalid attrs list value",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
-			"attrvalue":             []interface{}{"a=b d", "f"},
+			"attrvalue":             []any{"a=b d", "f"},
 		},
 		expectError: `attrvalue: expected "key=value", got "f"`,
 	}, {
 		about: "attrs list element not coercable",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
-			"attrvalue":             []interface{}{"a=b d", 123.45},
+			"attrvalue":             []any{"a=b d", 123.45},
 		},
 		expectError: `attrvalue\[1\]: expected string, got float64\(123\.45\)`,
 	}, {
 		about: "attrs map element not coercable",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
-			"attrvalue":             map[interface{}]interface{}{"a": 123, "c": "d"},
+			"attrvalue":             map[any]any{"a": 123, "c": "d"},
 		},
 		expectError: `attrvalue\.a: expected string, got int\(123\)`,
 	}, {
 		about: "unexpected attrs type",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"mandatory-stringvalue": "goodbye",
 			"attrvalue":             123.45,
 		},
@@ -166,47 +166,47 @@ var validationSchemaTests = []struct {
 	fields: configschema.Fields{
 		"enumstring": {
 			Type:   configschema.Tstring,
-			Values: []interface{}{"a", "b"},
+			Values: []any{"a", "b"},
 		},
 		"enumint": {
 			Type:   configschema.Tint,
-			Values: []interface{}{10, "20"},
+			Values: []any{10, "20"},
 		},
 	},
 	tests: []valueTest{{
 		about: "all fields ok",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"enumstring": "a",
 			"enumint":    20,
 		},
-		expectVal: map[string]interface{}{
+		expectVal: map[string]any{
 			"enumstring": "a",
 			"enumint":    20,
 		},
 	}, {
 		about: "string value not in values",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"enumstring": "wrong",
 			"enumint":    20,
 		},
 		expectError: `enumstring: expected one of \[a b\], got "wrong"`,
 	}, {
 		about: "int value not in values",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"enumstring": "b",
 			"enumint":    "5",
 		},
 		expectError: `enumint: expected one of \[10 20\], got 5`,
 	}, {
 		about: "invalid type for string value",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"enumstring": 123,
 			"enumint":    10,
 		},
 		expectError: `enumstring: expected string, got int\(123\)`,
 	}, {
 		about: "invalid type for int value",
-		val: map[string]interface{}{
+		val: map[string]any{
 			"enumstring": "b",
 			"enumint":    false,
 		},

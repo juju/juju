@@ -247,7 +247,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	}()
 
 	reg, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			objPod, valid := obj.(*corev1.Pod)
 			if !valid {
 				select {
@@ -264,7 +264,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 				}
 			}
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj any) {
 			objPod, valid := newObj.(*corev1.Pod)
 			if !valid {
 				select {
@@ -281,7 +281,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 				}
 			}
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			pod, valid := obj.(*corev1.Pod)
 			if !valid {
 				select {

@@ -132,7 +132,7 @@ func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (wo
 	return w, errors.Trace(err)
 }
 
-func (s *manifoldState) output(in worker.Worker, out interface{}) error {
+func (s *manifoldState) output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}

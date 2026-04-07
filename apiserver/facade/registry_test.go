@@ -24,7 +24,7 @@ func TestRegistrySuite(t *stdtesting.T) {
 }
 
 var (
-	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
+	interfaceType = reflect.TypeFor[any]()
 	intPtrType    = reflect.TypeFor[*int]()
 )
 

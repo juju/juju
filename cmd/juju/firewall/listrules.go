@@ -87,7 +87,7 @@ func (c *listFirewallRulesCommand) Init(args []string) (err error) {
 // ListFirewallRulesAPI defines the API methods that the list firewall rules command uses.
 type ListFirewallRulesAPI interface {
 	Close() error
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 }
 
 // Run implements cmd.Command.

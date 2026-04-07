@@ -456,7 +456,7 @@ func (s *importSuite) TestImportFilesystemsCAAS(c *tc.C) {
 	// Arrange
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.CAAS.String(),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "moveme",
 		},
 	})

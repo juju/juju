@@ -697,7 +697,7 @@ func (s *addCredentialSuite) assertAddCredentialWithOptions(c *tc.C, input strin
 			{
 				"username", jujucloud.CredentialAttr{Optional: false},
 			}, {
-				"algorithm", jujucloud.CredentialAttr{Options: []interface{}{"optionA", "optionB"}},
+				"algorithm", jujucloud.CredentialAttr{Options: []any{"optionA", "optionB"}},
 			},
 		},
 	}

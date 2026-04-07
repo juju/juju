@@ -111,7 +111,7 @@ var cloudSchema = &jsonschema.Schema{
 			Items: &jsonschema.ItemSpec{
 				Schemas: []*jsonschema.Schema{{
 					Type: []jsonschema.Type{jsonschema.StringType},
-					Enum: []interface{}{
+					Enum: []any{
 						string(cloud.AccessKeyAuthType),
 						string(cloud.UserPassAuthType),
 					},

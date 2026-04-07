@@ -80,7 +80,7 @@ func (s *LoopSuite) TestAbort(c *tc.C) {
 }
 
 func (s *LoopSuite) TestOnIdle(c *tc.C) {
-	onIdleCh := make(chan interface{}, 1)
+	onIdleCh := make(chan any, 1)
 	s.onIdle = func() error {
 		onIdleCh <- nil
 		return nil
@@ -91,7 +91,7 @@ func (s *LoopSuite) TestOnIdle(c *tc.C) {
 
 	loopFn := s.loop(c)
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 	go func() {
 		_, err := loopFn(ctx)
 		done <- err
@@ -504,7 +504,7 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *tc.C) {
 	c.Assert(err, tc.Equals, resolver.ErrRestart)
 }
 
-func waitChannel(c *tc.C, ch <-chan interface{}, activity string) interface{} {
+func waitChannel(c *tc.C, ch <-chan any, activity string) any {
 	select {
 	case v := <-ch:
 		return v

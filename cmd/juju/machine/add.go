@@ -220,7 +220,7 @@ func (c *addCommand) Init(args []string) error {
 }
 
 type ModelConfigAPI interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 	Close() error
 }
 

@@ -577,7 +577,7 @@ func (s *cloudinitSuite) TestCloudInit(c *tc.C) {
 		data, err := ci.RenderYAML()
 		c.Assert(err, tc.ErrorIsNil)
 
-		configKeyValues := make(map[interface{}]interface{})
+		configKeyValues := make(map[any]any)
 		err = goyaml.Unmarshal(data, &configKeyValues)
 		c.Assert(err, tc.ErrorIsNil)
 
@@ -626,7 +626,7 @@ func checkCloudInitWithContent(c *tc.C, cfg *testInstanceConfig, expectedScripts
 	data, err := ci.RenderYAML()
 	c.Assert(err, tc.ErrorIsNil)
 
-	configKeyValues := make(map[interface{}]interface{})
+	configKeyValues := make(map[any]any)
 	err = goyaml.Unmarshal(data, &configKeyValues)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -695,7 +695,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *tc.C) {
 
 func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		config.CloudInitUserDataKey: validCloudInitUserData,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -737,12 +737,12 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *tc.C) {
 	// cloudconfig doesn't have public access to all attrs.
 	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, tc.ErrorIsNil)
-	ciContent := make(map[interface{}]interface{})
+	ciContent := make(map[any]any)
 	err = goyaml.Unmarshal(data, &ciContent)
 	c.Assert(err, tc.ErrorIsNil)
-	testCmd, ok := ciContent["test-key"].([]interface{})
+	testCmd, ok := ciContent["test-key"].([]any)
 	c.Assert(ok, tc.IsTrue)
-	c.Check(testCmd, tc.DeepEquals, []interface{}{"test line one"})
+	c.Check(testCmd, tc.DeepEquals, []any{"test line one"})
 }
 
 var validCloudInitUserData = `
@@ -774,7 +774,7 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *tc.C) []string {
 	c.Assert(err, tc.ErrorIsNil)
 	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, tc.ErrorIsNil)
-	configKeyValues := make(map[interface{}]interface{})
+	configKeyValues := make(map[any]any)
 	err = goyaml.Unmarshal(data, &configKeyValues)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -789,7 +789,7 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *tc.C) []string {
 
 func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		config.CloudInitUserDataKey: `
 preruncmd:
   - 42
@@ -807,7 +807,7 @@ preruncmd:
 
 func (s *cloudinitSuite) TestCloudInitPostruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		config.CloudInitUserDataKey: `
 postruncmd:
   - ["foo", 3.14]
@@ -851,23 +851,23 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
 	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, tc.ErrorIsNil)
 
-	ciContent := make(map[interface{}]interface{})
+	ciContent := make(map[any]any)
 	err = goyaml.Unmarshal(data, &ciContent)
 	c.Assert(err, tc.ErrorIsNil)
 	// The 'runcmd' statement is at the beginning of the list
 	// of 'runcmd' statements.
-	runCmd := ciContent["runcmd"].([]interface{})
+	runCmd := ciContent["runcmd"].([]any)
 	c.Check(runCmd[0], tc.Equals, script)
 }
 
-func getScripts(configKeyValue map[interface{}]interface{}) []string {
+func getScripts(configKeyValue map[any]any) []string {
 	var scripts []string
 	if bootcmds, ok := configKeyValue["bootcmd"]; ok {
-		for _, s := range bootcmds.([]interface{}) {
+		for _, s := range bootcmds.([]any) {
 			scripts = append(scripts, s.(string))
 		}
 	}
-	for _, s := range configKeyValue["runcmd"].([]interface{}) {
+	for _, s := range configKeyValue["runcmd"].([]any) {
 		scripts = append(scripts, s.(string))
 	}
 	return scripts
@@ -932,7 +932,7 @@ func assertScriptMatch(c *tc.C, got []string, expect string, exact bool) {
 
 // checkPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.
-func checkPackage(c *tc.C, x map[interface{}]interface{}, pkg string, match bool) {
+func checkPackage(c *tc.C, x map[any]any, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -941,7 +941,7 @@ func checkPackage(c *tc.C, x map[interface{}]interface{}, pkg string, match bool
 		return
 	}
 
-	pkgs := pkgs0.([]interface{})
+	pkgs := pkgs0.([]any)
 
 	found := false
 	for _, p0 := range pkgs {
@@ -1131,7 +1131,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *tc.C) {
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1150,7 +1150,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *tc.C) {
 
 func (s *cloudinitSuite) TestProxyWritten(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		"http-proxy": "http://user@10.0.0.1",
 		"no-proxy":   "localhost,10.0.3.1",
 	})
@@ -1238,7 +1238,7 @@ func assertCommandsContain(c *tc.C, runCmds []string, str string) {
 
 func (s *cloudinitSuite) TestAptMirror(c *tc.C) {
 	environConfig := minimalModelConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
+	environConfig, err := environConfig.Apply(map[string]any{
 		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1314,8 +1314,8 @@ done`
 	c.Assert(command, tc.Equals, expected)
 }
 
-func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
-	user := map[string]interface{}{
+func expectedUbuntuUser(groups, keys []string) map[string]any {
+	user := map[string]any{
 		"name":        "ubuntu",
 		"lock_passwd": true,
 		"shell":       "/bin/bash",
@@ -1327,8 +1327,8 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 	if keys != nil {
 		user["ssh_authorized_keys"] = keys
 	}
-	return map[string]interface{}{
-		"users": []map[string]interface{}{user},
+	return map[string]any{
+		"users": []map[string]any{user},
 	}
 }
 
@@ -1362,10 +1362,10 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *tc.C) {
 	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, tc.ErrorIsNil)
 
-	configKeyValues := make(map[interface{}]interface{})
+	configKeyValues := make(map[any]any)
 	err = goyaml.Unmarshal(data, &configKeyValues)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(configKeyValues["ssh_keys"], tc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(configKeyValues["ssh_keys"], tc.DeepEquals, map[any]any{
 		"rsa_private": "private",
 		"rsa_public":  "public",
 	})

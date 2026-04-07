@@ -89,7 +89,7 @@ func (c *listSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
-		"tabular": func(writer io.Writer, value interface{}) error {
+		"tabular": func(writer io.Writer, value any) error {
 			return formatSecretsTabular(writer, value)
 		},
 	})
@@ -262,7 +262,7 @@ func gatherSecretInfo(
 }
 
 // formatSecretsTabular writes a tabular summary of secret information.
-func formatSecretsTabular(writer io.Writer, value interface{}) error {
+func formatSecretsTabular(writer io.Writer, value any) error {
 	result, ok := value.(map[string]secretDisplayDetails)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", result, value)

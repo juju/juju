@@ -197,7 +197,7 @@ func (c *findCommand) output(ctx *cmd.Context, results []transport.FindResponse,
 	return nil
 }
 
-func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
+func (c *findCommand) formatter(writer io.Writer, value any) error {
 	results, ok := value.([]FindResponse)
 	if !ok {
 		return errors.Errorf("unexpected results")

@@ -23,7 +23,7 @@ var RunAsUser = "ubuntu"
 
 // HandleAction receives a name and a map of parameters for a given machine action.
 // It will handle that action in a specific way and return a results map suitable for ActionFinish.
-func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
+func HandleAction(name string, params map[string]any) (results map[string]any, err error) {
 	spec, ok := coreoperation.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("unexpected action %s", name)
@@ -39,7 +39,7 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 	}
 }
 
-func handleJujuExecAction(params map[string]interface{}) (results map[string]interface{}, err error) {
+func handleJujuExecAction(params map[string]any) (results map[string]any, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
 	logger.Tracef(context.TODO(), "juju run %q", command)
@@ -53,7 +53,7 @@ func handleJujuExecAction(params map[string]interface{}) (results map[string]int
 		return nil, errors.Trace(err)
 	}
 
-	actionResults := map[string]interface{}{}
+	actionResults := map[string]any{}
 	actionResults["return-code"] = res.Code
 	storeOutput(actionResults, "stdout", res.Stdout)
 	storeOutput(actionResults, "stderr", res.Stderr)
@@ -97,7 +97,7 @@ func encodeBytes(input []byte) (value string, encoding string) {
 	return value, encoding
 }
 
-func storeOutput(values map[string]interface{}, key string, input []byte) {
+func storeOutput(values map[string]any, key string, input []byte) {
 	value, encoding := encodeBytes(input)
 	values[key] = value
 	if encoding != "utf8" {

@@ -45,7 +45,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestStartMissingDomainServices(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		domainServicesName: dependency.ErrMissing,
 	})
 

@@ -45,7 +45,7 @@ func (s *SnapSuite) TestInstallWithMountFailure(c *tc.C) {
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
 	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(1) // retry each time.
 	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
@@ -70,7 +70,7 @@ func (s *SnapSuite) TestInstallWithUDevFailure(c *tc.C) {
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
 	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(2) // retry each time.
 	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
@@ -96,7 +96,7 @@ func (s *SnapSuite) TestInstallWithFailureAndNonMatchingOutput(c *tc.C) {
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
 	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(1) // retry each time.
 	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
@@ -123,7 +123,7 @@ func (s *SnapSuite) TestInstallWithoutFailure(c *tc.C) {
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
 	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(0) // retry each time.
 	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
@@ -149,7 +149,7 @@ func (s *SnapSuite) TestInstallWithDNSFailure(c *tc.C) {
 	cmdError := &exec.ExitError{ProcessState: &state}
 	s.PatchValue(&manager.SnapAttempts, minRetries)
 	s.PatchValue(&manager.SnapDelay, testhelpers.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(100) // retry each time.
 	})
 	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
@@ -289,7 +289,7 @@ func (s *SnapSuite) TestChangeChannelForNotInstalledSnap(c *tc.C) {
 
 func (s *SnapSuite) mockExitError(code int) error {
 	err := &exec.ExitError{ProcessState: new(os.ProcessState)}
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
+	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) any {
 		return mockExitStatuser(code)
 	})
 	return err

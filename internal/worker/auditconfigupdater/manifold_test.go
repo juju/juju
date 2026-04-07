@@ -76,7 +76,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
-	resources := map[string]interface{}{
+	resources := map[string]any{
 		"agent":           s.agent,
 		"domain-services": &stubDomainServicesGetter{},
 	}

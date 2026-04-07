@@ -290,7 +290,7 @@ func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_ClientCredentials(c *tc.C) {
 			request,
 			gomock.Any(),
 		).
-		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, response any) error {
 			if r, ok := response.(*params.LoginResult); ok {
 				// Set server version so the login calls NewLoginResultParams can succeed.
 				r.ServerVersion = "3.6.9"
@@ -471,7 +471,7 @@ func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_TriesInOrder(c *tc.C) {
 			request,
 			gomock.Any(),
 		).
-		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, response any) error {
 			return errors.New("unauthorised") // Simulate a failed client credential login.
 		})
 
@@ -486,7 +486,7 @@ func (s *BaseCommandSuite) TestNewAPIRoot_OIDCLogin_TriesInOrder(c *tc.C) {
 			gomock.Any(),
 			gomock.Any(),
 		).
-		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, response interface{}) error {
+		DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, response any) error {
 			return errors.New("session token unauthorised")
 		})
 
@@ -509,7 +509,7 @@ func (s *NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *tc.C) {
 		Cloud:               "cloud",
 		CloudType:           "cloud-type",
 		ControllerModelUUID: coretesting.ModelTag.Id(),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"name":           "foo",
 			"type":           "cloud-type",
 			"secret-backend": "auto",
@@ -535,7 +535,7 @@ func (s *NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *tc.C) {
 		Cloud:               "cloud",
 		CloudType:           "cloud-type",
 		ControllerModelUUID: coretesting.ModelTag.Id(),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"name":           "foo",
 			"type":           "cloud-type",
 			"secret-backend": "auto",

@@ -870,7 +870,7 @@ type syntheticCharmMatcher struct {
 	expectedApps []RemoteApplicationImport
 }
 
-func (m syntheticCharmMatcher) Matches(x interface{}) bool {
+func (m syntheticCharmMatcher) Matches(x any) bool {
 	var actual []crossmodelrelation.RemoteApplicationImport
 	switch v := x.(type) {
 	case []crossmodelrelation.RemoteApplicationOffererImport:

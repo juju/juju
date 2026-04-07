@@ -28,14 +28,14 @@ func (c *ItemCollection) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	c.rawItems = raw.Items
-	c.Items = make(map[string]interface{}, len(raw.Items))
+	c.Items = make(map[string]any, len(raw.Items))
 	c.Arch = raw.Arch
 	c.Version = raw.Version
 	c.Release = raw.Release
 	c.RegionName = raw.RegionName
 	c.Endpoint = raw.Endpoint
 	for key, rawv := range raw.Items {
-		var v interface{}
+		var v any
 		if err := json.Unmarshal(*rawv, &v); err != nil {
 			return err
 		}

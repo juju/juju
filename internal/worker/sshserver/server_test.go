@@ -283,7 +283,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	defer workertest.DirtyKill(c, worker)
 
 	report := worker.(*ServerWorker).Report(c.Context())
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"concurrent_connections": int32(0),
 	})
 
@@ -299,7 +299,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	defer func() { _ = client.Close() }()
 
 	report = worker.(*ServerWorker).Report(c.Context())
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"concurrent_connections": int32(1),
 	})
 }

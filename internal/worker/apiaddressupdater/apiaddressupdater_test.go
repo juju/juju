@@ -101,7 +101,7 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *tc.C, ctrl *gomock.Contr
 	reporter, ok := w.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
 	report := reporter.Report(c.Context())["handler"]
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
 	})
 	return w, client, ch

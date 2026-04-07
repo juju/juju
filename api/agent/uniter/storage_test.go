@@ -32,7 +32,7 @@ func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 	}}
 
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -60,7 +60,7 @@ func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 
 func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -84,7 +84,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *tc.C) {
 }
 
 func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.StorageAttachmentIdsResults)) = params.StorageAttachmentIdsResults{
 			[]params.StorageAttachmentIdsResult{{}, {}},
 		}
@@ -97,7 +97,7 @@ func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *tc.C) {
 }
 
 func (s *storageSuite) TestAPIErrors(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("bad")
 	})
 	caller := testing.BestVersionCaller{apiCaller, 2}
@@ -108,7 +108,7 @@ func (s *storageSuite) TestAPIErrors(c *tc.C) {
 
 func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -135,7 +135,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *tc.C) {
 
 func (s *storageSuite) TestWatchStorageAttachments(c *tc.C) {
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -173,7 +173,7 @@ func (s *storageSuite) TestStorageAttachments(c *tc.C) {
 	}
 
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -203,7 +203,7 @@ func (s *storageSuite) TestStorageAttachments(c *tc.C) {
 }
 
 func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")
@@ -234,7 +234,7 @@ func (s *storageSuite) TestStorageAttachmentLife(c *tc.C) {
 }
 
 func (s *storageSuite) TestRemoveStorageAttachment(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 2)
 		c.Check(id, tc.Equals, "")

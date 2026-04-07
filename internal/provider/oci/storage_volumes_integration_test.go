@@ -39,7 +39,7 @@ func (s *storageVolumeSuite) SetUpTest(c *tc.C) {
 
 func (s *storageVolumeSuite) newVolumeSource(c *tc.C) storage.VolumeSource {
 	cfg, err := storage.NewConfig("iscsi", oci.OciStorageProviderType,
-		map[string]interface{}{
+		map[string]any{
 			oci.OciVolumeType: oci.IscsiPool,
 		})
 	c.Assert(err, tc.IsNil)

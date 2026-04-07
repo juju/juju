@@ -209,7 +209,7 @@ func (s *ConfigCommandSuite) TestSetAndReset(c *tc.C) {
 	_, err := s.run(c, "--reset", "special", "foo=bar")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(s.fake.resetKeys, tc.DeepEquals, []string{"special"})
-	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
+	c.Check(s.fake.values, tc.DeepEquals, map[string]any{
 		"name":    "test-model",
 		"special": "special value",
 		"running": true,
@@ -229,7 +229,7 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *tc.C) {
 
 	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, tc.ErrorIsNil)
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
@@ -249,7 +249,7 @@ func (s *ConfigCommandSuite) TestSetFromStdin(c *tc.C) {
 	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
 	c.Assert(stderr, tc.Equals, "")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
@@ -269,7 +269,7 @@ special:
 
 	_, err = s.run(c, "--file", configFile)
 	c.Assert(err, tc.ErrorIsNil)
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
@@ -285,7 +285,7 @@ func (s *ConfigCommandSuite) TestSetFromFileCombined(c *tc.C) {
 
 	_, err = s.run(c, "--file", configFile, "unknown=foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
+	c.Check(s.fake.values, tc.DeepEquals, map[string]any{
 		"special": "extra", "unknown": "foo",
 		"name":    "test-model",
 		"running": true,
@@ -300,7 +300,7 @@ func (s *ConfigCommandSuite) TestSetFromFileCombinedReset(c *tc.C) {
 
 	_, err = s.run(c, "--file", configFile, "--reset", "special,name")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(s.fake.values, tc.DeepEquals, map[string]interface{}{
+	c.Check(s.fake.values, tc.DeepEquals, map[string]any{
 		"special": "extra",
 		"name":    "test-model",
 		"running": true,
@@ -312,7 +312,7 @@ func (s *ConfigCommandSuite) TestSetFromFileCombinedReset(c *tc.C) {
 func (s *ConfigCommandSuite) TestPassesValues(c *tc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, tc.ErrorIsNil)
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"special": "extra",
 		"unknown": "foo",
 		"name":    "test-model",

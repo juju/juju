@@ -45,7 +45,7 @@ func (*FlagSuite) TestManifoldOutputBadWorker(c *tc.C) {
 func (*FlagSuite) TestManifoldOutputBadTarget(c *tc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
 	in := &gate.Flag{}
-	var out interface{}
+	var out any
 	err := manifold.Output(in, &out)
 	c.Check(err, tc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
 	c.Check(out, tc.IsNil)
@@ -80,7 +80,7 @@ func (*FlagSuite) TestManifoldFilterLeavesNil(c *tc.C) {
 }
 
 func (*FlagSuite) TestManifoldStartGateMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"some-gate": dependency.ErrMissing,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
@@ -93,7 +93,7 @@ func (*FlagSuite) TestManifoldStartGateMissing(c *tc.C) {
 
 func (*FlagSuite) TestManifoldStartError(c *tc.C) {
 	expect := &dummyWaiter{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"some-gate": expect,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
@@ -109,7 +109,7 @@ func (*FlagSuite) TestManifoldStartError(c *tc.C) {
 }
 
 func (*FlagSuite) TestManifoldStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"some-gate": &dummyWaiter{},
 	})
 	expect := &dummyWorker{}

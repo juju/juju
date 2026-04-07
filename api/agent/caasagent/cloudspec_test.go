@@ -26,7 +26,7 @@ type ClientSuite struct {
 
 func (s *ClientSuite) TestWatchCloudSpecChanges(c *tc.C) {
 	called := false
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		// We might get a second call to "Next" but
 		// we don't care.
 		if called {

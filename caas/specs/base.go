@@ -36,7 +36,7 @@ type ImageDetails struct {
 type PullPolicy string
 
 // ContainerConfig describes the config used for setting up a pod container's environment variables.
-type ContainerConfig map[string]interface{}
+type ContainerConfig map[string]any
 
 // ContainerSpecV2 defines the data values used to configure
 // a container on the CAAS substrate.

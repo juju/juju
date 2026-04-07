@@ -44,12 +44,12 @@ func (info *ImageInfo) UnmarshalJSON(data []byte) (err error) {
 }
 
 // MarshalYAML implements yaml.v2.Marshaller interface.
-func (info ImageInfo) MarshalYAML() (interface{}, error) {
+func (info ImageInfo) MarshalYAML() (any, error) {
 	return info.String(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaller interface.
-func (info *ImageInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (info *ImageInfo) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	err := unmarshal(&s)
 	if err != nil {

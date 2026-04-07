@@ -24,7 +24,7 @@ const (
 )
 
 // Attrs defines storage attributes.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 // Config defines the configuration for a storage source.
 type Config struct {

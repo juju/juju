@@ -730,8 +730,8 @@ func (s *diffSuite) TestApplicationOptions(c *tc.C) {
 				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
-				Options: map[string]interface{}{
-					"griffin": []interface{}{"shoes", "undies"},
+				Options: map[string]any{
+					"griffin": []any{"shoes", "undies"},
 					"justin":  "tshirt",
 					"clint":   "scarf",
 				},

@@ -73,8 +73,8 @@ func (f *fakeApplicationAddUnitAPI) ScaleApplication(ctx context.Context, args a
 	return params.ScaleApplicationResult{}, nil
 }
 
-func (f *fakeApplicationAddUnitAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+func (f *fakeApplicationAddUnitAPI) ModelGet(ctx context.Context) (map[string]any, error) {
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"type": f.envType,
 		"name": "dummy",
 	})

@@ -25,7 +25,7 @@ type SecretBackend struct {
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
-	Config              map[string]interface{}
+	Config              map[string]any
 }
 
 // ValueRef represents a reference to a secret

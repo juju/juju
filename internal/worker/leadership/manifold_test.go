@@ -56,7 +56,7 @@ func (s *ManifoldSuite) TestStartClockMissing(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      dependency.ErrMissing,
 		"api-caller-name": &dummyAPICaller{},
 	})
@@ -67,7 +67,7 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      dummyAgent,
 		"api-caller-name": dummyAPICaller,
 	})
@@ -94,14 +94,14 @@ func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "blammo")
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newManifoldWorker",
-		Args:     []interface{}{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
+		Args:     []any{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      dummyAgent,
 		"api-caller-name": dummyAPICaller,
 	})
@@ -116,12 +116,12 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	c.Check(worker, tc.Equals, dummyWorker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "newManifoldWorker",
-		Args:     []interface{}{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
+		Args:     []any{dummyAgent, dummyAPICaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
-	var target interface{}
+	var target any
 	err := s.manifold.Output(&leadership.Tracker{}, &target)
 	c.Check(target, tc.IsNil)
 	c.Check(err.Error(), tc.Equals, "expected *leadership.[Change]Tracker output; got *interface {}")

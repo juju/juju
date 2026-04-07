@@ -117,7 +117,7 @@ func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
 }
 
 func (f *testNodeManager) WithLogFuncOption() app.Option {
-	return app.WithLogFunc(func(_ client.LogLevel, msg string, args ...interface{}) {
+	return app.WithLogFunc(func(_ client.LogLevel, msg string, args ...any) {
 		f.c.Logf(msg, args...)
 	})
 }

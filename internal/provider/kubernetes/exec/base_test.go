@@ -134,6 +134,6 @@ func (m *suiteMocks) RemoteCmdExecutorGetter(config *rest.Config, method string,
 	return ret0, ret1
 }
 
-func (mr *suiteMocksRecorder) RemoteCmdExecutorGetter(config interface{}, method interface{}, url interface{}) *gomock.Call {
+func (mr *suiteMocksRecorder) RemoteCmdExecutorGetter(config any, method any, url any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteCmdExecutorGetter", reflect.TypeOf((*suiteMocks)(nil).RemoteCmdExecutorGetter), config, method, url)
 }

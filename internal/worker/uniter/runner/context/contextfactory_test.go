@@ -263,7 +263,7 @@ func (s *ContextFactorySuite) TestActionContext(c *tc.C) {
 		Name:       action.Name(),
 		Tag:        names.NewActionTag(action.ID()),
 		Params:     action.Params(),
-		ResultsMap: map[string]interface{}{},
+		ResultsMap: map[string]any{},
 	}
 
 	ctx, err := s.factory.ActionContext(c.Context(), actionData)

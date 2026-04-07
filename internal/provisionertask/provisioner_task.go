@@ -889,7 +889,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Trace(err)
 	}
 
-	instanceConfig.ControllerConfig = make(map[string]interface{})
+	instanceConfig.ControllerConfig = make(map[string]any)
 	maps.Copy(instanceConfig.ControllerConfig, pInfo.ControllerConfig)
 
 	instanceConfig.Tags = pInfo.Tags

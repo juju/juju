@@ -60,7 +60,7 @@ type APICaller interface {
 	// APICall makes a call to the API server with the given object type,
 	// id, request and parameters. The response is filled in with the
 	// call's result if the call is successful.
-	APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error
+	APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error
 
 	// BestFacadeVersion returns the newest version of 'objType' that this
 	// client can use with the current API server.
@@ -141,12 +141,12 @@ type Stream interface {
 
 	// WriteJSON encodes the given value as JSON
 	// and writes it to the connection.
-	WriteJSON(v interface{}) error
+	WriteJSON(v any) error
 
 	// ReadJSON reads a JSON value from the stream
 	// and decodes it into the element pointed to by
 	// the given value, which should be a pointer.
-	ReadJSON(v interface{}) error
+	ReadJSON(v any) error
 }
 
 // FacadeCaller is a wrapper for the common paradigm that a given client just
@@ -156,7 +156,7 @@ type FacadeCaller interface {
 	// FacadeCall will place a request against the API using the requested
 	// Facade and the best version that the API server supports that is
 	// also known to the client.
-	FacadeCall(ctx context.Context, request string, params, response interface{}) error
+	FacadeCall(ctx context.Context, request string, params, response any) error
 
 	// Name returns the facade name.
 	Name() string
@@ -205,7 +205,7 @@ func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int,
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
-func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, response interface{}) (err error) {
+func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, response any) (err error) {
 	// If the context doesn't already have a tracer, then inject the one
 	// associated with the facade caller.
 	ctx = coretrace.InjectTracerIfRequired(ctx, fc.tracer)

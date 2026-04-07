@@ -228,7 +228,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func output(in worker.Worker, out interface{}) error {
+func output(in worker.Worker, out any) error {
 	uniter, _ := in.(*Uniter)
 	if uniter == nil {
 		return errors.Errorf("expected Uniter in")

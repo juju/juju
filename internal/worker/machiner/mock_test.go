@@ -56,7 +56,7 @@ func (m *mockMachine) SetObservedNetworkConfig(_ context.Context, netConfig []pa
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetStatus(_ context.Context, status status.Status, info string, data map[string]interface{}) error {
+func (m *mockMachine) SetStatus(_ context.Context, status status.Status, info string, data map[string]any) error {
 	m.MethodCall(m, "SetStatus", status, info, data)
 	return m.NextErr()
 }

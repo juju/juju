@@ -183,7 +183,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedActions, error) {
-	actionParams := map[string]interface{}{}
+	actionParams := map[string]any{}
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)
 		if err != nil {
@@ -200,7 +200,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedAction
 			return nil, errors.Trace(err)
 		}
 
-		betterParams, ok := conformantParams.(map[string]interface{})
+		betterParams, ok := conformantParams.(map[string]any)
 		if !ok {
 			return nil, errors.New("params must contain a YAML map with string keys")
 		}
@@ -213,7 +213,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedAction
 		valueIndex := len(argSlice) - 1
 		keys := argSlice[:valueIndex]
 		value := argSlice[valueIndex]
-		cleansedValue := interface{}(value)
+		cleansedValue := any(value)
 		if !c.parseStrings {
 			err := yaml.Unmarshal([]byte(value), &cleansedValue)
 			if err != nil {
@@ -227,7 +227,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedAction
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	typedConformantParams, ok := conformantParams.(map[string]interface{})
+	typedConformantParams, ok := conformantParams.(map[string]any)
 	if !ok {
 		return nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}

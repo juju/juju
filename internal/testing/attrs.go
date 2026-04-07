@@ -7,7 +7,7 @@ import "maps"
 
 // Attrs is a convenience type for messing
 // around with configuration attributes.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 func (a Attrs) Merge(with Attrs) Attrs {
 	new := make(Attrs)

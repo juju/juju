@@ -13,7 +13,7 @@ import (
 type Settings params.Settings
 
 // Get implements jujuc.Settings.
-func (s Settings) Get(k string) (interface{}, bool) {
+func (s Settings) Get(k string) (any, bool) {
 	v, f := s[k]
 	return v, f
 }

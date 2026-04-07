@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/output"
 )
 
-func formatMetadataListTabular(writer io.Writer, value interface{}) error {
+func formatMetadataListTabular(writer io.Writer, value any) error {
 	metadata, ok := value.([]MetadataInfo)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", metadata, value)

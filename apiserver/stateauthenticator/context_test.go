@@ -38,7 +38,7 @@ type macaroonCommonSuite struct {
 	agentPasswordService       *MockAgentPasswordService
 	agentPasswordServiceGetter *MockAgentPasswordServiceGetter
 
-	controllerConfig map[string]interface{}
+	controllerConfig map[string]any
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *tc.C) {
@@ -97,7 +97,7 @@ func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, tc.IsNil)
-	s.controllerConfig = map[string]interface{}{
+	s.controllerConfig = map[string]any{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}

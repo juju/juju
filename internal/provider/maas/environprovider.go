@@ -27,7 +27,7 @@ var cloudSchema = &jsonschema.Schema{
 		cloud.AuthTypesKey: {
 			// don't need a prompt, since there's only one choice.
 			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{[]string{string(cloud.OAuth1AuthType)}},
+			Enum: []any{[]string{string(cloud.OAuth1AuthType)}},
 		},
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url",

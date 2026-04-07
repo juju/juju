@@ -109,7 +109,7 @@ func (*HousingSuite) TestFlagMissing(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"flag": dependency.ErrMissing,
 	})
 
@@ -122,7 +122,7 @@ func (*HousingSuite) TestFlagBadType(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"flag": false,
 	})
 
@@ -135,7 +135,7 @@ func (*HousingSuite) TestFlagBadValue(c *tc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"flag": flag{false},
 	})
 
@@ -153,7 +153,7 @@ func (*HousingSuite) TestFlagSuccess(c *tc.C) {
 			return expectWorker, nil
 		},
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"flag": flag{true},
 	})
 
@@ -189,7 +189,7 @@ func (*HousingSuite) TestFlagBlocksOccupy(c *tc.C) {
 		Flags:  []string{"flag"},
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"flag":     dependency.ErrMissing,
 		"fortress": errors.New("never happen"),
 	})
@@ -203,7 +203,7 @@ func (*HousingSuite) TestOccupyMissing(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"fortress": dependency.ErrMissing,
 	})
 
@@ -216,7 +216,7 @@ func (*HousingSuite) TestOccupyBadType(c *tc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"fortress": false,
 	})
 
@@ -231,7 +231,7 @@ func (*HousingSuite) TestOccupyLocked(c *tc.C) {
 	}.Decorate(dependency.Manifold{})
 
 	ctx, cancel := context.WithCancel(c.Context())
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"fortress": newGuest(false),
 	})
 
@@ -271,7 +271,7 @@ func (*HousingSuite) TestOccupySuccess(c *tc.C) {
 		},
 	})
 	guest := newGuest(true)
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"fortress": guest,
 	})
 
@@ -347,7 +347,7 @@ func panicStart(ctx context.Context, getter dependency.Getter) (worker.Worker, e
 	panic("panicStart")
 }
 
-func panicOutput(worker.Worker, interface{}) error {
+func panicOutput(worker.Worker, any) error {
 	panic("panicOutput")
 }
 

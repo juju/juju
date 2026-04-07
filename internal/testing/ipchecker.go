@@ -18,7 +18,7 @@ var IPsEqual tc.Checker = &ipsEqualChecker{
 	&tc.CheckerInfo{Name: "IPsEqual", Params: []string{"obtained", "expected"}},
 }
 
-func (c *ipsEqualChecker) Check(params []interface{}, name []string) (bool, string) {
+func (c *ipsEqualChecker) Check(params []any, name []string) (bool, string) {
 	ips1, ok := params[0].([]net.IP)
 	if !ok {
 		return false, "param 0 is not of type []net.IP"

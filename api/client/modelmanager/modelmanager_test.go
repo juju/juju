@@ -49,7 +49,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
 		Qualifier:   "prod",
-		Config:      map[string]interface{}{"abc": 123},
+		Config:      map[string]any{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",
 	}
@@ -77,7 +77,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		"nimbus",
 		"catbus",
 		names.CloudCredentialTag{},
-		map[string]interface{}{"abc": 123},
+		map[string]any{"abc": 123},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -92,7 +92,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 		Qualifier:      "prod",
 		Life:           "alive",
 		Status: base.Status{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 		Users:    []base.UserInfo{},
 		Machines: []base.Machine{},
@@ -108,7 +108,7 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 	args := params.ModelCreateArgsLegacy{
 		Name:        "new-model",
 		OwnerTag:    owner.String(),
-		Config:      map[string]interface{}{"abc": 123},
+		Config:      map[string]any{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",
 	}
@@ -137,7 +137,7 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 		"nimbus",
 		"catbus",
 		names.CloudCredentialTag{},
-		map[string]interface{}{"abc": 123},
+		map[string]any{"abc": 123},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -152,7 +152,7 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 		Qualifier:      model.Qualifier("alice@domain.com"),
 		Life:           "alive",
 		Status: base.Status{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 		},
 		Users:    []base.UserInfo{},
 		Machines: []base.Machine{},
@@ -297,7 +297,7 @@ func (s *modelmanagerSuite) TestSetModelDefaults(c *tc.C) {
 		Config: []params.ModelDefaultValues{{
 			CloudTag:    "cloud-mycloud",
 			CloudRegion: "region",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"some-name":  "value",
 				"other-name": true,
 			},
@@ -312,7 +312,7 @@ func (s *modelmanagerSuite) TestSetModelDefaults(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelDefaults", args, res).SetArg(3, ress).Return(nil)
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
-	err := client.SetModelDefaults(c.Context(), "mycloud", "region", map[string]interface{}{
+	err := client.SetModelDefaults(c.Context(), "mycloud", "region", map[string]any{
 		"some-name":  "value",
 		"other-name": true,
 	})
@@ -492,7 +492,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 		Life:            "alive",
 		Status: base.Status{
 			Status: status.Active,
-			Data:   map[string]interface{}{},
+			Data:   map[string]any{},
 		},
 		ModelUserAccess: "admin",
 		Counts:          []base.EntityCount{},
@@ -668,12 +668,12 @@ func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	expected := map[string]interface{}{
-		"models": []map[string]interface{}{{
+	expected := map[string]any{
+		"models": []map[string]any{{
 			"name": "admin",
 			"uuid": "some-uuid",
 		}},
-		"machines": []map[string]interface{}{{
+		"machines": []map[string]any{{
 			"id":   "0",
 			"life": 0,
 		}},

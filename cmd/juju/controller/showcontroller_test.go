@@ -191,7 +191,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *tc.C) {
 `
 	store := s.createTestClientStore(c)
 	store.BootstrapConfig["mallards"] = jujuclient.BootstrapConfig{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"name":  "controller",
 			"type":  "maas",
 			"extra": "value",
@@ -669,8 +669,8 @@ func (*fakeController) Close() error {
 
 type fakeModelConfig struct{}
 
-func (*fakeModelConfig) ModelGet(ctx context.Context) (map[string]interface{}, error) {
-	return map[string]interface{}{"agent-version": "999.99.99"}, nil
+func (*fakeModelConfig) ModelGet(ctx context.Context) (map[string]any, error) {
+	return map[string]any{"agent-version": "999.99.99"}, nil
 }
 
 func (*fakeModelConfig) Close() error {

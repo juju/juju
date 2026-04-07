@@ -126,7 +126,7 @@ func (p vaultProvider) CleanupModel(ctx context.Context, cfg *provider.ModelBack
 	if s == nil || s.Data == nil {
 		return nil
 	}
-	keys, ok := s.Data["keys"].([]interface{})
+	keys, ok := s.Data["keys"].([]any)
 	if !ok {
 		return nil
 	}

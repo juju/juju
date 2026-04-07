@@ -26,7 +26,7 @@ type CredentialValidatorSuite struct {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CredentialValidator")
 		c.Check(request, tc.Equals, "ModelCredential")
 		c.Check(arg, tc.IsNil)
@@ -48,7 +48,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:  modelTag.String(),
 			Exists: false,
@@ -63,7 +63,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *tc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:           modelTag.String(),
 			Exists:          true,
@@ -79,7 +79,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *tc
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("foo")
 	})
 
@@ -97,7 +97,7 @@ var (
 )
 
 func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
 		return nil
 	})
@@ -107,7 +107,7 @@ func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchModelCredentialCallError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("foo")
 	})
 

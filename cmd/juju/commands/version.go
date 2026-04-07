@@ -49,7 +49,7 @@ type versionCommand struct {
 	cmd.CommandBase
 	out           cmd.Output
 	version       semversion.Binary
-	versionDetail interface{}
+	versionDetail any
 
 	showAll bool
 }

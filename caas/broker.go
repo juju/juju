@@ -69,7 +69,7 @@ func Open(ctx context.Context, p environs.EnvironProvider, args environs.OpenPar
 type NewContainerBrokerFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error)
 
 // StatusCallbackFunc represents a function that can be called to report a status.
-type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
+type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]any) error
 
 // DeploymentType defines a deployment type.
 type DeploymentType string
@@ -250,7 +250,7 @@ type Upgrader interface {
 // StorageValidator provides methods to validate storage.
 type StorageValidator interface {
 	// ValidateStorageClass returns an error if the storage config is not valid.
-	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
+	ValidateStorageClass(ctx context.Context, config map[string]any) error
 }
 
 // ClusterVersionGetter provides methods to get cluster version information.
@@ -338,7 +338,7 @@ type CharmStorageParams struct {
 
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.

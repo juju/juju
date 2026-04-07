@@ -17,7 +17,7 @@ import (
 )
 
 // ConfigAttributes represents config for a model or controller.
-type ConfigAttributes map[string]interface{}
+type ConfigAttributes map[string]any
 
 // Config encapsulates config for an entity.
 type Config struct {
@@ -52,7 +52,7 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 		if !ok {
 			continue
 		}
-		var coerced interface{}
+		var coerced any
 		err := yaml.Unmarshal([]byte(str), &coerced)
 		if err != nil {
 			return errors.Errorf(fmt.Sprintf("value %q for attribute %q not valid", str, k)+": %w", err).Add(coreerrors.NotValid)
@@ -67,7 +67,7 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 	// Ensure that the underlying map is of the correct type, otherwise
 	// this can panic.
 	switch result := result.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		c.attributes = result
 	case ConfigAttributes:
 		c.attributes = result
@@ -112,7 +112,7 @@ func (c *Config) Attributes() ConfigAttributes {
 }
 
 // Get gets the specified attribute.
-func (c ConfigAttributes) Get(attrName string, defaultValue interface{}) interface{} {
+func (c ConfigAttributes) Get(attrName string, defaultValue any) any {
 	if val, ok := c[attrName]; ok {
 		return val
 	}
@@ -153,7 +153,7 @@ func (c ConfigAttributes) GetStringMap(attrName string, defaultValue map[string]
 		switch val := valData.(type) {
 		case map[string]string:
 			maps.Copy(result, val)
-		case map[string]interface{}:
+		case map[string]any:
 			for k, v := range val {
 				result[k] = fmt.Sprintf("%v", v)
 			}

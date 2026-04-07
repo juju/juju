@@ -60,7 +60,7 @@ func (l logRecorder) IsLevelEnabled(level logger.Level) bool {
 	return true
 }
 
-func (l logRecorder) Tracef(ctx context.Context, format string, args ...interface{}) {
+func (l logRecorder) Tracef(ctx context.Context, format string, args ...any) {
 	l.c.Logf(format, args...)
 	l.builder.WriteString(fmt.Sprintf(format, args...))
 	l.builder.WriteString("\n")

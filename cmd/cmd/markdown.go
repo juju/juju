@@ -150,7 +150,7 @@ func printFlags(w io.Writer, cmd InfoCommand) {
 	// grouped together and displayed with the same description, as below:
 	//
 	// -s, --short, --alternate-string | default value | some description.
-	flags := make(map[interface{}]flagsByLength)
+	flags := make(map[any]flagsByLength)
 	f.VisitAll(func(f *gnuflag.Flag) {
 		flags[f.Value] = append(flags[f.Value], f)
 	})

@@ -33,8 +33,8 @@ type Type struct {
 	MaxLength            int              `json:"maxLength,omitempty"`
 	MinLength            int              `json:"minLength,omitempty"`
 	Pattern              string           `json:"pattern,omitempty"`
-	Enum                 []interface{}    `json:"enum,omitempty"`
-	Default              interface{}      `json:"default,omitempty"`
+	Enum                 []any            `json:"enum,omitempty"`
+	Default              any              `json:"default,omitempty"`
 	Title                string           `json:"title,omitempty"`
 	Description          string           `json:"description,omitempty"`
 }
@@ -46,7 +46,7 @@ type Schema struct {
 }
 
 // Reflect a Schema from a value.
-func Reflect(v interface{}) *Schema {
+func Reflect(v any) *Schema {
 	return ReflectFromType(reflect.TypeOf(v))
 }
 

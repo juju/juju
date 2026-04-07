@@ -16,7 +16,7 @@ import (
 
 // formatPoolListTabular returns a tabular summary of pool instances or
 // errors out if parameter is not a map of PoolInfo.
-func formatPoolListTabular(writer io.Writer, value interface{}) error {
+func formatPoolListTabular(writer io.Writer, value any) error {
 	pools, ok := value.(map[string]PoolInfo)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", pools, value)

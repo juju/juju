@@ -654,7 +654,7 @@ type createOfferArgsMatcher struct {
 	expected crossmodelrelation.CreateOfferArgs
 }
 
-func (m createOfferArgsMatcher) Matches(x interface{}) bool {
+func (m createOfferArgsMatcher) Matches(x any) bool {
 	obtained, ok := x.(crossmodelrelation.CreateOfferArgs)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {

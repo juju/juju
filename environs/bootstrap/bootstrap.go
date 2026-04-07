@@ -97,7 +97,7 @@ type BootstrapParams struct {
 
 	// ControllerInheritedConfig is the set of config attributes to be shared
 	// across all models in the same controller.
-	ControllerInheritedConfig map[string]interface{}
+	ControllerInheritedConfig map[string]any
 
 	// ControllerModelAuthorizedKeys is a set of pre-allowed authorized keys
 	// for the initial controller model.
@@ -541,7 +541,7 @@ func bootstrapIAAS(
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
-	if cfg, err = cfg.Apply(map[string]interface{}{
+	if cfg, err = cfg.Apply(map[string]any{
 		"agent-version": agentVersion.String(),
 	}); err != nil {
 		return errors.Trace(err)
@@ -1004,7 +1004,7 @@ func getBootstrapToolsVersion(ctx context.Context, possibleTools coretools.List)
 func setBootstrapAgentVersion(ctx context.Context, environ environs.Configer, toolsVersion semversion.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
-		cfg, err := cfg.Apply(map[string]interface{}{
+		cfg, err := cfg.Apply(map[string]any{
 			"agent-version": toolsVersion.String(),
 		})
 		if err == nil {

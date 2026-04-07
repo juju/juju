@@ -87,7 +87,7 @@ type reqMatcher struct {
 	req *http.Request
 }
 
-func (m reqMatcher) Matches(x interface{}) bool {
+func (m reqMatcher) Matches(x any) bool {
 	obtained, ok := x.(*http.Request)
 	if !ok {
 		return false

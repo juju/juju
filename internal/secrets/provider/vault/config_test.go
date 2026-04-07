@@ -28,21 +28,21 @@ func (s *configSuite) TestValidateConfig(c *tc.C) {
 	configValidator, ok := p.(provider.ProviderConfig)
 	c.Assert(ok, tc.IsTrue)
 	for _, t := range []struct {
-		cfg    map[string]interface{}
-		oldCfg map[string]interface{}
+		cfg    map[string]any
+		oldCfg map[string]any
 		err    string
 	}{{
-		cfg: map[string]interface{}{},
+		cfg: map[string]any{},
 		err: "endpoint: expected string, got nothing",
 	}, {
-		cfg:    map[string]interface{}{"endpoint": "newep"},
-		oldCfg: map[string]interface{}{"endpoint": "oldep"},
+		cfg:    map[string]any{"endpoint": "newep"},
+		oldCfg: map[string]any{"endpoint": "oldep"},
 		err:    `cannot change immutable field "endpoint"`,
 	}, {
-		cfg: map[string]interface{}{"endpoint": "newep", "client-cert": "aaa"},
+		cfg: map[string]any{"endpoint": "newep", "client-cert": "aaa"},
 		err: `vault config missing client key not valid`,
 	}, {
-		cfg: map[string]interface{}{"endpoint": "newep", "client-key": "aaa"},
+		cfg: map[string]any{"endpoint": "newep", "client-key": "aaa"},
 		err: `vault config missing client certificate not valid`,
 	}} {
 		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, nil)

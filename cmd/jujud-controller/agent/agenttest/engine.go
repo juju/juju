@@ -95,7 +95,7 @@ func WaitMatch(c *tc.C, match func() bool, maxWait time.Duration) {
 func NewEngineTracker() *EngineTracker {
 	return &EngineTracker{
 		current: make(map[string]set.Strings),
-		reports: make(map[string]map[string]interface{}),
+		reports: make(map[string]map[string]any),
 	}
 }
 
@@ -103,7 +103,7 @@ func NewEngineTracker() *EngineTracker {
 type EngineTracker struct {
 	mu      sync.Mutex
 	current map[string]set.Strings
-	reports map[string]map[string]interface{}
+	reports map[string]map[string]any
 }
 
 // Workers returns the most-recently-reported set of running workers.
@@ -120,7 +120,7 @@ func (tracker *EngineTracker) Workers(id string) set.Strings {
 //	manifolds["self"] = dependency.SelfManifold(engine)
 //
 // or otherwise inject a suitable "self" manifold.
-func (tracker *EngineTracker) Report(id string) map[string]interface{} {
+func (tracker *EngineTracker) Report(id string) map[string]any {
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
 	return tracker.reports[id]
@@ -168,7 +168,7 @@ func (tracker *EngineTracker) startFunc(id string, names []string) dependency.St
 			seen.Add(name)
 		}
 
-		var report map[string]interface{}
+		var report map[string]any
 		var reporter dependency.Reporter
 		if err := getter.Get("self", &reporter); err == nil {
 			report = reporter.Report(ctx)

@@ -20,9 +20,9 @@ import (
 // APICallerFunc is a function type that implements APICaller.
 // The only method that actually does anything is APICall itself
 // which calls the function. The other methods are just stubs.
-type APICallerFunc func(objType string, version int, id, request string, params, response interface{}) error
+type APICallerFunc func(objType string, version int, id, request string, params, response any) error
 
-func (f APICallerFunc) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
+func (f APICallerFunc) APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error {
 	return f(objType, version, id, request, params, response)
 }
 
@@ -83,7 +83,7 @@ type CallChecker struct {
 type APICall struct {
 	// If Check is non-nil, all other fields will be ignored and Check
 	// will be called to check the call.
-	Check func(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error
+	Check func(ctx context.Context, objType string, version int, id, request string, params, response any) error
 
 	// Facade holds the expected call facade. If it's empty,
 	// any facade will be accepted.
@@ -107,10 +107,10 @@ type APICall struct {
 	Method string
 
 	// Args holds the expected value of the call's argument.
-	Args interface{}
+	Args any
 
 	// Results is assigned to the result parameter of the call on return.
-	Results interface{}
+	Results any
 
 	// Error is returned from the call.
 	Error error
@@ -126,7 +126,7 @@ type APICall struct {
 // use it if the client is making concurrent calls.
 func APICallChecker(c *tc.C, calls ...APICall) *CallChecker {
 	var checker CallChecker
-	checker.APICallerFunc = func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+	checker.APICallerFunc = func(facade string, version int, id, method string, inArgs, outResults any) error {
 		call := checker.CallCount
 		checker.CallCount++
 		if call >= len(calls) {
@@ -137,7 +137,7 @@ func APICallChecker(c *tc.C, calls ...APICall) *CallChecker {
 	return &checker
 }
 
-func checkArgs(c *tc.C, args APICall, facade string, version int, id, method string, inArgs, outResults interface{}) error {
+func checkArgs(c *tc.C, args APICall, facade string, version int, id, method string, inArgs, outResults any) error {
 	if args.Facade != "" {
 		c.Check(facade, tc.Equals, args.Facade)
 	}
@@ -169,7 +169,7 @@ type notifyingAPICaller struct {
 	called chan<- struct{}
 }
 
-func (c notifyingAPICaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
+func (c notifyingAPICaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error {
 	c.called <- struct{}{}
 	return c.APICaller.APICall(ctx, objType, version, id, request, params, response)
 }
@@ -203,14 +203,14 @@ type StubFacadeCaller struct {
 	// Stub is the raw stub used to track calls and errors.
 	Stub *testhelpers.Stub
 	// These control the values returned by the stub's methods.
-	FacadeCallFn         func(name string, params, response interface{}) error
+	FacadeCallFn         func(name string, params, response any) error
 	ReturnName           string
 	ReturnBestAPIVersion int
 	ReturnRawAPICaller   base.APICaller
 }
 
 // FacadeCall implements api/base.FacadeCaller.
-func (s *StubFacadeCaller) FacadeCall(ctx context.Context, request string, params, response interface{}) error {
+func (s *StubFacadeCaller) FacadeCall(ctx context.Context, request string, params, response any) error {
 	s.Stub.AddCall("FacadeCall", request, params, response)
 	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)

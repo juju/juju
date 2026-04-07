@@ -19,7 +19,7 @@ import (
 type OutputCommand struct {
 	cmd.CommandBase
 	out   cmd.Output
-	value interface{}
+	value any
 }
 
 func (c *OutputCommand) Info() *cmd.Info {
@@ -52,7 +52,7 @@ func (c *OutputCommand) Run(ctx *cmd.Context) error {
 
 type overrideFormatter struct {
 	formatter cmd.Formatter
-	value     interface{}
+	value     any
 }
 
 // use a struct to control field ordering.
@@ -62,7 +62,7 @@ var defaultValue = struct {
 }{1, false}
 
 var outputTests = map[string][]struct {
-	value  interface{}
+	value  any
 	output string
 }{
 	"": {
@@ -79,7 +79,7 @@ var outputTests = map[string][]struct {
 		{"foo: bar", "foo: bar\n"},
 		{[]string{}, ""},
 		{[]string{"blam", "dink"}, "blam\ndink\n"},
-		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
+		{map[any]any{"foo": "bar"}, "foo: bar\n"},
 		{overrideFormatter{cmd.FormatSmart, "abc\ndef"}, "abc\ndef\n"},
 	},
 	"smart": {
@@ -96,7 +96,7 @@ var outputTests = map[string][]struct {
 		{"foo: bar", "foo: bar\n"},
 		{[]string{}, ""},
 		{[]string{"blam", "dink"}, "blam\ndink\n"},
-		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
+		{map[any]any{"foo": "bar"}, "foo: bar\n"},
 		{overrideFormatter{cmd.FormatSmart, "abc\ndef"}, "abc\ndef\n"},
 	},
 	"json": {

@@ -526,7 +526,7 @@ func (s *PollsterSuite) TestQueryArraySchema(c *tc.C) {
 		Items: &jsonschema.ItemSpec{
 			Schemas: []*jsonschema.Schema{{
 				Type: []jsonschema.Type{jsonschema.StringType},
-				Enum: []interface{}{
+				Enum: []any{
 					"one",
 					"two",
 					"three",
@@ -561,7 +561,7 @@ func (s *PollsterSuite) TestQueryArraySchemaDefault(c *tc.C) {
 		Items: &jsonschema.ItemSpec{
 			Schemas: []*jsonschema.Schema{{
 				Type: []jsonschema.Type{jsonschema.StringType},
-				Enum: []interface{}{
+				Enum: []any{
 					"one",
 					"two",
 					"three",
@@ -596,7 +596,7 @@ func (s *PollsterSuite) TestQueryArraySchemaNotDefault(c *tc.C) {
 		Items: &jsonschema.ItemSpec{
 			Schemas: []*jsonschema.Schema{{
 				Type: []jsonschema.Type{jsonschema.StringType},
-				Enum: []interface{}{
+				Enum: []any{
 					"one",
 					"two",
 					"three",
@@ -627,7 +627,7 @@ func (s *PollsterSuite) TestQueryEnum(c *tc.C) {
 		Singular: "number",
 		Plural:   "numbers",
 		Type:     []jsonschema.Type{jsonschema.IntegerType},
-		Enum: []interface{}{
+		Enum: []any{
 			1,
 			2,
 			3,
@@ -662,7 +662,7 @@ func (s *PollsterSuite) TestQueryObjectSchema(c *tc.C) {
 				Items: &jsonschema.ItemSpec{
 					Schemas: []*jsonschema.Schema{{
 						Type: []jsonschema.Type{jsonschema.StringType},
-						Enum: []interface{}{
+						Enum: []any{
 							"one",
 							"two",
 							"three",
@@ -683,7 +683,7 @@ func (s *PollsterSuite) TestQueryObjectSchema(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name":    "Bill",
 		"numbers": []string{"two", "three"},
 	})
@@ -702,7 +702,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaOrder(c *tc.C) {
 				Items: &jsonschema.ItemSpec{
 					Schemas: []*jsonschema.Schema{{
 						Type: []jsonschema.Type{jsonschema.StringType},
-						Enum: []interface{}{
+						Enum: []any{
 							"one",
 							"two",
 							"three",
@@ -722,7 +722,7 @@ func (s *PollsterSuite) TestQueryObjectSchemaOrder(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name":    "Bill",
 		"numbers": []string{"two", "three"},
 	})
@@ -755,9 +755,9 @@ n
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
-		"one": map[string]interface{}{"loc": "east"},
-		"two": map[string]interface{}{"loc": "west"},
+	c.Check(v, tc.DeepEquals, map[string]any{
+		"one": map[string]any{"loc": "east"},
+		"two": map[string]any{"loc": "west"},
 	})
 	c.Check(w.String(), tc.Equals, `
 Enter region name: 
@@ -788,9 +788,9 @@ n
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
-		"one": map[string]interface{}{},
-		"two": map[string]interface{}{},
+	c.Check(v, tc.DeepEquals, map[string]any{
+		"one": map[string]any{},
+		"two": map[string]any{},
 	})
 	c.Check(w.String(), tc.Equals, `
 Enter region name: 
@@ -853,15 +853,15 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithOutDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name": "Bill",
-		"nested": map[string]interface{}{
-			"namespace": map[string]interface{}{
+		"nested": map[string]any{
+			"namespace": map[string]any{
 				"name": "",
 			},
 		},
-		"bar": map[string]interface{}{
-			"foo": map[string]interface{}{
+		"bar": map[string]any{
+			"foo": map[string]any{
 				"name": "baz",
 			},
 		},
@@ -904,10 +904,10 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name": "Bill",
-		"nested": map[string]interface{}{
-			"default": map[string]interface{}{
+		"nested": map[string]any{
+			"default": map[string]any{
 				"name": "",
 			},
 		},
@@ -955,10 +955,10 @@ func (s *PollsterSuite) TestQueryObjectSchemaWithDefaultEnvVars(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name": "Bill",
-		"nested": map[string]interface{}{
-			"baz": map[string]interface{}{
+		"nested": map[string]any{
+			"baz": map[string]any{
 				"name": "",
 			},
 		},
@@ -1004,10 +1004,10 @@ func (s *PollsterSuite) TestQueryObjectSchemaEnvVarsWithOutDefault(c *tc.C) {
 	p := New(r, w, w)
 	v, err := p.QuerySchema(schema)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"name": "Bill",
-		"nested": map[string]interface{}{
-			"baz": map[string]interface{}{
+		"nested": map[string]any{
+			"baz": map[string]any{
 				"name": "",
 			},
 		},

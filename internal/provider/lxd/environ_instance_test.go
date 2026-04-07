@@ -54,7 +54,7 @@ func (s *environInstSuite) TestInstancesAPI(c *tc.C) {
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "AliveContainers",
-		Args: []interface{}{
+		Args: []any{
 			s.Prefix(),
 		},
 	}})

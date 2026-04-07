@@ -192,22 +192,22 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"devices": map[string]interface{}{
+			"devices": map[string]any{
 				"bitcoinminer": "2,nvidia.com/gpu",
 			},
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"debug": true,
 			},
-			"storage": map[string]interface{}{
+			"storage": map[string]any{
 				"tmpfs": "tmpfs,1G",
 			},
 		},
@@ -215,7 +215,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel":  "stable",
 			"charm":    "ch:haproxy",
 			"revision": float64(42),
@@ -224,7 +224,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel":     "stable",
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
@@ -234,7 +234,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:web",
 			"endpoint2": "$deploy-3:web",
 		},
@@ -263,7 +263,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"revision": float64(76),
 			"channel":  "candidate",
 			"charm":    "django",
@@ -271,7 +271,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"channel":     "candidate",
 			"charm":       "$addCharm-0",
@@ -314,23 +314,23 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"devices": map[string]interface{}{
+			"devices": map[string]any{
 				"bitcoinminer": "2,nvidia.com/gpu",
 			},
 			"num-units": float64(1),
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"debug": true,
 			},
-			"storage": map[string]interface{}{
+			"storage": map[string]any{
 				"tmpfs": "tmpfs,1G",
 			},
 		},
@@ -338,7 +338,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel":  "stable",
 			"charm":    "ch:haproxy",
 			"revision": float64(42),
@@ -346,7 +346,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel":     "stable",
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
@@ -355,7 +355,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	}, {
 		Id:     "addRelation-4",
 		Method: "addRelation",
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:web",
 			"endpoint2": "$deploy-3:web",
 		},
@@ -388,10 +388,10 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *tc.C
 			c.Assert(change, tc.DeepEquals, &params.BundleChangesMapArgs{
 				Id:     "deploy-1",
 				Method: "deploy",
-				Args: map[string]interface{}{
+				Args: map[string]any{
 					"application": "django",
 					"charm":       "$addCharm-0",
-					"endpoint-bindings": map[string]interface{}{
+					"endpoint-bindings": map[string]any{
 						"url": "public",
 					},
 				},

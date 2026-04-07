@@ -99,7 +99,7 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	// Arrange: set up the import data
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.UUIDKey: s.modelUUID.String()},
 	})
 	appName := "foo"
@@ -159,7 +159,7 @@ func (s *importSuite) TestOfferPermissionRollback(c *tc.C) {
 	// Arrange: set up the import data
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.UUIDKey: s.modelUUID.String()},
 	})
 	appName := "foo"
@@ -212,7 +212,7 @@ func (s *importSuite) TestPermissionImport(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Owner: "admin",
 		Type:  string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "test-me",
 			config.UUIDKey: s.modelUUID.String()},
 	})
@@ -344,7 +344,7 @@ func (s *importSuite) TestPermissionImportWithExternalUser(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Owner: "admin",
 		Type:  string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "test-me",
 			config.UUIDKey: s.modelUUID.String(),
 		},
@@ -396,7 +396,7 @@ func (s *importSuite) TestPermissionImportExternalUserAlreadyExists(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Owner: "admin",
 		Type:  string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "test-me",
 			config.UUIDKey: s.modelUUID.String(),
 		},
@@ -445,7 +445,7 @@ func (s *importSuite) TestPermissionImportWithMultipleExternalUsers(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Owner: "admin",
 		Type:  string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "test-me",
 			config.UUIDKey: s.modelUUID.String(),
 		},
@@ -507,7 +507,7 @@ func (s *importSuite) TestPermissionImportMixedLocalAndExternalUsers(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Owner: "admin",
 		Type:  string(model.IAAS),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			config.NameKey: "test-me",
 			config.UUIDKey: s.modelUUID.String(),
 		},

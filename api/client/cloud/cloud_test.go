@@ -967,7 +967,7 @@ type cloudCredentialMatcher struct {
 	arg params.UpdateCredentialArgs
 }
 
-func (c cloudCredentialMatcher) Matches(x interface{}) bool {
+func (c cloudCredentialMatcher) Matches(x any) bool {
 	cred, ok := x.(params.UpdateCredentialArgs)
 	if !ok {
 		return false

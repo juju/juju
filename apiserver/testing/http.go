@@ -58,7 +58,7 @@ type HTTPRequestParams struct {
 	// as the body of the request. If this is specified, body will
 	// be ignored and the Content-Type header will
 	// be set to application/json.
-	JSONBody interface{}
+	JSONBody any
 
 	// nonce holds the machine nonce to provide in the header.
 	Nonce string

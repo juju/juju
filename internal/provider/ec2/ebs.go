@@ -246,12 +246,12 @@ type ebsConfig struct {
 	throughputMB int
 }
 
-func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
+func newEbsConfig(attrs map[string]any) (*ebsConfig, error) {
 	out, err := ebsConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating EBS storage config")
 	}
-	coerced := out.(map[string]interface{})
+	coerced := out.(map[string]any)
 	iops, _ := coerced[EBS_IOPS].(int)
 	volumeType := coerced[EBS_VolumeType].(string)
 	kmsKeyID, _ := coerced[EBS_KMSKeyID].(string)
@@ -371,7 +371,7 @@ type ebsVolumeSource struct {
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
 
 // parseVolumeOptions uses storage volume parameters to make a struct used to create volumes.
-func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.CreateVolumeInput, _ error) {
+func parseVolumeOptions(size uint64, attrs map[string]any) (_ ec2.CreateVolumeInput, _ error) {
 	ebsConfig, err := newEbsConfig(attrs)
 	if err != nil {
 		return ec2.CreateVolumeInput{}, errors.Trace(err)

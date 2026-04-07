@@ -130,7 +130,7 @@ func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{configBase: modelConfigBase})
 }
 
-type configAttrs map[string]interface{}
+type configAttrs map[string]any
 
 // CoerceFormat attempts to convert the configAttrs values from the complex type
 // to the more simple type. This is because the output of this command outputs
@@ -146,7 +146,7 @@ type configAttrs map[string]interface{}
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
 func (a configAttrs) CoerceFormat() (configAttrs, error) {
-	coerced := make(map[string]interface{})
+	coerced := make(map[string]any)
 
 	fields := schema.FieldMap(schema.Fields{
 		"value":  schema.Any(),
@@ -161,7 +161,7 @@ func (a configAttrs) CoerceFormat() (configAttrs, error) {
 			continue
 		}
 
-		m := out.(map[string]interface{})
+		m := out.(map[string]any)
 		v = m["value"]
 
 		// Resource tags in the new output format is a map[string]interface{},
@@ -180,7 +180,7 @@ func (a configAttrs) CoerceFormat() (configAttrs, error) {
 	return coerced, nil
 }
 
-func coerceResourceTags(resourceTags interface{}) (string, error) {
+func coerceResourceTags(resourceTags any) (string, error) {
 	// When coercing a resource tag, the tags in question might already be in
 	// the correct format of a string. If that's the case, we should pass on
 	// doing the coercion.
@@ -197,7 +197,7 @@ func coerceResourceTags(resourceTags interface{}) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	m := out.(map[string]interface{})
+	m := out.(map[string]any)
 	result := make([]string, 0, len(m))
 	for k, v := range m {
 		result = append(result, fmt.Sprintf("%s=%v", k, v))
@@ -221,9 +221,9 @@ type configCommand struct {
 // configCommandAPI defines an API interface to be used during testing.
 type configCommandAPI interface {
 	Close() error
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 	ModelGetWithMetadata(ctx context.Context) (envconfig.ConfigValues, error)
-	ModelSet(ctx context.Context, config map[string]interface{}) error
+	ModelSet(ctx context.Context, config map[string]any) error
 	ModelUnset(ctx context.Context, keys ...string) error
 	BestAPIVersion() int
 }
@@ -482,7 +482,7 @@ func isModelAttribute(attr string) bool {
 }
 
 // formatConfigTabular writes a tabular summary of config information.
-func formatConfigTabular(writer io.Writer, value interface{}) error {
+func formatConfigTabular(writer io.Writer, value any) error {
 	configValues, ok := value.(envconfig.ConfigValues)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", configValues, value)

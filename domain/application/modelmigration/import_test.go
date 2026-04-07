@@ -242,10 +242,10 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *t
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
-		CharmConfig: map[string]interface{}{
+		CharmConfig: map[string]any{
 			"foo": "bar",
 		},
-		ApplicationConfig: map[string]interface{}{
+		ApplicationConfig: map[string]any{
 			"trust": true,
 		},
 	}
@@ -882,7 +882,7 @@ func (s *importSuite) TestImportCharmActions(c *tc.C) {
 			Description:    "baz",
 			Parallel:       true,
 			ExecutionGroup: "group",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"foo": "bar",
 			},
 		},
@@ -906,10 +906,10 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *tc.C) {
 			Description:    "baz",
 			Parallel:       true,
 			ExecutionGroup: "group",
-			Params: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Params: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
-					"foo": map[string]interface{}{
+					"foo": map[string]any{
 						"1":    2,
 						"true": false,
 						"0.1":  "0.2",
@@ -1682,7 +1682,7 @@ func (s *importSuite) expectCharmActions() {
 	actionExp.Description().Return("baz")
 	actionExp.Parallel().Return(true)
 	actionExp.ExecutionGroup().Return("group")
-	actionExp.Parameters().Return(map[string]interface{}{
+	actionExp.Parameters().Return(map[string]any{
 		"foo": "bar",
 	})
 
@@ -1697,10 +1697,10 @@ func (s *importSuite) expectCharmActionsNested() {
 	actionExp.Description().Return("baz")
 	actionExp.Parallel().Return(true)
 	actionExp.ExecutionGroup().Return("group")
-	actionExp.Parameters().Return(map[string]interface{}{
-		"foo": map[interface{}]interface{}{
+	actionExp.Parameters().Return(map[string]any{
+		"foo": map[any]any{
 			"bar": "baz",
-			"foo": map[interface{}]interface{}{
+			"foo": map[any]any{
 				1:        2,
 				true:     false,
 				0.1:      "0.2",

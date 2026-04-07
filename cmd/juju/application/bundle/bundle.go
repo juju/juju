@@ -186,7 +186,7 @@ func BuildModelRepresentation(
 		return nil, errors.Annotate(err, "getting application options")
 	}
 	for i, cfg := range configValues {
-		options := make(map[string]interface{})
+		options := make(map[string]any)
 		// The config map has values that looks like this:
 		//  map[string]interface {}{
 		//        "value":       "",
@@ -230,8 +230,8 @@ func BuildModelRepresentation(
 // applicationConfigValue returns the value if it is not a default value.
 // If the value is a default value, nil is returned.
 // If there was issue determining the type or value, an error is returned.
-func applicationConfigValue(key string, valueMap interface{}) (interface{}, error) {
-	vm, ok := valueMap.(map[string]interface{})
+func applicationConfigValue(key string, valueMap any) (any, error) {
+	vm, ok := valueMap.(map[string]any)
 	if !ok {
 		return nil, errors.Errorf("unexpected application config value type %T for key %q", valueMap, key)
 	}
@@ -248,7 +248,7 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 
 // coerceConfigType ensures that the application config value is of the
 // type specified in the option definitions.
-func coerceConfigType(valueMap map[string]interface{}) (interface{}, error) {
+func coerceConfigType(valueMap map[string]any) (any, error) {
 	value, found := valueMap["value"]
 
 	if !found {

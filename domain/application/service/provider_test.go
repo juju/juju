@@ -283,7 +283,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 		ApplicationStatus: &corestatus.StatusInfo{
 			Status:  corestatus.Active,
 			Message: "active",
-			Data:    map[string]interface{}{"active": true},
+			Data:    map[string]any{"active": true},
 			Since:   now,
 		},
 		Constraints: coreconstraints.MustParse("arch=arm64"),

@@ -30,7 +30,7 @@ func (s *unitStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(request, tc.Equals, "SetState")
 		c.Check(arg.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
@@ -51,7 +51,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		res := result.(*params.ErrorResults)
 		res.Results = []params.ErrorResult{{
@@ -69,7 +69,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(request, tc.Equals, "SetState")
 		c.Check(arg.(params.SetUnitStateArgs).Args, tc.HasLen, 1)
@@ -98,7 +98,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 	}
 	expectedUniterState := "testing"
 
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(request, tc.Equals, "State")
 		*(result.(*params.UnitStateResults)) = params.UnitStateResults{
@@ -117,7 +117,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestStateMultipleReturnsError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(request, tc.Equals, "State")
 		*(result.(*params.UnitStateResults)) = params.UnitStateResults{

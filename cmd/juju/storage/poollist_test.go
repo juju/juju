@@ -32,7 +32,7 @@ func (s *poolListSuite) SetUpTest(c *tc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockPoolListAPI{
-		attrs: map[string]interface{}{"key": "value", "one": "1", "two": 2},
+		attrs: map[string]any{"key": "value", "one": "1", "two": 2},
 	}
 }
 
@@ -95,7 +95,7 @@ xyz        testType  key=value one=1 two=2
 }
 
 func (s *poolListSuite) TestPoolListTabularSortedWithAttrs(c *tc.C) {
-	s.mockAPI.attrs = map[string]interface{}{
+	s.mockAPI.attrs = map[string]any{
 		"a": true, "c": "well", "b": "maybe"}
 
 	s.assertValidList(
@@ -110,7 +110,7 @@ xyz   testType  a=true b=maybe c=well
 `[1:])
 }
 
-type unmarshaller func(in []byte, out interface{}) (err error)
+type unmarshaller func(in []byte, out any) (err error)
 
 func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshaller, args ...string) {
 
@@ -131,7 +131,7 @@ func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshalle
 func (s *poolListSuite) assertSamePoolInfos(c *tc.C, one, two map[string]storage.PoolInfo) {
 	c.Assert(one, tc.HasLen, len(two))
 
-	sameAttributes := func(a, b map[string]interface{}) {
+	sameAttributes := func(a, b map[string]any) {
 		c.Assert(a, tc.HasLen, len(b))
 		for ka, va := range a {
 			vb, okb := b[ka]
@@ -169,7 +169,7 @@ func (s *poolListSuite) assertValidList(c *tc.C, args []string, expected string)
 }
 
 type mockPoolListAPI struct {
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (s mockPoolListAPI) Close() error {

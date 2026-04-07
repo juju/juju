@@ -684,8 +684,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *tc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		{FuncName: "CreateFolder", Args: []interface{}{"foo"}},
-		{FuncName: "CreateFolder", Args: []interface{}{"bar"}},
+		{FuncName: "CreateFolder", Args: []any{"foo"}},
+		{FuncName: "CreateFolder", Args: []any{"bar"}},
 	})
 }
 
@@ -891,7 +891,7 @@ func (s *clientSuite) TestMaybeUpgradeVMVersionNotSupportedByEnv(c *tc.C) {
 		// Gets environment max version.
 		{
 			FuncName: "QueryConfigOption",
-			Args: []interface{}{
+			Args: []any{
 				"FakeEnvironmentBrowser",
 			},
 		},
@@ -937,13 +937,13 @@ func (s *clientSuite) TestMaybeUpgradeVMVersion(c *tc.C) {
 		retrievePropertiesStubCall("FakeVm0"),
 		{
 			FuncName: "QueryConfigOption",
-			Args: []interface{}{
+			Args: []any{
 				"FakeEnvironmentBrowser",
 			},
 		},
 		{
 			FuncName: "UpgradeVM_Task",
-			Args: []interface{}{
+			Args: []any{
 				// must match the version we set in the model, if supported.
 				"vmx-11",
 			},
@@ -1059,7 +1059,7 @@ func (s *clientSuite) TestDeleteDatastoreFile(c *tc.C) {
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
-		{FuncName: "DeleteDatastoreFile", Args: []interface{}{"[datastore1] file/path"}},
+		{FuncName: "DeleteDatastoreFile", Args: []any{"[datastore1] file/path"}},
 		{FuncName: "CreatePropertyCollector", Args: nil},
 		{FuncName: "CreateFilter", Args: nil},
 		{FuncName: "WaitForUpdatesEx", Args: nil},
@@ -1120,7 +1120,7 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *tc.C) {
 
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
 		retrievePropertiesStubCall("FakeSessionManager"),
-		{FuncName: "HasPrivilegeOnEntities", Args: []interface{}{
+		{FuncName: "HasPrivilegeOnEntities", Args: []any{
 			"FakeAuthorizationManager",
 			[]types.ManagedObjectReference{s.serviceContent.RootFolder},
 			"session-key",

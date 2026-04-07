@@ -29,7 +29,7 @@ func newClient(f basetesting.APICallerFunc) *caasoperatorupgrader.Client {
 
 func (s *provisionerSuite) TestUpgrader(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, v int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, v int, id, request string, a, result any) error {
 		called = true
 		c.Check(objType, tc.Equals, "CAASOperatorUpgrader")
 		c.Check(id, tc.Equals, "")

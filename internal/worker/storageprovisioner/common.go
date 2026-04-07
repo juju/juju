@@ -192,7 +192,7 @@ func sourceParams(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting provider")
 	}
-	attrs := make(map[string]interface{})
+	attrs := make(map[string]any)
 	if baseStorageDir != "" {
 		storageDir := filepath.Join(baseStorageDir, sourceName)
 		attrs[storage.ConfigStorageDir] = storageDir

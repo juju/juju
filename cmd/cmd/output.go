@@ -16,10 +16,10 @@ import (
 )
 
 // Formatter writes the arbitrary object into the writer.
-type Formatter func(writer io.Writer, value interface{}) error
+type Formatter func(writer io.Writer, value any) error
 
 // FormatYaml writes out value as yaml to the writer, unless value is nil.
-func FormatYaml(writer io.Writer, value interface{}) error {
+func FormatYaml(writer io.Writer, value any) error {
 	if value == nil {
 		return nil
 	}
@@ -43,7 +43,7 @@ func FormatYaml(writer io.Writer, value interface{}) error {
 }
 
 // FormatJson writes out value as json.
-func FormatJson(writer io.Writer, value interface{}) error {
+func FormatJson(writer io.Writer, value any) error {
 	result, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func FormatJson(writer io.Writer, value interface{}) error {
 //   - int or float:  converted to sensible strings
 //   - []string:      joined by `\n`s into a single string
 //   - anything else: delegate to FormatYaml
-func FormatSmart(writer io.Writer, value interface{}) error {
+func FormatSmart(writer io.Writer, value any) error {
 	if value == nil {
 		return nil
 	}
@@ -171,7 +171,7 @@ func (c *Output) AddFlags(f *gnuflag.FlagSet, defaultFormatter string, formatter
 
 // Write formats and outputs the value as directed by the --format and
 // --output command line flags.
-func (c *Output) Write(ctx *Context, value interface{}) (err error) {
+func (c *Output) Write(ctx *Context, value any) (err error) {
 	formatterName := c.formatter.name
 	formatter := c.formatter.formatters[formatterName]
 	if err := c.writeFormatter(ctx, formatter, value); err != nil {
@@ -182,11 +182,11 @@ func (c *Output) Write(ctx *Context, value interface{}) (err error) {
 
 // WriteFormatter formats and outputs the value with the given formatter,
 // to the output directed by the --output command line flag.
-func (c *Output) WriteFormatter(ctx *Context, formatter Formatter, value interface{}) (err error) {
+func (c *Output) WriteFormatter(ctx *Context, formatter Formatter, value any) (err error) {
 	return c.writeFormatter(ctx, formatter, value)
 }
 
-func (c *Output) writeFormatter(ctx *Context, formatter Formatter, value interface{}) (err error) {
+func (c *Output) writeFormatter(ctx *Context, formatter Formatter, value any) (err error) {
 	var target io.Writer
 	if c.outPath == "" {
 		target = ctx.Stdout

@@ -547,36 +547,36 @@ func (s *MetaSuite) TestIfaceExpander(c *tc.C) {
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]any{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	// Defaults are properly applied
-	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
+	v, err = e.Coerce(map[string]any{"interface": "http"}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]any{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
-	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": 2}, path)
+	v, err = e.Coerce(map[string]any{"interface": "http", "limit": 2}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]any{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
 
-	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": true}, path)
+	v, err = e.Coerce(map[string]any{"interface": "http", "optional": true}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]any{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
 
 	// Invalid data raises an error.
 	_, err = e.Coerce(42, path)
 	c.Assert(err, tc.ErrorMatches, `<path>: expected map, got int\(42\)`)
 
-	_, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": nil}, path)
+	_, err = e.Coerce(map[string]any{"interface": "http", "optional": nil}, path)
 	c.Assert(err, tc.ErrorMatches, "<path>.optional: expected bool, got nothing")
 
-	_, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": "none, really"}, path)
+	_, err = e.Coerce(map[string]any{"interface": "http", "limit": "none, really"}, path)
 	c.Assert(err, tc.ErrorMatches, "<path>.limit: unexpected value.*")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
-	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
+	v, err = e.Coerce(map[string]any{"interface": "http"}, path)
 	c.Assert(err, tc.IsNil)
-	c.Assert(v, tc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(v, tc.DeepEquals, map[string]any{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }
 
 func (s *MetaSuite) TestMetaHooks(c *tc.C) {
@@ -933,23 +933,23 @@ extra-bindings:
 	gotYAML, err := yaml.Marshal(ch)
 	c.Assert(err, tc.IsNil)
 
-	var x interface{}
+	var x any
 	err = yaml.Unmarshal(gotYAML, &x)
 	c.Assert(err, tc.IsNil)
-	c.Assert(x, tc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(x, tc.DeepEquals, map[any]any{
 		"name":        "minimal",
 		"description": "d",
 		"summary":     "s",
-		"provides": map[interface{}]interface{}{
+		"provides": map[any]any{
 			"server": "http",
 		},
-		"requires": map[interface{}]interface{}{
+		"requires": map[any]any{
 			"client": "http",
 		},
-		"peers": map[interface{}]interface{}{
+		"peers": map[any]any{
 			"me": "http",
 		},
-		"extra-bindings": map[interface{}]interface{}{
+		"extra-bindings": map[any]any{
 			"foo": nil,
 		},
 	})
@@ -1366,7 +1366,7 @@ resources:
 
 func (s *MetaSuite) TestParseResourceMetaOkay(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -1384,7 +1384,7 @@ func (s *MetaSuite) TestParseResourceMetaOkay(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaMissingName(c *tc.C) {
 	name := ""
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -1402,7 +1402,7 @@ func (s *MetaSuite) TestParseResourceMetaMissingName(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaMissingType(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
 	}
@@ -1419,7 +1419,7 @@ func (s *MetaSuite) TestParseResourceMetaMissingType(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaEmptyType(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":        "",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -1431,7 +1431,7 @@ func (s *MetaSuite) TestParseResourceMetaEmptyType(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaUnknownType(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":        "spam",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -1443,7 +1443,7 @@ func (s *MetaSuite) TestParseResourceMetaUnknownType(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaMissingPath(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":        "file",
 		"description": "One line that is useful when operators need to push it.",
 	}
@@ -1460,7 +1460,7 @@ func (s *MetaSuite) TestParseResourceMetaMissingPath(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaMissingComment(c *tc.C) {
 	name := "my-resource"
-	data := map[string]interface{}{
+	data := map[string]any{
 		"type":     "file",
 		"filename": "filename.tgz",
 	}
@@ -1477,7 +1477,7 @@ func (s *MetaSuite) TestParseResourceMetaMissingComment(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaEmpty(c *tc.C) {
 	name := "my-resource"
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	res, err := charm.ParseResourceMeta(name, data)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1488,7 +1488,7 @@ func (s *MetaSuite) TestParseResourceMetaEmpty(c *tc.C) {
 
 func (s *MetaSuite) TestParseResourceMetaNil(c *tc.C) {
 	name := "my-resource"
-	var data map[string]interface{}
+	var data map[string]any
 	res, err := charm.ParseResourceMeta(name, data)
 	c.Assert(err, tc.ErrorIsNil)
 

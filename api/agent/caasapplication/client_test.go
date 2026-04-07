@@ -30,7 +30,7 @@ func newClient(f basetesting.APICallerFunc) *caasapplication.Client {
 
 func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Assert(objType, tc.Equals, "CAASApplication")
 		c.Assert(id, tc.Equals, "")
@@ -58,7 +58,7 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 
 func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Assert(objType, tc.Equals, "CAASApplication")
 		c.Assert(id, tc.Equals, "")
@@ -80,7 +80,7 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
 
 func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Assert(objType, tc.Equals, "CAASApplication")
 		c.Assert(id, tc.Equals, "")
@@ -102,7 +102,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
 
 func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
 	var called bool
-	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, result any) error {
 		called = true
 		c.Assert(objType, tc.Equals, "CAASApplication")
 		c.Assert(id, tc.Equals, "")
@@ -133,7 +133,7 @@ func (s *provisionerSuite) TestUnitTerminating(c *tc.C) {
 	}
 	for _, test := range tests {
 		var called bool
-		client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		client := newClient(func(objType string, version int, id, request string, a, result any) error {
 			called = true
 			c.Assert(objType, tc.Equals, "CAASApplication")
 			c.Assert(id, tc.Equals, "")

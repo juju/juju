@@ -129,16 +129,16 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 // resultsToMap is a helper function that takes in a []params.ActionResult
 // and returns a map[string]interface{} ready to be served to the
 // formatter for printing.
-func resultsToMap(results []actionapi.ActionResult) map[string]interface{} {
-	items := []map[string]interface{}{}
+func resultsToMap(results []actionapi.ActionResult) map[string]any {
+	items := []map[string]any{}
 	for _, item := range results {
 		items = append(items, resultToMap(item))
 	}
-	return map[string]interface{}{"actions": items}
+	return map[string]any{"actions": items}
 }
 
-func resultToMap(result actionapi.ActionResult) map[string]interface{} {
-	item := map[string]interface{}{}
+func resultToMap(result actionapi.ActionResult) map[string]any {
+	item := map[string]any{}
 	if result.Error != nil {
 		item["error"] = result.Error.Error()
 	}

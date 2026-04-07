@@ -99,7 +99,7 @@ func (s *providerSuite) setupController(c *tc.C) *gomock.Controller {
 func (s *providerSuite) backendConfig() provider.BackendConfig {
 	return provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
@@ -379,7 +379,7 @@ func (s *providerSuite) assertRestrictedConfig(c *tc.C, accessor secrets.Accesso
 	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
@@ -550,7 +550,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
@@ -660,7 +660,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
@@ -697,7 +697,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelUpdate(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,

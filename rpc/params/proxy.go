@@ -11,8 +11,8 @@ import (
 
 // Proxy represents a proxy connection info.
 type Proxy struct {
-	Config map[string]interface{} `json:"config"`
-	Type   string                 `json:"type"`
+	Config map[string]any `json:"config"`
+	Type   string         `json:"type"`
 }
 
 // NewProxy constructs a new Proxy from the supplied proxier.

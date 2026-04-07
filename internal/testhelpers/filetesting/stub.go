@@ -163,7 +163,7 @@ type StubFileInfo struct {
 	Stub *testing.Stub
 
 	Info      FileInfo
-	ReturnSys interface{}
+	ReturnSys any
 }
 
 func NewStubFileInfo(stub *testing.Stub, name, content string) *StubFileInfo {
@@ -213,7 +213,7 @@ func (s StubFileInfo) IsDir() bool {
 	return s.Info.Mode.IsDir()
 }
 
-func (s StubFileInfo) Sys() interface{} {
+func (s StubFileInfo) Sys() any {
 	s.Stub.AddCall("Sys")
 	_ = s.Stub.NextErr() // Pop one off.
 

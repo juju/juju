@@ -189,7 +189,7 @@ func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// so we can connect to the socket.
 	workertest.CleanKill(c, s.worker)
 	s.depEngine = &depEngine{
-		values: map[string]interface{}{
+		values: map[string]any{
 			"working": true,
 		},
 	}
@@ -216,10 +216,10 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 }
 
 type depEngine struct {
-	values map[string]interface{}
+	values map[string]any
 }
 
-func (r *depEngine) Report(ctx context.Context) map[string]interface{} {
+func (r *depEngine) Report(ctx context.Context) map[string]any {
 	return r.values
 }
 

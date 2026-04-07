@@ -49,7 +49,7 @@ const BootstrapInstanceId = "localhost"
 var errNotPrepared = errors.New("model is not prepared")
 
 // Operation represents an action on the dummy provider.
-type Operation interface{}
+type Operation any
 
 type OpBootstrap struct {
 	Context environs.BootstrapContext
@@ -198,7 +198,7 @@ var configDefaults = schema.Defaults{
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (c *environConfig) broken() string {

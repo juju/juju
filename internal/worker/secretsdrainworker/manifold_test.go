@@ -110,7 +110,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := secretsdrainworker.Manifold(s.config)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller":         struct{ base.APICaller }{&mockAPICaller{}},
 		"leadership-tracker": struct{ leadership.TrackerWorker }{&mockLeadershipTracker{}},
 	}))
@@ -146,7 +146,7 @@ func (s *ManifoldSuite) TestStartNoLeadershipTracker(c *tc.C) {
 		return nil, nil
 	}
 	manifold := secretsdrainworker.Manifold(s.config)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)

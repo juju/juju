@@ -59,7 +59,7 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
-		map[string]interface{}{
+		map[string]any{
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 			controller.CACertKey:         testing.CACert,
 			controller.APIPort:           4321,
@@ -69,7 +69,7 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *tc.C) {
 
 	result, err := s.ctrlConfigAPI.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(map[string]interface{}(result.Config), tc.DeepEquals, map[string]interface{}{
+	c.Assert(map[string]any(result.Config), tc.DeepEquals, map[string]any{
 		"ca-cert":         testing.CACert,
 		"controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"api-port":        4321,
@@ -87,7 +87,7 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *tc.C) {
 func (s *controllerConfigSuite) expectControllerInfo() {
 	addrs := []string{"192.168.1.1:17070"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]interface{}{
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]any{
 		controller.CACertKey: testing.CACert,
 	}, nil)
 }

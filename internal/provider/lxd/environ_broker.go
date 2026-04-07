@@ -106,7 +106,7 @@ func (env *environ) newContainer(
 	// are made, instead of at a higher level in the package, so as not to
 	// assume that all providers will have the same need to be implemented
 	// in the same way.
-	statusCallback := func(ctx context.Context, currentStatus status.Status, msg string, data map[string]interface{}) error {
+	statusCallback := func(ctx context.Context, currentStatus status.Status, msg string, data map[string]any) error {
 		if args.StatusCallback != nil {
 			_ = args.StatusCallback(ctx, currentStatus, msg, nil)
 		}

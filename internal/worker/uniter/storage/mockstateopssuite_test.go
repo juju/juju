@@ -63,7 +63,7 @@ type unitStateMatcher struct {
 	expected string
 }
 
-func (m unitStateMatcher) Matches(x interface{}) bool {
+func (m unitStateMatcher) Matches(x any) bool {
 	obtained, ok := x.(params.SetUnitStateArg)
 	if !ok {
 		return false

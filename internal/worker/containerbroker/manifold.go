@@ -87,7 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // manifoldOutput extracts an environs.Environ resource from a *Tracker.
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inTracker, ok := in.(*Tracker)
 	if !ok {
 		return errors.Errorf("expected *broker.Tracker, got %T", in)

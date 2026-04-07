@@ -76,18 +76,18 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 var someCharmActions = map[string]actionapi.ActionSpec{
 	"snapshot": {
 		Description: "Take a snapshot of the database.",
-		Params: map[string]interface{}{
-			"properties": map[string]interface{}{
-				"name": map[string]interface{}{
+		Params: map[string]any{
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
 					"description": "snapshot name",
 				},
-				"full": map[string]interface{}{
+				"full": map[string]any{
 					"type":        "boolean",
 					"description": "take a full backup",
 					"default":     true,
 				},
-				"prefix": map[string]interface{}{
+				"prefix": map[string]any{
 					"type":        "string",
 					"description": "prefix to snapshot name",
 					"default":     "",
@@ -98,9 +98,9 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 	},
 	"kill": {
 		Description: "Kill the database.",
-		Params: map[string]interface{}{
-			"properties": map[string]interface{}{
-				"baz": map[string]interface{}{
+		Params: map[string]any{
+			"properties": map[string]any{
+				"baz": map[string]any{
 					"type": "string",
 				},
 			},
@@ -108,9 +108,9 @@ var someCharmActions = map[string]actionapi.ActionSpec{
 		},
 	},
 	"no-description": {
-		Params: map[string]interface{}{
-			"properties": map[string]interface{}{
-				"baz": map[string]interface{}{
+		Params: map[string]any{
+			"properties": map[string]any{
+				"baz": map[string]any{
 					"type": "string",
 				},
 			},
@@ -221,7 +221,7 @@ func (c *fakeAPIClient) Actions(ctx context.Context, actionIDs []string) ([]acti
 		// pending behavior with a --wait flag on FetchCommand.
 		return []actionapi.ActionResult{{
 			Status:   "pending",
-			Output:   map[string]interface{}{},
+			Output:   map[string]any{},
 			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 		}}, nil

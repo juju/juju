@@ -67,7 +67,7 @@ func (s *modelmanagerCompatSuite) TestListModelSummariesWithOlderFacadeVersion(c
 				Life:            "alive",
 				Status: base.Status{
 					Status: status.Active,
-					Data:   map[string]interface{}{},
+					Data:   map[string]any{},
 				},
 				ModelUserAccess: "admin",
 				Counts:          []base.EntityCount{},

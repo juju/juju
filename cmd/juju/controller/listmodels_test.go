@@ -101,7 +101,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(ctx context.Context, user str
 			Status: base.Status{
 				Status: info.Result.Status.Status,
 				Info:   info.Result.Status.Info,
-				Data:   make(map[string]interface{}),
+				Data:   make(map[string]any),
 				Since:  info.Result.Status.Since,
 			},
 			AgentVersion: info.Result.AgentVersion,
@@ -612,9 +612,9 @@ func (s *ModelsSuite) TestModelsWithOneModelInError(c *tc.C) {
 func (s *ModelsSuite) TestAllModels(c *tc.C) {
 	assertAPICallsArgs := func(all bool) {
 		s.api.CheckCalls(c, []testhelpers.StubCall{{
-			"ListModelSummaries", []interface{}{"admin", all},
+			"ListModelSummaries", []any{"admin", all},
 		}, {
-			"Close", []interface{}{},
+			"Close", []any{},
 		},
 		})
 	}

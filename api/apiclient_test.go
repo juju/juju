@@ -79,7 +79,7 @@ func (a testAdminAPI) Login(req params.LoginRequest) (params.LoginResult, error)
 }
 
 func (s *apiclientSuite) APIInfo() *api.Info {
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		var err error
 		if modelUUID != "" && modelUUID != jtesting.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
@@ -729,7 +729,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *tc.C) {
 	redirectToHosts := []string{"0.1.2.3:1234", "0.1.2.4:1235"}
 	redirectToCACert := "fake CA cert"
 
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		return &redirectAPI{
 			modelUUID:        modelUUID,
 			redirectToHosts:  redirectToHosts,
@@ -939,7 +939,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *tc.C) {
 
 func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *tc.C) {
 	unblock := make(chan chan struct{})
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		return &loginTimeoutAPI{
 			unblock: unblock,
 		}, nil
@@ -1064,7 +1064,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *tc.C) {
 
 func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *tc.C) {
 	unblock := make(chan chan struct{})
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		return &loginTimeoutAPI{
 			unblock: unblock,
 		}, nil
@@ -1535,7 +1535,7 @@ func newRPCConnection(errs ...error) *fakeRPCConnection {
 
 type fakeRPCConnection struct {
 	stub     testhelpers.Stub
-	response interface{}
+	response any
 }
 
 func (f *fakeRPCConnection) Dead() <-chan struct{} {
@@ -1546,7 +1546,7 @@ func (f *fakeRPCConnection) Close() error {
 	return nil
 }
 
-func (f *fakeRPCConnection) Call(ctx context.Context, req rpc.Request, params, response interface{}) error {
+func (f *fakeRPCConnection) Call(ctx context.Context, req rpc.Request, params, response any) error {
 	f.stub.AddCall(req.Type+"."+req.Action, req.Version, params)
 	if f.response != nil {
 		rv := reflect.ValueOf(response)
@@ -1609,11 +1609,11 @@ type fakeConn struct {
 	closed chan struct{}
 }
 
-func (c fakeConn) Receive(x interface{}) error {
+func (c fakeConn) Receive(x any) error {
 	return errors.New("no data available from fake connection")
 }
 
-func (c fakeConn) Send(x interface{}) error {
+func (c fakeConn) Send(x any) error {
 	return errors.New("cannot write to fake connection")
 }
 

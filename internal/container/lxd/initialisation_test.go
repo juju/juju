@@ -185,7 +185,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *tc.C) {
 	s.PatchEnvironment("no_proxy", "test.local,localhost")
 
 	var calls []string
-	updateReq := api.ServerPut{Config: map[string]interface{}{
+	updateReq := api.ServerPut{Config: map[string]any{
 		"core.proxy_http":         "http://test.local/http/proxy",
 		"core.proxy_https":        "http://test.local/https/proxy",
 		"core.proxy_ignore_hosts": "test.local,localhost",

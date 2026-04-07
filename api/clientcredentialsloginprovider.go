@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	loginWithClientCredentialsAPICall = func(ctx context.Context, caller base.APICaller, request interface{}, response interface{}) error {
+	loginWithClientCredentialsAPICall = func(ctx context.Context, caller base.APICaller, request any, response any) error {
 		return caller.APICall(ctx, "Admin", 4, "", "LoginWithClientCredentials", request, response)
 	}
 )

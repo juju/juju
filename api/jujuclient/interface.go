@@ -117,7 +117,7 @@ type BootstrapConfig struct {
 	ControllerConfig controller.Config `yaml:"controller-config"`
 
 	// Config is the complete configuration for the provider.
-	Config map[string]interface{} `yaml:"model-config"`
+	Config map[string]any `yaml:"model-config"`
 
 	// ControllerModelUUID is the controller model UUID.
 	ControllerModelUUID string `yaml:"controller-model-uuid"`

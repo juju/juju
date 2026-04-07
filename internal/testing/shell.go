@@ -14,9 +14,9 @@ import (
 // provided parse function decomposes file content into structured data
 // that may be correctly compared regardless of ordering within the
 // content. If parse is nil then the content lines are used un-parsed.
-func CheckWriteFileCommand(c *tc.C, cmd, filename, expected string, parse func(lines []string) interface{}) {
+func CheckWriteFileCommand(c *tc.C, cmd, filename, expected string, parse func(lines []string) any) {
 	if parse == nil {
-		parse = func(lines []string) interface{} {
+		parse = func(lines []string) any {
 			return lines
 		}
 	}

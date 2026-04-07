@@ -18,7 +18,7 @@ import (
 // FormatOneline writes a brief list of units and their subordinates.
 // Subordinates will be indented 2 spaces and listed under their
 // superiors. This format works with version 2 of the CLI.
-func FormatOneline(writer io.Writer, forceColor bool, value interface{}) error {
+func FormatOneline(writer io.Writer, forceColor bool, value any) error {
 	return formatOneline(writer, forceColor, value, func(out io.Writer, format, uName string, u unitStatus, level int) {
 		agentColored := colorVal(output.EmphasisHighlight.DefaultBold, "agent")
 		statusInfoColored := colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.JujuStatusInfo.Current)
@@ -26,7 +26,7 @@ func FormatOneline(writer io.Writer, forceColor bool, value interface{}) error {
 		workloadStatusInfoColored := colorVal(output.StatusColor(u.JujuStatusInfo.Current), u.WorkloadStatusInfo.Current)
 		publicAddressColored := colorVal(output.InfoHighlight, u.PublicAddress)
 
-		fPrintf := func(o io.Writer, format string, uName, pAddress, status interface{}) {
+		fPrintf := func(o io.Writer, format string, uName, pAddress, status any) {
 			fmt.Fprintf(o, format, uName, pAddress, status)
 		}
 
@@ -51,7 +51,7 @@ func FormatOneline(writer io.Writer, forceColor bool, value interface{}) error {
 
 type onelinePrintf func(out io.Writer, format, uName string, u unitStatus, level int)
 
-func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf onelinePrintf) error {
+func formatOneline(writer io.Writer, forceColor bool, value any, printf onelinePrintf) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
@@ -85,7 +85,7 @@ func formatOneline(writer io.Writer, forceColor bool, value interface{}, printf 
 }
 
 // colorVal appends ansi color codes to the given value
-func colorVal(ctx *ansiterm.Context, val interface{}) string {
+func colorVal(ctx *ansiterm.Context, val any) string {
 	buff := &bytes.Buffer{}
 	coloredWriter := output.Writer(buff)
 	coloredWriter.SetColorCapable(true)

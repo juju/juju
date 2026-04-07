@@ -32,7 +32,7 @@ type CrossControllerSuite struct {
 }
 
 func (s *CrossControllerSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
@@ -42,7 +42,7 @@ func (s *CrossControllerSuite) TestNewClient(c *tc.C) {
 func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 	uri := coresecrets.NewURI()
 	macs := macaroon.Slice{jujujutesting.MustNewMacaroon("test")}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelSecrets")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -76,7 +76,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 					Draining:       true,
 					Config: params.SecretBackendConfig{
 						BackendType: "vault",
-						Params:      map[string]interface{}{"foo": "bar"},
+						Params:      map[string]any{"foo": "bar"},
 					},
 				},
 				LatestRevision: new(666),
@@ -101,7 +101,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: secretsprovider.BackendConfig{
 			BackendType: "vault",
-			Config:      map[string]interface{}{"foo": "bar"},
+			Config:      map[string]any{"foo": "bar"},
 		},
 	})
 }
@@ -109,7 +109,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *tc.C) {
 func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 	s.PatchValue(&crossmodelsecrets.Clock, testclock.NewDilatedWallClock(time.Millisecond))
 	attemptCount := 0
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		attemptCount++
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
@@ -130,7 +130,7 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *tc.C) {
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, application.NewUUID)
 	relUUID := relationtesting.GenRelationUUID(c)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelSecrets")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

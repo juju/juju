@@ -107,10 +107,10 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *tc.C) {
 	// to nextPeriod because we have Kill()ed the worker.
 	tPeriod.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+		Args:     []any{testing.ShortWait, float64(0.2)},
 	}, {
 		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+		Args:     []any{testing.ShortWait, float64(0.2)},
 	}})
 	select {
 	case <-funcHasRun:

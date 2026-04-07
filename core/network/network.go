@@ -25,7 +25,7 @@ const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 // GenerateVirtualMACAddress creates a random MAC address within the address
 // space implied by macAddressTemplate above.
 var GenerateVirtualMACAddress = func() string {
-	digits := make([]interface{}, 3)
+	digits := make([]any, 3)
 	for i := range digits {
 		digits[i] = rand.Intn(256)
 	}

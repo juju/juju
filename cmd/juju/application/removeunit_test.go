@@ -185,7 +185,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{
@@ -223,7 +223,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(gomock.Any(), apiapplication.DestroyUnitsParams{

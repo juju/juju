@@ -345,7 +345,7 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 				StorageName: "database",
 				Size:        100,
 				Provider:    "kubernetes",
-				Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+				Attributes:  map[string]any{"storage-class": "workload-storage"},
 				Attachments: []storage.KubernetesFilesystemAttachmentParams{
 					{
 						Path:          "path/to/here",
@@ -2603,7 +2603,7 @@ type resourceMatcher struct {
 	expectedResource any
 }
 
-func (m resourceMatcher) Matches(x interface{}) bool {
+func (m resourceMatcher) Matches(x any) bool {
 	req, ok := x.(resources.Resource)
 	if !ok {
 		return false
@@ -3841,20 +3841,20 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// CR (namespace-scoped)
 	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
-	customResLabels := make(map[string]interface{}, len(resourceLabels))
+	customResLabels := make(map[string]any, len(resourceLabels))
 	for k, v := range resourceLabels {
 		customResLabels[k] = v
 	}
 	namespacedCR := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "example.com/v1",
 			"kind":       "Widget",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      "widget-1",
 				"namespace": modelName,
 				"labels":    customResLabels,
 			},
-			"spec": map[string]interface{}{"foo": "bar"},
+			"spec": map[string]any{"foo": "bar"},
 		},
 	}
 	_, err = s.dynamicClient.Resource(gvr).Namespace(modelName).Create(ctx, namespacedCR, metav1.CreateOptions{FieldManager: "juju"})
@@ -3898,20 +3898,20 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 		Group: "example.com", Version: "v1", Resource: "clusterwidgets",
 	}
 	clusterCR := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "example.com/v1",
 			"kind":       "ClusterWidget",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "clusterwidget-1",
-				"labels": func() map[string]interface{} {
-					m := make(map[string]interface{}, len(resourceLabels))
+				"labels": func() map[string]any {
+					m := make(map[string]any, len(resourceLabels))
 					for k, v := range resourceLabels {
 						m[k] = v
 					}
 					return m
 				}(),
 			},
-			"spec": map[string]interface{}{"foo": "bar"},
+			"spec": map[string]any{"foo": "bar"},
 		},
 	}
 	_, err = s.dynamicClient.Resource(clusterGVR).Create(
@@ -4135,21 +4135,21 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Namespace-scoped CR (bad) — same GVR, different labels
 	namespacedCRBad := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "example.com/v1",
 			"kind":       "Widget",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      "widget-2",
 				"namespace": modelName,
-				"labels": func() map[string]interface{} {
-					m := map[string]interface{}{}
+				"labels": func() map[string]any {
+					m := map[string]any{}
 					for k, v := range wrongAppResourceLabels {
 						m[k] = v
 					}
 					return m
 				}(),
 			},
-			"spec": map[string]interface{}{"foo": "baz"},
+			"spec": map[string]any{"foo": "baz"},
 		},
 	}
 	_, err = s.dynamicClient.Resource(gvr).Namespace(modelName).Create(ctx, namespacedCRBad, metav1.CreateOptions{FieldManager: "juju"})
@@ -4157,20 +4157,20 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Cluster-scoped CR (bad) — same GVR, different labels
 	clusterCRBad := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "example.com/v1",
 			"kind":       "ClusterWidget",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "clusterwidget-2",
-				"labels": func() map[string]interface{} {
-					m := map[string]interface{}{}
+				"labels": func() map[string]any {
+					m := map[string]any{}
 					for k, v := range wrongAppResourceLabels {
 						m[k] = v
 					}
 					return m
 				}(),
 			},
-			"spec": map[string]interface{}{"foo": "baz"},
+			"spec": map[string]any{"foo": "baz"},
 		},
 	}
 	_, err = s.dynamicClient.Resource(clusterGVR).Create(ctx, clusterCRBad, metav1.CreateOptions{FieldManager: "juju"})

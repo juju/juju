@@ -104,7 +104,7 @@ type withCurrentConfig interface {
 	CurrentConfig() auditlog.Config
 }
 
-func output(in worker.Worker, out interface{}) error {
+func output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}

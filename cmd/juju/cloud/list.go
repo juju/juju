@@ -130,7 +130,7 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
-		"tabular": func(writer io.Writer, value interface{}) error {
+		"tabular": func(writer io.Writer, value any) error {
 			return formatCloudsTabular(writer, value, c.Embedded)
 		},
 	})
@@ -204,7 +204,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		ctxt.Infof("There are more clouds, use --all to see them.")
 	}
-	var result interface{}
+	var result any
 	switch c.out.Name() {
 	case "yaml", "json":
 		clouds := details.all()
@@ -344,7 +344,7 @@ func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error
 }
 
 // formatCloudsTabular writes a tabular summary of cloud information.
-func formatCloudsTabular(writer io.Writer, value interface{}, embedded bool) error {
+func formatCloudsTabular(writer io.Writer, value any, embedded bool) error {
 	clouds, ok := value.(*cloudList)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", clouds, value)

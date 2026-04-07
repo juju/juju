@@ -148,7 +148,7 @@ func (s *stubSuite) TestAddCallRecorded(c *tc.C) {
 
 	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aFunc",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}})
 	s.stub.CheckReceivers(c, nil)
 }
@@ -161,16 +161,16 @@ func (s *stubSuite) TestAddCallRepeated(c *tc.C) {
 
 	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "before",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}, {
 		FuncName: "aFunc",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}, {
 		FuncName: "aFunc",
-		Args:     []interface{}{4, 5, 6},
+		Args:     []any{4, 5, 6},
 	}, {
 		FuncName: "after",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}})
 	s.stub.CheckReceivers(c, nil, nil, nil, nil)
 }
@@ -210,7 +210,7 @@ func (s *stubSuite) TestMethodCallRecorded(c *tc.C) {
 
 	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aMethod",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}})
 	s.stub.CheckReceivers(c, s.stub)
 }
@@ -222,10 +222,10 @@ func (s *stubSuite) TestMethodCallMixed(c *tc.C) {
 
 	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Method1",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}, {
 		FuncName: "aFunc",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}, {
 		FuncName: "Method2",
 	}})
@@ -246,13 +246,13 @@ func (s *stubSuite) TestMethodCallEmbeddedMixed(c *tc.C) {
 
 	c.Check(s.stub.Calls(), tc.DeepEquals, []testhelpers.StubCall{{
 		FuncName: "aMethod",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}, {
 		FuncName: "aFunc",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}, {
 		FuncName: "otherMethod",
-		Args:     []interface{}{[]string{"arg1", "arg2"}},
+		Args:     []any{[]string{"arg1", "arg2"}},
 	}, {
 		FuncName: "aMethod",
 	}})
@@ -291,10 +291,10 @@ func (s *stubSuite) TestSetErrorsTrailingNil(c *tc.C) {
 func (s *stubSuite) checkCallsStandard(c testhelpers.StubC) {
 	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "first",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}, {
 		FuncName: "second",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}, {
 		FuncName: "third",
 	}})
@@ -489,10 +489,10 @@ func (s *stubSuite) TestMethodCallsUnordered(c *tc.C) {
 
 	s.stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "aFunc",
-		Args:     []interface{}{"arg"},
+		Args:     []any{"arg"},
 	}, {
 		FuncName: "Method1",
-		Args:     []interface{}{1, 2, 3},
+		Args:     []any{1, 2, 3},
 	}, {
 		FuncName: "Method2",
 	}})
@@ -511,10 +511,10 @@ func (s *stubSuite) TestMethodCallsUnorderedDuplicateFail(c *tc.C) {
 		defer pc.recover()
 		s.stub.CheckCallsUnordered(pc, []testhelpers.StubCall{{
 			FuncName: "aFunc",
-			Args:     []interface{}{"arg"},
+			Args:     []any{"arg"},
 		}, {
 			FuncName: "Method1",
-			Args:     []interface{}{1, 2, 3},
+			Args:     []any{1, 2, 3},
 		}, {
 			FuncName: "Method2",
 		}, {

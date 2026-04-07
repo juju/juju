@@ -20,7 +20,7 @@ var (
 	DefaultKeyProfile KeyProfile = RSA3072
 )
 
-func PublicKeysEqual(key1, key2 interface{}) bool {
+func PublicKeysEqual(key1, key2 any) bool {
 	return true
 }
 

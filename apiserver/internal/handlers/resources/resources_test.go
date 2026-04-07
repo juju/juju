@@ -743,7 +743,7 @@ func apiFailure(msg, code string) (error, string) {
 	return failure, string(data)
 }
 
-func mustMarshalJSON(v interface{}) []byte {
+func mustMarshalJSON(v any) []byte {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

@@ -135,7 +135,7 @@ type featureErr struct {
 	featureDescr string
 }
 
-func featureError(featureName, featureDescr, format string, args ...interface{}) *featureErr {
+func featureError(featureName, featureDescr, format string, args ...any) *featureErr {
 	return &featureErr{
 		message:      fmt.Sprintf(format, args...),
 		featureName:  featureName,

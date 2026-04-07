@@ -341,7 +341,7 @@ func (e *EventMultiplexer) loop() error {
 }
 
 type reporter interface {
-	Report(ctx context.Context) map[string]interface{}
+	Report(ctx context.Context) map[string]any
 }
 
 func (e *EventMultiplexer) gatherSubscriptions(ctx context.Context, ch changestream.ChangeEvent) []*subscription {

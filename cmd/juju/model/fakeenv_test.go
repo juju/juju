@@ -27,7 +27,7 @@ type fakeEnvSuite struct {
 func (s *fakeEnvSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeEnvAPI{
-		values: map[string]interface{}{
+		values: map[string]any{
 			"name":    "test-model",
 			"special": "special value",
 			"running": true,
@@ -41,7 +41,7 @@ func (s *fakeEnvSuite) SetUpTest(c *tc.C) {
 }
 
 type fakeEnvAPI struct {
-	values      map[string]interface{}
+	values      map[string]any
 	defaults    config.ConfigValues
 	err         error
 	resetKeys   []string
@@ -52,10 +52,10 @@ func (f *fakeEnvAPI) Close() error {
 	return nil
 }
 
-func (f *fakeEnvAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (f *fakeEnvAPI) ModelGet(ctx context.Context) (map[string]any, error) {
 	// We need to deep copy f.values first, because verifyKnownKeys() will
 	// alter the returned values of ModelGet(), hence breaking the tests.
-	valuesCopy := make(map[string]interface{})
+	valuesCopy := make(map[string]any)
 	maps.Copy(valuesCopy, f.values)
 	return valuesCopy, nil
 }
@@ -68,7 +68,7 @@ func (f *fakeEnvAPI) ModelGetWithMetadata(ctx context.Context) (config.ConfigVal
 	return result, nil
 }
 
-func (f *fakeEnvAPI) ModelSet(ctx context.Context, config map[string]interface{}) error {
+func (f *fakeEnvAPI) ModelSet(ctx context.Context, config map[string]any) error {
 	if f.values == nil {
 		f.values = config
 	} else {
@@ -100,7 +100,7 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAPIRoot = &fakeAPIConnection{}
 	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{
-		values: map[string]interface{}{
+		values: map[string]any{
 			"name":    "test-model",
 			"special": "special value",
 			"running": true,
@@ -141,7 +141,7 @@ func (*fakeAPIConnection) Close() error {
 }
 
 type fakeModelDefaultsAPI struct {
-	values        map[string]interface{}
+	values        map[string]any
 	cloud, region string
 	defaults      config.ModelDefaultAttributes
 	err           error
@@ -152,7 +152,7 @@ func (f *fakeModelDefaultsAPI) Close() error {
 	return nil
 }
 
-func (f *fakeModelDefaultsAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (f *fakeModelDefaultsAPI) ModelGet(ctx context.Context) (map[string]any, error) {
 	return f.values, nil
 }
 
@@ -161,7 +161,7 @@ func (f *fakeModelDefaultsAPI) ModelDefaults(ctx context.Context, cloud string) 
 	return f.defaults, nil
 }
 
-func (f *fakeModelDefaultsAPI) SetModelDefaults(ctx context.Context, cloud, region string, cfg map[string]interface{}) error {
+func (f *fakeModelDefaultsAPI) SetModelDefaults(ctx context.Context, cloud, region string, cfg map[string]any) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -199,7 +199,7 @@ func (f *fakeModelDefaultsAPI) UnsetModelDefaults(ctx context.Context, cloud, re
 	return nil
 }
 
-func (f *fakeModelDefaultsAPI) ModelSet(ctx context.Context, config map[string]interface{}) error {
+func (f *fakeModelDefaultsAPI) ModelSet(ctx context.Context, config map[string]any) error {
 	f.values = config
 	return f.err
 }

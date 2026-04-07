@@ -57,7 +57,7 @@ func (*ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 func (*ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := &lifeflag.Worker{}
-	var flag interface{}
+	var flag any
 	err := manifold.Output(worker, &flag)
 	c.Check(err, tc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
 }
@@ -72,7 +72,7 @@ func (*ManifoldSuite) TestOutputSuccess(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestMissingAPICaller(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": dependency.ErrMissing,
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -87,7 +87,7 @@ func (*ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 func (*ManifoldSuite) TestNewWorkerError(c *tc.C) {
 	expectFacade := struct{ lifeflag.Facade }{}
 	expectEntity := names.NewMachineTag("33")
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{},
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -112,7 +112,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *tc.C) {
 
 func (*ManifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{},
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -132,7 +132,7 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 
 func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{},
 		"agent-name": &fakeAgent{config: fakeConfig{tag: names.NewUnitTag("ubuntu/0")}},
 	})

@@ -91,7 +91,7 @@ var Contains tc.Checker = &containsChecker{
 	CheckerInfo: &tc.CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
 }
 
-func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, err string) {
+func (checker *containsChecker) Check(params []any, names []string) (result bool, err string) {
 	expected, ok := params[1].(facades.FacadeVersion)
 	if !ok {
 		return false, "expected must be a int"

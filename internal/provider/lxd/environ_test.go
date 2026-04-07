@@ -122,7 +122,7 @@ func (s *environSuite) TestBootstrapAPI(c *tc.C) {
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Bootstrap",
-		Args: []interface{}{
+		Args: []any{
 			ctx,
 			params,
 		},
@@ -141,10 +141,10 @@ func (s *environSuite) TestDestroyProfiles(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{"GetProfileNames", []interface{}{}},
-		{"DeleteProfile", []interface{}{profileName}},
-		{"DeleteProfile", []interface{}{profileName + "-watermelon-0"}},
-		{"DeleteProfile", []interface{}{profileName + "-strawberry-1"}},
+		{"GetProfileNames", []any{}},
+		{"DeleteProfile", []any{profileName}},
+		{"DeleteProfile", []any{profileName + "-watermelon-0"}},
+		{"DeleteProfile", []any{profileName + "-strawberry-1"}},
 	})
 }
 
@@ -162,10 +162,10 @@ func (s *environSuite) TestDestroyProfilesShouldNotFailIfDeleteProfileReturnsErr
 	c.Assert(err, tc.IsNil)
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{"GetProfileNames", []interface{}{}},
-		{"DeleteProfile", []interface{}{profileName}},
-		{"DeleteProfile", []interface{}{profileName + "-watermelon-0"}},
-		{"DeleteProfile", []interface{}{profileName + "-strawberry-1"}},
+		{"GetProfileNames", []any{}},
+		{"DeleteProfile", []any{profileName}},
+		{"DeleteProfile", []any{profileName + "-watermelon-0"}},
+		{"DeleteProfile", []any{profileName + "-strawberry-1"}},
 	})
 }
 
@@ -178,7 +178,7 @@ func (s *environSuite) TestDestroyProfilesReturnErr(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "get profiles: connection err")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{"GetProfileNames", []interface{}{}},
+		{"GetProfileNames", []any{}},
 	})
 }
 
@@ -207,16 +207,16 @@ func (s *environSuite) TestDestroy(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "Destroy", Args: []interface{}{callCtx}},
+		{FuncName: "Destroy", Args: []any{callCtx}},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
-		{FuncName: "GetProfileNames", Args: []interface{}{}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []any{}},
+		{FuncName: "DeleteProfile", Args: []any{profileName}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-strawberry-1"}},
 	})
 }
 
@@ -256,15 +256,15 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *tc.
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"juju", "custom", "ours"}},
 	})
 }
 
 func (s *environSuite) TestDestroyController(c *tc.C) {
 	defer s.SetupMocks(c).Finish()
 
-	s.UpdateConfig(c, map[string]interface{}{
+	s.UpdateConfig(c, map[string]any{
 		"controller-uuid": s.Config.UUID(),
 	})
 	s.Stub.ResetCalls()
@@ -309,22 +309,22 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "Destroy", Args: []interface{}{callCtx}},
+		{FuncName: "Destroy", Args: []any{callCtx}},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
-		{FuncName: "GetProfileNames", Args: []interface{}{}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
-		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
-		{FuncName: "RemoveContainers", Args: []interface{}{[]string{machine1.Name}}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []any{}},
+		{FuncName: "DeleteProfile", Args: []any{profileName}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-strawberry-1"}},
+		{FuncName: "AliveContainers", Args: []any{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []any{[]string{machine1.Name}}},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju-zfs"}},
 	})
 }
 
@@ -333,7 +333,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
-	s.UpdateConfig(c, map[string]interface{}{
+	s.UpdateConfig(c, map[string]any{
 		"controller-uuid": s.Config.UUID(),
 	})
 	s.Stub.ResetCalls()
@@ -371,14 +371,14 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *tc
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
-		{FuncName: "GetProfileNames", Args: []interface{}{}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
-		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
-		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []any{}},
+		{FuncName: "DeleteProfile", Args: []any{profileName}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-strawberry-1"}},
+		{FuncName: "AliveContainers", Args: []any{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []any{[]string{}}},
 	})
 	s.Stub.CheckCallNames(c,
 		"Destroy",
@@ -399,7 +399,7 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 
 	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 
-	s.UpdateConfig(c, map[string]interface{}{
+	s.UpdateConfig(c, map[string]any{
 		"controller-uuid": s.Config.UUID(),
 	})
 	s.Stub.ResetCalls()
@@ -437,18 +437,18 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 		{FuncName: "Destroy", Args: nil},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
-		{FuncName: "GetProfileNames", Args: []interface{}{}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-watermelon-0"}},
-		{FuncName: "DeleteProfile", Args: []interface{}{profileName + "-strawberry-1"}},
-		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
-		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju-zfs"}},
+		{FuncName: "GetProfileNames", Args: []any{}},
+		{FuncName: "DeleteProfile", Args: []any{profileName}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-watermelon-0"}},
+		{FuncName: "DeleteProfile", Args: []any{profileName + "-strawberry-1"}},
+		{FuncName: "AliveContainers", Args: []any{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []any{[]string{}}},
 		{FuncName: "StorageSupported", Args: nil},
 		{FuncName: "GetStoragePools", Args: nil},
-		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
-		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []any{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []any{"juju", "custom", "ours"}},
 	})
 }
 
@@ -481,7 +481,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *tc
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 
 	s.Stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "AliveContainers", Args: []interface{}{s.Prefix()}},
+		{FuncName: "AliveContainers", Args: []any{s.Prefix()}},
 	})
 }
 
@@ -514,7 +514,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 }
 
 func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C) {
-	defer s.setup(c, map[string]interface{}{"project": "my-project"}).Finish()
+	defer s.setup(c, map[string]any{"project": "my-project"}).Finish()
 	s.expectHasProfileFalse("juju-controller-2d02ee")
 	s.expectCreateProfile("juju-controller-2d02ee", nil)
 
@@ -522,7 +522,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environCloudProfileSuite) setup(c *tc.C, cfgEdit map[string]interface{}) *gomock.Controller {
+func (s *environCloudProfileSuite) setup(c *tc.C, cfgEdit map[string]any) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.svr = lxd.NewMockServer(ctrl)
 

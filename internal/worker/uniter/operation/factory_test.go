@@ -42,7 +42,7 @@ func (s *FactorySuite) SetUpTest(c *tc.C) {
 		MockNotifyResolved: &MockNoArgs{},
 	}
 	s.actionErr = nil
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		actionResult := params.ActionResult{
 			Action: &params.Action{Name: "backup"},
 		}

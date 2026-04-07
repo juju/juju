@@ -70,7 +70,7 @@ type StatusInfo struct {
 	Tag    string
 	Status string
 	Info   string
-	Data   map[string]interface{}
+	Data   map[string]any
 }
 
 // ApplicationStatusInfo holds StatusInfo for an Application and all its Units.
@@ -79,11 +79,11 @@ type ApplicationStatusInfo struct {
 	Units       []StatusInfo
 }
 
-func toDetails(info StatusInfo, includeData bool) map[string]interface{} {
-	details := make(map[string]interface{})
+func toDetails(info StatusInfo, includeData bool) map[string]any {
+	details := make(map[string]any)
 	details["status"] = info.Status
 	if includeData {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		maps.Copy(data, info.Data)
 		details["status-data"] = data
 		details["message"] = info.Info
@@ -102,10 +102,10 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 	if !c.includeData && c.out.Name() == "smart" {
 		return c.out.Write(ctx, applicationStatus.Application.Status)
 	}
-	statusDetails := make(map[string]interface{})
+	statusDetails := make(map[string]any)
 	details := toDetails(applicationStatus.Application, c.includeData)
 
-	units := make(map[string]interface{}, len(applicationStatus.Units))
+	units := make(map[string]any, len(applicationStatus.Units))
 	for _, unit := range applicationStatus.Units {
 		// NOTE: unit.Tag is a unit name, not a unit tag.
 		units[unit.Tag] = toDetails(unit, c.includeData)

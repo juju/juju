@@ -426,7 +426,7 @@ var getControllerDetailsClient = func(ctx context.Context, c *debugLogCommand) (
 	return highavailability.NewClient(root), nil
 }
 
-func isTerminal(f interface{}) bool {
+func isTerminal(f any) bool {
 	file, ok := f.(*os.File)
 	if !ok {
 		return false
@@ -441,7 +441,7 @@ func (f logFunc) Log(r []corelogger.LogRecord) error {
 }
 
 type warningLogger interface {
-	Warningf(format string, args ...interface{})
+	Warningf(format string, args ...any)
 }
 
 func (c *debugLogCommand) getDebugLogClients(ctx context.Context, warningLogger warningLogger) ([]DebugLogAPI, error) {
@@ -660,7 +660,7 @@ var SeverityColor = map[corelogger.Level]*ansiterm.Context{
 	},
 }
 
-func (c *debugLogCommand) writeText(w io.Writer, v interface{}) error {
+func (c *debugLogCommand) writeText(w io.Writer, v any) error {
 	if c.tw == nil {
 		c.tw = ansiterm.NewWriter(w)
 		if c.color {

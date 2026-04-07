@@ -39,4 +39,4 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 type StubLogger struct{}
 
-func (StubLogger) Errorf(string, ...interface{}) {}
+func (StubLogger) Errorf(string, ...any) {}

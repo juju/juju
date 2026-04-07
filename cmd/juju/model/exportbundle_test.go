@@ -89,7 +89,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store))
 	c.Assert(err, tc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
-		{"ExportBundle", []interface{}{false}},
+		{"ExportBundle", []any{false}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -132,7 +132,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
-		{"ExportBundle", []interface{}{false}},
+		{"ExportBundle", []any{false}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -166,7 +166,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
-		{"ExportBundle", []interface{}{false}},
+		{"ExportBundle", []any{false}},
 	})
 
 	out := cmdtesting.Stdout(ctx)
@@ -182,7 +182,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleIncludeCharmDefaults(c *tc.C)
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fakeBundle, s.store), "--include-charm-defaults", "--filename", s.fakeBundle.filename)
 	c.Assert(err, tc.ErrorIsNil)
 	s.fakeBundle.CheckCalls(c, []testhelpers.StubCall{
-		{"ExportBundle", []interface{}{true}},
+		{"ExportBundle", []any{true}},
 	})
 
 	out := cmdtesting.Stdout(ctx)

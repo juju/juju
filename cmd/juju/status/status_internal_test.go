@@ -84,9 +84,9 @@ func (s *StatusSuite) SetUpTest(c *tc.C) {
 	s.store = store
 }
 
-type M map[string]interface{}
+type M map[string]any
 
-type L []interface{}
+type L []any
 
 type testCase struct {
 	summary string
@@ -524,8 +524,8 @@ var (
 
 type outputFormat struct {
 	name      string
-	marshal   func(v interface{}) ([]byte, error)
-	unmarshal func(data []byte, v interface{}) error
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // statusFormats list all output formats that can be marshalled as structured data,
@@ -1216,7 +1216,7 @@ var statusTests = []testCase{
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
-			map[string]interface{}{"relation-id": 0}},
+			map[string]any{"relation-id": 0}},
 
 		expect{
 			what: "a unit with a hook relation error",
@@ -1339,7 +1339,7 @@ var statusTests = []testCase{
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
-			map[string]interface{}{"relation-id": 0}},
+			map[string]any{"relation-id": 0}},
 
 		expect{
 			what: "a unit with a hook relation error when the agent is down",
@@ -3027,7 +3027,7 @@ type setModelSuspended struct {
 func (s setModelSuspended) step(c *tc.C, ctx *ctx) {
 	ctx.api.result.Model.ModelStatus.Status = status.Suspended.String()
 	ctx.api.result.Model.ModelStatus.Info = s.message
-	ctx.api.result.Model.ModelStatus.Data = map[string]interface{}{"reason": s.reason}
+	ctx.api.result.Model.ModelStatus.Data = map[string]any{"reason": s.reason}
 }
 
 type addMachine struct {
@@ -3793,7 +3793,7 @@ type setUnitStatus struct {
 	unitName   string
 	status     status.Status
 	statusInfo string
-	statusData map[string]interface{}
+	statusData map[string]any
 }
 
 func (sus setUnitStatus) step(c *tc.C, ctx *ctx) {
@@ -3832,7 +3832,7 @@ type setAgentStatus struct {
 	unitName   string
 	status     status.Status
 	statusInfo string
-	statusData map[string]interface{}
+	statusData map[string]any
 }
 
 func (sus setAgentStatus) step(c *tc.C, ctx *ctx) {

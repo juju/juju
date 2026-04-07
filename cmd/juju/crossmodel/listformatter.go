@@ -18,7 +18,7 @@ import (
 
 // formatListSummary returns a tabular summary of remote application offers or
 // errors out if parameter is not of expected type.
-func formatListSummary(writer io.Writer, value interface{}) error {
+func formatListSummary(writer io.Writer, value any) error {
 	offers, ok := value.(offeredApplications)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", offers, value)
@@ -81,7 +81,7 @@ func (o offerItems) Less(i, j int) bool {
 	return o[i].OfferName < o[j].OfferName
 }
 
-func formatListTabular(writer io.Writer, value interface{}) error {
+func formatListTabular(writer io.Writer, value any) error {
 	offers, ok := value.(offeredApplications)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", offers, value)

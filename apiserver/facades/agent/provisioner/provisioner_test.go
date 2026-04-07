@@ -277,7 +277,7 @@ func (s *provisionerMockSuite) TestStatusSuccess(c *tc.C) {
 	s.statusService.EXPECT().GetMachineStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{
 		Status:  status.Active,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &time.Time{},
 	}, nil)
 
@@ -289,7 +289,7 @@ func (s *provisionerMockSuite) TestStatusSuccess(c *tc.C) {
 		Results: []params.StatusResult{{
 			Status: status.Active.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 			Since:  &time.Time{},
 		}},
 	})
@@ -341,7 +341,7 @@ func (s *provisionerMockSuite) TestSetStatus(c *tc.C) {
 	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.Error,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(nil)
 
@@ -350,7 +350,7 @@ func (s *provisionerMockSuite) TestSetStatus(c *tc.C) {
 			Tag:    "machine-0",
 			Status: status.Error.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -366,7 +366,7 @@ func (s *provisionerMockSuite) TestSetStatusMachineNotFound(c *tc.C) {
 	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.Error,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(machineerrors.MachineNotFound)
 
@@ -375,7 +375,7 @@ func (s *provisionerMockSuite) TestSetStatusMachineNotFound(c *tc.C) {
 			Tag:    "machine-0",
 			Status: status.Error.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -412,7 +412,7 @@ func (s *provisionerMockSuite) TestInstanceStatusSuccess(c *tc.C) {
 	s.statusService.EXPECT().GetInstanceStatus(gomock.Any(), coremachine.Name("0")).Return(status.StatusInfo{
 		Status:  status.Active,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &time.Time{},
 	}, nil)
 
@@ -424,7 +424,7 @@ func (s *provisionerMockSuite) TestInstanceStatusSuccess(c *tc.C) {
 		Results: []params.StatusResult{{
 			Status: status.Active.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 			Since:  &time.Time{},
 		}},
 	})
@@ -475,7 +475,7 @@ func (s *provisionerMockSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(nil)
 
@@ -484,7 +484,7 @@ func (s *provisionerMockSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 			Tag:    "machine-0",
 			Status: status.Active.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -500,13 +500,13 @@ func (s *provisionerMockSuite) TestSetInstanceStatusToError(c *tc.C) {
 	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(nil)
 	s.statusService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.Error,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(nil)
 
@@ -515,7 +515,7 @@ func (s *provisionerMockSuite) TestSetInstanceStatusToError(c *tc.C) {
 			Tag:    "machine-0",
 			Status: status.ProvisioningError.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -531,7 +531,7 @@ func (s *provisionerMockSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 	s.statusService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "blah",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}).Return(machineerrors.MachineNotFound)
 
@@ -540,7 +540,7 @@ func (s *provisionerMockSuite) TestSetInstanceStatusNotFound(c *tc.C) {
 			Tag:    "machine-0",
 			Status: status.Active.String(),
 			Info:   "blah",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}}},
 	)
 

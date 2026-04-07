@@ -147,7 +147,7 @@ func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers semversi
 	return resp.ToolsList, nil
 }
 
-func (c *Client) httpPost(ctx context.Context, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
+func (c *Client) httpPost(ctx context.Context, content io.ReadSeeker, endpoint, contentType string, response any) error {
 	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")

@@ -19,20 +19,20 @@ func TestCommonSuite(t *testing.T) {
 
 type insertSliceValue struct {
 	valuePath []string
-	value     interface{}
+	value     any
 }
 
 func (s *CommonSuite) TestAddValueToMap(c *tc.C) {
 	for i, t := range []struct {
 		should       string
-		startingMap  map[string]interface{}
+		startingMap  map[string]any
 		insertSlices []insertSliceValue
-		expectedMap  map[string]interface{}
+		expectedMap  map[string]any
 	}{{
 		should: "insert a couple of values",
-		startingMap: map[string]interface{}{
+		startingMap: map[string]any{
 			"foo": "bar",
-			"bar": map[string]interface{}{
+			"bar": map[string]any{
 				"baz": "bo",
 				"bur": "bor",
 			},
@@ -47,13 +47,13 @@ func (s *CommonSuite) TestAddValueToMap(c *tc.C) {
 				value:     "kek",
 			},
 		},
-		expectedMap: map[string]interface{}{
+		expectedMap: map[string]any{
 			"foo": "kek",
-			"bar": map[string]interface{}{
+			"bar": map[string]any{
 				"baz": "bo",
 				"bur": "bor",
 			},
-			"well": map[string]interface{}{
+			"well": map[string]any{
 				"now": 5,
 			},
 		},

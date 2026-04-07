@@ -111,7 +111,7 @@ var newChan = func() chan string {
 	return make(chan string)
 }
 
-func (s *Service) errorf(err error, msg string, args ...interface{}) error {
+func (s *Service) errorf(err error, msg string, args ...any) error {
 	msg += " for application %q"
 	args = append(args, s.Service.Name)
 	if err == nil {

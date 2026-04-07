@@ -56,26 +56,26 @@ func (s *ConfigGetSuite) TestOutputFormatKey(c *tc.C) {
 }
 
 var (
-	configGetYamlMap = map[string]interface{}{
+	configGetYamlMap = map[string]any{
 		"monsters":            false,
 		"spline-reticulation": 45,
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-	configGetJsonMap = map[string]interface{}{
+	configGetJsonMap = map[string]any{
 		"monsters":            false,
 		"spline-reticulation": 45.0,
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-	configGetYamlMapAll = map[string]interface{}{
+	configGetYamlMapAll = map[string]any{
 		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45,
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-	configGetJsonMapAll = map[string]interface{}{
+	configGetJsonMapAll = map[string]any{
 		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45.0,
@@ -87,7 +87,7 @@ var (
 var configGetAllTests = []struct {
 	args   []string
 	format int
-	out    map[string]interface{}
+	out    map[string]any
 }{
 	{nil, formatYaml, configGetYamlMap},
 	{[]string{"--format", "yaml"}, formatYaml, configGetYamlMap},
@@ -109,7 +109,7 @@ func (s *ConfigGetSuite) TestOutputFormatAll(c *tc.C) {
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
-		out := map[string]interface{}{}
+		out := map[string]any{}
 		switch t.format {
 		case formatYaml:
 			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), tc.IsNil)

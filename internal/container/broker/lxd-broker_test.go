@@ -28,7 +28,7 @@ type blankMachineInitReader struct {
 	cloudconfig.InitReader
 }
 
-func (r *blankMachineInitReader) GetInitConfig() (map[string]interface{}, error) {
+func (r *blankMachineInitReader) GetInitConfig() (map[string]any, error) {
 	return nil, nil
 }
 
@@ -91,10 +91,10 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *tc.C) {
 		FuncName: "ContainerConfig",
 	}, {
 		FuncName: "PrepareHost",
-		Args:     []interface{}{containerTag},
+		Args:     []any{containerTag},
 	}, {
 		FuncName: "PrepareContainerInterfaceInfo",
-		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+		Args:     []any{names.NewMachineTag("1-lxd-0")},
 	}})
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
@@ -147,10 +147,10 @@ func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *tc.C) {
 	call := s.manager.Calls()[0]
 	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
-	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false,
 	}, c)
 }
@@ -168,22 +168,22 @@ func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *tc.C
 	call := s.manager.Calls()[0]
 	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
-	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false,
-		"apt": map[string]interface{}{
-			"security": []interface{}{
-				map[interface{}]interface{}{
-					"arches": []interface{}{"default"},
+		"apt": map[string]any{
+			"security": []any{
+				map[any]any{
+					"arches": []any{"default"},
 					"uri":    "http://archive.ubuntu.com/ubuntu",
 				},
 			},
 		},
-		"ca-certs": map[interface{}]interface{}{
+		"ca-certs": map[any]any{
 			"remove-defaults": true,
-			"trusted": []interface{}{
+			"trusted": []any{
 				"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
 		},
 	}, c)

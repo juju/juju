@@ -126,7 +126,7 @@ func (f *fakeDestroyAPI) AllModels(ctx context.Context) ([]base.UserModel, error
 // fakeModelConfigAPI mocks out the controller model config API
 type fakeModelConfigAPI struct {
 	testhelpers.Stub
-	env map[string]interface{}
+	env map[string]any
 }
 
 func (f *fakeModelConfigAPI) Close() error {
@@ -134,7 +134,7 @@ func (f *fakeModelConfigAPI) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeModelConfigAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (f *fakeModelConfigAPI) ModelGet(ctx context.Context) (map[string]any, error) {
 	f.MethodCall(f, "ModelGet")
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -142,8 +142,8 @@ func (f *fakeModelConfigAPI) ModelGet(ctx context.Context) (map[string]interface
 	return f.env, nil
 }
 
-func createBootstrapInfo(c *tc.C, name string) map[string]interface{} {
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+func createBootstrapInfo(c *tc.C, name string) map[string]any {
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"type":       "dummy",
 		"name":       name,
 		"uuid":       testing.ModelTag.Id(),
@@ -182,7 +182,7 @@ func (s *baseDestroySuite) SetUpTest(c *tc.C) {
 		name           string
 		controllerUUID string
 		modelUUID      string
-		bootstrapCfg   map[string]interface{}
+		bootstrapCfg   map[string]any
 	}{
 		{
 			name:           "test1:admin",

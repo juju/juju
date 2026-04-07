@@ -45,7 +45,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 		if serviceType == "loadbalancer" {
 			externalIps = externalIps[:1]
 		}
-		cfg, err := bootstrap.NewConfig(map[string]interface{}{
+		cfg, err := bootstrap.NewConfig(map[string]any{
 			"admin-secret":              "sekrit",
 			"ca-cert":                   testing.CACert,
 			"ca-private-key":            testing.CAKey,
@@ -100,7 +100,7 @@ func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *tc.C) {
 		{Name: "ca-private-key-2.pem", Data: testing.OtherCAKey},
 	}...)
 
-	cfg, err := bootstrap.NewConfig(map[string]interface{}{
+	cfg, err := bootstrap.NewConfig(map[string]any{
 		"ca-cert-path":        "ca-cert-2.pem",
 		"ca-private-key-path": "ca-private-key-2.pem",
 	})
@@ -111,45 +111,45 @@ func (s *ConfigSuite) TestConfigReadsCACertKeyFilesFromPaths(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestConfigNonExistentPath(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-cert-path": "not/there",
 	}, `reading "ca-cert" from file: "ca-cert" not set, and could not read from "not/there": .*`)
 }
 
 func (s *ConfigSuite) TestConfigInvalidCACert(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-cert":        invalidCACert,
 		"ca-private-key": testing.CAKey,
 	}, "validating ca-cert and ca-private-key: x509: malformed certificate")
 }
 
 func (s *ConfigSuite) TestConfigInvalidCAKey(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-cert":        testing.CACert,
 		"ca-private-key": invalidCAKey,
 	}, "validating ca-cert and ca-private-key: (crypto/)?tls: failed to parse private key")
 }
 
 func (s *ConfigSuite) TestConfigCACertKeyMismatch(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.OtherCAKey,
 	}, "validating ca-cert and ca-private-key: (crypto/)?tls: private key does not match public key")
 }
 
 func (s *ConfigSuite) TestConfigCACertWithEmptyKey(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-cert": testing.CACert,
 	}, "validating ca-cert and ca-private-key: (crypto/)?tls: failed to find any PEM data in key input")
 }
 
 func (s *ConfigSuite) TestConfigEmptyCACertWithKey(c *tc.C) {
-	s.testConfigError(c, map[string]interface{}{
+	s.testConfigError(c, map[string]any{
 		"ca-private-key": testing.CAKey,
 	}, "validating ca-cert and ca-private-key: (crypto/)?tls: failed to find any PEM data in certificate input")
 }
 
-func (*ConfigSuite) testConfigError(c *tc.C, attrs map[string]interface{}, expect string) {
+func (*ConfigSuite) testConfigError(c *tc.C, attrs map[string]any, expect string) {
 	_, err := bootstrap.NewConfig(attrs)
 	c.Assert(err, tc.ErrorMatches, expect)
 }

@@ -432,7 +432,7 @@ func (s *ConfigSuite) TestConfigWithNoOptions(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestDefaultType(c *tc.C) {
-	assertDefault := func(type_ string, value string, expected interface{}) {
+	assertDefault := func(type_ string, value string, expected any) {
 		config := fmt.Sprintf(`options: {x: {type: %s, default: %s}}`, type_, value)
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
 		c.Assert(err, tc.IsNil)

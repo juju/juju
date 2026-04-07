@@ -30,7 +30,7 @@ func (s *ClaimSuite) TestClaimLease_Success(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -50,7 +50,7 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -67,7 +67,7 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *tc.C) {
 			},
 		}, {
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -96,7 +96,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByClaimer(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -132,7 +132,7 @@ func (s *ClaimSuite) TestClaimLeaseFailureHeldByOther(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -153,7 +153,7 @@ func (s *ClaimSuite) TestClaimLease_Failure_Error(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -183,7 +183,7 @@ func (s *ClaimSuite) TestExtendLease_Success(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -209,7 +209,7 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -223,7 +223,7 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *tc.C) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -258,7 +258,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -300,7 +300,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Retryable(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",
@@ -342,7 +342,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Error(c *tc.C) {
 		},
 		expectCalls: []call{{
 			method: "ExtendLease",
-			args: []interface{}{
+			args: []any{
 				key("redis"),
 				corelease.Request{"redis/0", time.Minute},
 			},

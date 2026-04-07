@@ -38,7 +38,7 @@ func startFunc(a agent.Agent) dependency.StartFunc {
 }
 
 // outputFunc extracts an Agent from its *agentWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*agentWorker)
 	outPointer, _ := out.(*agent.Agent)
 	if inWorker == nil || outPointer == nil {

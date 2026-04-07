@@ -590,7 +590,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 		Name:            "source",
 		Role:            "provider",
 	})
-	localEp.SetUnitSettings("sink/0", map[string]interface{}{"key": "value"})
+	localEp.SetUnitSettings("sink/0", map[string]any{"key": "value"})
 
 	// Add endpoint for remote app with unit settings
 	remoteEp := rel.AddEndpoint(description.EndpointArgs{
@@ -600,8 +600,8 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 		Role:            "requirer",
 	})
 	// These unit settings represent the remote units
-	remoteEp.SetUnitSettings("src/0", map[string]interface{}{"key": "value1"})
-	remoteEp.SetUnitSettings("src/1", map[string]interface{}{"key": "value2"})
+	remoteEp.SetUnitSettings("src/0", map[string]any{"key": "value1"})
+	remoteEp.SetUnitSettings("src/1", map[string]any{"key": "value2"})
 
 	remoteEntities := map[string]string{
 		"sink": "application-uuid-1234",

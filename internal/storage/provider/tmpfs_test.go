@@ -53,11 +53,11 @@ func (s *tmpfsSuite) tmpfsProvider(c *tc.C) storage.Provider {
 
 func (s *tmpfsSuite) TestFilesystemSource(c *tc.C) {
 	p := s.tmpfsProvider(c)
-	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
-	cfg, err = storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{
+	cfg, err = storage.NewConfig("name", provider.TmpfsProviderType, map[string]any{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +67,7 @@ func (s *tmpfsSuite) TestFilesystemSource(c *tc.C) {
 
 func (s *tmpfsSuite) TestValidateConfig(c *tc.C) {
 	p := s.tmpfsProvider(c)
-	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	// The tmpfs provider does not have any user

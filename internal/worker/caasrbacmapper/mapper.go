@@ -65,7 +65,7 @@ func NewMapper(logger logger.Logger, informer core.ServiceAccountInformer) (*Def
 	_, err := dm.saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    dm.enqueueServiceAccount,
 		DeleteFunc: dm.enqueueServiceAccount,
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			dm.enqueueServiceAccount(newObj)
 		},
 	})
@@ -94,7 +94,7 @@ func (d *DefaultMapper) AppNameForServiceAccount(id types.UID) (string, error) {
 	return appName, nil
 }
 
-func (d *DefaultMapper) enqueueServiceAccount(obj interface{}) {
+func (d *DefaultMapper) enqueueServiceAccount(obj any) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		d.logger.Errorf(context.Background(), "failed enqueuing service account: %v", err)

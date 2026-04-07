@@ -18,7 +18,7 @@ type KubernetesFilesystemParams struct {
 
 	// Attributes is a set of provider-specific options for storage creation,
 	// as defined in a storage pool.
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.

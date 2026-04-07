@@ -102,7 +102,7 @@ type annotationsSetMatcher struct {
 	expectedArgs params.AnnotationsSet
 }
 
-func (c annotationsSetMatcher) Matches(x interface{}) bool {
+func (c annotationsSetMatcher) Matches(x any) bool {
 	obtainedArgs, ok := x.(params.AnnotationsSet)
 	if !ok {
 		return false

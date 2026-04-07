@@ -66,7 +66,7 @@ func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *tc.C) {
 		return true, nil
 	})
 
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	worker, err := s.manifold.Start(c.Context(), getter)
@@ -80,7 +80,7 @@ func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *tc.C) {
 		return true, nil
 	})
 
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":           &mockAgent{},
 		"domain-services": s.controllerDomainServices,
 		"api-caller":      dependency.ErrMissing,
@@ -99,14 +99,14 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 	// Set up a fake Agent and APICaller
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, response interface{}) error {
+		func(objType string, version int, id, request string, args, response any) error {
 			return nil
 		},
 	)
 
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":           a,
 		"api-caller":      apiCaller,
 		"domain-services": s.controllerDomainServices,
@@ -119,7 +119,7 @@ func (s *AgentConfigUpdaterSuite) TestIsControllerFailure(c *tc.C) {
 
 func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIPort int) (worker.Worker, error) {
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, response interface{}) error {
+		func(objType string, version int, id, request string, args, response any) error {
 			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "StateServingInfo":
@@ -135,7 +135,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *tc.C, a agent.Agent, mockAPIP
 			return nil
 		},
 	)
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":           a,
 		"api-caller":      apiCaller,
 		"domain-services": s.controllerDomainServices,
@@ -218,7 +218,7 @@ func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *tc.C) {
 func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, response interface{}) error {
+		func(objType string, version int, id, request string, args, response any) error {
 			c.Assert(objType, tc.Equals, "Agent")
 			switch request {
 			case "GetEntities":
@@ -233,7 +233,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *tc.C, job model.MachineJ
 			return nil
 		},
 	)
-	w, err := s.manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := s.manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"agent":      a,
 		"api-caller": apiCaller,
 	}))

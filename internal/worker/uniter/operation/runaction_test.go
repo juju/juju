@@ -41,7 +41,7 @@ func newOpFactory(c *tc.C, runnerFactory runner.Factory, callbacks operation.Cal
 }
 
 func newOpFactoryForAction(c *tc.C, runnerFactory runner.Factory, callbacks operation.Callbacks, action params.ActionResult) operation.Factory {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.ActionResults)) = params.ActionResults{
 			Results: []params.ActionResult{action},
 		}

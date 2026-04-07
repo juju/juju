@@ -227,7 +227,7 @@ type Jujuc struct {
 }
 
 // badReqErrorf returns an error indicating a bad Request.
-func badReqErrorf(format string, v ...interface{}) error {
+func badReqErrorf(format string, v ...any) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 

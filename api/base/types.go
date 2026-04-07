@@ -80,7 +80,7 @@ type ModelInfo struct {
 type Status struct {
 	Status status.Status
 	Info   string
-	Data   map[string]interface{}
+	Data   map[string]any
 	Since  *time.Time
 }
 

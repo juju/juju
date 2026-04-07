@@ -183,7 +183,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 	unzipped, err := utils.Gunzip(result)
 	c.Assert(err, tc.ErrorIsNil)
 
-	config := make(map[interface{}]interface{})
+	config := make(map[any]any)
 	err = goyaml.Unmarshal(unzipped, &config)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -195,12 +195,12 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 		// for MAAS. MAAS needs to configure and then bounce the
 		// network interfaces, which would sever the SSH connection
 		// in the synchronous bootstrap phase.
-		expected := map[interface{}]interface{}{
-			"output": map[interface{}]interface{}{
+		expected := map[any]any{
+			"output": map[any]any{
 				"all": "| tee -a /var/log/cloud-init-output.log",
 			},
 			"package_upgrade": false,
-			"runcmd": []interface{}{
+			"runcmd": []any{
 				"mkdir /tmp/preruncmd",
 				"mkdir /tmp/preruncmd2",
 				"script1", "script2",
@@ -208,17 +208,17 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"echo '5432' > '/var/lib/juju/nonce.txt'",
 			},
-			"users": []interface{}{
-				map[interface{}]interface{}{
+			"users": []any{
+				map[any]any{
 					"name":        "ubuntu",
 					"lock_passwd": true,
-					"groups": []interface{}{"adm", "audio",
+					"groups": []any{"adm", "audio",
 						"cdrom", "dialout", "dip",
 						"floppy", "netdev", "plugdev",
 						"sudo", "video"},
 					"shell":               "/bin/bash",
 					"sudo":                "ALL=(ALL) NOPASSWD:ALL",
-					"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
+					"ssh_authorized_keys": []any{"wheredidileavemykeys"},
 				},
 			},
 		}
@@ -228,13 +228,13 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
 		c.Check(config["package_upgrade"], tc.IsFalse)
-		runCmd := config["runcmd"].([]interface{})
-		c.Assert(runCmd[:4], tc.DeepEquals, []interface{}{
+		runCmd := config["runcmd"].([]any)
+		c.Assert(runCmd[:4], tc.DeepEquals, []any{
 			`mkdir /tmp/preruncmd`,
 			`mkdir /tmp/preruncmd2`,
 			script1, script2,
 		})
-		c.Assert(runCmd[len(runCmd)-2:], tc.DeepEquals, []interface{}{
+		c.Assert(runCmd[len(runCmd)-2:], tc.DeepEquals, []any{
 			`mkdir /tmp/postruncmd`,
 			`mkdir /tmp/postruncmd2`,
 		})
@@ -254,9 +254,9 @@ postruncmd:
 package_upgrade: false
 `[1:]
 
-var cloudInitUserDataMap = map[string]interface{}{
+var cloudInitUserDataMap = map[string]any{
 	"package_upgrade": false,
-	"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-	"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-	"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+	"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+	"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 }

@@ -87,7 +87,7 @@ func (c *Client) CloudSpec(ctx context.Context, modelTag names.ModelTag) (enviro
 type HostedConfig struct {
 	Name      string
 	Qualifier string
-	Config    map[string]interface{}
+	Config    map[string]any
 	CloudSpec environscloudspec.CloudSpec
 	Error     error
 }
@@ -268,7 +268,7 @@ func (c *Client) GetControllerAccess(ctx context.Context, user string) (permissi
 // ConfigSet updates the passed controller configuration values. Any
 // settings that aren't passed will be left with their previous
 // values.
-func (c *Client) ConfigSet(ctx context.Context, values map[string]interface{}) error {
+func (c *Client) ConfigSet(ctx context.Context, values map[string]any) error {
 	return errors.Trace(
 		c.facade.FacadeCall(ctx, "ConfigSet", params.ControllerConfigSet{Config: values}, nil),
 	)
@@ -400,7 +400,7 @@ type DashboardConnectionSSHTunnel struct {
 // ProxierFactory is an interface type representing a factory that can make a
 // new juju proxier from the supplied raw config.
 type ProxierFactory interface {
-	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+	ProxierFromConfig(string, map[string]any) (proxy.Proxier, error)
 }
 
 // DashboardConnectionInfo fetches the connection information needed for

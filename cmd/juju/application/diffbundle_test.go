@@ -462,13 +462,13 @@ func (s *diffSuite) writeFile(c *tc.C, name, content string) string {
 	return path
 }
 
-func makeAPIResponses() map[string]interface{} {
+func makeAPIResponses() map[string]any {
 	return makeAPIResponsesWithRelations(nil)
 }
 
-func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string]interface{} {
+func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string]any {
 	var cores uint64 = 3
-	return map[string]interface{}{
+	return map[string]any{
 		"ModelConfig.ModelGet": params.ModelConfigResults{
 			Config: map[string]params.ConfigValue{
 				"uuid":           {Value: testing.ModelTag.Id()},
@@ -518,12 +518,12 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 			// Included twice since we can't predict which app will be
 			// requested first.
 			Results: []params.ConfigResult{{
-				Config: map[string]interface{}{"ontology": map[string]interface{}{
+				Config: map[string]any{"ontology": map[string]any{
 					"value":  "kant",
 					"source": "user",
 				}},
 			}, {
-				Config: map[string]interface{}{"ontology": map[string]interface{}{
+				Config: map[string]any{"ontology": map[string]any{
 					"value":  "kant",
 					"source": "user",
 				}},
@@ -539,8 +539,8 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 	}
 }
 
-func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.ExposedEndpoint) map[string]interface{} {
-	return map[string]interface{}{
+func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.ExposedEndpoint) map[string]any {
+	return map[string]any{
 		"ModelConfig.ModelGet": params.ModelConfigResults{
 			Config: map[string]params.ConfigValue{
 				"uuid":           {Value: testing.ModelTag.Id()},
@@ -623,7 +623,7 @@ type mockAPIRoot struct {
 	base.APICallCloser
 
 	stub      testhelpers.Stub
-	responses map[string]interface{}
+	responses map[string]any
 }
 
 func (r *mockAPIRoot) BestFacadeVersion(name string) int {
@@ -631,7 +631,7 @@ func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	return 42
 }
 
-func (r *mockAPIRoot) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
+func (r *mockAPIRoot) APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error {
 	call := objType + "." + request
 	r.stub.AddCall(call, version, params)
 	value := r.responses[call]

@@ -789,7 +789,7 @@ func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechange
 	// equivalent to running 'juju trust $app'.
 	if h.trust && applicationRequiresTrust(h.data.Applications[p.Application]) {
 		if p.Options == nil {
-			p.Options = make(map[string]interface{})
+			p.Options = make(map[string]any)
 		}
 
 		p.Options[coreapplication.TrustConfigOptionName] = strconv.FormatBool(h.trust)
@@ -798,7 +798,7 @@ func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechange
 	// Handle application configuration.
 	configYAML := ""
 	if len(p.Options) > 0 {
-		config, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
+		config, err := yaml.Marshal(map[string]map[string]any{p.Application: p.Options})
 		if err != nil {
 			return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 		}
@@ -1293,7 +1293,7 @@ func (h *bundleHandler) setOptions(ctx context.Context, change *bundlechanges.Se
 	}
 
 	// We know that there wouldn't be any setOptions if there were no options.
-	cfg, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
+	cfg, err := yaml.Marshal(map[string]map[string]any{p.Application: p.Options})
 	if err != nil {
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}

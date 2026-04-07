@@ -50,10 +50,10 @@ func (s *CredentialsFileSuite) TestWriteFile(c *tc.C) {
 	data, err := os.ReadFile(osenv.JujuXDGDataHomePath("credentials.yaml"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	var original map[string]interface{}
+	var original map[string]any
 	err = yaml.Unmarshal([]byte(testCredentialsYAML), &original)
 	c.Assert(err, tc.ErrorIsNil)
-	var written map[string]interface{}
+	var written map[string]any
 	err = yaml.Unmarshal(data, &written)
 	c.Assert(err, tc.ErrorIsNil)
 

@@ -22,6 +22,6 @@ type Config struct {
 	SnapStoreProxyID           string
 	SnapStoreProxyURL          string
 	AptMirror                  string
-	CloudInitUserData          map[string]interface{}
+	CloudInitUserData          map[string]any
 	ContainerInheritProperties string
 }

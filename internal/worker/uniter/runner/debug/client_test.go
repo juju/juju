@@ -71,19 +71,19 @@ func (*DebugHooksClientSuite) TestClientScript(c *tc.C) {
 
 func (*DebugHooksClientSuite) TestBase64HookArgsNoValues(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	testEncodeRoundTrips(c, nil, "", map[string]interface{}{})
+	testEncodeRoundTrips(c, nil, "", map[string]any{})
 }
 
 func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	testEncodeRoundTrips(c, []string{"install", "start"}, "", map[string]interface{}{
-		"hooks": []interface{}{"install", "start"},
+	testEncodeRoundTrips(c, []string{"install", "start"}, "", map[string]any{
+		"hooks": []any{"install", "start"},
 	})
 }
 
 func (*DebugHooksClientSuite) TestBase64HookArgsDebugAt(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	testEncodeRoundTrips(c, nil, "all,broken", map[string]interface{}{
+	testEncodeRoundTrips(c, nil, "all,broken", map[string]any{
 		"debug-at": "all,broken",
 	})
 }
@@ -91,23 +91,23 @@ func (*DebugHooksClientSuite) TestBase64HookArgsDebugAt(c *tc.C) {
 func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *tc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, []string{"db-relation-changed", "stop"}, "brokepoint",
-		map[string]interface{}{
-			"hooks":    []interface{}{"db-relation-changed", "stop"},
+		map[string]any{
+			"hooks":    []any{"db-relation-changed", "stop"},
 			"debug-at": "brokepoint",
 		})
 }
 
-func testEncodeRoundTrips(c *tc.C, match []string, debugAt string, decoded map[string]interface{}) {
+func testEncodeRoundTrips(c *tc.C, match []string, debugAt string, decoded map[string]any) {
 	base64Args := debug.Base64HookArgs(match, debugAt)
 	args := decodeArgs(c, base64Args)
 	c.Check(args, tc.DeepEquals, decoded)
 }
 
-func decodeArgs(c *tc.C, base64Args string) map[string]interface{} {
+func decodeArgs(c *tc.C, base64Args string) map[string]any {
 	c.Assert(base64Args, tc.Not(tc.Equals), "")
 	yamlArgs, err := base64.StdEncoding.DecodeString(base64Args)
 	c.Assert(err, tc.ErrorIsNil)
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), tc.ErrorIsNil)
 	return decoded
 }

@@ -399,7 +399,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *tc.C) {
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body interface{}) {
+func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body any) {
 	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ http.Header, _ any, r any) (restResponse, error) {
 		responses := r.(*transport.RefreshResponses)
 		responses.Results = []transport.RefreshResponse{{

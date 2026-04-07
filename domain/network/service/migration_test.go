@@ -714,7 +714,7 @@ type cloudServiceLLDMatcher struct {
 	subnetUUIDs map[string]string
 }
 
-func (m cloudServiceLLDMatcher) Matches(x interface{}) bool {
+func (m cloudServiceLLDMatcher) Matches(x any) bool {
 	input, ok := x.([]internal.ImportLinkLayerDevice)
 	if !ok {
 		return false
@@ -795,7 +795,7 @@ type spaceInfoAsArgMatcher struct {
 	expected corenetwork.SubnetInfo
 }
 
-func (m spaceInfoAsArgMatcher) Matches(x interface{}) bool {
+func (m spaceInfoAsArgMatcher) Matches(x any) bool {
 	obtained, ok := x.(corenetwork.SubnetInfo)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
@@ -815,7 +815,7 @@ type importLinkLayerDeviceArgMatcher struct {
 	expected []internal.ImportLinkLayerDevice
 }
 
-func (m importLinkLayerDeviceArgMatcher) Matches(x interface{}) bool {
+func (m importLinkLayerDeviceArgMatcher) Matches(x any) bool {
 	obtained, ok := x.([]internal.ImportLinkLayerDevice)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {

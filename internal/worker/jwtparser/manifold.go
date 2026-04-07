@@ -59,7 +59,7 @@ func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) 
 
 // outputFunc extracts a jwtparser.Parser from a
 // jwtParserWorker contained within a CleanupWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*jwtParserWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

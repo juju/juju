@@ -318,7 +318,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 
 func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *types.RetrievePropertiesResponse {
 	spec := req.SpecSet[0]
-	var args []interface{}
+	var args []any
 	for _, obj := range spec.ObjectSet {
 		args = append(args, obj.Obj.Value)
 	}
@@ -366,7 +366,7 @@ func retrievePropertiesStubCall(vals ...string) testhelpers.StubCall {
 }
 
 func makeStubCall(method string, vals ...string) testhelpers.StubCall {
-	args := make([]interface{}, len(vals))
+	args := make([]any, len(vals))
 	for i, vals := range vals {
 		args[i] = vals
 	}

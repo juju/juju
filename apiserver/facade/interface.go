@@ -32,7 +32,7 @@ import (
 // Facade could be anything; it will be interpreted by the apiserver
 // machinery such that certain exported methods will be made available
 // as facade methods to connected clients.
-type Facade interface{}
+type Facade any
 
 // Factory is a callback used to create a Facade.
 type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)

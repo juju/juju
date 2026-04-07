@@ -367,7 +367,7 @@ var configTests = []configTest{
 	}, {
 		about:       "Config settings from juju actual installation",
 		useDefaults: config.NoDefaults,
-		attrs: map[string]interface{}{
+		attrs: map[string]any{
 			"name":                       "sample",
 			"development":                false,
 			"ssl-hostname-verification":  true,
@@ -715,7 +715,7 @@ func (test configTest) check(c *tc.C) {
 func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 	// Normally this is handled by jujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		"type":                       "my-type",
 		"name":                       "my-name",
 		"uuid":                       "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
@@ -738,9 +738,9 @@ func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), tc.DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), tc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.UnknownAttrs(), tc.DeepEquals, map[string]any{"unknown": "my-unknown"})
 
-	newcfg, err := cfg.Apply(map[string]interface{}{
+	newcfg, err := cfg.Apply(map[string]any{
 		"name":        "new-name",
 		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"new-unknown": "my-new-unknown",
@@ -884,34 +884,34 @@ func (s *ConfigSuite) addJujuFiles(c *tc.C) {
 
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	s.addJujuFiles(c)
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name":              "myenv",
 		"type":              "other",
 		"uuid":              testing.ModelTag.Id(),
 		"extra-info":        "official extra user data",
 		"known":             "this",
 		"unknown":           "that",
-		"unknown-part-deux": []interface{}{"meshuggah"},
+		"unknown-part-deux": []any{"meshuggah"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
+	c.Assert(attrs, tc.DeepEquals, map[string]any{
 		"known":             "this",
 		"unknown":           "that",
-		"unknown-part-deux": []interface{}{"meshuggah"},
+		"unknown-part-deux": []any{"meshuggah"},
 	})
 
 	// Valid field: that and other attrs passed through.
 	fields := schema.Fields{"known": schema.String()}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
+	c.Assert(attrs, tc.DeepEquals, map[string]any{
 		"known":             "this",
 		"unknown":           "that",
-		"unknown-part-deux": []interface{}{"meshuggah"},
+		"unknown-part-deux": []any{"meshuggah"},
 	})
 
 	// Default field: inserted.
@@ -919,10 +919,10 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	defaults := schema.Defaults{"default": "the other"}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{
+	c.Assert(attrs, tc.DeepEquals, map[string]any{
 		"known":             "this",
 		"unknown":           "that",
-		"unknown-part-deux": []interface{}{"meshuggah"},
+		"unknown-part-deux": []any{"meshuggah"},
 		"default":           "the other",
 	})
 
@@ -932,7 +932,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `known: expected int, got string\("this"\)`)
 
 	// Completely unknown attr, not-simple field type: failure.
-	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err = config.New(config.UseDefaults, map[string]any{
 		"name":       "myenv",
 		"type":       "other",
 		"uuid":       testing.ModelTag.Id(),
@@ -946,14 +946,14 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *tc.C) {
 	c.Assert(err.Error(), tc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
 
 	// Completely unknown attr, not-simple field type: failure.
-	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err = config.New(config.UseDefaults, map[string]any{
 		"name":       "myenv",
 		"type":       "other",
 		"uuid":       testing.ModelTag.Id(),
 		"extra-info": "official extra user data",
 		"known":      "this",
 		"unknown":    "that",
-		"bad":        []interface{}{1},
+		"bad":        []any{1},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = cfg.ValidateUnknownAttrs(nil, nil)
@@ -983,7 +983,7 @@ var emptyAttributeTests = []testAttr{
 
 func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *tc.C) {
 	s.addJujuFiles(c)
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name": "myenv",
 		"type": "other",
 		"uuid": testing.ModelTag.Id(),
@@ -993,12 +993,12 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *tc.C) {
 
 	for i, test := range emptyAttributeTests {
 		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
-		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
+		testCfg, err := cfg.Apply(map[string]any{test.aKey: test.aValue})
 		c.Assert(err, tc.ErrorIsNil)
 		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
 		c.Assert(err, tc.ErrorIsNil)
 		// all attrs passed through
-		c.Assert(attrs, tc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
+		c.Assert(attrs, tc.DeepEquals, map[string]any{test.aKey: test.aValue})
 		//expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
 		//logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
 		// warning displayed or not based on test expectation
@@ -1347,10 +1347,10 @@ func (s *ConfigSuite) TestCloudInitUserDataFromEnvironment(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{
 		config.CloudInitUserDataKey: validCloudInitUserData,
 	})
-	c.Assert(cfg.CloudInitUserData(), tc.DeepEquals, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	c.Assert(cfg.CloudInitUserData(), tc.DeepEquals, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false},
 	)
 }

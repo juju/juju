@@ -339,8 +339,8 @@ func processQuery(ctx context.Context, db database.TxnRunner, query string, args
 		_, _ = fmt.Fprintln(writer)
 
 		for rows.Next() {
-			row := make([]interface{}, n)
-			rowPointers := make([]interface{}, n)
+			row := make([]any, n)
+			rowPointers := make([]any, n)
 			for i := range row {
 				rowPointers[i] = &row[i]
 			}

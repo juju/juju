@@ -148,7 +148,7 @@ func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
 
 	s.setupAPI(c)
 	s.expectCharm(c, charmParams{name: "foo"})
-	config := map[string]interface{}{"stringOption": "hey"}
+	config := map[string]any{"stringOption": "hey"}
 	s.expectCreateApplicationForDeployWithConfig(c, "foo", config, nil)
 
 	errorResults, err := s.api.Deploy(c.Context(), params.ApplicationsDeploy{
@@ -910,14 +910,14 @@ func (s *applicationSuite) TestCharmConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Assert(res.Results[0].Error, tc.IsNil)
-	c.Assert(res.Results[0].Config, tc.DeepEquals, map[string]interface{}{
-		"foo": map[string]interface{}{
+	c.Assert(res.Results[0].Config, tc.DeepEquals, map[string]any{
+		"foo": map[string]any{
 			"description": "a foo",
 			"type":        "string",
 			"value":       "doink",
 			"source":      "user",
 		},
-		"bar": map[string]interface{}{
+		"bar": map[string]any{
 			"description": "a bar",
 			"type":        "int",
 			"value":       18,
@@ -1510,15 +1510,15 @@ func (s *applicationSuite) testUnitsInfoCAAS(c *tc.C, inputTag names.Tag, result
 					RelationId:      3,
 					Endpoint:        "relation",
 					RelatedEndpoint: "fake-provides",
-					ApplicationData: map[string]interface{}{},
+					ApplicationData: map[string]any{},
 					UnitRelationData: map[string]params.RelationData{
 						"foo/0": {
 							InScope:  true,
-							UnitData: map[string]interface{}{"foo": "bar"},
+							UnitData: map[string]any{"foo": "bar"},
 						},
 						"foo/1": {
 							InScope:  true,
-							UnitData: map[string]interface{}{"foo": "baz"},
+							UnitData: map[string]any{"foo": "baz"},
 						},
 					},
 				}},

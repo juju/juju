@@ -31,7 +31,7 @@ func (*FlagSuite) TestFlagOutputBadWorker(c *tc.C) {
 
 func (*FlagSuite) TestFlagOutputBadTarget(c *tc.C) {
 	in := &stubFlagWorker{}
-	var out interface{}
+	var out any
 	err := engine.FlagOutput(in, &out)
 	c.Check(err, tc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
 	c.Check(out, tc.IsNil)

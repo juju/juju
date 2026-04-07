@@ -20,7 +20,7 @@ type Flag interface {
 }
 
 // FlagOutput will expose, as a Flag, any worker that implements Flag.
-func FlagOutput(in worker.Worker, out interface{}) error {
+func FlagOutput(in worker.Worker, out any) error {
 	inFlag, ok := in.(Flag)
 	if !ok {
 		return errors.Errorf("expected in to implement Flag; got a %T", in)

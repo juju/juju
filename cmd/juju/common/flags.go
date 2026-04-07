@@ -53,7 +53,7 @@ func (c *ConstraintsFlag) Set(value string) error {
 // and/or specified files containing key values.
 type ConfigFlag struct {
 	files []string
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 // Set implements gnuflag.Value.Set.
@@ -74,9 +74,9 @@ func (f *ConfigFlag) Set(s string) error {
 		return nil
 	}
 
-	var value interface{} = fields[1]
+	var value any = fields[1]
 	if f.attrs == nil {
-		f.attrs = make(map[string]interface{})
+		f.attrs = make(map[string]any)
 	}
 	f.attrs[fields[0]] = value
 	return nil
@@ -91,12 +91,12 @@ func (f *ConfigFlag) SetAttrsFromReader(reader io.Reader) error {
 	if reader == nil {
 		return errors.NotValidf("empty reader")
 	}
-	attrs := make(map[string]interface{})
+	attrs := make(map[string]any)
 	if err := yaml.NewDecoder(reader).Decode(&attrs); err != nil {
 		return errors.Trace(err)
 	}
 	if f.attrs == nil {
-		f.attrs = make(map[string]interface{})
+		f.attrs = make(map[string]any)
 	}
 	maps.Copy(f.attrs, attrs)
 	return nil
@@ -106,8 +106,8 @@ func (f *ConfigFlag) SetAttrsFromReader(reader io.Reader) error {
 // the results with the k=v attributes.
 // TODO (stickupkid): This should only know about io.Readers and correctly
 // handle the various path ways from that abstraction.
-func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error) {
-	attrs := make(map[string]interface{})
+func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]any, error) {
+	attrs := make(map[string]any)
 	for _, f := range f.files {
 		path, err := utils.NormalizePath(f)
 		if err != nil {
@@ -126,8 +126,8 @@ func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error)
 }
 
 // ReadConfigPairs returns just the k=v attributes.
-func (f *ConfigFlag) ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error) {
-	attrs := make(map[string]interface{})
+func (f *ConfigFlag) ReadConfigPairs(ctx *cmd.Context) (map[string]any, error) {
+	attrs := make(map[string]any)
 	maps.Copy(attrs, f.attrs)
 	return attrs, nil
 }

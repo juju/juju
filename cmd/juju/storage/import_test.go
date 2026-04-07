@@ -68,7 +68,7 @@ imported storage baz/0
 `[1:])
 
 	s.importer.CheckCalls(c, []testhelpers.StubCall{
-		{"ImportStorage", []interface{}{
+		{"ImportStorage", []any{
 			jujustorage.StorageKindFilesystem,
 			"foo", "bar", "baz", false,
 		}},
@@ -106,7 +106,7 @@ imported storage baz/0
 `[1:])
 
 	s.importer.CheckCalls(c, []testhelpers.StubCall{
-		{"ImportStorage", []interface{}{
+		{"ImportStorage", []any{
 			jujustorage.StorageKindFilesystem,
 			"foo", "bar", "baz", false,
 		}},
@@ -125,7 +125,7 @@ imported storage baz/0
 `[1:])
 
 	s.importer.CheckCalls(c, []testhelpers.StubCall{
-		{"ImportStorage", []interface{}{
+		{"ImportStorage", []any{
 			jujustorage.StorageKindFilesystem,
 			"foo", "bar", "baz", true,
 		}},
