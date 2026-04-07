@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/application/internal"
