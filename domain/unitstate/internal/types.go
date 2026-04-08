@@ -16,11 +16,18 @@ type RelationSettings struct {
 	// RelationUUID is the UUID of the relation.
 	RelationUUID relation.UUID
 
-	// Settings represent the settings of the unit.
-	Settings unitstate.Settings
+	// UnitSet represents settings of the unit to be set.
+	UnitSet unitstate.Settings
 
-	// ApplicationSettings represent the settings of the unit.
-	ApplicationSettings unitstate.Settings
+	// UnitUnset represents the keys of settings for the unit to be unset.
+	UnitUnset []string
+
+	// ApplicationSet represents settings of the application to be set.
+	ApplicationSet unitstate.Settings
+
+	// ApplicationUnset represents the keys of settings for the application
+	// to be unset.
+	ApplicationUnset []string
 }
 
 // CommitHookChangesArg contains data needed to commit a hook change

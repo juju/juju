@@ -72,6 +72,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 			i.logger,
 			unitState,
 		),
+		i.logger,
 	)
 	return nil
 }

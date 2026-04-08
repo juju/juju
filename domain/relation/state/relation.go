@@ -1713,8 +1713,10 @@ WHERE  name = $getUnit.name
 			return errors.Capture(err)
 		}
 
-		// Set the relation unit settings.
-		err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings)
+		// Set the relation unit settings, no settings can be removed
+		// during EnterScope as settings are saved only during the first
+		// call.
+		err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings, nil)
 		if err != nil {
 			return errors.Errorf("setting relation unit settings: %w", err)
 		}
@@ -2260,6 +2262,7 @@ func (st *State) SetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,
+	unset []string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -2267,7 +2270,7 @@ func (st *State) SetRelationUnitSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), settings)
+		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID.String(), settings, unset)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -2281,10 +2284,9 @@ func (st *State) setRelationUnitSettings(
 	tx *sqlair.TX,
 	relationUnitUUID string,
 	settings map[string]string,
+	unset []string,
 ) error {
-	// If the settings are nil then there is nothing to do. Do not check for
-	// length of 0, as that is valid for deleting all settings.
-	if settings == nil {
+	if len(settings) == 0 && len(unset) == 0 {
 		return nil
 	}
 
@@ -2297,7 +2299,7 @@ func (st *State) setRelationUnitSettings(
 	}
 
 	// Update the unit settings specified in the settings argument.
-	err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+	err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings, unset)
 	if err != nil {
 		return errors.Errorf("updating relation unit settings: %w", err)
 	}
@@ -2389,10 +2391,9 @@ WHERE  relation_endpoint_uuid = $relationEndpointUUID.uuid
 	return settings, nil
 }
 
-// updateApplicationSettings updates the settings for a relation endpoint
-// according to the provided settings map. If the value of a setting is empty
-// then the setting is deleted, otherwise it is inserted/updated.
-func (st *State) updateApplicationSettings(
+// replaceApplicationSettings replaces the settings for a relation endpoint
+// according to the provided settings map.
+func (st *State) replaceApplicationSettings(
 	ctx context.Context,
 	tx *sqlair.TX,
 	endpointUUID string,
@@ -2402,53 +2403,42 @@ func (st *State) updateApplicationSettings(
 		return nil
 	}
 
-	// Determine the keys to set and unset.
-	var set []relationApplicationSetting
-	var unset keys
-	for k, v := range settings {
-		if v == "" {
-			unset = append(unset, k)
-		} else {
-			set = append(set, relationApplicationSetting{
-				UUID:  endpointUUID,
-				Key:   k,
-				Value: v,
-			})
-		}
+	id := entityUUID{UUID: endpointUUID}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM relation_application_setting
+WHERE       relation_endpoint_uuid = $entityUUID.uuid
+`, id)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
-	// Update the keys to set.
-	if len(set) > 0 {
-		updateStmt, err := st.Prepare(`
+	updateStmt, err := st.Prepare(`
 INSERT INTO relation_application_setting (*) 
 VALUES ($relationApplicationSetting.*) 
 ON CONFLICT (relation_endpoint_uuid, key) DO UPDATE SET value = excluded.value
 `, relationApplicationSetting{})
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, updateStmt, set).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
+	if err != nil {
+		return errors.Capture(err)
 	}
 
-	// Delete the keys to unset.
-	if len(unset) > 0 {
-		id := relationEndpointUUID{UUID: endpointUUID}
-		deleteStmt, err := st.Prepare(`
-DELETE FROM relation_application_setting
-WHERE       relation_endpoint_uuid = $relationEndpointUUID.uuid
-AND         key IN ($keys[:])
-`, id, unset)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, deleteStmt, id, unset).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
+	err = tx.Query(ctx, deleteStmt, id).Run()
+	if err != nil {
+		return errors.Capture(err)
 	}
+
+	set := transform.MapToSlice(settings, func(k, v string) []relationApplicationSetting {
+		return []relationApplicationSetting{{
+			UUID:  endpointUUID,
+			Key:   k,
+			Value: v,
+		}}
+	})
+
+	err = tx.Query(ctx, updateStmt, set).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	return nil
 }
 
@@ -2477,26 +2467,20 @@ WHERE  relation_unit_uuid = $entityUUID.uuid
 // provided settings map. If the value of a setting is empty then the setting is
 // deleted, otherwise it is inserted/updated.
 func (st *State) updateUnitSettings(
-	ctx context.Context, tx *sqlair.TX, relUnitUUID string, settings map[string]string,
+	ctx context.Context,
+	tx *sqlair.TX,
+	relUnitUUID string,
+	settings map[string]string,
+	unset keys,
 ) error {
-	if len(settings) == 0 {
-		return nil
-	}
 
-	// Determine the keys to set and unset.
-	var set []relationUnitSetting
-	var unset keys
-	for k, v := range settings {
-		if v == "" {
-			unset = append(unset, k)
-		} else {
-			set = append(set, relationUnitSetting{
-				UUID:  relUnitUUID,
-				Key:   k,
-				Value: v,
-			})
-		}
-	}
+	set := transform.MapToSlice(settings, func(k, v string) []relationUnitSetting {
+		return []relationUnitSetting{{
+			UUID:  relUnitUUID,
+			Key:   k,
+			Value: v,
+		}}
+	})
 
 	// Update the keys to set.
 	if len(set) > 0 {
@@ -3834,9 +3818,7 @@ func (st *State) setRelationApplicationSettings(
 	applicationID string,
 	settings map[string]string,
 ) error {
-	// If the settings are nil then there is nothing to do. Do not check for
-	// length of 0, as that is valid for deleting all settings.
-	if settings == nil {
+	if len(settings) == 0 {
 		return nil
 	}
 
@@ -3847,7 +3829,7 @@ func (st *State) setRelationApplicationSettings(
 	}
 
 	// Update the application settings specified in the settings argument.
-	err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings)
+	err = st.replaceApplicationSettings(ctx, tx, endpointUUID, settings)
 	if err != nil {
 		return errors.Errorf("updating relation application settings: %w", err)
 	}
