@@ -248,6 +248,24 @@ func (st *State) MergeApplicationEndpointBindings(ctx context.Context, appID str
 	})
 }
 
+// incomingBindingsChanged reports whether any of the incoming endpoint bindings
+// differ from what is currently stored. incoming maps endpoint names to space
+// names, spacesToUUIDs maps space names to their UUIDs, and current maps
+// endpoint names to their currently-stored space UUIDs.
+//
+// It returns false (no change) only when every incoming endpoint already maps
+// to the same space UUID that is stored for that endpoint. Endpoints not
+// present in incoming are not considered.
+func incomingBindingsChanged(incoming, spacesToUUIDs, current map[string]string) bool {
+	for endpointName, spaceName := range incoming {
+		wantUUID := spacesToUUIDs[spaceName]
+		if current[endpointName] != wantUUID {
+			return true
+		}
+	}
+	return false
+}
+
 func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlair.TX, appID string, bindings map[string]string, force bool) error {
 	bindingTables, err := st.getBindingTableTypes(ctx, tx, appID, slices.Collect(maps.Keys(bindings)))
 	if err != nil {
@@ -257,6 +275,20 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 	spacesToUUIDs, err := st.getApplicationEndpointSpaceUUIDs(ctx, tx, appID, slices.Collect(maps.Values(bindings)))
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	// Fetch the current bindings and check whether any of the incoming
+	// bindings would actually change a stored value. If nothing would change,
+	// return early: the operation is a no-op and running validateUnitsInSpaces
+	// would be incorrect when link-layer device data has not yet been
+	// populated (e.g. immediately after bootstrap, before the instance poller
+	// has completed its first cycle).
+	currentBindings, err := st.getEndpointBindings(ctx, tx, coreapplication.UUID(appID))
+	if err != nil {
+		return errors.Errorf("getting current endpoint bindings: %w", err)
+	}
+	if !incomingBindingsChanged(bindings, spacesToUUIDs, currentBindings) {
+		return nil
 	}
 
 	validateErr := st.validateUnitsInSpaces(ctx, tx, appID, slices.Collect(maps.Values(spacesToUUIDs)))
