@@ -489,6 +489,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		Placement:     machine.doc.Placement,
 		Base:          machine.doc.Base.String(),
 		ContainerType: machine.doc.ContainerType,
+		Hostname:      machine.doc.Hostname,
 	}
 
 	if supported, ok := machine.SupportedContainers(); ok {
