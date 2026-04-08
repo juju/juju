@@ -465,8 +465,7 @@ app_unit_spaces AS (
            sn.space_uuid AS space_uuid,
            s.name AS space_name
     FROM   unit AS u
-    JOIN   net_node AS nn ON u.net_node_uuid = nn.uuid
-    JOIN   link_layer_device AS lld ON nn.uuid = lld.net_node_uuid
+    JOIN   link_layer_device AS lld ON u.net_node_uuid = lld.net_node_uuid
     JOIN   ip_address AS ip ON lld.uuid = ip.device_uuid
     JOIN   subnet AS sn ON ip.subnet_uuid = sn.uuid
     JOIN   space AS s ON sn.space_uuid = s.uuid
