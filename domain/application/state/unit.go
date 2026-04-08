@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
@@ -2086,10 +2085,10 @@ WHERE  u.uuid = $unitUUID.uuid
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 func (st *State) GetStorageAddInfoByUnitUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-) (internal.StorageInfoForAdd, error) {
+) (applicationinternal.StorageInfoForAdd, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.StorageInfoForAdd{}, errors.Capture(err)
+		return applicationinternal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 
 	var (
@@ -2110,10 +2109,10 @@ func (st *State) GetStorageAddInfoByUnitUUID(
 		}
 		return nil
 	}); err != nil {
-		return internal.StorageInfoForAdd{}, errors.Capture(err)
+		return applicationinternal.StorageInfoForAdd{}, errors.Capture(err)
 	}
-	return internal.StorageInfoForAdd{
-		CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+	return applicationinternal.StorageInfoForAdd{
+		CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
 			Name:        addInfo.Name,
 			Type:        domainapplicationcharm.StorageType(addInfo.Kind),
 			CountMin:    addInfo.CountMin,
@@ -2474,10 +2473,10 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageUUID domainstorage.StorageInstanceUUID,
-) (internal.StorageInstanceInfoForUnitAttach, error) {
+) (applicationinternal.StorageInstanceInfoForUnitAttach, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
+		return applicationinternal.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
 	}
 
 	var (
@@ -2530,11 +2529,11 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return nil
 	})
 	if err != nil {
-		return internal.StorageInstanceInfoForUnitAttach{}, err
+		return applicationinternal.StorageInstanceInfoForUnitAttach{}, err
 	}
 
-	retVal := internal.StorageInstanceInfoForUnitAttach{
-		StorageInstanceInfo: internal.StorageInstanceInfo{
+	retVal := applicationinternal.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfo: applicationinternal.StorageInstanceInfo{
 			UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
 			Life:             domainlife.Life(storageInstInfo.Life),
 			Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
@@ -2542,9 +2541,9 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 			StorageName:      storageInstInfo.StorageName,
 		},
 
-		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
+		UnitNamedStorageInfo: applicationinternal.UnitNamedStorageInfo{
 			AlreadyAttachedCount: unitStorageNameInfo.AlreadyAttachedCount,
-			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+			CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
 				CountMin:    unitStorageNameInfo.StorageDefinitionCountMin,
 				CountMax:    unitStorageNameInfo.StorageDefinitionCountMax,
 				MinimumSize: unitStorageNameInfo.StorageDefinitionMinimumSize,
@@ -2571,7 +2570,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}
 
 	if storageInstInfo.FilesystemUUID.Valid {
-		retVal.StorageInstanceInfo.Filesystem = &internal.StorageInstanceFilesystemInfo{
+		retVal.StorageInstanceInfo.Filesystem = &applicationinternal.StorageInstanceFilesystemInfo{
 			UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
 			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
 			Size:           storageInstInfo.FilesystemSizeMIB.V,
@@ -2582,7 +2581,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 			new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
 	}
 	if storageInstInfo.VolumeUUID.Valid {
-		retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
+		retVal.StorageInstanceInfo.Volume = &applicationinternal.StorageInstanceVolumeInfo{
 			UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
 			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
 			Size:           storageInstInfo.VolumeSizeMIB.V,
@@ -2598,7 +2597,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	for _, unitAttachment := range storageInstAttachments {
 		retVal.StorageInstanceAttachments = append(
 			retVal.StorageInstanceAttachments,
-			internal.StorageInstanceUnitAttachment{
+			applicationinternal.StorageInstanceUnitAttachment{
 				UnitUUID: coreunit.UUID(unitAttachment.UnitUUID),
 				UUID:     domainstorage.StorageAttachmentUUID(unitAttachment.UUID),
 			},

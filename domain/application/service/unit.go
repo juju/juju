@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
@@ -234,7 +233,11 @@ type UnitState interface {
 	// storage instances exist for the named storage on the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	GetStorageAddInfoByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internal.StorageInfoForAdd, error)
+	GetStorageAddInfoByUnitUUID(
+		context.Context,
+		coreunit.UUID,
+		corestorage.Name,
+	) (applicationinternal.StorageInfoForAdd, error)
 
 	// GetStorageAttachInfoByUnitUUIDAndStorageUUID returns the metadata
 	// and select details for the storage instance on the specified unit.
@@ -251,7 +254,7 @@ type UnitState interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		storageUUID domainstorage.StorageInstanceUUID,
-	) (internal.StorageInstanceInfoForUnitAttach, error)
+	) (applicationinternal.StorageInstanceInfoForUnitAttach, error)
 
 	// GetStorageAttachInfoForStorageInstances returns attachment metadata for
 	// the specified storage instances.
@@ -262,7 +265,7 @@ type UnitState interface {
 	GetStorageAttachInfoForStorageInstances(
 		ctx context.Context,
 		storageInstanceUUIDs []domainstorage.StorageInstanceUUID,
-	) ([]internal.StorageInstanceInfoForAttach, error)
+	) ([]applicationinternal.StorageInstanceInfoForAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -279,7 +282,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg domainstorage.UnitAddStorageArg,
+		storageArg applicationinternal.AddStorageToUnitArg,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
@@ -297,7 +300,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg domainstorage.IAASUnitAddStorageArg,
+		storageArg applicationinternal.AddStorageToIAASUnitArg,
 	) ([]corestorage.ID, error)
 
 	// GetIAASUnitContext returns the IAAS context information required for the
@@ -328,7 +331,7 @@ type UnitState interface {
 	AttachStorageToUnit(
 		ctx context.Context,
 		unitUUID coreunit.UUID,
-		storageArg internal.AttachStorageInstanceToUnitArg,
+		storageArg applicationinternal.AttachStorageInstanceToUnitArg,
 	) error
 }
 
@@ -432,7 +435,7 @@ func (s *ProviderService) AttachStorageToUnit(
 // storage instance owning machine does not match the unit's machine.
 func (s *ProviderService) validateStorageInstanceForUnitAttachment(
 	ctx context.Context,
-	info internal.StorageInstanceInfoForUnitAttach,
+	info applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
 	// Validate that the storage instance is alive.
 	if info.StorageInstanceInfo.Life != life.Alive {
@@ -553,7 +556,7 @@ func (s *ProviderService) validateStorageInstanceForUnitAttachment(
 // instances, returning the first validation error encountered.
 func (s *ProviderService) validateStorageInstancesForUnitAttachment(
 	ctx context.Context,
-	infos []internal.StorageInstanceInfoForUnitAttach,
+	infos []applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
 	for _, info := range infos {
 		if err := s.validateStorageInstanceForUnitAttachment(ctx, info); err != nil {
@@ -593,7 +596,7 @@ func (s *ProviderService) validateStorageInstanceAttachmentForNewUnit(
 	unitMachineUUID *coremachine.UUID,
 	unitNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,
-	attachInfos []internal.StorageInstanceInfoForAttach,
+	attachInfos []applicationinternal.StorageInstanceInfoForAttach,
 ) error {
 	if len(attachInfos) == 0 {
 		return nil
@@ -609,7 +612,8 @@ func (s *ProviderService) validateStorageInstanceAttachmentForNewUnit(
 
 	alreadyAttachedByStorageName := make(map[domainstorage.Name]uint32)
 	validationInfos := make(
-		[]internal.StorageInstanceInfoForUnitAttach, 0, len(attachInfos),
+		[]applicationinternal.StorageInstanceInfoForUnitAttach,
+		0, len(attachInfos),
 	)
 	for _, info := range attachInfos {
 		storageName := domainstorage.Name(info.StorageName)
@@ -621,11 +625,11 @@ func (s *ProviderService) validateStorageInstanceAttachmentForNewUnit(
 		}
 
 		alreadyAttached := alreadyAttachedByStorageName[storageName]
-		validationInfos = append(validationInfos, internal.StorageInstanceInfoForUnitAttach{
+		validationInfos = append(validationInfos, applicationinternal.StorageInstanceInfoForUnitAttach{
 			StorageInstanceInfo:        info.StorageInstanceInfo,
 			StorageInstanceAttachments: info.StorageInstanceAttachments,
-			UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
-				CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+			UnitNamedStorageInfo: applicationinternal.UnitNamedStorageInfo{
+				CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
 					Name:        string(directive.Name),
 					Type:        directive.CharmStorageType,
 					CountMin:    0,
@@ -650,24 +654,24 @@ func (s *ProviderService) validateStorageInstanceAttachmentForNewUnit(
 }
 
 func storageInstanceCompositionsFromAttachInfos(
-	attachInfos []internal.StorageInstanceInfoForAttach,
-) []internal.StorageInstanceComposition {
-	compositions := make([]internal.StorageInstanceComposition, 0, len(attachInfos))
+	attachInfos []applicationinternal.StorageInstanceInfoForAttach,
+) []applicationinternal.StorageInstanceComposition {
+	compositions := make([]applicationinternal.StorageInstanceComposition, 0, len(attachInfos))
 	for _, info := range attachInfos {
-		comp := internal.StorageInstanceComposition{
+		comp := applicationinternal.StorageInstanceComposition{
 			StorageName: domainstorage.Name(info.StorageName),
 			UUID:        info.UUID,
 		}
 
 		if info.Filesystem != nil {
-			comp.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+			comp.Filesystem = &applicationinternal.StorageInstanceCompositionFilesystem{
 				ProvisionScope: info.Filesystem.ProvisionScope,
 				UUID:           info.Filesystem.UUID,
 			}
 		}
 
 		if info.Volume != nil {
-			comp.Volume = &internal.StorageInstanceCompositionVolume{
+			comp.Volume = &applicationinternal.StorageInstanceCompositionVolume{
 				ProvisionScope: info.Volume.ProvisionScope,
 				UUID:           info.Volume.UUID,
 			}
@@ -691,7 +695,7 @@ func storageInstanceCompositionsFromAttachInfos(
 // owning machine UUID does not match the unit's machine UUID or the unit has
 // no machine assigned but the storage instance does.
 func validateStorageInstanceOwningMachine(
-	info internal.StorageInstanceInfoForUnitAttach,
+	info applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
 	unitMachineUUID := info.UnitNamedStorageInfo.MachineUUID
 	unitMachineName := "unset"
@@ -832,8 +836,8 @@ func (s *ProviderService) makeIAASUnitArgs(
 			)
 		}
 		storageInst := transform.Slice(unitStorageArgs.StorageInstances,
-			func(in internal.CreateUnitStorageInstanceArg) internal.AddStorageInstanceArg {
-				return internal.AddStorageInstanceArg{
+			func(in applicationinternal.CreateUnitStorageInstanceArg) applicationinternal.AddStorageInstanceArg {
+				return applicationinternal.AddStorageInstanceArg{
 					Filesystem: in.Filesystem,
 					Volume:     in.Volume,
 					UUID:       in.UUID,
