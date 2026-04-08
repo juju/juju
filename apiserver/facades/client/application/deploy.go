@@ -275,7 +275,14 @@ func makeIAASUnitArgs(
 			},
 		}
 		if i == 0 {
-			unitArgs[i].StorageToAttach = storageUUIDsToAttach
+			// We currently only support attach existing to storage to the first
+			// unit being created as part of the application. This is because
+			// the facade layer has no mechanism for the caller to control which
+			// unit they intend for the storage to be attached to.
+			//
+			// TODO (tlm): This is really interface logic and should be shuffled
+			// up to the facade layer.
+			unitArgs[i].AddUnitArg.StorageInstancesToAttach = storageUUIDsToAttach
 		}
 	}
 
@@ -295,7 +302,14 @@ func makeCAASUnitArgs(
 			Placement: unitPlacement,
 		}
 		if i == 0 {
-			unitArgs[i].StorageToAttach = storageUUIDsToAttach
+			// We currently only support attach existing to storage to the first
+			// unit being created as part of the application. This is because
+			// the facade layer has no mechanism for the caller to control which
+			// unit they intend for the storage to be attached to.
+			//
+			// TODO (tlm): This is really interface logic and should be shuffled
+			// up to the facade layer.
+			unitArgs[i].StorageInstancesToAttach = storageUUIDsToAttach
 		}
 	}
 
