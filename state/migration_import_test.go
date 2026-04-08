@@ -424,6 +424,7 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	newStatus, err = newMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(newStatus, jc.DeepEquals, oldStatus)
+	c.Assert(newMachine.Hostname(), gc.Equals, oldMachine.Hostname())
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {

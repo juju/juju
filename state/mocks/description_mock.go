@@ -985,6 +985,20 @@ func (mr *MockMachineMockRecorder) Containers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Containers", reflect.TypeOf((*MockMachine)(nil).Containers))
 }
 
+// Hostname mocks base method.
+func (m *MockMachine) Hostname() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hostname")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Hostname indicates an expected call of Hostname.
+func (mr *MockMachineMockRecorder) Hostname() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hostname", reflect.TypeOf((*MockMachine)(nil).Hostname))
+}
+
 // Id mocks base method.
 func (m *MockMachine) Id() string {
 	m.ctrl.T.Helper()
@@ -1173,6 +1187,18 @@ func (m *MockMachine) SetConstraints(arg0 description.ConstraintsArgs) {
 func (mr *MockMachineMockRecorder) SetConstraints(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockMachine)(nil).SetConstraints), arg0)
+}
+
+// SetHostname mocks base method.
+func (m *MockMachine) SetHostname(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetHostname", arg0)
+}
+
+// SetHostname indicates an expected call of SetHostname.
+func (mr *MockMachineMockRecorder) SetHostname(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostname", reflect.TypeOf((*MockMachine)(nil).SetHostname), arg0)
 }
 
 // SetInstance mocks base method.

@@ -308,7 +308,8 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	exported := machines[0]
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Base(), gc.Equals, machine1.Base().String())
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+	c.Assert(exported.Annotations(), gc.DeepEquals, testAnnotations)
+	c.Assert(exported.Hostname(), gc.Equals, machine1.Hostname())
 
 	expCons := exported.Constraints()
 	c.Assert(expCons, gc.NotNil)
