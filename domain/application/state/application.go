@@ -2829,6 +2829,7 @@ WHERE  application_uuid = $entityUUID.uuid;
 // specified application UUID.
 // Empty constraints are returned if no constraints exist for the given
 // application UUID.
+// Spaces, tags and zones are returned in the insertion order.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Constraints, error) {
@@ -3254,6 +3255,7 @@ func (*State) NamespaceForWatchNetNodeAddress() string {
 // spaces, tags and zones constraints which are slices. We can safely assume
 // that the non-slice values are repeated on every row so we can safely
 // overwrite the previous value on each iteration.
+// Spaces, tags and zones are returned in the order they appear in the input.
 func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 	var res constraints.Constraints
 

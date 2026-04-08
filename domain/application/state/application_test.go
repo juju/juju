@@ -3493,21 +3493,16 @@ func (s *applicationStateSuite) TestGetConstraintsPreservesInsertionOrder(c *tc.
 
 	// Insert spaces in reverse alphabetical order to confirm we get
 	// insertion order back, not sorted order.
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		for _, sp := range []struct{ uuid, name string }{
-			{"gamma-uuid", "gamma"},
-			{"beta-uuid", "beta"},
-			{"aaa-uuid", "aaa"},
-		} {
-			if _, err := tx.ExecContext(ctx, "INSERT INTO space (uuid, name) VALUES (?, ?)", sp.uuid, sp.name); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	for _, sp := range []struct{ uuid, name string }{
+		{"gamma-uuid", "gamma"},
+		{"beta-uuid", "beta"},
+		{"aaa-uuid", "aaa"},
+	} {
+		_, err := s.DB().ExecContext(c.Context(), "INSERT INTO space (uuid, name) VALUES (?, ?)", sp.uuid, sp.name)
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
-	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
 		Tags: new([]string{"zzz", "aaa", "mmm"}),
 		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "gamma", Exclude: false},
