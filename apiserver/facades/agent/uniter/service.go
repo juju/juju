@@ -256,13 +256,13 @@ type NetworkService interface {
 	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
 
 	// GetUnitRelationNetwork retrieves network relation information for a given
-	// unit and relation key.
+	// unit and relation UUID.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
-	// - [relationerrors.RelationNotFound] if the relation key doesn't belong to
-	//   the unit.
-	GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name, relKey corerelation.Key) (domainnetwork.UnitNetwork, error)
+	// - [relationerrors.RelationNotFound] if the relation doesn't belong to the
+	//   unit.
+	GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name, relationUUID corerelation.UUID) (domainnetwork.UnitNetwork, error)
 
 	// GetUnitEndpointNetworks retrieves network relation information for a given unit and specified endpoints.
 	// It returns exactly one info for each endpoint names passed in argument,

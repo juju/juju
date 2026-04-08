@@ -1667,7 +1667,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	info, err := u.networkService.GetUnitRelationNetwork(ctx, unitName, relKey)
+	info, err := u.networkService.GetUnitRelationNetwork(ctx, unitName, relUUID)
 	switch {
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return errors.NotFoundf("unit %s", unitTag)
@@ -2150,18 +2150,9 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.R
 	} else if err != nil {
 		return nothing, err
 	}
-	var applicationName string
-	tag := u.auth.GetAuthTag()
-	switch tag.(type) {
-	case names.UnitTag:
-		applicationName, err = names.UnitApplication(tag.Id())
-		if err != nil {
-			return nothing, err
-		}
-	case names.ApplicationTag:
-		applicationName = tag.Id()
-	default:
-		panic("authenticated entity is not a unit or application")
+	applicationName, err := u.authApplicationName()
+	if err != nil {
+		return nothing, err
 	}
 	// Use the currently authenticated unit to get the endpoint.
 	result, err := u.prepareRelationResult(ctx, rel, applicationName)
@@ -2173,6 +2164,18 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.R
 		return nothing, apiservererrors.ErrPerm
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) authApplicationName() (string, error) {
+	tag := u.auth.GetAuthTag()
+	switch tag.(type) {
+	case names.UnitTag:
+		return names.UnitApplication(tag.Id())
+	case names.ApplicationTag:
+		return tag.Id(), nil
+	default:
+		return "", apiservererrors.ErrPerm
+	}
 }
 
 func (u *UniterAPI) prepareRelationResult(
@@ -2229,6 +2232,26 @@ func (u *UniterAPI) prepareRelationResult(
 		},
 		OtherApplication: otherApplication,
 	}, nil
+}
+
+func unitNetworkToNetworkInfoResult(info domainnetork.UnitNetwork) params.NetworkInfoResult {
+	return params.NetworkInfoResult{
+		Info: transform.Slice(info.DeviceInfos, func(dev domainnetork.DeviceInfo) params.NetworkInfo {
+			return params.NetworkInfo{
+				MACAddress:    dev.MACAddress,
+				InterfaceName: dev.Name,
+				Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.InterfaceAddress {
+					return params.InterfaceAddress{
+						Hostname: addr.Hostname,
+						Address:  addr.Value,
+						CIDR:     addr.CIDR,
+					}
+				}),
+			}
+		}),
+		EgressSubnets:    info.EgressSubnets,
+		IngressAddresses: info.IngressAddresses,
+	}
 }
 
 func (u *UniterAPI) getOneRelation(
@@ -2310,35 +2333,43 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, coreunit.Name(unitTag.Id()), args.Endpoints)
+	unitName := coreunit.Name(unitTag.Id())
+	results := params.NetworkInfoResults{
+		Results: make(map[string]params.NetworkInfoResult),
+	}
+
+	if args.RelationId != nil {
+		relationUUID, err := u.relationService.GetRelationUUIDByID(
+			ctx, *args.RelationId,
+		)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			return params.NetworkInfoResults{}, apiservererrors.ErrPerm
+		} else if err != nil {
+			return params.NetworkInfoResults{}, internalerrors.Capture(err)
+		}
+		info, err := u.networkService.GetUnitRelationNetwork(
+			ctx, unitName, relationUUID,
+		)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
+		} else if errors.Is(err, relationerrors.RelationNotFound) {
+			return params.NetworkInfoResults{}, apiservererrors.ErrPerm
+		} else if err != nil {
+			return params.NetworkInfoResults{}, internalerrors.Capture(err)
+		}
+		results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
+		return results, nil
+	}
+
+	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, unitName, args.Endpoints)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
 	} else if err != nil {
 		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
 
-	results := params.NetworkInfoResults{
-		Results: make(map[string]params.NetworkInfoResult),
-	}
-
 	for _, info := range infos {
-		results.Results[info.EndpointName] = params.NetworkInfoResult{
-			Info: transform.Slice(info.DeviceInfos, func(dev domainnetork.DeviceInfo) params.NetworkInfo {
-				return params.NetworkInfo{
-					MACAddress:    dev.MACAddress,
-					InterfaceName: dev.Name,
-					Addresses: transform.Slice(dev.Addresses, func(addr domainnetork.AddressInfo) params.InterfaceAddress {
-						return params.InterfaceAddress{
-							Hostname: addr.Hostname,
-							Address:  addr.Value,
-							CIDR:     addr.CIDR,
-						}
-					}),
-				}
-			}),
-			EgressSubnets:    info.EgressSubnets,
-			IngressAddresses: info.IngressAddresses,
-		}
+		results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
 	}
 	return results, nil
 }
@@ -3008,7 +3039,9 @@ func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.N
 		if err != nil {
 			return internalerrors.Errorf("getting relation UUID: %w", err)
 		}
-		unitNetwork, err := u.networkService.GetUnitRelationNetwork(ctx, name, rel.Key)
+		unitNetwork, err := u.networkService.GetUnitRelationNetwork(
+			ctx, name, relationUUID,
+		)
 		if err != nil {
 			return internalerrors.Errorf("getting relation network: %w", err)
 		}

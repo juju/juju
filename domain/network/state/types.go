@@ -652,13 +652,6 @@ type spaceConstraint struct {
 	Exclude   bool   `db:"exclude"`
 }
 
-// spaceEndpoint represents the relationship between a network endpoint and its
-// associated space. It maps an endpoint name to a specific space UUID.
-type spaceEndpoint struct {
-	EndpointName string `db:"endpoint_name"`
-	SpaceUUID    string `db:"space_uuid"`
-}
-
 type positiveSpaceConstraintFailure struct {
 	MachineName string `db:"machine_name"`
 	SpaceName   string `db:"space_name"`

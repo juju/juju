@@ -49,3 +49,7 @@ If guidance conflicts, architectural rules take precedence.
 
 - Place methods and functions below others that call them.
 - Limit comment line lengths to 80 characters.
+- When wrapping errors across layers, add identifying context such as
+  entity UUIDs once at the highest useful layer. Keep state-layer
+  `Errorf` messages generic to avoid repeated identifiers in the final
+  error chain.

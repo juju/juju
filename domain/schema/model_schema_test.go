@@ -462,6 +462,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_full_unit_status",
 		"v_agent_binary_store",
 		"v_all_unit_address",
+		"v_unit_relation_network",
 		"v_secret_metadata",
 		"v_secret_owner",
 	)
