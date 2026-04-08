@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -62,7 +62,7 @@ func NewMachineActionsWorker(config WorkerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	swConfig := watcher.StringsConfig{
-		Handler: &handler{config: config, limiter: make(chan struct{}, maxConcurrency)},
+		Handler: newHandler(config),
 	}
 	return watcher.NewStringsWorker(swConfig)
 }
@@ -70,12 +70,26 @@ func NewMachineActionsWorker(config WorkerConfig) (worker.Worker, error) {
 // At most 100 actions can run simultaneously.
 const maxConcurrency = 100
 
+var tearDownWait = 30 * time.Second
+
 // handler implements watcher.StringsHandler
 type handler struct {
-	config   WorkerConfig
-	wait     sync.WaitGroup
-	limiter  chan struct{}
-	inflight int64
+	config  WorkerConfig
+	limiter chan struct{}
+
+	mu       sync.Mutex
+	inflight int
+	idle     chan struct{}
+}
+
+func newHandler(config WorkerConfig) *handler {
+	idle := make(chan struct{})
+	close(idle)
+	return &handler{
+		config:  config,
+		limiter: make(chan struct{}, maxConcurrency),
+		idle:    idle,
+	}
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
@@ -132,8 +146,7 @@ func (h *handler) Handle(ctx context.Context, actionsSlice []string) error {
 			logger.Debugf(ctx, "action %q aborted waiting in queue", actionTag.ID)
 			return nil
 		}
-		h.wait.Add(1)
-		atomic.AddInt64(&h.inflight, 1)
+		h.startAction()
 
 		// Run the action.
 		go h.runAction(ctx, actionTag, *action)
@@ -144,16 +157,24 @@ func (h *handler) Handle(ctx context.Context, actionsSlice []string) error {
 // TearDown is part of the watcher.NotifyHandler interface.
 func (h *handler) TearDown() error {
 	// Wait for any running actions to finish.
-	// TODO (stickupkid): This wait group could wait for ever if any of actions hang.
-	// Instead we should be much more clever and wait for a limited time before marking
-	// any outstanding actions as failed.
-	inflight := atomic.LoadInt64(&h.inflight)
+	inflight, idle := h.waitState()
 	if inflight > 0 {
 		logger.Infof(context.Background(), "Waiting for %d running actions...", inflight)
 	}
-	h.wait.Wait()
-	if inflight > 0 {
+
+	if inflight == 0 {
+		return nil
+	}
+
+	select {
+	case <-idle:
 		logger.Infof(context.Background(), "Done waiting for actions.")
+	case <-time.After(tearDownWait):
+		logger.Warningf(
+			context.Background(),
+			"timed out waiting for %d running actions, continuing shutdown",
+			inflight,
+		)
 	}
 	return nil
 }
@@ -181,8 +202,7 @@ func (h *handler) runAction(ctx context.Context, actionTag names.ActionTag, acti
 		case <-ctx.Done():
 			logger.Debugf(ctx, "action %q aborted waiting to enqueue", actionTag)
 		}
-		atomic.AddInt64(&h.inflight, -1)
-		h.wait.Done()
+		h.finishAction()
 	}()
 
 	if !action.Parallel() || action.ExecutionGroup() != "" {
@@ -211,4 +231,33 @@ func (h *handler) runAction(ctx context.Context, actionTag names.ActionTag, acti
 		return
 	}
 	results, actionErr = h.config.HandleAction(action.Name(), action.Params())
+}
+
+func (h *handler) startAction() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.inflight == 0 {
+		h.idle = make(chan struct{})
+	}
+	h.inflight++
+}
+
+func (h *handler) finishAction() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.inflight == 0 {
+		return
+	}
+	h.inflight--
+	if h.inflight == 0 {
+		close(h.idle)
+	}
+}
+
+func (h *handler) waitState() (int, <-chan struct{}) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.inflight, h.idle
 }
