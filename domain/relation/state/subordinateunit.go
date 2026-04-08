@@ -32,7 +32,7 @@ type InsertIAASUnitState interface {
 		tx *sqlair.TX,
 		appUUID, charmUUID string,
 		args application.AddIAASUnitArg,
-	) (unit.Name, unit.UUID, []machine.Name, error)
+	) (unit.Name, []machine.Name, error)
 }
 
 func (st *State) addSubordinateUnit(

@@ -109,7 +109,7 @@ func (s *subordinateUnitSuite) TestAddSubordinateUnit(c *tc.C) {
 			c:        c,
 			expected: args,
 		}).Return(
-		subordinateUnitName, subordinateUnitUUID, []coremachine.Name{principalMachineName}, nil)
+		subordinateUnitName, []coremachine.Name{principalMachineName}, nil)
 
 	// Act
 	var (
