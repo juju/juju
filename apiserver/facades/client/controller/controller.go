@@ -45,11 +45,6 @@ import (
 
 // ControllerAPIV12 implements the controller APIV12.
 type ControllerAPIV12 struct {
-	*ControllerAPIV13
-}
-
-// ControllerAPIV13 implements the controller APIV13.
-type ControllerAPIV13 struct {
 	*ControllerAPI
 }
 
@@ -273,33 +268,6 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 	return result, nil
 }
 
-// CloudSpec is not implemented in version 13.
-func (c *ControllerAPIV13) CloudSpec(ctx context.Context, _, _ struct{}) {}
-
-// CloudSpec returns cloud specifications for the specified models.
-func (c *ControllerAPI) CloudSpec(ctx context.Context, req params.Entities) (params.CloudSpecResults, error) {
-	results := params.CloudSpecResults{
-		Results: make([]params.CloudSpecResult, len(req.Entities)),
-	}
-	for i, entity := range req.Entities {
-		modelTag, err := names.ParseModelTag(entity.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := c.authorizer.HasPermission(ctx, permission.ReadAccess, modelTag); err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		spec, err := c.getCloudSpec(ctx, coremodel.UUID(modelTag.Id()))
-		results.Results[i] = params.CloudSpecResult{
-			Result: spec,
-			Error:  apiservererrors.ServerError(err),
-		}
-	}
-	return results, nil
-}
-
 // ListBlockedModels returns a list of all models on the controller
 // which have a block in place.  The resulting slice is sorted by model
 // name, then owner. Callers must be controller administrators to retrieve the
@@ -457,10 +425,10 @@ func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.Summ
 		return params.SummaryWatcherID{}, errors.Trace(err)
 	}
 	// TODO(dqlite) - implement me
-	// w := c.controller.WatchAllModels()
-	// return params.SummaryWatcherID{
+	//w := c.controller.WatchAllModels()
+	//return params.SummaryWatcherID{
 	//	WatcherID: c.resources.Register(w),
-	// }, nil
+	//}, nil
 	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchAllModelSummaries")
 }
 
@@ -469,11 +437,11 @@ func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.Summ
 func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
 	// TODO(dqlite) - implement me
 	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchModelSummaries")
-	// user := c.apiUser.Id()
-	// w := c.controller.WatchModelsAsUser(user)
-	// return params.SummaryWatcherID{
+	//user := c.apiUser.Id()
+	//w := c.controller.WatchModelsAsUser(user)
+	//return params.SummaryWatcherID{
 	//	WatcherID: c.resources.Register(w),
-	// }, nil
+	//}, nil
 }
 
 // GetControllerAccess returns the level of access the specified users

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -306,65 +305,6 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	c.Assert(one.Qualifier, tc.Equals, "prod")
 	c.Assert(two.Name, tc.Equals, "second")
 	c.Assert(two.Qualifier, tc.Equals, "staging")
-}
-
-func (s *controllerSuite) TestCloudSpec(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	modelTag := names.NewModelTag(s.DefaultModelUUID.String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: modelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	modelProvider := s.ModelDomainServices(c, s.DefaultModelUUID).ModelProvider()
-	expected, err := modelProvider.GetCloudSpec(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
-}
-
-func (s *controllerSuite) TestCloudSpecInvalidTag(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: names.NewMachineTag("0").String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-0" is not a valid model tag`)
-}
-
-func (s *controllerSuite) TestCloudSpecUnauthorized(c *tc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("read-" + names.NewModelTag(s.DefaultModelUUID.String()).String()),
-	}
-	s.context.Auth_ = s.authorizer
-	defer s.setupMocks(c).Finish()
-
-	otherModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: otherModelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
-}
-
-func (s *controllerSuite) TestCloudSpecServiceError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unknownModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: unknownModelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.NotNil)
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
