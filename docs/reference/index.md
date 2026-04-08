@@ -11,51 +11,53 @@ Technical specifications, APIs, and comprehensive details of all Juju components
 
 ## Cloud and Charmhub
 
-Clouds provide compute resources for your infrastructure. Charmhub provides software packages (charms) for deploying and managing applications.
+In Juju, deployments draw from two external sources. Clouds provide compute resources for your infrastructure. Charmhub provides charms -- operators for deploying and managing applications.
 
 - {ref}`cloud` • {ref}`credential` • {ref}`metadata` • [Charmhub](https://charmhub.io/) • [`juju-controller` charm](https://charmhub.io/juju-controller)
 
 ## Client
 
-Command-line and web interfaces for managing controllers, models, and deployments.
+In Juju, you interact with these resources through clients -- command-line and web interfaces for managing controllers, models, and deployments.
 
 - {ref}`client` • {ref}`juju-cli` • {ref}`juju-web-cli` • {ref}`juju-dashboard`
 
 ## Controller
 
-The central management service that coordinates between your client, clouds, and deployed resources.
+Clients connect to a controller -- the central management service that coordinates between clouds, Charmhub, and your deployed resources.
 
 - {ref}`controller` • {ref}`log` • {ref}`high-availability` • {ref}`scaling`
 
 ## User
 
-User accounts provide authentication and authorization for accessing and managing Juju resources.
+Controller access requires user authentication. User accounts provide authentication and authorization for managing Juju resources.
 
 - {ref}`user`
 
 ## Infrastructure and applications
 
-Juju automatically provisions infrastructure when you deploy applications, though you can also customize resources before, during, or after deployment.
-
-You organize your work into workspaces called 'models'.
+Once authenticated, users work with deployments. Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud.
 
 - {ref}`model`
 
-To deploy and operate your applications, you use software packages called 'charms', which can be packaged together as 'bundles' and run as 'applications' composed of 'units'.
+Models contain applications deployed from charms and composed of units (individual instances).
 
-- {ref}`charm` • {ref}`bundle` • {ref}`application` • {ref}`unit`
+- {ref}`charm` • {ref}`application` • {ref}`unit`
 
-These applications run on infrastructure resources that Juju provisions from your cloud: machines with storage, organized into spaces, subnets, and zones, controlled through constraints and placement directives. You can access machines using SSH keys.
+Applications connect to each other through relations endpoints -- integration points between compatible interfaces. Offers enable cross-model relations.
 
-- {ref}`machine` • {ref}`ssh-key` • {ref}`storage` • {ref}`space` • {ref}`subnet` • {ref}`zone` • {ref}`constraint` • {ref}`placement-directive`
+- {ref}`relation` • {ref}`offer`
 
-On each machine, Juju installs an agent to execute the charm code and manage your workload.
+Applications are managed through configuration, secrets, actions, and scripts, and support scaling and high availability. Charms may require resources.
 
-- {ref}`agent` • {ref}`jujud` • {ref}`jujuc` • {ref}`containeragent` • {ref}`pebble` • {ref}`hook` • {ref}`hook-command`
+- {ref}`configuration` • {ref}`charm-resource` • {ref}`secret` • {ref}`action` • {ref}`script` • {ref}`high-availability` • {ref}`scaling`
 
-You can run actions and scripts on deployed applications, integrate them through relations (including cross-model via offers), provide configuration and secrets, and scale them or enable high availability through units.
+Supporting infrastructure -- machines, storage volumes, network spaces and subnets, and availability zones -- is provisioned from the cloud. Constraints and placement directives control how resources are selected and allocated. SSH keys provide access.
 
-- {ref}`action` • {ref}`script` • {ref}`relation` • {ref}`offer` • {ref}`configuration` • {ref}`secret` • {ref}`high-availability` • {ref}`scaling`
+- {ref}`machine` • {ref}`storage` • {ref}`constraint` • {ref}`placement-directive` • {ref}`space` • {ref}`subnet` • {ref}`zone` • {ref}`ssh-key`
+
+On each machine, agents (`jujud` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
+
+- {ref}`agent` • {ref}`jujud` • {ref}`hook` • {ref}`hook-command` • {ref}`jujuc` • {ref}`containeragent` • {ref}`pebble`
 
 ## Other
 
