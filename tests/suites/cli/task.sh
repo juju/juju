@@ -20,6 +20,7 @@ test_cli() {
 	test_model_constraints
 	test_unregister
 	test_block_commands
+	test_diff_bundle
 
 	destroy_controller "test-cli"
 }

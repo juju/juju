@@ -755,6 +755,63 @@ func (s *diffSuite) TestApplicationOptions(c *gc.C) {
 	s.checkDiff(c, bundleContent, model, expectedDiff)
 }
 
+func (s *diffSuite) TestApplicationNumericOptions(c *gc.C) {
+	bundleContent := `
+        applications:
+            prometheus:
+                charm: ch:prometheus
+                revision: 7
+                series: xenial
+                channel: stable
+                num_units: 1
+                options:
+                    travis: 5
+                    clint: 6
+                    ellen: 11.0
+                    jane: 2
+                    john: 13.37
+                to: [0]
+        machines:
+            0:
+            `
+	model := &bundlechanges.Model{
+		Applications: map[string]*bundlechanges.Application{
+			"prometheus": {
+				Name:     "prometheus",
+				Charm:    "ch:prometheus",
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
+				Channel:  "stable",
+				Revision: 7,
+				Options: map[string]interface{}{
+					"justin": 9,
+					"clint":  6.1,
+					"ellen":  11.0,
+					"jane":   2.0,
+					"john":   13.37,
+				},
+				Units: []bundlechanges.Unit{
+					{Name: "prometheus/0", Machine: "0"},
+				},
+			},
+		},
+		Machines: map[string]*bundlechanges.Machine{
+			"0": {ID: "0"},
+		},
+	}
+	expectedDiff := &bundlechanges.BundleDiff{
+		Applications: map[string]*bundlechanges.ApplicationDiff{
+			"prometheus": {
+				Options: map[string]bundlechanges.OptionDiff{
+					"travis": {5, nil},
+					"justin": {nil, 9},
+					"clint":  {6, 6.1},
+				},
+			},
+		},
+	}
+	s.checkDiff(c, bundleContent, model, expectedDiff)
+}
+
 func (s *diffSuite) TestApplicationAnnotations(c *gc.C) {
 	bundleContent := `
         applications:

@@ -324,7 +324,7 @@ func (d *differ) diffOptions(bundle, model map[string]interface{}) map[string]Op
 	for _, name := range all.Values() {
 		bundleValue := bundle[name]
 		modelValue := model[name]
-		if !reflect.DeepEqual(bundleValue, modelValue) {
+		if !optionValuesEqual(bundleValue, modelValue) {
 			result[name] = OptionDiff{
 				Bundle: bundleValue,
 				Model:  modelValue,
@@ -335,6 +335,39 @@ func (d *differ) diffOptions(bundle, model map[string]interface{}) map[string]Op
 		return nil
 	}
 	return result
+}
+
+// maybeAsInt checks whether a value is semantically an integer and if so
+// return it as int with the second return value true.
+// Otherwise, the second return value will be false.
+func maybeAsInt(x any) (int, bool) {
+	if xi, ok := x.(int); ok {
+		return xi, true
+	}
+
+	if xf, ok := x.(float64); ok {
+		xi := int(xf)
+		if xf == float64(xi) {
+			return xi, true
+		}
+	}
+
+	return 0, false
+}
+
+// optionValuesEqual compares to value of two configOptions, treating
+// integer-like floats (e.g. 10.0) as integers.
+func optionValuesEqual(x, y any) bool {
+	if x == nil || y == nil {
+		return x == y
+	}
+	if i1, ok1 := maybeAsInt(x); ok1 {
+		if i2, ok2 := maybeAsInt(y); ok2 {
+			return i1 == i2
+		}
+	}
+
+	return reflect.DeepEqual(x, y)
 }
 
 func (d *differ) diffExposedEndpoints(bundle map[string]charm.ExposedEndpointSpec, model map[string]ExposedEndpoint) map[string]ExposedEndpointDiff {
