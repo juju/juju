@@ -29,29 +29,19 @@ func (*hookLoggerSuite) TestStopIsIdempotent(c *tc.C) {
 
 	stopDone := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 4 {
+		wg.Go(func() {
 			logger.Stop()
-		}()
+		})
 	}
 	go func() {
 		defer close(stopDone)
 		wg.Wait()
 	}()
 
-	select {
-	case <-stopDone:
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for Stop calls to finish")
-	}
+	<-stopDone
 
 	c.Assert(writer.Close(), tc.ErrorIsNil)
 
-	select {
-	case <-runDone:
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for logger to stop")
-	}
+	<-runDone
 }
