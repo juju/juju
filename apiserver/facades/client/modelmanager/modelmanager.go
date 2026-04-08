@@ -762,17 +762,19 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 	for _, mi := range models {
 		var lastConnection *time.Time
 		lc, err := m.accessService.LastModelLogin(ctx, coreuser.NameFromTag(userTag), mi.UUID)
-		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
-			lastConnection = nil
-		} else if errors.Is(err, modelerrors.NotFound) {
-			// Continue if the model has been removed since we got the UUID.
-			continue
-		} else if err != nil {
-			return result, errors.Annotatef(
-				err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
-		}
+		if err == nil {
+			lastConnection = &lc
+		} else {
+			if errors.Is(err, modelerrors.NotFound) {
+				// Continue if the model has been removed since we got the UUID.
+				continue
+			}
 
-		lastConnection = &lc
+			if !errors.Is(err, accesserrors.UserNeverAccessedModel) {
+				return result, errors.Annotatef(
+					err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
+			}
+		}
 
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
