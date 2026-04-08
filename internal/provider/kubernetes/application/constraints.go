@@ -54,6 +54,8 @@ func ApplyWorkloadConstraints(pod *core.PodSpec, appName string, cons constraint
 			cpuArch = "ppc64le"
 		case arch.S390X:
 			cpuArch = "s390x"
+		case arch.RISCV64:
+			cpuArch = "riscv64"
 		default:
 			return errors.NotSupportedf("architecture %q", cpuArch)
 		}
