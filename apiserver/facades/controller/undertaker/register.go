@@ -33,6 +33,8 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(m))
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		st.ControllerTag(),
+		ctx.Auth(),
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
