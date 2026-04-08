@@ -49,6 +49,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
@@ -165,7 +166,7 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	s.tw.Clear()
 	c.Assert(loggo.RegisterWriter("bootstrap-test", &s.tw), tc.ErrorIsNil)
 	c.Cleanup(func() {
-		loggo.RemoveWriter("bootstrap-test")
+		_, _ = loggo.RemoveWriter("bootstrap-test")
 	})
 
 	s.clock = testclock.NewClock(time.Now())
@@ -1291,7 +1292,7 @@ my-dummy-cloud
 	c.Assert(controller.CloudRegion, tc.Equals, "region-1")
 }
 
-func (s *BootstrapSuite) setupAutoUploadTest(c tc.LikeC, vers, ser string) {
+func (s *BootstrapSuite) setupAutoUploadTest(c tc.LikeC, vers, _ string) {
 	patchedVersion := semversion.MustParse(vers)
 	patchedVersion.Build = 1
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
@@ -2134,6 +2135,68 @@ func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `controller charm channel "3.0/foo" not valid`)
 }
 
+func (s *BootstrapSuite) TestBootstrapControllerSnapFlagValidation(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	tests := []struct {
+		name string
+		args []string
+		err  string
+	}{{
+		name: "invalid snap channel",
+		args: []string{"--controller-snap-channel", "3.0/foo"},
+		err:  `controller snap channel "3.0/foo" not valid`,
+	}, {
+		name: "unreadable snap path",
+		args: []string{"--controller-snap-path", "/invalid/snap.path"},
+		err:  `--controller-snap-path "/invalid/snap.path" cannot be read: .*`,
+	}, {
+		name: "unreadable snap assert path",
+		args: []string{"--controller-snap-assert-path", "/invalid/snap.assert"},
+		err:  `--controller-snap-assert-path "/invalid/snap.assert" cannot be read: .*`,
+	}}
+
+	for _, test := range tests {
+		c.Run(test.name, func(t *testing.T) {
+			c := &tc.TBC{TB: t}
+			_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), test.args...)
+			c.Assert(err, tc.ErrorMatches, test.err)
+		})
+	}
+}
+
+func (s *BootstrapSuite) TestBootstrapControllerSnapFlagDisabled(c *tc.C) {
+	tests := []struct {
+		name string
+		args []string
+		err  string
+	}{{
+		name: "controller-snap-channel",
+		args: []string{"--controller-snap-channel", "4.0/stable"},
+		err:  `option provided but not defined: --controller-snap-channel`,
+	}, {
+		name: "controller-snap-path",
+		args: []string{"--controller-snap-path", "/snap.path"},
+		err:  `option provided but not defined: --controller-snap-path`,
+	}, {
+		name: "controller-snap-assert-path",
+		args: []string{"--controller-snap-assert-path", "/snap.assert"},
+		err:  `option provided but not defined: --controller-snap-assert-path`,
+	}, {
+		name: "controller-snap-revision",
+		args: []string{"--controller-snap-revision", "rev"},
+		err:  `option provided but not defined: --controller-snap-revision`,
+	}}
+
+	for _, test := range tests {
+		c.Run(test.name, func(t *testing.T) {
+			c := &tc.TBC{TB: t}
+			_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), test.args...)
+			c.Assert(err, tc.ErrorMatches, test.err)
+		})
+	}
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// This test ensures that the controller name is correctly set on
 	// on the bootstrap commands embedded ModelCommandBase. Without
@@ -2381,7 +2444,7 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (noCredentialsProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
+func (noCredentialsProvider) DetectCredentials(_ string) (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
 
@@ -2397,7 +2460,7 @@ func (manyCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (manyCredentialsProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
+func (manyCredentialsProvider) DetectCredentials(_ string) (*cloud.CloudCredential, error) {
 	return &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"one": cloud.NewCredential("one", nil),
@@ -2423,7 +2486,7 @@ func (f fileCredentialProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (f fileCredentialProvider) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
+func (f fileCredentialProvider) DetectCredentials(_ string) (*cloud.CloudCredential, error) {
 	credential := cloud.NewCredential(cloud.JSONFileAuthType,
 		map[string]string{"file": f.testFileName})
 	cc := &cloud.CloudCredential{AuthCredentials: map[string]cloud.Credential{
