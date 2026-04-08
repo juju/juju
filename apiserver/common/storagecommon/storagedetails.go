@@ -156,7 +156,7 @@ func missingBackingStorageStatus(
 	attachments []state.StorageAttachment,
 	unitToMachine UnitAssignedMachineFunc,
 	notFoundErr error,
-	pendingMessage string,
+	message string,
 	since time.Time,
 ) (status.StatusInfo, error) {
 	if len(attachments) == 0 {
@@ -172,13 +172,18 @@ func missingBackingStorageStatus(
 	// When a unit is assigned to a machine, the machine assignment
 	// transaction [AssignToMachine] func guarantees that the backing
 	// volume/filesystem document is created. A NotFound error when the unit
-	// is assigned indicates something has gone wrong, so propagate this error.
+	// is assigned indicates something has gone wrong, so propagate this error as
+	// part of StatusInfo to keep status command from error-ing.
 	if assigned {
-		return status.StatusInfo{}, notFoundErr
+		return status.StatusInfo{
+			Status:  status.Error,
+			Message: notFoundErr.Error(),
+			Since:   &since,
+		}, nil
 	}
 	return status.StatusInfo{
 		Status:  status.Pending,
-		Message: pendingMessage,
+		Message: message,
 		Since:   &since,
 	}, nil
 }

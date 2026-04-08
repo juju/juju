@@ -137,19 +137,25 @@ func (s *StorageDetailsSuite) TestVolumeNotFoundWithAssignedUnitsReturnsError(c 
 		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 			return []state.StorageAttachment{s.attachment}, nil
 		},
+		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
+			return s.instance, nil
+		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.NewMachineTag("0"), nil
 	}
 
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Matches, "volume for storage data/0 not found")
 }
 
 // TestFilesystemNotFoundWithAssignedUnitsReturnsError verifies error is surfaced when
 // the backing filesystem is missing despite the unit being assigned to a machine.
 func (s *StorageDetailsSuite) TestFilesystemNotFoundWithAssignedUnitsReturnsError(c *gc.C) {
 	s.instance.kind = state.StorageKindFilesystem
+
 	st := &fakeStorage{
 		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
 			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
@@ -157,13 +163,18 @@ func (s *StorageDetailsSuite) TestFilesystemNotFoundWithAssignedUnitsReturnsErro
 		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 			return []state.StorageAttachment{s.attachment}, nil
 		},
+		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
+			return s.instance, nil
+		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.NewMachineTag("0"), nil
 	}
 
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Matches, "filesystem for storage data/0 not found")
 }
 
 // TestVolumeNotFoundWithNotAssignedUnitsReturnsPending verifies status is surfaced
