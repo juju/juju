@@ -451,7 +451,7 @@ WHERE  name = $nameWithNetNodeAndLife.name
 	}
 
 	switch val.LifeID {
-	case life.Dead:
+	case domainlife.Dead:
 		return "", applicationerrors.UnitIsDead
 	default:
 		return val.NetNodeUUID, nil
