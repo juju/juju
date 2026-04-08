@@ -767,7 +767,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
 	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		tagKindAuthorizer{names.ControllerAgentTagKind},
 		controllerAdminAuthorizer,
 		modelPermissionAuthorizer{
 			perm: permission.ReadAccess,
@@ -802,7 +802,19 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			perm: permission.WriteAccess,
 		},
 	}
-
+	var resourcesUploadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.WriteAccess,
+		},
+	}
+	var resourcesDownloadAuthorizer httpcontext.CompositeAuthorizer = []authentication.Authorizer{
+		controllerAdminAuthorizer,
+		modelPermissionAuthorizer{
+			perm: permission.ReadAccess,
+		},
+		tagKindAuthorizer{names.ControllerAgentTagKind, names.MachineTagKind, names.ApplicationTagKind},
+	}
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
 		&applicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocator,
@@ -949,8 +961,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		handler: resourcesHandler,
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"GET"},
+		handler:    resourcesHandler,
+		authorizer: resourcesDownloadAuthorizer,
+	}, {
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"PUT"},
+		handler:    resourcesHandler,
+		authorizer: resourcesUploadAuthorizer,
 	}, {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,
