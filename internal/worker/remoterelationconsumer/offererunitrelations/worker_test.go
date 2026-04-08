@@ -28,8 +28,9 @@ import (
 type offererUnitRelationsWorker struct {
 	client *MockRemoteModelRelationsClient
 
-	consumerRelationUUID   corerelation.UUID
-	offererApplicationUUID coreapplication.UUID
+	consumerRelationUUID    corerelation.UUID
+	consumerApplicationUUID coreapplication.UUID
+	offererApplicationUUID  coreapplication.UUID
 
 	macaroon *macaroon.Macaroon
 
@@ -43,6 +44,7 @@ func TestOffererUnitRelationsWorker(t *testing.T) {
 
 func (s *offererUnitRelationsWorker) SetUpTest(c *tc.C) {
 	s.consumerRelationUUID = tc.Must(c, corerelation.NewUUID)
+	s.consumerApplicationUUID = tc.Must(c, coreapplication.NewUUID)
 	s.offererApplicationUUID = tc.Must(c, coreapplication.NewUUID)
 
 	s.macaroon = newMacaroon(c, "test")
@@ -59,6 +61,11 @@ func (s *offererUnitRelationsWorker) TestValidate(c *tc.C) {
 
 	cfg = s.newConfig(c)
 	cfg.Client = nil
+	err = cfg.Validate()
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.ConsumerApplicationUUID = ""
 	err = cfg.Validate()
 	c.Check(err, tc.ErrorIs, errors.NotValid)
 
@@ -306,13 +313,14 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 
 func (s *offererUnitRelationsWorker) newConfig(c *tc.C) Config {
 	return Config{
-		Client:                 s.client,
-		OffererApplicationUUID: s.offererApplicationUUID,
-		ConsumerRelationUUID:   s.consumerRelationUUID,
-		Macaroon:               s.macaroon,
-		Changes:                s.changes,
-		Clock:                  clock.WallClock,
-		Logger:                 loggertesting.WrapCheckLog(c),
+		Client:                  s.client,
+		OffererApplicationUUID:  s.offererApplicationUUID,
+		ConsumerApplicationUUID: s.consumerApplicationUUID,
+		ConsumerRelationUUID:    s.consumerRelationUUID,
+		Macaroon:                s.macaroon,
+		Changes:                 s.changes,
+		Clock:                   clock.WallClock,
+		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 }
 

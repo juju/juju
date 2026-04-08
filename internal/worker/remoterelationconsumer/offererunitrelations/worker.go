@@ -85,13 +85,14 @@ type ReportableWorker interface {
 // Config contains the configuration parameters for a remote relation units
 // worker.
 type Config struct {
-	Client                 RemoteModelRelationsClient
-	ConsumerRelationUUID   corerelation.UUID
-	OffererApplicationUUID coreapplication.UUID
-	Macaroon               *macaroon.Macaroon
-	Changes                chan<- RelationUnitChange
-	Clock                  clock.Clock
-	Logger                 logger.Logger
+	Client                  RemoteModelRelationsClient
+	ConsumerRelationUUID    corerelation.UUID
+	ConsumerApplicationUUID coreapplication.UUID
+	OffererApplicationUUID  coreapplication.UUID
+	Macaroon                *macaroon.Macaroon
+	Changes                 chan<- RelationUnitChange
+	Clock                   clock.Clock
+	Logger                  logger.Logger
 }
 
 // Validate ensures the configuration is valid.
@@ -101,6 +102,9 @@ func (c Config) Validate() error {
 	}
 	if c.ConsumerRelationUUID == "" {
 		return errors.NotValidf("consumer relation uuid cannot be empty")
+	}
+	if c.ConsumerApplicationUUID == "" {
+		return errors.NotValidf("consumer application uuid cannot be empty")
 	}
 	if c.OffererApplicationUUID == "" {
 		return errors.NotValidf("offerer application token cannot be empty")
@@ -130,8 +134,9 @@ type remoteWorker struct {
 	client   RemoteModelRelationsClient
 	macaroon *macaroon.Macaroon
 
-	consumerRelationUUID   corerelation.UUID
-	offererApplicationUUID coreapplication.UUID
+	consumerRelationUUID    corerelation.UUID
+	consumerApplicationUUID coreapplication.UUID
+	offererApplicationUUID  coreapplication.UUID
 
 	changes chan<- RelationUnitChange
 
@@ -154,9 +159,10 @@ func NewWorker(cfg Config) (ReportableWorker, error) {
 	w := &remoteWorker{
 		client: cfg.Client,
 
-		consumerRelationUUID:   cfg.ConsumerRelationUUID,
-		offererApplicationUUID: cfg.OffererApplicationUUID,
-		macaroon:               cfg.Macaroon,
+		consumerRelationUUID:    cfg.ConsumerRelationUUID,
+		consumerApplicationUUID: cfg.ConsumerApplicationUUID,
+		offererApplicationUUID:  cfg.OffererApplicationUUID,
+		macaroon:                cfg.Macaroon,
 
 		changes: cfg.Changes,
 		clock:   cfg.Clock,
@@ -194,6 +200,12 @@ func (w *remoteWorker) Macaroon() *macaroon.Macaroon {
 // RelationUUID returns the consumer relation UUID for this worker.
 func (w *remoteWorker) RelationUUID() corerelation.UUID {
 	return w.consumerRelationUUID
+}
+
+// ConsumerApplicationUUID returns the UUID of the consuming application in
+// the local (consumer) model for this relation.
+func (w *remoteWorker) ConsumerApplicationUUID() coreapplication.UUID {
+	return w.consumerApplicationUUID
 }
 
 func (w *remoteWorker) loop() error {

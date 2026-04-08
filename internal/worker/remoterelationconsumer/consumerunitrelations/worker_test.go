@@ -179,7 +179,8 @@ func (s *localUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 				"foo": "bar",
 			},
 		},
-		Macaroon: s.macaroon,
+		ConsumerApplicationUUID: s.consumerApplicationUUID,
+		Macaroon:                s.macaroon,
 	})
 
 	workertest.CleanKill(c, w)
