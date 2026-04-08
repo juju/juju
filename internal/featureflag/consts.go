@@ -29,3 +29,8 @@ const RawK8sSpec = "raw-k8s-spec"
 
 // SSHJump indicates that the SSH jump feature is enabled.
 const SSHJump = "ssh-jump"
+
+// ControllerSnap indicates bootstrap will use snap to install controller
+// agent. This flag will be used to keep existing flow untouched until
+// the controller snap bootstrap flow is ready for release.
+const ControllerSnap = "controller-snap"
