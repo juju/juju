@@ -857,7 +857,7 @@ func (s *modelManagerSuite) TestModelInfoDBNotFoundTranslated(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.IsNil)
 	c.Assert(results.Results[0].Error, tc.NotNil)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeModelNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *modelManagerSuite) TestModelInfoDBDeadTranslated(c *tc.C) {
@@ -883,7 +883,7 @@ func (s *modelManagerSuite) TestModelInfoDBDeadTranslated(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.IsNil)
 	c.Assert(results.Results[0].Error, tc.NotNil)
-	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeModelNotFound)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *modelManagerSuite) TestChangeModelCredential(c *tc.C) {

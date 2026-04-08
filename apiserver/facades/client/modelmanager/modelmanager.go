@@ -305,7 +305,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// Create the model information in the model database.
 	// modelInfoCreate will be calling one of the Create* funcs on the model
 	// info service. When handling the error we need to handle the total set of
-	// possabilities.
+	// possibilities.
 	err = m.createModelInfo(ctx, args.Config, modelDomainServices.ModelInfo())
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
@@ -939,8 +939,15 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	for i, arg := range args.Entities {
 		modelInfo, err := getModelInfo(arg)
 		if err != nil {
-			if errors.Is(err, database.ErrDBDead) || errors.Is(err, database.ErrDBNotFound) {
-				err = modelerrors.NotFound
+			// If a model is removed during this call, we can fail to retrieve
+			// the model's database.
+			// In that event, or if we get a domain error indicating the model
+			// is not found, we need to meet client compatibility expectations,
+			// and return the plain NotFound error.
+			if errors.Is(err, database.ErrDBDead) ||
+				errors.Is(err, database.ErrDBNotFound) ||
+				errors.Is(err, modelerrors.NotFound) {
+				err = errors.NewNotFound(err, "")
 			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
