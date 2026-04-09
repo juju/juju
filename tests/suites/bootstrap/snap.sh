@@ -6,12 +6,12 @@
 # transport: it checks that the snap and assert files are written to the
 # instance's snap directory (/var/lib/juju/snap/) during bootstrap, not that
 # the snap is installed or the controller starts from it.
-run_bootstrap_controller_snap_local() {
+run_bootstrap_controller_snap_path() {
   echo
 
   local name snap_path assert_path
 
-  name="test-bootstrap-snap-local"
+  name="test-bootstrap-snap-path"
 
   # Download a real signed snap + assert pair from the store so that the
   # embedded cloud-init payload contains a valid assertion file.  We use
@@ -37,7 +37,7 @@ run_bootstrap_controller_snap_local() {
     exit 1
   fi
 
-  echo "Flags before test start: ${JUJU_DEV_FEATURE_FLAGS}"
+  echo "Flags before test start: ${JUJU_DEV_FEATURE_FLAGS:-}"
 
   # Enable the controller-snap feature flag and pass the snap/assert paths
   # as additional bootstrap arguments.  BOOTSTRAP_ADDITIONAL_ARGS is
@@ -45,7 +45,7 @@ run_bootstrap_controller_snap_local() {
   export JUJU_DEV_FEATURE_FLAGS="controller-snap"
 
   echo "==> Bootstrapping with snap transport enabled and snap/assert paths provided: ${name}"
-  juju bootstrap "lxd" "${name}" \
+  juju bootstrap "${BOOTSTRAP_PROVIDER:-}" "${name}" \
     --controller-snap-path="${snap_path}" \
     --controller-snap-assert-path="${assert_path}"
   echo "${name}" >>"${TEST_DIR}/jujus"
@@ -74,26 +74,31 @@ run_bootstrap_controller_snap_local() {
 # should produce an error if provided.
 run_feature_flag_check() {
   echo "==> Verifying controller-snap disabled feature flag"
-  echo "Flags: ${JUJU_DEV_FEATURE_FLAGS}"
+  echo "Flags: ${JUJU_DEV_FEATURE_FLAGS-}"
 
   local name output
 
-  output=$(juju bootstrap "lxd" ctrl-flag --controller-snap-path="/tmp/test" 2>&1 >/dev/null) || true
+  output=$(juju bootstrap "${BOOTSTRAP_PROVIDER:-}" ctrl-flag --controller-snap-path="/tmp/test" 2>&1 >/dev/null) || true
   check_contains "${output}" "ERROR option provided but not defined: --controller-snap-path"
 
-  output=$(juju bootstrap "lxd" ctrl-flag --controller-snap-assert-path="/tmp/test" 2>&1 >/dev/null) || true
+  output=$(juju bootstrap "${BOOTSTRAP_PROVIDER:-}" ctrl-flag --controller-snap-assert-path="/tmp/test" 2>&1 >/dev/null) || true
   check_contains "${output}" "ERROR option provided but not defined: --controller-snap-assert-path"
 
-  output=$(juju bootstrap "lxd" ctrl-flag --controller-snap-channel="4.0/stable" 2>&1 >/dev/null) || true
+  output=$(juju bootstrap "${BOOTSTRAP_PROVIDER:-}" ctrl-flag --controller-snap-channel="4.0/stable" 2>&1 >/dev/null) || true
   check_contains "${output}" "ERROR option provided but not defined: --controller-snap-channel"
 
-  output=$(juju bootstrap "lxd" ctrl-flag --controller-snap-revision="123" 2>&1 >/dev/null) || true
+  output=$(juju bootstrap "${BOOTSTRAP_PROVIDER:-}" ctrl-flag --controller-snap-revision="123" 2>&1 >/dev/null) || true
   check_contains "${output}" "ERROR option provided but not defined: --controller-snap-revision"
 }
 
-test_bootstrap_controller_snap_local() {
-  if [ -n "$(skip 'test_bootstrap_controller_snap_local')" ]; then
-    echo "==> SKIP: asked to skip test_bootstrap_controller_snap_local"
+test_bootstrap_controller_snap_path() {
+  if [ -n "$(skip 'test_bootstrap_controller_snap_path')" ]; then
+    echo "==> SKIP: asked to skip test_bootstrap_controller_snap_path"
+    return
+  fi
+
+  if [[ ${BOOTSTRAP_PROVIDER:-} == "k8s" || ${BOOTSTRAP_PROVIDER:-} == "microk8s" ]]; then
+    echo "==> TEST SKIPPED: test_bootstrap_controller_snap_path, not supported on k8s controller"
     return
   fi
 
@@ -103,6 +108,6 @@ test_bootstrap_controller_snap_local() {
     cd .. || exit
 
     run "run_feature_flag_check"
-    run "run_bootstrap_controller_snap_local"
+    run "run_bootstrap_controller_snap_path"
   )
 }

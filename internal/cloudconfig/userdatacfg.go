@@ -391,7 +391,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 			return errors.Trace(err)
 		}
 		if featureflag.Enabled(featureflag.ControllerSnap) {
-			if err = w.addLocalControllerSnapUpload(); err != nil {
+			if err = w.addControllerSnapUpload(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -532,13 +532,13 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	return nil
 }
 
-// addLocalControllerSnapUpload embeds the controller snap (and optional
-// assertion file) from the local filesystem into the cloud-init payload so
-// that they are available in the instance's snap directory at boot time.
+// addControllerSnapUpload embeds the controller snap (and optional assertion
+// file) from the local filesystem into the cloud-init payload so that they are
+// available in the instance's snap directory at boot time.
 // The install mode (normal vs dangerous) is determined by the presence of the
 // assertion file: if no assertion is provided the snap is installed in
 // dangerous mode.
-func (w *userdataConfig) addLocalControllerSnapUpload() error {
+func (w *userdataConfig) addControllerSnapUpload() error {
 	if w.icfg.Bootstrap == nil {
 		return nil
 	}
