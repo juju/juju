@@ -121,8 +121,9 @@ ON relation_unit (relation_endpoint_uuid, unit_uuid);
 CREATE TABLE relation_unit_setting (
     relation_unit_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    value TEXT,
+    value TEXT NOT NULL,
     CONSTRAINT chk_key_empty CHECK ("key" != ''),
+    CONSTRAINT chk_value_empty CHECK (value != ''),
     CONSTRAINT fk_relation_unit_uuid
     FOREIGN KEY (relation_unit_uuid)
     REFERENCES relation_unit (uuid),
@@ -170,8 +171,9 @@ CREATE TABLE relation_unit_setting_archive (
 CREATE TABLE relation_application_setting (
     relation_endpoint_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    value TEXT,
+    value TEXT NOT NULL,
     CONSTRAINT chk_key_empty CHECK ("key" != ''),
+    CONSTRAINT chk_value_empty CHECK (value != ''),
     CONSTRAINT fk_relation_endpoint_uuid
     FOREIGN KEY (relation_endpoint_uuid)
     REFERENCES relation_endpoint (uuid),
