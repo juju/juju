@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// DetailsBacked is used by StorageDetails, VolumeDetails and FilesystemDetails to access
+// DetailsBackend is used by StorageDetails, VolumeDetails and FilesystemDetails to access
 // state for collecting all the required information to send back over the wire.
 type DetailsBackend interface {
 	StorageAccess
