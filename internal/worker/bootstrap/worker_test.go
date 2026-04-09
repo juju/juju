@@ -386,9 +386,9 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	// Ensure we buffer the channel, this is because we might miss the
-	// event if we're too quick at starting up.
-	s.states = make(chan string, 1)
+	// Buffer both state transitions. The worker can report "started" and
+	// "completed" before the test drains the first event.
+	s.states = make(chan string, 2)
 
 	ctrl := s.baseSuite.setupMocks(c)
 
