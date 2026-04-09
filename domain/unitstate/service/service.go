@@ -6,6 +6,7 @@ package service
 import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	applicationservice "github.com/juju/juju/domain/application/service"
 )
 
 // Service defines a service for interacting with the underlying state.
@@ -27,8 +28,9 @@ func NewService(st State, logger logger.Logger) *Service {
 // checks.
 type LeadershipService struct {
 	*Service
-	leaderEnsurer leadership.Ensurer
-	logger        logger.Logger
+	leaderEnsurer      leadership.Ensurer
+	storageAddPreparer applicationservice.UnitStorageAddPreparer
+	logger             logger.Logger
 }
 
 // NewLeadershipService returns a new LeadershipService for working with
@@ -36,11 +38,13 @@ type LeadershipService struct {
 func NewLeadershipService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
+	storageAddPreparer applicationservice.UnitStorageAddPreparer,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:       NewService(st, logger),
-		leaderEnsurer: leaderEnsurer,
-		logger:        logger,
+		Service:            NewService(st, logger),
+		leaderEnsurer:      leaderEnsurer,
+		storageAddPreparer: storageAddPreparer,
+		logger:             logger,
 	}
 }

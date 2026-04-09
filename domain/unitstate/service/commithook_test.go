@@ -35,7 +35,7 @@ func (s *commitHookSuite) TestCommitHookChangesNoChanges(c *tc.C) {
 	}
 
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	err := svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
@@ -74,7 +74,7 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 	s.st.EXPECT().CommitHookChanges(c.Context(), expected).Return(nil)
 
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	err := svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
@@ -104,7 +104,7 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 	s.leadershipEnsurer.EXPECT().WithLeader(c.Context(), "test", "test/0", gomock.Any()).Return(nil)
 
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	err := svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
@@ -124,7 +124,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyPeer(c *tc.C) {
 	).Return(expectedRelationUUID, nil)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	uuid, err := svc.getRelationUUIDByKey(c.Context(), key)
 
 	// Assert:
@@ -145,7 +145,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRegular(c *tc.C) {
 	).Return(expectedRelationUUID, nil)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	uuid, err := svc.getRelationUUIDByKey(c.Context(), key)
 
 	// Assert:
@@ -162,7 +162,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C) {
 	).Return("", relationerrors.RelationNotFound)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
+	svc := NewLeadershipService(s.st, s.leadershipEnsurer, nil, loggertesting.WrapCheckLog(c))
 	_, err := svc.getRelationUUIDByKey(
 		c.Context(),
 		corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2"),

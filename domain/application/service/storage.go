@@ -22,6 +22,14 @@ import (
 // receive.
 type StorageDirectiveOverrides = storage.StorageDirectiveOverride
 
+// AddUnitStorageOverride represents user overrides when adding storage to a
+// unit.
+type AddUnitStorageOverride = storage.AddUnitStorageOverride
+
+// UnitAddStorageArg represents the prepared arguments needed to add storage to
+// a unit.
+type UnitAddStorageArg = internal.UnitAddStorageArg
+
 type StorageService interface {
 	// GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
 	// keyed to the storage name. If the application does not have any storage

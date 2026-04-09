@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"math"
 	"strconv"
 	"strings"
 
@@ -70,7 +69,8 @@ type CloudInfoProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
-	storageService StorageService
+	storageService     StorageService
+	storageAddPreparer UnitStorageAddPreparer
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
@@ -105,6 +105,7 @@ func NewProviderService(
 			logger,
 		),
 		storageService:          storageSvc,
+		storageAddPreparer:      NewUnitStorageAddPreparer(st, storageSvc),
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
@@ -1041,72 +1042,13 @@ func (s *ProviderService) populateAddStorageArgs(
 	storageName corestorage.Name,
 	unitUUID coreunit.UUID, addCount uint32, arg storage.AddUnitStorageOverride,
 ) (internal.UnitAddStorageArg, error) {
-	unitStorageDirective, err := s.storageService.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
-	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf(
-			"getting unit %q storage directive: %w",
-			unitUUID, err,
-		)
-	}
-
-	charmStorage, existingCount, err := s.st.GetCharmStorageAndInstanceCountByUnitUUID(ctx, unitUUID, storageName)
-	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf(
-			"getting unit %q charm storage %q and count: %w",
-			unitUUID, storageName, err,
-		)
-	}
-
-	// TODO - We only care about a subset of the attributes for validation.
-	//   Ideally the ValidateApplicationStorageDirectiveOverrides method
-	//   would take a bespoke arg type.
-	charmStorageDefs := map[string]internalcharm.Storage{
-		storageName.String(): {
-			Name:        charmStorage.Name,
-			Type:        charmStorage.Type,
-			CountMin:    charmStorage.CountMin,
-			CountMax:    charmStorage.CountMax,
-			MinimumSize: charmStorage.MinimumSize,
-		},
-	}
-
-	storageDirective := unitStorageDirective
-	if arg.StoragePoolUUID != nil {
-		storageDirective.PoolUUID = *arg.StoragePoolUUID
-	}
-	if arg.SizeMiB != nil {
-		storageDirective.Size = *arg.SizeMiB
-	}
-
-	wantCount := addCount + existingCount
-	toCheck := map[string]storage.StorageDirectiveOverride{
-		storageName.String(): {
-			Count:    &wantCount,
-			PoolUUID: &storageDirective.PoolUUID,
-			Size:     &storageDirective.Size,
-		},
-	}
-	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(ctx, charmStorageDefs, toCheck)
-	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Capture(err)
-	}
-
-	args, err := s.storageService.MakeUnitAddStorageArgs(
+	return s.storageAddPreparer.PrepareUnitAddStorage(
 		ctx,
+		storageName,
 		unitUUID,
 		addCount,
-		storageDirective,
+		arg,
 	)
-	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Capture(err)
-	}
-	// Record the max allowed count precondition.
-	// This will be checked inside the transaction.
-	args.CountLessThanEqual = uint32(math.MaxUint32)
-	if charmStorage.CountMax > 0 {
-		args.CountLessThanEqual = uint32(charmStorage.CountMax) - addCount
-	}
-	return args, nil
 }
 
 // AddStorageForIAASUnit adds storage instances to the given IAAS unit.

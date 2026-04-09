@@ -111,7 +111,7 @@ import (
 // providing public keys for a subject from a set of well known sources that
 // don't need to be understood by this service.
 type PublicKeyImporter interface {
-	// FetchPublicKeysForSubject is responsible for gathering all of the
+	// FetchPublicKeysForSubject is responsible for gathering all the
 	// public keys available for a specified subject.
 	// The following errors can be expected:
 	// - [importererrors.NoResolver] when there is import resolver the subject
@@ -246,15 +246,15 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
-	logger := s.logger.Child("machine")
+	log := s.logger.Child("machine")
 
 	return machineservice.NewWatchableService(
-		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
-		domain.NewStatusHistory(logger, s.clock),
+		domain.NewStatusHistory(log, s.clock),
 		s.clock,
-		logger,
+		log,
 	)
 }
 
@@ -269,9 +269,9 @@ func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 
 // Application returns the model's application service.
 func (s *ModelServices) Application() *applicationservice.WatchableService {
-	logger := s.logger.Child("application")
+	log := s.logger.Child("application")
 	state := applicationstate.NewState(
-		changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, logger,
+		changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, log,
 	)
 
 	storageSvc := applicationstorageservice.NewService(
@@ -279,7 +279,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		applicationstorageservice.NewStoragePoolProvider(
 			s.storageRegistry, state,
 		),
-		logger,
+		log,
 	)
 
 	return applicationservice.NewWatchableService(
@@ -291,31 +291,31 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),
-		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
-		domain.NewStatusHistory(logger, s.clock),
+		charmstore.NewCharmStore(s.modelObjectStoreGetter, log.Child("charmstore")),
+		domain.NewStatusHistory(log, s.clock),
 		s.modelUUID,
 		s.clock,
-		logger,
+		log,
 	)
 }
 
 // Status returns the application status service.
 func (s *ModelServices) Status() *statusservice.LeadershipService {
-	logger := s.logger.Child("status")
+	log := s.logger.Child("status")
 	return statusservice.NewLeadershipService(
-		statusstatemodel.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		statusstatemodel.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		statusstatecontroller.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
 		domain.NewLeaseService(s.leaseManager),
 		s.clusterDescriber,
 		s.modelWatcherFactory("status"),
 		s.modelUUID,
-		domain.NewStatusHistory(logger, s.clock),
+		domain.NewStatusHistory(log, s.clock),
 		func() (statusservice.StatusHistoryReader, error) {
 			logsink := filepath.Join(s.logDir, "logsink.log")
 			return domain.NewStatusHistoryReader(logsink, s.modelUUID)
 		},
 		s.clock,
-		logger,
+		log,
 	)
 }
 
@@ -483,9 +483,14 @@ func (s *ModelServices) Proxy() *proxy.Service {
 // changes made by the charm while a hook was being run.
 func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 	log := s.logger.Child("unitstate")
+	appState := applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, log)
+	storageSvc := applicationstorageservice.NewService(
+		appState, applicationstorageservice.NewStoragePoolProvider(s.storageRegistry, appState), log,
+	)
 	return unitstateservice.NewLeadershipService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		domain.NewLeaseService(s.leaseManager),
+		applicationservice.NewUnitStorageAddPreparer(appState, storageSvc),
 		log,
 	)
 }
@@ -525,8 +530,7 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 	containerImageResourceStoreGetter := func() coreresourcestore.ResourceStore {
 		log := s.logger.Child("containerimageresourcestore")
 		return containerimageresourcestoreservice.NewService(
-			containerimageresourcestorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
-			s.logger.Child("containerimageresourcestore.service"),
+			containerimageresourcestorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log), log,
 		)
 	}
 
@@ -617,7 +621,7 @@ func (s *ModelServices) Operation() *operationservice.WatchableService {
 	)
 }
 
-// ControllerChangeStream returns the model change stream.
+// ChangeStream returns the model change stream.
 func (s *ModelServices) ChangeStream() *changestreamservice.Service {
 	return changestreamservice.NewService(
 		changestreamstate.NewState(
