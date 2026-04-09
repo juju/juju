@@ -489,6 +489,10 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	return ops, nil
 }
 
+func (sb *storageBackend) Unit(tag names.UnitTag) (*Unit, error) {
+	return sb.unit(tag.Id())
+}
+
 func checkStoragePoolReleasable(im *storageBackend, pool string) error {
 	providerType, aProvider, _, err := poolStorageProvider(im, pool)
 	if err != nil {

@@ -23,6 +23,7 @@ type DetailsBackend interface {
 	VolumeAccess
 	FilesystemAccess
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
+	Unit(tag names.UnitTag) (*state.Unit, error)
 }
 
 type UnitAssignedMachineFunc func(names.UnitTag) (names.MachineTag, error)
@@ -51,7 +52,7 @@ func StorageDetails(
 		if errors.Is(fsErr, errors.NotFound) {
 			var err error
 			aStatus, err = missingBackingStorageStatus(
-				storageAttachments, unitToMachine, fsErr,
+				sb, si, fsErr,
 				"waiting for filesystem to be provisioned", since,
 			)
 			if err != nil {
@@ -67,7 +68,7 @@ func StorageDetails(
 		if errors.Is(volErr, errors.NotFound) {
 			var err error
 			aStatus, err = missingBackingStorageStatus(
-				storageAttachments, unitToMachine, volErr,
+				sb, si, volErr,
 				"waiting for volume to be provisioned", since,
 			)
 			if err != nil {
@@ -153,55 +154,65 @@ func storageAttachmentInfo(
 // missingBackingStorageStatus classifies storage status when the backing
 // volume/filesystem record is missing.
 func missingBackingStorageStatus(
-	attachments []state.StorageAttachment,
-	unitToMachine UnitAssignedMachineFunc,
+	sb DetailsBackend,
+	si state.StorageInstance,
 	notFoundErr error,
 	message string,
 	since time.Time,
 ) (status.StatusInfo, error) {
-	if len(attachments) == 0 {
-		return status.StatusInfo{
-			Status: status.Detached,
-			Since:  &since,
-		}, nil
-	}
-	assigned, err := allAttachedUnitsAssigned(attachments, unitToMachine)
-	if err != nil {
-		return status.StatusInfo{}, err
-	}
-	// When a unit is assigned to a machine, the machine assignment
-	// transaction [AssignToMachine] func guarantees that the backing
-	// volume/filesystem document is created. A NotFound error when the unit
-	// is assigned indicates something has gone wrong, so propagate this error as
-	// part of StatusInfo to keep status command from error-ing.
-	if assigned {
+	owner, hasOwner := si.Owner()
+	if !hasOwner || owner.Kind() != names.UnitTagKind {
 		return status.StatusInfo{
 			Status:  status.Error,
 			Message: notFoundErr.Error(),
 			Since:   &since,
 		}, nil
 	}
-	return status.StatusInfo{
-		Status:  status.Pending,
-		Message: message,
-		Since:   &since,
-	}, nil
-}
-
-// allAttachedUnitsAssigned returns true if all units in attachments are
-// assigned to a machine.
-func allAttachedUnitsAssigned(
-	attachments []state.StorageAttachment,
-	unitToMachine UnitAssignedMachineFunc,
-) (bool, error) {
-	for _, a := range attachments {
-		_, err := unitToMachine(a.Unit())
-		if errors.Is(err, errors.NotAssigned) {
-			return false, nil
-		} else if err != nil {
-			return false, errors.Trace(err)
-		}
-
+	unitTag, err := names.ParseUnitTag(owner.String())
+	if err != nil {
+		return status.StatusInfo{}, err
 	}
-	return true, nil
+
+	unit, err := sb.Unit(unitTag)
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+
+	// CAAS units are never assigned to machines. Storage backing for CAAS
+	// is created in the same transaction as the storage instance, so a
+	// missing backing record indicates a real error.
+	if !unit.ShouldBeAssigned() {
+		return status.StatusInfo{
+			Status:  status.Error,
+			Message: notFoundErr.Error(),
+			Since:   &since,
+		}, nil
+	}
+
+	_, err = unit.AssignedMachineId()
+	switch {
+	case errors.Is(err, errors.NotAssigned):
+		// This is a valid condition in which the storage backing is not created yet
+		// until the unit is assigned to a machine. We treat this as pending due to
+		// eventual consistency.
+		return status.StatusInfo{
+			Status:  status.Pending,
+			Message: message,
+			Since:   &since,
+		}, nil
+	case err != nil:
+		// This must be some other error, so surface it to the caller.
+		return status.StatusInfo{}, err
+	default:
+		// When a unit is assigned to a machine, the machine assignment
+		// transaction [AssignToMachine] func guarantees that the backing
+		// volume/filesystem document is created. A NotFound error when the unit
+		// is assigned indicates something has gone wrong, so propagate this error as
+		// part of StatusInfo to keep status command from error-ing.
+		return status.StatusInfo{
+			Status:  status.Error,
+			Message: notFoundErr.Error(),
+			Since:   &since,
+		}, nil
+	}
 }
