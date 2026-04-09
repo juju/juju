@@ -182,6 +182,7 @@ func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnitsUnit
 
 	err := st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
 func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnits(c *tc.C) {

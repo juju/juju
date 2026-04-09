@@ -241,6 +241,7 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
 
 	err := st.DeleteRelation(c.Context(), rel)
 	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
