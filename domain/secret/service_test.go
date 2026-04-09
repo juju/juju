@@ -67,7 +67,7 @@ VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any())
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any(), gomock.Any())
 	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
 
 	err := s.svc.DeleteSecret(c.Context(), uri, secret.DeleteSecretParams{
@@ -89,7 +89,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-id",
 	}
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any())
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any(), gomock.Any())
 	uri := s.createSecret(c, nil, ref)
 
 	err := s.svc.DeleteSecret(c.Context(), uri, secret.DeleteSecretParams{

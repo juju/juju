@@ -776,7 +776,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	c.Assert(configuredBackendUUID, tc.Equals, s.vaultBackendID)
 
 	secretRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: s.vaultBackendID}, false)
@@ -798,7 +798,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 	c.Assert(configuredBackendUUID, tc.Equals, s.vaultBackendID)
 
 	secretRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.DeleteSecretBackend(c.Context(), secretbackend.BackendIdentifier{ID: s.vaultBackendID}, true)
@@ -876,11 +876,19 @@ func (s *stateSuite) TestListSecretBackendsIAAS(c *tc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	err = s.state.SetModelSecretBackend(c.Context(), modelUUID, "my-backend1")
 	c.Assert(err, tc.IsNil)
-	secrectRevisionID1 := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID1)
+	// Two revisions of the same secret: both share "secret1" as the secret_id.
+	// Another revision for a different secret: "secret2"
+	secretRevisionID1 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID1}, modelUUID,
+		secretRevisionID1, "secret1")
 	c.Assert(err, tc.IsNil)
-	secrectRevisionID2 := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID1}, modelUUID, secrectRevisionID2)
+	secretRevisionID2 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID1}, modelUUID,
+		secretRevisionID2, "secret1")
+	c.Assert(err, tc.IsNil)
+	secretRevisionID3 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID1}, modelUUID,
+		secretRevisionID3, "secret2")
 	c.Assert(err, tc.IsNil)
 
 	backends, err := s.state.ListSecretBackends(c.Context())
@@ -917,11 +925,19 @@ func (s *stateSuite) TestListSecretBackendsIAAS(c *tc.C) {
 
 func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 	modelUUID := s.createModel(c, coremodel.CAAS)
-	secrectRevisionID1 := uuid.MustNewUUID().String()
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID1)
+	// Two revisions of the same secret: both share "secret1" as the secret_id.
+	// The fix is verified by asserting NumSecrets == 1, not 2.
+	secretRevisionID1 := uuid.MustNewUUID().String()
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID,
+		secretRevisionID1, "secret1")
 	c.Assert(err, tc.IsNil)
-	secrectRevisionID2 := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID2)
+	secretRevisionID2 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID,
+		secretRevisionID2, "secret1")
+	c.Assert(err, tc.IsNil)
+	secretRevisionID3 := uuid.MustNewUUID().String()
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID},
+		modelUUID, secretRevisionID3, "secret2")
 	c.Assert(err, tc.IsNil)
 
 	backendID2 := uuid.MustNewUUID().String()
@@ -1039,7 +1055,7 @@ func (s *stateSuite) assertListSecretBackendsForModelIAAS(c *tc.C, includeEmpty 
 	err := s.state.SetModelSecretBackend(c.Context(), modelUUID, "my-backend")
 	c.Assert(err, tc.IsNil)
 	secrectRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secrectRevisionID)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secrectRevisionID, "secret-id")
 	c.Assert(err, tc.IsNil)
 
 	backendID1 := uuid.MustNewUUID().String()
@@ -1156,7 +1172,7 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty 
 	err := s.state.SetModelSecretBackend(c.Context(), modelUUID, "my-backend")
 	c.Assert(err, tc.IsNil)
 	secrectRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secrectRevisionID)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secrectRevisionID, "secret-id")
 	c.Assert(err, tc.IsNil)
 
 	backendID1 := uuid.MustNewUUID().String()
@@ -1624,7 +1640,7 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *tc.C) {
 func (s *stateSuite) TestGetSecretBackendReference(c *tc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	secretRevisionID := uuid.MustNewUUID().String()
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 
 	refCount, err := s.state.GetSecretBackendReferenceCount(c.Context(), s.vaultBackendID)
@@ -1656,7 +1672,7 @@ func (s *stateSuite) TestAddSecretBackendReference(c *tc.C) {
 	secretRevisionID := uuid.MustNewUUID().String()
 
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 0)
-	rollback, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	rollback, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 1)
 	c.Assert(rollback(), tc.ErrorIsNil)
@@ -1668,9 +1684,9 @@ func (s *stateSuite) TestAddSecretBackendReferenceFailedAlreadyExists(c *tc.C) {
 	secretRevisionID := uuid.MustNewUUID().String()
 
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 0)
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIs, backenderrors.RefCountAlreadyExists)
 }
 
@@ -1678,7 +1694,7 @@ func (s *stateSuite) TestAddSecretBackendReferenceFailedSecretBackendNotFound(c 
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	backendID := uuid.MustNewUUID().String()
 	secretRevisionID := uuid.MustNewUUID().String()
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID}, modelUUID, secretRevisionID)
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: backendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIs, backenderrors.NotFound)
 }
 
@@ -1686,7 +1702,7 @@ func (s *stateSuite) TestAddSecretBackendReferenceFailedModelNotFound(c *tc.C) {
 	_ = s.createModel(c, coremodel.IAAS)
 	nonExistsModelUUID := tc.Must0(c, coremodel.NewUUID)
 	secretRevisionID := uuid.MustNewUUID().String()
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, nonExistsModelUUID, secretRevisionID)
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, nonExistsModelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1697,12 +1713,12 @@ func (s *stateSuite) TestUpdateSecretBackendReference(c *tc.C) {
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 0)
 	assertSecretBackendReference(c, s.DB(), s.internalBackendID, 0)
 
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID)
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 1)
 	assertSecretBackendReference(c, s.DB(), s.internalBackendID, 0)
 
-	rollback, err := s.state.UpdateSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.internalBackendID}, modelUUID, secretRevisionID)
+	rollback, err := s.state.UpdateSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.internalBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIsNil)
 	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 0)
 	assertSecretBackendReference(c, s.DB(), s.internalBackendID, 1)
@@ -1715,7 +1731,7 @@ func (s *stateSuite) TestUpdateSecretBackendReferenceFailedNoExistingRefCountFou
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	secretRevisionID := uuid.MustNewUUID().String()
 
-	_, err := s.state.UpdateSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.internalBackendID}, modelUUID, secretRevisionID)
+	_, err := s.state.UpdateSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.internalBackendID}, modelUUID, secretRevisionID, "secret-id")
 	c.Assert(err, tc.ErrorIs, backenderrors.RefCountNotFound)
 }
 
