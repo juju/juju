@@ -135,7 +135,7 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 // - [coreerrors.NotValid] if the provided pool uuid is not valid.
 // - [storageerrors.StoragePoolNotFound] when no storage pool exists for the
 // provided pool uuid.
-func (c cachedStoragePoolProvider) GetProviderForPool(
+func (c *cachedStoragePoolProvider) GetProviderForPool(
 	ctx context.Context,
 	poolUUID domainstorage.StoragePoolUUID,
 ) (storage.Provider, error) {
