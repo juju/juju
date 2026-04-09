@@ -969,7 +969,9 @@ func (task *provisionerTask) constructStartInstanceParams(
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}
 		if v.ProviderId == "" {
-			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params does not specify volume ID")
+			return environs.StartInstanceParams{}, errors.Errorf(
+				"volume attachment params does not specify volume provider ID",
+			)
 		}
 		volumeAttachments[i] = storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{

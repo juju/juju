@@ -1101,6 +1101,8 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
 	filesystemUUID1, _ := s.newModelFilesystem(c)
 	volumeUUID2, volumeID2 := s.newModelVolume(c)
+	s.setVolumeProviderID(c, volumeUUID1, "provider-id-1")
+	s.setVolumeProviderID(c, volumeUUID2, "provider-id-2")
 	va1UUID := s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
 	va1BlockDeviceUUID := s.newSimpleBlockDevice(c, machineUUID, "sda")
 	s.changeVolumeAttachmentInfo(c, va1UUID, va1BlockDeviceUUID, false)
@@ -1117,19 +1119,21 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParams(c *tc
 
 	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
-			BlockDeviceUUID: &va1BlockDeviceUUID,
-			Provider:        "canonical",
-			ReadOnly:        false,
-			StorageName:     "myfilesystem",
-			VolumeID:        volumeID1,
-			VolumeUUID:      volumeUUID1,
+			BlockDeviceUUID:  &va1BlockDeviceUUID,
+			Provider:         "canonical",
+			ReadOnly:         false,
+			StorageName:      "myfilesystem",
+			VolumeID:         volumeID1,
+			VolumeProviderID: "provider-id-1",
+			VolumeUUID:       volumeUUID1,
 		},
 		{
-			Provider:    "canonical",
-			ReadOnly:    false,
-			StorageName: "myblock",
-			VolumeID:    volumeID2,
-			VolumeUUID:  volumeUUID2,
+			Provider:         "canonical",
+			ReadOnly:         false,
+			StorageName:      "myblock",
+			VolumeID:         volumeID2,
+			VolumeProviderID: "provider-id-2",
+			VolumeUUID:       volumeUUID2,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
@@ -1157,6 +1161,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 	volumeUUID1, volumeID1 := s.newModelVolume(c)
 	filesystemUUID1, _ := s.newModelFilesystem(c)
 	volumeUUID2, _ := s.newModelVolume(c)
+	s.setVolumeProviderID(c, volumeUUID1, "provider-id-1")
 	s.newModelVolumeAttachment(c, volumeUUID1, machineNetNodeUUID)
 	s.newMachineVolumeAttachment(c, volumeUUID2, machineNetNodeUUID)
 	s.newStorageInstanceVolume(c, siUUID1, volumeUUID1)
@@ -1171,11 +1176,12 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeAttachmentParamsIgnore
 
 	expected := []domaininternal.MachineVolumeAttachmentProvisioningParams{
 		{
-			Provider:    "canonical",
-			ReadOnly:    false,
-			StorageName: "myfilesystem",
-			VolumeID:    volumeID1,
-			VolumeUUID:  volumeUUID1,
+			Provider:         "canonical",
+			ReadOnly:         false,
+			StorageName:      "myfilesystem",
+			VolumeID:         volumeID1,
+			VolumeProviderID: "provider-id-1",
+			VolumeUUID:       volumeUUID1,
 		},
 	}
 	c.Check(err, tc.ErrorIsNil)
