@@ -1326,9 +1326,6 @@ func (st *State) GetFullRelationUnitsChange(
 		}
 
 		inScopeUnits = append(inScopeUnits, id)
-		if len(data.UnitData) == 0 {
-			continue
-		}
 		unitSettings = append(unitSettings, domainrelation.UnitSettings{
 			UnitID:   id,
 			Settings: data.UnitData,
@@ -1405,9 +1402,6 @@ func (st *State) GetRelationUnitsChanges(
 			continue
 		}
 		inScopeUnits = append(inScopeUnits, id)
-		if len(data.UnitData) == 0 {
-			continue
-		}
 		unitSettings = append(unitSettings, domainrelation.UnitSettings{
 			UnitID:   id,
 			Settings: data.UnitData,
