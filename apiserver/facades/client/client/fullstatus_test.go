@@ -408,7 +408,7 @@ func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {
 			CharmLocator: charm.CharmLocator{
 				Name:         "mysql",
 				Revision:     1,
-				Source:       charm.CharmHubSource,
+				Source:       charm.LocalSource,
 				Architecture: architecture.AMD64,
 			},
 			Platform: deployment.Platform{
@@ -444,6 +444,122 @@ func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {
 	})
 }
 
+func (s *fullStatusSuite) TestFullStatusFilteredByApplicationName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := s.client(false)
+	s.expectCheckCanRead(client, true)
+	s.expectCheckIsAdmin(client, false)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Name:      "controller",
+		Cloud:     "dummy",
+		CloudType: "dummy",
+		Type:      model.IAAS,
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status: status.Available,
+	}, nil)
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
+		"mysql": {
+			CharmLocator: charm.CharmLocator{
+				Name:         "mysql",
+				Revision:     1,
+				Source:       charm.LocalSource,
+				Architecture: architecture.AMD64,
+			},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			Units: map[coreunit.Name]service.Unit{
+				"mysql/0": {
+					ApplicationName: "mysql",
+					MachineName:     ptrMachineName("1"),
+					AgentStatus: status.StatusInfo{
+						Status: status.Idle,
+					},
+					WorkloadStatus: status.StatusInfo{
+						Status: status.Active,
+					},
+				},
+			},
+		},
+		"wordpress": {
+			CharmLocator: charm.CharmLocator{
+				Name:         "wordpress",
+				Revision:     1,
+				Source:       charm.LocalSource,
+				Architecture: architecture.AMD64,
+			},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			Units: map[coreunit.Name]service.Unit{
+				"wordpress/0": {
+					ApplicationName: "wordpress",
+					MachineName:     ptrMachineName("2"),
+					AgentStatus: status.StatusInfo{
+						Status: status.Idle,
+					},
+					WorkloadStatus: status.StatusInfo{
+						Status: status.Active,
+					},
+				},
+			},
+		},
+	}, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
+		"1": {
+			Name:        "1",
+			IPAddresses: []string{"10.0.0.1"},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+		},
+		"2": {
+			Name:        "2",
+			IPAddresses: []string{"10.0.0.2"},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+		},
+	}, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+
+	output, err := client.FullStatus(c.Context(), params.StatusParams{
+		Patterns: []string{"mysql"},
+	})
+	c.Assert(err, tc.IsNil)
+
+	c.Check(output.IsEmpty(), tc.IsFalse)
+	c.Check(output.Applications, tc.HasLen, 1)
+	c.Check(output.Machines, tc.HasLen, 1)
+	_, ok := output.Applications["mysql"]
+	c.Check(ok, tc.IsTrue)
+	_, ok = output.Applications["wordpress"]
+	c.Check(ok, tc.IsFalse)
+	_, ok = output.Machines["1"]
+	c.Check(ok, tc.IsTrue)
+	_, ok = output.Machines["2"]
+	c.Check(ok, tc.IsFalse)
+	c.Check(output.Applications["mysql"].Units, tc.HasLen, 1)
+}
+
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 	return &Client{
 		controllerTag:     names.NewControllerTag(internaluuid.MustNewUUID().String()),
@@ -464,6 +580,10 @@ func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 		statusService:             s.statusService,
 		controllerConfigService:   s.controllerConfigService,
 	}
+}
+
+func ptrMachineName(name machine.Name) *machine.Name {
+	return &name
 }
 
 func (s *fullStatusSuite) setupMocks(c *tc.C) *gomock.Controller {

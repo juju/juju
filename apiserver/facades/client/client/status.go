@@ -130,15 +130,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return params.FullStatus{}, err
 	}
 
-	if len(args.Patterns) > 0 {
-		// Patterns have been disabled until we tackle the status epic. This
-		// will require pushing the patterns down through the status service.
-		// For now, just black hole the request.
-		return params.FullStatus{}, internalerrors.Errorf("patterns are not implemented").Add(
-			errors.NotImplemented,
-		)
-	}
-
 	machineJobFetcher := func(_ context.Context, _ statusservice.Machine) []model.MachineJob {
 		return []model.MachineJob{model.JobHostUnits}
 	}
@@ -232,6 +223,18 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		logger.Tracef(ctx, "Relations: %v", context.relations)
 	}
 
+	var matchedUnits map[coreunit.Name]struct{}
+	if len(args.Patterns) > 0 {
+		matches := statusservice.MatchStatusNames(
+			args.Patterns,
+			context.allAppsUnitsCharmBindings.applications,
+			context.units,
+			context.allMachines,
+		)
+		context.applyNameMatches(matches)
+		matchedUnits = matches.Units
+	}
+
 	modelStatus, err := context.processModel(ctx)
 	if err != nil {
 		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
@@ -244,7 +247,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	)
 	if args.IncludeStorage {
 		allStorage, filesystems, volumes, err = processStorage(ctx,
-			c.statusService)
+			c.statusService, matchedUnits)
 		if err != nil {
 			return noStatus, internalerrors.Errorf("fetching storage: %w", err)
 		}
@@ -517,6 +520,111 @@ func fetchNetworkInterfaces(
 	})
 
 	return ipAddresses, devices, nil
+}
+
+func (c *statusContext) applyNameMatches(matches statusservice.NameMatchResult) {
+	keptApplications := make(map[string]statusservice.Application, len(matches.Applications))
+	keptCharmURLs := make(map[string]string, len(matches.Applications))
+	keptBindings := make(map[string]map[string]network.SpaceName, len(matches.Applications))
+	keptExposedEndpoints := make(map[string]map[string]application.ExposedEndpoint, len(matches.Applications))
+	keptLeaders := make(map[string]string, len(matches.Applications))
+	for appName, app := range c.allAppsUnitsCharmBindings.applications {
+		if _, ok := matches.Applications[appName]; !ok {
+			continue
+		}
+		filteredUnits := make(map[coreunit.Name]statusservice.Unit)
+		for unitName, unit := range app.Units {
+			if _, ok := matches.Units[unitName]; ok {
+				filteredUnits[unitName] = unit
+			}
+		}
+		app.Units = filteredUnits
+		keptApplications[appName] = app
+		if charmURL, ok := c.allAppsUnitsCharmBindings.applicationCharmURL[appName]; ok {
+			keptCharmURLs[appName] = charmURL
+		}
+		if bindings, ok := c.allAppsUnitsCharmBindings.endpointBindings[appName]; ok {
+			keptBindings[appName] = bindings
+		}
+		if endpoints, ok := c.exposedEndpoints[appName]; ok {
+			keptExposedEndpoints[appName] = endpoints
+		}
+		if leader, ok := c.leaders[appName]; ok {
+			keptLeaders[appName] = leader
+		}
+	}
+	c.allAppsUnitsCharmBindings.applications = keptApplications
+	c.allAppsUnitsCharmBindings.applicationCharmURL = keptCharmURLs
+	c.allAppsUnitsCharmBindings.endpointBindings = keptBindings
+	c.exposedEndpoints = keptExposedEndpoints
+	c.leaders = keptLeaders
+
+	keptUnits := make(map[coreunit.Name]statusservice.Unit, len(matches.Units))
+	keptPodsInfo := make(map[coreunit.Name]application.K8sPodInfo, len(matches.Units))
+	for unitName, unit := range c.units {
+		if _, ok := matches.Units[unitName]; !ok {
+			continue
+		}
+		keptUnits[unitName] = unit
+		if podInfo, ok := c.podsInfo[unitName]; ok {
+			keptPodsInfo[unitName] = podInfo
+		}
+	}
+	c.units = keptUnits
+	c.podsInfo = keptPodsInfo
+
+	keptMachines := make(map[coremachine.Name][]statusservice.Machine)
+	for hostMachineName, machines := range c.machines {
+		filtered := make([]statusservice.Machine, 0, len(machines))
+		for _, machine := range machines {
+			if _, ok := matches.Machines[machine.Name]; ok {
+				filtered = append(filtered, machine)
+			}
+		}
+		if len(filtered) > 0 {
+			keptMachines[hostMachineName] = filtered
+		}
+	}
+	c.machines = keptMachines
+
+	keptAllMachines := make(map[coremachine.Name]statusservice.Machine, len(matches.Machines))
+	for machineName, machine := range c.allMachines {
+		if _, ok := matches.Machines[machineName]; ok {
+			keptAllMachines[machineName] = machine
+		}
+	}
+	c.allMachines = keptAllMachines
+
+	keptRelationsByID := make(map[int]relationStatus)
+	keptRelations := make(map[string][]relationStatus)
+	for id, rel := range c.relationsByID {
+		keep := true
+		for _, endpoint := range rel.Endpoints {
+			if _, ok := matches.Applications[endpoint.ApplicationName]; !ok {
+				keep = false
+				break
+			}
+		}
+		if !keep {
+			continue
+		}
+		keptRelationsByID[id] = rel
+		for _, endpoint := range rel.Endpoints {
+			keptRelations[endpoint.ApplicationName] = append(keptRelations[endpoint.ApplicationName], rel)
+		}
+	}
+	c.relationsByID = keptRelationsByID
+	c.relations = keptRelations
+
+	keptOffers := make(map[string]offerStatus)
+	for offerName, offer := range c.offers {
+		if _, ok := matches.Applications[offer.ApplicationName]; ok {
+			keptOffers[offerName] = offer
+		}
+	}
+	c.offers = keptOffers
+
+	c.remoteAppOfferers = map[string]statusservice.RemoteApplicationOfferer{}
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
@@ -1340,11 +1448,16 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 
 // processStorage produces status for all storage in the model.
 func processStorage(
-	ctx context.Context, statusService StatusService,
+	ctx context.Context,
+	statusService StatusService,
+	matchedUnits map[coreunit.Name]struct{},
 ) ([]params.StorageDetails, []params.FilesystemDetails, []params.VolumeDetails, error) {
 	storageInstances, err := statusService.GetAllStorageInstanceStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
+	}
+	if matchedUnits != nil {
+		storageInstances = filterStorageInstances(storageInstances, matchedUnits)
 	}
 
 	// zeroTime is used to set the status time no status time is available.
@@ -1402,6 +1515,9 @@ func processStorage(
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
+	if matchedUnits != nil {
+		filesystems = filterFilesystems(filesystems, storageInstances)
+	}
 	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems))
 	for _, v := range filesystems {
 		details := params.FilesystemDetails{
@@ -1457,6 +1573,9 @@ func processStorage(
 	volumes, err := statusService.GetAllVolumeStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
+	}
+	if matchedUnits != nil {
+		volumes = filterVolumes(volumes, storageInstances)
 	}
 	volumeResult := make([]params.VolumeDetails, 0, len(volumes))
 	for _, v := range volumes {
@@ -1545,6 +1664,62 @@ func processStorage(
 	}
 
 	return storageResult, filesystemResult, volumeResult, nil
+}
+
+func filterStorageInstances(
+	storageInstances []statusservice.StorageInstance,
+	matchedUnits map[coreunit.Name]struct{},
+) []statusservice.StorageInstance {
+	filtered := make([]statusservice.StorageInstance, 0, len(storageInstances))
+	for _, storageInstance := range storageInstances {
+		if storageInstance.Owner == nil {
+			continue
+		}
+		if _, ok := matchedUnits[*storageInstance.Owner]; ok {
+			filtered = append(filtered, storageInstance)
+		}
+	}
+	return filtered
+}
+
+func filterFilesystems(
+	filesystems []statusservice.Filesystem,
+	storageInstances []statusservice.StorageInstance,
+) []statusservice.Filesystem {
+	matchedStorageUUIDs := make(map[string]struct{}, len(storageInstances))
+	for _, storageInstance := range storageInstances {
+		matchedStorageUUIDs[storageInstance.UUID.String()] = struct{}{}
+	}
+	filtered := make([]statusservice.Filesystem, 0, len(filesystems))
+	for _, filesystem := range filesystems {
+		if filesystem.StorageUUID == nil {
+			continue
+		}
+		if _, ok := matchedStorageUUIDs[filesystem.StorageUUID.String()]; ok {
+			filtered = append(filtered, filesystem)
+		}
+	}
+	return filtered
+}
+
+func filterVolumes(
+	volumes []statusservice.Volume,
+	storageInstances []statusservice.StorageInstance,
+) []statusservice.Volume {
+	matchedStorageUUIDs := make(map[string]struct{}, len(storageInstances))
+	for _, storageInstance := range storageInstances {
+		matchedStorageUUIDs[storageInstance.UUID.String()] = struct{}{}
+	}
+	filtered := make([]statusservice.Volume, 0, len(volumes))
+	for _, volume := range volumes {
+		if volume.StorageUUID == nil {
+			continue
+		}
+		if _, ok := matchedStorageUUIDs[volume.StorageUUID.String()]; ok {
+			filtered = append(filtered, volume)
+		}
+	}
+	return filtered
 }
 
 func hasExposedApplications(applications map[string]statusservice.Application) bool {
