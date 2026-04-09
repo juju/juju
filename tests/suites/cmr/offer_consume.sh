@@ -28,7 +28,7 @@ run_offer_consume() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Check list-offer output"
-	juju list-offers --format=json | yq -r 'has("dummy-offer")' | check true
+	juju list-offers --format=yaml | yq -r 'has("dummy-offer")' | check true
 
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
@@ -38,7 +38,7 @@ run_offer_consume() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	echo "Check find-offer output"
-	juju find-offers --format=json | yq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+	juju find-offers --format=yaml | yq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
 
 	echo "Relate workload in consume model with offer"
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
@@ -83,7 +83,7 @@ run_offer_consume_cross_controller() {
 	file="${TEST_DIR}/test-offer-consume-cross-controller.log"
 	ensure "model-offer" "${file}"
 
-	offer_controller="$(juju controllers --format=json | yq -r '."current-controller"')"
+	offer_controller="$(juju controllers --format=yaml | yq -r '."current-controller"')"
 
 	# Ensure we have another controller available.
 	echo "Bootstrap consume offer controller"
@@ -173,7 +173,7 @@ run_offer_find_non_admin() {
 
 	JUJU_MODEL="test-offer-find:admin/model-offer-find" JUJU_DATA=/tmp/offeruser \
 		juju find-offers --format=yaml |
-		yq -r 'keys | .[] | select(. == "test-offer-find:admin/model-offer-find.dummy-offer")' |
+		yq -r 'has("test-offer-find:admin/model-offer-find.dummy-offer")' |
 		check true
 
 	echo "Clean up"
@@ -236,7 +236,7 @@ run_offer_find_external_user() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	# Retrieve one of the API endpoints for the external-user login step.
-	CTRL_ENDPOINT=$(juju show-controller ctrl-extuser-idp --format=json |
+	CTRL_ENDPOINT=$(juju show-controller ctrl-extuser-idp --format=yaml |
 		yq -r '."ctrl-extuser-idp".details."api-endpoints"[0]')
 
 	echo "Login as testextuser@external (auto-approved by test identity provider)"
@@ -250,7 +250,7 @@ run_offer_find_external_user() {
 
 	echo "Check find-offers output as external user"
 	JUJU_MODEL="ctrl-extuser-idp:admin/model-offer-ext" JUJU_DATA="${TEST_EXTUSER_DIR}" \
-		juju find-offers --format=json |
+		juju find-offers --format=yaml |
 		yq -r 'has("ctrl-extuser-idp:admin/model-offer-ext.dummy-offer")' |
 		check true
 
