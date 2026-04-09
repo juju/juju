@@ -698,9 +698,12 @@ func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
 
 	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
 	base64Content := base64.StdEncoding.EncodeToString(snapContent)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(
-		"install -D -m 644 /dev/null '/var/lib/juju/snap/%s'\necho -n %s | base64 -d > '/var/lib/juju/snap/%s'\n",
-		bootstrap.ControllerSnapArchive, base64Content, bootstrap.ControllerSnapArchive,
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
+install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+snap install --dangerous %[1]s`,
+		snapFile, base64Content,
 	))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
@@ -721,11 +724,16 @@ func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) 
 	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, assertPath)
 	base64Snap := base64.StdEncoding.EncodeToString(snapContent)
 	base64Assert := base64.StdEncoding.EncodeToString(assertContent)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(
-		"install -D -m 644 /dev/null '/var/lib/juju/snap/%s'\necho -n %s | base64 -d > '/var/lib/juju/snap/%s'\n"+
-			"install -D -m 644 /dev/null '/var/lib/juju/snap/%s'\necho -n %s | base64 -d > '/var/lib/juju/snap/%s'\n",
-		bootstrap.ControllerSnapArchive, base64Snap, bootstrap.ControllerSnapArchive,
-		bootstrap.ControllerSnapAssertArchive, base64Assert, bootstrap.ControllerSnapAssertArchive,
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+	assertFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapAssertArchive)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
+install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+install -D -m 644 /dev/null '%[3]s'
+echo -n %s | base64 -d > '%[3]s'
+snap ack %[3]s
+snap install %[1]s`,
+		snapFile, base64Snap, assertFile, base64Assert,
 	))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }

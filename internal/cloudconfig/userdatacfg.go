@@ -394,6 +394,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 			if err = w.addControllerSnapUpload(); err != nil {
 				return errors.Trace(err)
 			}
+			if err = w.addControllerSnapInstall(); err != nil {
+				return errors.Trace(err)
+			}
 		}
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
@@ -569,6 +572,38 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 	f = path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapAssertArchive)
 	w.conf.AddRunBinaryFile(f, assertData, 0644)
 	logger.Debugf(context.TODO(), "added controller snap assert to cloud-init with path %q", f)
+
+	return nil
+}
+
+// addControllerSnapInstall appends cloud-init run commands that install the
+// controller snap that was previously uploaded by addControllerSnapUpload.
+// When an assertion file is present the snap is acknowledged before
+// installation; otherwise --dangerous is used to allow sideloading from a
+// local path without an assertion.
+func (w *userdataConfig) addControllerSnapInstall() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	snapPath := w.icfg.Bootstrap.ControllerSnapPath
+	if snapPath == "" {
+		return nil
+	}
+
+	snapFile := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
+	assertPath := w.icfg.Bootstrap.ControllerSnapAssertPath
+
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing controller snap from local path %q", snapFile))
+	if assertPath != "" {
+		assertFile := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapAssertArchive)
+		w.conf.AddRunCmd(fmt.Sprintf("snap ack %s", assertFile))
+		w.conf.AddRunCmd(fmt.Sprintf("snap install %s", snapFile))
+		logger.Debugf(context.TODO(), "added snap install commands (with assertion) for %q", snapFile)
+	} else {
+		w.conf.AddRunCmd(fmt.Sprintf("snap install --dangerous %s", snapFile))
+		logger.Debugf(context.TODO(), "added snap install --dangerous command for %q", snapFile)
+	}
 
 	return nil
 }
