@@ -63,7 +63,11 @@ jobs:
           sudo snap connect juju:lxd lxd
           sudo snap connect juju:config-lxd
           sudo snap connect juju:dot-local-share-juju
+<<<<<<< HEAD
           sudo snap connect juju:ssh-keys
+=======
+          sudo snap connect juju:ssh-public-keys
+>>>>>>> 9427be38ab38c7c8bd9ec2063953f18b1d962f1b
           snap connections juju
 
       - name: Test bootstrap
