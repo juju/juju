@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -712,6 +713,64 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 	return jsoncodec.NewWebsocketConn(c), nil
 }
 
+func proxyForRequest(req *http.Request) (*url.URL, error) {
+	return proxy.DefaultConfig.GetProxy(normalizeProxyRequest(req))
+}
+
+func normalizeProxyRequest(req *http.Request) *http.Request {
+	if req == nil || req.URL == nil {
+		return req
+	}
+
+	normalizedURL := normalizeProxyURL(req.URL)
+	if normalizedURL == req.URL {
+		return req
+	}
+
+	clone := *req
+	clone.URL = normalizedURL
+	return &clone
+}
+
+func normalizeProxyURL(u *url.URL) *url.URL {
+	if u == nil {
+		return nil
+	}
+
+	var normalizedScheme string
+	switch strings.ToLower(u.Scheme) {
+	case "ws":
+		normalizedScheme = "http"
+	case "wss":
+		normalizedScheme = "https"
+	default:
+		return u
+	}
+
+	clone := *u
+	clone.Scheme = normalizedScheme
+	return &clone
+}
+
+func getProxyURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	proxyURL, err := proxyForRequest(&http.Request{URL: u})
+	if err != nil || proxyURL == nil {
+		return ""
+	}
+	return proxyURL.String()
+}
+
+func debugProxy(proxyURL string) string {
+	if proxyURL == "" {
+		return "direct"
+	}
+	return proxyURL
+}
+
 type resolvedAddress struct {
 	ip   string
 	port string
@@ -833,11 +892,18 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
 	tryRetrieveCaCertFn := func(ctx context.Context, addr *resolvedAddress) func(<-chan struct{}) (io.Closer, error) {
 		ipStr := net.JoinHostPort(addr.ip, addr.port)
+		proxyURL := getProxyURL(addr.url.String())
 		return func(<-chan struct{}) (io.Closer, error) {
-			caCert, err := retrieveCACert(ctx, ipStr)
+			started := time.Now()
+			logger.Debugf("api ca probe starting: address=%s server=%s proxy=%s", ipStr, addr.url.Host, debugProxy(proxyURL))
+			caCert, err := retrieveCACert(ctx, ipStr, proxyURL)
 			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					logger.Debugf("api ca probe failed: address=%s server=%s proxy=%s elapsed=%s err=%v", ipStr, addr.url.Host, debugProxy(proxyURL), time.Since(started).Round(time.Millisecond), err)
+				}
 				return nil, err
 			}
+			logger.Debugf("api ca probe succeeded: address=%s server=%s proxy=%s elapsed=%s", ipStr, addr.url.Host, debugProxy(proxyURL), time.Since(started).Round(time.Millisecond))
 
 			return caRetrieveRes{
 				host:     addr.url.Host,
@@ -902,23 +968,24 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 	return err
 }
 
-// retrieveCACert establishes an insecure TLS connection to addr and attempts
-// to retrieve the CA cert presented by the server. If no CA cert is presented,
-// retrieveCACert will returns nil, nil.
-func retrieveCACert(ctx context.Context, addr string) (*x509.Certificate, error) {
-	netConn, err := new(net.Dialer).DialContext(ctx, "tcp", addr)
+// retrieveCACert establishes an insecure TLS connection to addr, optionally
+// through the given proxy, and attempts to retrieve the CA cert presented by
+// the server.
+func retrieveCACert(ctx context.Context, addr string, proxyURL string) (*x509.Certificate, error) {
+	netConn, err := dialCAProbeConn(ctx, addr, proxyURL)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = netConn.Close()
+	}()
 
 	conn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
 	if err = conn.Handshake(); err != nil {
-		_ = netConn.Close()
 		return nil, err
 	}
 	defer func() {
 		_ = conn.Close()
-		_ = netConn.Close()
 	}()
 
 	for _, cert := range conn.ConnectionState().PeerCertificates {
@@ -928,6 +995,86 @@ func retrieveCACert(ctx context.Context, addr string) (*x509.Certificate, error)
 	}
 
 	return nil, errors.New("no CA certificate presented by remote server")
+}
+
+// dialCAProbeConn establishes a tcp connection to addr, handling routing through
+// an HTTP proxy with a CONNECT request.
+func dialCAProbeConn(ctx context.Context, addr string, proxyURL string) (net.Conn, error) {
+	if proxyURL == "" {
+		return new(net.Dialer).DialContext(ctx, "tcp", addr)
+	}
+
+	proxyAddr, err := url.Parse(proxyURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	conn, err := new(net.Dialer).DialContext(ctx, "tcp", proxyDialAddr(proxyAddr))
+	if err != nil {
+		return nil, err
+	}
+
+	closeConn := true
+	defer func() {
+		if closeConn {
+			_ = conn.Close()
+		}
+	}()
+
+	if proxyAddr.Scheme == "https" {
+		tlsConn := tls.Client(conn, &tls.Config{ServerName: proxyAddr.Hostname()})
+		if err := tlsConn.Handshake(); err != nil {
+			return nil, err
+		}
+		conn = tlsConn
+	}
+
+	req := &http.Request{
+		Method: "CONNECT",
+		URL:    &url.URL{Opaque: addr},
+		Host:   addr,
+		Header: make(http.Header),
+	}
+	if proxyAddr.User != nil {
+		password, _ := proxyAddr.User.Password()
+		auth := proxyAddr.User.Username() + ":" + password
+		req.Header.Set("Proxy-Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
+	}
+	if err := req.Write(conn); err != nil {
+		return nil, err
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		if len(body) == 0 {
+			return nil, errors.Errorf("proxy CONNECT failed: %s", resp.Status)
+		}
+		return nil, errors.Errorf("proxy CONNECT failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	closeConn = false
+	return conn, nil
+}
+
+func proxyDialAddr(proxyAddr *url.URL) string {
+	if proxyAddr == nil {
+		return ""
+	}
+	if proxyAddr.Port() != "" {
+		return proxyAddr.Host
+	}
+	port := "80"
+	if proxyAddr.Scheme == "https" {
+		port = "443"
+	}
+	return net.JoinHostPort(proxyAddr.Hostname(), port)
 }
 
 // dialWebsocketMulti dials a websocket with one of the provided addresses, the
@@ -1100,7 +1247,12 @@ func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
 	}()
 	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, done)
 	var lastErr error = nil
+	attempt := 0
+	proxyURL := getProxyURL(d.addr.String())
 	for a.Next() {
+		attempt++
+		logger.Debugf("api dial attempt starting: url=%s ip=%s attempt=%d proxy=%s", d.addr.String(), d.ipAddr, attempt, debugProxy(proxyURL))
+		started := time.Now()
 		ctx, ctxCancel := context.WithCancel(d.ctx)
 		cancelMutex.Lock()
 		cancel = ctxCancel
@@ -1110,6 +1262,7 @@ func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
 		cancel = nil
 		cancelMutex.Unlock()
 		if err == nil {
+			logger.Debugf("api dial attempt succeeded: url=%s ip=%s attempt=%d proxy=%s elapsed=%s", d.addr.String(), d.ipAddr, attempt, debugProxy(proxyURL), time.Since(started).Round(time.Millisecond))
 			return &dialResult{
 				cancelSubContext:   ctxCancel,
 				conn:               conn,
@@ -1120,6 +1273,9 @@ func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
 			}, nil
 		}
 		ctxCancel()
+		if !errors.Is(err, context.Canceled) {
+			logger.Debugf("api dial attempt failed: url=%s address=%s ip=%s attempt=%d proxy=%s elapsed=%s err=%v", d.addr.String(), d.controllerRoot.String(), d.ipAddr, attempt, debugProxy(proxyURL), time.Since(started).Round(time.Millisecond), err)
+		}
 		lastErr = err
 		if isX509Error(err) {
 			break
