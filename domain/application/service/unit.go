@@ -83,9 +83,7 @@ type UnitState interface {
 	// unit storage directives.
 	UpdateUnitCharm(
 		ctx context.Context,
-		unit coreunit.UUID,
-		charm corecharm.ID,
-		storage applicationinternal.CreateUnitStorageArg,
+		arg applicationinternal.UpdateUnitCharmArg,
 	) error
 
 	// GetUnitStorageDirectivesCurrentNext returns the current and the next storage
@@ -534,9 +532,25 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 		return errors.Errorf("making storage for unit %q", unitName).Add(err)
 	}
 
-	err = s.st.UpdateUnitCharm(
-		ctx, unitUUID, charmUUID, unitStorageArgs,
-	)
+	updateArgs := applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   charmUUID,
+		UnitStorage: unitStorageArgs,
+	}
+
+	if args.MachineUUID != nil {
+		iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+			ctx, unitStorageArgs.StorageInstances)
+		if err != nil {
+			return errors.Errorf(
+				"making IAAS storage arguments for IAAS unit: %w", err,
+			)
+		}
+		updateArgs.MachineUUID = args.MachineUUID
+		updateArgs.IAASUnitStorage = &iaasUnitStorageArgs
+	}
+
+	err = s.st.UpdateUnitCharm(ctx, updateArgs)
 	if err != nil {
 		return errors.Errorf(
 			"updating unit %q charm to %q", unitName, charmUUID,

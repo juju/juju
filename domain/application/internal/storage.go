@@ -5,6 +5,7 @@ package internal
 
 import (
 	corecharm "github.com/juju/juju/core/charm"
+	coremachine "github.com/juju/juju/core/machine"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -443,6 +444,9 @@ type StorageInstanceCompositionVolumeAttachment struct {
 type UnitStorageRefreshArgs struct {
 	// NetNodeUUID is the net node of the unit.
 	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// MachineUUID is not nil when this unit exists on a machine.
+	MachineUUID *coremachine.UUID
 
 	// CurrentCharmUUID is the uuid of the current charm the unit is using.
 	CurrentCharmUUID corecharm.ID

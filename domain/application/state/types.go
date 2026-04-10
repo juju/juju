@@ -1298,11 +1298,13 @@ type modelType struct {
 	Type model.ModelType `db:"type"`
 }
 
-// unitNetNodeWithCharm represents the net node and charm uuid for a unit.
-type unitNetNodeWithCharm struct {
-	UnitUUID    string `db:"uuid"`
-	NetNodeUUID string `db:"net_node_uuid"`
-	CharmUUID   string `db:"charm_uuid"`
+// unitNetNodeWithCharmAndMachine represents the net node and charm uuid for a
+// unit. If the net node is a machine, then the machine uuid is also supplied.
+type unitNetNodeWithCharmAndMachine struct {
+	UnitUUID    string           `db:"uuid"`
+	NetNodeUUID string           `db:"net_node_uuid"`
+	CharmUUID   string           `db:"charm_uuid"`
+	MachineUUID sql.Null[string] `db:"machine_uuid"`
 }
 
 // unitLifeWithCharm represents the life of a unit and its current charm.

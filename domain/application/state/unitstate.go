@@ -126,7 +126,6 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 		)
 	}
 
-	// TODO(storage): fix https://github.com/juju/juju/issues/22118
 	err = st.insertMachineVolumeOwnership(ctx, tx, args.MachineUUID,
 		args.VolumesToOwn)
 	if err != nil {
@@ -136,7 +135,6 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 		)
 	}
 
-	// TODO(storage): fix https://github.com/juju/juju/issues/22118
 	err = st.insertMachineFilesystemOwnership(ctx, tx, args.MachineUUID,
 		args.FilesystemsToOwn)
 	if err != nil {

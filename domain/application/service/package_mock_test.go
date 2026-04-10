@@ -5779,17 +5779,17 @@ func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.N
 }
 
 // UpdateUnitCharm mocks base method.
-func (m *MockState) UpdateUnitCharm(arg0 context.Context, arg1 unit.UUID, arg2 charm.ID, arg3 internal.CreateUnitStorageArg) error {
+func (m *MockState) UpdateUnitCharm(arg0 context.Context, arg1 internal.UpdateUnitCharmArg) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateUnitCharm indicates an expected call of UpdateUnitCharm.
-func (mr *MockStateMockRecorder) UpdateUnitCharm(arg0, arg1, arg2, arg3 any) *MockStateUpdateUnitCharmCall {
+func (mr *MockStateMockRecorder) UpdateUnitCharm(arg0, arg1 any) *MockStateUpdateUnitCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitCharm), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitCharm), arg0, arg1)
 	return &MockStateUpdateUnitCharmCall{Call: call}
 }
 
@@ -5805,13 +5805,13 @@ func (c *MockStateUpdateUnitCharmCall) Return(arg0 error) *MockStateUpdateUnitCh
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitCharmCall) Do(f func(context.Context, unit.UUID, charm.ID, internal.CreateUnitStorageArg) error) *MockStateUpdateUnitCharmCall {
+func (c *MockStateUpdateUnitCharmCall) Do(f func(context.Context, internal.UpdateUnitCharmArg) error) *MockStateUpdateUnitCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, unit.UUID, charm.ID, internal.CreateUnitStorageArg) error) *MockStateUpdateUnitCharmCall {
+func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, internal.UpdateUnitCharmArg) error) *MockStateUpdateUnitCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

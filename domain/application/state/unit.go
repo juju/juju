@@ -1143,10 +1143,16 @@ func (st *State) GetUnitStorageRefreshArgs(
 	unitUUID := unitUUID{UnitUUID: unit.String()}
 
 	unitStmt, err := st.Prepare(`
-SELECT &unitNetNodeWithCharm.*
-FROM   unit u
-WHERE  u.uuid = $unitUUID.uuid
-`, unitUUID, unitNetNodeWithCharm{})
+SELECT &unitNetNodeWithCharmAndMachine.* FROM (
+	SELECT    u.uuid,
+	          u.net_node_uuid,
+	          u.charm_uuid, 
+	          m.uuid AS machine_uuid
+	FROM      unit u
+	LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid
+	WHERE     u.uuid = $unitUUID.uuid
+)
+`, unitUUID, unitNetNodeWithCharmAndMachine{})
 	if err != nil {
 		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
 	}
@@ -1172,7 +1178,7 @@ SELECT &storageDirective.* FROM (
 		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
 	}
 
-	unitVal := unitNetNodeWithCharm{}
+	unitVal := unitNetNodeWithCharmAndMachine{}
 	sdVals := []storageDirective{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, unitStmt, unitUUID).Get(&unitVal)
@@ -1213,6 +1219,9 @@ SELECT &storageDirective.* FROM (
 		RefreshStorageDirectives: make(
 			[]applicationinternal.StorageDirective, 0, len(sdVals)),
 	}
+	if unitVal.MachineUUID.Valid {
+		retVal.MachineUUID = new(coremachine.UUID(unitVal.MachineUUID.V))
+	}
 	for _, v := range sdVals {
 		sd := applicationinternal.StorageDirective{
 			CharmMetadataName: v.CharmMetadataName,
@@ -1238,16 +1247,15 @@ SELECT &storageDirective.* FROM (
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm does not exist.
 func (st *State) UpdateUnitCharm(
-	ctx context.Context, unit coreunit.UUID, charm corecharm.ID,
-	storage applicationinternal.CreateUnitStorageArg,
+	ctx context.Context, arg applicationinternal.UpdateUnitCharmArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	targetCharmUUID := charmUUID{UUID: charm.String()}
-	unitUUID := unitUUID{UnitUUID: unit.String()}
+	unitUUID := unitUUID{UnitUUID: arg.UUID.String()}
+	targetCharmUUID := charmUUID{UUID: arg.CharmUUID.String()}
 
 	unitStmt, err := st.Prepare(`
 SELECT &unitLifeWithCharm.*
@@ -1305,7 +1313,7 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 		}
 		if charmCount.Count == 0 {
 			return errors.Errorf(
-				"charm %q not found", charm,
+				"charm %q not found", arg.CharmUUID,
 			).Add(applicationerrors.CharmNotFound)
 		}
 
@@ -1317,24 +1325,32 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 
 		// Insert new storage instances.
 		_, err = st.unitState.insertUnitStorageInstances(
-			ctx, tx, storage.StorageInstances)
+			ctx, tx, arg.UnitStorage.StorageInstances)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		err = st.unitState.insertUnitStorageOwnership(
-			ctx, tx, unit.String(), storage.StorageToOwn)
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToOwn)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		err = st.unitState.insertUnitStorageAttachments(
-			ctx, tx, unit.String(), storage.StorageToAttach)
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToAttach)
 		if err != nil {
 			return errors.Capture(err)
 		}
-
-		// TODO(storage): fix https://github.com/juju/juju/issues/22118
-		// then insert machine_filesystem and machine_volume ownership here
-		// for new storage instances.
+		if arg.MachineUUID != nil && arg.IAASUnitStorage != nil {
+			err = st.unitState.insertMachineFilesystemOwnership(
+				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.FilesystemsToOwn)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			err = st.unitState.insertMachineVolumeOwnership(
+				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.VolumesToOwn)
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
 
 		// Delete old unit storage directives.
 		oldCharmUUID := charmUUID{
