@@ -25,6 +25,7 @@ func (*ImportSuite) TestImports(c *tc.C) {
 		"api/base",
 		"api/macaroon",
 		"api/watcher",
+		"core/application",
 		"core/arch",
 		"core/backups",
 		"core/base",
