@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -238,4 +239,16 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 	c.Check(args, tc.DeepEquals, map[string]any{
 		"hooks": []any{"install", "start"},
 	})
+}
+
+func (s *DebugHooksSuite) TestGetValidActionsReturnsEmptySetWhenNoActions(c *gc.C) {
+	charmPath := filepath.Join(c.MkDir(), "actionless")
+	err := ch.ArchiveToPath(charmPath)
+	ch, err := charm.ReadCharmArchive(charmPath)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmd := &debugHooksCommand{}
+	validActions, err := cmd.getValidActions(ch)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(validActions.SortedValues(), tc.DeepEquals, []string{})
 }
