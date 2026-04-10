@@ -101,10 +101,10 @@ type State interface {
 		context.Context,
 	) (internal.ModelStoragePools, error)
 
-	// GetStorageInstancesForProviderIDs returns all of the storage instances
+	// GetStorageInstancesForProviderIDs returns all the storage instances
 	// found in the model using one of the provider ids supplied. The storage
-	// instance must also not be owned by a unit. If no storage instances are found
-	// then an empty result is returned.
+	// instance must also not be owned by a unit. If no storage instances are
+	// found then an empty result is returned.
 	GetStorageInstancesForProviderIDs(
 		ctx context.Context,
 		ids []string,
@@ -194,7 +194,7 @@ func encodeStorageKindFromCharmStorageType(
 //
 // The following errors may be expected:
 // - [applicationerrors.UnitNotFound] when the unit no longer exists.
-func (s Service) MakeRegisterExistingCAASUnitStorageArg(
+func (s *Service) MakeRegisterExistingCAASUnitStorageArg(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
@@ -234,7 +234,7 @@ func (s Service) MakeRegisterExistingCAASUnitStorageArg(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s Service) MakeRegisterNewCAASUnitStorageArg(
+func (s *Service) MakeRegisterNewCAASUnitStorageArg(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
@@ -276,7 +276,7 @@ func (s Service) MakeRegisterNewCAASUnitStorageArg(
 // The following errors may be expected:
 // - [applicationerrors.ApplicationNotFound] when the application no longer
 // exists.
-func (s Service) makeRegisterCAASUnitStorageArg(
+func (s *Service) makeRegisterCAASUnitStorageArg(
 	ctx context.Context,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
@@ -686,7 +686,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 // supplied it is possible that some existing storage will be unused. It is up
 // to the caller to validate what storage was and wasn't used by looking at the
 // storage attachments.
-func (s Service) MakeUnitStorageArgs(
+func (s *Service) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []internal.StorageDirective,
@@ -810,7 +810,7 @@ func (s Service) MakeUnitStorageArgs(
 
 // MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
 // complement the unit storage arguments provided for IAAS units.
-func (s Service) MakeIAASUnitStorageArgs(
+func (s *Service) MakeIAASUnitStorageArgs(
 	ctx context.Context,
 	storageInst []internal.CreateUnitStorageInstanceArg,
 ) (internal.CreateIAASUnitStorageArg, error) {
@@ -858,7 +858,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 // caller is specifying the actual count to use.
 // This is a cut down version of [MakeUnitStorageArgs]. We may
 // choose to DRY things up a bit later.
-func (s Service) MakeUnitAddStorageArgs(
+func (s *Service) MakeUnitAddStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	addCount uint32,
