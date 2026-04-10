@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/description/v10"
+	"github.com/juju/description/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
