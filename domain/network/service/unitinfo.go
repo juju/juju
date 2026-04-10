@@ -22,55 +22,56 @@ import (
 )
 
 // GetUnitRelationNetwork retrieves network relation information for a given
-// unit and relation UUID.
+// unit and relation UUIDs.
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitNotFound] if the unit does not exist.
 //   - [relationerrors.RelationNotFound] if the relation doesn't belong to the
 //     unit.
-func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
-	relationUUID corerelation.UUID) (domainnetwork.UnitNetwork, error) {
+func (s *ProviderService) GetUnitRelationNetwork(
+	ctx context.Context, unitName coreunit.Name, relationUUIDs []corerelation.UUID,
+) (map[corerelation.UUID]domainnetwork.UnitNetwork, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
-		return domainnetwork.UnitNetwork{}, internalerrors.Capture(err)
+		return nil, internalerrors.Capture(err)
 	}
 
-	endpointName, err := s.st.GetUnitRelationEndpointName(
-		ctx, unitUUID.String(), relationUUID.String(),
-	)
-	if internalerrors.Is(err, relationerrors.RelationNotFound) {
-		return domainnetwork.UnitNetwork{}, relationerrors.RelationNotFound
-	} else if err != nil {
-		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
-			"getting endpoint name for relation %q: %w", relationUUID, err,
+	result := make(map[corerelation.UUID]domainnetwork.UnitNetwork, len(relationUUIDs))
+	for _, relationUUID := range relationUUIDs {
+		endpointName, err := s.st.GetUnitRelationEndpointName(
+			ctx, unitUUID.String(), relationUUID.String(),
 		)
-	}
+		if internalerrors.Is(err, relationerrors.RelationNotFound) {
+			return nil, relationerrors.RelationNotFound
+		} else if err != nil {
+			return nil, internalerrors.Errorf(
+				"getting endpoint name for relation %q: %w", relationUUID, err,
+			)
+		}
 
-	egressSubnets, err := s.getRelationEgressSubnets(ctx, relationUUID, unitUUID)
-	if err != nil {
-		return domainnetwork.UnitNetwork{}, internalerrors.Capture(err)
-	}
+		egressSubnets, err := s.getRelationEgressSubnets(ctx, relationUUID, unitUUID)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
 
-	infos, err := s.getUnitEndpointNetworks(
-		ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
-	)
-	if err != nil {
-		return domainnetwork.UnitNetwork{}, internalerrors.Errorf("getting unit endpoint networks: %w", err)
-	}
-	if len(infos) != 1 {
-		// Should not happen unless the interface contract for
-		// GetUnitEndpointNetworks is broken.
-		// If not broken, providing exactly one endpoint as a parameter for
-		// GetUnitEndpointNetworks should return exactly one info.
-		return domainnetwork.UnitNetwork{}, internalerrors.Errorf(
-			"expected 1 NetworkInfo for unit %q on endpoint %q, got %d",
-			unitName, endpointName, len(infos),
+		infos, err := s.getUnitEndpointNetworks(
+			ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
 		)
+		if err != nil {
+			return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
+		}
+		if len(infos) != 1 {
+			return nil, internalerrors.Errorf(
+				"expected 1 NetworkInfo for unit %q on endpoint %q, got %d",
+				unitName, endpointName, len(infos),
+			)
+		}
+		result[relationUUID] = infos[0]
 	}
-	return infos[0], nil
+	return result, nil
 }
 
 // GetUnitEndpointNetworks retrieves network relation information for a given

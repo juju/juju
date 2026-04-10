@@ -258,10 +258,12 @@ func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	info, err := service.GetUnitRelationNetwork(
-		c.Context(), unitName, relationUUID,
+	infoMap, err := service.GetUnitRelationNetwork(
+		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	info, ok := infoMap[relationUUID]
+	c.Assert(ok, tc.IsTrue)
 	c.Check(info.EndpointName, tc.Equals, endpointName)
 	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"192.168.1.10"})
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"192.168.1.0/24"})
@@ -298,10 +300,12 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *t
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	info, err := service.GetUnitRelationNetwork(
-		c.Context(), unitName, relationUUID,
+	infoMap, err := service.GetUnitRelationNetwork(
+		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	info, ok := infoMap[relationUUID]
+	c.Assert(ok, tc.IsTrue)
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"203.0.113.0/24"})
 }
 
@@ -339,10 +343,12 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	info, err := service.GetUnitRelationNetwork(
-		c.Context(), unitName, relationUUID,
+	infoMap, err := service.GetUnitRelationNetwork(
+		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	info, ok := infoMap[relationUUID]
+	c.Assert(ok, tc.IsTrue)
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"198.51.100.10/32"})
 }
 
@@ -361,7 +367,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkRelationNotFound(c *tc.C) {
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, relationUUID)
+	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, []corerelation.UUID{relationUUID})
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
@@ -384,7 +390,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkGetRelationEgressSubnetsError(c *t
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, relationUUID)
+	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, []corerelation.UUID{relationUUID})
 	c.Assert(
 		err,
 		tc.ErrorMatches,
