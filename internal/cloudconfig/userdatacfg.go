@@ -390,6 +390,11 @@ func (w *userdataConfig) ConfigureJuju() error {
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
+		if featureflag.Enabled(featureflag.ControllerSnap) {
+			if err = w.addControllerSnapUpload(); err != nil {
+				return errors.Trace(err)
+			}
+		}
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
@@ -523,6 +528,47 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 		return errors.Trace(err)
 	}
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
+
+	return nil
+}
+
+// addControllerSnapUpload embeds the controller snap (and optional assertion
+// file) from the local filesystem into the cloud-init payload so that they are
+// available in the instance's snap directory at boot time.
+// The install mode (normal vs dangerous) is determined by the presence of the
+// assertion file: if no assertion is provided the snap is installed in
+// dangerous mode.
+func (w *userdataConfig) addControllerSnapUpload() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	snapPath := w.icfg.Bootstrap.ControllerSnapPath
+	if snapPath == "" {
+		return nil
+	}
+
+	snapData, err := stdos.ReadFile(snapPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	f := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
+	w.conf.AddRunBinaryFile(f, snapData, 0644)
+	logger.Debugf(context.TODO(), "added controller snap archive to cloud-init with path %q", f)
+
+	assertPath := w.icfg.Bootstrap.ControllerSnapAssertPath
+	if assertPath == "" {
+		return nil
+	}
+
+	assertData, err := stdos.ReadFile(assertPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	f = path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapAssertArchive)
+	w.conf.AddRunBinaryFile(f, assertData, 0644)
+	logger.Debugf(context.TODO(), "added controller snap assert to cloud-init with path %q", f)
 
 	return nil
 }

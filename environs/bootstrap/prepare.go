@@ -28,6 +28,14 @@ const (
 
 	// ControllerCharmArchive is the name of the controller charm archive.
 	ControllerCharmArchive = "controller.charm"
+
+	// ControllerSnapArchive is the filename used when embedding the
+	// controller snap in cloud-init for local-build bootstrap.
+	ControllerSnapArchive = "juju-controller.snap"
+
+	// ControllerSnapAssertArchive is the filename used when embedding the
+	// controller snap assertion in cloud-init for local-build bootstrap.
+	ControllerSnapAssertArchive = "juju-controller.assert"
 )
 
 // PrepareParams contains the parameters for preparing a controller Environ
