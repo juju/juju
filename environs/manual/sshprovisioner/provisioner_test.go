@@ -207,6 +207,6 @@ func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
-	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
+	expectedScript := removeLogFile + common.DumpOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
 	c.Assert(script, tc.Equals, expectedScript)
 }
