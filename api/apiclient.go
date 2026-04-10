@@ -713,12 +713,51 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 	return jsoncodec.NewWebsocketConn(c), nil
 }
 
+func proxyForRequest(req *http.Request) (*url.URL, error) {
+	return proxy.DefaultConfig.GetProxy(normalizeProxyRequest(req))
+}
+
+func normalizeProxyRequest(req *http.Request) *http.Request {
+	if req == nil || req.URL == nil {
+		return req
+	}
+
+	normalizedURL := normalizeProxyURL(req.URL)
+	if normalizedURL == req.URL {
+		return req
+	}
+
+	clone := *req
+	clone.URL = normalizedURL
+	return &clone
+}
+
+func normalizeProxyURL(u *url.URL) *url.URL {
+	if u == nil {
+		return nil
+	}
+
+	var normalizedScheme string
+	switch strings.ToLower(u.Scheme) {
+	case "ws":
+		normalizedScheme = "http"
+	case "wss":
+		normalizedScheme = "https"
+	default:
+		return u
+	}
+
+	clone := *u
+	clone.Scheme = normalizedScheme
+	return &clone
+}
+
 func getProxyURL(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return ""
 	}
-	proxyURL, err := proxy.DefaultConfig.GetProxy(&http.Request{URL: u})
+	proxyURL, err := proxyForRequest(&http.Request{URL: u})
 	if err != nil || proxyURL == nil {
 		return ""
 	}

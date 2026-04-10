@@ -7,14 +7,18 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jtesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/proxy"
 )
 
 type apiclientWhiteboxSuite struct {
@@ -78,4 +82,59 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *gc.C) {
 	listen.Close()
 	_, _, err = DialAPI(info, opts)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("unable to connect to API: dial tcp %s:.*", regexp.QuoteMeta(addr)))
+}
+
+func (s *apiclientWhiteboxSuite) TestProxyForRequestNormalizesWebsocketSchemes(c *gc.C) {
+	tests := []struct {
+		about    string
+		settings proxyutils.Settings
+		rawURL   string
+		expected string
+	}{
+		{
+			about: "wss uses https proxy",
+			settings: proxyutils.Settings{
+				Https: "https://proxy.example:8443",
+			},
+			rawURL:   "wss://controller.example:17070/model/uuid/api",
+			expected: "https://proxy.example:8443",
+		},
+		{
+			about: "ws uses http proxy",
+			settings: proxyutils.Settings{
+				Http: "http://proxy.example:8080",
+			},
+			rawURL:   "ws://controller.example:17070/model/uuid/api",
+			expected: "http://proxy.example:8080",
+		},
+		{
+			about: "wss honours no_proxy",
+			settings: proxyutils.Settings{
+				Https:   "https://proxy.example:8443",
+				NoProxy: "controller.example",
+			},
+			rawURL:   "wss://controller.example:17070/model/uuid/api",
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("test: %s", test.about)
+		err := proxy.DefaultConfig.Set(test.settings)
+		c.Assert(err, jc.ErrorIsNil)
+
+		target, err := url.Parse(test.rawURL)
+		c.Assert(err, jc.ErrorIsNil)
+
+		proxyURL, err := proxyForRequest(&http.Request{URL: target})
+		c.Assert(err, jc.ErrorIsNil)
+		if test.expected == "" {
+			c.Assert(proxyURL, gc.IsNil)
+		} else {
+			c.Assert(proxyURL, gc.NotNil)
+			c.Assert(proxyURL.String(), gc.Equals, test.expected)
+		}
+	}
+
+	c.Assert(proxy.DefaultConfig.Set(proxyutils.Settings{}), jc.ErrorIsNil)
 }
