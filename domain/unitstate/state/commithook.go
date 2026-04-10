@@ -34,10 +34,6 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("unit data has changed since beginning:%w", err)
 		}
 
-		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
-			return errors.Errorf("update network info: %w", err)
-		}
-
 		if err := st.updateRelationSettings(ctx, tx, unitUUID, arg.RelationSettings); err != nil {
 			return errors.Errorf("update relation settings:%w", err)
 		}
@@ -78,10 +74,6 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		// Implement storage
 		return nil
 	})
-}
-
-func (st *State) updateNetworkInfo(ctx context.Context, tx *sqlair.TX, info bool) error {
-	return nil
 }
 
 func (st *State) updateRelationSettings(

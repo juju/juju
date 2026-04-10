@@ -36,10 +36,6 @@ type CommitHookChangesArg struct {
 	// UnitUUID is the uuid of the unit these changes pertain to.
 	UnitUUID unit.UUID
 
-	// UpdateNetworkInfo indicates that the relation network settings
-	// should be updated for this unit.
-	UpdateNetworkInfo bool
-
 	// RelationUnitSettings settings for the relation unit and application
 	// which need to be updated.
 	RelationSettings []RelationSettings
@@ -84,7 +80,6 @@ type CommitHookChangesArg struct {
 func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID unit.UUID) CommitHookChangesArg {
 	return CommitHookChangesArg{
 		UnitUUID:           unitUUID,
-		UpdateNetworkInfo:  in.UpdateNetworkInfo,
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,
 		CharmState:         in.CharmState,
