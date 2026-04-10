@@ -40,7 +40,7 @@ type StorageDirectiveOverride = application.ApplicationStorageDirectiveOverride
 func (s *Service) GetApplicationStorageDirectives(
 	ctx context.Context,
 	uuid coreapplication.UUID,
-) ([]application.StorageDirective, error) {
+) ([]internal.StorageDirective, error) {
 	if uuid.Validate() != nil {
 		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
 	}
@@ -55,12 +55,12 @@ func (s *Service) GetUnitStorageDirectiveByName(
 	ctx context.Context,
 	uuid coreunit.UUID,
 	storageName corestorage.Name,
-) (application.StorageDirective, error) {
+) (internal.StorageDirective, error) {
 	if uuid.Validate() != nil {
-		return application.StorageDirective{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+		return internal.StorageDirective{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
 	}
 	if err := storageName.Validate(); err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
 	return s.st.GetUnitStorageDirectiveByName(ctx, uuid, storageName.String())
@@ -187,10 +187,10 @@ func MakeStorageDirectiveFromApplicationArg(
 	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,
 	applicationArgs []internal.CreateApplicationStorageDirectiveArg,
-) []application.StorageDirective {
-	rval := make([]application.StorageDirective, 0, len(applicationArgs))
+) []internal.StorageDirective {
+	rval := make([]internal.StorageDirective, 0, len(applicationArgs))
 	for _, arg := range applicationArgs {
-		rval = append(rval, application.StorageDirective{
+		rval = append(rval, internal.StorageDirective{
 			CharmMetadataName: charmMetadataName,
 			Count:             arg.Count,
 			CharmStorageType:  charm.StorageType(charmStorage[arg.Name.String()].Type),
@@ -323,7 +323,7 @@ func validateApplicationStorageDirectiveOverride(
 // and adds any new storage definitions.
 func (s *Service) ReconcileStorageDirectivesAgainstCharmStorage(
 	ctx context.Context,
-	existingStorageDirectives []application.StorageDirective,
+	existingStorageDirectives []internal.StorageDirective,
 	newCharmStorages map[string]internalcharm.Storage,
 ) (
 	toCreate []internal.CreateApplicationStorageDirectiveArg,
@@ -376,7 +376,7 @@ func (s *Service) ReconcileStorageDirectivesAgainstCharmStorage(
 
 // ReconcileStorageDirective reconciles an existing directive with new charm requirements.
 func ReconcileStorageDirective(
-	existingStorageDirective application.StorageDirective,
+	existingStorageDirective internal.StorageDirective,
 	newCharmStorage internalcharm.Storage,
 ) internal.UpdateApplicationStorageDirectiveArg {
 	arg := internal.UpdateApplicationStorageDirectiveArg{

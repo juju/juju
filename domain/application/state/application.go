@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,6 +39,7 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
@@ -1752,26 +1754,43 @@ WHERE  uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
-		charmIdent := entityUUID{UUID: chID.String()}
-		if err := st.checkCharmExists(ctx, tx, charmIdent); err != nil {
+		if err := st.checkCharmExists(ctx, tx, chID.String()); err != nil {
 			return errors.Capture(err)
 		}
+		charmIdent := entityUUID{UUID: chID.String()}
 		if err := st.precheckUpgradeRelation(ctx, tx, appID, charmIdent); err != nil {
 			return errors.Capture(err)
 		}
 
 		// Update storage directives for the new charm.
-		if err := st.updateApplicationStorageDirectives(ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate); err != nil {
+		err := st.updateApplicationStorageDirectives(
+			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate)
+		if err != nil {
 			return errors.Errorf("updating storage directives: %w", err)
 		}
 
-		// Insert storage directives for the new charm.
-		if err := st.insertApplicationStorageDirectives(ctx, tx, appID.String(), chID.String(), params.StorageDirectivesToCreate); err != nil {
-			return errors.Errorf("inserting storage directives: %w", err)
+		// Insert application storage directives for the new charm.
+		err = st.insertApplicationStorageDirectives(
+			ctx, tx, appID.String(), chID.String(),
+			params.StorageDirectivesToCreate,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"inserting application storage directives: %w", err,
+			)
+		}
+
+		// Insert unit storage directives for the new charm.
+		err = st.insertUnitStorageDirectivesForAllUnits(
+			ctx, tx, appID.String(), chID.String(),
+			params.StorageDirectivesToCreate,
+		)
+		if err != nil {
+			return errors.Errorf("inserting unit storage directives: %w", err)
 		}
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
@@ -1814,7 +1833,8 @@ WHERE  uuid = $entityUUID.uuid
 		}
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -3791,4 +3811,35 @@ WHERE  application_uuid = $entityUUID.uuid;
 	}
 
 	return nil
+}
+
+// GetModelType returns the model type for the current model.
+func (s *State) GetModelType(ctx context.Context) (model.ModelType, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var m modelType
+
+	stmt, err := s.Prepare(`
+SELECT m.type AS &modelType.type
+FROM   model m
+`, m)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"cannot get model type for model: %w", modelerrors.NotFound,
+			)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return m.Type, nil
 }

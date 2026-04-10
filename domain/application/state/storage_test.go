@@ -361,7 +361,7 @@ func (s *applicationStateSuite) TestUpdateApplicationStorageDirectives(c *tc.C) 
 	// Verify that the storage directives have been updated.
 	applicationStorageDirectives, err := s.state.GetApplicationStorageDirectives(ctx, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(applicationStorageDirectives, tc.SameContents, []application.StorageDirective{
+	c.Check(applicationStorageDirectives, tc.SameContents, []internal.StorageDirective{
 		{
 			CharmMetadataName: "charm-name",
 			CharmStorageType:  charm.StorageBlock,

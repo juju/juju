@@ -24,10 +24,18 @@ If guidance conflicts, architectural rules take precedence.
 
 ## Unit Test Conventions
 
+- Always use `tc` for writing unit tests.
 - Assertions:
   - Use `c.Assert(err, tc.ErrorIsNil)` for error checks.
   - Prefer `c.Check` for value assertions.
   - Use `c.Assert` for value assertions only when needed to guard subsequent assertions (e.g. prevent nil dereference).
+  - The use of `tc.Must` (e.g. `tc.Must(c, NewUUID)`) should be limited to simple test setup.
+- Checkers:
+  - Checkers are passed to `c.Assert` and `c.Check` as the second argument.
+  - Examples of checkers arr `tc.IsTrue`, `tc.IsFalse`, `tc.Equals` and `tc.DeepEquals`.
+  - Use `c.Assert(err, tc.ErrorIs, MySentinalErr)` instead of `c.Assert(errors.Is(err, MySentinalErr), tc.Equals, true)`.
+  - Use `c.Check(booleanExpr, tc.IsTrue)` instead of `c.Check(booleanExpr, tc.Equals, true)`.
+  - There are more Checkers, look for the most appropriate checker.
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
 - If a test event must occur, block on it and rely on the native test timeout
   instead of adding an explicit timeout branch.

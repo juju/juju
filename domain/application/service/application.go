@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -18,6 +19,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/resource"
@@ -463,6 +465,9 @@ type ApplicationState interface {
 	GetModelStoragePools(
 		context.Context,
 	) (internal.ModelStoragePools, error)
+
+	// GetModelType returns the model type for the current model.
+	GetModelType(ctx context.Context) (model.ModelType, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -1690,6 +1695,21 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 		return errors.Errorf("decoding current charm storage: %w", err)
 	}
 	// Validate new charm storage against existing charm storage.
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
+	}
+	if modelType == model.CAAS {
+		sameStorage := maps.EqualFunc(
+			newCharmStorage, currentCharmStorage, internalcharm.Storage.Equal,
+		)
+		if !sameStorage {
+			return errors.Errorf(
+				"updating storage directives on a k8s application %s",
+				"during charm upgrade is not supported",
+			).Add(coreerrors.NotSupported)
+		}
+	}
 	err = storage.ValidateNewCharmStorageAgainstExistingCharmStorage(newCharmStorage, currentCharmStorage)
 	if err != nil {
 		return errors.Errorf("validating new charm storage against existing charm storage: %w", err)

@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -1289,4 +1290,25 @@ type charmModifiedVersion struct {
 
 type modelMigrating struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+// modelType represents the type of the model.
+type modelType struct {
+	// Type is the type of the model.
+	Type model.ModelType `db:"type"`
+}
+
+// unitNetNodeWithCharmAndMachine represents the net node and charm uuid for a
+// unit. If the net node is a machine, then the machine uuid is also supplied.
+type unitNetNodeWithCharmAndMachine struct {
+	UnitUUID    string           `db:"uuid"`
+	NetNodeUUID string           `db:"net_node_uuid"`
+	CharmUUID   string           `db:"charm_uuid"`
+	MachineUUID sql.Null[string] `db:"machine_uuid"`
+}
+
+// unitLifeWithCharm represents the life of a unit and its current charm.
+type unitLifeWithCharm struct {
+	LifeID    int    `db:"life_id"`
+	CharmUUID string `db:"charm_uuid"`
 }

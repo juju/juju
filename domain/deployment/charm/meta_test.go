@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1776,4 +1777,85 @@ description: c
 charm-user: barry
 `))
 	c.Assert(err, tc.ErrorMatches, `parsing charm-user: invalid charm-user "barry" expected one of root, sudoer or non-root`)
+}
+
+func (s *MetaSuite) TestStorageEqual(c *tc.C) {
+	// Create two identical Storage structs
+	storage1 := charm.Storage{
+		Name:        "test-storage",
+		Description: "A test storage",
+		Type:        charm.StorageBlock,
+		Shared:      true,
+		ReadOnly:    true,
+		CountMin:    1,
+		CountMax:    5,
+		MinimumSize: 1024,
+		Location:    "/mnt/storage",
+		Properties:  []string{"fast", "reliable"},
+	}
+	storage2 := storage1
+
+	// Test that identical storages are equal
+	c.Assert(storage1.Equal(storage2), tc.Equals, true)
+
+	// Test that a storage is equal to itself
+	c.Assert(storage1.Equal(storage1), tc.Equals, true)
+
+	// Verify that each field in storage1 has a non-zero value using reflection
+	storageType := reflect.TypeFor[charm.Storage]()
+	storageValue := reflect.ValueOf(storage1)
+	for i := 0; i < storageType.NumField(); i++ {
+		// Check that the field has a non-zero value
+		value := storageValue.Field(i)
+		c.Assert(value.IsZero(), tc.IsFalse)
+	}
+
+	// Test each field individually by creating modified versions
+	storageModified := storage1
+	storageModified.Name = "modified-name"
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.Description = "modified description"
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.Type = charm.StorageFilesystem
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.Shared = !storage1.Shared
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.ReadOnly = !storage1.ReadOnly
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.CountMin = storage1.CountMin + 1
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.CountMax = storage1.CountMax + 1
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.MinimumSize = storage1.MinimumSize + 1
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.Location = "/modified/location"
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	storageModified = storage1
+	storageModified.Properties = append(storageModified.Properties,
+		"additional-property")
+	c.Assert(storage1.Equal(storageModified), tc.IsFalse)
+
+	// Test with nil vs empty slice
+	storageEmptyProps := storage1
+	storageEmptyProps.Properties = []string{}
+	storageNilProps := storage1
+	storageNilProps.Properties = nil
+	c.Assert(storageEmptyProps.Equal(storageNilProps), tc.IsTrue)
 }

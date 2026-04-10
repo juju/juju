@@ -162,7 +162,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 	)
 
-	expected := []application.StorageDirective{
+	expected := []internal.StorageDirective{
 		{
 			CharmMetadataName: "testcharm",
 			CharmStorageType:  charm.StorageFilesystem,
