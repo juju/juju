@@ -162,6 +162,7 @@ var modelPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.6"),
 	files: []string{
 		"0053-network.PATCH.sql",
+		"0054-application-k8s-resources.PATCH.sql",
 	},
 }}
 

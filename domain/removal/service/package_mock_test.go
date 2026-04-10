@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	model "github.com/juju/juju/core/model"
 	secrets "github.com/juju/juju/core/secrets"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
@@ -2419,6 +2420,46 @@ func (c *MockModelDBStateGetApplicationOwnedSecretRevisionRefsCall) DoAndReturn(
 	return c
 }
 
+// GetApplicationUnitAndRelationCount mocks base method.
+func (m *MockModelDBState) GetApplicationUnitAndRelationCount(arg0 context.Context, arg1 string) (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUnitAndRelationCount", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationUnitAndRelationCount indicates an expected call of GetApplicationUnitAndRelationCount.
+func (mr *MockModelDBStateMockRecorder) GetApplicationUnitAndRelationCount(arg0, arg1 any) *MockModelDBStateGetApplicationUnitAndRelationCountCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUnitAndRelationCount", reflect.TypeOf((*MockModelDBState)(nil).GetApplicationUnitAndRelationCount), arg0, arg1)
+	return &MockModelDBStateGetApplicationUnitAndRelationCountCall{Call: call}
+}
+
+// MockModelDBStateGetApplicationUnitAndRelationCountCall wrap *gomock.Call
+type MockModelDBStateGetApplicationUnitAndRelationCountCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetApplicationUnitAndRelationCountCall) Return(arg0, arg1 int, arg2 error) *MockModelDBStateGetApplicationUnitAndRelationCountCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetApplicationUnitAndRelationCountCall) Do(f func(context.Context, string) (int, int, error)) *MockModelDBStateGetApplicationUnitAndRelationCountCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetApplicationUnitAndRelationCountCall) DoAndReturn(f func(context.Context, string) (int, int, error)) *MockModelDBStateGetApplicationUnitAndRelationCountCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmForApplication mocks base method.
 func (m *MockModelDBState) GetCharmForApplication(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -2805,6 +2846,45 @@ func (c *MockModelDBStateGetModelLifeCall) Do(f func(context.Context, string) (l
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetModelLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockModelDBStateGetModelLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelType mocks base method.
+func (m *MockModelDBState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockModelDBStateMockRecorder) GetModelType(arg0 any) *MockModelDBStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockModelDBState)(nil).GetModelType), arg0)
+	return &MockModelDBStateGetModelTypeCall{Call: call}
+}
+
+// MockModelDBStateGetModelTypeCall wrap *gomock.Call
+type MockModelDBStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockModelDBStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockModelDBStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockModelDBStateGetModelTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3316,6 +3396,45 @@ func (c *MockModelDBStateGetVolumeStatusCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// IsApplicationK8sResourcesManaged mocks base method.
+func (m *MockModelDBState) IsApplicationK8sResourcesManaged(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationK8sResourcesManaged", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationK8sResourcesManaged indicates an expected call of IsApplicationK8sResourcesManaged.
+func (mr *MockModelDBStateMockRecorder) IsApplicationK8sResourcesManaged(arg0, arg1 any) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationK8sResourcesManaged", reflect.TypeOf((*MockModelDBState)(nil).IsApplicationK8sResourcesManaged), arg0, arg1)
+	return &MockModelDBStateIsApplicationK8sResourcesManagedCall{Call: call}
+}
+
+// MockModelDBStateIsApplicationK8sResourcesManagedCall wrap *gomock.Call
+type MockModelDBStateIsApplicationK8sResourcesManagedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateIsApplicationK8sResourcesManagedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsApplicationK8sResourcesManagedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsControllerModel mocks base method.
 func (m *MockModelDBState) IsControllerModel(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -3505,6 +3624,44 @@ func (c *MockModelDBStateMachineScheduleRemovalCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateMachineScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateMachineScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkApplicationAsDead mocks base method.
+func (m *MockModelDBState) MarkApplicationAsDead(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkApplicationAsDead", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkApplicationAsDead indicates an expected call of MarkApplicationAsDead.
+func (mr *MockModelDBStateMockRecorder) MarkApplicationAsDead(arg0, arg1 any) *MockModelDBStateMarkApplicationAsDeadCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkApplicationAsDead", reflect.TypeOf((*MockModelDBState)(nil).MarkApplicationAsDead), arg0, arg1)
+	return &MockModelDBStateMarkApplicationAsDeadCall{Call: call}
+}
+
+// MockModelDBStateMarkApplicationAsDeadCall wrap *gomock.Call
+type MockModelDBStateMarkApplicationAsDeadCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkApplicationAsDeadCall) Return(arg0 error) *MockModelDBStateMarkApplicationAsDeadCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkApplicationAsDeadCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkApplicationAsDeadCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkApplicationAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkApplicationAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

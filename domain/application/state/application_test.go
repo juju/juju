@@ -1361,6 +1361,61 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestSetApplicationHasK8sResources(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM application_k8s_resources_managed WHERE application_uuid = ?",
+			appUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+}
+
+func (s *applicationStateSuite) TestSetApplicationHasK8sResourcesIdempotent(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationHasK8sResources(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) TestSetApplicationHasK8sResourcesNotFound(c *tc.C) {
+	err := s.state.SetApplicationHasK8sResources(c.Context(), "no-such-app-uuid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestClearApplicationHasK8sResources(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationHasK8sResources(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.ClearApplicationHasK8sResources(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM application_k8s_resources_managed WHERE application_uuid = ?",
+			appUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *applicationStateSuite) TestClearApplicationHasK8sResourcesNotFound(c *tc.C) {
+	err := s.state.ClearApplicationHasK8sResources(c.Context(), "no-such-app-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *applicationStateSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 	expectedAppUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 

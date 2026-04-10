@@ -1043,6 +1043,70 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	return nil
 }
 
+// SetApplicationHasK8sResources records that the provisioner is managing k8s
+// resources for the given application. This blocks removal until cleared.
+func (st *State) SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO application_k8s_resources_managed (application_uuid)
+VALUES ($cloudService.application_uuid)
+ON CONFLICT (application_uuid) DO NOTHING
+`, cloudService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking application %q exists: %w", appUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+
+		if err := tx.Query(ctx, insertStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+			return errors.Errorf("setting k8s resources managed for application %q: %w", appUUID, err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// ClearApplicationHasK8sResources records that the provisioner has finished
+// managing k8s resources for the given application, unblocking removal.
+func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM application_k8s_resources_managed
+WHERE application_uuid = $cloudService.application_uuid
+`, cloudService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+			return errors.Errorf("clearing k8s resources managed for application %q: %w", appUUID, err)
+		}
+		return nil
+	}))
+}
+
 // createCloudService creates a cloud service for the specified application and
 // its associated net node. It returns the net node UUID, the cloud service UUID
 // and an error if any.

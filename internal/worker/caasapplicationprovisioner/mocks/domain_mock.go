@@ -49,6 +49,44 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ClearApplicationHasK8sResources mocks base method.
+func (m *MockApplicationService) ClearApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearApplicationHasK8sResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearApplicationHasK8sResources indicates an expected call of ClearApplicationHasK8sResources.
+func (mr *MockApplicationServiceMockRecorder) ClearApplicationHasK8sResources(arg0, arg1 any) *MockApplicationServiceClearApplicationHasK8sResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationHasK8sResources", reflect.TypeOf((*MockApplicationService)(nil).ClearApplicationHasK8sResources), arg0, arg1)
+	return &MockApplicationServiceClearApplicationHasK8sResourcesCall{Call: call}
+}
+
+// MockApplicationServiceClearApplicationHasK8sResourcesCall wrap *gomock.Call
+type MockApplicationServiceClearApplicationHasK8sResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceClearApplicationHasK8sResourcesCall) Return(arg0 error) *MockApplicationServiceClearApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceClearApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockApplicationServiceClearApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceClearApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockApplicationServiceClearApplicationHasK8sResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitCloudContainerIDsForApplication mocks base method.
 func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()
@@ -436,6 +474,44 @@ func (c *MockApplicationServiceIsControllerApplicationCall) Do(f func(context.Co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceIsControllerApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (bool, error)) *MockApplicationServiceIsControllerApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetApplicationHasK8sResources mocks base method.
+func (m *MockApplicationService) SetApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationHasK8sResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationHasK8sResources indicates an expected call of SetApplicationHasK8sResources.
+func (mr *MockApplicationServiceMockRecorder) SetApplicationHasK8sResources(arg0, arg1 any) *MockApplicationServiceSetApplicationHasK8sResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationHasK8sResources", reflect.TypeOf((*MockApplicationService)(nil).SetApplicationHasK8sResources), arg0, arg1)
+	return &MockApplicationServiceSetApplicationHasK8sResourcesCall{Call: call}
+}
+
+// MockApplicationServiceSetApplicationHasK8sResourcesCall wrap *gomock.Call
+type MockApplicationServiceSetApplicationHasK8sResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceSetApplicationHasK8sResourcesCall) Return(arg0 error) *MockApplicationServiceSetApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceSetApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockApplicationServiceSetApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceSetApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockApplicationServiceSetApplicationHasK8sResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

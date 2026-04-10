@@ -142,6 +142,10 @@ type ApplicationExtraEndpoint struct {
 	CharmExtraBindingUUID string  `db:"charm_extra_binding_uuid" json:"charm_extra_binding_uuid" yaml:"charm_extra_binding_uuid"`
 }
 
+type ApplicationK8sResourcesManaged struct {
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+}
+
 type ApplicationPlatform struct {
 	ApplicationUUID string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
 	OsID            string  `db:"os_id" json:"os_id" yaml:"os_id"`
@@ -1604,6 +1608,7 @@ type ModelExport struct {
 	ApplicationExposedEndpointCidr           []ApplicationExposedEndpointCidr           `json:"application_exposed_endpoint_cidr" yaml:"application_exposed_endpoint_cidr"`
 	ApplicationExposedEndpointSpace          []ApplicationExposedEndpointSpace          `json:"application_exposed_endpoint_space" yaml:"application_exposed_endpoint_space"`
 	ApplicationExtraEndpoint                 []ApplicationExtraEndpoint                 `json:"application_extra_endpoint" yaml:"application_extra_endpoint"`
+	ApplicationK8sResourcesManaged           []ApplicationK8sResourcesManaged           `json:"application_k8s_resources_managed" yaml:"application_k8s_resources_managed"`
 	ApplicationPlatform                      []ApplicationPlatform                      `json:"application_platform" yaml:"application_platform"`
 	ApplicationRemoteConsumer                []ApplicationRemoteConsumer                `json:"application_remote_consumer" yaml:"application_remote_consumer"`
 	ApplicationRemoteOfferer                 []ApplicationRemoteOfferer                 `json:"application_remote_offerer" yaml:"application_remote_offerer"`

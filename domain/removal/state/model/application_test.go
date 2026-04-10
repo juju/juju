@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
@@ -568,6 +569,57 @@ func (s *applicationSuite) TestGetApplicationLifeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationSuite) TestMarkApplicationAsDead(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app")
+
+	s.advanceApplicationLife(c, appUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkApplicationAsDead(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	l, err := st.GetApplicationLife(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(l, tc.Equals, life.Dead)
+}
+
+func (s *applicationSuite) TestGetApplicationUnitAndRelationCountWithUnits(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	s.advanceApplicationLife(c, appUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	unitCount, relationCount, err := st.GetApplicationUnitAndRelationCount(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitCount, tc.Equals, 1)
+	c.Check(relationCount, tc.Equals, 0)
+}
+
+func (s *applicationSuite) TestGetApplicationUnitAndRelationCountWithRelations(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1")
+	s.createIAASApplication(c, appSvc, "app2")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceApplicationLife(c, appUUID, life.Dying)
+	s.advanceRelationLife(c, relUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	unitCount, relationCount, err := st.GetApplicationUnitAndRelationCount(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitCount, tc.Equals, 0)
+	c.Check(relationCount, tc.Equals, 1)
+}
+
 func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app")
@@ -642,13 +694,13 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application still has units, even when
-	// forcing. Units are removed by their own removal jobs, so the
-	// application must wait for them to complete.
+	// Without force, this should fail because the application is not dead.
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+	c.Check(err, tc.ErrorIs, removalerrors.EntityNotDead)
 
+	// With force, the dead-state gate is skipped, but it still fails
+	// because the unit has not been removed yet.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
@@ -657,7 +709,7 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
 	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Now we can delete the application.
+	// Now we can force-delete the application (without needing to mark dead).
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
@@ -819,6 +871,35 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.checkNoCharmsExist(c)
+}
+
+func (s *applicationSuite) TestDeleteCAASApplicationWithCloudService(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app")
+
+	err := svc.UpdateCloudService(c.Context(), "some-app", "provider-id", corenetwork.ProviderAddresses{
+		{
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      "10.0.0.1/8",
+				ConfigType: corenetwork.ConfigStatic,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeCloudLocal,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// DeleteApplication handles cloud service cleanup internally.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
 
 func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
@@ -1067,6 +1148,24 @@ func (s *applicationSuite) TestDeleteCharmReturnConstraintError(c *tc.C) {
 
 	// Assert: delete charm should return a ConstraintError.
 	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+}
+
+func (s *applicationSuite) TestGetApplicationName(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	applicationName, err := st.GetApplicationName(c.Context(), appUUID.String())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(applicationName, tc.Equals, "some-app")
+}
+
+func (s *applicationSuite) TestGetApplicationNameNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetApplicationName(c.Context(), "some-application-uuid")
+
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationSuite) TestGetCharmForApplication(c *tc.C) {
