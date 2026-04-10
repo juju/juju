@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/internal/provider/all"
 	_ "github.com/juju/juju/internal/provider/dummy"
-	"github.com/juju/juju/version"
 )
 
 var file = flag.String("o", "", "`file` to write.")
@@ -38,7 +37,6 @@ func main() {
 	}
 
 	p := params{
-		JujuVersion: version.Current.String(),
 		PackageName: *packageName,
 		Attributes:  visibleAttributes,
 	}
@@ -76,7 +74,6 @@ func main() {
 }
 
 type params struct {
-	JujuVersion string
 	PackageName string
 	Attributes  map[string]bool
 }
@@ -86,9 +83,6 @@ var tmpl = template.Must(template.New("").Parse(`
 // Licensed under the AGPLv3, see LICENCE file for details.
 //
 // GENERATED FILE - DO NOT EDIT
-// 
-// Generated from:
-//   Juju Version:   {{.JujuVersion}}
 
 package {{.PackageName}}
 
