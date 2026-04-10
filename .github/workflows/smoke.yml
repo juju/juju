@@ -1,10 +1,7 @@
 name: "Smoke"
 on:
-  push:
-    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   smoke:
