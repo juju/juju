@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
@@ -131,7 +130,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{
@@ -149,9 +148,9 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 		}},
 		StorageInstances: []applicationinternal.CreateUnitStorageInstanceArg{{
 			CharmName: "foo",
-			Kind:      domainstorage.StorageKindFilesystem,
+			Kind:      storage.StorageKindFilesystem,
 			Filesystem: &applicationinternal.CreateUnitStorageFilesystemArg{
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				UUID:           tc.Must(c, storage.NewFilesystemUUID),
 				ProvisionScope: storageprovisioning.ProvisionScopeModel,
 			},
 			Name:            sd.Name,
@@ -199,7 +198,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{
@@ -209,8 +208,8 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 		RefreshStorageDirectives: []applicationinternal.StorageDirective{sd},
 		MachineUUID:              new(tc.Must(c, coremachine.NewUUID)),
 	}
-	fs := tc.Must(c, domainstorage.NewFilesystemUUID)
-	vol := tc.Must(c, domainstorage.NewVolumeUUID)
+	fs := tc.Must(c, storage.NewFilesystemUUID)
+	vol := tc.Must(c, storage.NewVolumeUUID)
 	storageArgs := applicationinternal.CreateUnitStorageArg{
 		StorageDirectives: []applicationinternal.CreateUnitStorageDirectiveArg{{
 			Count:    sd.Count,
@@ -220,7 +219,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 		}},
 		StorageInstances: []applicationinternal.CreateUnitStorageInstanceArg{{
 			CharmName: "foo",
-			Kind:      domainstorage.StorageKindFilesystem,
+			Kind:      storage.StorageKindFilesystem,
 			Filesystem: &applicationinternal.CreateUnitStorageFilesystemArg{
 				UUID:           fs,
 				ProvisionScope: storageprovisioning.ProvisionScopeMachine,
@@ -257,8 +256,8 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), storageArgs.StorageInstances,
 	).Return(applicationinternal.CreateIAASUnitStorageArg{
-		FilesystemsToOwn: []domainstorage.FilesystemUUID{fs},
-		VolumesToOwn:     []domainstorage.VolumeUUID{vol},
+		FilesystemsToOwn: []storage.FilesystemUUID{fs},
+		VolumesToOwn:     []storage.VolumeUUID{vol},
 	}, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
@@ -266,8 +265,8 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 		UnitStorage: storageArgs,
 		MachineUUID: storageRefreshArgs.MachineUUID,
 		IAASUnitStorage: &applicationinternal.CreateIAASUnitStorageArg{
-			FilesystemsToOwn: []domainstorage.FilesystemUUID{fs},
-			VolumesToOwn:     []domainstorage.VolumeUUID{vol},
+			FilesystemsToOwn: []storage.FilesystemUUID{fs},
+			VolumesToOwn:     []storage.VolumeUUID{vol},
 		},
 	}).Return(nil)
 

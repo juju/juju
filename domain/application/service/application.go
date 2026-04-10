@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	"reflect"
+	"maps"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -1668,9 +1668,14 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 		return errors.Errorf("getting model type: %w", err)
 	}
 	if modelType == model.CAAS {
-		if !reflect.DeepEqual(newCharmStorage, currentCharmStorage) {
-			return errors.Errorf("updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm").
-				Add(coreerrors.NotSupported)
+		sameStorage := maps.EqualFunc(
+			newCharmStorage, currentCharmStorage, internalcharm.Storage.Equal,
+		)
+		if !sameStorage {
+			return errors.Errorf(
+				"updating storage directives on a k8s application %s",
+				"during charm upgrade is not supported",
+			).Add(coreerrors.NotSupported)
 		}
 	}
 	err = storage.ValidateNewCharmStorageAgainstExistingCharmStorage(newCharmStorage, currentCharmStorage)

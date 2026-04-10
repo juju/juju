@@ -3768,9 +3768,11 @@ FROM   model m
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&m)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("cannot get model type for model: %w", modelerrors.NotFound)
+			return errors.Errorf(
+				"cannot get model type for model: %w", modelerrors.NotFound,
+			)
 		}
-		return errors.Capture(err)
+		return err
 	})
 	if err != nil {
 		return "", errors.Capture(err)

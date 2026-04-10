@@ -63,7 +63,9 @@ WHERE uuid = $entityUUID.uuid;
 	}
 	if err := tx.Query(ctx, selectStmt, result).Get(&result); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.CharmNotFound
+			return errors.Errorf(
+				"charm %q not found", id,
+			).Add(applicationerrors.CharmNotFound)
 		}
 		return errors.Errorf("failed to check charm exists: %w", err)
 	}

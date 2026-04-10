@@ -508,7 +508,7 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 
 	charmUUID, err := s.getCharmID(ctx, argsFromLocator(locator))
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("getting charm UUID: %w", err)
 	}
 
 	args, err := s.st.GetUnitStorageRefreshArgs(ctx, unitUUID, charmUUID)
@@ -521,15 +521,16 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 	sic, sac, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
 	if err != nil {
 		return errors.Errorf(
-			"getting unit %q storage instances and attachments", unitName,
-		).Add(err)
+			"getting unit %q storage instances and attachments: %w",
+			unitName, err,
+		)
 	}
 
 	unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
 		ctx, args.NetNodeUUID, args.RefreshStorageDirectives, sic, sac,
 	)
 	if err != nil {
-		return errors.Errorf("making storage for unit %q", unitName).Add(err)
+		return errors.Errorf("making storage for unit %q: %w", unitName, err)
 	}
 
 	updateArgs := applicationinternal.UpdateUnitCharmArg{

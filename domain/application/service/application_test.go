@@ -2507,8 +2507,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeChangedC
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
-	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
-	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestSetApplicationCharmWithStorageCountChangedCAAS tests that if the new charm has a
@@ -2535,8 +2534,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountChanged
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
-	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
-	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestSetApplicationCharmWithStorageSharedChangedCAAS tests that if the new charm has a
@@ -2563,8 +2561,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChange
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
-	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
-	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestSetApplicationCharmWithStorageReadOnlyChangedCAAS tests that if the new charm has a
@@ -2591,8 +2588,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChan
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
-	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
-	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestSetApplicationCharmWithStorageLocationChangedCAAS tests that if the new charm has a
@@ -2619,8 +2615,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
-	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
-	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestSetApplicationCharmWithStorageDirectivesChanges tests that when storage directives

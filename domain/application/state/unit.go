@@ -1266,15 +1266,6 @@ WHERE  u.uuid = $unitUUID.uuid
 		return errors.Capture(err)
 	}
 
-	checkCharmExistsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM   charm
-WHERE  uuid = $charmUUID.charm_uuid
-`, targetCharmUUID, countResult{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	updateUnitCharmStmt, err := st.Prepare(`
 UPDATE unit
 SET    charm_uuid = $charmUUID.charm_uuid
@@ -1297,30 +1288,33 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 		unitLifeCharm := unitLifeWithCharm{}
 		err := tx.Query(ctx, unitStmt, unitUUID).Get(&unitLifeCharm)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitNotFound
+			return errors.Errorf(
+				"unit %q not found", arg.UUID,
+			).Add(applicationerrors.UnitNotFound)
 		} else if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf(
+				"getting unit %q charm and life: %w", arg.UUID, err,
+			)
 		}
 		// Ensure unit is alive for update.
 		if unitLifeCharm.LifeID == int(life.Dead) {
-			return applicationerrors.UnitIsDead
+			return errors.Errorf(
+				"unit %q is dead", arg.UUID,
+			).Add(applicationerrors.UnitIsDead)
 		}
 		// Ensure the target charm exists.
-		var charmCount countResult
-		err = tx.Query(ctx, checkCharmExistsStmt, targetCharmUUID).Get(&charmCount)
+		err = st.checkCharmExists(ctx, tx, targetCharmUUID.UUID)
 		if err != nil {
 			return errors.Capture(err)
-		}
-		if charmCount.Count == 0 {
-			return errors.Errorf(
-				"charm %q not found", arg.CharmUUID,
-			).Add(applicationerrors.CharmNotFound)
 		}
 
 		// Update unit charm UUID.
 		err = tx.Query(ctx, updateUnitCharmStmt, targetCharmUUID, unitUUID).Run()
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf(
+				"updating unit %q charm to %q: %w",
+				arg.UUID, arg.CharmUUID, err,
+			)
 		}
 
 		// Insert new storage instances.
@@ -1360,7 +1354,10 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			ctx, deleteStorageDirectiveStmt, unitUUID, oldCharmUUID,
 		).Run()
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf(
+				"deleting previous unit %q storage directives: %w",
+				arg.UUID, err,
+			)
 		}
 
 		return nil
