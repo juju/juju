@@ -13,15 +13,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-const (
-	// StorageDirectiveNoMaxCount defines the value used on
-	// [StorageDirective.MaxCount] when no upper limit exists for the number of
-	// storage instances that can be made for a directive.
-	//
-	// This situation would be seen when a charm has no opinionated maximum.
-	StorageDirectiveNoMaxCount = -1
-)
-
 // StorageDirective defines a storage directive that already exists for either
 // an application or unit.
 type StorageDirective struct {
@@ -39,8 +30,8 @@ type StorageDirective struct {
 	CharmStorageType domainapplicationcharm.StorageType
 
 	// MaxCount represents the maximum number of storage instances that can be
-	// made for this directive. A value of [StorageDirectiveNoMaxCount] means
-	// that no maximum exists for the storage directive.
+	// made for this directive. If [domainapplicationcharm.StorageNoMaxCount] is
+	// the value, it means that no maximum exists for the storage directive.
 	MaxCount int
 
 	// Name relates to the charm storage name definition and must match up.

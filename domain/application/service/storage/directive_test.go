@@ -334,7 +334,7 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 			CharmMetadataName: "kratos",
 			CharmStorageType:  domainapplicationcharm.StorageBlock,
 			Count:             3,
-			MaxCount:          internal.StorageDirectiveNoMaxCount,
+			MaxCount:          domainapplicationcharm.StorageNoMaxCount,
 			Name:              "data2",
 			PoolUUID:          poolUUID2,
 			Size:              1011,
