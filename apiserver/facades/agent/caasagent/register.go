@@ -38,6 +38,8 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		return nil, errors.Trace(err)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
+		ctx.State().ControllerTag(),
+		authorizer,
 		resources,
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
@@ -67,6 +69,8 @@ func newStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
 	}
 
 	v2Facade.CloudSpecer = cloudspec.NewCloudSpecV1(
+		ctx.State().ControllerTag(),
+		ctx.Auth(),
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),

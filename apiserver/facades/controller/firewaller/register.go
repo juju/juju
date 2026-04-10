@@ -43,6 +43,8 @@ func newStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	}
 
 	cloudSpecAPI := cloudspec.NewCloudSpecV1(
+		st.ControllerTag(),
+		context.Auth(),
 		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
@@ -99,6 +101,8 @@ func newStateFirewallerAPIV7(context facade.Context) (*FirewallerAPIV7, error) {
 	}
 
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
+		context.State().ControllerTag(),
+		context.Auth(),
 		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(context.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(context.State()),

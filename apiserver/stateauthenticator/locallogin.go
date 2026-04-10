@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
@@ -29,8 +30,10 @@ var (
 )
 
 type localLoginHandlers struct {
-	authCtxt   *authContext
-	finder     state.EntityFinder
+	authCtxt *authContext
+	finder   state.EntityFinder
+
+	tokenMutex sync.Mutex
 	userTokens map[string]string
 }
 
@@ -93,12 +96,11 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		token, err := newID()
+		token, err := h.createUserToken(username)
 		if err != nil {
 			h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
 			return
 		}
-		h.userTokens[token] = username
 
 		loginResponse := form.LoginResponse{
 			Token: &httpbakery.DischargeToken{
@@ -147,8 +149,7 @@ func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *
 	}
 
 	tokenString := string(token.Value)
-	username, ok := h.userTokens[tokenString]
-	delete(h.userTokens, tokenString)
+	username, ok := h.getUserFromToken(tokenString)
 	if token.Kind != "juju_userpass" || !ok {
 		return nil, errors.Errorf("invalid token %#v", token)
 	}
@@ -158,4 +159,24 @@ func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *
 		return nil, errors.Errorf("discharge token for user %q does not match declared user %q", username, tag.Id())
 	}
 	return h.authCtxt.DischargeCaveats(tag), nil
+}
+
+func (h *localLoginHandlers) createUserToken(username string) (string, error) {
+	token, err := newID()
+	if err != nil {
+		return "", err
+	}
+	h.tokenMutex.Lock()
+	h.userTokens[token] = username
+	h.tokenMutex.Unlock()
+	return token, nil
+}
+
+func (h *localLoginHandlers) getUserFromToken(token string) (string, bool) {
+	h.tokenMutex.Lock()
+	defer h.tokenMutex.Unlock()
+
+	username, ok := h.userTokens[token]
+	delete(h.userTokens, token)
+	return username, ok
 }

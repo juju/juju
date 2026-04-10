@@ -60,6 +60,10 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 
 func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
 	return cloudspec.NewCloudSpec(
+		coretesting.ControllerTag,
+		apiservertesting.FakeAuthorizer{
+			Tag: names.NewUserTag("admin"),
+		},
 		common.NewResources(),
 		func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 			s.AddCall("CloudSpec", tag)
@@ -201,7 +205,7 @@ func (s *CloudSpecSuite) TestCloudSpecGetAuthFuncError(c *gc.C) {
 	result, err := s.api.CloudSpec(params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
-	c.Assert(err, gc.Equals, expect)
+	c.Assert(err, gc.ErrorMatches, "bewm")
 	c.Assert(result, jc.DeepEquals, params.CloudSpecResults{})
 }
 

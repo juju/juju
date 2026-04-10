@@ -37,6 +37,8 @@ func newAgentAPIV2(ctx facade.Context) (*AgentAPIV2, error) {
 		return nil, errors.Trace(err)
 	}
 	v3.CloudSpecer = cloudspec.NewCloudSpecV1(
+		st.ControllerTag(),
+		ctx.Auth(),
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
@@ -74,6 +76,8 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPIV3, error) {
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
+			st.ControllerTag(),
+			auth,
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
