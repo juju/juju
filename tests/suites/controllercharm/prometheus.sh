@@ -16,8 +16,8 @@ run_prometheus() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target prometheus-k8s 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | jq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
+	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
 
 	juju remove-application prometheus-k8s --destroy-storage \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
@@ -53,8 +53,8 @@ run_prometheus_multiple_units() {
 	wait_for "p1" "$(active_condition "p1" 0)"
 
 	# Check all applications are still healthy
-	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | jq -r "$(active_condition "p1" 0)" | check "p1"
+	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | yq -r "$(active_condition "p1" 0)" | check "p1"
 
 	juju remove-relation p2 controller
 	# Wait until the application p2 settles before health checks
@@ -63,15 +63,15 @@ run_prometheus_multiple_units() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p2 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | jq -r "$(active_condition "p2" 1)" | check "p2"
+	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | yq -r "$(active_condition "p2" 1)" | check "p2"
 
 	juju remove-relation p1 controller
 
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p1 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
+	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
 	# Ensure p1 is still healty
 	wait_for "p1" "$(active_condition "p1" 0)"
 
@@ -88,7 +88,7 @@ run_prometheus_cross_controller() {
 	CONTROLLER_MODEL_NAME="test-prometheus-cmr-ctrlr"
 	file="${TEST_DIR}/${CONTROLLER_MODEL_NAME}.log"
 	bootstrap "${CONTROLLER_MODEL_NAME}" "${file}"
-	CONTROLLER_NAME=$(juju controllers --format json | jq -r '."current-controller"')
+	CONTROLLER_NAME=$(juju controllers --format json | yq -r '."current-controller"')
 
 	# Prometheus must be deployed on k8s. By default, we choose microk8s, but you
 	# can set the K8S_CLOUD environment variable to select a different cluster.
@@ -108,8 +108,8 @@ run_prometheus_cross_controller() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target prometheus-k8s 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | jq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
+	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
 
 	juju remove-application prometheus-k8s --destroy-storage \
 		--force --no-wait --no-prompt # TODO: remove these flags once storage bug is fixed
@@ -129,9 +129,9 @@ check_prometheus_targets() {
 		return 1
 	fi
 
-	TARGET_STATUS=$(echo $TARGET | jq -r '.health')
+	TARGET_STATUS=$(echo $TARGET | yq -r '.health')
 	if [[ $TARGET_STATUS != "up" ]]; then
-		echo "Controller metrics endpoint status: $TARGET_STATUS: $(echo $TARGET | jq -r '.lastError')"
+		echo "Controller metrics endpoint status: $TARGET_STATUS: $(echo $TARGET | yq -r '.lastError')"
 		return 1
 	fi
 
@@ -162,9 +162,9 @@ get_juju_target() {
 	local unit_number=$2
 
 	PROM_IP=$(juju status --format json |
-		jq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
+		yq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
 	TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
-		jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
+		yq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
 	echo "$TARGET"
 }
 

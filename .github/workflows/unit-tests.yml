@@ -36,7 +36,7 @@ jobs:
 
       - name: "Set up MongoDB"
         run: |
-          sudo snap install juju-db --channel=4.4/stable
+          sudo snap install juju-db --channel=4.4.30/stable
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: "Setup Gochanged"
