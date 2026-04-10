@@ -50,6 +50,8 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewStateControllerConfig(systemState),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
+			st.ControllerTag(),
+			auth,
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
