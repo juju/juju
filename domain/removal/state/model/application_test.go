@@ -74,7 +74,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccess(c *
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -129,7 +129,7 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Perform the ensure operation with destroyStorage.
-	artifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -177,7 +177,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -217,7 +217,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
@@ -254,7 +254,7 @@ func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID1.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID1.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	app1UnitUUIDs := s.getAllUnitUUIDs(c, appUUID1)
@@ -310,7 +310,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 1)
@@ -331,7 +331,7 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *t
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't have any units, so we expect an empty slice for both unit and
@@ -352,13 +352,13 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDying
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(firstArtifacts.RelationUUIDs, tc.HasLen, 0)
 	c.Check(firstArtifacts.UnitUUIDs, tc.HasLen, 1)
 	c.Check(firstArtifacts.MachineUUIDs, tc.HasLen, 1)
 
-	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts.RelationUUIDs, tc.DeepEquals, firstArtifacts.RelationUUIDs)
 	c.Check(secondArtifacts.UnitUUIDs, tc.DeepEquals, firstArtifacts.UnitUUIDs)
@@ -383,13 +383,13 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDying
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(firstArtifacts.RelationUUIDs, tc.HasLen, 1)
 	c.Check(firstArtifacts.UnitUUIDs, tc.HasLen, 0)
 	c.Check(firstArtifacts.MachineUUIDs, tc.HasLen, 0)
 
-	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
 
@@ -435,12 +435,12 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`, allUnitUUIDs[0])
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(firstArtifacts.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
 	c.Check(firstArtifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
 
-	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts.StorageAttachmentUUIDs, tc.DeepEquals, firstArtifacts.StorageAttachmentUUIDs)
 	c.Check(secondArtifacts.StorageInstanceUUIDs, tc.DeepEquals, firstArtifacts.StorageInstanceUUIDs)
@@ -458,28 +458,15 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnections(
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
-	c.Assert(err, tc.ErrorIs, removalerrors.ApplicationHasOfferConnections)
-	c.Assert(err, tc.ErrorIs, removalerrors.ForceRequired)
-}
-
-func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnectionsWithForce(c *tc.C) {
-	svc := s.setupApplicationService(c)
-	appUUID := s.createIAASApplication(c, svc, "some-app")
-	offerUUID := s.createOfferForApplication(c, "some-app", "some-offer")
-	s.createRemoteApplicationConsumer(c, "some-remote-app", offerUUID)
-
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, true)
+	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false)
+	// Offer connections should NOT block application removal.
 	c.Assert(err, tc.ErrorIsNil)
-	s.checkApplicationDyingState(c, appUUID)
 }
 
-func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNotExistsSuccess(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationNotAliveCaadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), "some-application-uuid", false, false)
+	_, err := st.EnsureApplicationNotAliveCascade(c.Context(), "some-application-uuid", false)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

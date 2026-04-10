@@ -37,3 +37,4 @@ dqlite-deps.tar.bz2
 .sphinx
 .envrc
 .direnv/
+.codex

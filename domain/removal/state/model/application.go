@@ -85,7 +85,7 @@ WHERE  application_uuid = $entityUUID.uuid`, count{}, applicationUUID)
 // also set to dying. Non-dead cascaded entity UUIDs are returned so retries
 // can re-schedule child removals with updated intent.
 func (st *State) EnsureApplicationNotAliveCascade(
-	ctx context.Context, aUUID string, destroyStorage bool, force bool,
+	ctx context.Context, aUUID string, destroyStorage bool,
 ) (internal.CascadedApplicationLives, error) {
 	var res internal.CascadedApplicationLives
 
@@ -95,18 +95,6 @@ func (st *State) EnsureApplicationNotAliveCascade(
 	}
 
 	applicationUUID := entityUUID{UUID: aUUID}
-	checkOfferConnectionsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM   offer_connection AS oc
-JOIN   offer AS o ON oc.offer_uuid = o.uuid
-JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
-JOIN   application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
-WHERE  ae.application_uuid = $entityUUID.uuid
-	`, count{}, applicationUUID)
-	if err != nil {
-		return res, errors.Errorf("preparing offer connections query: %w", err)
-	}
-
 	updateApplicationStmt, err := st.Prepare(`
 UPDATE application
 SET    life_id = 1
@@ -151,17 +139,6 @@ AND    life_id < 2`, applicationUUID)
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if !force {
-			var count count
-			if err := tx.Query(ctx, checkOfferConnectionsStmt, applicationUUID).Get(&count); err != nil {
-				return errors.Errorf("checking offer connections: %w", err)
-			} else if count.Count > 0 {
-				return errors.Errorf("cannot remove application %q, it has %d offer connection(s)", aUUID, count.Count).
-					Add(removalerrors.ApplicationHasOfferConnections).
-					Add(removalerrors.ForceRequired)
-			}
-		}
-
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
 		}
