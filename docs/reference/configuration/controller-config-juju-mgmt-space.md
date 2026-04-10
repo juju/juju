@@ -1,6 +1,5 @@
 # `juju-mgmt-space`
 
-
 This document describes the `juju-mgmt-space` controller configuration key.
 
 |Key|Type|Default|Valid values|Purpose|

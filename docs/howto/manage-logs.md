@@ -15,43 +15,6 @@ See also: {ref}`log`
 For an integrated solution consider [the Loki charm](https://charmhub.io/loki-k8s).
 ```
 
-<!--
-Make sure to also cover
-
-logging-output:
-  description: 'The logging output destination: database and/or syslog. (default "")'
-
-It's a model config key that allows you to choose syslog, that is, not send your logsink.log to mongo
-
-HTGs:
-
-- Stream all the captured logs from the controller (agent and model logs)
-
-debug-log
-
-Cover how to filter the output: debug-log --level
-
-- Configure the logging level (agent and model logs)
-
-model-config --logging-config
-
-- Configure the log file size and rotation (agent, model, and audit logs)
-
-- Forward logs to an external logsink (agent and model logs)
-
-- Inspect the audit log
-
-1. SSH into a controller machine
-2. View the log
-
-
-- View a list of all the log files
-
-1. SSH into a machine
-2. View the files at /var/log/juju
-
--->
-
 
 
 ## Manage the logs
@@ -72,47 +35,9 @@ In a machine deployment, this will output logs for all the Juju machine and unit
 
 The command has various options that allow you to control the length, appearance, amount and type of detail.
 
-<!--
-
-After setting the `logging-config`, you can view the logs using the `juju debug-log` command. `debug-log` has several different `--include*` / `--exclude*` flags that you can use to filter the logs and extract the relevant log lines. These options are pretty well-covered in `juju debug-log --help`, but in short:
-
-- `--include` / `--exclude` filters by entity (machine, unit, or application)
-- `--include-module` / `--exclude-module` filters by module
-- `--include-label` / `--exclude-label` filters by label
-
-The individual `--include*` / `--exclude*` values are ORed together, and then ANDed together for each different `--include*` / `--exclude*` flag.
-
--->
-
-<!--
-The `--include` and `--exclude` options select and deselect, respectively, the entity that logged the message. An entity is a Juju machine or unit agent. The entity names are similar to the names shown by `juju status`.
-
-Similarly, the `--include-module` and `--exclude-module` options can be used to influence the type of message displayed based on a (dotted) module name. The module name can be truncated.
-
-Lastly, `--include-label` and `--exclude-label` options can be used to influence the type of message displayed based on the labels defined in logging granularity. No hash is required.
-
-A combination of machine and unit filtering uses a logical OR whereas a combination of module and machine/unit filtering uses a logical AND.
-
-The `--level` option places a limit on logging verbosity (e.g. `--level INFO` will allow messages of levels 'INFO', 'WARNING', and 'ERROR' to be shown).
--->
-
 ```{ibnote}
 See more: {ref}`command-juju-debug-log`
 ```
-
-
-<!--
-The `debug-log` command shows the consolidated logs of all Juju agents (machines and units) running in a model. The `switch` command is used to change models. Alternatively, a model can be chosen with the '-m' option. The default model is the current model.
-
-The 'controller' model captures logs related to internal management (controller activity) such as adding machines and services to the database. Whereas a hosted model will provide logs concerning activities that take place post- provisioning.
-
-Due to the above, when deploying a service, it is normal for there to be an absence of logging in the workload model since logging first takes place in the 'controller' model.
-
-The output is a fixed number of existing log lines (number specified by possible options; the default is 10) and a stream of newly appended messages. Both existing lines and appended lines can be filtered by specifying options.
-
-The exception to the streaming is when limiting the output (option '--limit'; see below) and that limit is attained. In all other cases the command will need to be interrupted with 'Ctrl-C' in order to regain the shell prompt.
-
-
 
 ### Logging granularity
 
@@ -199,9 +124,6 @@ Juju saves or discards logs according to the value of the model config key `logg
 
 - **To change the logging configuration for machine and unit agents**: <br> Run the `model-config` command with the `logging-config` key set to a `"`-enclosed, semi-colon-separated list of `<filter>=<verbosity level>` pairs.
 
-<!--
-, where the subkeys include `<root>` = the machine agent, `unit` = the unit agent, and `<label>` is a log label, and the values are log verbosity levels. For example, to change the log level of the unit agent from the default `DEBUG` to the more verbose `TRACE`, run:
--->
 
 ````{dropdown} Examples
 

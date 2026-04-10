@@ -13,15 +13,6 @@ See also: {ref}`manage-relations`
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
-
-<!--
-Most applications rely on other applications to function correctly. For example, typically web apps require a database to connect to. Relations avoid the need for manual intervention when the charm’s environment changes. The charm will be notified of new changes, re-configure and restart the application automatically.
-
-Relations are a Juju abstraction that enables applications to inter-operate. They are a communication channel between charmed operators.
-
-A certain charm knows that it requires, say, a database and, correspondingly, a database charm knows that it is capable of satisfying another charm’s requirements. The act of joining such mutually-dependent charmed operators causes code (*hooks*) to run in each charm in such a way that both charmed operators can effectively talk to one another. When charmed operators have joined logically in this manner they are said to have formed a *relation*.
--->
-
 ## Relation taxonomy
 
 ```{figure} relation-taxonomy.svg
@@ -48,11 +39,6 @@ Because every relation results in the creation of unit and application databags 
 ### Non-peer relation
 
 A **non-peer** relation is a relation from one application to another, where the applications support the same endpoint interface and have opposite `provides` / `requires` endpoint roles.
-
-<!--
-![relations](https://assets.ubuntu.com/v1/4f0eba09-juju-relations.png)
-<br> *Example non-peer relation: The WordPress application with actual relations to MySQL and Apache and a potential relation to HAProxy, by virtue of the `wordpress` charm having a [`requires` endpoint that supports the `mysql` interface](https://charmhub.io/wordpress/integrations#db), compatible with `mysql`'s [`provides` endpoint supporting the same interface](https://charmhub.io/mysql/integrations#mysql), and a [`provides` endpoint that supports the `http` interface](https://charmhub.io/wordpress/integrations#website), compatible with `apache2`'s or `haproxy`'s `requires` endpoint supporting the same interface, among others.*
--->
 
 (subordinate-relation)=
 #### Subordinate relation
@@ -88,21 +74,6 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 
 A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
-<!--
-
-CMR addresses the case where one may wish to centralise a service. This allows your models to become more targeted and can reduce the cloud resources they may require.  A common use case is to deploy [prometheus](https://charmhub.io/prometheus2) monitoring in a single, central model, and relate it to various data sources in other models hosting various workloads.
-
-Some services that can benefit from central administration:
-
-- Certificate Authorities, such as the `easyrsa` charm
-- secret management, such as Vault
-- logging and monitoring
-- block storage management
-- databases
-
-Another use case would be when you are simply using different cloud types and wish to integrate the management of services across those different clouds.
--->
-
 ## Relation identification
 
 A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
@@ -112,8 +83,6 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 When you create a relation between two applications, this results in the creation of relation databags. Databags are per relation and per application, and can be application-scoped or unit-scoped. Each unit involved in a relation gets a local copy of all the databags for that relation.
 
 ### Permissions around relation databags
-
-<!--The primary means for applications to communicate over a relation is using relation data.-->
 
 ```{figure} relation-databags.svg
   :figclass: only-light

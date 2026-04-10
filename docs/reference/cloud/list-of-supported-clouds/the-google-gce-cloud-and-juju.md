@@ -66,12 +66,7 @@ See more:
 See more: {ref}`gce-appendix-workflow-1`
 ```
 
-<!--
-## Notes on `juju bootstrap`
--->
-
 ## Cloud-specific model configuration keys
-
 
 ### base-image-path
 Base path to look for machine disk images.
@@ -103,8 +98,6 @@ Example: vpc-a1b2c3d4
 | default value | "" |
 | immutable | true |
 | mandatory | false |
-
-
 
 ## Supported constraints
 

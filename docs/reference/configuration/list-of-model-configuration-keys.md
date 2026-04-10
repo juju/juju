@@ -1,7 +1,6 @@
 (list-of-model-configuration-keys)=
 # List of model configuration keys
 
-
 This document gives a list of all the configuration keys that can be applied to a Juju model.
 
 ```{important}
@@ -607,12 +606,11 @@ The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment 
 (model-config-juju-http-proxy)=
 ## `juju-http-proxy`
 
-The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
-
-**Default value:** `""`
+`juju-http-proxy` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
 **Type:** string
 
+**Default value:** ""
 
 (model-config-juju-https-proxy)=
 ## `juju-https-proxy`
@@ -685,10 +683,11 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 | `DEBUG` | Information intended to assist developers in debugging.
 | `TRACE` | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
 
-When you set `logging-config` to `module=level`, then Juju saves that module's logs
-for the given severity level **and above.** For example, setting `logging-config`
-to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs
-for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
+When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
+
+```{ibnote}
+See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
+```
 
 **Examples:**
 

@@ -55,7 +55,6 @@ may also create units and machines.
     defaults to 1.
   * If units were created, machines may also be created, as below.
 
-
 ### `juju add-unit`
 
 The `juju add-unit` command applies only to principal applications. It always
@@ -65,7 +64,6 @@ ec2 provider creates a new machine for each unit that cannot be placed on an
 existing machine without assigned units.
 
   * New units can only be added to Alive applications.
-
 
 ### `juju integrate`
 
@@ -132,9 +130,7 @@ involving several documents: the state API must be prepared to handle aborted
 transactions and either diagnose definite failure or retry until the operation
 succeeds (or, perhaps, finally error out pleading excessive contention).
 
-
 ### `juju remove-machine`
-
 
 Removing a machine involves a single transaction defined as follows:
 
@@ -157,7 +153,6 @@ Removing a machine involves a single transaction defined as follows:
 
   * If the machine is not Dead, abort with an appropriate error.
   * Delete the machine document.
-
 
 ### `juju remove-unit`
 
@@ -190,7 +185,6 @@ Removing a unit involves a single transaction, defined as follows:
   * If its application is Alive, or has at least two units, or is in at least
     one relation, decrement the application's unit count; otherwise remove the
     application.
-
 
 ### `juju remove-relation`
 
@@ -241,7 +235,6 @@ for sure that the relation -- and hence both applications -- are still Alive).
     Alive, or has at least one unit, or is in at least two relations, decrement
     its relation count; otherwise remove the counterpart application.
 
-
 ### `juju remove-application`
 
 Removing an application involves a single transaction defined as follows:
@@ -273,11 +266,7 @@ operations must occur in a single transaction:
   * Remove the application document.
   * Remove the application's settings document.
 
-
-
-
 ## Machines
-
 
   * Like everything else, a machine starts out Alive. `juju bootstrap` aside,
     the user interface does not allow for direct creation of machines, but
