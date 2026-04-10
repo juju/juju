@@ -1623,10 +1623,6 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Tracef("ignoring volume source for hostPath volume: %v", vol.Name)
 				continue
 			}
-			if vol.EmptyDir != nil {
-				logger.Tracef("ignoring volume source for emptyDir volume: %v", vol.Name)
-				continue
-			}
 
 			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
 			if err != nil {
@@ -1636,7 +1632,20 @@ func (a *app) Units() ([]caas.Unit, error) {
 				continue
 			}
 			if fsInfo.StorageName == "" {
-				if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
+				if vol.EmptyDir != nil {
+					prefix := a.name + "-"
+					if !strings.HasPrefix(volMount.Name, prefix) {
+						logger.Tracef("ignoring non-storage emptyDir volume: %v", vol.Name)
+						continue
+					}
+					// For emptyDir charm storage, the volume mount name is "<app>-<storage>".
+					// We can extract the storage name by trimming the "<app>-" prefix.
+					fsInfo.StorageName = strings.TrimPrefix(volMount.Name, prefix)
+					if fsInfo.StorageName == "" {
+						logger.Tracef("ignoring malformed emptyDir storage volume: %v", vol.Name)
+						continue
+					}
+				} else if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
 					fsInfo.StorageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				} else if valid := constants.PVNameRegexp.MatchString(volMount.Name); valid {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
@@ -2588,13 +2597,14 @@ func (a *app) EnsureStorage(
 	// if the VolumeClaimTemplates are unchanged.
 	currentClaims := currentStatefulset.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
-	if volumeClaimTemplateMatch(currentClaims, newClaims) && !hasNonPVCFileSystem(config.Filesystems) {
+	volumeClaimTemplateMatches := volumeClaimTemplateMatch(currentClaims, newClaims)
+	if volumeClaimTemplateMatches && !hasNonPVCFileSystem(config.Filesystems) {
 		logger.Debugf("no changes in storage for app %q", a.name)
 		return nil
 	}
 	// We can just apply the new statefulset for any non-PVC storage updates
 	// if the volume claim templates match since template updates are allowed.
-	if volumeClaimTemplateMatch(currentClaims, newClaims) {
+	if volumeClaimTemplateMatches {
 		applier.Apply(newStatefulset)
 		if err := applier.Run(context.TODO(), false); err != nil {
 			return errors.Annotatef(err, "ensuring storage for app %q", a.name)
@@ -2688,6 +2698,7 @@ func hasNonPVCFileSystem(filesystems []jujustorage.KubernetesFilesystemParams) b
 	}
 	return false
 }
+
 func accessModesEqual(currentModes, newModes []corev1.PersistentVolumeAccessMode) bool {
 	if len(currentModes) != len(newModes) {
 		return false
