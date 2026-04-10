@@ -2579,6 +2579,54 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	return endpointUUID.UUID, nil
 }
 
+// GetRelationUUIDsByUnitUUID retrieves the UUIDs of all in scope relations
+// for the specified unit.
+func (st *State) GetRelationUUIDsByUnitName(
+	ctx context.Context, unitName string,
+) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type relationUUIDRow struct {
+		RelationUUID string `db:"relation_uuid"`
+	}
+
+	ident := name{Name: unitName}
+	stmt, err := st.Prepare(`
+SELECT DISTINCT r.uuid AS &relationUUIDRow.relation_uuid
+FROM   relation AS r
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  u.name = $name.name
+`, relationUUIDRow{}, name{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select unit relation uuids statement: %w", err)
+	}
+
+	var rows []relationUUIDRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit relation uuids: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	return transform.Slice(rows, func(row relationUUIDRow) string {
+		return row.RelationUUID
+	}), nil
+}
+
 // GetPrincipalSubordinateApplicationUUIDs returns the Principal and Subordinate
 // application UUIDs for the given unit. The principal will be the first UUID
 // returned and the subordinate will be the second. If the unit is not a

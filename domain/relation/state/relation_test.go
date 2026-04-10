@@ -4176,6 +4176,67 @@ func (s *relationSuite) TestGetConsumerRelationUnitsChangeNoSettings(c *tc.C) {
 	c.Check(changes.DepartedUnits, tc.SameContents, []string{"noSetting/1"})
 }
 
+func (s *relationSuite) TestGetRelationUUIDsByUnitUUID(c *tc.C) {
+	// Arrange
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID2)
+
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	relation2UUID := s.addRelation(c)
+	relationEndpointUUID2 := s.addRelationEndpoint(c, relation2UUID, applicationEndpointUUID2)
+
+	unitName := coreunit.Name("unit-name1")
+	unitUUID1 := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	s.addRelationUnit(c, unitUUID1, relationEndpointUUID1)
+	s.addRelationUnit(c, unitUUID1, relationEndpointUUID2)
+
+	// Act
+	obtained, err := s.state.GetRelationUUIDsByUnitName(c.Context(), unitName.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.SameContents, []string{relationUUID.String(), relation2UUID.String()})
+}
+
+func (s *relationSuite) TestGetRelationUUIDsByUnitUUIDEmpty(c *tc.C) {
+	// Arrange: unit
+	unitName := coreunittesting.GenNewName(c, "unit/3")
+	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Act
+	obtained, err := s.state.GetRelationUUIDsByUnitName(c.Context(), unitName.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.HasLen, 0)
+}
+
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the
 // database using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
