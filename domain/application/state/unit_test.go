@@ -831,10 +831,11 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *tc.C) {
 
 func (s *unitStateSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	missingUnitUUID := tc.Must(c, coreunit.NewUUID)
-	err := s.state.UpdateUnitCharm(
-		c.Context(), missingUnitUUID, "bar",
-		applicationinternal.CreateUnitStorageArg{},
-	)
+	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        missingUnitUUID,
+		CharmUUID:   "bar",
+		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -842,20 +843,22 @@ func (s *unitStateSuite) TestUpdateUnitCharmUnitIsDead(c *tc.C) {
 	_, unitUUID := s.createNamedIAASUnit(c)
 	s.setUnitLife(c, unitUUID, life.Dead)
 
-	err := s.state.UpdateUnitCharm(
-		c.Context(), unitUUID, "bar",
-		applicationinternal.CreateUnitStorageArg{},
-	)
+	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   "bar",
+		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
 	_, unitUUID := s.createNamedIAASUnit(c)
 
-	err := s.state.UpdateUnitCharm(
-		c.Context(), unitUUID, "bar",
-		applicationinternal.CreateUnitStorageArg{},
-	)
+	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   "bar",
+		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -885,8 +888,11 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.UpdateUnitCharm(
-		c.Context(), unitUUID, id, applicationinternal.CreateUnitStorageArg{})
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   id,
+		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotUUID string
@@ -1010,8 +1016,11 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 	}
 
 	// Update the unit charm to the new charm UUID.
-	err = s.state.UpdateUnitCharm(
-		c.Context(), unitUUID, newCharm, createArgs)
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   newCharm,
+		UnitStorage: createArgs,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert that the old unit storage directives are removed.
