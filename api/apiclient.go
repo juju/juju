@@ -1048,10 +1048,10 @@ func dialCAProbeConn(ctx context.Context, addr string, proxyURL string) (net.Con
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
-		defer func() {
-			_ = resp.Body.Close()
-		}()
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		if len(body) == 0 {
 			return nil, errors.Errorf("proxy CONNECT failed: %s", resp.Status)
