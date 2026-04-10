@@ -28,7 +28,10 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
+		st.ControllerTag(),
+		context.Auth(),
 		context.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),

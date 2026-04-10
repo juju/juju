@@ -115,6 +115,8 @@ func NewControllerAPI(
 			apiUser,
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
+			st.ControllerTag(),
+			authorizer,
 			resources,
 			cloudspec.MakeCloudSpecGetter(pool),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
