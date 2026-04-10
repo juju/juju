@@ -383,10 +383,8 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
-	uri := coresecrets.NewURI()
-	uriStrPtr := new(uri.String())
 	s.secretService.EXPECT().CreateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, arg1 *coresecrets.URI, params secretservice.CreateUserSecretParams) error {
-		c.Assert(arg1, tc.DeepEquals, uri)
+		c.Assert(arg1, tc.NotZero)
 		c.Assert(params.Version, tc.Equals, 1)
 		c.Assert(params.UpdateUserSecretParams.Description, tc.DeepEquals, new("this is a user secret."))
 		c.Assert(params.UpdateUserSecretParams.Label, tc.DeepEquals, new("label"))
@@ -401,7 +399,6 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
-				URI:      uriStrPtr,
 				UpsertSecretArg: params.UpsertSecretArg{
 					Description: new("this is a user secret."),
 					Label:       new("label"),
@@ -413,7 +410,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0], tc.DeepEquals, params.StringResult{Result: uri.String()})
+	c.Assert(result.Results[0].Result, tc.NotZero)
 }
 
 func (s *SecretsSuite) assertUpdateSecrets(c *tc.C, uri *coresecrets.URI) {

@@ -96,6 +96,7 @@ type CreateSecretArg struct {
 
 	// URI identifies the secret to create.
 	// If empty, the controller generates a URI.
+	// Deprecated: Do not supply a URI, it will be ignored.
 	URI *string `json:"uri,omitempty"`
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
@@ -634,4 +635,11 @@ type SecretRevisionIDsResult struct {
 type SecretRevisionArgs struct {
 	Unit       Entity   `json:"entity"`
 	SecretURIs []string `json:"secret-uris"`
+}
+
+// RevokeIssuedTokensResult holds the result of revoking issued tokens, with
+// optionally a time for the next revoke.
+type RevokeIssuedTokensResult struct {
+	Next  time.Time `json:"next"`
+	Error *Error    `json:"error,omitempty"`
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	stdtesting "testing"
 	"time"
 
@@ -776,6 +777,7 @@ func (s *stateSuite) TestListAllSecrets(c *tc.C) {
 		coresecrets.NewURI(),
 		coresecrets.NewURI(),
 	}
+	slices.SortFunc(uri, coresecrets.CompareURI)
 
 	ctx := c.Context()
 	err := s.createUserSecret(c, 1, uri[0], sp[0])

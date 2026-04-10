@@ -684,6 +684,9 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []strin
 		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
 		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-2"},
 	}
+	ownedIDs := []string{
+		"owned-1",
+	}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
@@ -717,7 +720,19 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []strin
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(nil)
 
-	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, false, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	issuedTokenUUID := ""
+	s.mockRegistry.EXPECT().IssuesTokens().Return(false)
+
+	s.mockRegistry.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		&adminCfg,
+		false, false,
+		issuedTokenUUID,
+		accessor,
+		ownedIDs,
+		ownedRevs,
+		readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
@@ -800,6 +815,7 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
 		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
 	}
+	owned := []string{"owned-1"}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
@@ -834,7 +850,19 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, true, false, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	issuedTokenUUID := ""
+	s.mockRegistry.EXPECT().IssuesTokens().Return(false)
+
+	s.mockRegistry.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		&adminCfg,
+		true, false,
+		issuedTokenUUID,
+		accessor,
+		owned,
+		ownedRevs,
+		readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
@@ -917,6 +945,9 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-2"},
 		{URI: &coresecrets.URI{ID: "app-owned-1"}, RevisionID: "app-owned-rev-3"},
 	}
+	owned := []string{
+		"owned-1",
+	}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
@@ -951,7 +982,19 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
 	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
 
-	s.mockRegistry.EXPECT().RestrictedConfig(gomock.Any(), &adminCfg, true, true, accessor, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	issuedTokenUUID := ""
+	s.mockRegistry.EXPECT().IssuesTokens().Return(false)
+
+	s.mockRegistry.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		&adminCfg,
+		true, true,
+		issuedTokenUUID,
+		accessor,
+		owned,
+		ownedRevs,
+		readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
 		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,

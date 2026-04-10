@@ -10,7 +10,12 @@ jobs:
   migrate:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     timeout-minutes: 30
-    runs-on: [self-hosted, linux, arm64, aws, xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - xlarge
     # TODO: Migration broken until Juju 4 migration infra is fixed.
     if: false
     strategy:
@@ -24,10 +29,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: "Squid"
+        run: ./.github/squid.sh
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Set up Go env

@@ -15,7 +15,6 @@ on:
     - cron: "0 2 * * 1,5" # Runs at 02:00 AM on every Monday and Friday.
   workflow_dispatch:
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -23,10 +22,18 @@ concurrency:
 jobs:
   build:
     name: build
-    runs-on: [linux, self-hosted, x64, large, jammy]
+    runs-on:
+      - linux
+      - self-hosted
+      - x64
+      - large
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        run: ./.github/squid.sh
 
       - name: Install dependencies
         run: |

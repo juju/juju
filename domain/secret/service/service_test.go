@@ -99,6 +99,7 @@ func (s *serviceSuite) TestCreateUserSecretURIs(c *tc.C) {
 func (s *serviceSuite) TestCreateUserSecretInternal(c *tc.C) {
 	s.assertCreateUserSecret(c, true, false, false)
 }
+
 func (s *serviceSuite) TestCreateUserSecretExternalBackend(c *tc.C) {
 	s.assertCreateUserSecret(c, false, false, false)
 }
@@ -169,12 +170,22 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 			},
 		}, nil,
 	)
+	s.secretsBackendProvider.EXPECT().IssuesTokens().Return(false)
+	issuedTokenUUID := ""
+	owned := []string{existingOwnedURI.ID}
 	ownedRevisions := provider.SecretRevisions{}
 	ownedRevisions.Add(existingOwnedURI, "rev-id")
-	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, coresecrets.Accessor{
-		Kind: coresecrets.ModelAccessor,
-		ID:   s.modelID.String(),
-	}, ownedRevisions, provider.SecretRevisions{}).Return(
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		mBackendConfig,
+		true, false,
+		issuedTokenUUID,
+		coresecrets.Accessor{
+			Kind: coresecrets.ModelAccessor,
+			ID:   s.modelID.String(),
+		},
+		owned, ownedRevisions, provider.SecretRevisions{},
+	).Return(
 		&mBackendConfig.BackendConfig, nil,
 	)
 	s.secretsBackendProvider.EXPECT().NewBackend(
@@ -252,6 +263,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 func (s *serviceSuite) TestUpdateUserSecretInternal(c *tc.C) {
 	s.assertUpdateUserSecret(c, true, false, false)
 }
+
 func (s *serviceSuite) TestUpdateUserSecretExternalBackend(c *tc.C) {
 	s.assertUpdateUserSecret(c, false, false, false)
 }
@@ -304,12 +316,24 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 			},
 		}, nil,
 	)
+	s.secretsBackendProvider.EXPECT().IssuesTokens().Return(false)
+	issuedTokenUUID := ""
+	owned := []string{existingOwnedURI.ID}
 	ownedRevisions := provider.SecretRevisions{}
 	ownedRevisions.Add(existingOwnedURI, "rev-id")
-	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, coresecrets.Accessor{
-		Kind: coresecrets.ModelAccessor,
-		ID:   s.modelID.String(),
-	}, ownedRevisions, provider.SecretRevisions{}).Return(
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		mBackendConfig,
+		true, false,
+		issuedTokenUUID,
+		coresecrets.Accessor{
+			Kind: coresecrets.ModelAccessor,
+			ID:   s.modelID.String(),
+		},
+		owned,
+		ownedRevisions,
+		provider.SecretRevisions{},
+	).Return(
 		&mBackendConfig.BackendConfig, nil,
 	)
 	s.secretsBackendProvider.EXPECT().NewBackend(
