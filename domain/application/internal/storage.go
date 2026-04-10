@@ -71,9 +71,10 @@ type CreateStorageDirectiveArg struct {
 	Size uint64
 }
 
-// MaxStorageCountPreconditonFailed is used to signal a concurrent db operation
-// has occurred so that any pre-conditions for completing a storage add/attach are violated.
-const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
+// MaxStorageCountPreconditionFailed is used to signal a concurrent db operation
+// has occurred so that any pre-conditions for completing a storage add/attach
+// are violated.
+const MaxStorageCountPreconditionFailed = errors.ConstError("max storage count precondition failed")
 
 // UnitAddStorageArg represents the arguments required for add storage
 // to a unit. This will instantiate the instances and attachments for the unit.
@@ -93,7 +94,8 @@ type UnitAddStorageArg struct {
 	StorageToOwn []domainstorage.StorageInstanceUUID
 
 	// CountLessThanEqual is the maximum storage count allowed at the time
-	// the add is performed in order for the add operation to be considered successful.
+	// the add is performed in order for the add operation to be considered
+	// successful.
 	CountLessThanEqual uint32
 }
 
@@ -145,8 +147,8 @@ type CreateIAASUnitStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// CreateUnitStorageAttachmentArg describes the arguments required for creating a
-// storage attachment.
+// CreateUnitStorageAttachmentArg describes the arguments required for creating
+// a storage attachment.
 type CreateUnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorage.StorageAttachmentUUID
@@ -164,8 +166,8 @@ type CreateUnitStorageAttachmentArg struct {
 	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
 }
 
-// CreateUnitStorageDirectiveArg describes the arguments required for making storage
-// directives on a unit.
+// CreateUnitStorageDirectiveArg describes the arguments required for making
+// storage directives on a unit.
 type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
 
 // CreateUnitStorageFilesystemArg describes a set of arguments for a filesystem
@@ -305,8 +307,8 @@ type RegisterUnitStorageArg struct {
 
 	// FilesystemAttachmentProviderIDs defines the provider id value to set for
 	// each filesystem attachment. This allows associating filesystem
-	// attachments that are being created with the provider's identifier for this
-	// storage.
+	// attachments that are being created with the provider's identifier for
+	// this storage.
 	FilesystemAttachmentProviderIDs map[domainstorage.FilesystemAttachmentUUID]string
 
 	// VolumeAttachmentProviderIDs defines the provider id value to set for
@@ -324,8 +326,8 @@ type StorageInstanceComposition struct {
 	// of the storage composition.
 	Filesystem *StorageInstanceCompositionFilesystem
 
-	// StorageName is the name of the storage instance and can be considered to be
-	// directly related to the charm storage for which it was provisioned.
+	// StorageName is the name of the storage instance and can be considered to
+	// be directly related to the charm storage for which it was provisioned.
 	StorageName domainstorage.Name
 
 	// UUID is the unique id of the storage instance.

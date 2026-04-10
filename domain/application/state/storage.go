@@ -1127,7 +1127,7 @@ func (st *State) addStorageForUnit(
 		return nil, errors.Capture(err)
 	}
 	if currentCount > storageArg.CountLessThanEqual {
-		return nil, internal.MaxStorageCountPreconditonFailed
+		return nil, internal.MaxStorageCountPreconditionFailed
 	}
 
 	storageIDs, err := st.unitState.insertUnitStorageInstances(

@@ -1146,7 +1146,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
 	})
-	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+	if errors.Is(err, internal.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
@@ -1183,7 +1183,7 @@ func (s *ProviderService) AddStorageForCAASUnit(
 	}
 
 	added, err := s.st.AddStorageForCAASUnit(ctx, unitUUID, storageName, unitStorageArgs)
-	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+	if errors.Is(err, internal.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
