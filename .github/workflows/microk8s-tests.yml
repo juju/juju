@@ -31,6 +31,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: "Squid"
+      if: github.repository_owner != 'juju'
       run: ./.github/squid.sh
 
     - name: Set up Go
@@ -68,7 +69,9 @@ jobs:
         done
 
         sudo DEBIAN_FRONTEND=noninteractive apt update
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools docker-buildx
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx-plugin >/dev/null 2>&1 || \
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx >/dev/null 2>&1
         sudo usermod -a -G microk8s $USER
 
     - name: Build juju and operator image

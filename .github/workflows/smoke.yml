@@ -27,12 +27,15 @@ jobs:
         run: |
           set -euxo pipefail
           echo "/snap/bin" >> $GITHUB_PATH
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect docker-buildx
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx-plugin >/dev/null 2>&1 || \
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx >/dev/null 2>&1
 
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: Setup LXD

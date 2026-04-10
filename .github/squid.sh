@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 sudo DEBIAN_FRONTEND=noninteractive apt install -y squid nginx ||
 (sudo DEBIAN_FRONTEND=noninteractive apt update -y &&
  sudo DEBIAN_FRONTEND=noninteractive apt install -y squid nginx)
