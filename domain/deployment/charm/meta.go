@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -128,6 +129,41 @@ type Storage struct {
 	//
 	// Properties has no default, and is optional.
 	Properties []string
+}
+
+// Equal returns true if the Storage is equal to the provided Storage.
+func (s Storage) Equal(other Storage) bool {
+	if s.Name != other.Name {
+		return false
+	}
+	if s.Description != other.Description {
+		return false
+	}
+	if s.Type != other.Type {
+		return false
+	}
+	if s.Shared != other.Shared {
+		return false
+	}
+	if s.ReadOnly != other.ReadOnly {
+		return false
+	}
+	if s.CountMin != other.CountMin {
+		return false
+	}
+	if s.CountMax != other.CountMax {
+		return false
+	}
+	if s.MinimumSize != other.MinimumSize {
+		return false
+	}
+	if s.Location != other.Location {
+		return false
+	}
+	if !slices.Equal(s.Properties, other.Properties) {
+		return false
+	}
+	return true
 }
 
 // DeviceType defines a device type.
