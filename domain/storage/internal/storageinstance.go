@@ -11,7 +11,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
 
 // StorageInstanceInfo represents information about a storage instance
@@ -200,7 +199,7 @@ type CreateStorageInstanceWithExistingFilesystem struct {
 
 	// FilesystemProvisionScope describes the provision scope to assign to the
 	// newly created filesystem.
-	FilesystemProvisionScope domainstorageprov.ProvisionScope
+	FilesystemProvisionScope domainstorage.ProvisionScope
 
 	// FilesystemSize is the size of the provisioned filesystem.
 	FilesystemSize uint64
@@ -231,7 +230,7 @@ type CreateStorageInstanceWithExistingVolumeBackedFilesystem struct {
 
 	// VolumeProvisionScope describes the provision scope to assign to the newly
 	// created volume.
-	VolumeProvisionScope domainstorageprov.ProvisionScope
+	VolumeProvisionScope domainstorage.ProvisionScope
 
 	// VolumeSize is the size of the provisioned volume.
 	VolumeSize uint64

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/internal"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -219,7 +218,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		ProviderID:          "provider-ebs-fs-1",
 		StorageInstanceUUID: ebsInstanceUUID.String(),
 		Life:                life.Alive,
-		Scope:               storageprovisioning.ProvisionScopeMachine,
+		Scope:               storage.ProvisionScopeMachine,
 	}, {
 		UUID:                gceFsUUID.String(),
 		ID:                  "gce-fs-1",
@@ -227,7 +226,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		ProviderID:          "provider-gce-fs-1",
 		StorageInstanceUUID: gceInstanceUUID.String(),
 		Life:                life.Alive,
-		Scope:               storageprovisioning.ProvisionScopeModel,
+		Scope:               storage.ProvisionScopeModel,
 	}, {
 		UUID:       azureFsUUID.String(),
 		ID:         "azure-fs-1",
@@ -236,7 +235,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		// This filesystem is not attached to any storage instance
 		StorageInstanceUUID: "",
 		Life:                life.Alive,
-		Scope:               storageprovisioning.ProvisionScopeModel,
+		Scope:               storage.ProvisionScopeModel,
 	}}
 
 	st := NewState(s.TxnRunnerFactory())
@@ -250,21 +249,21 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		UUID:       ebsFsUUID.String(),
 		ID:         "ebs-fs-1",
 		LifeID:     int(life.Alive),
-		ScopeID:    int(storageprovisioning.ProvisionScopeMachine),
+		ScopeID:    int(storage.ProvisionScopeMachine),
 		ProviderID: "provider-ebs-fs-1",
 		SizeInMiB:  1024,
 	}, {
 		UUID:       gceFsUUID.String(),
 		ID:         "gce-fs-1",
 		LifeID:     int(life.Alive),
-		ScopeID:    int(storageprovisioning.ProvisionScopeModel),
+		ScopeID:    int(storage.ProvisionScopeModel),
 		ProviderID: "provider-gce-fs-1",
 		SizeInMiB:  2048,
 	}, {
 		UUID:       azureFsUUID.String(),
 		ID:         "azure-fs-1",
 		LifeID:     int(life.Alive),
-		ScopeID:    int(storageprovisioning.ProvisionScopeModel),
+		ScopeID:    int(storage.ProvisionScopeModel),
 		ProviderID: "provider-azure-fs-1",
 		SizeInMiB:  4096,
 	}})
@@ -303,7 +302,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		ProviderID:          "provider-ebs-fs-1",
 		StorageInstanceUUID: ebsInstanceUUID.String(),
 		Life:                life.Alive,
-		Scope:               storageprovisioning.ProvisionScopeMachine,
+		Scope:               storage.ProvisionScopeMachine,
 	}, {
 		UUID:                gceFsUUID.String(),
 		ID:                  "gce-fs-1",
@@ -311,13 +310,13 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		ProviderID:          "provider-gce-fs-1",
 		StorageInstanceUUID: gceInstanceUUID.String(),
 		Life:                life.Alive,
-		Scope:               storageprovisioning.ProvisionScopeModel,
+		Scope:               storage.ProvisionScopeModel,
 	}}
 
 	attachmentArgs := []internal.ImportFilesystemAttachmentArgs{{
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
-		Scope:          storageprovisioning.ProvisionScopeMachine,
+		Scope:          storage.ProvisionScopeMachine,
 		NetNodeUUID:    netNodeUUID1.String(),
 		MountPoint:     "/mnt/ebs1",
 		ProviderID:     "provider-id",
@@ -325,14 +324,14 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}, {
 		UUID:           ebsAttachment2UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
-		Scope:          storageprovisioning.ProvisionScopeMachine,
+		Scope:          storage.ProvisionScopeMachine,
 		NetNodeUUID:    netNodeUUID2.String(),
 		MountPoint:     "/mnt/ebs2",
 		ReadOnly:       true,
 	}, {
 		UUID:           gceAttachmentUUID.String(),
 		FilesystemUUID: gceFsUUID.String(),
-		Scope:          storageprovisioning.ProvisionScopeModel,
+		Scope:          storage.ProvisionScopeModel,
 		NetNodeUUID:    netNodeUUID3.String(),
 		MountPoint:     "/mnt/gce",
 		ReadOnly:       false,
@@ -350,7 +349,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
 		NetNodeUUID:    netNodeUUID1.String(),
-		ScopeID:        int(storageprovisioning.ProvisionScopeMachine),
+		ScopeID:        int(storage.ProvisionScopeMachine),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/ebs1",
 		ProviderID:     "provider-id",
@@ -359,7 +358,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		UUID:           ebsAttachment2UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
 		NetNodeUUID:    netNodeUUID2.String(),
-		ScopeID:        int(storageprovisioning.ProvisionScopeMachine),
+		ScopeID:        int(storage.ProvisionScopeMachine),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/ebs2",
 		ReadOnly:       true,
@@ -367,7 +366,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		UUID:           gceAttachmentUUID.String(),
 		FilesystemUUID: gceFsUUID.String(),
 		NetNodeUUID:    netNodeUUID3.String(),
-		ScopeID:        int(storageprovisioning.ProvisionScopeModel),
+		ScopeID:        int(storage.ProvisionScopeModel),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/gce",
 		ReadOnly:       false,
@@ -399,7 +398,7 @@ func (s *importSuite) TestImportVolumesFoundBlockDevice(c *tc.C) {
 	attachmentPlan := internal.ImportVolumeAttachmentPlanArgs{
 		UUID:             tc.Must(c, storage.NewVolumeAttachmentPlanUUID),
 		LifeID:           life.Alive,
-		ProvisionScopeID: storageprovisioning.ProvisionScopeMachine,
+		ProvisionScopeID: storage.ProvisionScopeMachine,
 		DeviceAttributes: map[string]string{"foo": "bar", "baz": "food"},
 		NetNodeUUID:      netNodeUUID,
 	}
@@ -409,7 +408,7 @@ func (s *importSuite) TestImportVolumesFoundBlockDevice(c *tc.C) {
 			ID:                  "0",
 			ProviderID:          "vol-0f2829d7e5c4c0140",
 			LifeID:              life.Alive,
-			ProvisionScopeID:    storageprovisioning.ProvisionScopeMachine,
+			ProvisionScopeID:    storage.ProvisionScopeMachine,
 			WWN:                 "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
 			Persistent:          true,
 			SizeMiB:             1024,

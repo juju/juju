@@ -198,7 +198,7 @@ type AddCAASUnitArg struct {
 
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
-	internal.CreateUnitStorageArg
+	domainstorage.CreateUnitStorageArg
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
@@ -209,7 +209,7 @@ type AddUnitArg struct {
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
-	internal.CreateIAASUnitStorageArg
+	domainstorage.CreateIAASUnitStorageArg
 	AddUnitArg
 	Platform deployment.Platform
 
@@ -249,7 +249,7 @@ type RegisterCAASUnitArg struct {
 	// attaching existing storage to the unit. Described as well is the set of
 	// storage directives the unit should use if it is being created for the
 	// first time.
-	internal.RegisterUnitStorageArg
+	domainstorage.RegisterUnitStorageArg
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.
@@ -259,7 +259,7 @@ type UnitStatusArg struct {
 }
 
 type SubordinateUnitArg struct {
-	internal.CreateUnitStorageArg
+	domainstorage.CreateUnitStorageArg
 	UnitStatusArg
 	SubordinateAppID application.UUID
 	// NetNodeUUID describes the network node uuid for this subordinate unit.
@@ -272,7 +272,7 @@ type SubordinateUnitArg struct {
 
 type SubordinateIAASUnitArg struct {
 	SubordinateUnitArg
-	internal.CreateIAASUnitStorageArg
+	domainstorage.CreateIAASUnitStorageArg
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.

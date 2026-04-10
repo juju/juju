@@ -30,7 +30,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -570,7 +569,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.Ports = &caasUnit.Ports
 	}
 
-	var storageArg internal.RegisterUnitStorageArg
+	var storageArg domainstorage.RegisterUnitStorageArg
 	if isRegistered {
 		storageArg, err = s.storageService.MakeRegisterExistingCAASUnitStorageArg(
 			ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
@@ -1040,11 +1039,12 @@ func encodeUnitPlacement(placement deployment.Placement) string {
 func (s *ProviderService) populateAddStorageArgs(
 	ctx context.Context,
 	storageName corestorage.Name,
-	unitUUID coreunit.UUID, addCount uint32, arg storage.AddUnitStorageOverride,
-) (internal.UnitAddStorageArg, error) {
+	unitUUID coreunit.UUID, addCount uint32,
+	arg domainstorage.AddUnitStorageOverride,
+) (domainstorage.UnitAddStorageArg, error) {
 	unitStorageDirective, err := s.storageService.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf(
+		return domainstorage.UnitAddStorageArg{}, errors.Errorf(
 			"getting unit %q storage directive: %w",
 			unitUUID, err,
 		)
@@ -1052,7 +1052,7 @@ func (s *ProviderService) populateAddStorageArgs(
 
 	charmStorage, existingCount, err := s.st.GetCharmStorageAndInstanceCountByUnitUUID(ctx, unitUUID, storageName)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf(
+		return domainstorage.UnitAddStorageArg{}, errors.Errorf(
 			"getting unit %q charm storage %q and count: %w",
 			unitUUID, storageName, err,
 		)
@@ -1089,7 +1089,7 @@ func (s *ProviderService) populateAddStorageArgs(
 	}
 	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(ctx, charmStorageDefs, toCheck)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Capture(err)
+		return domainstorage.UnitAddStorageArg{}, errors.Capture(err)
 	}
 
 	args, err := s.storageService.MakeUnitAddStorageArgs(
@@ -1099,7 +1099,7 @@ func (s *ProviderService) populateAddStorageArgs(
 		storageDirective,
 	)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Capture(err)
+		return domainstorage.UnitAddStorageArg{}, errors.Capture(err)
 	}
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
@@ -1124,7 +1124,7 @@ func (s *ProviderService) populateAddStorageArgs(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg storage.AddUnitStorageOverride,
+	count uint32, arg domainstorage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1141,12 +1141,12 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		return nil, errors.Capture(err)
 	}
 
-	added, err := s.st.AddStorageForIAASUnit(ctx, unitUUID, storageName, internal.IAASUnitAddStorageArg{
+	added, err := s.st.AddStorageForIAASUnit(ctx, unitUUID, storageName, domainstorage.IAASUnitAddStorageArg{
 		UnitAddStorageArg: unitStorageArgs,
 		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
 	})
-	if errors.Is(err, internal.MaxStorageCountPreconditionFailed) {
+	if errors.Is(err, domainstorage.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
@@ -1171,7 +1171,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg storage.AddUnitStorageOverride,
+	count uint32, arg domainstorage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1183,7 +1183,7 @@ func (s *ProviderService) AddStorageForCAASUnit(
 	}
 
 	added, err := s.st.AddStorageForCAASUnit(ctx, unitUUID, storageName, unitStorageArgs)
-	if errors.Is(err, internal.MaxStorageCountPreconditionFailed) {
+	if errors.Is(err, domainstorage.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,

@@ -15,10 +15,8 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
 
 type registerCAASUnitSuite struct {
@@ -31,13 +29,13 @@ func TestRegisterCAASUnitSuite(t *testing.T) {
 
 func (s *registerCAASUnitSuite) makeStorageArg(
 	c *tc.C,
-) internal.RegisterUnitStorageArg {
+) domainstorage.RegisterUnitStorageArg {
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
-	rval := internal.RegisterUnitStorageArg{
-		CreateUnitStorageArg: internal.CreateUnitStorageArg{
-			StorageDirectives: []internal.CreateUnitStorageDirectiveArg{
+	rval := domainstorage.RegisterUnitStorageArg{
+		CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
+			StorageDirectives: []domainstorage.CreateUnitStorageDirectiveArg{
 				{
 					Count:    1,
 					Name:     "st1",
@@ -45,12 +43,12 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					Size:     1024,
 				},
 			},
-			StorageInstances: []internal.CreateUnitStorageInstanceArg{
+			StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{
 				{
 					CharmName: "foo",
-					Filesystem: &internal.CreateUnitStorageFilesystemArg{
+					Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
 						UUID:           fsUUID,
-						ProvisionScope: domainstorageprov.ProvisionScopeModel,
+						ProvisionScope: domainstorage.ProvisionScopeModel,
 					},
 					Kind:            domainstorage.StorageKindFilesystem,
 					RequestSizeMiB:  1024,
@@ -58,11 +56,11 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					UUID:            storageInstUUID,
 				},
 			},
-			StorageToAttach: []internal.CreateUnitStorageAttachmentArg{
+			StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{
 				{
-					FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+					FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 						FilesystemUUID: fsUUID,
-						ProvisionScope: domainstorageprov.ProvisionScopeModel,
+						ProvisionScope: domainstorage.ProvisionScopeModel,
 						UUID:           tc.Must(c, domainstorage.NewFilesystemAttachmentUUID),
 					},
 					UUID:                tc.Must(c, domainstorage.NewStorageAttachmentUUID),

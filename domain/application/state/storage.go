@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -257,14 +256,14 @@ FROM (
 
 		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+				ProvisionScope: domainstorage.ProvisionScope(dbVal.FilesystemProvisionScope.V),
 				UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
 			}
 		}
 
 		if dbVal.VolumeUUID.Valid {
 			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+				ProvisionScope: domainstorage.ProvisionScope(dbVal.VolumeProvisionScope.V),
 				UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
 			}
 		}
@@ -393,7 +392,7 @@ FROM (
 
 		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(
+				ProvisionScope: domainstorage.ProvisionScope(
 					dbVal.FilesystemProvisionScope.V,
 				),
 				UUID: domainstorage.FilesystemUUID(
@@ -404,7 +403,7 @@ FROM (
 
 		if dbVal.VolumeUUID.Valid {
 			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(
+				ProvisionScope: domainstorage.ProvisionScope(
 					dbVal.VolumeProvisionScope.V,
 				),
 				UUID: domainstorage.VolumeUUID(
@@ -429,7 +428,7 @@ FROM (
 		if dbAttachmentVal.FilesystemAttachmentUUID.Valid &&
 			dbAttachmentVal.FilesystemUUID.Valid {
 			r := internal.StorageInstanceCompositionFilesystemAttachment{
-				ProvisionScope: domainstorageprov.ProvisionScope(
+				ProvisionScope: domainstorage.ProvisionScope(
 					dbAttachmentVal.FilesystemAttachmentProvisionScope.V,
 				),
 				UUID: domainstorage.FilesystemAttachmentUUID(
@@ -444,7 +443,7 @@ FROM (
 		if dbAttachmentVal.VolumeAttachmentUUID.Valid &&
 			dbAttachmentVal.VolumeUUID.Valid {
 			r := internal.StorageInstanceCompositionVolumeAttachment{
-				ProvisionScope: domainstorageprov.ProvisionScope(
+				ProvisionScope: domainstorage.ProvisionScope(
 					dbAttachmentVal.VolumeAttachmentProvisionScope.V,
 				),
 				UUID: domainstorage.VolumeAttachmentUUID(
@@ -926,7 +925,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID string,
-	storageToAttach []internal.CreateUnitStorageAttachmentArg,
+	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
@@ -1110,7 +1109,7 @@ AND si.uuid != $storageCount.uuid
 
 func (st *State) addStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
-	storageName corestorage.Name, storageArg internal.UnitAddStorageArg,
+	storageName corestorage.Name, storageArg domainstorage.UnitAddStorageArg,
 ) ([]string, error) {
 	// First to the basic life check for the unit.
 	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
@@ -1127,7 +1126,7 @@ func (st *State) addStorageForUnit(
 		return nil, errors.Capture(err)
 	}
 	if currentCount > storageArg.CountLessThanEqual {
-		return nil, internal.MaxStorageCountPreconditionFailed
+		return nil, domainstorage.MaxStorageCountPreconditionFailed
 	}
 
 	storageIDs, err := st.unitState.insertUnitStorageInstances(
@@ -1163,7 +1162,7 @@ func (st *State) addStorageForUnit(
 // AddStorageForCAASUnit adds storage instances to given CAAS unit as specified.
 func (st *State) AddStorageForCAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.UnitAddStorageArg,
+	storageArg domainstorage.UnitAddStorageArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1189,7 +1188,7 @@ func (st *State) AddStorageForCAASUnit(
 // AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
 func (st *State) AddStorageForIAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.IAASUnitAddStorageArg,
+	storageArg domainstorage.IAASUnitAddStorageArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

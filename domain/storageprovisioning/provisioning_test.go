@@ -56,7 +56,7 @@ func (s *provisioningSuite) TestBlockCompositionVolumeBackedModelScoped(c *tc.C)
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		VolumeProvisionScope: ProvisionScopeModel,
+		VolumeProvisionScope: domainstorage.ProvisionScopeModel,
 		VolumeRequired:       true,
 	})
 }
@@ -80,7 +80,7 @@ func (s *provisioningSuite) TestBlockCompositionVolumeBackedMachineScoped(c *tc.
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		VolumeProvisionScope: ProvisionScopeMachine,
+		VolumeProvisionScope: domainstorage.ProvisionScopeMachine,
 		VolumeRequired:       true,
 	})
 }
@@ -124,7 +124,7 @@ func (s *provisioningSuite) TestFilesystemCompositionFilesystemBackedMachineScop
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		FilesystemRequired:       true,
 	})
 }
@@ -148,7 +148,7 @@ func (s *provisioningSuite) TestFilesystemCompositionFilesystemBackedModelScoped
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		FilesystemProvisionScope: ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 		FilesystemRequired:       true,
 	})
 }
@@ -181,7 +181,7 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsFilesystemAndVolume
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		FilesystemProvisionScope: ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 		FilesystemRequired:       true,
 	})
 }
@@ -206,9 +206,9 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsVolumeMachineScoped
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		FilesystemRequired:       true,
-		VolumeProvisionScope:     ProvisionScopeModel,
+		VolumeProvisionScope:     domainstorage.ProvisionScopeModel,
 		VolumeRequired:           true,
 	})
 }
@@ -233,9 +233,9 @@ func (s *provisioningSuite) TestFilesystemCompositionSupportsVolumeModelScoped(c
 	)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(comp, tc.Equals, StorageInstanceComposition{
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		FilesystemRequired:       true,
-		VolumeProvisionScope:     ProvisionScopeModel,
+		VolumeProvisionScope:     domainstorage.ProvisionScopeModel,
 		VolumeRequired:           true,
 	})
 }
@@ -324,7 +324,7 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeVolumeMode
 
 	comp := StorageInstanceComposition{
 		VolumeRequired:       true,
-		VolumeProvisionScope: ProvisionScopeModel,
+		VolumeProvisionScope: domainstorage.ProvisionScopeModel,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -336,7 +336,7 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeVolumeMach
 
 	comp := StorageInstanceComposition{
 		VolumeRequired:       true,
-		VolumeProvisionScope: ProvisionScopeMachine,
+		VolumeProvisionScope: domainstorage.ProvisionScopeMachine,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -348,7 +348,7 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystem
 
 	comp := StorageInstanceComposition{
 		FilesystemRequired:       true,
-		FilesystemProvisionScope: ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -360,7 +360,7 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystem
 
 	comp := StorageInstanceComposition{
 		FilesystemRequired:       true,
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -372,9 +372,9 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystem
 
 	comp := StorageInstanceComposition{
 		FilesystemRequired:       true,
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		VolumeRequired:           true,
-		VolumeProvisionScope:     ProvisionScopeModel,
+		VolumeProvisionScope:     domainstorage.ProvisionScopeModel,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -386,9 +386,9 @@ func (s *provisioningSuite) TestCalculateStorageInstanceOwnershipScopeFilesystem
 
 	comp := StorageInstanceComposition{
 		FilesystemRequired:       true,
-		FilesystemProvisionScope: ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		VolumeRequired:           true,
-		VolumeProvisionScope:     ProvisionScopeMachine,
+		VolumeProvisionScope:     domainstorage.ProvisionScopeMachine,
 	}
 	scope, err := CalculateStorageInstanceOwnershipScope(comp)
 	c.Assert(err, tc.ErrorIsNil)

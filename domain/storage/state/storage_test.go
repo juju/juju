@@ -73,7 +73,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystem(c *tc.C) 
 		StoragePoolUUID:           poolUUID,
 		RequestedSizeMiB:          1024,
 		FilesystemUUID:            filesystemUUID,
-		FilesystemProvisionScope:  domainstorageprov.ProvisionScopeModel,
+		FilesystemProvisionScope:  domainstorage.ProvisionScopeModel,
 		FilesystemSize:            2048,
 		FilesystemProviderID:      "fs-12345",
 		FilesystemStatusID:        1,
@@ -131,7 +131,7 @@ WHERE uuid = ?
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotFilesystemUUID, tc.Equals, filesystemUUID.String())
-	c.Check(gotProvisionScopeID, tc.Equals, int(domainstorageprov.ProvisionScopeModel))
+	c.Check(gotProvisionScopeID, tc.Equals, int(domainstorage.ProvisionScopeModel))
 	c.Check(gotFilesystemProviderID, tc.Equals, "fs-12345")
 	c.Check(gotFilesystemSize, tc.Equals, uint64(2048))
 
@@ -187,7 +187,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystemPoolNotFou
 		StoragePoolUUID:          nonExistentPoolUUID,
 		RequestedSizeMiB:         1024,
 		FilesystemUUID:           filesystemUUID,
-		FilesystemProvisionScope: domainstorageprov.ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 		FilesystemSize:           2048,
 		FilesystemProviderID:     "fs-12345",
 	}
@@ -211,7 +211,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 		StoragePoolUUID:           poolUUID,
 		RequestedSizeMiB:          2048,
 		FilesystemUUID:            filesystemUUID,
-		FilesystemProvisionScope:  domainstorageprov.ProvisionScopeMachine,
+		FilesystemProvisionScope:  domainstorage.ProvisionScopeMachine,
 		FilesystemSize:            4096,
 		FilesystemProviderID:      "fs-abc123",
 		FilesystemStatusID:        1,
@@ -222,7 +222,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 		CreateStorageInstanceWithExistingFilesystem: fsArgs,
 
 		VolumeUUID:            volumeUUID,
-		VolumeProvisionScope:  domainstorageprov.ProvisionScopeModel,
+		VolumeProvisionScope:  domainstorage.ProvisionScopeModel,
 		VolumeSize:            4096,
 		VolumeProviderID:      "vol-xyz789",
 		VolumeHardwareID:      "hw-001",
@@ -283,7 +283,7 @@ WHERE uuid = ?
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotFilesystemUUID, tc.Equals, filesystemUUID.String())
-	c.Check(gotProvisionScopeID, tc.Equals, int(domainstorageprov.ProvisionScopeMachine))
+	c.Check(gotProvisionScopeID, tc.Equals, int(domainstorage.ProvisionScopeMachine))
 	c.Check(gotFilesystemProviderID, tc.Equals, "fs-abc123")
 	c.Check(gotFilesystemSize, tc.Equals, uint64(4096))
 
@@ -312,7 +312,7 @@ WHERE uuid = ?
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotVolumeUUID, tc.Equals, volumeUUID.String())
-	c.Check(gotVolProvisionScopeID, tc.Equals, int(domainstorageprov.ProvisionScopeModel))
+	c.Check(gotVolProvisionScopeID, tc.Equals, int(domainstorage.ProvisionScopeModel))
 	c.Check(gotVolumeProviderID, tc.Equals, "vol-xyz789")
 	c.Check(gotVolumeSize, tc.Equals, uint64(4096))
 	c.Check(gotVolumeHardwareID, tc.Equals, "hw-001")
@@ -409,7 +409,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 		StoragePoolUUID:          nonExistentPoolUUID,
 		RequestedSizeMiB:         2048,
 		FilesystemUUID:           filesystemUUID,
-		FilesystemProvisionScope: domainstorageprov.ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 		FilesystemSize:           4096,
 		FilesystemProviderID:     "fs-abc123",
 	}
@@ -417,7 +417,7 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 		CreateStorageInstanceWithExistingFilesystem: fsArgs,
 
 		VolumeUUID:           volumeUUID,
-		VolumeProvisionScope: domainstorageprov.ProvisionScopeMachine,
+		VolumeProvisionScope: domainstorage.ProvisionScopeMachine,
 		VolumeSize:           4096,
 		VolumeProviderID:     "vol-xyz789",
 		VolumeHardwareID:     "hw-001",
