@@ -2856,17 +2856,18 @@ func (s *applicationSuite) TestUnitsWithEmptyDirStorage(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
 	podSpec := getPodSpec31()
-	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-		Name: "gitlab-config",
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}, corev1.Volume{
-		Name: "vol",
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
+	podSpec.Volumes = append(podSpec.Volumes,
+		corev1.Volume{
+			Name: "gitlab-config",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}, corev1.Volume{
+			Name: "vol",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
 	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, corev1.VolumeMount{
 		Name:      "gitlab-config",
 		MountPath: "/config",

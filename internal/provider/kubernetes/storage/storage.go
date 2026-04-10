@@ -6,6 +6,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -130,14 +131,24 @@ func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
 
 // FilesystemInfo returns filesystem info.
 func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
-	namespace string, volume corev1.Volume, volumeMount corev1.VolumeMount,
+	namespace string, volume corev1.Volume, volumeMount corev1.VolumeMount, appName string,
 	now time.Time) (*caas.FilesystemInfo, error) {
 	if volume.EmptyDir != nil {
 		size := uint64(0)
 		if volume.EmptyDir.SizeLimit != nil {
 			size = quantityAsMibiBytes(*volume.EmptyDir.SizeLimit)
 		}
+
+		// For emptyDir charm storage, the volume mount name is "<app>-<storage>".
+		// We can extract the storage name by trimming the "<app>-" prefix.
+		prefix := appName + "-"
+		var storageName string
+		if strings.HasPrefix(volumeMount.Name, prefix) {
+			storageName = strings.TrimPrefix(volumeMount.Name, prefix)
+		}
+
 		return &caas.FilesystemInfo{
+			StorageName:  storageName,
 			Size:         size,
 			FilesystemId: volume.Name,
 			MountPoint:   volumeMount.MountPath,

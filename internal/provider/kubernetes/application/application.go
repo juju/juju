@@ -1624,7 +1624,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 				continue
 			}
 
-			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
+			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, a.name, now)
 			if err != nil {
 				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
 			}
@@ -1632,20 +1632,13 @@ func (a *app) Units() ([]caas.Unit, error) {
 				continue
 			}
 			if fsInfo.StorageName == "" {
+				// For emptyDir volumes, we should have derived the storage name from FilesystemInfo using app name prefix,
+				// if not this would mean the volume is not managed by juju and we should ignore it.
 				if vol.EmptyDir != nil {
-					prefix := a.name + "-"
-					if !strings.HasPrefix(volMount.Name, prefix) {
-						logger.Tracef("ignoring non-storage emptyDir volume: %v", vol.Name)
-						continue
-					}
-					// For emptyDir charm storage, the volume mount name is "<app>-<storage>".
-					// We can extract the storage name by trimming the "<app>-" prefix.
-					fsInfo.StorageName = strings.TrimPrefix(volMount.Name, prefix)
-					if fsInfo.StorageName == "" {
-						logger.Tracef("ignoring malformed emptyDir storage volume: %v", vol.Name)
-						continue
-					}
-				} else if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
+					logger.Tracef("ignoring volume source for emptyDir volume: %v", vol.Name)
+					continue
+				}
+				if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
 					fsInfo.StorageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				} else if valid := constants.PVNameRegexp.MatchString(volMount.Name); valid {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
