@@ -487,11 +487,12 @@ SELECT &storageDirective.* FROM (
            cm.name AS charm_metadata_name,
            csk.kind AS charm_storage_kind,
            cs.count_max AS count_max
-    FROM   unit_storage_directive usd
-    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    FROM   unit u
+    JOIN   unit_storage_directive usd ON usd.unit_uuid = u.uuid AND usd.charm_uuid = u.charm_uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = u.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  unit_uuid = $entityUUID.uuid
+    WHERE  u.uuid = $entityUUID.uuid
 )
 		`,
 		unitUUIDInput, storageDirective{},
@@ -565,11 +566,12 @@ SELECT &storageDirective.* FROM (
            cm.name AS charm_metadata_name,
            csk.kind AS charm_storage_kind,
            cs.count_max AS count_max
-    FROM   unit_storage_directive usd
-    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    FROM   unit u
+    JOIN   unit_storage_directive usd ON usd.unit_uuid = u.uuid AND usd.charm_uuid = u.charm_uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = u.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  unit_uuid = $entityUUID.uuid
+    WHERE  u.uuid = $entityUUID.uuid
     AND    usd.storage_name = $storageDirective.storage_name
 )
 		`,

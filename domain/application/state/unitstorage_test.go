@@ -200,10 +200,40 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 	unitUUID := unitUUIDs[0]
 
 	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	otherCharmUUID, _, err := u.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "another",
+			Storage: storage,
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskStable,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		ReferenceName: "another",
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		Hash:          "hash",
+	},
+		&charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+		false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
 
-	_, err := u.DB().ExecContext(
+	_, err = u.DB().ExecContext(
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
@@ -230,6 +260,18 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
 		charmUUID,
+		"st3",
+		storagePoolUUID.String(),
+		5000,
+		8,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	// Other charm with same unit.
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		otherCharmUUID,
 		"st3",
 		storagePoolUUID.String(),
 		5000,
@@ -333,10 +375,40 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 	unitUUID := unitUUIDs[0]
 
 	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	otherCharmUUID, _, err := u.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "another",
+			Storage: storage,
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskStable,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		ReferenceName: "another",
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		Hash:          "hash",
+	},
+		&charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+		false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
 
-	_, err := u.DB().ExecContext(
+	_, err = u.DB().ExecContext(
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
@@ -352,6 +424,18 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
 		charmUUID,
+		"st2",
+		storagePoolUUID.String(),
+		8000,
+		1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	// Insert a unit storage directive for the same unit, wrong charm.
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		otherCharmUUID,
 		"st2",
 		storagePoolUUID.String(),
 		8000,
