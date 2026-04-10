@@ -14,7 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	description "github.com/juju/description/v11"
+	description "github.com/juju/description/v12"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	base "github.com/juju/juju/core/base"

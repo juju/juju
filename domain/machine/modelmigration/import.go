@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"

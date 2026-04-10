@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
