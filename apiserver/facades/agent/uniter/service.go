@@ -256,13 +256,15 @@ type NetworkService interface {
 	GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error)
 
 	// GetUnitRelationNetwork retrieves network relation information for a given
-	// unit and relation UUID.
+	// unit and relation UUIDs.
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
 	// - [relationerrors.RelationNotFound] if the relation doesn't belong to the
 	//   unit.
-	GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name, relationUUID corerelation.UUID) (domainnetwork.UnitNetwork, error)
+	GetUnitRelationNetwork(
+		ctx context.Context, unitName coreunit.Name, relationUUID []corerelation.UUID,
+	) (map[corerelation.UUID]domainnetwork.UnitNetwork, error)
 
 	// GetUnitEndpointNetworks retrieves network relation information for a given unit and specified endpoints.
 	// It returns exactly one info for each endpoint names passed in argument,
@@ -271,7 +273,9 @@ type NetworkService interface {
 	//
 	// The following errors may be returned:
 	// - [applicationerrors.UnitNotFound] if the unit does not exist
-	GetUnitEndpointNetworks(ctx context.Context, unitName coreunit.Name, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
+	GetUnitEndpointNetworks(
+		ctx context.Context, unitName coreunit.Name, endpointNames []string,
+	) ([]domainnetwork.UnitNetwork, error)
 }
 
 type ResolveService interface {
@@ -480,6 +484,10 @@ type RelationService interface {
 	// GetRelationDetails returns the relation details requested by the uniter
 	// for a relation.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
+
+	// GetRelationUUIDsByUnitName returns a slice of relation UUIDs for relations
+	// the given unit is part of and in scope.
+	GetRelationUUIDsByUnitName(ctx context.Context, unitName coreunit.Name) ([]corerelation.UUID, error)
 
 	// GetRelationUnitUUID returns the relation unit UUID for the given unit
 	// within the given relation.
