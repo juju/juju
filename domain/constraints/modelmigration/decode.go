@@ -4,7 +4,7 @@
 package modelmigration
 
 import (
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"

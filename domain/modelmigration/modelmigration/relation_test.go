@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"testing"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
