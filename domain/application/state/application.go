@@ -1061,10 +1061,19 @@ ON CONFLICT (application_uuid) DO NOTHING
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking application %q exists: %w", appUUID, err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+
 		if err := tx.Query(ctx, insertStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
-			if internaldatabase.IsErrConstraintForeignKey(err) {
-				return errors.Errorf("application %q not found", appUUID).Add(applicationerrors.ApplicationNotFound)
-			}
 			return errors.Errorf("setting k8s resources managed for application %q: %w", appUUID, err)
 		}
 		return nil

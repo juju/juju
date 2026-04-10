@@ -415,7 +415,7 @@ AND    life_id = 1`, applicationUUID)
 	}))
 }
 
-// DeleteApplication removes a application from the database completely.
+// DeleteApplication removes an application from the database completely.
 func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
