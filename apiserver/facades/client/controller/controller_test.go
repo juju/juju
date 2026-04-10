@@ -44,6 +44,7 @@ import (
 	pscontroller "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -152,6 +153,76 @@ func (s *controllerSuite) checkModelMatches(c *gc.C, model params.Model, expecte
 	c.Check(model.Name, gc.Equals, expected.Name())
 	c.Check(model.UUID, gc.Equals, expected.UUID())
 	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
+}
+
+func (s *controllerSuite) assertCloudSpec(c *gc.C, canSeeCreds bool) {
+	result, err := s.controller.CloudSpec(params.Entities{
+		Entities: []params.Entity{{
+			Tag: s.Model.ModelTag().String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	cfgGetter := stateenvirons.EnvironConfigGetter{Model: s.Model}
+	spec, err := cfgGetter.CloudSpec()
+	c.Assert(err, jc.ErrorIsNil)
+	var paramsCloudCredential *params.CloudCredential
+	if canSeeCreds && spec.Credential != nil && spec.Credential.AuthType() != "" {
+		paramsCloudCredential = &params.CloudCredential{
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
+		}
+	}
+
+	c.Assert(result.Results[0].Result, jc.DeepEquals, &params.CloudSpec{
+		Type:              spec.Type,
+		Name:              spec.Name,
+		Region:            spec.Region,
+		Endpoint:          spec.Endpoint,
+		IdentityEndpoint:  spec.IdentityEndpoint,
+		StorageEndpoint:   spec.StorageEndpoint,
+		Credential:        paramsCloudCredential,
+		CACertificates:    spec.CACertificates,
+		SkipTLSVerify:     spec.SkipTLSVerify,
+		IsControllerCloud: spec.IsControllerCloud,
+	})
+}
+
+func (s *controllerSuite) TestCloudSpecSuperuser(c *gc.C) {
+	s.assertCloudSpec(c, true)
+}
+
+func (s *controllerSuite) TestCloudSpecModelAdmin(c *gc.C) {
+	admin := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:   "fred",
+		Access: permission.AdminAccess,
+	})
+	s.authorizer.Tag = admin.Tag()
+
+	s.assertCloudSpec(c, true)
+}
+
+func (s *controllerSuite) TestCloudSpecModelUnprivileged(c *gc.C) {
+	admin := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:   "fred",
+		Access: permission.WriteAccess,
+	})
+	s.authorizer.Tag = admin.Tag()
+
+	s.assertCloudSpec(c, false)
+}
+
+func (s *controllerSuite) TestCloudSpecWrongModel(c *gc.C) {
+	result, err := s.controller.CloudSpec(params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewModelTag(utils.MustNewUUID().String()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {

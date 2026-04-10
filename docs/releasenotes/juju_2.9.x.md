@@ -13,6 +13,24 @@ myst:
 ```{note}
 Juju 2.9 series is LTS
 ```
+### 🔸 **Juju 2.9.57**
+🗓️ 09 Apr 2025
+
+This is a security release for Juju 2.9, which includes fixes for a critical CVE
+which allows the cloud credential for the controller model to be leaked.
+
+🛠️ Fixes:
+
+- fix: [CVE-2026-5412](https://github.com/juju/juju/security/advisories/GHSA-w5fq-8965-c969)
+- fix: [CVE-2026-5774](https://github.com/juju/juju/security/advisories/GHSA-7m55-2hr4-pw78)
+
+#### Other fixes
+This release includes a fix that landed in 3.6 which impacts the ability to upgrade
+charms because obsolete packages were being left behind in the Python venv.
+- fix: fix clashing python package on upgrade @wallyworld in https://github.com/juju/juju/issues/22044
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v2.9.57).
+
 ### 🔸 **Juju 2.9.56**
 🗓️ 18 Mar 2025
 

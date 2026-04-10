@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type firewallerSuite struct {
@@ -44,6 +45,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.subnet = subnet
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
+		coretesting.ControllerTag,
+		s.authorizer,
 		s.resources,
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
 		cloudspec.MakeCloudSpecWatcherForModel(s.State),
