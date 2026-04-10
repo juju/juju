@@ -218,6 +218,10 @@ type State interface {
 	// provided relation endpoint uuid.
 	GetRelationUnitUUIDsByEndpointUUID(ctx context.Context, relationEndpointUUID string) ([]string, error)
 
+	// GetRelationUUIDsByUnitName retrieves the UUIDs of all in scope relations
+	// for the specified unit.
+	GetRelationUUIDsByUnitName(ctx context.Context, unitName string) ([]string, error)
+
 	// InferRelationUUIDByEndpoints infers the relation based on two endpoints.
 	InferRelationUUIDByEndpoints(
 		ctx context.Context,
@@ -1223,4 +1227,24 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerel
 	}
 
 	return key, nil
+}
+
+// GetRelationUUIDsByUnitName returns a slice of relation UUIDs for relations
+// the given unit is part of and in scope.
+func (s *Service) GetRelationUUIDsByUnitName(ctx context.Context, unitName unit.Name) ([]corerelation.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	results, err := s.st.GetRelationUUIDsByUnitName(ctx, unitName.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(results, func(in string) corerelation.UUID {
+		return corerelation.UUID(in)
+	}), nil
 }
