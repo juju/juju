@@ -27,9 +27,9 @@ A model's credential (whether specified explicitly or used by default) will be v
 access to the model. This is because trusted charms may request the credential to create resources on the cloud on behalf of the model.
 
 Juju uses the BYO credential paradigm, meaning that users who have been granted `add-model` permission on a cloud are able to create
-their own model(s) on that cloud, but they are also then expected to supply their own credential. As a controller superuser, it is
-therefore **not** recommended that you create models for other users using your own credential, or any credential that you do not
-want to be potentially visible to charms or other users with model write access.
+their own model(s) on that cloud, but they are also then expected to supply their own credential. As a user with add-model
+permission, it is therefore **not** recommended that you create models for other users using your own credential, or any credential
+that you do not want to be potentially visible to charms or other users with model write access.
 ```
 
 ```{ibnote}
