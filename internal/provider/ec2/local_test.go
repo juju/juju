@@ -723,10 +723,11 @@ func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *tc.C) {
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *tc.C) {
 	env := t.prepareAndBootstrap(c)
-	_, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, t.ControllerUUID, "1", constraints.MustParse("root-disk-source=test-storage-pool"))
 	c.Check(*hc.Arch, tc.Equals, "amd64")
 	c.Check(*hc.Mem, tc.Equals, uint64(8192))
 	c.Check(*hc.CpuCores, tc.Equals, uint64(2))
+	c.Check(*hc.RootDiskSource, tc.Equals, "test-storage-pool")
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *tc.C) {

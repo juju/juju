@@ -524,6 +524,8 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *tc.C) {
 	c.Check(*hc.Mem, tc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, tc.Equals, uint64(1))
 	c.Assert(hc.CpuPower, tc.IsNil)
+	c.Assert(hc.RootDiskSource, tc.NotNil)
+	c.Check(*hc.RootDiskSource, tc.Equals, "local")
 }
 
 func (s *localServerSuite) TestInstanceName(c *tc.C) {

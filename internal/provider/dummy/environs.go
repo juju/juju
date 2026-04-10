@@ -636,6 +636,7 @@ func (e *environ) StartInstance(ctx context.Context, args environs.StartInstance
 			CpuCores: args.Constraints.CpuCores,
 			CpuPower: args.Constraints.CpuPower,
 			Tags:     args.Constraints.Tags,
+			RootDiskSource:   args.Constraints.RootDiskSource,
 		}
 		if zone != "" {
 			hc.AvailabilityZone = &zone
