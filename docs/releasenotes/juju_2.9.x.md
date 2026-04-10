@@ -14,10 +14,12 @@ myst:
 Juju 2.9 series is LTS
 ```
 ### 🔸 **Juju 2.9.57**
-🗓️ 09 Apr 2025
+🗓️ 09 Apr 2026
 
 This is a security release for Juju 2.9, which includes fixes for a critical CVE
 which allows the cloud credential for the controller model to be leaked.
+We recommend that all users running Juju 3.6 upgrade to this release as soon
+as possible given the critical nature of the fixes included.
 
 🛠️ Fixes:
 

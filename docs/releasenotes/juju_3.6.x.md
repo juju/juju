@@ -13,6 +13,20 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.21**
+🗓️ 09 Apr 2026
+
+This is a security release for Juju 3.6, which includes fixes for a critical CVE
+which allows the cloud credential for the controller model to be leaked.
+We recommend that all users running Juju 3.6 upgrade to this release as soon
+as possible given the critical nature of the fixes included.
+
+🛠️ Fixes:
+
+- fix: [CVE-2026-5412](https://github.com/juju/juju/security/advisories/GHSA-w5fq-8965-c969)
+- fix: [CVE-2026-5774](https://github.com/juju/juju/security/advisories/GHSA-7m55-2hr4-pw78)
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.21).
 
 ## 🔸 **Juju 3.6.20**
 🗓️ 26 Mar 2026
