@@ -25,7 +25,6 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/storage"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -324,46 +323,6 @@ func transformToPendingResources(argResources map[string]string) ([]coreresource
 		pendingResources = append(pendingResources, resUUID)
 	}
 	return pendingResources, nil
-}
-
-// addUnits starts n units of the given application using the specified placement
-// directives to allocate the machines.
-func (api *APIBase) addUnits(
-	ctx context.Context,
-	appName string,
-	n int,
-	placement []*instance.Placement,
-	attachStorage []names.StorageTag,
-) ([]coreunit.Name, error) {
-	units := make([]coreunit.Name, 0, n)
-
-	// TODO what do we do if we fail half-way through this process?
-	for i := range n {
-		var unitPlacement *instance.Placement
-		if i < len(placement) {
-			unitPlacement = placement[i]
-		}
-
-		unitArg := applicationservice.AddUnitArg{
-			Placement: unitPlacement,
-		}
-
-		var unitNames []coreunit.Name
-		var err error
-		if api.modelType == coremodel.CAAS {
-			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
-		} else {
-			unitNames, _, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
-				AddUnitArg: unitArg,
-			})
-		}
-		if err != nil {
-			return nil, errors.Errorf("adding unit to application %q: %w", appName, err)
-		}
-		units = append(units, unitNames...)
-	}
-
-	return units, nil
 }
 
 func assertCharmAssumptions(
