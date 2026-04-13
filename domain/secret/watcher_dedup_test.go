@@ -36,6 +36,7 @@ func (s *watcherDedupSuite) TestDedupEvents(c *tc.C) {
 
 	defer watchertest.CleanKill(c, sw)
 	w := watchertest.NewStringsWatcherC(c, sw)
+	w.AssertChange()
 
 	addValues := func(values ...string) {
 		inputChan <- values
@@ -71,9 +72,8 @@ func (s *watcherDedupSuite) TestInitialEventSentBeforeBufferedSourceChanges(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	defer watchertest.CleanKill(c, sw)
-	w := watchertest.NewWatcherC(c, sw)
-
-	w.CheckInitial(watchertest.SliceAssert([]string(nil)))
-	w.Check(watchertest.StringSliceAssert("foo"))
+	w := watchertest.NewStringsWatcherC(c, sw)
+	w.AssertChange()
+	w.AssertChange("foo")
 	w.AssertNoChange()
 }

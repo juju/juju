@@ -2626,17 +2626,9 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	// initial change.
 	wc.AssertOneChange()
 
-	select {
-	case ch1 <- struct{}{}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for sending the secret revision changes")
-	}
+	ch1 <- struct{}{}
 	wc.AssertOneChange()
-	select {
-	case ch2 <- struct{}{}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for sending the secret URI changes")
-	}
+	ch2 <- struct{}{}
 	wc.AssertOneChange()
 }
 
@@ -2730,13 +2722,11 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
 
-	select {
-	case ch <- []string{uri1.ID, uri2.ID}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
-	}
+	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+	wC.AssertChange()
+
+	ch <- []string{uri1.ID, uri2.ID}
 
 	wC.AssertChange(
 		watcher.SecretTriggerChange{
@@ -2816,13 +2806,11 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
 
-	select {
-	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
-	}
+	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+	wC.AssertChange()
+
+	ch <- []string{"revision-uuid-1", "revision-uuid-2"}
 
 	wC.AssertChange(
 		watcher.SecretTriggerChange{
