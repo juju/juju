@@ -251,6 +251,13 @@ func (v *DeployFromRepositoryAPI) makeIAASUnitArgs(
 		}
 
 		if i == 0 {
+			// We only support attaching storage when exactly 1 unit is being
+			// created. This is due to the constraints faced in our facade
+			// params. There is a check before this call which ensures that
+			// exactly 1 unit is being created.
+			//
+			// Should we ever update our facade params we can support better
+			// combinations and unit assignment.
 			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
 		}
 		unitArgs = append(unitArgs, unitArg)
@@ -274,6 +281,13 @@ func (v *DeployFromRepositoryAPI) makeCAASunitArgs(
 		}
 
 		if i == 0 {
+			// We only support attaching storage when exactly 1 unit is being
+			// created. This is due to the constraints faced in our facade
+			// params. There is a check before this call which ensures that
+			// exactly 1 unit is being created.
+			//
+			// Should we ever update our facade params we can support better
+			// combinations and unit assignment.
 			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
 		}
 		unitArgs = append(unitArgs, unitArg)
