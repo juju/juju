@@ -10,11 +10,16 @@ myst:
 Discussion and clarification of key topics, providing background information and context.
 
 ```{toctree}
-:titlesonly:
-:glob:
+:maxdepth: 2
 :hidden:
+:glob:
 
-*
+Architecture <juju-architecture>
+Security <juju-security>
+Performance <juju-performance>
+Application modelling <application-modelling>
+Charms vs. Kubernetes operators <charms-vs-kubernetes-operators>
+About charming history <charming-history>
 ```
 
 ## Juju at a glance
