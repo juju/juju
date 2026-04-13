@@ -32,6 +32,9 @@ type CreateMachineArgs struct {
 	// HardwareCharacteristics contains the hardware characteristics for a
 	// manually provisioned machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
+
+	// Hostname is the hostname of the machine.
+	Hostname string
 }
 
 // instanceData represents the struct to be inserted into the instance_data
@@ -202,6 +205,7 @@ type insertMachine struct {
 	UUID        string           `db:"uuid"`
 	Nonce       sql.Null[string] `db:"nonce"`
 	LifeID      int64            `db:"life_id"`
+	Hostname    string           `db:"hostname"`
 }
 
 type machinePlatformUUID struct {

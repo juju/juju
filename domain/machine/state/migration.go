@@ -118,6 +118,7 @@ func (st *State) InsertMigratingMachine(ctx context.Context, machineName string,
 			).Add(machineerrors.MachineAlreadyExists)
 		}
 		return CreateMachineWithName(ctx, tx, st, st.clock, machineName, CreateMachineArgs{
+			Hostname:    args.Hostname,
 			MachineUUID: args.MachineUUID.String(),
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
@@ -173,6 +174,7 @@ VALUES ($machineParent.*);
 		}
 
 		err = CreateMachineWithName(ctx, tx, st, st.clock, machineName, CreateMachineArgs{
+			Hostname:    args.Hostname,
 			MachineUUID: args.MachineUUID.String(),
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
