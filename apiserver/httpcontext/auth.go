@@ -32,8 +32,7 @@ type AuthHandler struct {
 	// the HTTP requests handled by this handler.
 	Authenticator authentication.HTTPAuthenticator
 
-	// Authorizer, if non-nil, will be called with the auth info
-	// returned by the Authenticator, to validate it for the route.
+	// Authorizer is mandatory for authentication.
 	Authorizer authentication.Authorizer
 }
 
@@ -58,19 +57,16 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if h.Authorizer != nil {
-		if err := h.Authorizer.Authorize(req.Context(), authInfo); err != nil {
-			http.Error(w,
-				fmt.Sprintf("authorization failed: %s", err),
-				http.StatusForbidden,
-			)
-			return
-		}
+	if err := h.Authorizer.Authorize(req.Context(), authInfo); err != nil {
+		http.Error(w,
+			fmt.Sprintf("authorization failed: %s", err),
+			http.StatusForbidden,
+		)
+		return
 	}
 
 	ctx := context.WithValue(req.Context(), authInfoKey{}, authInfo)
-	req = req.WithContext(ctx)
-	h.NextHandler.ServeHTTP(w, req)
+	h.NextHandler.ServeHTTP(w, req.WithContext(ctx))
 }
 
 type authInfoKey struct{}
@@ -104,4 +100,14 @@ type AuthorizerFunc func(authentication.AuthInfo) error
 // Authorize is part of the Authorizer interface.
 func (f AuthorizerFunc) Authorize(info authentication.AuthInfo) error {
 	return f(info)
+}
+
+// TODOAuthorizer is a placeholder Authorizer that always returns success. It
+// should be replaced with a real implementation before being used in
+// production.
+type TODOAuthorizer struct{}
+
+// Authorize is part of the Authorizer interface.
+func (a TODOAuthorizer) Authorize(_ context.Context, _ authentication.AuthInfo) error {
+	return nil
 }

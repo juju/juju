@@ -120,15 +120,6 @@ func (s *BasicAuthHandlerSuite) TestAuthorizationFailure(c *tc.C) {
 	s.stub.CheckCallNames(c, "Authenticate", "Authorize")
 }
 
-func (s *BasicAuthHandlerSuite) TestAuthorizationOptional(c *tc.C) {
-	s.handler.Authorizer = nil
-
-	resp, err := s.server.Client().Get(s.server.URL)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
-	defer resp.Body.Close()
-}
-
 type CompositeAuthSuite struct {
 	testhelpers.IsolationSuite
 }

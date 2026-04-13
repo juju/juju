@@ -949,11 +949,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		handler: resourcesHandler,
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		handler:    resourcesHandler,
+		authorizer: httpcontext.TODOAuthorizer{},
 	}, {
-		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
-		handler: unitResourcesHandler,
+		pattern:    modelRoutePrefix + "/units/:unit/resources/:resource",
+		handler:    unitResourcesHandler,
+		authorizer: httpcontext.TODOAuthorizer{},
 	}, {
 		pattern:    "/migrate/charms/:object",
 		handler:    migrateObjectsCharmsHTTPHandler,
@@ -1013,24 +1015,27 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		// for discharge required errors to be handled correctly.
 		unauthenticated: true,
 	}, {
-		pattern: charmsObjectsRoutePrefix,
-		methods: []string{"GET"},
-		handler: modelObjectsCharmsHTTPHandler,
+		pattern:    charmsObjectsRoutePrefix,
+		methods:    []string{"GET"},
+		handler:    modelObjectsCharmsHTTPHandler,
+		authorizer: httpcontext.TODOAuthorizer{},
 	}, {
 		pattern:    charmsObjectsRoutePrefix,
 		methods:    []string{"PUT"},
 		handler:    modelObjectsCharmsHTTPHandler,
 		authorizer: charmsObjectsAuthorizer,
 	}, {
-		pattern: objectsRoutePrefix,
-		methods: []string{"GET"},
-		handler: modelObjectsHTTPHandler,
+		pattern:    objectsRoutePrefix,
+		methods:    []string{"GET"},
+		handler:    modelObjectsHTTPHandler,
+		authorizer: httpcontext.TODOAuthorizer{},
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
 			handlers = append(handlers, handler{
-				pattern: path.Join("/introspection/", subpath),
-				handler: srv.monitoredHandler(introspectionHandler{httpCtxt, h}, "introspection"),
+				pattern:    path.Join("/introspection/", subpath),
+				handler:    srv.monitoredHandler(introspectionHandler{httpCtxt, h}, "introspection"),
+				authorizer: httpcontext.TODOAuthorizer{},
 			})
 		}
 		srv.registerIntrospectionHandlers(add)
