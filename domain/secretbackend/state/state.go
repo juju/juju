@@ -450,9 +450,7 @@ SELECT
     b.name                                   AS &SecretBackendRow.name,
     bt.type                                  AS &SecretBackendRow.backend_type,
     b.token_rotate_interval                  AS &SecretBackendRow.token_rotate_interval,
-    -- TODO(gfouillet): After merge to main and secret_id became NOT NULL, 
-    --  the COALESCE need to be removed, and we should use simple secret_id
-    COUNT(DISTINCT COALESCE(sbr.secret_id, sbr.secret_revision_uuid)) AS &SecretBackendRow.num_secrets,
+    COUNT(DISTINCT sbr.secret_id) AS &SecretBackendRow.num_secrets,
     c.name                                   AS &SecretBackendRow.config_name,
     c.content                                AS &SecretBackendRow.config_content
 FROM secret_backend b
@@ -513,9 +511,7 @@ SELECT
     bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
     vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
     vcca.uuid                                AS &secretBackendForK8sModelRow.cloud_credential_uuid,
-    -- TODO(gfouillet): After merge to main and secret_id became NOT NULL, 
-    --  the COALESCE need to be removed, and we should use simple secret_id
-    COUNT(DISTINCT COALESCE(sbr.secret_id, sbr.secret_revision_uuid)) AS &secretBackendForK8sModelRow.num_secrets,
+    COUNT(DISTINCT sbr.secret_id) AS &secretBackendForK8sModelRow.num_secrets,
     (vc.uuid,
     vc.name,
     vc.endpoint,

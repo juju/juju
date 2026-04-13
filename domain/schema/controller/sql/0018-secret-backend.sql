@@ -70,6 +70,7 @@ CREATE TABLE secret_backend_reference (
     secret_backend_uuid TEXT NOT NULL,
     model_uuid TEXT NOT NULL,
     secret_revision_uuid TEXT NOT NULL,
+    secret_id TEXT NOT NULL,
     CONSTRAINT pk_secret_backend_reference
     PRIMARY KEY (secret_backend_uuid, model_uuid, secret_revision_uuid),
     CONSTRAINT fk_secret_backend_reference_model_uuid
