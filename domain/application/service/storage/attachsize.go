@@ -13,7 +13,7 @@ import (
 // provisioned sizes are used when set; otherwise the requested size is used.
 // If the kind is unknown, the requested size is used.
 func CalculateStorageInstanceSizeForAttachment(info internal.StorageInstanceInfo) uint64 {
-	fallback := uint64(max(info.RequestedSizeMIB, 0))
+	fallback := max(info.RequestedSizeMIB, 0)
 
 	switch info.Kind {
 	case domainstorage.StorageKindFilesystem:

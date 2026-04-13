@@ -988,7 +988,7 @@ type storageInstanceInfoForAttach struct {
 	StorageName                string           `db:"storage_name"`
 	Life                       int              `db:"life_id"`
 	StorageKindID              int              `db:"storage_kind_id"`
-	RequestedSizeMIB           int              `db:"requested_size_mib"`
+	RequestedSizeMIB           uint64           `db:"requested_size_mib"`
 	FilesystemOwnedMachineUUID sql.Null[string] `db:"filesystem_owned_machine_uuid"`
 	FilesystemProvisionScopeID sql.Null[int]    `db:"filesystem_provision_scope_id"`
 	FilesystemSizeMIB          sql.Null[uint64] `db:"filesystem_size_mib"`
