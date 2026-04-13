@@ -111,7 +111,7 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 		{
 			Name:       "ebs-fast",
 			Provider:   "ebs",
-			Attributes: map[string]interface{}{"foo": "bar"},
+			Attributes: map[string]any{"foo": "bar"},
 		},
 	}
 	s.service.EXPECT().ImportStoragePools(ctx, poolsToImport)
@@ -141,7 +141,7 @@ func (s *importSuite) TestImportStoragePoolsError(c *tc.C) {
 		{
 			Name:       "ebs-fast",
 			Provider:   "ebs",
-			Attributes: map[string]interface{}{"foo": "bar"},
+			Attributes: map[string]any{"foo": "bar"},
 		},
 	}
 	badErr := errors.New("something bad")

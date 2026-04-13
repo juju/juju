@@ -1278,7 +1278,7 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 		{
 			Name:     "my-pool",
 			Provider: "storageprovider1",
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"key": "val",
 			},
 		},
