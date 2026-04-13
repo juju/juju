@@ -190,3 +190,23 @@ func (s *ControllerAuthorizerSuite) TestAuthorizeNonController(c *tc.C) {
 	err := ControllerAuthorizer.Authorize(c.Context(), authInfo)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
+
+type TODOAuthorizerSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestTODOAuthorizerSuite(t *testing.T) {
+	tc.Run(t, &TODOAuthorizerSuite{})
+}
+
+func (s *TODOAuthorizerSuite) TestAuthorizeController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	err := TODOAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *TODOAuthorizerSuite) TestAuthorizeNonController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: false}
+	err := TODOAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
