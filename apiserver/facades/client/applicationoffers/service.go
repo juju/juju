@@ -76,13 +76,6 @@ type CrossModelRelationService interface {
 		ctx context.Context,
 		args crossmodelrelation.ApplicationOfferArgs,
 	) error
-
-	// GetOfferConnections returns the connection details for all offers with
-	// the given UUIDs. An empty result is returned if no connections are found.
-	GetOfferConnections(
-		ctx context.Context,
-		offerUUIDs []string,
-	) ([]crossmodelrelation.OfferConnectionDetail, error)
 }
 
 // RemovalService defines operations for removing juju entities,

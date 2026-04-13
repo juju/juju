@@ -380,34 +380,20 @@ func (api *OffersAPI) applicationOffersFromModel(
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		results = append(results, params.ApplicationOfferAdminDetailsV5{
+		result := params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: *offerParams,
 			ApplicationName:           appOffer.ApplicationName,
 			CharmURL:                  charmURL,
-		})
-	}
+		}
 
-	// Populate offer connections when the caller requires admin access.
-	// At this point the user has been verified as superuser or model admin
-	// by checkModelPermission above.
-	if requiredAccess == permission.AdminAccess && len(results) > 0 {
-		offerUUIDs := make([]string, len(results))
-		offerIndexByUUID := make(map[string]int, len(results))
-		for i, r := range results {
-			offerUUIDs[i] = r.OfferUUID
-			offerIndexByUUID[r.OfferUUID] = i
-		}
-		connections, err := crossModelRelationService.GetOfferConnections(ctx, offerUUIDs)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		for _, conn := range connections {
-			idx, ok := offerIndexByUUID[conn.OfferUUID]
-			if !ok {
-				continue
+		// Populate connections when the caller requires admin access.
+		if requiredAccess == permission.AdminAccess {
+			for _, conn := range appOffer.OfferConnections {
+				result.Connections = append(result.Connections, makeOfferConnection(conn))
 			}
-			results[idx].Connections = append(results[idx].Connections, makeOfferConnection(conn))
 		}
+
+		results = append(results, result)
 	}
 
 	return results, nil

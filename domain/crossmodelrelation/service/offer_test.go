@@ -562,8 +562,7 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 }
 
 // TestGetOffersWithConnections ensures that GetOffersWithConnections returns
-// offer details wrapped in the OfferDetailWithConnections type.
-// The other functionality has been tested in TestGetOffers tests.
+// offer details with connections populated from the state layer.
 func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -600,6 +599,18 @@ func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
+	connections := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUIDs[0],
+			SourceModelUUID: "consumer-model-uuid",
+			RelationID:      1,
+			Username:        "consumer-user",
+			Endpoint:        "endpoint",
+			Status:          "joined",
+		},
+	}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(connections, nil)
+
 	filters := []OfferFilter{{
 		ApplicationName: inputFilter.ApplicationName,
 	}}
@@ -632,6 +643,7 @@ func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 				TotalConnections:       2,
 				TotalActiveConnections: 1,
 			},
+			OfferConnections: connections,
 		},
 	})
 }
@@ -671,6 +683,9 @@ func (s *offerServiceSuite) TestGetOffersWithConnectionsNoConnections(c *tc.C) {
 		},
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	// No connections found for these offers.
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(nil, nil)
 
 	filters := []OfferFilter{{
 		ApplicationName: inputFilter.ApplicationName,

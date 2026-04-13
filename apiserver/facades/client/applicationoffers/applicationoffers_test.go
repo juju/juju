@@ -764,7 +764,6 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
-	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -1565,26 +1564,24 @@ func (s *offerSuite) TestListApplicationOffersWithConnections(c *tc.C) {
 				},
 				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
 			},
+			OfferConnections: []crossmodelrelation.OfferConnectionDetail{
+				{
+					OfferUUID:       offerUUID,
+					SourceModelUUID: consumerModelUUID,
+					RelationID:      42,
+					Username:        "consumer-user",
+					Endpoint:        "db",
+					Status:          "joined",
+					Message:         "",
+					IngressSubnets:  []string{"10.0.0.0/24"},
+				},
+			},
 		},
 	}
 	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{OfferName: "hosted-db2"},
 	}
 	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
-
-	connections := []crossmodelrelation.OfferConnectionDetail{
-		{
-			OfferUUID:       offerUUID,
-			SourceModelUUID: consumerModelUUID,
-			RelationID:      42,
-			Username:        "consumer-user",
-			Endpoint:        "db",
-			Status:          "joined",
-			Message:         "",
-			IngressSubnets:  []string{"10.0.0.0/24"},
-		},
-	}
-	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), []string{offerUUID}).Return(connections, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
