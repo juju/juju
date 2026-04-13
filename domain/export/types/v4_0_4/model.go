@@ -1044,9 +1044,9 @@ type Relation struct {
 }
 
 type RelationApplicationSetting struct {
-	RelationEndpointUUID string  `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
-	Key                  string  `db:"key" json:"key" yaml:"key"`
-	Value                *string `db:"value" json:"value" yaml:"value"`
+	RelationEndpointUUID string `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
+	Key                  string `db:"key" json:"key" yaml:"key"`
+	Value                string `db:"value" json:"value" yaml:"value"`
 }
 
 type RelationApplicationSettingsHash struct {
@@ -1089,9 +1089,9 @@ type RelationUnit struct {
 }
 
 type RelationUnitSetting struct {
-	RelationUnitUUID string  `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
-	Key              string  `db:"key" json:"key" yaml:"key"`
-	Value            *string `db:"value" json:"value" yaml:"value"`
+	RelationUnitUUID string `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
+	Key              string `db:"key" json:"key" yaml:"key"`
+	Value            string `db:"value" json:"value" yaml:"value"`
 }
 
 type RelationUnitSettingArchive struct {
