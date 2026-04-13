@@ -5,16 +5,17 @@ package application
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
+	coreinstance "github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationservice "github.com/juju/juju/domain/application/service"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainapplicationservice "github.com/juju/juju/domain/application/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -32,7 +33,7 @@ func (api *APIBase) AddUnits(
 		return params.AddApplicationUnitsResults{}, errors.Capture(err)
 	}
 
-	if api.modelType == model.CAAS {
+	if api.modelType == coremodel.CAAS {
 		return params.AddApplicationUnitsResults{}, errors.Errorf(
 			"adding units to a container-based model is not supported",
 		).Add(coreerrors.NotSupported)
@@ -58,9 +59,8 @@ func (api *APIBase) addApplicationUnits(
 		).Add(coreerrors.NotValid)
 	}
 
-	if api.modelType == model.CAAS {
-		// In a CAAS model, there are no machines for
-		// units to be assigned to.
+	if api.modelType == coremodel.CAAS {
+		// In a CAAS model, there are no machines for units to be assigned to.
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
@@ -76,68 +76,62 @@ func (api *APIBase) addApplicationUnits(
 		}
 	}
 
-	// Parse storage tags in AttachStorage.
-	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return nil, errors.Errorf(
-			"AttachStorage is non-empty, but NumUnits is %d", args.NumUnits,
-		).Add(coreerrors.NotValid)
-	}
-	attachStorage := make([]names.StorageTag, len(args.AttachStorage))
-	for i, tagString := range args.AttachStorage {
+	attachStorageIDs := make([]string, 0, len(args.AttachStorage))
+	for _, tagString := range args.AttachStorage {
 		tag, err := names.ParseStorageTag(tagString)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		attachStorage[i] = tag
+		attachStorageIDs = append(attachStorageIDs, tag.Id())
 	}
 
-	return api.addUnits(
-		ctx,
-		args.ApplicationName,
-		args.NumUnits,
-		args.Placement,
-		attachStorage,
-	)
-}
-
-// addUnits starts n units of the given application using the specified placement
-// directives to allocate the machines.
-func (api *APIBase) addUnits(
-	ctx context.Context,
-	appName string,
-	n int,
-	placement []*instance.Placement,
-	attachStorage []names.StorageTag,
-) ([]coreunit.Name, error) {
-	units := make([]coreunit.Name, 0, n)
-
-	// TODO what do we do if we fail half-way through this process?
-	for i := range n {
-		var unitPlacement *instance.Placement
-		if i < len(placement) {
-			unitPlacement = placement[i]
-		}
-
-		unitArg := applicationservice.AddUnitArg{
-			Placement: unitPlacement,
-		}
-
-		var unitNames []coreunit.Name
-		var err error
-		if api.modelType == coremodel.CAAS {
-			unitNames, err = api.applicationService.AddCAASUnits(ctx, appName, unitArg)
-		} else {
-			unitNames, _, err = api.applicationService.AddIAASUnits(ctx, appName, applicationservice.AddIAASUnitArg{
-				AddUnitArg: unitArg,
-			})
-		}
-		if err != nil {
-			return nil, errors.Errorf("adding unit to application %q: %w", appName, err)
-		}
-		units = append(units, unitNames...)
+	storageInstanceUUIDs, err := api.storageService.GetStorageInstanceUUIDsByIDs(
+		ctx, attachStorageIDs)
+	if err != nil {
+		return nil, errors.Errorf("getting storage instance UUIDs: %w", err)
 	}
 
-	return units, nil
+	// TODO(storage): allow attaching storage to more than one new unit.
+	if len(storageInstanceUUIDs) > 0 && args.NumUnits != 1 {
+		return nil, errors.Errorf(
+			"AttachStorage is non-empty, but NumUnits is %d", args.NumUnits,
+		).Add(coreerrors.NotValid)
+	}
+
+	storageInstancesToAttach := [][]domainstorage.StorageInstanceUUID{
+		slices.Collect(maps.Values(storageInstanceUUIDs)),
+	}
+
+	var unitNames []coreunit.Name
+	if api.modelType == coremodel.CAAS {
+		addUnitArgs := makeCAASAddUnitArgs(
+			args.NumUnits,
+			args.Placement,
+			storageInstancesToAttach,
+		)
+		unitNames, err = api.applicationService.AddCAASUnits(
+			ctx, args.ApplicationName, addUnitArgs...)
+	} else {
+		addUnitArgs := makeIAASAddUnitArgs(
+			args.NumUnits,
+			args.Placement,
+			storageInstancesToAttach,
+		)
+		unitNames, _, err = api.applicationService.AddIAASUnits(
+			ctx, args.ApplicationName, addUnitArgs...)
+	}
+	if errors.Is(err, domainapplicationerrors.ApplicationNotFound) {
+		return nil, errors.Errorf(
+			"application %q not found", args.ApplicationName,
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"adding %d units to application %q: %w",
+			args.NumUnits, args.ApplicationName, err,
+		)
+	}
+
+	return unitNames, nil
 }
 
 // makeIAASAddUnitArgs creates [n] add iaas unit args taking placement and
@@ -146,7 +140,7 @@ func (api *APIBase) addUnits(
 // be added takes the zeroth placement and storage.
 func makeIAASAddUnitArgs(
 	n int,
-	placement []*instance.Placement,
+	placement []*coreinstance.Placement,
 	storageInstancesToAttach [][]domainstorage.StorageInstanceUUID,
 ) []domainapplicationservice.AddIAASUnitArg {
 	retVal := make([]domainapplicationservice.AddIAASUnitArg, 0, n)
@@ -160,13 +154,13 @@ func makeIAASAddUnitArgs(
 	return retVal
 }
 
-// makeCAASAddUnitArgs creates [n] add caas unit args taking placement and existing
-// storage instances to attach to each unit. Both [placement] and
+// makeCAASAddUnitArgs creates [n] add caas unit args taking placement and
+// existing storage instances to attach to each unit. Both [placement] and
 // [storageInstancesToAttach] are position dependent, as in, the zeroth unit to
 // be added takes the zeroth placement and storage.
 func makeCAASAddUnitArgs(
 	n int,
-	placement []*instance.Placement,
+	placement []*coreinstance.Placement,
 	storageInstancesToAttach [][]domainstorage.StorageInstanceUUID,
 ) []domainapplicationservice.AddUnitArg {
 	return makeAddUnitArgs(n, placement, storageInstancesToAttach)
@@ -178,7 +172,7 @@ func makeCAASAddUnitArgs(
 // be added takes the zeroth placement and storage.
 func makeAddUnitArgs(
 	n int,
-	placement []*instance.Placement,
+	placement []*coreinstance.Placement,
 	storageInstancesToAttach [][]domainstorage.StorageInstanceUUID,
 ) []domainapplicationservice.AddUnitArg {
 	retVal := make([]domainapplicationservice.AddUnitArg, 0, n)

@@ -129,6 +129,10 @@ func (s *Service) GetStorageInstanceUUIDsByIDs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if len(storageIDs) == 0 {
+		return nil, nil
+	}
+
 	// We don't have any validation that we run over storage IDs at the moment.
 	return s.st.GetStorageInstanceUUIDsByIDs(ctx, storageIDs)
 }
