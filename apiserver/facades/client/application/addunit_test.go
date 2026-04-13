@@ -4,16 +4,24 @@
 package application
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
+	gomock "go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	coreunit "github.com/juju/juju/core/unit"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainapplicationservice "github.com/juju/juju/domain/application/service"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/rpc/params"
 )
 
-type addUnitSuite struct{}
+type addUnitSuite struct {
+	baseSuite
+}
 
 func TestAddUnit(t *testing.T) {
 	tc.Run(t, &addUnitSuite{})
@@ -118,4 +126,178 @@ func (s *addUnitSuite) TestMakeCAASAddUnitArgsWithPlacementAndStorage(c *tc.C) {
 		Placement:                nil,
 		StorageInstancesToAttach: nil,
 	}})
+}
+
+// TestAddUnitsCAASNotSupported verifies that AddUnits rejects CAAS models.
+func (s *addUnitSuite) TestAddUnitsCAASNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newCAASAPI(c)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        1,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestAddUnitsZeroNumUnits verifies that requesting zero units is rejected.
+func (s *addUnitSuite) TestAddUnitsZeroNumUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        0,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestAddUnitsSuccess verifies the happy path returns the added unit names.
+func (s *addUnitSuite) TestAddUnitsSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), gomock.Any(),
+	).Return(map[string]domainstorage.StorageInstanceUUID{}, nil)
+	s.applicationService.EXPECT().AddIAASUnits(
+		gomock.Any(), "foo", gomock.Any(),
+	).Return([]coreunit.Name{"foo/0", "foo/1"}, nil, nil)
+
+	result, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Units, tc.DeepEquals, []string{"foo/0", "foo/1"})
+}
+
+// TestAddUnitsWithStorageAttach verifies storage tags are resolved and passed
+// through to the application service when adding a single unit.
+func (s *addUnitSuite) TestAddUnitsWithStorageAttach(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), []string{"data/0"},
+	).Return(map[string]domainstorage.StorageInstanceUUID{
+		"data/0": "storage-uuid-1",
+	}, nil)
+	s.applicationService.EXPECT().AddIAASUnits(
+		gomock.Any(), "foo", gomock.Any(),
+	).Return([]coreunit.Name{"foo/0"}, nil, nil)
+
+	result, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        1,
+		AttachStorage:   []string{"storage-data-0"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Units, tc.DeepEquals, []string{"foo/0"})
+}
+
+// TestAddUnitsStorageAttachWithMultipleUnits verifies that attaching storage
+// to more than one unit at a time is rejected.
+func (s *addUnitSuite) TestAddUnitsStorageAttachWithMultipleUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), []string{"data/0"},
+	).Return(map[string]domainstorage.StorageInstanceUUID{
+		"data/0": "storage-uuid-1",
+	}, nil)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        2,
+		AttachStorage:   []string{"storage-data-0"},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestAddUnitsInvalidStorageTag verifies that a malformed storage tag string
+// is rejected before any service calls are made.
+func (s *addUnitSuite) TestAddUnitsInvalidStorageTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        1,
+		AttachStorage:   []string{"not-a-storage-tag"},
+	})
+	c.Assert(err, tc.ErrorMatches, `.*not-a-storage-tag.*`)
+}
+
+// TestAddUnitsApplicationNotFound verifies that a missing application is
+// surfaced as a NotFound error.
+func (s *addUnitSuite) TestAddUnitsApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), gomock.Any(),
+	).Return(map[string]domainstorage.StorageInstanceUUID{}, nil)
+	s.applicationService.EXPECT().AddIAASUnits(
+		gomock.Any(), "nonexistent", gomock.Any(),
+	).Return(nil, nil, domainapplicationerrors.ApplicationNotFound)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "nonexistent",
+		NumUnits:        1,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+// TestAddUnitsStorageServiceError verifies that a failure from the storage
+// service is propagated as an error.
+func (s *addUnitSuite) TestAddUnitsStorageServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), gomock.Any(),
+	).Return(nil, fmt.Errorf("storage service failed"))
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        1,
+	})
+	c.Assert(
+		err, tc.ErrorMatches,
+		"getting storage instance UUIDs: storage service failed",
+	)
 }
