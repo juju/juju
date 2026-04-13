@@ -74,8 +74,9 @@ type CommitHookChangesArg struct {
 	// SecretDeletes contains charm secrets to delete.
 	SecretDeletes []unitstate.DeleteSecretArg
 
-	// TODO: (hml) 10-Dec-2025
-	// Implement storage
+	// AddStorage contains prepared unit storage adds to apply in the commit
+	// hook transaction.
+	AddStorage []unitstate.PreparedStorageAdd
 }
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
@@ -94,5 +95,6 @@ func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID u
 		SecretGrants:       in.SecretGrants,
 		SecretRevokes:      in.SecretRevokes,
 		SecretDeletes:      in.SecretDeletes,
+		AddStorage:         in.AddStorage,
 	}
 }

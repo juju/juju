@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -45,6 +46,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -3340,6 +3342,7 @@ type commitHookChangesSuite struct {
 	applicationService *MockApplicationService
 	networkService     *MockNetworkService
 	relationService    *MockRelationService
+	storagePoolService *MockStoragePoolService
 	unitStateService   *MockUnitStateService
 
 	uniter *UniterAPI
@@ -3404,6 +3407,65 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
 	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	poolUUID := domainstorage.StoragePoolUUID("pool-uuid")
+
+	count := uint64(2)
+	sizeMiB := uint64(4096)
+	prepared := domainstorage.UnitAddStorageArg{
+		CountLessThanEqual: 3,
+	}
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.storagePoolService.EXPECT().
+		GetStoragePoolUUID(gomock.Any(), "fast").
+		Return(poolUUID, nil)
+	s.applicationService.EXPECT().
+		PrepareUnitAddStorage(
+			gomock.Any(),
+			corestorage.Name("data"),
+			unitUUID,
+			uint32(2),
+			domainstorage.AddUnitStorageOverride{
+				StoragePoolUUID: &poolUUID,
+				SizeMiB:         &sizeMiB,
+			},
+		).
+		Return(prepared, nil)
+	s.unitStateService.EXPECT().
+		CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Check(arg.AddStorage, tc.DeepEquals, []unitstate.PreparedStorageAdd{{
+				StorageName: corestorage.Name("data"),
+				Storage:     prepared,
+			}})
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					Pool:    "fast",
+					SizeMiB: &sizeMiB,
+					Count:   &count,
+				},
+			}},
+		},
+	)
+
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -3620,6 +3682,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.storagePoolService = NewMockStoragePoolService(ctrl)
 	s.unitStateService = NewMockUnitStateService(ctrl)
 
 	s.uniter = &UniterAPI{
@@ -3628,6 +3691,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		networkService:     s.networkService,
 		relationService:    s.relationService,
+		storagePoolService: s.storagePoolService,
 		unitStateService:   s.unitStateService,
 	}
 
@@ -3635,6 +3699,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.applicationService = nil
 		s.networkService = nil
 		s.relationService = nil
+		s.storagePoolService = nil
 		s.uniter = nil
 		s.unitStateService = nil
 	})

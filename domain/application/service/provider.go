@@ -609,6 +609,18 @@ func (s *ProviderService) ResolveApplicationConstraints(
 	return s.resolveApplicationConstraints(ctx, appCons)
 }
 
+// PrepareUnitAddStorage validates and prepares the storage add arguments for a
+// unit without performing any writes.
+func (s *ProviderService) PrepareUnitAddStorage(
+	ctx context.Context,
+	storageName corestorage.Name,
+	unitUUID coreunit.UUID,
+	addCount uint32,
+	arg domainstorage.AddUnitStorageOverride,
+) (domainstorage.UnitAddStorageArg, error) {
+	return s.populateAddStorageArgs(ctx, storageName, unitUUID, addCount, arg)
+}
+
 func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	name string,
 	charm internalcharm.Charm,

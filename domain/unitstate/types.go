@@ -7,9 +7,11 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/domain/secret"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -114,6 +116,16 @@ type DeleteSecretArg struct {
 	URI *secrets.URI
 }
 
+// PreparedStorageAdd holds a storage add request prepared for transactional
+// commit-hook handling.
+type PreparedStorageAdd struct {
+	// StorageName is the storage directive name on the unit.
+	StorageName corestorage.Name
+
+	// Storage contains the prepared storage add writes.
+	Storage domainstorage.UnitAddStorageArg
+}
+
 // CommitHookChangesArg contains data needed to commit a hook change.
 type CommitHookChangesArg struct {
 	// UnitName is the name of the unit these changes pertain to.
@@ -157,8 +169,9 @@ type CommitHookChangesArg struct {
 	// SecretDeletes contains charm secrets to delete.
 	SecretDeletes []DeleteSecretArg
 
-	// TODO: (hml) 10-Dec-2025
-	// Implement storage
+	// AddStorage contains prepared unit storage adds to apply in the commit
+	// hook transaction.
+	AddStorage []PreparedStorageAdd
 }
 
 // ValidateAndHasChanges validates that:
@@ -235,6 +248,9 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 			errs = append(errs, errors.New("secret uri is required for delete"))
 			break
 		}
+	}
+	if len(c.AddStorage) > 0 {
+		hasChanges = true
 	}
 	return hasChanges, errors.Join(errs...)
 }
