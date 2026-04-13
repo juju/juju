@@ -574,8 +574,8 @@ func (s *attachStorageSuite) TestAttachStorageSuccess(c *tc.C) {
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
 	attachInfo.StorageInstanceInfo.CharmName = nil
 	attachInfo.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
-		UUID: volumeUUID,
-		Size: 1024,
+		UUID:    volumeUUID,
+		SizeMiB: 1024,
 	}
 	attachInfo.StorageInstanceAttachments = []internal.StorageInstanceUnitAttachment{
 		{

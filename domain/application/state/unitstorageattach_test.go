@@ -172,7 +172,7 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesVolu
 			Volume: &internal.StorageInstanceVolumeInfo{
 				UUID:           volumeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				Size:           2048,
+				SizeMiB:           2048,
 			},
 			Kind:             domainstorage.StorageKindBlock,
 			Life:             life.Alive,

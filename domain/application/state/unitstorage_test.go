@@ -201,7 +201,7 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 				Volume: &internal.StorageInstanceVolumeInfo{
 					UUID:           v2UUID,
 					ProvisionScope: domainstorageprov.ProvisionScopeModel,
-					Size:           2048,
+					SizeMiB:        2048,
 				},
 				Kind:             domainstorage.StorageKindBlock,
 				Life:             life.Alive,
@@ -1418,7 +1418,7 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDVolum
 			CharmName: &charmName,
 			Volume: &internal.StorageInstanceVolumeInfo{
 				UUID:           volumeUUID,
-				Size:           2048,
+				SizeMiB:        2048,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
 			},
 			Kind:             domainstorage.StorageKindBlock,

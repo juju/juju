@@ -2584,7 +2584,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		retVal.StorageInstanceInfo.Volume = &applicationinternal.StorageInstanceVolumeInfo{
 			UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
 			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
-			Size:           storageInstInfo.VolumeSizeMIB.V,
+			SizeMiB:        storageInstInfo.VolumeSizeMIB.V,
 		}
 	}
 	if storageInstInfo.VolumeOwnedMachineUUID.Valid {
