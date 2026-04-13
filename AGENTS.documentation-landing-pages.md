@@ -1,7 +1,7 @@
 ---
 customInstructions:
   role: >-
-    Documentation standards for homepage and landing pages. When asked to update landing pages,
+    Documentation standards for Juju homepage and landing pages. When asked to update landing pages,
     FIRST assess the current state against these standards, identify gaps, and create a todo list
     grouped by format and content issues. ALWAYS present assessment to user before making changes.
 applyTo:
@@ -12,12 +12,155 @@ applyTo:
   - pattern: "**/howto/index.md"
     reason: How-to landing page should organize by lifecycle/workflow
   - pattern: "**/reference/index.md"
-    reason: Reference landing page should organize by logical groupings
+    reason: Reference landing page should organize by dependency flow and architectural layers
   - pattern: "**/explanation/index.md"
     reason: Explanation landing page should group related conceptual topics
 ---
 
-# Landing Pages Documentation Standards
+# Landing Pages Documentation Standards for Juju
+
+## Homepage Intro Paragraphs
+
+**Standard structure**: Four brief paragraphs covering:
+
+1. **What the product is** - Succinct, memorable definition
+2. **What the product does** - Core capabilities in plain language  
+3. **What problem the product solves** - The need it meets
+4. **Who the product is for** - Target audience
+
+**Template example**:
+```markdown
+Something that says what the product is, succinctly and memorably consectetur adipiscing elit, sed do eiusmod tempor.
+
+A description of what the product does. Urna cursus eget nunc scelerisque viverra mauris in. Nibh mauris cursus mattis molestie a iaculis at vestibulum rhoncus est pellentesque elit.
+
+An account of what need the product meets. Dui ut ornare lectus sit amet lam.
+
+Something that describes whom the product is useful for. Nunc non blandit massa enim nec dui nunc mattis enim.
+```
+
+**Key principles**:
+- Keep each paragraph brief (1-2 sentences maximum)
+- Avoid technical jargon in favor of clear benefits
+- Make the first sentence memorable and quotable
+- End with a clear call to value for the target audience
+
+## Organizing Principle: Dependency Flow and Architectural Layers
+
+**Core principle**: Organize content following the dependency chain and architectural layers specific to Juju.
+
+### Juju Architecture and Dependency Flow
+
+Juju's architecture follows a clear dependency chain from user interaction through to deployed applications. The dependency flow is:
+
+**User** → **Client** → **Controller** → **Cloud/Charmhub** → **Infrastructure and Applications**
+
+1. **User** (identity layer)
+   - User accounts for authentication and authorization
+
+2. **Client** (interface layer)
+   - Command-line and web interfaces for managing Juju
+   - How you interact with the system
+
+3. **Controller** (control plane layer)
+   - Central management service coordinating all operations
+   - Connects client requests to cloud resources and charms
+
+4. **Cloud and Charmhub** (external provider layer)
+   - Clouds provide compute resources
+   - Charmhub provides software packages (charms)
+   - External entities Juju interacts with
+
+5. **Infrastructure and Applications** (deployed resources layer)
+   - Models (workspaces)
+   - Applications deployed via charms
+   - Infrastructure resources (machines, storage, networking)
+   - Agents executing charm code
+   - Management operations (actions, relations, scaling)
+
+### Applying This to Landing Pages
+
+**Reference landing page** (`docs/reference/index.md`):
+Organize sections to reflect the dependency flow:
+
+```markdown
+## Cloud and Charmhub
+(External providers contacted during bootstrap and deployment)
+
+## Client
+(Interfaces for interaction)
+
+## Controller
+(Control plane coordination)
+
+## User
+(Identity and authentication)
+
+## Infrastructure and applications
+(Deployed resources - organized by deployment narrative:
+models → charms/applications → infrastructure → agents → management)
+```
+
+**Explanation landing page** (`docs/explanation/index.md`):
+Organize by understanding hierarchy:
+
+```markdown
+## Juju at a glance
+(Foundational understanding - architecture, security, performance)
+
+## Juju vs. other solutions
+(Comparative understanding)
+
+## Some history
+(Evolution and design philosophy)
+```
+
+**How-to landing page** (`docs/howto/index.md`):
+Organize by operational lifecycle:
+
+```markdown
+## Set up Juju
+(Client installation, cloud configuration, controller bootstrap)
+
+## Handle authentication and authorization
+(Users, SSH keys, access control)
+
+## Deploy infrastructure and applications
+(Models, charms, applications, infrastructure, management)
+```
+
+### Why This Organization Works for Juju
+
+- **Matches deployment flow**: Shows the sequence users actually follow
+- **Reveals architecture**: Makes the control plane→cloud→deployment flow explicit
+- **Scales logically**: New features fit into existing architectural layers
+- **Builds mental model**: Users understand "I use a client to talk to a controller that manages deployments on clouds"
+
+## Quality Checklist for Juju Landing Pages
+
+**Homepage format**:
+- [ ] "In this documentation" section with bullet points organized by domain
+- [ ] "How this documentation is organised" section with Diátaxis explanation (text format only - no quadrant grid)
+- [ ] "Project and community" section with subsections (Get involved, Releases, Governance)
+- [ ] NO horizontal lines (`---`) used for section separators
+
+**Reference**:
+- [ ] Sections follow dependency chain (Cloud/Charmhub → Client → Controller → User → Infrastructure and applications)
+- [ ] Infrastructure and applications subsections follow deployment narrative (models → charms → infrastructure → agents → management)
+- [ ] Each section has explanatory paragraph describing its role in the architecture
+- [ ] External resources (Cloud, Charmhub) distinguished from Juju components
+
+**Explanation**:
+- [ ] "At a glance" covers foundational concepts (architecture, security, performance)
+- [ ] Comparative topics show Juju's unique approach
+- [ ] Progression from fundamental to contextual is clear
+
+**How-to**:
+- [ ] Grouped by operational lifecycle stages
+- [ ] Setup → Auth → Deployment progression matches dependency flow
+- [ ] Cross-references to conceptual explanations where needed
+
+---
 
 ## WORKFLOW: Assess Before Changing
 

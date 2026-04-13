@@ -20,7 +20,7 @@ For contributors <contributor/index>
 releasenotes/index
 ```
 
-Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called ‘charms’.
+Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called 'charms'.
 
 Juju and charms provide a simple, consistent, and repeatable way to install, provision, maintain, update, upgrade, and integrate applications on and across Kubernetes containers, Linux containers, virtual machines, and bare metal machines, on public or private cloud.
 
@@ -32,7 +32,7 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 * **Learn more about Juju**: {ref}`Get started with Juju <tutorial>` • {ref}`Architecture <juju-architecture>` • {ref}`Security <juju-security>` • {ref}`Performance <performance-with-juju>`
 * **Set up Juju**: {ref}`Install juju <install-juju>` • {ref}`Bootstrap a controller <bootstrap-a-controller>` • {ref}`Connect a cloud <add-a-cloud>`
-* **Handle authentication and authorization**: {ref}`SSH keys <manage-ssh-keys>` • {ref}`Users <manage-users>`
+* **Handle authentication and authorization**: {ref}`Add a user <add-a-user>` • {ref}`Manage user access <manage-user-access>`
 * **Deploy infrastructure and applications**: {ref}`Deploy <deploy-an-application>` • {ref}`Configure <configure-an-application>` • {ref}`Integrate <integrate-an-application-with-another-application>` • {ref}`Scale <scale-an-application>` • {ref}`Upgrade <upgrade-an-application>`
 
 ## How this documentation is organised
@@ -54,7 +54,7 @@ Juju is an open source project that warmly welcomes community projects, contribu
 * [Join our forum ](https://discourse.charmhub.io/)
 * [Report a bug](https://github.com/juju/juju/issues)
 * [Contribute](https://github.com/juju/juju/blob/main/CONTRIBUTING.md)
-* [Visit our careers page](https://canonical.com/careers)
+* [Visit our careers page](https://canonical.com/careers/engineering)
 
 ### Releases
 

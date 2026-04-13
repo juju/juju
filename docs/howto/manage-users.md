@@ -139,7 +139,8 @@ User:        admin
 See more: {ref}`command-juju-whoami`
 ```
 
-## Manage a user's access level
+(manage-user-access)=
+## Manage user access
 
 ```{ibnote}
 See also: {ref}`user-access-levels`
