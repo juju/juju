@@ -235,7 +235,7 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "megatron",
 		},
 		Status:    "completed",
@@ -247,7 +247,7 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *tc.C) {
 			ID:       validActionId2,
 			Receiver: "unit-mysql-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "bumblebee",
 		},
 		Status:    "completed",
@@ -298,7 +298,7 @@ func (s *ExecSuite) TestAllMachines(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "megatron",
 		},
 		Status:    "completed",
@@ -355,7 +355,7 @@ func (s *ExecSuite) TestAllMachinesWithError(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout":      "megatron",
 			"return-code": "2",
 		},
@@ -368,7 +368,7 @@ func (s *ExecSuite) TestAllMachinesWithError(c *tc.C) {
 			ID:       validActionId2,
 			Receiver: "machine-1",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"return-code": "1",
 		},
 		Status:    "completed",
@@ -424,7 +424,7 @@ func (s *ExecSuite) TestTimeout(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "megatron",
 		},
 		Status:    "completed",
@@ -457,13 +457,11 @@ func (s *ExecSuite) TestTimeout(c *tc.C) {
 		ctx *cmd.Context
 		err error
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, err = cmdtesting.RunCommand(c, runCmd,
 			"--format=yaml", "--all", "hostname", "--wait", "2s",
 		)
-	}()
+	})
 
 	wg.Wait()
 	c.Check(err, tc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
@@ -572,7 +570,7 @@ use 'juju show-task' to inspect the failure
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "polo",
 		},
 	}, {
@@ -581,7 +579,7 @@ use 'juju show-task' to inspect the failure
 			ID:       validActionId2,
 			Receiver: "machine-1",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout":      "I failed you",
 			"return-code": "1",
 		},
@@ -671,7 +669,7 @@ func (s *ExecSuite) TestSingleResponse(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "machine-0",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"return-code": 42,
 		},
 		Status:    "completed",
@@ -754,7 +752,7 @@ func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *tc.C) {
 			ID:       validActionId,
 			Receiver: "unit-foo-7",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "result7",
 		},
 	}, {
@@ -762,7 +760,7 @@ func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *tc.C) {
 			ID:       validActionId2,
 			Receiver: "unit-foo-34",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stderr": "result34\n",
 		},
 	}, {
@@ -770,7 +768,7 @@ func (s *ExecSuite) TestMultipleUnitsPlainOutput(c *tc.C) {
 			ID:       validActionId3,
 			Receiver: "unit-foo-112",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "result112",
 		},
 	}}

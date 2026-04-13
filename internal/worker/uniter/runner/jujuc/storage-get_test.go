@@ -28,7 +28,7 @@ func TestStorageGetSuite(t *testing.T) {
 var storageGetTests = []struct {
 	args   []string
 	format int
-	out    interface{}
+	out    any
 }{
 	{[]string{"--format", "yaml"}, formatYaml, storageAttributes},
 	{[]string{"--format", "json"}, formatJson, storageAttributes},
@@ -47,8 +47,8 @@ func (s *storageGetSuite) TestOutputFormatKey(c *tc.C) {
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
-		var out interface{}
-		var outMap map[string]interface{}
+		var out any
+		var outMap map[string]any
 		switch t.format {
 		case formatYaml:
 			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
@@ -75,7 +75,7 @@ func (s *storageGetSuite) TestOutputPath(c *tc.C) {
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	c.Assert(goyaml.Unmarshal(content, &out), tc.IsNil)
 	c.Assert(out, tc.DeepEquals, storageAttributes)
 }

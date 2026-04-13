@@ -232,7 +232,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 	})
 	if err != nil {
 		if resolveInfo != nil {
-			metadata := map[string]interface{}{
+			metadata := map[string]any{
 				"Resolve Metadata": *resolveInfo,
 			}
 			buff := &bytes.Buffer{}
@@ -244,7 +244,7 @@ func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 	}
 
 	if len(versions) > 0 {
-		metadata := map[string]interface{}{
+		metadata := map[string]any{
 			"Matching Agent Binary Versions": versions,
 			"Resolve Metadata":               *resolveInfo,
 		}

@@ -121,7 +121,7 @@ func (s *CleanupSuite) PatchEnvPathPrepend(dir string) {
 // is saved and returned to the original value at test tear down time using a
 // cleanup function. The value must be assignable to the element type of the
 // destination.
-func (s *CleanupSuite) PatchValue(dest, value interface{}) {
+func (s *CleanupSuite) PatchValue(dest, value any) {
 	restore := PatchValue(dest, value)
 	s.AddCleanup(func(*tc.C) { restore() })
 }

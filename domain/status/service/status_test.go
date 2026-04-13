@@ -220,7 +220,7 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *tc.C) {
 	c.Assert(workload, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Since:   &s.now,
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Message: "hook failed: hook-name",
 	})
 }
@@ -290,7 +290,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 			input: corestatus.StatusInfo{
 				Status:  corestatus.Active,
 				Message: "I'm active!",
-				Data:    map[string]interface{}{"foo": "bar"},
+				Data:    map[string]any{"foo": "bar"},
 				Since:   &s.now,
 			},
 			output: status.StatusInfo[status.WorkloadStatusType]{
@@ -329,7 +329,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedM
 	expected := corestatus.StatusInfo{
 		Status:  corestatus.Terminated,
 		Message: "msg",
-		Data:    map[string]interface{}{"key": "value"},
+		Data:    map[string]any{"key": "value"},
 		Since:   &s.now,
 	}
 
@@ -367,7 +367,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "msg",
-		Data:    map[string]interface{}{"key": "value"},
+		Data:    map[string]any{"key": "value"},
 		Since:   &s.now,
 	})
 }
@@ -389,7 +389,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Waiting,
 		Message: "msg",
-		Data:    map[string]interface{}{"key": "value"},
+		Data:    map[string]any{"key": "value"},
 		Since:   &s.now,
 	})
 }
@@ -417,7 +417,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 		c.Check(info, tc.DeepEquals, corestatus.StatusInfo{
 			Status:  corestatus.Running,
 			Message: "msg",
-			Data:    map[string]interface{}{"key": "value"},
+			Data:    map[string]any{"key": "value"},
 			Since:   &s.now,
 		})
 	}
@@ -440,7 +440,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunnerWorkloadDom
 	c.Check(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Waiting,
 		Message: "foo",
-		Data:    map[string]interface{}{"key": "value"},
+		Data:    map[string]any{"key": "value"},
 		Since:   &s.now,
 	})
 }
@@ -642,7 +642,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Error,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"foo": "baz",
 		},
 		Message: "hook failed: hook-name",
@@ -713,7 +713,7 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Down,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "bar",
 				},
 			},
@@ -779,7 +779,7 @@ func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Running,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "bar",
 				},
 			},

@@ -21,7 +21,7 @@ const (
 // PoolUpdateAPI defines the API methods that the storage commands use.
 type PoolUpdateAPI interface {
 	Close() error
-	UpdatePool(ctx context.Context, name, provider string, attr map[string]interface{}) error
+	UpdatePool(ctx context.Context, name, provider string, attr map[string]any) error
 }
 
 const poolUpdateCommandDoc = `
@@ -52,7 +52,7 @@ type poolUpdateCommand struct {
 	PoolCommandBase
 	newAPIFunc  func(ctx context.Context) (PoolUpdateAPI, error)
 	poolName    string
-	configAttrs map[string]interface{}
+	configAttrs map[string]any
 	provider    string
 }
 
@@ -73,7 +73,7 @@ func (c *poolUpdateCommand) Init(args []string) (err error) {
 		delete(config, Type)
 		c.provider = providerType
 	}
-	c.configAttrs = make(map[string]interface{})
+	c.configAttrs = make(map[string]any)
 	for key, value := range config {
 		c.configAttrs[key] = value
 	}

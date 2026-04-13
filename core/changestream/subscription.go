@@ -3,7 +3,7 @@
 
 package changestream
 
-import "github.com/juju/worker/v4"
+import "github.com/juju/worker/v5"
 
 // Subscription describes the ability to receive events
 // from the event queue and unsubscribe from the queue.

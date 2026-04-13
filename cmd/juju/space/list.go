@@ -171,7 +171,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 }
 
 // printTabular prints the list of spaces in tabular format
-func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
+func (c *ListCommand) printTabular(writer io.Writer, value any) error {
 	tw := output.TabWriter(writer)
 
 	write := printTabularLong
@@ -185,7 +185,7 @@ func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 	return errors.Trace(tw.Flush())
 }
 
-func printTabularShort(writer io.Writer, value interface{}) error {
+func printTabularShort(writer io.Writer, value any) error {
 	list, ok := value.(formattedShortList)
 	if !ok {
 		return errors.New("unexpected value")
@@ -201,7 +201,7 @@ func printTabularShort(writer io.Writer, value interface{}) error {
 	return nil
 }
 
-func printTabularLong(writer io.Writer, value interface{}) error {
+func printTabularLong(writer io.Writer, value any) error {
 	list, ok := value.(formattedList)
 	if !ok {
 		return errors.New("unexpected value")

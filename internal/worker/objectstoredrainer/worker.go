@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/agent"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -264,8 +264,8 @@ func (w *Worker) Wait() error {
 
 // Report returns a report of the worker's state. This is used for
 // debugging and monitoring purposes.
-func (w *Worker) Report() map[string]any {
-	return w.runner.Report()
+func (w *Worker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 func (w *Worker) loop() error {

@@ -191,5 +191,5 @@ func SetAllowModelAccess(server *Server, allow bool) {
 // Patcher defines an interface that matches the PatchValue method on
 // CleanupSuite
 type Patcher interface {
-	PatchValue(ptr, value interface{})
+	PatchValue(ptr, value any)
 }

@@ -57,8 +57,9 @@ type InstanceTypesWithCostMetadata struct {
 	CostDivisor uint64
 }
 
+//go:fix inline
 func CpuPower(power uint64) *uint64 {
-	return &power
+	return new(power)
 }
 
 // match returns true if itype can satisfy the supplied constraints. If so,

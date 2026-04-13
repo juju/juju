@@ -19,7 +19,7 @@ import (
 )
 
 // StatusCallbackFunc represents a function that can be called to report a status.
-type StatusCallbackFunc func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error
+type StatusCallbackFunc func(ctx context.Context, settableStatus status.Status, info string, data map[string]any) error
 
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstance method.

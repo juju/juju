@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -327,9 +327,9 @@ func neverImportant(error, error) bool {
 }
 
 // Report shows up in the dependency engine report.
-func (m *modelWorkerManager) Report() map[string]any {
+func (m *modelWorkerManager) Report(ctx context.Context) map[string]any {
 	if m.runner == nil {
 		return nil
 	}
-	return m.runner.Report()
+	return m.runner.Report(ctx)
 }

@@ -26,7 +26,7 @@ func TestFacadeSuite(t *testing.T) {
 }
 
 func (s *FacadeSuite) TestLifeCallError(c *tc.C) {
-	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
+	apiCaller := apiCaller(c, func(request string, arg, _ any) error {
 		c.Check(request, tc.Equals, "GetEntities")
 		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
@@ -129,7 +129,7 @@ func (s *FacadeSuite) TestLifeDead(c *tc.C) {
 }
 
 func (s *FacadeSuite) TestSetPasswordCallError(c *tc.C) {
-	apiCaller := apiCaller(c, func(request string, arg, _ interface{}) error {
+	apiCaller := apiCaller(c, func(request string, arg, _ any) error {
 		c.Check(request, tc.Equals, "SetPasswords")
 		c.Check(arg, tc.DeepEquals, params.EntityPasswords{
 			Changes: []params.EntityPassword{{
@@ -214,7 +214,7 @@ func testLifeAPIResult(c *tc.C, result params.AgentGetEntitiesResult) (agent.Lif
 }
 
 func lifeChecker(c *tc.C, result params.AgentGetEntitiesResults) base.APICaller {
-	return apiCaller(c, func(_ string, _, out interface{}) error {
+	return apiCaller(c, func(_ string, _, out any) error {
 		typed, ok := out.(*params.AgentGetEntitiesResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = result
@@ -232,7 +232,7 @@ func testPasswordAPIResult(c *tc.C, result params.ErrorResult) error {
 }
 
 func passwordChecker(c *tc.C, result params.ErrorResults) base.APICaller {
-	return apiCaller(c, func(_ string, _, out interface{}) error {
+	return apiCaller(c, func(_ string, _, out any) error {
 		typed, ok := out.(*params.ErrorResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = result
@@ -240,8 +240,8 @@ func passwordChecker(c *tc.C, result params.ErrorResults) base.APICaller {
 	})
 }
 
-func apiCaller(c *tc.C, check func(request string, arg, result interface{}) error) base.APICaller {
-	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+func apiCaller(c *tc.C, check func(request string, arg, result any) error) base.APICaller {
+	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result any) error {
 		c.Check(facade, tc.Equals, "Agent")
 		c.Check(version, tc.Equals, 0) // because of BestFacadeVersion test infrastructure
 		c.Check(id, tc.Equals, "")

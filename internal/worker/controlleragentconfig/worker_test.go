@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -98,7 +98,7 @@ func (s *workerSuite) TestReloadRequestMultipleTimes(c *tc.C) {
 
 	s.ensureStartup(c, states)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		s.requestReload(c, socket)
 		s.ensureReload(c, states)
 	}
@@ -270,7 +270,7 @@ func (s *workerSuite) TestWatchMultiple(c *tc.C) {
 	wg.Add(len(watchers))
 
 	var count int64
-	for i := 0; i < len(watchers); i++ {
+	for i := range watchers {
 		go func(w ConfigWatcher) {
 			defer wg.Done()
 
@@ -322,7 +322,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *tc.C) {
 	wg.Add(len(watchers))
 
 	var count int64
-	for i := 0; i < len(watchers); i++ {
+	for i := range watchers {
 		go func(i int, w ConfigWatcher) {
 			defer wg.Done()
 

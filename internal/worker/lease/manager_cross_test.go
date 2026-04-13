@@ -33,7 +33,7 @@ func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				lease1,
 				corelease.Request{Holder: "sgt-howie", Duration: time.Minute},
 			},
@@ -45,7 +45,7 @@ func (s *CrossSuite) testClaims(c *tc.C, lease1, lease2 corelease.Key) {
 			},
 		}, {
 			method: "ClaimLease",
-			args: []interface{}{
+			args: []any{
 				lease2,
 				corelease.Request{Holder: "rowan", Duration: time.Minute},
 			},

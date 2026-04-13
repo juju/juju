@@ -1708,7 +1708,7 @@ func (s *NetplanSuite) TestWritePermissionDenied(c *tc.C) {
 
 func (s *NetplanSuite) TestWriteCantGenerateName(c *tc.C) {
 	tempDir := c.MkDir()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		filePath := path.Join(tempDir, fmt.Sprintf("%0.2d-juju.yaml", i))
 		os.WriteFile(filePath, []byte{}, 0644)
 	}
@@ -1732,11 +1732,12 @@ network:
 	tempDir := c.MkDir()
 
 	for _, n := range rand.Perm(100) {
-		content := header
+		var content strings.Builder
+		content.WriteString(header)
 		for i := 0; i < (100 - n); i++ {
-			content += fmt.Sprintf(template, i, i, n)
+			content.WriteString(fmt.Sprintf(template, i, i, n))
 		}
-		os.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
+		os.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content.String()), 0644)
 	}
 
 	np, err := netplan.ReadDirectory(tempDir)
@@ -1748,11 +1749,12 @@ network:
 	writtenContent, err := os.ReadFile(fileName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	content := header
-	for n := 0; n < 100; n++ {
-		content += fmt.Sprintf(template, n, n, 100-n-1)
+	var content strings.Builder
+	content.WriteString(header)
+	for n := range 100 {
+		content.WriteString(fmt.Sprintf(template, n, n, 100-n-1))
 	}
-	c.Check(string(writtenContent), tc.Equals, content)
+	c.Check(string(writtenContent), tc.Equals, content.String())
 }
 
 type Example struct {
@@ -1791,7 +1793,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *tc.C) {
 	examples := readExampleStrings(c)
 	for _, example := range examples {
 		c.Logf("example: %s", example.filename)
-		var orig map[interface{}]interface{}
+		var orig map[any]any
 		err := yaml.UnmarshalStrict([]byte(example.content), &orig)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("failed to unmarshal as map %s", example.filename))
 		np := MustNetplanFromYaml(c, example.content)
@@ -1800,7 +1802,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *tc.C) {
 		// (We might also change boolean 'no' to 'false', etc.
 		out, err := netplan.Marshal(np)
 		c.Check(err, tc.ErrorIsNil, tc.Commentf("failed to marshal %s", example.filename))
-		var roundtripped map[interface{}]interface{}
+		var roundtripped map[any]any
 		err = yaml.UnmarshalStrict(out, &roundtripped)
 		c.Assert(err, tc.ErrorIsNil)
 		if !reflect.DeepEqual(orig, roundtripped) {

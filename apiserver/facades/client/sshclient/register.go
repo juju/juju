@@ -17,10 +17,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SSHClient", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV4(ctx)
-	}, reflect.TypeOf((*FacadeV4)(nil)))
+	}, reflect.TypeFor[*FacadeV4]())
 	registry.MustRegister("SSHClient", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV5(ctx)
-	}, reflect.TypeOf((*FacadeV5)(nil)))
+	}, reflect.TypeFor[*FacadeV5]())
 }
 
 func newFacadeV5(ctx facade.ModelContext) (*FacadeV5, error) {

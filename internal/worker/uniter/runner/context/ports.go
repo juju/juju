@@ -5,6 +5,7 @@ package context
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -111,11 +112,9 @@ func (r *portRangeChangeRecorder) checkAppPortRanges(endpointName string, portRa
 			if endpointName != existingEndpoint {
 				continue
 			}
-			for _, otherPortRange := range otherEndpointRanges {
-				if portRange == otherPortRange {
-					// Already exists; this is a no-op.
-					return errors.AlreadyExistsf("%v (endpoint %q)", portRange, endpointName)
-				}
+			if slices.Contains(otherEndpointRanges, portRange) {
+				// Already exists; this is a no-op.
+				return errors.AlreadyExistsf("%v (endpoint %q)", portRange, endpointName)
 			}
 		}
 	}

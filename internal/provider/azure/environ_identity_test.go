@@ -28,7 +28,7 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 
 	deployments := []*armresources.DeploymentExtended{{
-		Name: to.Ptr("identity"),
+		Name: new("identity"),
 		Properties: &armresources.DeploymentPropertiesExtended{
 			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
 		},
@@ -40,7 +40,7 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 		makeSender("/deployments", armresources.DeploymentListResult{Value: deployments}),
 	)
 	p := environs.BootstrapParams{
-		ControllerConfig: map[string]interface{}{
+		ControllerConfig: map[string]any{
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 		},
 	}

@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	errorType   = reflect.TypeOf((*error)(nil)).Elem()
-	stringType  = reflect.TypeOf("")
-	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
+	errorType   = reflect.TypeFor[error]()
+	stringType  = reflect.TypeFor[string]()
+	contextType = reflect.TypeFor[context.Context]()
 )
 
 var (
@@ -120,8 +120,7 @@ func typeOf(goType reflect.Type) *Type {
 	rm := &Type{
 		method: make(map[string]*RootMethod),
 	}
-	for i := 0; i < goType.NumMethod(); i++ {
-		m := goType.Method(i)
+	for m := range goType.Methods() {
 		if m.PkgPath != "" || isKillMethod(m) {
 			// The Kill method gets a special exception because
 			// it fulfils the Killer interface which we're expecting,
@@ -275,8 +274,7 @@ func objTypeOf(goType reflect.Type) *ObjType {
 		method: make(map[string]*ObjMethod),
 		goType: goType,
 	}
-	for i := 0; i < goType.NumMethod(); i++ {
-		m := goType.Method(i)
+	for m := range goType.Methods() {
 		if m.PkgPath != "" {
 			continue
 		}

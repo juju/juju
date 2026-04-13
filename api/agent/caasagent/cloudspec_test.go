@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/api/agent/caasagent"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -26,7 +26,7 @@ type ClientSuite struct {
 
 func (s *ClientSuite) TestWatchCloudSpecChanges(c *tc.C) {
 	called := false
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		// We might get a second call to "Next" but
 		// we don't care.
 		if called {

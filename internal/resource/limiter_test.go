@@ -47,17 +47,15 @@ func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 	trigger := make(chan struct{})
 	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
-	for i := 0; i < totalToAcquire; i++ {
+	for range totalToAcquire {
 		started.Add(1)
-		finished.Add(1)
-		go func() {
-			defer finished.Done()
+		finished.Go(func() {
 			started.Done()
 			limiter.Acquire(c.Context(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
-		}()
+		})
 	}
 	started.Wait()
 
@@ -82,7 +80,7 @@ func (s *LimiterSuite) TestNoLimits(c *tc.C) {
 	}
 	c.Assert(allLocksAcquired, tc.IsTrue)
 
-	for i := 0; i < totalToAcquire; i++ {
+	for range totalToAcquire {
 		trigger <- struct{}{}
 	}
 	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(totalToAcquire))
@@ -106,17 +104,15 @@ func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 	trigger := make(chan struct{})
 	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
-	for i := 0; i < totalToAcquire; i++ {
+	for range totalToAcquire {
 		started.Add(1)
-		finished.Add(1)
-		go func() {
-			defer finished.Done()
+		finished.Go(func() {
 			started.Done()
 			limiter.Acquire(c.Context(), "app1")
 			atomic.AddInt32(&totalAcquiredCount, 1)
 			<-trigger
 			limiter.Release("app1")
-		}()
+		})
 	}
 	started.Wait()
 
@@ -149,7 +145,7 @@ func (s *LimiterSuite) TestGlobalLimit(c *tc.C) {
 	}
 
 	// Allow all the locks to be acquired.
-	for i := 0; i < totalToAcquire; i++ {
+	for range totalToAcquire {
 		trigger <- struct{}{}
 	}
 	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(totalToAcquire))
@@ -174,7 +170,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *tc.C) {
 	trigger := make(chan struct{})
 	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
-	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+	for i := range numApplications * totalToAcquirePerApplication {
 		started.Add(1)
 		finished.Add(1)
 		uuid := "app1"
@@ -222,7 +218,7 @@ func (s *LimiterSuite) TestApplicationLimit(c *tc.C) {
 	}
 
 	// Allow all the locks to be acquired.
-	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+	for range numApplications * totalToAcquirePerApplication {
 		trigger <- struct{}{}
 	}
 	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(numApplications*totalToAcquirePerApplication))
@@ -248,7 +244,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *tc.C) {
 	trigger := make(chan struct{})
 	started := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
-	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+	for i := range numApplications * totalToAcquirePerApplication {
 		started.Add(1)
 		finished.Add(1)
 		uuid := "app1"
@@ -298,7 +294,7 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *tc.C) {
 	}
 
 	// Allow all the locks to be acquired.
-	for i := 0; i < numApplications*totalToAcquirePerApplication; i++ {
+	for range numApplications * totalToAcquirePerApplication {
 		trigger <- struct{}{}
 	}
 	c.Assert(atomic.LoadInt32(&totalAcquiredCount), tc.Equals, int32(numApplications*totalToAcquirePerApplication))

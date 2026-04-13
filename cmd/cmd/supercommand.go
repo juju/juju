@@ -43,7 +43,7 @@ type UnrecognizedCommand struct {
 
 // UnrecognizedCommandf creates a UnrecognizedCommand with additional arguments
 // to create a bespoke message for the unrecognized command.
-func UnrecognizedCommandf(format string, args ...interface{}) *UnrecognizedCommand {
+func UnrecognizedCommandf(format string, args ...any) *UnrecognizedCommand {
 	return &UnrecognizedCommand{
 		message: fmt.Sprintf(format, args...),
 	}
@@ -99,7 +99,7 @@ type SuperCommandParams struct {
 	// VersionDetail is a freeform information that is output when the default version
 	// subcommand is passed --all. Output is formatted using the user-selected formatter.
 	// Exported fields should specify yaml and json field tags.
-	VersionDetail interface{}
+	VersionDetail any
 
 	// UserAliasesFilename refers to the location of a file that contains
 	//   name = cmd [args...]
@@ -190,7 +190,7 @@ type SuperCommand struct {
 	Aliases             []string
 	globalFlags         FlagAdder
 	version             string
-	versionDetail       interface{}
+	versionDetail       any
 	usagePrefix         string
 	userAliasesFilename string
 	userAliases         map[string][]string

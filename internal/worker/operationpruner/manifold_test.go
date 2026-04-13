@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -45,7 +45,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestStartMissingDomainServices(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		domainServicesName: dependency.ErrMissing,
 	})
 

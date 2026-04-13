@@ -3248,7 +3248,6 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 	}
 	settingsUpdate := map[string]string{
 		"key2": "value22",
-		"key3": "",
 	}
 	expectedSettings := map[string]string{
 		"key1": "value1",
@@ -3263,6 +3262,7 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 		c.Context(),
 		relationUnitUUID,
 		settingsUpdate,
+		[]string{"key3"},
 	)
 
 	// Assert:
@@ -3299,9 +3299,6 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 		"key2": "value2",
 		"key3": "value3",
 	}
-	settingsUpdate := map[string]string{
-		"key3": "",
-	}
 	expectedSettings := map[string]string{
 		"key1": "value1",
 		"key2": "value2",
@@ -3314,7 +3311,8 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 	err := s.state.SetRelationUnitSettings(
 		c.Context(),
 		relationUnitUUID,
-		settingsUpdate,
+		nil,
+		[]string{"key3"},
 	)
 
 	// Assert:
@@ -3369,6 +3367,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 		c.Context(),
 		relationUnitUUID,
 		settingsUpdate,
+		nil,
 	)
 
 	// Assert:
@@ -3403,6 +3402,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 	err := s.state.SetRelationUnitSettings(
 		c.Context(),
 		relationUnitUUID,
+		nil,
 		nil,
 	)
 
@@ -3444,6 +3444,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 		c.Context(),
 		relationUnitUUID,
 		initialSettings,
+		nil,
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
@@ -3457,6 +3458,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 		map[string]string{
 			"key1": "value2",
 		},
+		nil,
 	)
 
 	// Assert:
@@ -3498,6 +3500,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 		c.Context(),
 		relationUnitUUID,
 		settings,
+		nil,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3508,6 +3511,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 		c.Context(),
 		relationUnitUUID,
 		settings,
+		nil,
 	)
 
 	// Assert:
@@ -3524,6 +3528,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsRelationUnitNotFound(c *tc.C)
 		c.Context(),
 		"bad-uuid",
 		map[string]string{"key": "value"},
+		nil,
 	)
 
 	// Assert:

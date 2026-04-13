@@ -15,14 +15,16 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -53,12 +55,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 			{Role: charm.RoleRequirer},
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,7 +70,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM application WHERE uuid = ?", appID).Scan(&newCharmUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(newCharmUUID, tc.Equals, charmID.String())
+	c.Assert(newCharmUUID, tc.Equals, charmUUID.String())
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c *tc.C) {
@@ -87,12 +89,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cmv, tc.Equals, 0)
 
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -107,10 +109,10 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c 
 func (s *applicationRefreshSuite) TestSetApplicationCharmNoApplication(c *tc.C) {
 	// Arrange
 	appID := tc.Must(c, coreapplication.NewUUID)
-	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo"})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
@@ -118,11 +120,11 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmNoApplication(c *tc.C) 
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmNoCharm(c *tc.C) {
 	// Arrange
-	appID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
-	charmID := charmtesting.GenCharmID(c)
+	appUUID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	charmUUID := tc.Must(c, corecharm.NewID)
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appUUID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
@@ -149,7 +151,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
 
 	// Create a charm with a different limit, but bigger.
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -159,7 +161,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -184,7 +186,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
 
 	// Simulate updating the charm with the same relation/limit.
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -194,7 +196,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -203,12 +205,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmSuccessWithRelationEsta
 func (s *applicationRefreshSuite) TestSetApplicationCharmChangeChannel(c *tc.C) {
 	// Arrange
 	appID := s.createApplication(c, createApplicationArgs{})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
 		Channel: &deployment.Channel{
 			Track:  "track",
 			Risk:   "edge",
@@ -267,7 +269,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 	var count int
@@ -278,7 +280,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.
 	c.Assert(count, tc.Equals, 0)
 
 	// Act
-	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
 		Channel: &deployment.Channel{
 			Track:  "track",
 			Risk:   "edge",
@@ -328,10 +330,10 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 		},
 	})
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
-	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo"})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*charm has no corresponding relation "established"`)
@@ -353,10 +355,10 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorsWithPeerRelationS
 		},
 	})
 	s.establishPeerRelation(c, appID, "peer")
-	charmID := s.createCharm(c, createCharmArgs{name: "foo"})
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo"})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*charm has no corresponding peer relation "peer".*`)
@@ -377,7 +379,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 		},
 	})
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleRequirer,
@@ -388,7 +390,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*cannot change role of relation "established" from provider to requirer`)
@@ -409,7 +411,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 		},
 	})
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -420,7 +422,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*cannot change interface of relation "established" from interf to not-interf`)
@@ -441,7 +443,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 		},
 	})
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -452,7 +454,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*cannot change scope of relation "established" from global to container`)
@@ -479,7 +481,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	s.establishRelationWith(c, appID, "established", charm.RoleRequirer)
 
 	// Create a charm with a lesser limit.
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -489,7 +491,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmErrorWithEstablishedRel
 	}})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches,
@@ -508,7 +510,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMergesEndpointBindings(
 			},
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo", relations: []charm.Relation{
 		{
 			Name:      "established",
 			Role:      charm.RoleProvider,
@@ -527,7 +529,7 @@ VALUES (?, ?)`, spaceUUID, spaceName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err = s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
 		EndpointBindings: map[string]network.SpaceName{
 			"established": spaceName,
 		},
@@ -557,7 +559,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRelationEndpoi
 			"rel": "beta",
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		relations: []charm.Relation{
 			{
@@ -569,7 +571,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRelationEndpoi
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -596,12 +598,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsRemovesRelatio
 			"rel": s.addSpaceReturningName(c, "beta"),
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -617,7 +619,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmAddsRelationEndpointBin
 	appID := s.createApplication(c, createApplicationArgs{
 		appName: "my-app",
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		relations: []charm.Relation{
 			{
@@ -629,7 +631,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmAddsRelationEndpointBin
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -655,7 +657,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsExtraEndpointB
 			"foo": "beta",
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		extraBindings: map[string]charm.ExtraBinding{
 			"foo": {
@@ -665,7 +667,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmMaintainsExtraEndpointB
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -690,12 +692,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmRemovesExtraEndpointBin
 			"foo": s.addSpaceReturningName(c, "beta"),
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -719,7 +721,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmAddsExtraEndpointBindin
 			"foo": s.addSpaceReturningName(c, "beta"),
 		},
 	})
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		extraBindings: map[string]charm.ExtraBinding{
 			"foo": {
@@ -732,7 +734,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmAddsExtraEndpointBindin
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	// - binding falls back to default
@@ -775,7 +777,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 		},
 	})
 
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		charmConfig: charm.Config{
 			Options: map[string]charm.Option{
@@ -794,7 +796,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -833,7 +835,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 		},
 	})
 
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		charmConfig: charm.Config{
 			Options: map[string]charm.Option{
@@ -846,7 +848,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -891,7 +893,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 		},
 	})
 
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 		charmConfig: charm.Config{
 			Options: map[string]charm.Option{
@@ -905,7 +907,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -927,12 +929,12 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc
 		trust:   true,
 	})
 
-	charmID := s.createCharm(c, createCharmArgs{
+	charmUUID := s.createCharm(c, createCharmArgs{
 		name: "foo",
 	})
 
 	// Act
-	err := s.state.SetApplicationCharm(c.Context(), appID, charmID, application.SetCharmStateParams{})
+	err := s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -940,6 +942,131 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmTrustIsMaintained(c *tc
 	trust, err := s.state.GetApplicationTrustSetting(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(trust, tc.Equals, true)
+}
+
+// TestSetApplicationCharmCreatesUnitStorageDirectivesForAllUnits verifies
+// that when SetApplicationCharm is called with StorageDirectivesToCreate,
+// a unit_storage_directive row is inserted for every unit of the application.
+func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesUnitStorageDirectivesForAllUnits(c *tc.C) {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := s.DB().Exec(
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		poolUUID, "test-pool", "testprovider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	unit0 := s.addUnit(c, coreunit.Name("my-app/0"), appUUID)
+	unit1 := s.addUnit(c, coreunit.Name("my-app/1"), appUUID)
+	charmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		storage: map[string]charm.Storage{
+			"data": {
+				Name:     "data",
+				Type:     charm.StorageFilesystem,
+				CountMin: 1,
+				CountMax: 1,
+			},
+		},
+	})
+
+	params := application.SetCharmStateParams{
+		StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+			Name:     domainstorage.Name("data"),
+			PoolUUID: poolUUID,
+			Count:    1,
+			Size:     1024,
+		}},
+	}
+	err = s.state.SetApplicationCharm(c.Context(), appUUID, charmUUID, params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, unitUUID := range []coreunit.UUID{unit0, unit1} {
+		var storageName string
+		var count uint32
+		var sizeMiB uint64
+		err = s.DB().QueryRowContext(
+			c.Context(),
+			`SELECT storage_name, count, size_mib
+			FROM unit_storage_directive
+			WHERE unit_uuid = ? AND charm_uuid = ?`,
+			unitUUID.String(), charmUUID.String(),
+		).Scan(&storageName, &count, &sizeMiB)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(storageName, tc.Equals, "data")
+		c.Check(count, tc.Equals, uint32(1))
+		c.Check(sizeMiB, tc.Equals, uint64(1024))
+	}
+}
+
+// TestSetApplicationCharmNoUnitsStorageDirectivesNoop verifies that when
+// SetApplicationCharm is called with StorageDirectivesToCreate but the
+// application has no units, no unit_storage_directive rows are inserted.
+func (s *applicationRefreshSuite) TestSetApplicationCharmNoUnitsStorageDirectivesNoop(c *tc.C) {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := s.DB().Exec(
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		poolUUID, "test-pool", "testprovider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	charmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		storage: map[string]charm.Storage{
+			"data": {
+				Name:     "data",
+				Type:     charm.StorageFilesystem,
+				CountMin: 1,
+				CountMax: 1,
+			},
+		},
+	})
+
+	err = s.state.SetApplicationCharm(
+		c.Context(), appUUID, charmUUID,
+		application.SetCharmStateParams{
+			StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+				Name:     domainstorage.Name("data"),
+				PoolUUID: poolUUID,
+				Count:    1,
+				Size:     1024,
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_storage_directive WHERE charm_uuid = ?",
+		charmUUID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+// TestSetApplicationCharmEmptyStorageDirectivesToCreateNoop verifies that when
+// SetApplicationCharm is called with no StorageDirectivesToCreate, no
+// unit_storage_directive rows are inserted even when units exist.
+func (s *applicationRefreshSuite) TestSetApplicationCharmEmptyStorageDirectivesToCreateNoop(c *tc.C) {
+	appUUID := s.createApplication(c, createApplicationArgs{appName: "my-app"})
+	_ = s.addUnit(c, coreunit.Name("my-app/0"), appUUID)
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo"})
+
+	err := s.state.SetApplicationCharm(
+		c.Context(), appUUID, charmUUID, application.SetCharmStateParams{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_storage_directive WHERE charm_uuid = ?",
+		charmUUID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 // createApplication creates a new application in the state with the provided arguments and returns its unique ID.
@@ -1003,6 +1130,7 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 			Requires:      args.relationMap(c, charm.RoleRequirer),
 			Peers:         args.relationMap(c, charm.RolePeer),
 			ExtraBindings: args.extraBindings,
+			Storage:       args.storage,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
@@ -1010,9 +1138,9 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 		Source:        charm.LocalSource,
 		Revision:      43,
 	}
-	charmID, _, err := s.state.AddCharm(c.Context(), ch, nil, false)
+	charmUUID, _, err := s.state.AddCharm(c.Context(), ch, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
-	return charmID
+	return charmUUID
 }
 
 // establishRelationWith creates a new relation between the current application
@@ -1215,6 +1343,9 @@ type createCharmArgs struct {
 
 	// charmConfig defines the config for the charm on this application
 	charmConfig charm.Config
+
+	// storage defines the storage requirements for the charm
+	storage map[string]charm.Storage
 }
 
 // relationMap processes the relations of a createCharmArgs instance,

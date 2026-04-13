@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
@@ -163,10 +163,7 @@ func (e *pollGroupEntry) resetShortPollInterval(clk clock.Clock) {
 }
 
 func (e *pollGroupEntry) bumpShortPollInterval(clk clock.Clock) {
-	e.shortPollInterval = time.Duration(float64(e.shortPollInterval) * ShortPollBackoff)
-	if e.shortPollInterval > ShortPollCap {
-		e.shortPollInterval = ShortPollCap
-	}
+	e.shortPollInterval = min(time.Duration(float64(e.shortPollInterval)*ShortPollBackoff), ShortPollCap)
 	e.shortPollAt = clk.Now().Add(e.shortPollInterval)
 }
 

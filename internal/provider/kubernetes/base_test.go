@@ -112,16 +112,16 @@ type BaseSuite struct {
 
 type genericMatcher struct {
 	description string
-	matcher     func(interface{}) (bool, string)
+	matcher     func(any) (bool, string)
 }
 
-func genericMatcherFn(matcher func(interface{}) (bool, string)) *genericMatcher {
+func genericMatcherFn(matcher func(any) (bool, string)) *genericMatcher {
 	return &genericMatcher{
 		matcher: matcher,
 	}
 }
 
-func (g *genericMatcher) Matches(i interface{}) bool {
+func (g *genericMatcher) Matches(i any) bool {
 	if g.matcher == nil {
 		return false
 	}
@@ -136,7 +136,7 @@ func (g *genericMatcher) String() string {
 
 func listOptionsFieldSelectorMatcher(fieldSelector string) gomock.Matcher {
 	return genericMatcherFn(
-		func(i interface{}) (bool, string) {
+		func(i any) (bool, string) {
 			lo, ok := i.(v1.ListOptions)
 			if !ok {
 				return false, "is list options, not a valid corev1.ListOptions"

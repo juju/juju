@@ -16,6 +16,18 @@ run_empty_model_status() {
 	destroy_model "empty-model-status"
 }
 
+run_controller_ports() {
+	echo
+
+  ## Check open ports
+  OUT=$(juju status -m controller --format=json | jq '.applications.controller.units["controller/0"]."open-ports".[]')
+  check_contains "$OUT" "17070/tcp"
+  check_contains "$OUT" "17022/tcp"
+
+  juju status -m controller | grep "controller/0" | awk '{print $6}' | check "17022,17070/tcp"
+
+}
+
 test_model_status() {
 	if [ -n "$(skip 'test_model_status')" ]; then
 		echo "==> SKIP: Asked to skip model status tests"
@@ -28,6 +40,7 @@ test_model_status() {
 		cd .. || exit
 
 		run "run_empty_model_status"
+		run "run_controller_ports"
 	)
 
 }

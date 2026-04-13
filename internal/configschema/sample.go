@@ -20,7 +20,7 @@ import (
 // that holds the attributes in attrs with descriptions found
 // in the given fields. An entry for any attribute in fields not
 // in attrs will be generated but commented out.
-func SampleYAML(w io.Writer, indent int, attrs map[string]interface{}, fields Fields) error {
+func SampleYAML(w io.Writer, indent int, attrs map[string]any, fields Fields) error {
 	indentStr := strings.Repeat(" ", indent)
 	orderedFields := make(fieldsByGroup, 0, len(fields))
 	for name, f := range fields {
@@ -157,7 +157,7 @@ func (f fieldsByGroup) Less(i0, i1 int) bool {
 
 // indentVal writes the given YAML-formatted value x to w and prefixing
 // the second and subsequent lines with the given ident.
-func indentVal(w io.Writer, x interface{}, indentStr string) error {
+func indentVal(w io.Writer, x any, indentStr string) error {
 	data, err := yaml.Marshal(x)
 	if err != nil {
 		panic(fmt.Errorf("cannot marshal YAML: %v", err))
@@ -202,7 +202,7 @@ func indentVal(w io.Writer, x interface{}, indentStr string) error {
 	return nil
 }
 
-func canUseSameLine(x interface{}) bool {
+func canUseSameLine(x any) bool {
 	if x == nil {
 		return true
 	}
@@ -216,7 +216,7 @@ func canUseSameLine(x interface{}) bool {
 	return true
 }
 
-func sampleValue(t FieldType) interface{} {
+func sampleValue(t FieldType) any {
 	switch t {
 	case Tstring:
 		return ""

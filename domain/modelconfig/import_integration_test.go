@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"

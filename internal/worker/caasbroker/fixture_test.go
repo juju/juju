@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
@@ -25,7 +25,7 @@ import (
 type fixture struct {
 	watcherErr    error
 	observerErrs  []error
-	initialConfig map[string]interface{}
+	initialConfig map[string]any
 	initialSpec   environscloudspec.CloudSpec
 }
 
@@ -48,7 +48,7 @@ type runContext struct {
 	mu           sync.Mutex
 	stub         testhelpers.Stub
 	cloud        environscloudspec.CloudSpec
-	config       map[string]interface{}
+	config       map[string]any
 	watcher      *notifyWatcher
 	cloudWatcher *notifyWatcher
 	credWatcher  *notifyWatcher
@@ -210,7 +210,7 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 
 // newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
-func newModelConfig(c *tc.C, extraAttrs jujutesting.Attrs) map[string]interface{} {
+func newModelConfig(c *tc.C, extraAttrs jujutesting.Attrs) map[string]any {
 	return jujutesting.CustomModelConfig(c, extraAttrs).AllAttrs()
 }
 

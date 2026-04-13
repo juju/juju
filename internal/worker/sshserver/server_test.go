@@ -14,7 +14,7 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
@@ -282,8 +282,8 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
-	report := worker.(*ServerWorker).Report()
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	report := worker.(*ServerWorker).Report(c.Context())
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"concurrent_connections": int32(0),
 	})
 
@@ -298,8 +298,8 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	client := dial(c, "unix", endpoint, config)
 	defer func() { _ = client.Close() }()
 
-	report = worker.(*ServerWorker).Report()
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	report = worker.(*ServerWorker).Report(c.Context())
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"concurrent_connections": int32(1),
 	})
 }

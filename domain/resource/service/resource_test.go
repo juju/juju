@@ -255,20 +255,40 @@ func (s *resourceServiceSuite) TestListResourcesBadID(c *tc.C) {
 func (s *resourceServiceSuite) TestGetResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := resourcetesting.GenResourceUUID(c)
+	id := tc.Must(c, coreresource.NewUUID)
 	expectedRes := coreresource.Resource{
 		RetrievedBy: "admin",
 	}
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), id).Return(expectedRes, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(expectedRes, nil)
 
 	obtainedRes, err := s.service.GetResource(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedRes, tc.DeepEquals, expectedRes)
 }
 
-func (s *resourceServiceSuite) TestGetResourceBadID(c *tc.C) {
+func (s *resourceServiceSuite) TestGetResourceBadUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResource(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *resourceServiceSuite) TestGetResourceWithoutApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := tc.Must(c, coreresource.NewUUID)
+	expectedRes := coreresource.Resource{
+		RetrievedBy: "admin",
+	}
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), id).Return(expectedRes, nil)
+
+	obtainedRes, err := s.service.GetResourceWithoutApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedRes, tc.DeepEquals, expectedRes)
+}
+
+func (s *resourceServiceSuite) TestGetResourceWithoutApplicationBadUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service.GetResourceWithoutApplication(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -322,7 +342,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(expectedRes, nil)
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), resourceUUID).Return(expectedRes, nil)
 
 	// Act
 	res, err := s.service.StoreResource(
@@ -634,7 +654,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			},
 		},
 	}
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), resourceUUID).Return(expectedRes, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(expectedRes, nil)
 
 	res, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
@@ -772,7 +792,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *tc.C) {
 		ID: id.String(),
 	}
 
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
@@ -803,7 +823,7 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
@@ -832,7 +852,7 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
@@ -863,7 +883,7 @@ func (s *resourceServiceSuite) TestOpenResourceUnexpectedSize(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),

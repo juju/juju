@@ -32,7 +32,7 @@ func TestSessionTokenLoginProviderProviderSuite(t *stdtesting.T) {
 	tc.Run(t, &sessionTokenLoginProviderProviderSuite{})
 }
 func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		var err error
 		if modelUUID != "" && modelUUID != testing.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
@@ -58,7 +58,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 
 	var obtainedSessionToken string
 
-	s.PatchValue(api.LoginDeviceAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginDeviceAPICall, func(ctx context.Context, _ base.APICaller, request any, response any) error {
 		lr := struct {
 			UserCode        string `json:"user-code"`
 			VerificationURI string `json:"verification-uri"`
@@ -75,7 +75,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(api.GetDeviceSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.GetDeviceSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request any, response any) error {
 		lr := struct {
 			SessionToken string `json:"session-token"`
 		}{
@@ -90,7 +90,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *tc.C) 
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(api.LoginWithSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginWithSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request any, response any) error {
 		data, err := json.Marshal(request)
 		if err != nil {
 			return errors.Trace(err)
@@ -155,7 +155,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 		Message: "unauthorized",
 		Code:    params.CodeUnauthorized,
 	}
-	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ context.Context, _ base.APICaller, request any, response any) error {
 		return expectedErr
 	})
 

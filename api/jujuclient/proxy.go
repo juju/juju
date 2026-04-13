@@ -20,7 +20,7 @@ func newProxierFactory() (ProxyFactory, error) {
 
 // ProxyFactory defines the interface for a factory that can create a proxy.
 type ProxyFactory interface {
-	ProxierFromConfig(string, map[string]interface{}) (proxy.Proxier, error)
+	ProxierFromConfig(string, map[string]any) (proxy.Proxier, error)
 }
 
 // ProxyConfWrapper is wrapper around proxier interfaces so that they can be
@@ -31,7 +31,7 @@ type ProxyConfWrapper struct {
 
 // MarshalYAML implements marshalling method for yaml. This is so we can make
 // sure the proxier type is outputted with the config for later ingestion
-func (p *ProxyConfWrapper) MarshalYAML() (interface{}, error) {
+func (p *ProxyConfWrapper) MarshalYAML() (any, error) {
 	return proxyConfMarshaler{
 		Type: p.Proxier.Type(), Config: p.Proxier,
 	}, nil
@@ -43,13 +43,13 @@ type proxyConfMarshaler struct {
 }
 
 type proxyConfUnmarshaler struct {
-	Type   string                 `yaml:"type"`
-	Config map[string]interface{} `yaml:"config"`
+	Type   string         `yaml:"type"`
+	Config map[string]any `yaml:"config"`
 }
 
 // UnmarshalYAML ingests a previously outputted proxy config. It uses the proxy
 // default factory to try and construct the correct proxy based on type.
-func (p *ProxyConfWrapper) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (p *ProxyConfWrapper) UnmarshalYAML(unmarshal func(any) error) error {
 	factory, err := NewProxierFactory()
 	if err != nil {
 		return errors.Annotate(err, "building proxy factory for config")

@@ -89,7 +89,7 @@ func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	values := map[string]interface{}{
+	values := map[string]any{
 		"kind":     storage.Kind().String(),
 		"location": storage.Location(),
 	}

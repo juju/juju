@@ -205,7 +205,7 @@ func (w *userdataConfig) Configure() error {
 // between image bringup and start of agent installation.
 func (w *userdataConfig) ConfigureBasic() error {
 	// Keep preruncmd at the beginning of any runcmd's that juju adds
-	if preruncmds, ok := w.icfg.CloudInitUserData["preruncmd"].([]interface{}); ok {
+	if preruncmds, ok := w.icfg.CloudInitUserData["preruncmd"].([]any); ok {
 		for i := len(preruncmds) - 1; i >= 0; i -= 1 {
 			cmd, err := runCmdToString(preruncmds[i])
 			if err != nil {
@@ -264,7 +264,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 
 	// To keep postruncmd at the end of any runcmd's that juju adds,
 	// this block must stay at the top.
-	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]interface{}); ok {
+	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]any); ok {
 
 		// revert the `set -xe` shell flag which was set after preruncmd
 		// LP: #1978454
@@ -401,7 +401,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 	}
 
 	// Append cloudinit-userdata packages to the end of the juju created ones.
-	if packagesToAdd, ok := w.icfg.CloudInitUserData["packages"].([]interface{}); ok {
+	if packagesToAdd, ok := w.icfg.CloudInitUserData["packages"].([]any); ok {
 		for _, v := range packagesToAdd {
 			if pack, ok := v.(string); ok {
 				w.conf.AddPackage(pack)
@@ -648,7 +648,7 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 		).Parse(toolsDownloadTemplate),
 	)
 	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+	err := parsedTemplate.Execute(&buf, map[string]any{
 		"ToolsDownloadCommand":  curlCommand,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,

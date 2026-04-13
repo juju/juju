@@ -176,7 +176,7 @@ func (c client) Exec(ctx context.Context, params ExecParams, cancel <-chan struc
 }
 
 func processEnv(env []string) (string, error) {
-	out := ""
+	var out strings.Builder
 	for _, s := range env {
 		values := strings.SplitN(s, "=", 2)
 		if len(values) != 2 {
@@ -184,9 +184,9 @@ func processEnv(env []string) (string, error) {
 		}
 		key := values[0]
 		value := values[1]
-		out += fmt.Sprintf("export %s=%s; ", key, shellquote.Join(value))
+		out.WriteString(fmt.Sprintf("export %s=%s; ", key, shellquote.Join(value)))
 	}
-	return out, nil
+	return out.String(), nil
 }
 
 func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err error) {

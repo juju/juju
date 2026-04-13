@@ -71,8 +71,8 @@ func (s *DeploySuiteBase) runDeploy(c *tc.C, args ...string) error {
 	return err
 }
 
-func minimalModelConfig() map[string]interface{} {
-	return map[string]interface{}{
+func minimalModelConfig() map[string]any {
+	return map[string]any{
 		"name":           "name",
 		"uuid":           coretesting.ModelTag.Id(),
 		"type":           "foo",
@@ -470,7 +470,7 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *tc.C) {
 }
 
 func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
-	cfgAttrs := map[string]interface{}{
+	cfgAttrs := map[string]any{
 		"name":             "sword",
 		"uuid":             coretesting.ModelTag.Id(),
 		"type":             model.CAAS,
@@ -961,8 +961,8 @@ func (s *DeployUnitTestSuite) SetUpTest(c *tc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }
 
-func (s *DeployUnitTestSuite) cfgAttrs() map[string]interface{} {
-	return map[string]interface{}{
+func (s *DeployUnitTestSuite) cfgAttrs() map[string]any {
+	return map[string]any{
 		"name":           "name",
 		"uuid":           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type":           "foo",
@@ -1142,7 +1142,7 @@ type deployerConfigMatcher struct {
 	expected deployer.DeployerConfig
 }
 
-func (m deployerConfigMatcher) Matches(x interface{}) bool {
+func (m deployerConfigMatcher) Matches(x any) bool {
 	obtained, ok := x.(deployer.DeployerConfig)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
@@ -1216,9 +1216,9 @@ func (f *fakeDeployAPI) Sequences(ctx context.Context) (map[string]int, error) {
 	return nil, nil
 }
 
-func (f *fakeDeployAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (f *fakeDeployAPI) ModelGet(ctx context.Context) (map[string]any, error) {
 	results := f.MethodCall(f, "ModelGet")
-	return results[0].(map[string]interface{}), testhelpers.TypeAssertError(results[1])
+	return results[0].(map[string]any), testhelpers.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) ResolveCharm(ctx context.Context, url *charm.URL, preferredChannel commoncharm.Origin, switchCharm bool) (
@@ -1261,7 +1261,7 @@ func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
 	return results[0].(int)
 }
 
-func (f *fakeDeployAPI) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
+func (f *fakeDeployAPI) APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error {
 	results := f.MethodCall(f, "APICall", objType, version, id, request, params, response)
 	return testhelpers.TypeAssertError(results[0])
 }
@@ -1304,7 +1304,7 @@ func (f *fakeDeployAPI) CharmInfo(ctx context.Context, url string) (*apicommonch
 	return results[0].(*apicommoncharms.CharmInfo), testhelpers.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) Get(ctx context.Context, endpoint string, extra interface{}) error {
+func (f *fakeDeployAPI) Get(ctx context.Context, endpoint string, extra any) error {
 	return nil
 }
 
@@ -1336,7 +1336,7 @@ func (f *fakeDeployAPI) GetAnnotations(context.Context, []string) ([]params.Anno
 	return nil, nil
 }
 
-func (f *fakeDeployAPI) GetConfig(context.Context, ...string) ([]map[string]interface{}, error) {
+func (f *fakeDeployAPI) GetConfig(context.Context, ...string) ([]map[string]any, error) {
 	return nil, nil
 }
 
@@ -1423,15 +1423,15 @@ func (f *fakeDeployAPI) GrantOffer(ctx context.Context, user, access string, off
 	return testhelpers.TypeAssertError(res[0])
 }
 
-func stringToInterface(args []string) []interface{} {
-	interfaceArgs := make([]interface{}, len(args))
+func stringToInterface(args []string) []any {
+	interfaceArgs := make([]any, len(args))
 	for i, a := range args {
 		interfaceArgs[i] = a
 	}
 	return interfaceArgs
 }
 
-func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
+func vanillaFakeModelAPI(cfgAttrs map[string]any) *fakeDeployAPI {
 	var logger loggo.Logger
 	fakeAPI := &fakeDeployAPI{CallMocker: testhelpers.NewCallMocker(logger)}
 

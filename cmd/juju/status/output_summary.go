@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/internal/naturalsort"
 )
 
-func (c *statusCommand) formatSummary(writer io.Writer, value interface{}) error {
+func (c *statusCommand) formatSummary(writer io.Writer, value any) error {
 
 	if c.noColor {
 		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
@@ -47,7 +47,7 @@ func (c *statusCommand) formatSummary(writer io.Writer, value interface{}) error
 //   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
 //   - RemoteApplications: Displays total #, their names and URLs.
-func FormatSummary(writer io.Writer, forceColor bool, value interface{}) error {
+func FormatSummary(writer io.Writer, forceColor bool, value any) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)

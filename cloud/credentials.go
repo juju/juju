@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -74,9 +75,7 @@ func copyStringMap(in map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string)
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -91,12 +90,12 @@ type credentialInternal struct {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (c Credential) MarshalYAML() (interface{}, error) {
+func (c Credential) MarshalYAML() (any, error) {
 	return credentialInternal{c.authType, c.attributes}, nil
 }
 
 // UnmarshalYAML implements the yaml.Marshaler interface.
-func (c *Credential) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *Credential) UnmarshalYAML(unmarshal func(any) error) error {
 	var internal credentialInternal
 	if err := unmarshal(&internal); err != nil {
 		return err
@@ -208,7 +207,7 @@ func (s CredentialSchema) Finalize(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	for k, v := range attrs {
 		m[k] = v
 	}
@@ -217,7 +216,7 @@ func (s CredentialSchema) Finalize(
 		return nil, errors.Trace(err)
 	}
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	newAttrs := make(map[string]string)
 
 	// Construct the final credential attributes map, reading values from files as necessary.
@@ -319,7 +318,7 @@ func ValidateFileAttrValue(path string) (string, error) {
 }
 
 func (s CredentialSchema) processFileAttrValue(
-	field NamedCredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
+	field NamedCredentialAttr, resultMap map[string]any, newAttrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) error {
 	name := field.Name
@@ -420,7 +419,7 @@ type CredentialAttr struct {
 	Optional bool
 
 	// Options, if set, define the allowed values for this field.
-	Options []interface{}
+	Options []any
 
 	// ShortSuffix is a human-readable suffix that we add to the name of
 	// the attribute when prompting. This replaces the (optional) suffix
@@ -431,7 +430,7 @@ type CredentialAttr struct {
 
 type cloudCredentialChecker struct{}
 
-func (c cloudCredentialChecker) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c cloudCredentialChecker) Coerce(v any, path []string) (any, error) {
 	out := CloudCredential{
 		AuthCredentials: make(map[string]Credential),
 	}
@@ -439,7 +438,7 @@ func (c cloudCredentialChecker) Coerce(v interface{}, path []string) (interface{
 	if err != nil {
 		return nil, err
 	}
-	mapv := v.(map[string]interface{})
+	mapv := v.(map[string]any)
 	for k, v := range mapv {
 		switch k {
 		case "default-region":
@@ -455,7 +454,7 @@ func (c cloudCredentialChecker) Coerce(v interface{}, path []string) (interface{
 
 type cloudCredentialValueChecker struct{}
 
-func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c cloudCredentialValueChecker) Coerce(v any, path []string) (any, error) {
 	field := path[len(path)-1]
 	switch field {
 	case "default-region", "default-credential":
@@ -465,7 +464,7 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	if err != nil {
 		return nil, err
 	}
-	mapv := v.(map[string]interface{})
+	mapv := v.(map[string]any)
 
 	authType, _ := mapv["auth-type"].(string)
 	if authType == "" {
@@ -522,7 +521,7 @@ func RemoveSecrets(
 
 // CredentialCollection holds CloudCredential(s) that are lazily validated.
 type CredentialCollection struct {
-	Credentials map[string]interface{} `yaml:"credentials"`
+	Credentials map[string]any `yaml:"credentials"`
 }
 
 // ParseCredentialCollection parses YAML bytes for the credential
@@ -573,7 +572,7 @@ func (c *CredentialCollection) UpdateCloudCredential(cloudName string, details C
 		return
 	}
 	if c.Credentials == nil {
-		c.Credentials = make(map[string]interface{})
+		c.Credentials = make(map[string]any)
 	}
 	details.validateDefaultCredential()
 	c.Credentials[cloudName] = details

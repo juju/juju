@@ -39,7 +39,7 @@ func (s *storageVolumeSuite) SetUpTest(c *tc.C) {
 
 func (s *storageVolumeSuite) newVolumeSource(c *tc.C) storage.VolumeSource {
 	cfg, err := storage.NewConfig("iscsi", oci.OciStorageProviderType,
-		map[string]interface{}{
+		map[string]any{
 			oci.OciVolumeType: oci.IscsiPool,
 		})
 	c.Assert(err, tc.IsNil)
@@ -57,16 +57,16 @@ func (s *storageVolumeSuite) setupCreateVolumesExpectations(c *tc.C, tag names.V
 	}
 
 	volume := ociCore.Volume{
-		AvailabilityDomain: makeStringPointer("fakeZone1"),
+		AvailabilityDomain: new("fakeZone1"),
 		CompartmentId:      &s.testCompartment,
-		Id:                 makeStringPointer("fakeVolumeId"),
+		Id:                 new("fakeVolumeId"),
 		LifecycleState:     ociCore.VolumeLifecycleStateProvisioning,
 		FreeformTags:       volTags,
 		SizeInGBs:          &size,
 	}
 
 	requestDetails := ociCore.CreateVolumeDetails{
-		AvailabilityDomain: makeStringPointer("fakeZone1"),
+		AvailabilityDomain: new("fakeZone1"),
 		CompartmentId:      &s.testCompartment,
 		DisplayName:        &name,
 		SizeInMBs:          &size,
@@ -154,17 +154,17 @@ func (s *storageVolumeSuite) setupListVolumesExpectations(c *tc.C, size int64) m
 	}
 	volumes := []ociCore.Volume{
 		{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer("fakeVolumeId"),
+			Id:                 new("fakeVolumeId"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			FreeformTags:       volTags,
 			SizeInGBs:          &size,
 		},
 		{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer("fakeVolumeId2"),
+			Id:                 new("fakeVolumeId2"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			FreeformTags:       volTags,
 			SizeInGBs:          &size,
@@ -319,13 +319,13 @@ func (s *storageVolumeSuite) TestReleaseVolumes(c *tc.C) {
 func (s *storageVolumeSuite) setupGetInstanceExpectations(c *tc.C, instance string, state ociCore.InstanceLifecycleStateEnum) {
 	requestMachine1, responseMachine1 := makeGetInstanceRequestResponse(
 		ociCore.Instance{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer(instance),
+			Id:                 new(instance),
 			LifecycleState:     state,
-			Region:             makeStringPointer("us-phoenix-1"),
-			Shape:              makeStringPointer("VM.Standard1.1"),
-			DisplayName:        makeStringPointer("fakeName"),
+			Region:             new("us-phoenix-1"),
+			Shape:              new("VM.Standard1.1"),
+			DisplayName:        new("fakeName"),
 			FreeformTags:       s.tags,
 		},
 	)
@@ -340,17 +340,17 @@ func (s *storageVolumeSuite) makeListVolumeAttachmentExpectations(c *tc.C, insta
 	if returnEmpty == false {
 		response = []ociCore.VolumeAttachment{
 			ociCore.IScsiVolumeAttachment{
-				AvailabilityDomain: makeStringPointer("fakeZone1"),
+				AvailabilityDomain: new("fakeZone1"),
 				InstanceId:         &instance,
 				CompartmentId:      &s.testCompartment,
-				Iqn:                makeStringPointer("bogus"),
-				Id:                 makeStringPointer("fakeVolumeAttachment1"),
+				Iqn:                new("bogus"),
+				Id:                 new("fakeVolumeAttachment1"),
 				VolumeId:           &volumeId,
-				Ipv4:               makeStringPointer("192.168.1.1"),
+				Ipv4:               new("192.168.1.1"),
 				Port:               &port,
-				DisplayName:        makeStringPointer("fakeVolumeAttachment"),
-				ChapSecret:         makeStringPointer("superSecretPassword"),
-				ChapUsername:       makeStringPointer("JohnDoe"),
+				DisplayName:        new("fakeVolumeAttachment"),
+				ChapSecret:         new("superSecretPassword"),
+				ChapUsername:       new("JohnDoe"),
 				LifecycleState:     ociCore.VolumeAttachmentLifecycleStateAttached,
 			},
 		}
@@ -452,17 +452,17 @@ func (s *storageVolumeSuite) setupAttachNewVolumeExpectations(c *tc.C, instance,
 func (s *storageVolumeSuite) getVolumeAttachmentTemplate(instance, volume, attachment string) ociCore.IScsiVolumeAttachment {
 	port := 3260
 	return ociCore.IScsiVolumeAttachment{
-		AvailabilityDomain: makeStringPointer("fakeZone1"),
+		AvailabilityDomain: new("fakeZone1"),
 		InstanceId:         &instance,
 		CompartmentId:      &s.testCompartment,
-		Iqn:                makeStringPointer("bogus"),
+		Iqn:                new("bogus"),
 		Id:                 &attachment,
 		VolumeId:           &volume,
-		Ipv4:               makeStringPointer("192.168.1.1"),
+		Ipv4:               new("192.168.1.1"),
 		Port:               &port,
-		DisplayName:        makeStringPointer("fakeVolumeAttachment"),
-		ChapSecret:         makeStringPointer("superSecretPassword"),
-		ChapUsername:       makeStringPointer("JohnDoe"),
+		DisplayName:        new("fakeVolumeAttachment"),
+		ChapSecret:         new("superSecretPassword"),
+		ChapUsername:       new("JohnDoe"),
 		LifecycleState:     ociCore.VolumeAttachmentLifecycleStateAttaching,
 	}
 }

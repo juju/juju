@@ -40,23 +40,23 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 	s.listInstancesResponse =
 		[]ociCore.Instance{
 			{
-				AvailabilityDomain: makeStringPointer("fakeZone1"),
+				AvailabilityDomain: new("fakeZone1"),
 				CompartmentId:      &s.testCompartment,
-				Id:                 makeStringPointer("fakeInstance1"),
+				Id:                 new("fakeInstance1"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-				Region:             makeStringPointer("us-phoenix-1"),
-				Shape:              makeStringPointer("VM.Standard1.1"),
-				DisplayName:        makeStringPointer("fakeName"),
+				Region:             new("us-phoenix-1"),
+				Shape:              new("VM.Standard1.1"),
+				DisplayName:        new("fakeName"),
 				FreeformTags:       s.tags,
 			},
 			{
-				AvailabilityDomain: makeStringPointer("fakeZone2"),
+				AvailabilityDomain: new("fakeZone2"),
 				CompartmentId:      &s.testCompartment,
-				Id:                 makeStringPointer("fakeInstance2"),
+				Id:                 new("fakeInstance2"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-				Region:             makeStringPointer("us-phoenix-1"),
-				Shape:              makeStringPointer("VM.Standard1.1"),
-				DisplayName:        makeStringPointer("fakeName2"),
+				Region:             new("us-phoenix-1"),
+				Shape:              new("VM.Standard1.1"),
+				DisplayName:        new("fakeName2"),
 				FreeformTags:       s.tags,
 			},
 		}
@@ -71,24 +71,24 @@ func (s *environSuite) setupListImagesExpectations(c *tc.C) {
 	response := []ociCore.Image{
 		{
 			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fakeUbuntu1"),
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			Id:                     new("fakeUbuntu1"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fakeUbuntu2"),
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+			Id:                     new("fakeUbuntu2"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fakeCentOS"),
-			OperatingSystem:        makeStringPointer("CentOS"),
-			OperatingSystemVersion: makeStringPointer("7"),
-			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
+			Id:                     new("fakeCentOS"),
+			OperatingSystem:        new("CentOS"),
+			OperatingSystemVersion: new("7"),
+			DisplayName:            new("CentOS-7-2017.10.19-0"),
 		},
 	}
 	s.compute.EXPECT().ListImages(gomock.Any(), &s.testCompartment).Return(response, nil)
@@ -275,13 +275,13 @@ func (s *environSuite) setupStopInstanceExpectations(c *tc.C, instancesDetails [
 
 	for _, inst := range instancesDetails {
 		ociInstance := ociCore.Instance{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer(inst.instanceId),
+			Id:                 new(inst.instanceId),
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-			Region:             makeStringPointer("us-phoenix-1"),
-			Shape:              makeStringPointer("VM.Standard1.1"),
-			DisplayName:        makeStringPointer("fakeName"),
+			Region:             new("us-phoenix-1"),
+			Shape:              new("VM.Standard1.1"),
+			DisplayName:        new("fakeName"),
 			FreeformTags:       s.tags,
 		}
 		instancesListWithError = append(
@@ -440,13 +440,13 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *tc.
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
-				AvailabilityDomain: makeStringPointer("fakeZone1"),
+				AvailabilityDomain: new("fakeZone1"),
 				CompartmentId:      &s.testCompartment,
-				Id:                 makeStringPointer("fakeInstance1"),
+				Id:                 new("fakeInstance1"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-				Region:             makeStringPointer("us-phoenix-1"),
-				Shape:              makeStringPointer("VM.Standard1.1"),
-				DisplayName:        makeStringPointer("fakeName"),
+				Region:             new("us-phoenix-1"),
+				Shape:              new("VM.Standard1.1"),
+				DisplayName:        new("fakeName"),
 				FreeformTags:       s.tags,
 			},
 		},
@@ -510,13 +510,13 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *tc.C
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
-				AvailabilityDomain: makeStringPointer("fakeZone1"),
+				AvailabilityDomain: new("fakeZone1"),
 				CompartmentId:      &s.testCompartment,
-				Id:                 makeStringPointer("fakeInstance2"),
+				Id:                 new("fakeInstance2"),
 				LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-				Region:             makeStringPointer("us-phoenix-1"),
-				Shape:              makeStringPointer("VM.Standard1.1"),
-				DisplayName:        makeStringPointer("fakeName"),
+				Region:             new("us-phoenix-1"),
+				Shape:              new("VM.Standard1.1"),
+				DisplayName:        new("fakeName"),
 				FreeformTags:       s.tags,
 			},
 		},
@@ -611,13 +611,13 @@ func (s *environSuite) setupLaunchInstanceExpectations(
 	c *tc.C, isController bool, tags map[string]string, publicIP bool, launchInstanceMatcher gomock.Matcher,
 ) {
 	inst := ociCore.Instance{
-		AvailabilityDomain: makeStringPointer("fakeZone1"),
+		AvailabilityDomain: new("fakeZone1"),
 		CompartmentId:      &s.testCompartment,
-		Id:                 makeStringPointer("fakeInstanceId"),
+		Id:                 new("fakeInstanceId"),
 		LifecycleState:     ociCore.InstanceLifecycleStateProvisioning,
-		Region:             makeStringPointer("us-phoenix-1"),
-		Shape:              makeStringPointer("VM.Standard1.1"),
-		DisplayName:        makeStringPointer("juju-06f00d-0"),
+		Region:             new("us-phoenix-1"),
+		Shape:              new("VM.Standard1.1"),
+		DisplayName:        new("juju-06f00d-0"),
 		FreeformTags:       tags,
 	}
 	responseLaunch := ociCore.LaunchInstanceResponse{
@@ -639,13 +639,13 @@ func (s *environSuite) setupLaunchInstanceExpectations(
 		vnicID := "fakeVnicId"
 		attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse([]ociCore.VnicAttachment{
 			{
-				Id:                 makeStringPointer("fakeAttachmentId"),
-				AvailabilityDomain: makeStringPointer("fake"),
+				Id:                 new("fakeAttachmentId"),
+				AvailabilityDomain: new("fake"),
 				CompartmentId:      &s.testCompartment,
-				InstanceId:         makeStringPointer("fakeInstanceId"),
+				InstanceId:         new("fakeInstanceId"),
 				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-				DisplayName:        makeStringPointer("fakeAttachmentName"),
-				NicIndex:           makeIntPointer(0),
+				DisplayName:        new("fakeAttachmentName"),
+				NicIndex:           new(0),
 				VnicId:             &vnicID,
 			},
 		})
@@ -654,11 +654,11 @@ func (s *environSuite) setupLaunchInstanceExpectations(
 			{
 				Vnic: ociCore.Vnic{
 					Id:             &vnicID,
-					PrivateIp:      makeStringPointer("10.0.0.20"),
-					DisplayName:    makeStringPointer("fakeVnicName"),
-					PublicIp:       makeStringPointer("2.2.2.2"),
-					MacAddress:     makeStringPointer("aa:aa:aa:aa:aa:aa"),
-					SubnetId:       makeStringPointer("fakeSubnetId"),
+					PrivateIp:      new("10.0.0.20"),
+					DisplayName:    new("fakeVnicName"),
+					PublicIp:       new("2.2.2.2"),
+					MacAddress:     new("aa:aa:aa:aa:aa:aa"),
+					SubnetId:       new("fakeSubnetId"),
 					LifecycleState: ociCore.VnicLifecycleStateAvailable,
 				},
 			},
@@ -667,7 +667,7 @@ func (s *environSuite) setupLaunchInstanceExpectations(
 		// These calls are only expected if we assign a public IP.
 		// They occur when polling for the IP after the instance is started.
 		if publicIP {
-			s.compute.EXPECT().ListVnicAttachments(gomock.Any(), attachRequest.CompartmentId, makeStringPointer("fakeInstanceId")).Return(attachResponse.Items, nil)
+			s.compute.EXPECT().ListVnicAttachments(gomock.Any(), attachRequest.CompartmentId, new("fakeInstanceId")).Return(attachResponse.Items, nil)
 			s.netw.EXPECT().GetVnic(gomock.Any(), vnicRequest[0]).Return(vnicResponse[0], nil)
 		}
 	}
@@ -728,7 +728,7 @@ func (s *environSuite) TestBootstrapFlexibleShape(c *tc.C) {
 
 type noPublicIPMatcher struct{}
 
-func (noPublicIPMatcher) Matches(arg interface{}) bool {
+func (noPublicIPMatcher) Matches(arg any) bool {
 	li := arg.(ociCore.LaunchInstanceRequest)
 	assign := *li.CreateVnicDetails.AssignPublicIp
 	return !assign
@@ -784,7 +784,7 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *tc.C) {
 
 func (s *environSuite) setupDeleteSecurityListExpectations(c *tc.C, seclistId string, times int) {
 	request := ociCore.DeleteSecurityListRequest{
-		SecurityListId: makeStringPointer(seclistId),
+		SecurityListId: new(seclistId),
 	}
 
 	response := ociCore.DeleteSecurityListResponse{
@@ -801,11 +801,11 @@ func (s *environSuite) setupDeleteSecurityListExpectations(c *tc.C, seclistId st
 	}
 
 	requestGet := ociCore.GetSecurityListRequest{
-		SecurityListId: makeStringPointer("fakeSecList"),
+		SecurityListId: new("fakeSecList"),
 	}
 
 	seclist := ociCore.SecurityList{
-		Id:             makeStringPointer("fakeSecList"),
+		Id:             new("fakeSecList"),
 		LifecycleState: ociCore.SecurityListLifecycleStateTerminated,
 	}
 
@@ -820,7 +820,7 @@ func (s *environSuite) setupDeleteSecurityListExpectations(c *tc.C, seclistId st
 func (s *environSuite) setupDeleteSubnetExpectations(c *tc.C, subnetIds []string) {
 	for _, id := range subnetIds {
 		request := ociCore.DeleteSubnetRequest{
-			SubnetId: makeStringPointer(id),
+			SubnetId: new(id),
 		}
 
 		response := ociCore.DeleteSubnetResponse{
@@ -831,11 +831,11 @@ func (s *environSuite) setupDeleteSubnetExpectations(c *tc.C, subnetIds []string
 		s.netw.EXPECT().DeleteSubnet(gomock.Any(), request).Return(response, nil).AnyTimes()
 
 		requestGet := ociCore.GetSubnetRequest{
-			SubnetId: makeStringPointer(id),
+			SubnetId: new(id),
 		}
 
 		subnet := ociCore.Subnet{
-			Id:             makeStringPointer("fakeSecList"),
+			Id:             new("fakeSecList"),
 			LifecycleState: ociCore.SubnetLifecycleStateTerminated,
 		}
 
@@ -850,7 +850,7 @@ func (s *environSuite) setupDeleteSubnetExpectations(c *tc.C, subnetIds []string
 func (s *environSuite) setupDeleteRouteTableExpectations(c *tc.C, vcnId, routeTableId string, t map[string]string) {
 	s.setupListRouteTableExpectations(c, vcnId, t, 1)
 	request := ociCore.DeleteRouteTableRequest{
-		RtId: makeStringPointer(routeTableId),
+		RtId: new(routeTableId),
 	}
 
 	response := ociCore.DeleteRouteTableResponse{
@@ -861,11 +861,11 @@ func (s *environSuite) setupDeleteRouteTableExpectations(c *tc.C, vcnId, routeTa
 	s.netw.EXPECT().DeleteRouteTable(gomock.Any(), request).Return(response, nil).AnyTimes()
 
 	requestGet := ociCore.GetRouteTableRequest{
-		RtId: makeStringPointer(routeTableId),
+		RtId: new(routeTableId),
 	}
 
 	rt := ociCore.RouteTable{
-		Id:             makeStringPointer(routeTableId),
+		Id:             new(routeTableId),
 		LifecycleState: ociCore.RouteTableLifecycleStateTerminated,
 	}
 
@@ -937,10 +937,10 @@ func (s *environSuite) setupDeleteVolumesExpectations(c *tc.C) {
 	size := int64(50)
 	volumes := []ociCore.Volume{
 		{
-			Id:                 makeStringPointer("fakeVolumeID1"),
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			Id:                 new("fakeVolumeID1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			DisplayName:        makeStringPointer("fakeVolume1"),
+			DisplayName:        new("fakeVolume1"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			SizeInGBs:          &size,
 			FreeformTags: map[string]string{
@@ -948,10 +948,10 @@ func (s *environSuite) setupDeleteVolumesExpectations(c *tc.C) {
 			},
 		},
 		{
-			Id:                 makeStringPointer("fakeVolumeID2"),
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			Id:                 new("fakeVolumeID2"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &s.testCompartment,
-			DisplayName:        makeStringPointer("fakeVolume2"),
+			DisplayName:        new("fakeVolume2"),
 			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
 			SizeInGBs:          &size,
 			FreeformTags: map[string]string{
@@ -973,11 +973,11 @@ func (s *environSuite) setupDeleteVolumesExpectations(c *tc.C) {
 	}
 
 	requestVolume1 := ociCore.GetVolumeRequest{
-		VolumeId: makeStringPointer("fakeVolumeID1"),
+		VolumeId: new("fakeVolumeID1"),
 	}
 
 	requestVolume2 := ociCore.GetVolumeRequest{
-		VolumeId: makeStringPointer("fakeVolumeID2"),
+		VolumeId: new("fakeVolumeID2"),
 	}
 
 	responseVolume1 := ociCore.GetVolumeResponse{

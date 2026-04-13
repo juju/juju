@@ -6,7 +6,7 @@ package migration
 import (
 	"testing"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -69,7 +69,7 @@ func (s *ephemeralProviderConfigSuite) TestGetEphemeralProviderConfig(c *tc.C) {
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
 	model := description.NewModel(description.ModelArgs{
 		Type: "caas",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"name":       "test-model",
 			"type":       "caas",
 			"uuid":       modelUUID,
@@ -79,7 +79,7 @@ func (s *ephemeralProviderConfigSuite) TestGetEphemeralProviderConfig(c *tc.C) {
 		CloudRegion: cloudRegion,
 	})
 	modelConfig, err := config.New(config.NoDefaults,
-		map[string]interface{}{
+		map[string]any{
 			"name":       "test-model",
 			"type":       "caas",
 			"uuid":       modelUUID,

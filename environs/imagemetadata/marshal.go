@@ -84,7 +84,7 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 				Version: t.Version,
 				Items: map[string]*simplestreams.ItemCollection{
 					itemsversion: {
-						Items: map[string]interface{}{t.Id: toWrite},
+						Items: map[string]any{t.Id: toWrite},
 					},
 				},
 			}

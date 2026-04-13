@@ -103,12 +103,12 @@ func (*settingsSuite) TestEffectiveSettings(c *tc.C) {
 		MakeDeletion("key3", "old-deleted-val"),
 	}
 
-	defaults := map[string]interface{}{
+	defaults := map[string]any{
 		"key2": "default-key2-val",
 		"key3": "default-deleted-val",
 	}
 
-	exp := map[string]interface{}{
+	exp := map[string]any{
 		"key1": "new-val",
 		"key2": "other-val",
 		"key3": "default-deleted-val",

@@ -106,8 +106,8 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 			// tags are not allowed.
 			continue
 		}
-		if strings.HasPrefix(value, "^") {
-			negatives = append(negatives, strings.TrimPrefix(value, "^"))
+		if after, ok := strings.CutPrefix(value, "^"); ok {
+			negatives = append(negatives, after)
 		} else {
 			positives = append(positives, value)
 		}

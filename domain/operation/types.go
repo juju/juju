@@ -18,7 +18,7 @@ import (
 type CompletedTaskResult struct {
 	TaskID  string
 	Status  string
-	Results map[string]interface{}
+	Results map[string]any
 	Message string
 }
 
@@ -98,7 +98,7 @@ type TaskArgs struct {
 	ActionName     string
 	ExecutionGroup string
 	IsParallel     bool
-	Parameters     map[string]interface{}
+	Parameters     map[string]any
 }
 
 // RunResult represents the result of a run operation.
@@ -137,7 +137,7 @@ type TaskInfo struct {
 	ActionName     string
 	ExecutionGroup *string
 	IsParallel     bool
-	Parameters     map[string]interface{}
+	Parameters     map[string]any
 
 	Completed time.Time
 	Enqueued  time.Time

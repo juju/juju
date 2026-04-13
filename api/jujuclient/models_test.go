@@ -140,7 +140,7 @@ func (s *ModelsSuite) TestUpdateModelOverwrites(c *tc.C) {
 		ModelUUID: "test.uuid",
 		ModelType: model.IAAS,
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		// Twice so we exercise the code path of updating with
 		// identical details.
 		err := s.store.UpdateModel("kontroll", "admin/admin", testModelDetails)

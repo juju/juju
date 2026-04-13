@@ -262,9 +262,9 @@ type restResponse struct {
 // RESTClient defines a type for making requests to a server.
 type RESTClient interface {
 	// Get performs GET requests to a given Path.
-	Get(context.Context, path.Path, interface{}) (restResponse, error)
+	Get(context.Context, path.Path, any) (restResponse, error)
 	// Post performs POST requests to a given Path.
-	Post(context.Context, path.Path, http.Header, interface{}, interface{}) (restResponse, error)
+	Post(context.Context, path.Path, http.Header, any, any) (restResponse, error)
 }
 
 // httpRESTClient represents a RESTClient that expects to interact with an
@@ -285,7 +285,7 @@ func newHTTPRESTClient(httpClient HTTPClient) *httpRESTClient {
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *httpRESTClient) Get(ctx context.Context, path path.Path, result interface{}) (restResponse, error) {
+func (c *httpRESTClient) Get(ctx context.Context, path path.Path, result any) (restResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", path.String(), nil)
 	if err != nil {
 		return restResponse{}, errors.Annotate(err, "can not make new request")
@@ -318,7 +318,7 @@ func (c *httpRESTClient) Get(ctx context.Context, path path.Path, result interfa
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *httpRESTClient) Post(ctx context.Context, path path.Path, headers http.Header, body, result interface{}) (restResponse, error) {
+func (c *httpRESTClient) Post(ctx context.Context, path path.Path, headers http.Header, body, result any) (restResponse, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(body); err != nil {
 		return restResponse{}, errors.Trace(err)

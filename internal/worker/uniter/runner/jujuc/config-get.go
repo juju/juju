@@ -78,7 +78,7 @@ func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var value interface{}
+	var value any
 	if c.Key == "" {
 		if !c.All {
 			for k, v := range settings {

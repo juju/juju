@@ -48,8 +48,8 @@ type SecretBackendConfigResult struct {
 
 // SecretBackendConfig holds config for creating a secret backend client.
 type SecretBackendConfig struct {
-	BackendType string                 `json:"type"`
-	Params      map[string]interface{} `json:"params,omitempty"`
+	BackendType string         `json:"type"`
+	Params      map[string]any `json:"params,omitempty"`
 }
 
 // SecretContentParams holds params for representing the content of a secret.
@@ -75,7 +75,7 @@ type UpsertSecretArg struct {
 	Label *string `json:"label,omitempty"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
-	Params map[string]interface{} `json:"params,omitempty"`
+	Params map[string]any `json:"params,omitempty"`
 	// Data is the key values of the secret value itself.
 	Content SecretContentParams `json:"content,omitempty"`
 }
@@ -449,7 +449,7 @@ type UpdateSecretBackendArg struct {
 	TokenRotateInterval *time.Duration `json:"token-rotate-interval"`
 
 	// Config are the backend's updated configuration attributes.
-	Config map[string]interface{} `json:"config"`
+	Config map[string]any `json:"config"`
 
 	// Reset contains attributes to clear or reset.
 	Reset []string `json:"reset"`
@@ -483,7 +483,7 @@ type SecretBackend struct {
 	TokenRotateInterval *time.Duration `json:"token-rotate-interval,omitempty"`
 
 	// Config are the backend's configuration attributes.
-	Config map[string]interface{} `json:"config"`
+	Config map[string]any `json:"config"`
 }
 
 // RemoveSecretBackendArgs holds args for removing secret backends.

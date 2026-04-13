@@ -81,25 +81,6 @@ func (s *imagesSuite) TestNewImageVersionInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "image does not have a display name")
 }
 
-func makeStringPointer(name string) *string {
-	return &name
-}
-
-func makeIntPointer(name int) *int {
-	return &name
-}
-
-func makeUint64Pointer(name uint64) *uint64 {
-	return &name
-}
-
-func makeBoolPointer(name bool) *bool {
-	return &name
-}
-func makeFloat32Pointer(name float32) *float32 {
-	return &name
-}
-
 func (s *imagesSuite) TestInstanceTypes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	compute := ocitesting.NewMockComputeClient(ctrl)
@@ -116,35 +97,35 @@ func (s *imagesSuite) TestInstanceTypes(c *tc.C) {
 			Arch:     arch.AMD64,
 			Mem:      7 * 1024,
 			CpuCores: 1,
-			VirtType: makeStringPointer("vm"),
+			VirtType: new("vm"),
 		}, {
 			Name:     "VM.GPU.A10.1",
 			Arch:     arch.AMD64,
 			Mem:      240 * 1024,
 			CpuCores: 15,
-			VirtType: makeStringPointer("gpu"),
+			VirtType: new("gpu"),
 		}, {
 			Name:     "BM.Standard.A1.160",
 			Arch:     arch.ARM64,
 			Mem:      1024 * 1024,
 			CpuCores: 160,
-			VirtType: makeStringPointer("metal"),
+			VirtType: new("metal"),
 		}, {
 			Name:        "VM.Standard.A1.Flex",
 			Arch:        arch.ARM64,
 			Mem:         6 * 1024,
-			MaxCpuCores: makeUint64Pointer(80),
-			MaxMem:      makeUint64Pointer(512 * 1024),
+			MaxCpuCores: new(uint64(80)),
+			MaxMem:      new(uint64(512 * 1024)),
 			CpuCores:    1,
-			VirtType:    makeStringPointer("vm"),
+			VirtType:    new("vm"),
 		}, {
 			Name:        "VM.Standard3.Flex",
 			Arch:        arch.AMD64,
 			Mem:         6 * 1024,
-			MaxCpuCores: makeUint64Pointer(32),
-			MaxMem:      makeUint64Pointer(512 * 1024),
+			MaxCpuCores: new(uint64(32)),
+			MaxMem:      new(uint64(512 * 1024)),
 			CpuCores:    1,
-			VirtType:    makeStringPointer("vm"),
+			VirtType:    new("vm"),
 		},
 	}
 	c.Assert(types, tc.DeepEquals, expectedTypes)
@@ -159,9 +140,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntu(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+		OperatingSystem:        new("Canonical Ubuntu"),
+		OperatingSystemVersion: new("22.04"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
@@ -186,9 +167,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 			Image: ociCore.Image{
 				CompartmentId:          &s.testCompartment,
 				Id:                     &s.testImageID,
-				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-				OperatingSystemVersion: makeStringPointer("22.04 Minimal"),
-				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+				OperatingSystem:        new("Canonical Ubuntu"),
+				OperatingSystemVersion: new("22.04 Minimal"),
+				DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 			},
 		},
 		{
@@ -196,9 +177,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 			Image: ociCore.Image{
 				CompartmentId:          &s.testCompartment,
 				Id:                     &s.testImageID,
-				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-				OperatingSystemVersion: makeStringPointer("22.04"),
-				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-2018.01.11-0"),
+				OperatingSystem:        new("Canonical Ubuntu"),
+				OperatingSystemVersion: new("22.04"),
+				DisplayName:            new("Canonical-Ubuntu-22.04-Minimal-2018.01.11-0"),
 			},
 		},
 		{
@@ -206,9 +187,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 			Image: ociCore.Image{
 				CompartmentId:          &s.testCompartment,
 				Id:                     &s.testImageID,
-				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-				OperatingSystemVersion: makeStringPointer("22.04 Minimal aarch64"),
-				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
+				OperatingSystem:        new("Canonical Ubuntu"),
+				OperatingSystemVersion: new("22.04 Minimal aarch64"),
+				DisplayName:            new("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
 			},
 		},
 		{
@@ -216,9 +197,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *tc.C) {
 			Image: ociCore.Image{
 				CompartmentId:          &s.testCompartment,
 				Id:                     &s.testImageID,
-				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-				OperatingSystemVersion: makeStringPointer("22.04 aarch64"),
-				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-aarch64-2018.01.11-0"),
+				OperatingSystem:        new("Canonical Ubuntu"),
+				OperatingSystemVersion: new("22.04 aarch64"),
+				DisplayName:            new("Canonical-Ubuntu-22.04-Minimal-aarch64-2018.01.11-0"),
 			},
 		},
 	}
@@ -234,9 +215,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04 aarch64"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
+		OperatingSystem:        new("Canonical Ubuntu"),
+		OperatingSystemVersion: new("22.04 aarch64"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
@@ -253,9 +234,9 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
+		OperatingSystem:        new("Canonical Ubuntu"),
+		OperatingSystemVersion: new("22.04"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
@@ -272,9 +253,9 @@ func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("NotKnownToJuju"),
-		OperatingSystemVersion: makeStringPointer("22.04"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+		OperatingSystem:        new("NotKnownToJuju"),
+		OperatingSystemVersion: new("22.04"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 	}
 
 	_, _, err := oci.NewInstanceImage(image, &s.testCompartment)
@@ -297,44 +278,44 @@ func (s *imagesSuite) TestRefreshImageCache(c *tc.C) {
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntu1,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntu2,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntuMinimal0,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04 Minimal"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04 Minimal"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntuMinimal1,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-2018.01.12-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-Minimal-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntu3,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04 aarch64"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04 aarch64"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
 			Id:                     &fakeUbuntu4,
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.12-0"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-aarch64-2018.01.12-0"),
 		},
 	}
 
@@ -413,17 +394,17 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *tc.C) {
 	listImageResponse := []ociCore.Image{
 		{
 			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fakeUbuntu1"),
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			Id:                     new("fakeUbuntu1"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fake image id for bad image"),
-			OperatingSystem:        makeStringPointer("CentOS"),
-			OperatingSystemVersion: makeStringPointer("7"),
-			DisplayName:            makeStringPointer("BadlyFormatedDisplayName_IshouldBeIgnored"),
+			Id:                     new("fake image id for bad image"),
+			OperatingSystem:        new("CentOS"),
+			OperatingSystemVersion: new("7"),
+			DisplayName:            new("BadlyFormatedDisplayName_IshouldBeIgnored"),
 		},
 	}
 	fakeUbuntuID := "fakeUbuntu1"
@@ -447,9 +428,9 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+		OperatingSystem:        new("Canonical Ubuntu"),
+		OperatingSystemVersion: new("22.04"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
@@ -486,9 +467,9 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *tc.C) {
 	image := ociCore.Image{
 		CompartmentId:          &s.testCompartment,
 		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Gen2-GPU-2018.01.11-0"),
+		OperatingSystem:        new("Canonical Ubuntu"),
+		OperatingSystemVersion: new("22.04"),
+		DisplayName:            new("Canonical-Ubuntu-22.04-Gen2-GPU-2018.01.11-0"),
 	}
 
 	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)

@@ -6,7 +6,7 @@ package worker
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 )
 

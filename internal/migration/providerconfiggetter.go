@@ -6,7 +6,7 @@ package migration
 import (
 	"context"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 
 	jujucloud "github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"

@@ -102,10 +102,10 @@ func encodeBase64(in SecretData) (SecretData, error) {
 	out := make(SecretData, len(in))
 	var contentSize int
 	for key, value := range in {
-		if strings.HasSuffix(key, base64Suffix) {
-			key = strings.TrimSuffix(key, base64Suffix)
+		if before, ok := strings.CutSuffix(key, base64Suffix); ok {
+			key = before
 		} else {
-			value = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", value)))
+			value = base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%v", value))
 		}
 		if !keyRegExp.MatchString(key) {
 			return nil, errors.Errorf("key %q %w", key, coreerrors.NotValid)

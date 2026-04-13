@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 )
 
 // Manifold returns a dependency.Manifold that runs a fortress.
@@ -25,7 +25,7 @@ func Manifold() dependency.Manifold {
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return newFortress(), nil
 		},
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			inFortress, _ := in.(*fortress)
 			if inFortress == nil {
 				return errors.Errorf("in should be %T; is %T", inFortress, in)

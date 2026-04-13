@@ -21,14 +21,14 @@ type Proxier interface {
 
 	// RawConfig is responsible for providing a raw configuration representation
 	// of the proxier for serialising over the wire.
-	RawConfig() (map[string]interface{}, error)
+	RawConfig() (map[string]any, error)
 
 	// Type is the unique key identifying the type of proxying for configuration
 	// purposes.
 	Type() string
 
 	// MarshalYAML implements marshalling method for yaml.
-	MarshalYAML() (interface{}, error)
+	MarshalYAML() (any, error)
 
 	// Insecure sets the proxy to be insecure.
 	Insecure()

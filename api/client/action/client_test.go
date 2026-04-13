@@ -75,7 +75,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 				Actions: map[string]params.ActionSpec{
 					"action": {
 						Description: "description",
-						Params: map[string]interface{}{
+						Params: map[string]any{
 							"foo": "bar",
 						},
 					},
@@ -85,7 +85,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 		expectedResult: map[string]action.ActionSpec{
 			"action": {
 				Description: "description",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"foo": "bar",
 				},
 			},
@@ -269,7 +269,7 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	args := []action.Action{{
 		Receiver: "unit/0",
 		Name:     "test",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"foo": "bar",
 		}},
 	}
@@ -277,7 +277,7 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 		Actions: []params.Action{{
 			Receiver: "unit/0",
 			Name:     "test",
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"foo": "bar",
 			},
 		}},

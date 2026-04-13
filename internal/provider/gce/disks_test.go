@@ -187,7 +187,7 @@ func (s *volumeSourceSuite) testCreateVolumes(c *tc.C, diskType string) {
 
 	if diskType != "" {
 		expected.Type = new(diskType)
-		s.params[0].Attributes = map[string]interface{}{
+		s.params[0].Attributes = map[string]any{
 			"disk-type": diskType,
 		}
 	}
@@ -477,7 +477,7 @@ func (s *volumeSourceSuite) TestCreateVolumesWithLocalSSD(c *tc.C) {
 		Zone: new("path/to/zone"),
 	}}, nil)
 
-	s.params[0].Attributes = map[string]interface{}{
+	s.params[0].Attributes = map[string]any{
 		"disk-type": "local-ssd",
 	}
 	source := s.setUpSource(c)

@@ -128,7 +128,7 @@ const (
 
 // ModelConfigAPI defines the model config API methods.
 type ModelConfigAPI interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 	Close() error
 }
 

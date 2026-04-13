@@ -6,7 +6,9 @@ package charm
 import (
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -128,6 +130,41 @@ type Storage struct {
 	//
 	// Properties has no default, and is optional.
 	Properties []string
+}
+
+// Equal returns true if the Storage is equal to the provided Storage.
+func (s Storage) Equal(other Storage) bool {
+	if s.Name != other.Name {
+		return false
+	}
+	if s.Description != other.Description {
+		return false
+	}
+	if s.Type != other.Type {
+		return false
+	}
+	if s.Shared != other.Shared {
+		return false
+	}
+	if s.ReadOnly != other.ReadOnly {
+		return false
+	}
+	if s.CountMin != other.CountMin {
+		return false
+	}
+	if s.CountMax != other.CountMax {
+		return false
+	}
+	if s.MinimumSize != other.MinimumSize {
+		return false
+	}
+	if s.Location != other.Location {
+		return false
+	}
+	if !slices.Equal(s.Properties, other.Properties) {
+		return false
+	}
+	return true
 }
 
 // DeviceType defines a device type.
@@ -308,11 +345,11 @@ func (m Meta) Hooks() map[string]bool {
 }
 
 // Used for parsing Categories and Tags.
-func parseStringList(list interface{}) []string {
+func parseStringList(list any) []string {
 	if list == nil {
 		return nil
 	}
-	slice := list.([]interface{})
+	slice := list.([]any)
 	result := make([]string, 0, len(slice))
 	for _, elem := range slice {
 		result = append(result, elem.(string))
@@ -457,8 +494,8 @@ func ReadMeta(r io.Reader) (*Meta, error) {
 }
 
 // UnmarshalYAML
-func (meta *Meta) UnmarshalYAML(f func(interface{}) error) error {
-	raw := make(map[interface{}]interface{})
+func (meta *Meta) UnmarshalYAML(f func(any) error) error {
+	raw := make(map[any]any)
 	err := f(&raw)
 	if err != nil {
 		return err
@@ -473,7 +510,7 @@ func (meta *Meta) UnmarshalYAML(f func(interface{}) error) error {
 		return internalerrors.New("metadata: " + err.Error())
 	}
 
-	m := v.(map[string]interface{})
+	m := v.(map[string]any)
 	meta1, err := parseMeta(m)
 	if err != nil {
 		return err
@@ -495,7 +532,7 @@ func (meta *Meta) UnmarshalYAML(f func(interface{}) error) error {
 	return nil
 }
 
-func parseMeta(m map[string]interface{}) (*Meta, error) {
+func parseMeta(m map[string]any) (*Meta, error) {
 	var meta Meta
 	var err error
 
@@ -546,7 +583,7 @@ func parseMeta(m map[string]interface{}) (*Meta, error) {
 // MarshalYAML implements yaml.Marshaler (yaml.v2).
 // It is recommended to call Check() before calling this method,
 // otherwise you make get metadata which is not v1 nor v2 format.
-func (m Meta) MarshalYAML() (interface{}, error) {
+func (m Meta) MarshalYAML() (any, error) {
 	var minver string
 	if m.MinJujuVersion != semversion.Zero {
 		minver = m.MinJujuVersion.String()
@@ -559,7 +596,7 @@ func (m Meta) MarshalYAML() (interface{}, error) {
 		Provides       map[string]marshaledRelation     `yaml:"provides,omitempty"`
 		Requires       map[string]marshaledRelation     `yaml:"requires,omitempty"`
 		Peers          map[string]marshaledRelation     `yaml:"peers,omitempty"`
-		ExtraBindings  map[string]interface{}           `yaml:"extra-bindings,omitempty"`
+		ExtraBindings  map[string]any                   `yaml:"extra-bindings,omitempty"`
 		Categories     []string                         `yaml:"categories,omitempty"`
 		Tags           []string                         `yaml:"tags,omitempty"`
 		Subordinate    bool                             `yaml:"subordinate,omitempty"`
@@ -622,7 +659,7 @@ func marshaledRelations(relations map[string]Relation) map[string]marshaledRelat
 
 type marshaledRelation Relation
 
-func (r marshaledRelation) MarshalYAML() (interface{}, error) {
+func (r marshaledRelation) MarshalYAML() (any, error) {
 	// See calls to ifaceExpander in charmSchema.
 	var noLimit int
 	if !r.Optional && r.Limit == noLimit && r.Scope == ScopeGlobal {
@@ -647,8 +684,8 @@ func (r marshaledRelation) MarshalYAML() (interface{}, error) {
 	return mr, nil
 }
 
-func marshaledExtraBindings(bindings map[string]ExtraBinding) map[string]interface{} {
-	marshaled := make(map[string]interface{})
+func marshaledExtraBindings(bindings map[string]ExtraBinding) map[string]any {
+	marshaled := make(map[string]any)
 	for _, binding := range bindings {
 		marshaled[binding.Name] = nil
 	}
@@ -665,7 +702,7 @@ func marshaledContainers(c map[string]Container) map[string]marshaledContainer {
 	return marshaled
 }
 
-func (c marshaledContainer) MarshalYAML() (interface{}, error) {
+func (c marshaledContainer) MarshalYAML() (any, error) {
 	mc := struct {
 		Resource string  `yaml:"resource,omitempty"`
 		Mounts   []Mount `yaml:"mounts,omitempty"`
@@ -794,13 +831,13 @@ func reservedName(charmName, endpointName string) (reserved bool, reason string)
 	return false, ""
 }
 
-func parseRelations(relations interface{}, role RelationRole) map[string]Relation {
+func parseRelations(relations any, role RelationRole) map[string]Relation {
 	if relations == nil {
 		return nil
 	}
 	result := make(map[string]Relation)
-	for name, rel := range relations.(map[string]interface{}) {
-		relMap := rel.(map[string]interface{})
+	for name, rel := range relations.(map[string]any) {
+		relMap := rel.(map[string]any)
 		relation := Relation{
 			Name:      name,
 			Role:      role,
@@ -824,15 +861,9 @@ func parseRelations(relations interface{}, role RelationRole) map[string]Relatio
 // a single map.
 func (m Meta) CombinedRelations() map[string]Relation {
 	combined := make(map[string]Relation)
-	for name, relation := range m.Provides {
-		combined[name] = relation
-	}
-	for name, relation := range m.Requires {
-		combined[name] = relation
-	}
-	for name, relation := range m.Peers {
-		combined[name] = relation
-	}
+	maps.Copy(combined, m.Provides)
+	maps.Copy(combined, m.Requires)
+	maps.Copy(combined, m.Peers)
 	return combined
 }
 
@@ -856,12 +887,12 @@ func (m Meta) CombinedRelations() map[string]Relation {
 //
 // In all input cases, the output is the fully specified interface
 // representation as seen in the mysql interface description above.
-func ifaceExpander(limit interface{}) schema.Checker {
+func ifaceExpander(limit any) schema.Checker {
 	return ifaceExpC{limit}
 }
 
 type ifaceExpC struct {
-	limit interface{}
+	limit any
 }
 
 var (
@@ -869,10 +900,10 @@ var (
 	mapC    = schema.StringMap(schema.Any())
 )
 
-func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
+func (c ifaceExpC) Coerce(v any, path []string) (newv any, err error) {
 	s, err := stringC.Coerce(v, path)
 	if err == nil {
-		newv = map[string]interface{}{
+		newv = map[string]any{
 			"interface": s,
 			"limit":     c.limit,
 			"optional":  false,
@@ -885,7 +916,7 @@ func (c ifaceExpC) Coerce(v interface{}, path []string) (newv interface{}, err e
 	if err != nil {
 		return
 	}
-	m := v.(map[string]interface{})
+	m := v.(map[string]any)
 	if _, ok := m["limit"]; !ok {
 		m["limit"] = c.limit
 	}
@@ -905,13 +936,13 @@ var ifaceSchema = schema.FieldMap(
 	},
 )
 
-func parseStorage(stores interface{}) map[string]Storage {
+func parseStorage(stores any) map[string]Storage {
 	if stores == nil {
 		return nil
 	}
 	result := make(map[string]Storage)
-	for name, store := range stores.(map[string]interface{}) {
-		storeMap := store.(map[string]interface{})
+	for name, store := range stores.(map[string]any) {
+		storeMap := store.(map[string]any)
 		store := Storage{
 			Name:     name,
 			Type:     StorageType(storeMap["type"].(string)),
@@ -923,7 +954,7 @@ func parseStorage(stores interface{}) map[string]Storage {
 		if desc, ok := storeMap["description"].(string); ok {
 			store.Description = desc
 		}
-		if multiple, ok := storeMap["multiple"].(map[string]interface{}); ok {
+		if multiple, ok := storeMap["multiple"].(map[string]any); ok {
 			if r, ok := multiple["range"].([2]int); ok {
 				store.CountMin, store.CountMax = r[0], r[1]
 			}
@@ -934,7 +965,7 @@ func parseStorage(stores interface{}) map[string]Storage {
 		if loc, ok := storeMap["location"].(string); ok {
 			store.Location = loc
 		}
-		if properties, ok := storeMap["properties"].([]interface{}); ok {
+		if properties, ok := storeMap["properties"].([]any); ok {
 			for _, p := range properties {
 				store.Properties = append(store.Properties, p.(string))
 			}
@@ -944,13 +975,13 @@ func parseStorage(stores interface{}) map[string]Storage {
 	return result
 }
 
-func parseDevices(devices interface{}) map[string]Device {
+func parseDevices(devices any) map[string]Device {
 	if devices == nil {
 		return nil
 	}
 	result := make(map[string]Device)
-	for name, device := range devices.(map[string]interface{}) {
-		deviceMap := device.(map[string]interface{})
+	for name, device := range devices.(map[string]any) {
+		deviceMap := device.(map[string]any)
 		device := Device{
 			Name:     name,
 			Type:     DeviceType(deviceMap["type"].(string)),
@@ -971,14 +1002,14 @@ func parseDevices(devices interface{}) map[string]Device {
 	return result
 }
 
-func parseContainers(input interface{}, resources map[string]resource.Meta, storage map[string]Storage) (map[string]Container, error) {
+func parseContainers(input any, resources map[string]resource.Meta, storage map[string]Storage) (map[string]Container, error) {
 	var err error
 	if input == nil {
 		return nil, nil
 	}
 	containers := map[string]Container{}
-	for name, v := range input.(map[string]interface{}) {
-		containerMap := v.(map[string]interface{})
+	for name, v := range input.(map[string]any) {
+		containerMap := v.(map[string]any)
 		container := Container{}
 
 		if value, ok := containerMap["resource"]; ok {
@@ -1025,14 +1056,14 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 	return containers, nil
 }
 
-func parseMounts(input interface{}, storage map[string]Storage) ([]Mount, error) {
+func parseMounts(input any, storage map[string]Storage) ([]Mount, error) {
 	if input == nil {
 		return nil, nil
 	}
 	mounts := []Mount(nil)
-	for _, v := range input.([]interface{}) {
+	for _, v := range input.([]any) {
 		mount := Mount{}
-		mountMap := v.(map[string]interface{})
+		mountMap := v.(map[string]any)
 		if value, ok := mountMap["storage"].(string); ok {
 			mount.Storage = value
 		}
@@ -1120,7 +1151,7 @@ var deviceSchema = schema.FieldMap(
 
 type deviceCountC struct{}
 
-func (c deviceCountC) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c deviceCountC) Coerce(v any, path []string) (any, error) {
 	s, err := schema.Int().Coerce(v, path)
 	if err != nil {
 		return 0, err
@@ -1137,7 +1168,7 @@ type storageCountC struct{}
 
 var storageCountRE = regexp.MustCompile("^([0-9]+)([-+]|-[0-9]+)$")
 
-func (c storageCountC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
+func (c storageCountC) Coerce(v any, path []string) (newv any, err error) {
 	s, err := schema.OneOf(schema.Int(), stringC).Coerce(v, path)
 	if err != nil {
 		return nil, err
@@ -1173,7 +1204,7 @@ func (c storageCountC) Coerce(v interface{}, path []string) (newv interface{}, e
 
 type storageSizeC struct{}
 
-func (c storageSizeC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
+func (c storageSizeC) Coerce(v any, path []string) (newv any, err error) {
 	s, err := schema.String().Coerce(v, path)
 	if err != nil {
 		return nil, err
@@ -1183,7 +1214,7 @@ func (c storageSizeC) Coerce(v interface{}, path []string) (newv interface{}, er
 
 type propertiesC struct{}
 
-func (c propertiesC) Coerce(v interface{}, path []string) (newv interface{}, err error) {
+func (c propertiesC) Coerce(v any, path []string) (newv any, err error) {
 	return schema.OneOf(schema.Const("transient")).Coerce(v, path)
 }
 
@@ -1256,7 +1287,7 @@ var charmSchema = schema.FieldMap(
 // ensureUnambiguousFormat returns an error if the raw data contains
 // both metadata v1 and v2 contents. However is it unable to definitively
 // determine which format the charm is as metadata does not contain bases.
-func ensureUnambiguousFormat(raw map[interface{}]interface{}) error {
+func ensureUnambiguousFormat(raw map[any]any) error {
 	format := FormatUnknown
 	matched := []string(nil)
 	mismatched := []string(nil)

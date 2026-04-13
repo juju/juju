@@ -98,8 +98,8 @@ func assertBundleSourceProcessed(c *tc.C, src BundleDataSource, bundle string) {
 
 func assertFieldPresent(c *tc.C, part *BundleDataPart, path string) {
 	var (
-		segments             = strings.Split(path, ".")
-		next     interface{} = part.PresenceMap
+		segments     = strings.Split(path, ".")
+		next     any = part.PresenceMap
 	)
 
 	for segIndex, segment := range segments {

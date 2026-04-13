@@ -18,8 +18,8 @@ import (
 type fakeApplicationAPI struct {
 	name        string
 	charmName   string
-	charmValues map[string]interface{}
-	appValues   map[string]interface{}
+	charmValues map[string]any
+	appValues   map[string]any
 	config      string
 	err         error
 }
@@ -33,17 +33,17 @@ func (f *fakeApplicationAPI) Get(ctx context.Context, application string) (*para
 		return nil, errors.NotFoundf("application %q", application)
 	}
 
-	charmConfigInfo := make(map[string]interface{})
+	charmConfigInfo := make(map[string]any)
 	for k, v := range f.charmValues {
-		charmConfigInfo[k] = map[string]interface{}{
+		charmConfigInfo[k] = map[string]any{
 			"description": fmt.Sprintf("Specifies %s", k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
 		}
 	}
-	appConfigInfo := make(map[string]interface{})
+	appConfigInfo := make(map[string]any)
 	for k, v := range f.appValues {
-		appConfigInfo[k] = map[string]interface{}{
+		appConfigInfo[k] = map[string]any{
 			"description": fmt.Sprintf("Specifies %s", k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
@@ -78,7 +78,7 @@ func (f *fakeApplicationAPI) SetConfig(ctx context.Context, application, configY
 
 	charmKeys := set.NewStrings("title", "skill-level", "username", "outlook")
 	if f.charmValues == nil {
-		f.charmValues = make(map[string]interface{})
+		f.charmValues = make(map[string]any)
 	}
 	for k, v := range config {
 		if charmKeys.Contains(k) {

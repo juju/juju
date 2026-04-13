@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("MachineActions", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newExternalFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+	}, reflect.TypeFor[*Facade]())
 }
 
 // newExternalFacade is used for API registration.

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -101,7 +101,7 @@ func (s *workerSuite) TestGetHTTPClientIsCached(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*httpClientWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 
 		_, err := worker.GetHTTPClient(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
@@ -132,7 +132,7 @@ func (s *workerSuite) TestGetHTTPClientIsNotCachedForDifferentNamespaces(c *tc.C
 	}).AnyTimes()
 
 	worker := w.(*httpClientWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("anything-%d", i)
 
 		s.newHTTPClient = func() *internalhttp.Client {
@@ -177,7 +177,7 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *tc.C) {
 	wg.Add(10)
 
 	worker := w.(*httpClientWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 

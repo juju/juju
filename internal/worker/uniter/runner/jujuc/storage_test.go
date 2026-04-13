@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	storageAttributes = map[string]interface{}{
+	storageAttributes = map[string]any{
 		"location": "/dev/sda",
 		"kind":     "block",
 	}

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -182,7 +182,7 @@ type cloudServiceMatcher struct {
 	expected []internal.ImportCloudService
 }
 
-func (m cloudServiceMatcher) Matches(x interface{}) bool {
+func (m cloudServiceMatcher) Matches(x any) bool {
 	input, ok := x.([]internal.ImportCloudService)
 	if !ok {
 		return false

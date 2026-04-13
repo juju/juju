@@ -288,21 +288,43 @@ func (st *State) GetApplicationLife(ctx context.Context, aUUID string) (life.Lif
 	return l, nil
 }
 
-// DeleteApplication removes a application from the database completely.
-func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
+// GetApplicationUnitAndRelationCount returns the number of units and relations
+// that still reference the application with the input UUID.
+func (st *State) GetApplicationUnitAndRelationCount(ctx context.Context, aUUID string) (int, int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return 0, 0, errors.Capture(err)
 	}
-	applicationUUID := entityUUID{UUID: aUUID}
 
+	var (
+		numUnits     int
+		numRelations int
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		numUnits, numRelations, err = st.getApplicationUnitAndRelationCount(ctx, tx, aUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return 0, 0, errors.Capture(err)
+	}
+	return numUnits, numRelations, nil
+}
+
+func (st *State) getApplicationUnitAndRelationCount(
+	ctx context.Context,
+	tx *sqlair.TX,
+	aUUID string,
+) (int, int, error) {
+	applicationUUID := entityUUID{UUID: aUUID}
 	unitsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM unit
 WHERE application_uuid = $entityUUID.uuid
 `, count{}, applicationUUID)
 	if err != nil {
-		return errors.Errorf("preparing application unit count query: %w", err)
+		return 0, 0, errors.Errorf("preparing application unit count query: %w", err)
 	}
 
 	relationsStmt, err := st.Prepare(`
@@ -311,8 +333,95 @@ FROM v_relation_endpoint
 WHERE application_uuid = $entityUUID.uuid
 `, count{}, applicationUUID)
 	if err != nil {
-		return errors.Errorf("preparing application relation count query: %w", err)
+		return 0, 0, errors.Errorf("preparing application relation count query: %w", err)
 	}
+
+	var (
+		numUnits     count
+		numRelations count
+	)
+	if err := tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits); err != nil {
+		return 0, 0, errors.Errorf("querying application units: %w", err)
+	}
+	if err := tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations); err != nil {
+		return 0, 0, errors.Errorf("querying application relations: %w", err)
+	}
+	return numUnits.Count, numRelations.Count, nil
+}
+
+// IsApplicationK8sResourcesManaged returns true if the provisioner has
+// signalled that it is managing k8s resources for the application.
+func (st *State) IsApplicationK8sResourcesManaged(ctx context.Context, aUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	applicationUUID := entityUUID{UUID: aUUID}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   application_k8s_resources_managed
+WHERE  application_uuid = $entityUUID.uuid
+`, count{}, applicationUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing k8s resources managed query: %w", err)
+	}
+
+	var result count
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, applicationUUID).Get(&result); err != nil {
+			return errors.Errorf("querying k8s resources managed: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return result.Count > 0, nil
+}
+
+// MarkApplicationAsDead marks the application with the input UUID as dead.
+func (st *State) MarkApplicationAsDead(ctx context.Context, aUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	applicationUUID := entityUUID{UUID: aUUID}
+
+	updateStmt, err := st.Prepare(`
+UPDATE application
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, applicationUUID)
+	if err != nil {
+		return errors.Errorf("preparing application life update: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		aLife, err := st.getApplicationLife(ctx, tx, aUUID)
+		if err != nil {
+			return errors.Errorf("getting application life: %w", err)
+		} else if aLife == life.Dead {
+			return nil
+		} else if aLife == life.Alive {
+			return errors.Errorf("cannot mark application %q as dead as it is still alive", aUUID).
+				Add(removalerrors.EntityStillAlive)
+		}
+
+		if err := tx.Query(ctx, updateStmt, applicationUUID).Run(); err != nil {
+			return errors.Errorf("marking application as dead: %w", err)
+		}
+		return nil
+	}))
+}
+
+// DeleteApplication removes an application from the database completely.
+func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	applicationUUID := entityUUID{UUID: aUUID}
 
 	getOffersStmt, err := st.Prepare(`
 SELECT oe.offer_uuid AS &entityUUID.uuid
@@ -330,40 +439,28 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 	if err != nil {
 		return errors.Errorf("preparing application delete: %w", err)
 	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO (stickupkid): We should ensure that the application is not
-		// in a dying state, but nothing calls MarkApplicationAsDead. It is
-		// assumed that, as long as all units are removed then we can
-		// delete the application.
 		aLife, err := st.getApplicationLife(ctx, tx, aUUID)
 		if err != nil {
 			return errors.Errorf("getting application life: %w", err)
 		} else if aLife == life.Alive {
-			// The application is still alive, we cannot delete it.
 			return errors.Errorf("cannot delete application %q as it is still alive", aUUID).
 				Add(removalerrors.EntityStillAlive)
-		}
-
-		// Ensure all units and relations have been removed by their own removal
-		// jobs before allowing the application to be deleted. This applies
-		// unconditionally: even force removals cascade separate removal jobs for
-		// units and relations, so by the time this runs those jobs must have
-		// completed.
-		var numUnits count
-		err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
-		if err != nil {
-			return errors.Errorf("querying application units: %w", err)
-		} else if numUnits := numUnits.Count; numUnits > 0 {
-			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
-				Add(applicationerrors.ApplicationHasUnits).
+		} else if !force && aLife != life.Dead {
+			return errors.Errorf("cannot delete application %q as it is not dead", aUUID).
+				Add(removalerrors.EntityNotDead).
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		var numRelations count
-		err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
+		numUnits, numRelations, err := st.getApplicationUnitAndRelationCount(ctx, tx, aUUID)
 		if err != nil {
-			return errors.Errorf("querying application relations: %w", err)
-		} else if numRelations := numRelations.Count; numRelations > 0 {
+			return errors.Errorf("getting application %q association counts: %w", aUUID, err)
+		} else if numUnits > 0 {
+			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
+				Add(applicationerrors.ApplicationHasUnits).
+				Add(removalerrors.RemovalJobIncomplete)
+		} else if numRelations > 0 {
 			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
 				Add(applicationerrors.ApplicationHasRelations).
 				Add(removalerrors.RemovalJobIncomplete)
@@ -469,6 +566,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"DELETE FROM application_agent WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_workload_version WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM device_constraint WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_k8s_resources_managed WHERE application_uuid = $entityUUID.uuid",
 	} {
 		deleteApplicationReferenceStmt, err := st.Prepare(table, app)
 		if err != nil {
@@ -478,22 +576,6 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
 			return errors.Errorf("deleting reference to application in %s: %w", table, err)
 		}
-	}
-	return nil
-}
-
-func (st *State) deleteSecretApplicationOwner(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	app := entityUUID{UUID: aUUID}
-
-	deleteSecretStmt, err := st.Prepare(`
-DELETE FROM secret_application_owner
-WHERE application_uuid = $entityUUID.uuid
-`, app)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, deleteSecretStmt, app).Run(); err != nil {
-		return errors.Errorf("deleting secret application reference: %w", err)
 	}
 	return nil
 }
@@ -550,6 +632,22 @@ WHERE application_uuid = $entityUUID.uuid
 	}
 	if err := tx.Query(ctx, deleteNodeStmt, app).Run(); err != nil {
 		return errors.Errorf("deleting net node for cloud service: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteSecretApplicationOwner(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+	app := entityUUID{UUID: aUUID}
+
+	deleteSecretStmt, err := st.Prepare(`
+DELETE FROM secret_application_owner
+WHERE application_uuid = $entityUUID.uuid
+`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteSecretStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting secret application reference: %w", err)
 	}
 	return nil
 }
@@ -665,6 +763,45 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 		return errors.Errorf("removing application annotations: %w", err)
 	}
 	return nil
+}
+
+// GetApplicationName returns the application name for the application with
+// the input application UUID.
+func (st *State) GetApplicationName(ctx context.Context, appUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var applicationName string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		applicationName, err = st.getApplicationName(ctx, tx, appUUID)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return applicationName, nil
+}
+
+func (st *State) getApplicationName(ctx context.Context, tx *sqlair.TX, aUUID string) (string, error) {
+	appID := entityUUID{UUID: aUUID}
+
+	stmt, err := st.Prepare(`
+SELECT name AS &entityName.name
+FROM   application
+WHERE  uuid = $entityUUID.uuid`, entityName{}, appID)
+	if err != nil {
+		return "", errors.Errorf("preparing application name query: %w", err)
+	}
+
+	var result entityName
+	if err := tx.Query(ctx, stmt, appID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("application %q not found", aUUID).Add(applicationerrors.ApplicationNotFound)
+	} else if err != nil {
+		return "", errors.Errorf("running application name query: %w", err)
+	}
+	return result.Name, nil
 }
 
 // GetCharmForApplication returns the charm UUID for the application with

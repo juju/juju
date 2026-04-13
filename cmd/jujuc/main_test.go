@@ -174,7 +174,7 @@ type fakeRPCClient struct {
 	closed bool
 }
 
-func (c *fakeRPCClient) Call(serviceMethod string, args interface{}, reply interface{}) error {
+func (c *fakeRPCClient) Call(serviceMethod string, args any, reply any) error {
 	if serviceMethod != "Jujuc.Main" {
 		return errors.New("unexpected service method")
 	}

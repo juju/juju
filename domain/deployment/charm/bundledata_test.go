@@ -104,7 +104,7 @@ var parseTests = []struct {
 				Charm:    "mediawiki",
 				NumUnits: 1,
 				Expose:   true,
-				Options: map[string]interface{}{
+				Options: map[string]any{
 					"debug": false,
 					"name":  "Please set name of wiki",
 					"skin":  "vector",
@@ -120,7 +120,7 @@ var parseTests = []struct {
 					"db":      "db",
 					"website": "public",
 				},
-				Resources: map[string]interface{}{
+				Resources: map[string]any{
 					"data": 3,
 				},
 			},
@@ -129,7 +129,7 @@ var parseTests = []struct {
 				NumUnits: 2,
 				To:       []string{"0", "mediawiki/0"},
 				Base:     "ubuntu@22.04",
-				Options: map[string]interface{}{
+				Options: map[string]any{
 					"binlog-format": "MIXED",
 					"block-size":    5.3,
 					"dataset-size":  "80%",
@@ -145,7 +145,7 @@ var parseTests = []struct {
 				EndpointBindings: map[string]string{
 					"db": "db",
 				},
-				Resources: map[string]interface{}{"data": "resources/data.tar"},
+				Resources: map[string]any{"data": "resources/data.tar"},
 			},
 		},
 		Machines: map[string]*charm.MachineSpec{
@@ -923,7 +923,7 @@ options:
 
 func parseRelations(s string, role charm.RelationRole) map[string]charm.Relation {
 	rels := make(map[string]charm.Relation)
-	for _, r := range strings.Fields(s) {
+	for r := range strings.FieldsSeq(s) {
 		parts := strings.Split(r, ":")
 		if len(parts) != 2 {
 			panic(fmt.Errorf("invalid relation specifier %q", r))

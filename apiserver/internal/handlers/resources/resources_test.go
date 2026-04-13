@@ -314,7 +314,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
 	s.resource.ID = newResourceUUID.String()
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), newResourceUUID).Return(
 		s.resource, nil,
 	)
 
@@ -367,7 +367,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessForApplicationNotFound(c *tc.C) {
 	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
 	s.resource.ID = newResourceUUID.String()
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), newResourceUUID).Return(
 		s.resource, nil,
 	)
 
@@ -460,7 +460,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 	res := s.resource
 	res.Type = charmresource.TypeContainerImage
 	res.ID = newResourceUUID.String()
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), newResourceUUID).Return(
 		res, nil,
 	)
 
@@ -516,7 +516,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *tc.C) {
 			Name:                   s.applicationName,
 			IsApplicationSynthetic: false,
 		}, nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,
 	)
 
@@ -548,7 +548,7 @@ func (s *ResourcesHandlerSuite) TestPutNotValidOrigin(c *tc.C) {
 		}, nil)
 	res := s.resource
 	res.Origin = charmresource.OriginStore
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), s.resourceUUID).Return(
 		res, nil,
 	)
 
@@ -578,7 +578,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 			Name:                   s.applicationName,
 			IsApplicationSynthetic: false,
 		}, nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResourceWithoutApplication(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,
 	)
 
@@ -743,7 +743,7 @@ func apiFailure(msg, code string) (error, string) {
 	return failure, string(data)
 }
 
-func mustMarshalJSON(v interface{}) []byte {
+func mustMarshalJSON(v any) []byte {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

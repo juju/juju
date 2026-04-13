@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,7 +118,7 @@ controller-uuid  uuid`[1:]
 
 func (s *ConfigSuite) TestOneLineExcludeMethods(c *tc.C) {
 	var api fakeControllerAPI
-	api.config = map[string]interface{}{
+	api.config = map[string]any{
 		"audit-log-exclude-methods": []string{"Actual.Size"},
 	}
 	context, err := s.runWithAPI(c, &api)
@@ -177,7 +178,7 @@ func (s *ConfigSuite) TestSettingKey(c *tc.C) {
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]any{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
@@ -188,7 +189,7 @@ func (s *ConfigSuite) TestSettingDuration(c *tc.C) {
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"query-tracing-threshold": "100ms"})
+	c.Assert(api.values, tc.DeepEquals, map[string]any{"query-tracing-threshold": "100ms"})
 }
 
 func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {
@@ -200,7 +201,7 @@ func (s *ConfigSuite) TestSettingFromFile(c *tc.C) {
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]any{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestSettingFromStdin(c *tc.C) {
@@ -215,7 +216,7 @@ func (s *ConfigSuite) TestSettingFromStdin(c *tc.C) {
 	c.Assert(output, tc.Equals, "")
 	stderr := strings.TrimSpace(cmdtesting.Stderr(ctx))
 	c.Assert(stderr, tc.Equals, "")
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]any{"public-dns-address": "value"})
 }
 
 func (s *ConfigSuite) TestOverrideFileFromArgs(c *tc.C) {
@@ -227,7 +228,7 @@ func (s *ConfigSuite) TestOverrideFileFromArgs(c *tc.C) {
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, tc.Equals, "")
 
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{
+	c.Assert(api.values, tc.DeepEquals, map[string]any{
 		"public-dns-address":    "value",
 		"audit-log-max-backups": 4,
 	})
@@ -255,7 +256,7 @@ func (s *ConfigSuite) TestErrorOnSetting(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "kablooie")
 
 	c.Assert(strings.TrimSpace(cmdtesting.Stdout(context)), tc.Equals, "")
-	c.Assert(api.values, tc.DeepEquals, map[string]interface{}{"public-dns-address": "value"})
+	c.Assert(api.values, tc.DeepEquals, map[string]any{"public-dns-address": "value"})
 }
 
 func writeFile(c *tc.C, name, content string) string {
@@ -267,8 +268,8 @@ func writeFile(c *tc.C, name, content string) string {
 
 type fakeControllerAPI struct {
 	err    error
-	config map[string]interface{}
-	values map[string]interface{}
+	config map[string]any
+	values map[string]any
 }
 
 func (f *fakeControllerAPI) Close() error {
@@ -279,28 +280,26 @@ func (f *fakeControllerAPI) ControllerConfig(context.Context) (jujucontroller.Co
 	if f.err != nil {
 		return nil, f.err
 	}
-	var result map[string]interface{}
+	var result map[string]any
 	if f.config != nil {
 		result = f.config
 	} else {
-		result = map[string]interface{}{
+		result = map[string]any{
 			"controller-uuid":           "uuid",
 			"api-port":                  1234,
 			"ca-cert":                   "multi\nline",
-			"audit-log-exclude-methods": []interface{}{"Thing1", "Thing2"},
+			"audit-log-exclude-methods": []any{"Thing1", "Thing2"},
 		}
 	}
 	return result, nil
 }
 
-func (f *fakeControllerAPI) ConfigSet(ctx context.Context, values map[string]interface{}) error {
+func (f *fakeControllerAPI) ConfigSet(ctx context.Context, values map[string]any) error {
 	if f.values == nil {
 		f.values = values
 	} else {
 		// Append values rather than overwriting
-		for key, val := range values {
-			f.values[key] = val
-		}
+		maps.Copy(f.values, values)
 	}
 	return f.err
 }

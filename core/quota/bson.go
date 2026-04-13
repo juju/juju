@@ -29,7 +29,7 @@ func NewBSONTotalSizeChecker(maxSize int) *BSONTotalSizeChecker {
 
 // Check adds the serialized size of v to the current tally and updates the
 // checker's error state.
-func (c *BSONTotalSizeChecker) Check(v interface{}) {
+func (c *BSONTotalSizeChecker) Check(v any) {
 	if c.lastErr != nil {
 		return
 	}

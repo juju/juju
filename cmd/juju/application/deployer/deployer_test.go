@@ -472,7 +472,7 @@ func (s *deployerSuite) expectStat(name string, err error) {
 }
 
 func (s *deployerSuite) expectModelGet(c *tc.C) {
-	minimal := map[string]interface{}{
+	minimal := map[string]any{
 		"name":            "test",
 		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),

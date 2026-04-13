@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -286,7 +286,7 @@ func (s *Suite) TestExportIAAS(c *tc.C) {
 func (s *Suite) TestExportCAAS(c *tc.C) {
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "caas",
-		Config:             map[string]interface{}{"uuid": s.modelUUID},
+		Config:             map[string]any{"uuid": s.modelUUID},
 		Owner:              "admin",
 		LatestToolsVersion: jujuversion.Current.String(),
 	})

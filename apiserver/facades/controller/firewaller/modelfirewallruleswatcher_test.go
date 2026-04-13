@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
@@ -33,7 +33,7 @@ func (s *ModelFirewallRulesWatcherSuite) setupMocks(c *tc.C) *gomock.Controller 
 	return ctrl
 }
 
-func cfg(c *tc.C, in map[string]interface{}) *config.Config {
+func cfg(c *tc.C, in map[string]any) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(in)
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *tc.C) {
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
 	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]any{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,8 +68,8 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *tc.C) {
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
 	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]any{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]any{config.SSHAllowKey: "192.168.0.0/24"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, tc.ErrorIsNil)
@@ -93,8 +93,8 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *tc.C) {
 	watcher := watchertest.NewMockStringsWatcher(notifyCh)
 	s.modelConfigService.EXPECT().Watch(gomock.Any()).Return(watcher, nil)
 
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]any{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]any{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, tc.ErrorIsNil)

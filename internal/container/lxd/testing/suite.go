@@ -19,7 +19,7 @@ const ETag = "eTag"
 
 // NoOpCallback can be passed to methods that receive a callback for setting
 // status messages.
-var NoOpCallback = func(ctx context.Context, st status.Status, info string, data map[string]interface{}) error {
+var NoOpCallback = func(ctx context.Context, st status.Status, info string, data map[string]any) error {
 	return nil
 }
 

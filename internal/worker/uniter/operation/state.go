@@ -183,8 +183,8 @@ func (st State) Validate() (err error) {
 	return nil
 }
 
-func (st State) Report() map[string]interface{} {
-	result := make(map[string]interface{})
+func (st State) Report(ctx stdcontext.Context) map[string]any {
+	result := make(map[string]any)
 	result["started"] = st.Started
 	result["stopped"] = st.Stopped
 	result["installed"] = st.Installed

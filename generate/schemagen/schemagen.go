@@ -28,8 +28,8 @@ type Strings []string
 
 // Set will append a config value to the config flags.
 func (c *Strings) Set(value string) error {
-	parts := strings.Split(value, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(value, ",")
+	for part := range parts {
 		*c = append(*c, part)
 	}
 	return nil

@@ -18,7 +18,7 @@ func (s *jsonSuite) TestItemCollectionMarshalling(c *tc.C) {
 	// directly (not through ParseCloudMetadata) doesn't
 	// cause any surprises.
 	var m simplestreams.ItemCollection
-	m.Items = make(map[string]interface{})
+	m.Items = make(map[string]any)
 	err := json.Unmarshal([]byte(`{
         "items": {
             "a": "b",
@@ -26,7 +26,7 @@ func (s *jsonSuite) TestItemCollectionMarshalling(c *tc.C) {
         }
     }`), &m)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.Items, tc.DeepEquals, map[string]interface{}{
+	c.Assert(m.Items, tc.DeepEquals, map[string]any{
 		"a": "b",
 		"c": float64(123),
 	})

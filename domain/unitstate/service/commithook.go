@@ -82,12 +82,35 @@ func (s *Service) transformRelationSettings(
 		maps.Copy(settings, in.Settings)
 		delete(settings, unitstate.IngressAddressKey)
 		delete(settings, unitstate.EgressSubnetsKey)
+		unitSet, unitUnset := parseForSetAndUnsetSettings(settings)
+		appSet, appUnset := parseForSetAndUnsetSettings(in.ApplicationSettings)
 		return internal.RelationSettings{
-			RelationUUID:        relationUUID,
-			Settings:            settings,
-			ApplicationSettings: in.ApplicationSettings,
+			RelationUUID:     relationUUID,
+			UnitSet:          unitSet,
+			UnitUnset:        unitUnset,
+			ApplicationSet:   appSet,
+			ApplicationUnset: appUnset,
 		}, nil
 	})
+}
+
+func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []string) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	// Determine the keys to set and unset.
+	out := make(unitstate.Settings, 0)
+	var unset []string
+	for k, v := range in {
+		if v == "" {
+			unset = append(unset, k)
+		} else {
+			out[k] = v
+		}
+	}
+
+	return out, unset
 }
 
 // getRelationUUIDByKey returns a relation UUID for the given Key.

@@ -70,7 +70,7 @@ func (s *Service) FinishTask(ctx context.Context, result operation.CompletedTask
 // storeTaskResults stores the results of a task in the object store. It returns
 // the path used to store the results and a function to remove the results from
 // the store.
-func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results map[string]interface{}) (string, func(), error) {
+func (s *Service) storeTaskResults(ctx context.Context, taskUUID string, results map[string]any) (string, func(), error) {
 	if len(results) == 0 {
 		return "", nil, nil
 	}

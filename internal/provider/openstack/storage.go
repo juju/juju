@@ -140,15 +140,12 @@ func (s *openstackstorage) RemoveAll() error {
 		close(toDelete)
 	}()
 	// Now spawn up to N routines to actually issue the requests.
-	maxRoutines := len(names)
-	if maxConcurrentDeletes < maxRoutines {
-		maxRoutines = maxConcurrentDeletes
-	}
+	maxRoutines := min(maxConcurrentDeletes, len(names))
 	var wg sync.WaitGroup
 	wg.Add(maxRoutines)
 	// Make a channel long enough to buffer all possible errors.
 	errc := make(chan error, len(names))
-	for i := 0; i < maxRoutines; i++ {
+	for range maxRoutines {
 		go func() {
 			for name := range toDelete {
 				if err := s.Remove(name); err != nil {

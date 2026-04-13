@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -196,7 +196,7 @@ func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []te
 		}
 		calls[i] = testhelpers.StubCall{
 			FuncName: "apiOpen",
-			Args: []interface{}{info, api.DialOpts{
+			Args: []any{info, api.DialOpts{
 				DialAddressInterval: 200 * time.Millisecond,
 				DialTimeout:         3 * time.Second,
 				Timeout:             time.Minute,

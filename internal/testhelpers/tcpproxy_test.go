@@ -157,13 +157,11 @@ func tcpEcho(wg *sync.WaitGroup, listener net.Listener) {
 		if err != nil {
 			return
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer conn.Close()
 			// Echo anything that was written.
 			io.Copy(conn, conn)
-		}()
+		})
 	}
 }
 

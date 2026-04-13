@@ -69,7 +69,7 @@ func NewProxierConfig() *ProxierConfig {
 	return &ProxierConfig{}
 }
 
-func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
+func NewProxierFromRawConfig(rawConf any) (*Proxier, error) {
 	conf, valid := rawConf.(*ProxierConfig)
 	if !valid {
 		return nil, errors.NewNotValid(nil, "config is not of type *ProxierConfig")
@@ -85,14 +85,14 @@ func (p *Proxier) SetAPIHost(host string) {
 }
 
 // RawConfig implements Proxier RawConfig interface.
-func (p *Proxier) RawConfig() (map[string]interface{}, error) {
-	rval := map[string]interface{}{}
+func (p *Proxier) RawConfig() (map[string]any, error) {
+	rval := map[string]any{}
 	err := mapstructure.Decode(&p.config, &rval)
 	return rval, errors.Trace(err)
 }
 
 // MarshalYAML implements the yaml Marshaler interface
-func (p *Proxier) MarshalYAML() (interface{}, error) {
+func (p *Proxier) MarshalYAML() (any, error) {
 	return &p.config, nil
 }
 

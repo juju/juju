@@ -25,11 +25,11 @@ func TestActionGetSuite(t *testing.T) {
 }
 
 type actionGetContext struct {
-	actionParams map[string]interface{}
+	actionParams map[string]any
 	jujuc.Context
 }
 
-func (ctx *actionGetContext) ActionParams() (map[string]interface{}, error) {
+func (ctx *actionGetContext) ActionParams() (map[string]any, error) {
 	return ctx.actionParams, nil
 }
 
@@ -37,7 +37,7 @@ type nonActionContext struct {
 	jujuc.Context
 }
 
-func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {
+func (ctx *nonActionContext) ActionParams() (map[string]any, error) {
 	return nil, fmt.Errorf("ActionParams queried from non-Action hook context")
 }
 
@@ -54,21 +54,21 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *tc.C) {
 }
 
 func (s *ActionGetSuite) TestActionGet(c *tc.C) {
-	var actionGetTestMaps = []map[string]interface{}{
+	var actionGetTestMaps = []map[string]any{
 		{
 			"outfile": "foo.bz2",
 		},
 
 		{
-			"outfile": map[string]interface{}{
+			"outfile": map[string]any{
 				"filename": "foo.bz2",
 				"format":   "bzip",
 			},
 		},
 
 		{
-			"outfile": map[string]interface{}{
-				"type": map[string]interface{}{
+			"outfile": map[string]any{
+				"type": map[string]any{
 					"1": "raw",
 					"2": "gzip",
 					"3": "bzip",
@@ -78,8 +78,8 @@ func (s *ActionGetSuite) TestActionGet(c *tc.C) {
 
 		// A map with a non-string key is not usable.
 		{
-			"outfile": map[interface{}]interface{}{
-				5: map[string]interface{}{
+			"outfile": map[any]any{
+				5: map[string]any{
 					"1": "raw",
 					"2": "gzip",
 					"3": "bzip",
@@ -90,8 +90,8 @@ func (s *ActionGetSuite) TestActionGet(c *tc.C) {
 		// A map with an inner map[interface{}]interface{} is OK if
 		// the keys are strings.
 		{
-			"outfile": map[interface{}]interface{}{
-				"type": map[string]interface{}{
+			"outfile": map[any]any{
+				"type": map[string]any{
 					"1": "raw",
 					"2": "gzip",
 					"3": "bzip",
@@ -103,7 +103,7 @@ func (s *ActionGetSuite) TestActionGet(c *tc.C) {
 	var actionGetTests = []struct {
 		summary      string
 		args         []string
-		actionParams map[string]interface{}
+		actionParams map[string]any
 		code         int
 		out          string
 		errMsg       string

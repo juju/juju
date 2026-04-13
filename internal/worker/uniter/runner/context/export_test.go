@@ -4,6 +4,8 @@
 package context
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
@@ -218,7 +220,7 @@ func RelationBroken(context jujuc.Context, relId int) bool {
 	return context.(*HookContext).relations[relId].broken
 }
 
-func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
+func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]any) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
 	hctx.status = &jujuc.StatusInfo{
@@ -231,7 +233,7 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 	}
 }
 
-func WithActionContext(ctx *HookContext, in map[string]interface{}, cancel <-chan struct{}) {
+func WithActionContext(ctx *HookContext, in map[string]any, cancel <-chan struct{}) {
 	ctx.actionData = &ActionData{
 		Tag:        names.NewActionTag("2"),
 		ResultsMap: in,
@@ -301,9 +303,7 @@ func UpdateCachedSettings(cf0 ContextFactory, relId int, unitName string, settin
 	if members[unitName] == nil {
 		members[unitName] = params.Settings{}
 	}
-	for key, value := range settings {
-		members[unitName][key] = value
-	}
+	maps.Copy(members[unitName], settings)
 }
 
 func UpdateCachedAppSettings(cf0 ContextFactory, relId int, appName string, settings params.Settings) {
@@ -312,9 +312,7 @@ func UpdateCachedAppSettings(cf0 ContextFactory, relId int, appName string, sett
 	if applications[appName] == nil {
 		applications[appName] = params.Settings{}
 	}
-	for key, value := range settings {
-		applications[appName][key] = value
-	}
+	maps.Copy(applications[appName], settings)
 }
 
 func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Settings, bool) {

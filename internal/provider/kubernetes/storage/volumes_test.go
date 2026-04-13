@@ -22,7 +22,7 @@ func TestStorageSuite(t *stdtesting.T) {
 }
 
 func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
-	cfg, err := storage.ParseStorageConfig(map[string]interface{}{
+	cfg, err := storage.ParseStorageConfig(map[string]any{
 		"storage-class":       "juju-ebs",
 		"storage-provisioner": "ebs",
 		"parameters.type":     "gp2",
@@ -35,50 +35,50 @@ func (s *storageSuite) TestParseStorageConfig(c *tc.C) {
 
 func (s *storageSuite) TestGetStorageMode(c *tc.C) {
 	type testCase struct {
-		attrs map[string]interface{}
+		attrs map[string]any
 		mode  core.PersistentVolumeAccessMode
 		err   string
 	}
 
 	for i, t := range []testCase{
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "RWO",
 			},
 			mode: core.ReadWriteOnce,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "ReadWriteOnce",
 			},
 			mode: core.ReadWriteOnce,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "RWX",
 			},
 			mode: core.ReadWriteMany,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "ReadWriteMany",
 			},
 			mode: core.ReadWriteMany,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "ROX",
 			},
 			mode: core.ReadOnlyMany,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "ReadOnlyMany",
 			},
 			mode: core.ReadOnlyMany,
 		},
 		{
-			attrs: map[string]interface{}{
+			attrs: map[string]any{
 				"storage-mode": "bad-mode",
 			},
 			err: `storage mode "bad-mode" not supported`,

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	agentsecretsdrain "github.com/juju/juju/api/agent/secretsdrain"
 	"github.com/juju/juju/api/agent/secretsmanager"

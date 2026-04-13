@@ -123,7 +123,7 @@ type rpcLogger struct {
 }
 
 // ServerRequest implements rpc.Observer.
-func (n *rpcLogger) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
+func (n *rpcLogger) ServerRequest(ctx context.Context, hdr *rpc.Header, body any) {
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every request.
@@ -153,7 +153,7 @@ func (n *rpcLogger) ServerRequest(ctx context.Context, hdr *rpc.Header, body int
 }
 
 // ServerReply implements rpc.Observer.
-func (n *rpcLogger) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *rpcLogger) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body any) {
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every reply.

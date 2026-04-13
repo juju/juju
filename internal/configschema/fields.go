@@ -6,6 +6,7 @@ package configschema
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/juju/schema"
@@ -62,10 +63,10 @@ type Attr struct {
 	// TODO if the example holds some special values, use
 	// it as a template to generate initial random values
 	// (for example for admin-password) ?
-	Example interface{} `json:"example,omitempty"`
+	Example any `json:"example,omitempty"`
 
 	// Values holds the set of all possible values of the attribute.
-	Values []interface{} `json:"values,omitempty"`
+	Values []any `json:"values,omitempty"`
 
 	// Documentation holds the longform documentation for this option.
 	// This may include markdown.
@@ -173,8 +174,8 @@ func (s Fields) ValidationSchema() (schema.Fields, schema.Defaults, error) {
 // oneOfValues returns a checker that coerces its value
 // using the supplied checker, then checks that the
 // resulting value is equal to one of the given values.
-func oneOfValues(checker schema.Checker, values []interface{}) (schema.Checker, error) {
-	cvalues := make([]interface{}, len(values))
+func oneOfValues(checker schema.Checker, values []any) (schema.Checker, error) {
+	cvalues := make([]any, len(values))
 	for i, v := range values {
 		cv, err := checker.Coerce(v, nil)
 		if err != nil {
@@ -189,20 +190,18 @@ func oneOfValues(checker schema.Checker, values []interface{}) (schema.Checker, 
 }
 
 type oneOfValuesChecker struct {
-	vals    []interface{}
+	vals    []any
 	checker schema.Checker
 }
 
 // Coerce implements schema.Checker.Coerce.
-func (c oneOfValuesChecker) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c oneOfValuesChecker) Coerce(v any, path []string) (any, error) {
 	v, err := c.checker.Coerce(v, path)
 	if err != nil {
 		return v, err
 	}
-	for _, allow := range c.vals {
-		if allow == v {
-			return v, nil
-		}
+	if slices.Contains(c.vals, v) {
+		return v, nil
 	}
 	return nil, fmt.Errorf("%sexpected one of %v, got %#v", pathPrefix(path), c.vals, v)
 }
@@ -214,7 +213,7 @@ var (
 	attrSliceChecker = schema.List(schema.String())
 )
 
-func (c attrsChecker) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c attrsChecker) Coerce(v any, path []string) (any, error) {
 	// TODO consider allowing only the map variant.
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.String:
@@ -232,7 +231,7 @@ func (c attrsChecker) Coerce(v interface{}, path []string) (interface{}, error) 
 		if err != nil {
 			return nil, errgo.Mask(err)
 		}
-		slice := slice0.([]interface{})
+		slice := slice0.([]any)
 		fields := make([]string, len(slice))
 		for i, f := range slice {
 			fields[i] = f.(string)
@@ -247,7 +246,7 @@ func (c attrsChecker) Coerce(v interface{}, path []string) (interface{}, error) 
 		if err != nil {
 			return nil, errgo.Mask(err)
 		}
-		imap := imap0.(map[interface{}]interface{})
+		imap := imap0.(map[any]any)
 		result := make(map[string]string)
 		for k, v := range imap {
 			result[k.(string)] = v.(string)

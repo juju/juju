@@ -25,7 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 		}
 
 		return api, nil
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // makeAPI is responsible for constructing a new [API] from the provided model

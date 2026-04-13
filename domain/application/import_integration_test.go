@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
@@ -1079,7 +1079,7 @@ func (s *importSuite) TestApplicationConfig(c *tc.C) {
 			},
 		},
 	})
-	app.SetCharmConfig(map[string]interface{}{"foo": "test-value"})
+	app.SetCharmConfig(map[string]any{"foo": "test-value"})
 
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 

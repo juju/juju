@@ -174,7 +174,7 @@ func (a *DefaultAuthority) LeafGroupFromPemCertKey(group string,
 
 // LeafRange implements Authority interface method.
 func (a *DefaultAuthority) LeafRange(ranger func(leaf Leaf) bool) {
-	a.leafs.Range(func(_, val interface{}) bool {
+	a.leafs.Range(func(_, val any) bool {
 		return ranger(val.(Leaf))
 	})
 }

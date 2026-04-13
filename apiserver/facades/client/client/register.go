@@ -18,7 +18,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Client", 8, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV8(ctx)
-	}, reflect.TypeOf((*Client)(nil)))
+	}, reflect.TypeFor[*Client]())
 }
 
 // newFacadeV8 returns a new Client facade (v8).
@@ -52,6 +52,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		portService:               domainServices.Port(),
 		relationService:           domainServices.Relation(),
 		statusService:             domainServices.Status(),
+		controllerConfigService:   domainServices.ControllerConfig(),
 
 		isControllerModel: ctx.IsControllerModelScoped(),
 	}

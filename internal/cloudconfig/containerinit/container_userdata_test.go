@@ -43,7 +43,7 @@ func CloudInitDataExcludingOutputSection(data string) []string {
 
 	var linesToMatch []string
 	seenBootcmd := false
-	for _, line := range strings.Split(data, "\n") {
+	for line := range strings.SplitSeq(data, "\n") {
 		if strings.HasPrefix(line, "#cloud-config") {
 			linesToMatch = append(linesToMatch, line)
 			continue

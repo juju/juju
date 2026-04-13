@@ -425,7 +425,7 @@ func (s *networkSuite) TestEnableHTTPSListener(c *tc.C) {
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "[::]",
 			},
 		}, lxdtesting.ETag).Return(nil),
@@ -448,13 +448,13 @@ func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *tc.C) {
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "[::]",
 			},
 		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "0.0.0.0",
 			},
 		}, lxdtesting.ETag).Return(nil),
@@ -489,7 +489,7 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *tc.C) {
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "[::]",
 			},
 		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
@@ -503,13 +503,13 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *tc.C) {
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "[::]",
 			},
 		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
 		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
 		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"core.https_address": "0.0.0.0",
 			},
 		}, lxdtesting.ETag).Return(errors.New("bad")),

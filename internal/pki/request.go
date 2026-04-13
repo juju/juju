@@ -23,7 +23,7 @@ type CertificateRequestSignerFn func(*x509.CertificateRequest) (*x509.Certificat
 type DefaultRequestSigner struct {
 	authority *x509.Certificate
 	chain     []*x509.Certificate
-	privKey   interface{}
+	privKey   any
 	validity  time.Duration
 }
 
@@ -44,7 +44,7 @@ var (
 func NewDefaultRequestSigner(
 	authority *x509.Certificate,
 	chain []*x509.Certificate,
-	privKey interface{},
+	privKey any,
 	validity time.Duration) *DefaultRequestSigner {
 	return &DefaultRequestSigner{
 		authority: authority,

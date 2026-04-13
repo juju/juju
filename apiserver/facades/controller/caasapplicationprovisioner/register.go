@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASApplicationProvisioner", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*APIGroup)(nil)))
+	}, reflect.TypeFor[*APIGroup]())
 }
 
 // newAPI provides the signature required for facade registration.

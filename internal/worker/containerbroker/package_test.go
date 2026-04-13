@@ -3,8 +3,8 @@
 
 package containerbroker_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v4 Worker
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v5 Worker
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v5/dependency Getter
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs InstanceBroker
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machine_lock_mock.go github.com/juju/juju/core/machinelock Lock
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller

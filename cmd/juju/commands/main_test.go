@@ -576,7 +576,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *tc.C) {
 		info := command.Info()
 		purpose := strings.TrimSpace(info.Purpose)
 		doc := strings.TrimSpace(info.Doc)
-		comment := func(message string) interface{} {
+		comment := func(message string) any {
 			return tc.Commentf("command %q %s", info.Name, message)
 		}
 

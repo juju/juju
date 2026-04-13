@@ -126,7 +126,7 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 		return make(map[string]*cloud.CloudCredential), nil
 	}
 
-	nopLogf := func(msg string, args ...interface{}) {}
+	nopLogf := func(msg string, args ...any) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -149,7 +149,7 @@ func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[st
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
-	nopLogf := func(msg string, args ...interface{}) {}
+	nopLogf := func(msg string, args ...any) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -251,7 +251,7 @@ func (p environProviderCredentials) detectRemoteCredentials() (map[string]cloud.
 	return credentials, nil
 }
 
-func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...interface{})) (certPEM, keyPEM []byte, _ error) {
+func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...any)) (certPEM, keyPEM []byte, _ error) {
 	for _, dir := range configDirs() {
 		certPEM, keyPEM, err := p.certReadWriter.Read(dir)
 		if err == nil {
@@ -309,7 +309,7 @@ func (p environProviderCredentials) FinalizeCredential(
 			// generate them for the user.
 			if _, ok := getClientCertificates(args.Credential); !ok {
 				stderr := ctx.GetStderr()
-				nopLogf := func(s string, args ...interface{}) {
+				nopLogf := func(s string, args ...any) {
 					fmt.Fprintf(stderr, s+"\n", args...)
 				}
 				clientCert, clientKey, err := p.readOrGenerateCert(nopLogf)

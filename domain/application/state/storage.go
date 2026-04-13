@@ -107,7 +107,7 @@ SELECT &applicationStorageInfo.* FROM (
 func (st *State) GetApplicationStorageDirectives(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
-) ([]application.StorageDirective, error) {
+) ([]internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -161,9 +161,9 @@ SELECT &storageDirective.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]application.StorageDirective, 0, len(dbVals))
+	rval := make([]internal.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		rval = append(rval, application.StorageDirective{
+		rval = append(rval, internal.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
 			CharmStorageType:  charm.StorageType(val.CharmStorageKind),
 			Count:             val.Count,
@@ -471,7 +471,7 @@ FROM (
 func (st *State) GetUnitStorageDirectives(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-) ([]application.StorageDirective, error) {
+) ([]internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -487,11 +487,12 @@ SELECT &storageDirective.* FROM (
            cm.name AS charm_metadata_name,
            csk.kind AS charm_storage_kind,
            cs.count_max AS count_max
-    FROM   unit_storage_directive usd
-    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    FROM   unit u
+    JOIN   unit_storage_directive usd ON usd.unit_uuid = u.uuid AND usd.charm_uuid = u.charm_uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = u.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  unit_uuid = $entityUUID.uuid
+    WHERE  u.uuid = $entityUUID.uuid
 )
 		`,
 		unitUUIDInput, storageDirective{},
@@ -525,9 +526,9 @@ SELECT &storageDirective.* FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]application.StorageDirective, 0, len(dbVals))
+	rval := make([]internal.StorageDirective, 0, len(dbVals))
 	for _, val := range dbVals {
-		rval = append(rval, application.StorageDirective{
+		rval = append(rval, internal.StorageDirective{
 			CharmMetadataName: val.CharmMetadataName,
 			Count:             val.Count,
 			MaxCount:          val.CountMax,
@@ -548,10 +549,10 @@ SELECT &storageDirective.* FROM (
 // - [applicationerrors.StorageNameNotSupported] if the named storage directive doesn't exist.
 func (st *State) GetUnitStorageDirectiveByName(
 	ctx context.Context, unitUUID coreunit.UUID, storageName string,
-) (application.StorageDirective, error) {
+) (internal.StorageDirective, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
 	unitUUIDInput := entityUUID{UUID: unitUUID.String()}
@@ -565,18 +566,19 @@ SELECT &storageDirective.* FROM (
            cm.name AS charm_metadata_name,
            csk.kind AS charm_storage_kind,
            cs.count_max AS count_max
-    FROM   unit_storage_directive usd
-    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND cs.name = usd.storage_name
-    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    FROM   unit u
+    JOIN   unit_storage_directive usd ON usd.unit_uuid = u.uuid AND usd.charm_uuid = u.charm_uuid
+    JOIN   charm_storage cs ON cs.charm_uuid = u.charm_uuid AND cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = u.charm_uuid
     JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
-    WHERE  unit_uuid = $entityUUID.uuid
+    WHERE  u.uuid = $entityUUID.uuid
     AND    usd.storage_name = $storageDirective.storage_name
 )
 		`,
 		unitUUIDInput, storageDirectiveInput,
 	)
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
 	var dbVal storageDirective
@@ -601,10 +603,10 @@ SELECT &storageDirective.* FROM (
 	})
 
 	if err != nil {
-		return application.StorageDirective{}, errors.Capture(err)
+		return internal.StorageDirective{}, errors.Capture(err)
 	}
 
-	return application.StorageDirective{
+	return internal.StorageDirective{
 		CharmMetadataName: dbVal.CharmMetadataName,
 		Count:             dbVal.Count,
 		MaxCount:          dbVal.CountMax,
@@ -655,6 +657,79 @@ VALUES ($insertApplicationStorageDirective.*)
 	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// insertUnitStorageDirectivesForAllUnits inserts all of the storage directives
+// for all the units in an application.
+func (st *State) insertUnitStorageDirectivesForAllUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid, charmUUID string,
+	directives []internal.CreateApplicationStorageDirectiveArg,
+) error {
+	if len(directives) == 0 {
+		return nil
+	}
+
+	applicationUUID := applicationUUID{
+		ApplicationUUID: uuid,
+	}
+	selectUnitUUIDsStmt, err := st.Prepare(`
+SELECT &unitUUID.uuid
+FROM   unit u
+WHERE  u.application_uuid = $applicationUUID.application_uuid
+`, applicationUUID, unitUUID{})
+	if err != nil {
+		return errors.Errorf("preparing all unit uuids for app query").Add(err)
+	}
+
+	var unitUUIDs []unitUUID
+	err = tx.Query(ctx, selectUnitUUIDsStmt, applicationUUID).GetAll(&unitUUIDs)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"getting all unit uuids for application %q", uuid,
+		).Add(err)
+	}
+
+	insertDirectivesInput := make([]insertUnitStorageDirective, 0,
+		len(unitUUIDs)*len(directives))
+	for _, unit := range unitUUIDs {
+		for _, d := range directives {
+			insertDirectivesInput = append(
+				insertDirectivesInput,
+				insertUnitStorageDirective{
+					UnitUUID:        unit.UnitUUID,
+					CharmUUID:       charmUUID,
+					Count:           d.Count,
+					Size:            d.Size,
+					StorageName:     d.Name.String(),
+					StoragePoolUUID: d.PoolUUID.String(),
+				},
+			)
+		}
+	}
+
+	insertDirectivesStmt, err := st.Prepare(`
+INSERT INTO unit_storage_directive (*)
+VALUES ($insertUnitStorageDirective.*)
+`, insertUnitStorageDirective{})
+	if err != nil {
+		return errors.Errorf(
+			"preparing insert unit storage directive query",
+		).Add(err)
+	}
+
+	err = tx.Query(ctx, insertDirectivesStmt, insertDirectivesInput).Run()
+	if err != nil {
+		return errors.Errorf(
+			"inserting unit storage directives for all units in application %q",
+			uuid,
+		).Add(err)
 	}
 
 	return nil

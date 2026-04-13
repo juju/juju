@@ -50,7 +50,7 @@ func (s *ContextRelationSuite) assertSettingsCaching(c *tc.C, members ...string)
 	// Check that uncached settings are read once.
 	m, err := ctx.ReadSettings(c.Context(), "u/1")
 	c.Assert(err, tc.ErrorIsNil)
-	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
+	expectSettings := convertMap(map[string]any{"blib": "blob"})
 	c.Assert(m, tc.DeepEquals, expectSettings)
 
 	// Check that another call does not hit the api.
@@ -67,7 +67,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *tc.C) {
 	s.assertSettingsCaching(c, []string(nil)...)
 }
 
-func convertMap(settingsMap map[string]interface{}) params.Settings {
+func convertMap(settingsMap map[string]any) params.Settings {
 	result := make(params.Settings)
 	for k, v := range settingsMap {
 		result[k] = v.(string)

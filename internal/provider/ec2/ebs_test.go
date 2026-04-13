@@ -96,7 +96,7 @@ func (s *ebsSuite) ebsProvider(c *tc.C) storage.Provider {
 
 func (s *ebsSuite) TestValidateConfigUnknownConfig(c *tc.C) {
 	p := s.ebsProvider(c)
-	cfg, err := storage.NewConfig("foo", ec2.EBS_ProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("foo", ec2.EBS_ProviderType, map[string]any{
 		"unknown": "config",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *ebsSuite) createVolumesParams(c *tc.C, instanceId string) []storage.Vol
 		Tag:      volume0,
 		Size:     10 * 1000,
 		Provider: ec2.EBS_ProviderType,
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"volume-type": "io1",
 			"iops":        30,
 		},
@@ -420,7 +420,7 @@ func (s *ebsSuite) TestVolumeTypeAliases(c *tc.C) {
 			Tag:      names.NewVolumeTag("0"),
 			Size:     500 * 1024,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": alias[0],
 			},
 			Attachment: &storage.VolumeAttachmentParams{
@@ -710,7 +710,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 		params: storage.VolumeParams{
 			Size:       100000000,
 			Provider:   ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{},
+			Attributes: map[string]any{},
 			Attachment: &attachmentParams,
 		},
 		err: "volume size 97657 GiB exceeds the maximum of 16384 GiB",
@@ -718,7 +718,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 		params: storage.VolumeParams{
 			Size:     100000000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp2",
 			},
 			Attachment: &attachmentParams,
@@ -728,7 +728,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 		params: storage.VolumeParams{
 			Size:     100000000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "io1",
 				"iops":        "30",
 			},
@@ -740,7 +740,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     1000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "io1",
 				"iops":        "30",
 			},
@@ -752,7 +752,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "io1",
 				"iops":        "1234",
 			},
@@ -764,7 +764,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "standard",
 				"iops":        "30",
 			},
@@ -776,7 +776,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "what",
 			},
 			Attachment: &attachmentParams,
@@ -787,7 +787,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     400 * 1024,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "st1",
 			},
 			Attachment: &attachmentParams,
@@ -798,7 +798,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     17 * 1024 * 1024,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "st1",
 			},
 			Attachment: &attachmentParams,
@@ -809,7 +809,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "st1",
 				"iops":        "30",
 			},
@@ -821,7 +821,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     300 * 1024,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "sc1",
 			},
 			Attachment: &attachmentParams,
@@ -832,7 +832,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     18 * 1024 * 1024,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "sc1",
 			},
 			Attachment: &attachmentParams,
@@ -843,7 +843,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "sc1",
 				"iops":        "30",
 			},
@@ -855,7 +855,7 @@ func (s *ebsSuite) TestCreateVolumesErrors(c *tc.C) {
 			Tag:      volume0,
 			Size:     10000,
 			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp2",
 				"throughput":  "30",
 			},
@@ -968,10 +968,10 @@ func (s *ebsSuite) TestAttachVolumesCreating(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	var calls int
-	s.srv.ec2srv.SetAPIModifiers("DescribeVolumes", func(out interface{}) {
+	s.srv.ec2srv.SetAPIModifiers("DescribeVolumes", func(out any) {
 		out.(*awsec2.DescribeVolumesOutput).Volumes[0].State = "creating"
 		calls++
-	}, func(out interface{}) {
+	}, func(out any) {
 		out.(*awsec2.DescribeVolumesOutput).Volumes[0].State = "available"
 		calls++
 	})
@@ -985,7 +985,7 @@ func (s *ebsSuite) TestAttachVolumesCreating(c *tc.C) {
 func (s *ebsSuite) TestAttachVolumesDetaching(c *tc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	s.srv.ec2srv.SetAPIModifiers("DescribeVolumes", func(out interface{}) {
+	s.srv.ec2srv.SetAPIModifiers("DescribeVolumes", func(out any) {
 		vols := out.(*awsec2.DescribeVolumesOutput).Volumes
 		vols[0].State = "in-use"
 		vols[0].Attachments = append(vols[0].Attachments, types.VolumeAttachment{

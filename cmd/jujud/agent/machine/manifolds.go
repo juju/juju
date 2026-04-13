@@ -5,6 +5,7 @@ package machine
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"runtime"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -572,9 +573,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

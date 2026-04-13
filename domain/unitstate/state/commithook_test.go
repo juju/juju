@@ -11,11 +11,14 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -142,9 +145,9 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: unitUUID,
 		RelationSettings: []internal.RelationSettings{{
-			RelationUUID:        relationUUID,
-			ApplicationSettings: appSettings,
-			Settings:            unitSettings,
+			RelationUUID:   relationUUID,
+			ApplicationSet: appSettings,
+			UnitSet:        unitSettings,
 		}},
 	}
 
@@ -180,6 +183,43 @@ func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetUnitUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *commitHookSuite) TestEnsureCommitHookChangesUUIDsUnitNotFound(c *tc.C) {
+	// Arrange
+	arg := internal.CommitHookChangesArg{}
+
+	// Act
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.ensureCommitHookChangesUUIDs(ctx, tx, arg)
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) {
+	// Arrange: add a unit
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, "testname", network.AlphaSpaceId.String())
+	unitName := coreunit.Name("testname/0")
+	unitUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+
+	// Arrange: setup the method input with a non-existent relation uuid
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: unitUUID,
+		RelationSettings: []internal.RelationSettings{{
+			RelationUUID: tc.Must(c, corerelation.NewUUID),
+		}},
+	}
+
+	// Act
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.ensureCommitHookChangesUUIDs(ctx, tx, arg)
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *commitHookSuite) addSpace(c *tc.C) string {

@@ -90,12 +90,12 @@ type ActionHookContext interface {
 
 type actionHookContext interface {
 	// ActionParams returns the map of params passed with an Action.
-	ActionParams() (map[string]interface{}, error)
+	ActionParams() (map[string]any, error)
 
 	// UpdateActionResults inserts new values for use with action-set.
 	// The results struct will be delivered to the controller upon
 	// completion of the Action.
-	UpdateActionResults(keys []string, value interface{}) error
+	UpdateActionResults(keys []string, value any) error
 
 	// SetActionMessage sets a message for the Action.
 	SetActionMessage(string) error

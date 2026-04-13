@@ -51,11 +51,11 @@ func (s *rootfsSuite) rootfsProvider(c *tc.C) storage.Provider {
 
 func (s *rootfsSuite) TestFilesystemSource(c *tc.C) {
 	p := s.rootfsProvider(c)
-	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
-	cfg, err = storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{
+	cfg, err = storage.NewConfig("name", provider.RootfsProviderType, map[string]any{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -65,7 +65,7 @@ func (s *rootfsSuite) TestFilesystemSource(c *tc.C) {
 
 func (s *rootfsSuite) TestValidateConfig(c *tc.C) {
 	p := s.rootfsProvider(c)
-	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	// The rootfs provider does not have any user

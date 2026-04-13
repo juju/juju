@@ -102,7 +102,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *tc.C, id, region strin
 
 func cacheTestEnvConfig(c *tc.C, store *jujuclient.MemStore) {
 	ec2UUID := uuid.MustNewUUID().String()
-	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+	ec2Config, err := config.New(config.UseDefaults, map[string]any{
 		"name":            "ec2",
 		"type":            "ec2",
 		"default-base":    "ubuntu@22.04",

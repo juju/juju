@@ -24,7 +24,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASOperatorUpgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateCAASOperatorUpgraderAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newStateCAASOperatorUpgraderAPI provides the signature required for facade registration.

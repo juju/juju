@@ -546,7 +546,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *tc.C) {
 	schema := cloud.CredentialSchema{
 		{"username", cloud.CredentialAttr{Optional: false}},
 		{"password", cloud.CredentialAttr{Hidden: true}},
-		{"algorithm", cloud.CredentialAttr{Options: []interface{}{"bar", "foobar"}}},
+		{"algorithm", cloud.CredentialAttr{Options: []any{"bar", "foobar"}}},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,

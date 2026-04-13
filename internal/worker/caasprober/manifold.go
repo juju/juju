@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/internal/observability/probe"
@@ -84,7 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.MuxName},
 		Start:  config.Start,
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			controller, _ := in.(*Controller)
 			if controller == nil {
 				return errors.Errorf("expected Controller in")

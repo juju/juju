@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -35,9 +36,7 @@ func TestControllerStateSuite(t *testing.T) {
 // addControllerNodeAgentVersion adds a controller node to the cluster and sets
 // its current reported agent version to the given value. The new controller
 // node id is returned.
-func (s *controllerStateSuite) addControllerNodeAgentVersion(
-	c *tc.C, version string,
-) string {
+func (s *controllerStateSuite) addControllerNodeAgentVersion(c *tc.C, version string, architecture domainagentbinary.Architecture) string {
 	id, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -50,7 +49,7 @@ func (s *controllerStateSuite) addControllerNodeAgentVersion(
 INSERT INTO controller_node_agent_version (controller_id, version, architecture_id)
 VALUES (?, ?, ?)
 `,
-		id.String(), version, 0,
+		id.String(), version, architecture,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -100,33 +99,33 @@ INSERT INTO agent_binary_store(version, architecture_id, object_store_uuid) VALU
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestGetControllerNodeVersionsEmpty tests that when no controller node
-// versions have been reported an empty value is returned with no error.
-func (s *controllerStateSuite) TestGetControllerNodeVersionsEmpty(c *tc.C) {
+// TestGetControllerNodesEmpty tests that when no controller node
+// have been reported an empty value is returned with no error.
+func (s *controllerStateSuite) TestGetControllerNodesEmpty(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
-	versions, err := st.GetControllerNodeVersions(c.Context())
+	versions, err := st.GetControllerNodes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(versions, tc.HasLen, 0)
 }
 
-// TestGetControllerNodeVersions verifies that the controller node versions are
+// TestGetControllerNodes verifies that the controller node versions are
 // reported correctly when two nodes have their version recorded.
-func (s *controllerStateSuite) TestGetControllerNodeVersions(c *tc.C) {
+func (s *controllerStateSuite) TestGetControllerNodes(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	c1Version, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
-	id1 := s.addControllerNodeAgentVersion(c, c1Version.String())
+	id1 := s.addControllerNodeAgentVersion(c, c1Version.String(), domainagentbinary.AMD64)
 	c2Version, err := semversion.Parse("4.0.4")
 	c.Assert(err, tc.ErrorIsNil)
-	id2 := s.addControllerNodeAgentVersion(c, c2Version.String())
+	id2 := s.addControllerNodeAgentVersion(c, c2Version.String(), domainagentbinary.PPC64EL)
 
 	// Get the versions.
-	versions, err := st.GetControllerNodeVersions(c.Context())
+	versions, err := st.GetControllerNodes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(versions, tc.DeepEquals, map[string]semversion.Number{
-		id1: c1Version,
-		id2: c2Version,
+	c.Check(versions, tc.SameContents, []internal.ControllerNode{
+		{ID: id1, Version: c1Version, Architecture: domainagentbinary.AMD64},
+		{ID: id2, Version: c2Version, Architecture: domainagentbinary.PPC64EL},
 	})
 }
 

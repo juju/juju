@@ -25,7 +25,7 @@ func TestUnitSuite(t *testing.T) {
 }
 
 func (s *unitSuite) TestUnit(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -50,7 +50,7 @@ func (s *unitSuite) TestUnit(c *tc.C) {
 
 func (s *unitSuite) TestRefresh(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -81,7 +81,7 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 }
 
 func (s *unitSuite) TestApplication(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

@@ -11,9 +11,9 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -41,7 +41,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.agent.conf.setControllerAgentInfo(true)
 	s.agent.conf.tag = names.NewMachineTag("99")
 
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent": s.agent,
 	})
 
@@ -57,7 +57,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(c.Context(), getter)

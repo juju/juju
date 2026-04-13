@@ -134,12 +134,12 @@ func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *tc.C, agent names.Tag)
 
 func (*RequestLoggerSuite) makeNotifier(c *tc.C) (*observer.RequestLogger, *testLogger) {
 	testLogger := &testLogger{}
-	recorder := loggertesting.RecordLog(func(s string, a ...interface{}) {
+	recorder := loggertesting.RecordLog(func(s string, a ...any) {
 		if len(a) != 1 {
 			panic("unexpected number of arguments")
 		}
 		switch v := a[0].(type) {
-		case []interface{}:
+		case []any:
 			a = v
 		default:
 			panic("unexpected type")

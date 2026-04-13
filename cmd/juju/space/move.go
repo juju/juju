@@ -151,7 +151,7 @@ func (c *MoveCommand) getSubnetTags(ctx *cmd.Context, api SubnetAPI, cidrs set.S
 	return tags, nil
 }
 
-func (c *MoveCommand) printHuman(writer io.Writer, value interface{}) error {
+func (c *MoveCommand) printHuman(writer io.Writer, value any) error {
 	list, ok := value.([]MovedSpace)
 	if !ok {
 		return errors.New("unexpected value")
@@ -165,7 +165,7 @@ func (c *MoveCommand) printHuman(writer io.Writer, value interface{}) error {
 }
 
 // printTabular prints the list of spaces in tabular format
-func (c *MoveCommand) printTabular(writer io.Writer, value interface{}) error {
+func (c *MoveCommand) printTabular(writer io.Writer, value any) error {
 	tw := output.TabWriter(writer)
 
 	list, ok := value.([]MovedSpace)

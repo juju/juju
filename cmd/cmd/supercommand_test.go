@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"maps"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -57,9 +58,7 @@ func baseSubcommandsPlus(newCommands map[string]string) map[string]string {
 		"documentation": "Generate the documentation for all commands",
 		"help":          "Show help on a command or other topic.",
 	}
-	for name, purpose := range newCommands {
-		subcommands[name] = purpose
-	}
+	maps.Copy(subcommands, newCommands)
 	return subcommands
 }
 

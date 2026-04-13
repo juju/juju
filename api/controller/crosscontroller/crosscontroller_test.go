@@ -23,7 +23,7 @@ type CrossControllerSuite struct {
 }
 
 func (s *CrossControllerSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
@@ -31,7 +31,7 @@ func (s *CrossControllerSuite) TestNewClient(c *tc.C) {
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossController")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -56,7 +56,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *tc.C) {
 }
 
 func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
 			Results: []params.ControllerAPIInfoResult{{
 				Error: &params.Error{Message: "boom"},
@@ -71,7 +71,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *tc.C) {
 }
 
 func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossController")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

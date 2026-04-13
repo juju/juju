@@ -280,7 +280,7 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 				func(in relation.UnitSettings) params.RemoteRelationUnitChange {
 					return params.RemoteRelationUnitChange{
 						UnitId:   in.UnitID,
-						Settings: transform.Map(in.Settings, func(k string, v string) (string, interface{}) { return k, v }),
+						Settings: transform.Map(in.Settings, func(k string, v string) (string, any) { return k, v }),
 					}
 				})
 
@@ -302,7 +302,7 @@ func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelat
 					DepartedUnits:           departed,
 					InScopeUnits:            transform.Slice(inScopeUnitNames, func(n unit.Name) int { return n.Number() }),
 					UnitCount:               len(inScopeUnitNames),
-					ApplicationSettings:     transform.Map(appSettings, func(k string, v string) (string, interface{}) { return k, v }),
+					ApplicationSettings:     transform.Map(appSettings, func(k string, v string) (string, any) { return k, v }),
 					ChangedUnits:            changedUnitSettingsParams,
 				},
 			}, nil

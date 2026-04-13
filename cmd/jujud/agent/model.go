@@ -14,8 +14,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"

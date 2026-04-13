@@ -34,7 +34,7 @@ func (s *querySuite) TestCreateSchemaTable(c *tc.C) {
 }
 
 func (s *querySuite) TestCreateSchemaTableIdempotent(c *tc.C) {
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			return createSchemaTable(ctx, tx)
 		})

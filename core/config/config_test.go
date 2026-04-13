@@ -63,7 +63,7 @@ func (s *ConfigSuite) TestKnownConfigKeys(c *tc.C) {
 
 func (s *ConfigSuite) assertNewConfig(c *tc.C) *config.Config {
 	cfg, err := config.NewConfig(
-		map[string]interface{}{"field2": "field 2 value", "field4": true, "field5": map[string]interface{}{"a": "b"}},
+		map[string]any{"field2": "field 2 value", "field4": true, "field5": map[string]any{"a": "b"}},
 		testFields, testDefaults)
 	c.Assert(err, tc.ErrorIsNil)
 	return cfg
@@ -81,7 +81,7 @@ func (s *ConfigSuite) TestAttributes(c *tc.C) {
 }
 
 func (s *ConfigSuite) TestNewConfigUnknownAttribute(c *tc.C) {
-	_, err := config.NewConfig(map[string]interface{}{"some-attr": "value"}, nil, nil)
+	_, err := config.NewConfig(map[string]any{"some-attr": "value"}, nil, nil)
 	c.Assert(err, tc.ErrorMatches, `unknown key "some-attr" \(value "value"\)`)
 }
 

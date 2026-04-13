@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
@@ -16,7 +17,7 @@ import (
 )
 
 // ConfigAttributes represents config for a model or controller.
-type ConfigAttributes map[string]interface{}
+type ConfigAttributes map[string]any
 
 // Config encapsulates config for an entity.
 type Config struct {
@@ -51,7 +52,7 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 		if !ok {
 			continue
 		}
-		var coerced interface{}
+		var coerced any
 		err := yaml.Unmarshal([]byte(str), &coerced)
 		if err != nil {
 			return errors.Errorf(fmt.Sprintf("value %q for attribute %q not valid", str, k)+": %w", err).Add(coreerrors.NotValid)
@@ -66,7 +67,7 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 	// Ensure that the underlying map is of the correct type, otherwise
 	// this can panic.
 	switch result := result.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		c.attributes = result
 	case ConfigAttributes:
 		c.attributes = result
@@ -91,9 +92,7 @@ func (c *Config) schemaChecker() (schema.Checker, error) {
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	for key, value := range c.defaults {
-		schemaDefaults[key] = value
-	}
+	maps.Copy(schemaDefaults, c.defaults)
 	return schema.StrictFieldMap(schemaFields, schemaDefaults), nil
 }
 
@@ -108,14 +107,12 @@ func (c *Config) Attributes() ConfigAttributes {
 		return nil
 	}
 	result := make(ConfigAttributes)
-	for k, v := range c.attributes {
-		result[k] = v
-	}
+	maps.Copy(result, c.attributes)
 	return result
 }
 
 // Get gets the specified attribute.
-func (c ConfigAttributes) Get(attrName string, defaultValue interface{}) interface{} {
+func (c ConfigAttributes) Get(attrName string, defaultValue any) any {
 	if val, ok := c[attrName]; ok {
 		return val
 	}
@@ -155,10 +152,8 @@ func (c ConfigAttributes) GetStringMap(attrName string, defaultValue map[string]
 		result := make(map[string]string)
 		switch val := valData.(type) {
 		case map[string]string:
-			for k, v := range val {
-				result[k] = v
-			}
-		case map[string]interface{}:
+			maps.Copy(result, val)
+		case map[string]any:
 			for k, v := range val {
 				result[k] = fmt.Sprintf("%v", v)
 			}

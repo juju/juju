@@ -111,8 +111,8 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *tc.C, alias string) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
-		{"Consume", []interface{}{crossmodel.ConsumeApplicationArgs{
+		{"GetConsumeDetails", []any{"bob/booster.uke"}},
+		{"Consume", []any{crossmodel.ConsumeApplicationArgs{
 			Offer:            params.ApplicationOfferDetailsV5{OfferName: "an offer", OfferURL: "ctrl:bob/booster.uke"},
 			ApplicationAlias: alias,
 			Macaroon:         mac,

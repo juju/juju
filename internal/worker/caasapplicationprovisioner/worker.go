@@ -18,12 +18,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -76,18 +76,18 @@ type ApplicationService interface {
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
 
 	// GetApplicationLife returns the life value for the given application UUID.
-	GetApplicationLife(ctx context.Context, id application.UUID) (life.Value, error)
+	GetApplicationLife(ctx context.Context, id coreapplication.UUID) (life.Value, error)
 
 	// GetUnitLife returns the life value for the given unit name.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
 
 	// GetAllUnitLifeForApplication returns a map of the unit names and their
 	// life values for the given application.
-	GetAllUnitLifeForApplication(context.Context, application.UUID) (map[unit.Name]life.Value, error)
+	GetAllUnitLifeForApplication(context.Context, coreapplication.UUID) (map[unit.Name]life.Value, error)
 
 	// GetApplicationName returns the application name for the given application
 	// UUID.
-	GetApplicationName(ctx context.Context, id application.UUID) (string, error)
+	GetApplicationName(ctx context.Context, id coreapplication.UUID) (string, error)
 
 	// WatchApplications returns a watcher that observes changes to applications.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
@@ -95,19 +95,27 @@ type ApplicationService interface {
 	// UpsertCloudService updates the cloud service for the specified application.
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
+	// SetApplicationHasK8sResources records that the provisioner is managing
+	// k8s resources for the given application.
+	SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
+
+	// ClearApplicationHasK8sResources records that the provisioner has
+	// finished managing k8s resources for the given application.
+	ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
+
 	// IsControllerApplication returns true when the application is the controller.
-	IsControllerApplication(ctx context.Context, id application.UUID) (bool, error)
+	IsControllerApplication(ctx context.Context, id coreapplication.UUID) (bool, error)
 
 	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, applicationservice.UpdateCAASUnitParams) error
 
 	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
 	// and their cloud container provider IDs for the given application.
-	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.UUID) (map[unit.Name]string, error)
+	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id coreapplication.UUID) (map[unit.Name]string, error)
 
 	// GetCharmByApplicationUUID returns the charm for the specified application
 	// UUID.
-	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
+	GetCharmByApplicationUUID(context.Context, coreapplication.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -122,7 +130,7 @@ type Runner interface {
 	Worker(id string, abort <-chan struct{}) (worker.Worker, error)
 	StartWorker(ctx context.Context, id string, startFunc func(context.Context) (worker.Worker, error)) error
 	StopAndRemoveWorker(id string, abort <-chan struct{}) error
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 	worker.Worker
 }
 
@@ -130,7 +138,7 @@ type Runner interface {
 type StatusService interface {
 	// GetUnitAgentStatusesForApplication returns the agent statuses of all
 	// units in the specified application, indexed by unit name.
-	GetUnitAgentStatusesForApplication(ctx context.Context, appID application.UUID) (map[unit.Name]status.StatusInfo, error)
+	GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.UUID) (map[unit.Name]status.StatusInfo, error)
 
 	// SetOperatorStatus saves the given operator status, overwriting any
 	// current status data.
@@ -140,32 +148,32 @@ type StatusService interface {
 // AgentPasswordService is used to set application agent passwords.
 type AgentPasswordService interface {
 	// SetApplicationPassword sets the password for the given application.
-	SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error
+	SetApplicationPassword(ctx context.Context, appID coreapplication.UUID, password string) error
 }
 
 type StorageProvisioningService interface {
 	// GetFilesystemTemplatesForApplication returns all the filesystem templates
 	// for a given application.
-	GetFilesystemTemplatesForApplication(ctx context.Context, appID application.UUID) ([]storageprovisioning.FilesystemTemplate, error)
+	GetFilesystemTemplatesForApplication(ctx context.Context, appID coreapplication.UUID) ([]storageprovisioning.FilesystemTemplate, error)
 	// GetStorageResourceTagsForApplication returns the storage resource tags for
 	// the given application. These tags are used when creating a resource in an
 	// environ.
-	GetStorageResourceTagsForApplication(ctx context.Context, appID application.UUID) (map[string]string, error)
+	GetStorageResourceTagsForApplication(ctx context.Context, appID coreapplication.UUID) (map[string]string, error)
 }
 
 // ResourceOpenerGetter provides a way to get a resource opener for an
 // application.
 type ResourceOpenerGetter interface {
-	ResourceOpenerForApplication(ctx context.Context, appID application.UUID, appName string) (coreresource.Opener, error)
+	ResourceOpenerForApplication(ctx context.Context, appID coreapplication.UUID, appName string) (coreresource.Opener, error)
 }
 
 // ResourceOpenerGetterFunc is a function that gets a resource opener for an
 // application.
-type ResourceOpenerGetterFunc func(context.Context, application.UUID, string) (coreresource.Opener, error)
+type ResourceOpenerGetterFunc func(context.Context, coreapplication.UUID, string) (coreresource.Opener, error)
 
 // ResourceOpenerForApplication calls the function to get a resource opener
 // for an application.
-func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Context, appID application.UUID, appName string) (coreresource.Opener, error) {
+func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Context, appID coreapplication.UUID, appName string) (coreresource.Opener, error) {
 	return f(ctx, appID, appName)
 }
 
@@ -270,7 +278,7 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, id := range apps {
-				appID, err := application.ParseUUID(id)
+				appID, err := coreapplication.ParseUUID(id)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -316,8 +324,8 @@ func (p *provisioner) loop() error {
 
 // Report calls onto the runner give back information about each application
 // worker for an engine report.
-func (p *provisioner) Report() map[string]any {
-	return p.runner.Report()
+func (p *provisioner) Report(ctx context.Context) map[string]any {
+	return p.runner.Report(ctx)
 }
 
 func (p *provisioner) scopedContext() (context.Context, context.CancelFunc) {

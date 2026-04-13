@@ -45,7 +45,7 @@ func (s *HandleSuite) TestValidActionInvalidParams(c *tc.C) {
 }
 
 func (s *HandleSuite) TestTimeoutRun(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "sleep 100",
 		"timeout": float64(1),
 	}
@@ -56,7 +56,7 @@ func (s *HandleSuite) TestTimeoutRun(c *tc.C) {
 }
 
 func (s *HandleSuite) TestSuccessfulRun(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "echo 1",
 		"timeout": float64(0),
 	}
@@ -69,7 +69,7 @@ func (s *HandleSuite) TestSuccessfulRun(c *tc.C) {
 }
 
 func (s *HandleSuite) TestErrorRun(c *tc.C) {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"command": "exit 42",
 		"timeout": float64(0),
 	}

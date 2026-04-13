@@ -34,21 +34,21 @@ var PredefinedActionsSpec = map[string]charm.ActionSpec{
 	JujuExecActionName: {
 		Description: "predefined juju-exec action",
 		Parallel:    true,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"type":        "object",
 			"title":       JujuExecActionName,
 			"description": "predefined juju-exec action params",
-			"required":    []interface{}{"command", "timeout"},
-			"properties": map[string]interface{}{
-				"command": map[string]interface{}{
+			"required":    []any{"command", "timeout"},
+			"properties": map[string]any{
+				"command": map[string]any{
 					"type":        "string",
 					"description": "command to be ran under juju-exec",
 				},
-				"timeout": map[string]interface{}{
+				"timeout": map[string]any{
 					"type":        "number",
 					"description": "timeout for command execution",
 				},
-				"workload-context": map[string]interface{}{
+				"workload-context": map[string]any{
 					"type":        "boolean",
 					"description": "run the command in k8s workload context",
 				},

@@ -17,7 +17,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Cloud", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV7(stdCtx, ctx) // Do not set error if forcing credential update.
-	}, reflect.TypeOf((*CloudAPI)(nil)))
+	}, reflect.TypeFor[*CloudAPI]())
 }
 
 // newFacadeV7 is used for API registration.

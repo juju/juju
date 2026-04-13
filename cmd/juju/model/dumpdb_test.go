@@ -49,7 +49,7 @@ func (s *DumpDBCommandSuite) TestDumpDB(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
 	c.Assert(err, tc.ErrorIsNil)
 	s.fake.CheckCalls(c, []testhelpers.StubCall{
-		{"DumpModelDB", []interface{}{testing.ModelTag}},
+		{"DumpModelDB", []any{testing.ModelTag}},
 		{"Close", nil},
 	})
 
@@ -70,14 +70,14 @@ func (f *fakeDumpDBClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpDBClient) DumpModelDB(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
+func (f *fakeDumpDBClient) DumpModelDB(ctx context.Context, model names.ModelTag) (map[string]any, error) {
 	f.MethodCall(f, "DumpModelDB", model)
 	err := f.NextErr()
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
-		"models": map[string]interface{}{
+	return map[string]any{
+		"models": map[string]any{
 			"name": "testing",
 			"uuid": "fake-uuid",
 		},

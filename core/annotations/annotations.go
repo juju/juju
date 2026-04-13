@@ -5,6 +5,7 @@ package annotations
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/juju/names/v6"
 
@@ -149,9 +150,7 @@ func (a Annotation) Merge(as Annotation) Annotation {
 // ToMap returns the map format of the annotation.
 func (a Annotation) ToMap() map[string]string {
 	out := make(map[string]string)
-	for k, v := range a {
-		out[k] = v
-	}
+	maps.Copy(out, a)
 	return out
 }
 

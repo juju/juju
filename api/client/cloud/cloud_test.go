@@ -719,7 +719,7 @@ func (s *cloudSuite) TestRevokeCloud(c *tc.C) {
 
 func createCredentials(n int) map[string]cloud.Credential {
 	result := map[string]cloud.Credential{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		result[names.NewCloudCredentialTag(fmt.Sprintf("foo/bob/bar%d", i)).String()] = testCredential
 	}
 	return result
@@ -967,7 +967,7 @@ type cloudCredentialMatcher struct {
 	arg params.UpdateCredentialArgs
 }
 
-func (c cloudCredentialMatcher) Matches(x interface{}) bool {
+func (c cloudCredentialMatcher) Matches(x any) bool {
 	cred, ok := x.(params.UpdateCredentialArgs)
 	if !ok {
 		return false

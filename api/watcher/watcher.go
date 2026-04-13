@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"time"
 
@@ -36,14 +37,14 @@ const (
 // it's intended for embedding.
 type commonWatcher struct {
 	tomb tomb.Tomb
-	in   chan interface{}
+	in   chan any
 
 	// These fields must be set by the embedding watcher, before
 	// calling init().
 
 	// newResult must return a pointer to a value of the type returned
 	// by the watcher's Next call.
-	newResult func() interface{}
+	newResult func() any
 
 	// call should invoke the given API method, placing the call's
 	// returned value in result (if any).
@@ -53,13 +54,13 @@ type commonWatcher struct {
 // watcherAPICall wraps up the information about what facade and what watcher
 // Id we are calling, and just gives us a simple way to call a common method
 // with a given return value.
-type watcherAPICall func(ctx context.Context, method string, result interface{}) error
+type watcherAPICall func(ctx context.Context, method string, result any) error
 
 // makeWatcherAPICaller creates a watcherAPICall function for a given facade name
 // and watcherId.
 func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) watcherAPICall {
 	bestVersion := caller.BestFacadeVersion(facadeName)
-	return func(ctx context.Context, request string, result interface{}) error {
+	return func(ctx context.Context, request string, result any) error {
 		return caller.APICall(ctx, facadeName, bestVersion,
 			watcherId, request, nil, &result)
 	}
@@ -68,7 +69,7 @@ func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) w
 // init must be called to initialize an embedded commonWatcher's
 // fields. Make sure newResult and call fields are set beforehand.
 func (w *commonWatcher) init() {
-	w.in = make(chan interface{})
+	w.in = make(chan any)
 	if w.newResult == nil {
 		panic("newResult must be set")
 	}
@@ -85,8 +86,7 @@ func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// When the watcher has been stopped, we send a Stop request
 		// to the server, which will remove the watcher and return a
 		// CodeStopped error to any currently outstanding call to
@@ -94,7 +94,6 @@ func (w *commonWatcher) commonLoop() {
 		// been stopped, we'll get a CodeNotFound error; Either way
 		// we'll return, wait for the stop request to complete, and
 		// the watcher will die with all resources cleaned up.
-		defer wg.Done()
 		<-w.tomb.Dying()
 
 		// Give a reasonable amount of time for the watcher to stop. If it
@@ -124,17 +123,15 @@ func (w *commonWatcher) commonLoop() {
 			logger.Errorf(context.TODO(), "error trying to stop watcher: %v", err)
 			return
 		}
-	}()
+	})
 
 	ctx, cancel := context.WithCancel(w.tomb.Context(context.Background()))
 	defer cancel()
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// Because Next blocks until there are changes, we need to
 		// call it in a separate goroutine, so the watcher can be
 		// stopped normally.
-		defer wg.Done()
 		for {
 			result := w.newResult()
 			err := w.call(ctx, "Next", &result)
@@ -162,7 +159,7 @@ func (w *commonWatcher) commonLoop() {
 				// Report back the result we just got.
 			}
 		}
-	}()
+	})
 	wg.Wait()
 }
 
@@ -209,7 +206,7 @@ func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) wa
 
 func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
-	w.newResult = func() interface{} { return nil }
+	w.newResult = func() any { return nil }
 	w.call = makeWatcherAPICaller(w.caller, "NotifyWatcher", w.notifyWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -259,7 +256,7 @@ func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) 
 
 func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
+	w.newResult = func() any { return new(params.StringsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "StringsWatcher", w.stringsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -326,16 +323,14 @@ func copyRelationUnitsChanged(src params.RelationUnitsChange) watcher.RelationUn
 	}
 	if src.AppChanged != nil {
 		dst.AppChanged = make(map[string]int64, len(src.AppChanged))
-		for name, appVersion := range src.AppChanged {
-			dst.AppChanged[name] = appVersion
-		}
+		maps.Copy(dst.AppChanged, src.AppChanged)
 	}
 	return dst
 }
 
 func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
 	changes := copyRelationUnitsChanged(initialChanges)
-	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
+	w.newResult = func() any { return new(params.RelationUnitsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -404,7 +399,7 @@ func NewRemoteRelationWatcher(caller base.APICaller, result params.RemoteRelatio
 
 func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEvent) error {
 	change := initialChange
-	w.newResult = func() interface{} { return new(params.RemoteRelationWatchResult) }
+	w.newResult = func() any { return new(params.RemoteRelationWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationWatcher", w.remoteRelationWatcherId)
 	w.commonWatcher.init()
 	w.tomb.Go(func() error {
@@ -491,7 +486,7 @@ func NewRemoteRelationCompatWatcher(
 
 func (w *remoteRelationCompatWatcher) loop(initialChange params.RelationUnitsChange) error {
 	change := initialChange
-	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
+	w.newResult = func() any { return new(params.RelationUnitsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
 	w.commonWatcher.init()
 
@@ -549,7 +544,7 @@ func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsCh
 			}
 			unitChange := params.RemoteRelationUnitChange{
 				UnitId:   num,
-				Settings: make(map[string]interface{}),
+				Settings: make(map[string]any),
 			}
 			for k, v := range result.Settings {
 				unitChange.Settings[k] = v
@@ -628,7 +623,7 @@ func (w *relationStatusWatcher) mergeChanges(current, new []watcher.RelationStat
 }
 
 func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspendedStatusChange) error {
-	w.newResult = func() interface{} { return new(params.RelationLifeSuspendedStatusWatchResult) }
+	w.newResult = func() any { return new(params.RelationLifeSuspendedStatusWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationStatusWatcher", w.relationStatusWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -717,7 +712,7 @@ func (w *offerStatusWatcher) mergeChanges(current, new []watcher.OfferStatusChan
 }
 
 func (w *offerStatusWatcher) loop(initialChanges []params.OfferStatusChange) error {
-	w.newResult = func() interface{} { return new(params.OfferStatusWatchResult) }
+	w.newResult = func() any { return new(params.OfferStatusWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "OfferStatusWatcher", w.offerStatusWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -874,13 +869,13 @@ type migrationStatusWatcher struct {
 }
 
 func (w *migrationStatusWatcher) loop() error {
-	w.newResult = func() interface{} { return new(params.MigrationStatus) }
+	w.newResult = func() any { return new(params.MigrationStatus) }
 	w.call = makeWatcherAPICaller(w.caller, "MigrationStatusWatcher", w.id)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
 	for {
-		var data interface{}
+		var data any
 		var ok bool
 
 		select {
@@ -941,7 +936,7 @@ func NewSecretsTriggerWatcher(
 		watcherId: result.WatcherId,
 		out:       make(chan []watcher.SecretTriggerChange),
 	}
-	w.newResult = func() interface{} { return new(params.SecretTriggerWatchResult) }
+	w.newResult = func() any { return new(params.SecretTriggerWatchResult) }
 	w.tomb.Go(func() error {
 		defer close(w.out)
 		return w.loop(result.Changes)
@@ -1036,7 +1031,7 @@ func NewSecretBackendRotateWatcher(
 		watcherId: result.WatcherId,
 		out:       make(chan []watcher.SecretBackendRotateChange),
 	}
-	w.newResult = func() interface{} { return new(params.SecretBackendRotateWatchResult) }
+	w.newResult = func() any { return new(params.SecretBackendRotateWatchResult) }
 	w.tomb.Go(func() error {
 		defer close(w.out)
 		return w.loop(result.Changes)
@@ -1151,7 +1146,7 @@ func (w *SecretsRevisionWatcher) mergeChanges(current, new []watcher.SecretRevis
 }
 
 func (w *SecretsRevisionWatcher) loop(initialChanges []params.SecretRevisionChange) error {
-	w.newResult = func() interface{} { return new(params.SecretRevisionWatchResult) }
+	w.newResult = func() any { return new(params.SecretRevisionWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "SecretsRevisionWatcher", w.watcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()

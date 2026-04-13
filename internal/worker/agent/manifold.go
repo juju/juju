@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -38,7 +38,7 @@ func startFunc(a agent.Agent) dependency.StartFunc {
 }
 
 // outputFunc extracts an Agent from its *agentWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*agentWorker)
 	outPointer, _ := out.(*agent.Agent)
 	if inWorker == nil || outPointer == nil {
@@ -66,9 +66,9 @@ func (w *agentWorker) Wait() error {
 }
 
 // Report shows up in the dependency engine report.
-func (w *agentWorker) Report() map[string]interface{} {
+func (w *agentWorker) Report(_ context.Context) map[string]any {
 	cfg := w.agent.CurrentConfig()
-	return map[string]interface{}{
+	return map[string]any{
 		"agent":      cfg.Tag().String(),
 		"model-uuid": cfg.Model().Id(),
 		"version":    version.Current.String(),

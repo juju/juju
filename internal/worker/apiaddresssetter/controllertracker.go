@@ -6,7 +6,7 @@ package apiaddresssetter
 import (
 	"context"
 
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/unit"

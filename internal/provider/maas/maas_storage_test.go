@@ -23,7 +23,7 @@ func TestMaasStorageSuite(t *testing.T) {
 	tc.Run(t, &maasStorageSuite{})
 }
 
-func makeCall(funcName string, args ...interface{}) testhelpers.StubCall {
+func makeCall(funcName string, args ...any) testhelpers.StubCall {
 	return testhelpers.StubCall{funcName, args}
 }
 

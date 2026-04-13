@@ -5,10 +5,11 @@ package engine
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -70,10 +71,8 @@ func (housing Housing) Decorate(base dependency.Manifold) dependency.Manifold {
 }
 
 func maybeAdd(original []string, add string) []string {
-	for _, name := range original {
-		if name == add {
-			return original
-		}
+	if slices.Contains(original, add) {
+		return original
 	}
 	count := len(original)
 	result := make([]string, count, count+1)

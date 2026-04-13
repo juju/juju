@@ -21,7 +21,7 @@ type PinSuite struct {
 
 	appName string
 	machine string
-	pinArgs []interface{}
+	pinArgs []any
 }
 
 func (s *PinSuite) SetUpTest(c *tc.C) {
@@ -29,7 +29,7 @@ func (s *PinSuite) SetUpTest(c *tc.C) {
 
 	s.appName = "redis"
 	s.machine = names.NewMachineTag("0").String()
-	s.pinArgs = []interface{}{
+	s.pinArgs = []any{
 		corelease.Key{
 			Namespace: "namespace",
 			ModelUUID: "modelUUID",

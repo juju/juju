@@ -203,7 +203,7 @@ func (s *recorderSuite) TestReplyResultSlice(c *tc.C) {
 	)
 }
 
-func (s *recorderSuite) checkServerReplyErrors(c *tc.C, result interface{}, expected []*auditlog.Error) {
+func (s *recorderSuite) checkServerReplyErrors(c *tc.C, result any, expected []*auditlog.Error) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
 	clock := testclock.NewClock(time.Now())

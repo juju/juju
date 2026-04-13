@@ -12,15 +12,15 @@ import (
 // StubMethodCall is like testing.StubCall, but includes the receiver
 // as well.
 type StubMethodCall struct {
-	Receiver interface{}
+	Receiver any
 	FuncName string
-	Args     []interface{}
+	Args     []any
 }
 
 // CheckMethodCalls works like testing.Stub.CheckCalls, but also
 // checks the receivers.
 func CheckMethodCalls(c *tc.C, stub *testhelpers.Stub, calls ...StubMethodCall) {
-	receivers := make([]interface{}, len(calls))
+	receivers := make([]any, len(calls))
 	for i, call := range calls {
 		receivers[i] = call.Receiver
 	}

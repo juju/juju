@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -258,12 +259,7 @@ const (
 )
 
 func contains(opts []ReportOption, opt ReportOption) bool {
-	for _, value := range opts {
-		if value == opt {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, opt)
 }
 
 type reportInfo struct {
@@ -281,9 +277,9 @@ type reportInfo struct {
 }
 
 type report struct {
-	Holder  interface{}   `yaml:"holder"`
-	Waiting []interface{} `yaml:"waiting,omitempty"`
-	History []interface{} `yaml:"history,omitempty"`
+	Holder  any   `yaml:"holder"`
+	Waiting []any `yaml:"waiting,omitempty"`
+	History []any `yaml:"history,omitempty"`
 }
 
 func (c *lock) Report(opts ...ReportOption) (string, error) {
@@ -334,7 +330,7 @@ func timeOutput(t time.Time) string {
 	return t.String()
 }
 
-func displayInfo(info *info, includeStack, detailsYAML bool, now time.Time) interface{} {
+func displayInfo(info *info, includeStack, detailsYAML bool, now time.Time) any {
 	if !detailsYAML {
 		return simpleInfo("", info, now)
 	}

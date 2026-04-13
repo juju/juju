@@ -45,7 +45,7 @@ func OvsManagedBridges() (set.Strings, error) {
 	}
 
 	ovsBridges := set.NewStrings()
-	for _, iface := range strings.Split(string(res), "\n") {
+	for iface := range strings.SplitSeq(string(res), "\n") {
 		if iface = strings.TrimSpace(iface); iface != "" {
 			ovsBridges.Add(iface)
 		}

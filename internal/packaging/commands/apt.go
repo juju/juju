@@ -121,7 +121,7 @@ func (AptPackageCommander) ProxyConfigContents(settings proxy.Settings) string {
 	if settings.Ftp != "" {
 		lines = append(lines, fmt.Sprintf(aptProxySettingFormat, "ftp", settings.Ftp))
 	}
-	for _, host := range strings.Split(settings.NoProxy, ",") {
+	for host := range strings.SplitSeq(settings.NoProxy, ",") {
 		if host != "" {
 			lines = append(lines, fmt.Sprintf(aptNoProxySettingFormat, "http", host))
 			lines = append(lines, fmt.Sprintf(aptNoProxySettingFormat, "https", host))

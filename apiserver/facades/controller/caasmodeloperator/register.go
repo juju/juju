@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASModelOperator", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPIFromContext(stdCtx, ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newAPIFromContext creates a new controller model facade from the supplied

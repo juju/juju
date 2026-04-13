@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/errors"
@@ -59,7 +60,7 @@ func (c *Client) CreateModel(
 	modelCreator names.UserTag,
 	cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
-	config map[string]interface{},
+	config map[string]any,
 ) (base.ModelInfo, error) {
 	var result base.ModelInfo
 
@@ -127,12 +128,10 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,
 		Info:   modelInfo.Status.Info,
-		Data:   make(map[string]interface{}),
+		Data:   make(map[string]any),
 		Since:  modelInfo.Status.Since,
 	}
-	for k, v := range modelInfo.Status.Data {
-		result.Status.Data[k] = v
-	}
+	maps.Copy(result.Status.Data, modelInfo.Status.Data)
 	result.Users = make([]base.UserInfo, len(modelInfo.Users))
 	for i, u := range modelInfo.Users {
 		result.Users[i] = base.UserInfo{
@@ -243,12 +242,10 @@ func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]b
 		summaries[i].Status = base.Status{
 			Status: summary.Status.Status,
 			Info:   summary.Status.Info,
-			Data:   make(map[string]interface{}),
+			Data:   make(map[string]any),
 			Since:  summary.Status.Since,
 		}
-		for k, v := range summary.Status.Data {
-			summaries[i].Status.Data[k] = v
-		}
+		maps.Copy(summaries[i].Status.Data, summary.Status.Data)
 		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
 			summaries[i].Error = errors.Annotatef(err, "parsing model cloud tag")
 			continue
@@ -304,7 +301,7 @@ func (c *Client) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params
 }
 
 // DumpModel returns the serialized database agnostic model representation.
-func (c *Client) DumpModel(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
+func (c *Client) DumpModel(ctx context.Context, model names.ModelTag) (map[string]any, error) {
 	var results params.StringResults
 	entities := params.DumpModelRequest{
 		Entities: []params.Entity{{Tag: model.String()}},
@@ -322,7 +319,7 @@ func (c *Client) DumpModel(ctx context.Context, model names.ModelTag) (map[strin
 		return nil, result.Error
 	}
 	// Parse back into a map.
-	var asMap map[string]interface{}
+	var asMap map[string]any
 	err = yaml.Unmarshal([]byte(result.Result), &asMap)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -332,7 +329,7 @@ func (c *Client) DumpModel(ctx context.Context, model names.ModelTag) (map[strin
 }
 
 // DumpModelDB returns all relevant mongo documents for the model.
-func (c *Client) DumpModelDB(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
+func (c *Client) DumpModelDB(ctx context.Context, model names.ModelTag) (map[string]any, error) {
 	var results params.MapResults
 	entities := params.Entities{
 		Entities: []params.Entity{{Tag: model.String()}},
@@ -465,7 +462,7 @@ func (c *Client) ModelDefaults(ctx context.Context, cloud string) (config.ModelD
 }
 
 // SetModelDefaults updates the specified default model config values.
-func (c *Client) SetModelDefaults(ctx context.Context, cloud, region string, config map[string]interface{}) error {
+func (c *Client) SetModelDefaults(ctx context.Context, cloud, region string, config map[string]any) error {
 	var cloudTag string
 	if cloud != "" {
 		cloudTag = names.NewCloudTag(cloud).String()

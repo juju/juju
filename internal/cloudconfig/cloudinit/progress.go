@@ -46,7 +46,7 @@ func InitProgressCmd() string {
 // If there are any uses of LogProgressCmd in a configuration, the
 // configuration MUST precede the command with the result of
 // InitProgressCmd.
-func LogProgressCmd(format string, args ...interface{}) string {
+func LogProgressCmd(format string, args ...any) string {
 	msg := utils.ShQuote(fmt.Sprintf(format, args...))
 	return fmt.Sprintf("echo %s >&$%s", msg, progressFdEnvVar)
 }

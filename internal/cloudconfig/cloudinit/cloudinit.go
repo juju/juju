@@ -84,7 +84,7 @@ type cloudConfig struct {
 	// timezone
 	// update_etc_hosts
 	// update_hostname
-	attrs map[string]interface{}
+	attrs map[string]any
 
 	// useNetplanHWAddrMatch if false, causes Netplan to be rendered without
 	// a stanza that matches by MAC address in order to apply configuration to
@@ -103,7 +103,7 @@ func (cfg *cloudConfig) GetOS() string {
 }
 
 // SetAttr is defined on the CloudConfig interface.
-func (cfg *cloudConfig) SetAttr(name string, value interface{}) {
+func (cfg *cloudConfig) SetAttr(name string, value any) {
 	cfg.attrs[name] = value
 }
 
@@ -130,8 +130,8 @@ func annotateKeys(rawKeys string) []string {
 
 // AddUser is defined on the UsersConfig interface.
 func (cfg *cloudConfig) AddUser(user *User) {
-	users, _ := cfg.attrs["users"].([]map[string]interface{})
-	newUser := map[string]interface{}{
+	users, _ := cfg.attrs["users"].([]map[string]any)
+	newUser := map[string]any{
 		"name":        user.Name,
 		"lock_passwd": true,
 	}
@@ -305,9 +305,9 @@ func (cfg *cloudConfig) AddMount(mount ...string) {
 
 // SetOutput is defined on the OutputConfig interface.
 func (cfg *cloudConfig) SetOutput(kind OutputKind, stdout, stderr string) {
-	out, _ := cfg.attrs["output"].(map[string]interface{})
+	out, _ := cfg.attrs["output"].(map[string]any)
 	if out == nil {
-		out = make(map[string]interface{})
+		out = make(map[string]any)
 	}
 
 	if stderr == "" {
@@ -321,7 +321,7 @@ func (cfg *cloudConfig) SetOutput(kind OutputKind, stdout, stderr string) {
 
 // Output is defined on the OutputConfig interface.
 func (cfg *cloudConfig) Output(kind OutputKind) (stdout, stderr string) {
-	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
+	if out, ok := cfg.attrs["output"].(map[string]any); ok {
 		switch out := out[string(kind)].(type) {
 		case string:
 			stdout = out
@@ -349,7 +349,7 @@ func (cfg *cloudConfig) SetSSHKeys(keys SSHKeys) error {
 		cfg.UnsetAttr("ssh_keys")
 		return nil
 	}
-	attr := make(map[string]interface{})
+	attr := make(map[string]any)
 	for _, key := range keys {
 		privateKeyName, publicKeyName, err := NamesForSSHKeyAlgorithm(key.PublicKeyAlgorithm)
 		if err != nil {

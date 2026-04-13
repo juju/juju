@@ -223,13 +223,13 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 	clouds := map[string]clientconfig.CloudConfig{
 		"mrcloud1": {
 			Endpoint: "fakeendpoint1",
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"CAData": "fakecadata1",
 			},
 		},
 		"mrcloud2": {
 			Endpoint: "fakeendpoint2",
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"CAData": "fakecadata2",
 			},
 		},
@@ -793,7 +793,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"mrcloud2": {
@@ -806,7 +806,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"myk8s": {
@@ -819,7 +819,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]interface{}{},
+				Config:           map[string]any{},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},
@@ -870,7 +870,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 		Endpoint:         "https://1.1.1.1:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           map[string]interface{}{},
+		Config:           map[string]any{},
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"A"},
 	}
@@ -894,7 +894,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 					IdentityEndpoint: "",
 					StorageEndpoint:  "",
 					Regions:          []cloud.Region(nil),
-					Config:           map[string]interface{}(nil),
+					Config:           map[string]any(nil),
 					RegionConfig:     cloud.RegionConfig(nil),
 				},
 				"mrcloud2": {
@@ -906,7 +906,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 					IdentityEndpoint: "",
 					StorageEndpoint:  "",
 					Regions:          []cloud.Region(nil),
-					Config:           map[string]interface{}(nil),
+					Config:           map[string]any(nil),
 					RegionConfig:     cloud.RegionConfig(nil),
 				},
 				"myk8s": expectedCloudToAdd,
@@ -1252,7 +1252,7 @@ func (s *addCAASSuite) assertStoreClouds(c *tc.C, hostCloud string) {
 				Regions: []cloud.Region{
 					{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"},
 				},
-				Config:         map[string]interface{}{},
+				Config:         map[string]any{},
 				RegionConfig:   cloud.RegionConfig(nil),
 				CACertificates: []string{"A"},
 			},
@@ -1265,7 +1265,7 @@ func (s *addCAASSuite) assertStoreClouds(c *tc.C, hostCloud string) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"mrcloud2": {
@@ -1277,7 +1277,7 @@ func (s *addCAASSuite) assertStoreClouds(c *tc.C, hostCloud string) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 		},
@@ -1306,7 +1306,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"mrcloud2": {
@@ -1319,7 +1319,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"the-cluster": {
@@ -1332,7 +1332,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]interface{}{},
+				Config:           map[string]any{},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},
@@ -1361,7 +1361,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"mrcloud2": {
@@ -1374,7 +1374,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config:           map[string]interface{}(nil),
+				Config:           map[string]any(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
 			"myk8s": {
@@ -1387,7 +1387,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]interface{}{},
+				Config:           map[string]any{},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},

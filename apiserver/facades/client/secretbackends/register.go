@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretBackends", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretBackendsAPI(ctx)
-	}, reflect.TypeOf((*SecretBackendsAPI)(nil)))
+	}, reflect.TypeFor[*SecretBackendsAPI]())
 }
 
 // newSecretBackendsAPI creates a SecretBackendsAPI.

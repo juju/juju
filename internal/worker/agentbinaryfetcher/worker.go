@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"

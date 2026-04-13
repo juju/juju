@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 )
@@ -22,7 +24,7 @@ const (
 )
 
 // Attrs defines storage attributes.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 // Config defines the configuration for a storage source.
 type Config struct {
@@ -68,9 +70,7 @@ func (c *Config) Attrs() Attrs {
 		return nil
 	}
 	attrs := make(Attrs)
-	for k, v := range c.attrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, c.attrs)
 	return attrs
 }
 

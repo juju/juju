@@ -18,7 +18,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsDrain", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsDrainAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*commonsecrets.SecretsDrainAPI)(nil)))
+	}, reflect.TypeFor[*commonsecrets.SecretsDrainAPI]())
 }
 
 // newSecretsDrainAPI creates a SecretsDrainAPI.

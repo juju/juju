@@ -125,7 +125,7 @@ func (s *naturalSortSuite) TestFallbackToLexicographicalSortForLargeNumbers(c *t
 
 func checkCorrectSort(c *tc.C, expected []string) {
 	checkSort(c, expected, reverse)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		checkSort(c, expected, shuffle)
 	}
 }

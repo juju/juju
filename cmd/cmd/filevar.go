@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"slices"
 
 	"github.com/juju/utils/v4"
 )
@@ -41,12 +42,7 @@ func (f *FileVar) SetStdin(markers ...string) {
 
 // IsStdin determines whether or not the path represents stdin.
 func (f FileVar) IsStdin() bool {
-	for _, marker := range f.StdinMarkers {
-		if f.Path == marker {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(f.StdinMarkers, f.Path)
 }
 
 // Open opens the file.

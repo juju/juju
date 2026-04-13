@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
@@ -16,7 +16,7 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead pass one passed as manifold config.
-type logger interface{}
+type logger any
 
 var _ logger = struct{}{}
 

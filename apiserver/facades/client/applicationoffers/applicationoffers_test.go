@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -319,7 +320,7 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 }
 
@@ -380,7 +381,7 @@ func (s *offerSuite) TestModifyOfferAccessOfferOwner(c *tc.C) {
 	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 }
 
@@ -433,7 +434,7 @@ func (s *offerSuite) TestModifyOfferAccessModelAdmin(c *tc.C) {
 	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 }
 
@@ -493,7 +494,7 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{
 		Error: &params.Error{
 			Message: "permission denied", Code: "unauthorized access"},
@@ -704,7 +705,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	// Arrange
 	offerAPI := s.offerAPI(c)
 	adminTag := s.setupAuthUser("admin")
-	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), adminTag, permission.SuperuserAccess, names.NewControllerTag(offerAPI.controllerUUID)).Return(nil)
+	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 
@@ -763,6 +764,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -782,7 +784,7 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 	obtained, err := offerAPI.ListApplicationOffers(c.Context(), filters)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Results, tc.HasLen, 2)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
@@ -870,7 +872,6 @@ func (s *offerSuite) TestListApplicationOffersPermission(c *tc.C) {
 	// Arrange
 	offerAPI := s.offerAPI(c)
 	adminTag := s.setupAuthUser("admin")
-	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 
@@ -880,6 +881,7 @@ func (s *offerSuite) TestListApplicationOffersPermission(c *tc.C) {
 		UUID: tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(adminTag.Id())).Return(foundModel, nil)
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.AdminAccess)
 
 	filters := params.OfferFilters{
@@ -912,7 +914,6 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermission(adminTag, permission.ReadAccess)
 
 	modelName := "prod"
@@ -992,7 +993,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Results, tc.HasLen, 2)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
@@ -1033,7 +1034,6 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermission(adminTag, permission.ReadAccess)
 
 	modelName := "prod"
@@ -1094,7 +1094,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Results, tc.HasLen, 2)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
@@ -1266,7 +1266,7 @@ func (s *offerSuite) TestResolveOfferName(c *tc.C) {
 		output, err := resolveOfferName(in)
 
 		// Assert
-		c.Assert(err, tc.IsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(output, tc.Equals, offerName)
 	}
 }
@@ -1276,7 +1276,7 @@ func (s *offerSuite) TestResolveOfferNameEmptyString(c *tc.C) {
 	output, err := resolveOfferName("")
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(output, tc.Equals, "")
 }
 
@@ -1289,7 +1289,6 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermission(adminTag, permission.ReadAccess)
 
 	modelName := "test-model"
@@ -1401,7 +1400,6 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermission(adminTag, permission.ReadAccess)
 
 	modelName := "test-model"
@@ -1484,7 +1482,6 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermission(adminTag, permission.ReadAccess)
 
 	modelName := "test-model"
@@ -1521,6 +1518,103 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	})
 }
 
+// TestListApplicationOffersWithConnections tests that connections are populated
+// for admin users when listing offers.
+func (s *offerSuite) TestListApplicationOffersWithConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
+	adminUser := user.User{DisplayName: "fred smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+
+	modelName := "prod"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil)
+
+	offerUUID := uuid.MustNewUUID().String()
+	consumerModelUUID := uuid.MustNewUUID().String()
+
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetailWithConnections{
+		{
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              offerUUID,
+				OfferName:              "hosted-db2",
+				ApplicationName:        "test-app",
+				ApplicationDescription: "testing application",
+				CharmLocator:           charmLocator,
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{Name: "db"},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffersWithConnections(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	connections := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUID,
+			SourceModelUUID: consumerModelUUID,
+			RelationID:      42,
+			Username:        "consumer-user",
+			Endpoint:        "db",
+			Status:          "joined",
+			Message:         "",
+			IngressSubnets:  []string{"10.0.0.0/24"},
+		},
+	}
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), []string{offerUUID}).Return(connections, nil)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.Results, tc.HasLen, 1)
+	c.Assert(obtained.Results[0].Connections, tc.HasLen, 1)
+	c.Check(obtained.Results[0].Connections[0], tc.DeepEquals, params.OfferConnection{
+		SourceModelTag: names.NewModelTag(consumerModelUUID).String(),
+		RelationId:     42,
+		Username:       "consumer-user",
+		Endpoint:       "db",
+		Status: params.EntityStatus{
+			Status: status.Status("joined"),
+		},
+		IngressSubnets: []string{"10.0.0.0/24"},
+	})
+}
+
 func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1530,7 +1624,6 @@ func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
-
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.ReadAccess)
 
 	modelName := "test-model"
@@ -1549,7 +1642,7 @@ func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 	// Act
 	_, err := offerAPI.ApplicationOffers(c.Context(), args)
 
-	// Arrange
+	// Assert
 	c.Assert(err, tc.DeepEquals, &params.Error{
 		Message: "permission denied",
 		Code:    "unauthorized access",
@@ -1561,10 +1654,10 @@ func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 // replaced.
 func (s *offerSuite) TestApplicationOfferURLAndFilter(c *tc.C) {
 	// Act
-	offerURL, offerFilter, err := applicationOfferURLAndFilter("testuser/model.offer", names.NewUserTag("admin"))
+	offerURL, offerFilter, rpcParamsError := applicationOfferURLAndFilter("testuser/model.offer", names.NewUserTag("admin"))
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(rpcParamsError, tc.IsNil)
 	c.Check(offerURL, tc.Equals, "testuser/model.offer")
 	c.Check(offerFilter, tc.DeepEquals, params.OfferFilter{
 		ModelQualifier: "testuser",
@@ -1577,10 +1670,10 @@ func (s *offerSuite) TestApplicationOfferURLAndFilter(c *tc.C) {
 // added to the offer if a model qualifier is not included.
 func (s *offerSuite) TestApplicationOfferURLAndFilterAPIUser(c *tc.C) {
 	// Act
-	offerURL, offerFilter, err := applicationOfferURLAndFilter("model.offer", names.NewUserTag("admin"))
+	offerURL, offerFilter, rpcParamsError := applicationOfferURLAndFilter("model.offer", names.NewUserTag("admin"))
 
 	// Assert
-	c.Assert(err, tc.IsNil)
+	c.Assert(rpcParamsError, tc.IsNil)
 	c.Check(offerURL, tc.Equals, "admin/model.offer")
 	c.Check(offerFilter, tc.DeepEquals, params.OfferFilter{
 		ModelQualifier: "admin",

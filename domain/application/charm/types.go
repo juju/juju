@@ -380,6 +380,15 @@ const (
 	StorageFilesystem StorageType = "filesystem"
 )
 
+const (
+	// StorageNoMaxCount defines the value used on [Storage.MaxCount] when no
+	// upper limit exists for the number of storage instances that can be made
+	// for a storage.
+	//
+	// This situation would be seen when a charm has no opinionated maximum.
+	StorageNoMaxCount = -1
+)
+
 // Storage represents a charm's storage requirement.
 type Storage struct {
 	// Name is the name of the store.
@@ -419,8 +428,8 @@ type Storage struct {
 	CountMin int
 
 	// CountMax is the largest number of storage instances that can be
-	// attached to the charm. If CountMax is -1, then there is no upper
-	// bound.
+	// attached to the charm. If CountMax is [StorageNoMaxCount], then there
+	// is no upper bound.
 	//
 	// CountMax defaults to 1 for singleton stores.
 	CountMax int

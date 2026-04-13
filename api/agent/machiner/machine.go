@@ -44,7 +44,7 @@ func (m *Machine) Refresh(ctx context.Context) error {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(ctx context.Context, status status.Status, info string, data map[string]any) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{

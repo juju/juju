@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -137,13 +138,14 @@ func validateArgs(arch, release, ftype string) error {
 	}
 
 	if len(bad) > 0 {
-		errMsg := "invalid parameters supplied"
+		var errMsg strings.Builder
+		errMsg.WriteString("invalid parameters supplied")
 		for _, k := range []string{arch, release, ftype} {
 			if v, ok := bad[k]; ok {
-				errMsg += fmt.Sprintf(" %s", v)
+				errMsg.WriteString(fmt.Sprintf(" %s", v))
 			}
 		}
-		return errors.New(errMsg)
+		return errors.New(errMsg.String())
 	}
 	return nil
 }
@@ -216,8 +218,8 @@ var validArches = map[string]bool{
 // imagemetadata.ImageConstraints. So this really only let's us filter on a
 // file type.
 func Filter(ftype string) simplestreams.AppendMatchingFunc {
-	return func(source simplestreams.DataSource, matchingImages []interface{},
-		images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
+	return func(source simplestreams.DataSource, matchingImages []any,
+		images map[string]any, cons simplestreams.LookupConstraint) ([]any, error) {
 
 		imagesMap := make(map[imageKey]*Metadata, len(matchingImages))
 		for _, val := range matchingImages {

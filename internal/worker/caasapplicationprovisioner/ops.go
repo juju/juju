@@ -87,8 +87,7 @@ type ApplicationOps interface {
 		logger logger.Logger) error
 
 	AppDead(ctx context.Context, appName string, appUUID coreapplication.UUID,
-		app caas.Application, broker CAASBroker, applicationService ApplicationService,
-		statusService StatusService,
+		app caas.Application, applicationService ApplicationService,
 		clk clock.Clock, logger logger.Logger) error
 
 	EnsureTrust(ctx context.Context, appName string, app caas.Application,
@@ -153,11 +152,11 @@ func (applicationOps) AppDying(
 }
 
 func (applicationOps) AppDead(ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
+	applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, appUUID, app, broker, applicationService, statusService, clk, logger)
+	return appDead(ctx, appName, appUUID, app, applicationService, clk, logger)
 }
 
 func (applicationOps) EnsureTrust(
@@ -394,8 +393,8 @@ func appDying(
 // is removed from the k8s cluster and unblocks the cleanup of the application in state.
 func appDead(
 	ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	appName string, appUUID coreapplication.UUID, app caas.Application,
+	applicationService ApplicationService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "application %q dead", appName)
@@ -407,16 +406,12 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, appUUID, app, nil, broker,
-		applicationService, statusService, clk)
-	if err != nil {
+	// Clear the managed-resources flag so the removal service knows the
+	// provisioner has finished cleaning up k8s resources. The removal domain
+	// handles all DB cleanup (cloud-service rows, etc.) independently.
+	if err := applicationService.ClearApplicationHasK8sResources(ctx, appUUID); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(k8s): re-implement this to prevent a dead app from going away through
-	// creating a new domain concept that holds the application until this worker
-	// has destroyed all the k8s resources.
-	//
-	// Clear "has-resources" flag so state knows it can now remove the application.
 	return nil
 }
 

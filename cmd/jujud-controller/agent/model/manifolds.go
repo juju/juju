@@ -5,12 +5,13 @@ package model
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -470,9 +471,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 
@@ -522,9 +521,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 	}
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

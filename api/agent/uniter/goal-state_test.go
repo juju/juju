@@ -89,7 +89,7 @@ func (s *goalStateSuite) TestGoalStateTwoRelatedUnits(c *tc.C) {
 
 func (s *goalStateSuite) testGoalState(c *tc.C, facadeResult params.GoalStateResults, apiResult application.GoalState) {
 	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Uniter")
 		c.Check(version, tc.Equals, 0)
 		c.Check(request, tc.Equals, "GoalStates")

@@ -21,7 +21,7 @@ var (
 )
 
 type patcher interface {
-	PatchValue(interface{}, interface{})
+	PatchValue(any, any)
 }
 
 func PatchNewChan(patcher patcher) chan string {

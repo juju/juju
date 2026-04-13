@@ -27,7 +27,7 @@ func TestConfigSuite(t *stdtesting.T) {
 }
 
 // newConfig creates a MAAS environment config from attributes.
-func newConfig(c *tc.C, values map[string]interface{}) (*maasModelConfig, error) {
+func newConfig(c *tc.C, values map[string]any) (*maasModelConfig, error) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"name": "testmodel",
 		"type": "maas",
@@ -54,7 +54,7 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *tc.C) {
 	oldCfg, err := newConfig(c, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	newName := oldCfg.Name() + "-but-different"
-	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
+	newCfg, err := oldCfg.Apply(map[string]any{"name": newName})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = EnvironProvider{}.Validate(c.Context(), newCfg, oldCfg.Config)

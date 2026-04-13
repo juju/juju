@@ -201,7 +201,7 @@ func (s *modelconfigSuite) TestModelSetModelAdmin(c *tc.C) {
 	s.expectNoBlocks()
 
 	params := params.ModelSet{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"some-key":  "value",
 			"other-key": "other value",
 		},
@@ -280,7 +280,7 @@ func (s *modelconfigSuite) assertBlocked(c *tc.C, err error, msg string) {
 	})
 }
 
-func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interface{}, msg string) {
+func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]any, msg string) {
 	api := s.getAPI(c)
 
 	s.expectModelWriteAccess()
@@ -293,7 +293,7 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interf
 func (s *modelconfigSuite) TestBlockChangesModelSet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	args := map[string]interface{}{"some-key": "value"}
+	args := map[string]any{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
 

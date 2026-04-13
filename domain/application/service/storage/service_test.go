@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -58,7 +57,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
-	storageDirectives := []application.StorageDirective{
+	storageDirectives := []internal.StorageDirective{
 		{
 			CharmMetadataName: "big-beautiful-charm",
 			CharmStorageType:  charm.StorageFilesystem,
@@ -314,7 +313,7 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	storageDirective := application.StorageDirective{
+	storageDirective := internal.StorageDirective{
 		CharmMetadataName: "big-beautiful-charm",
 		CharmStorageType:  charm.StorageFilesystem,
 		MaxCount:          3,

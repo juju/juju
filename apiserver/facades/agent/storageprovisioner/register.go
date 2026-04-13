@@ -18,34 +18,34 @@ func Register(registry facade.FacadeRegistry) {
 		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV4(stdCtx, ctx)
 		},
-		reflect.TypeOf((*StorageProvisionerAPIv4)(nil)),
+		reflect.TypeFor[*StorageProvisionerAPIv4](),
 	)
 	registry.MustRegister(
 		"StorageProvisioner", 5,
 		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV5(stdCtx, ctx)
 		},
-		reflect.TypeOf((*StorageProvisionerAPIv5)(nil)),
+		reflect.TypeFor[*StorageProvisionerAPIv5](),
 	)
 	registry.MustRegister(
 		"StorageProvisioner", 6,
 		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV6(stdCtx, ctx)
 		},
-		reflect.TypeOf((*StorageProvisionerAPI)(nil)),
+		reflect.TypeFor[*StorageProvisionerAPI](),
 	)
 
 	registry.MustRegister(
 		"VolumeAttachmentsWatcher", 2,
-		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+		newMachineStorageIdsWatcherFromContext, reflect.TypeFor[*machineStorageIdsWatcher](),
 	)
 	registry.MustRegister(
 		"VolumeAttachmentPlansWatcher", 1,
-		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+		newMachineStorageIdsWatcherFromContext, reflect.TypeFor[*machineStorageIdsWatcher](),
 	)
 	registry.MustRegister(
 		"FilesystemAttachmentsWatcher", 2,
-		newMachineStorageIdsWatcherFromContext, reflect.TypeOf((*machineStorageIdsWatcher)(nil)),
+		newMachineStorageIdsWatcherFromContext, reflect.TypeFor[*machineStorageIdsWatcher](),
 	)
 }
 

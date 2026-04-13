@@ -189,12 +189,12 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 	for i, test := range []struct {
 		actionName string
 		charmName  string
-		payload    map[string]interface{}
+		payload    map[string]any
 	}{
 		{
 			actionName: "snapshot",
 			charmName:  "dummy",
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"outfile": "/some/file.bz2",
 			},
 		},
@@ -203,7 +203,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 			// it's not part of the charm
 			actionName: "juju-exec",
 			charmName:  "dummy",
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"command": "foo",
 				"timeout": 0.0,
 			},
@@ -213,7 +213,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 			// the charm has no actions
 			actionName: "juju-exec",
 			charmName:  "actionless",
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"command": "foo",
 				"timeout": 0.0,
 			},
@@ -242,7 +242,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *tc.C) {
 			Name:       test.actionName,
 			Tag:        actionTag,
 			Params:     test.payload,
-			ResultsMap: map[string]interface{}{},
+			ResultsMap: map[string]any{},
 		})
 		vars, err := ctx.HookVars(c.Context(), s.paths, context.NewRemoteEnvironmenter(
 			func() []string { return []string{} },
@@ -290,7 +290,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	s.setCharm(c, "dummy")
-	action := apiuniter.NewAction("666", "snapshot", map[string]interface{}{
+	action := apiuniter.NewAction("666", "snapshot", map[string]any{
 		"outfile": 123,
 	}, true, "group")
 	rnr, err := s.factory.NewActionRunner(c.Context(), action, nil)
@@ -305,7 +305,7 @@ func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParams(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	actionName := "snapshot"
-	payload := map[string]interface{}{}
+	payload := map[string]any{}
 
 	actionTag := names.NewActionTag("2")
 	action := apiuniter.NewAction(
@@ -323,12 +323,12 @@ func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParams(c *tc.C) {
 	data, err := ctx.ActionData()
 	c.Assert(err, tc.ErrorIsNil)
 	// Expect default for outfile to be inserted from the charm's actions.yaml (foo.bz2).
-	expected := map[string]interface{}{"outfile": "foo.bz2"}
+	expected := map[string]any{"outfile": "foo.bz2"}
 	c.Assert(data, tc.DeepEquals, &context.ActionData{
 		Name:       actionName,
 		Tag:        actionTag,
 		Params:     expected,
-		ResultsMap: map[string]interface{}{},
+		ResultsMap: map[string]any{},
 	})
 }
 
@@ -338,7 +338,7 @@ func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParamsNoOverwrite(c *tc.
 	s.setupFactory(c, ctrl)
 
 	actionName := "snapshot"
-	payload := map[string]interface{}{"outfile": "bar.bz2"} // instead of foo.bz2 (default)
+	payload := map[string]any{"outfile": "bar.bz2"} // instead of foo.bz2 (default)
 
 	actionTag := names.NewActionTag("2")
 	action := apiuniter.NewAction(
@@ -359,7 +359,7 @@ func (s *FactorySuite) TestNewActionRunnerInsertsDefaultParamsNoOverwrite(c *tc.
 		Name:       actionName,
 		Tag:        actionTag,
 		Params:     payload,
-		ResultsMap: map[string]interface{}{},
+		ResultsMap: map[string]any{},
 	})
 }
 
@@ -369,7 +369,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 	s.setupFactory(c, ctrl)
 
 	actionName := "snapshot"
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"outfile": "/some/file.bz2",
 	}
 	cancel := make(chan struct{})
@@ -393,7 +393,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *tc.C) {
 		Name:       actionName,
 		Tag:        actionTag,
 		Params:     payload,
-		ResultsMap: map[string]interface{}{},
+		ResultsMap: map[string]any{},
 		Cancel:     cancel,
 	})
 	vars, err := ctx.HookVars(c.Context(), s.paths, context.NewRemoteEnvironmenter(

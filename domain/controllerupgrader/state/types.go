@@ -14,8 +14,9 @@ type agentStoreBinary struct {
 // controllerNodeAgentVersion represents the agent version running for each
 // controller node in the cluster.
 type controllerNodeAgentVersion struct {
-	ControllerID string `db:"controller_id"`
-	Version      string `db:"version"`
+	ControllerID   string `db:"controller_id"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 // agentVersionTarget represents the target agent version column from the

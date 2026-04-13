@@ -133,7 +133,7 @@ func (s *SecretService) importSecretWithRevisions(
 		}
 
 		rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID,
-			revisionID.String())
+			revisionID.String(), md.URI.ID)
 		if err != nil {
 			return errors.Capture(err)
 		}

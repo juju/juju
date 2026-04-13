@@ -294,7 +294,7 @@ func (s *providerSuite) TestFinalizeCloud(c *tc.C) {
 	ctx.CheckCallNames(c, "Verbosef")
 	ctx.CheckCall(
 		c, 0, "Verbosef", "Resolved LXD host address on bridge %s: %s",
-		[]interface{}{"lxdbr0", "1.2.3.4:1234"},
+		[]any{"lxdbr0", "1.2.3.4:1234"},
 	)
 }
 
@@ -473,7 +473,7 @@ func (s *providerSuite) TestValidateWithInvalidConfig(c *tc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	config, err := jujutesting.ModelConfig(c).Apply(map[string]interface{}{
+	config, err := jujutesting.ModelConfig(c).Apply(map[string]any{
 		"value": int64(1),
 	})
 	c.Assert(err, tc.IsNil)
@@ -492,7 +492,7 @@ func (s *providerSuite) TestCloudSchema(c *tc.C) {
 auth-types: [certificate]
 endpoint: http://foo.com/lxd
 `[1:]
-	var v interface{}
+	var v any
 	err := yaml.Unmarshal([]byte(config), &v)
 	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
@@ -621,6 +621,6 @@ type mockContext struct {
 	testhelpers.Stub
 }
 
-func (c *mockContext) Verbosef(f string, args ...interface{}) {
+func (c *mockContext) Verbosef(f string, args ...any) {
 	c.MethodCall(c, "Verbosef", f, args)
 }

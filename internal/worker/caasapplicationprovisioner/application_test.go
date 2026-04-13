@@ -12,8 +12,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/caas"
@@ -146,7 +146,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, applicationService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, ApplicationService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -202,6 +202,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
 		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -259,6 +260,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 			Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).
 			Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
 		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s1 string, appUUID application.UUID,
 				a caas.Application, s2 string, ac *caas.ApplicationConfig,
@@ -268,16 +270,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).
-			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
-				v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService,
-				l logger.Logger) error {
-				provisioningInfoChan <- struct{}{}
-				return nil
-			}),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, life.Value, CAASProvisionerFacade, ApplicationService, StatusService, logger.Logger) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, applicationService, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, ApplicationService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -419,6 +418,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		// retry handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
 		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -473,6 +473,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).
 			Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
 		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s1 string, appUUID application.UUID,
 				a caas.Application, s2 string, ac *caas.ApplicationConfig,
@@ -482,16 +483,13 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).
-			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
-				v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService,
-				l logger.Logger) error {
-				provisioningInfoChan <- struct{}{}
-				return nil
-			}),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, life.Value, CAASProvisionerFacade, ApplicationService, StatusService, logger.Logger) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, applicationService, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, ApplicationService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),

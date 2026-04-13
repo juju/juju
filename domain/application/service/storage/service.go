@@ -93,7 +93,7 @@ type State interface {
 	// when the application no longer exists.
 	GetApplicationStorageDirectives(
 		context.Context, coreapplication.UUID,
-	) ([]application.StorageDirective, error)
+	) ([]internal.StorageDirective, error)
 
 	// GetModelStoragePools returns the default storage pools
 	// that have been set for the model.
@@ -142,7 +142,7 @@ type State interface {
 	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
 	GetUnitStorageDirectives(
 		context.Context, coreunit.UUID,
-	) ([]application.StorageDirective, error)
+	) ([]internal.StorageDirective, error)
 
 	// GetUnitStorageDirectiveByName returns the named storage directive that
 	// is set for a unit.
@@ -152,7 +152,7 @@ type State interface {
 	// - [applicationerrors.StorageNameNotSupported] if the named storage directive doesn't exist.
 	GetUnitStorageDirectiveByName(
 		context.Context, coreunit.UUID, string,
-	) (application.StorageDirective, error)
+	) (internal.StorageDirective, error)
 
 	// GetUnitNetNodeUUID returns the net node UUID for the specified unit.
 	// The following error types can be expected:
@@ -280,7 +280,7 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	ctx context.Context,
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
-	directivesToFollow []application.StorageDirective,
+	directivesToFollow []internal.StorageDirective,
 	existingUnitOwnedStorage []internal.StorageInstanceComposition,
 	existingUnitOwnedStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.RegisterUnitStorageArg, error) {
@@ -689,7 +689,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 func (s Service) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
-	storageDirectives []application.StorageDirective,
+	storageDirectives []internal.StorageDirective,
 	existingStorage []internal.StorageInstanceComposition,
 	existingStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.CreateUnitStorageArg, error) {
@@ -729,13 +729,13 @@ func (s Service) MakeUnitStorageArgs(
 
 		existingStorageInstances := existingStorageNameMap[sd.Name.String()]
 		maxCount := sd.MaxCount
-		if sd.MaxCount == application.StorageDirectiveNoMaxCount {
+		if sd.MaxCount == charm.StorageNoMaxCount {
 			maxCount = len(existingStorageInstances)
 		} else if sd.MaxCount < 0 {
 			// This is defensive programming. If by some chance this value is
-			// < 0 and not equal to [application.StorageDirectiveNoMaxCount]
-			// then we will only allow up to the number of existing storage
-			// instances. This SHOULD never happen but we have safety rails.
+			// < 0 and not equal to [charm.StorageNoMaxCount] then we will only
+			// allow up to the number of existing storage instances. This SHOULD
+			// never happen but we have safety rails.
 			maxCount = len(existingStorageInstances)
 		}
 
@@ -862,7 +862,7 @@ func (s Service) MakeUnitAddStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	addCount uint32,
-	sd application.StorageDirective,
+	sd internal.StorageDirective,
 ) (internal.UnitAddStorageArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -933,7 +933,7 @@ func makeUnitStorageInstancesFromDirective(
 	ctx context.Context,
 	count uint32,
 	storagePoolProvider StoragePoolProvider,
-	directive application.StorageDirective,
+	directive internal.StorageDirective,
 ) ([]internal.CreateUnitStorageInstanceArg, error) {
 	// Early exit if no storage instances are to be created. Save's a lot of
 	// busy work that goes unused.

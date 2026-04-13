@@ -117,7 +117,7 @@ func MarshalToolsMetadataProductsJSON(
 					Version: t.Version,
 					Items: map[string]*simplestreams.ItemCollection{
 						itemsversion: {
-							Items: map[string]interface{}{itemid: t},
+							Items: map[string]any{itemid: t},
 						},
 					},
 				}

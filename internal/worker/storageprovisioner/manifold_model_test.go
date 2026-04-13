@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
@@ -42,7 +42,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller": dependency.ErrMissing,
 		"clock":      struct{ clock.Clock }{},
 		"environ":    struct{ environs.Environ }{},
@@ -55,7 +55,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	_, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{},
 		"clock":      struct{ clock.Clock }{},
 		"environ":    dependency.ErrMissing,

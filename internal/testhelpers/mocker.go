@@ -32,7 +32,7 @@ type CallMocker struct {
 // returned. It returns the results previously specified by the Call
 // function. If no results were specified, the returned slice will be
 // nil.
-func (m *CallMocker) MethodCall(receiver interface{}, fnName string, args ...interface{}) []interface{} {
+func (m *CallMocker) MethodCall(receiver any, fnName string, args ...any) []any {
 	m.Stub.MethodCall(receiver, fnName, args...)
 	m.logger.Debugf("Call: %s(%v)", fnName, args)
 	results := m.Results(fnName, args...)
@@ -43,7 +43,7 @@ func (m *CallMocker) MethodCall(receiver interface{}, fnName string, args ...int
 // Results returns any results previously specified by calls to the
 // Call method. If there are no results, the returned slice will be
 // nil.
-func (m *CallMocker) Results(fnName string, args ...interface{}) []interface{} {
+func (m *CallMocker) Results(fnName string, args ...any) []any {
 	for _, r := range m.results[fnName] {
 		if reflect.DeepEqual(r.args, args) == false {
 			continue
@@ -58,7 +58,7 @@ func (m *CallMocker) Results(fnName string, args ...interface{}) []interface{} {
 // calls to a function named fnName with arguments args should return
 // some value. The returned values are handled by the returned type,
 // callMockReturner.
-func (m *CallMocker) Call(fnName string, args ...interface{}) *callMockReturner {
+func (m *CallMocker) Call(fnName string, args ...any) *callMockReturner {
 	returner := &callMockReturner{args: args}
 	// Push on the front to hide old results.
 	m.results[fnName] = append([]*callMockReturner{returner}, m.results[fnName]...)
@@ -68,11 +68,11 @@ func (m *CallMocker) Call(fnName string, args ...interface{}) *callMockReturner 
 type callMockReturner struct {
 	// args holds a reference to the arguments for which the retVals
 	// are valid.
-	args []interface{}
+	args []any
 
 	// retVals holds a reference to the values that should be returned
 	// when the values held by args are seen.
-	retVals []interface{}
+	retVals []any
 
 	// timesInvoked records the number of times this return has been
 	// reached.
@@ -86,7 +86,7 @@ type callMockReturner struct {
 // Returns declares that this returner should return retVals when
 // called. It returns a closure which can be called to determine the
 // number of times this return has happened.
-func (m *callMockReturner) Returns(retVals ...interface{}) func() int {
+func (m *callMockReturner) Returns(retVals ...any) func() int {
 	m.retVals = retVals
 	return m.numTimesInvoked
 }
@@ -103,7 +103,7 @@ func (m *callMockReturner) numTimesInvoked() int {
 	return m.timesInvoked.value
 }
 
-func TypeAssertError(err interface{}) error {
+func TypeAssertError(err any) error {
 	if err == nil {
 		return nil
 	}

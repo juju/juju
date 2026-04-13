@@ -20,7 +20,7 @@ const (
 	notKnownDisplay = "(unknown)"
 )
 
-func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, value interface{}) error {
+func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, value any) error {
 	controllers, ok := value.(ControllerSet)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", controllers, value)

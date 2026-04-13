@@ -318,9 +318,7 @@ func (s *Service) SetModelConfig(
 
 	// We want to make a copy of cfg so that we don't modify the users input.
 	cfgCopy := make(map[string]any, len(cfg))
-	for k, v := range cfg {
-		cfgCopy[k] = v
-	}
+	maps.Copy(cfgCopy, cfg)
 
 	for k, v := range defaults {
 		applyVal := v.ApplyStrategy(cfgCopy[k])
@@ -385,9 +383,7 @@ func (s *Service) UpdateModelConfig(
 	// It's important here that we apply the user updates over the top of the
 	// calculated ones. This way we always take the user's supplied key value
 	// over defaults.
-	for k, v := range updateAttrs {
-		updates[k] = v
-	}
+	maps.Copy(updates, updateAttrs)
 
 	newCfg, currCfg, err := s.buildUpdatedModelConfig(ctx, updates, removeAttrs)
 	if err != nil {

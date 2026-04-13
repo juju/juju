@@ -227,12 +227,12 @@ func diffStrings(c *tc.C, value, expected string) {
 }
 
 // GetExportedFields return the exported fields of a struct.
-func GetExportedFields(arg interface{}) set.Strings {
+func GetExportedFields(arg any) set.Strings {
 	t := reflect.TypeOf(arg)
 	result := set.NewStrings()
 
 	count := t.NumField()
-	for i := 0; i < count; i++ {
+	for i := range count {
 		f := t.Field(i)
 		// empty PkgPath means exported field.
 		// see https://golang.org/pkg/reflect/#StructField

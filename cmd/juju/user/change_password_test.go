@@ -153,7 +153,7 @@ func (s *ChangePasswordCommandSuite) TestResetPasswordFail(c *tc.C) {
 	context, _, err := s.run(c, "", "--reset", "other")
 	c.Assert(err, tc.ErrorMatches, "failed to do something")
 	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"ResetPassword", []interface{}{"other"}},
+		{"ResetPassword", []any{"other"}},
 	})
 	// TODO (anastasiamac 2017-08-17)
 	// should probably warn user that something did not go well enough
@@ -168,7 +168,7 @@ func (s *ChangePasswordCommandSuite) TestResetOthersPassword(c *tc.C) {
 	context, _, err := s.run(c, "", "other", "--reset")
 	c.Assert(err, tc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"ResetPassword", []interface{}{"other"}},
+		{"ResetPassword", []any{"other"}},
 	})
 	c.Assert(cmdtesting.Stdout(context), tc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), tc.Matches, `

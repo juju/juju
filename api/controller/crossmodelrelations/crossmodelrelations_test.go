@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -40,7 +40,7 @@ func (s *CrossModelRelationsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *CrossModelRelationsSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
@@ -70,7 +70,7 @@ func (s *CrossModelRelationsSuite) newDischargeMacaroon(c *tc.C) *macaroon.Macar
 	return mac
 }
 
-func (s *CrossModelRelationsSuite) fillResponse(c *tc.C, resp interface{}, value interface{}) {
+func (s *CrossModelRelationsSuite) fillResponse(c *tc.C, resp any, value any) {
 	b, err := json.Marshal(value)
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(b, resp)
@@ -81,7 +81,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *tc.C) {
 	var callCount int
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -130,7 +130,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		if callCount == 0 {
 			mac := s.newDischargeMacaroon(c)
@@ -171,7 +171,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 	var callCount int
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -220,7 +220,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 }
 
 func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		*(result.(*params.RegisterConsumingRelationResults)) = params.RegisterConsumingRelationResults{
 			Results: []params.RegisterConsumingRelationResult{
 				{Error: &params.Error{Message: "FAIL"}},
@@ -239,7 +239,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		if callCount == 0 {
 			mac := s.newDischargeMacaroon(c)
@@ -283,7 +283,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "CrossModelRelations")
 			c.Check(version, tc.Equals, 2)
 			c.Check(id, tc.Equals, "")
@@ -331,7 +331,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	)
 	apiCaller := testing.BestVersionCaller{
 		BestVersion: 2,
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			var resultErr *params.Error
 			switch callCount {
 			case 2, 3: //Watcher Next, Stop
@@ -377,7 +377,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -421,7 +421,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *t
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
@@ -465,7 +465,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -512,7 +512,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		if callCount == 0 {
 			mac := s.newDischargeMacaroon(c)
@@ -557,7 +557,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *tc.C) 
 		BakeryVersion: bakery.LatestVersion,
 	}
 	c.Check(err, tc.ErrorIsNil)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -595,7 +595,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
@@ -640,7 +640,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -684,7 +684,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *tc.C
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
@@ -730,7 +730,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
 	var callCount int
-	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "CrossModelRelations")
 		c.Check(version, tc.Equals, 3)
 		c.Check(id, tc.Equals, "")
@@ -766,7 +766,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 		callCount    int
 		dischargeMac macaroon.Slice
 	)
-	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.BestVersionCaller{APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop

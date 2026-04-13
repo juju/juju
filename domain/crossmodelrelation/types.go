@@ -150,6 +150,36 @@ type OfferUser struct {
 	Access      permission.Access
 }
 
+// OfferConnectionDetail contains details about a connection to an offer.
+type OfferConnectionDetail struct {
+	// OfferUUID is the UUID of the offer this connection belongs to.
+	OfferUUID string
+
+	// SourceModelUUID is the UUID of the consuming model.
+	SourceModelUUID string
+
+	// RelationID is the integer id of the relation for this connection.
+	RelationID int
+
+	// Username is the name of the user who created the offer connection.
+	Username string
+
+	// Endpoint is the name of the endpoint on the offering side.
+	Endpoint string
+
+	// Status is the status of the relation (e.g. "joining", "joined").
+	Status string
+
+	// Message is the status message.
+	Message string
+
+	// StatusSince is the time the status was last updated.
+	StatusSince *time.Time
+
+	// IngressSubnets is the list of subnets from which traffic will originate.
+	IngressSubnets []string
+}
+
 // OfferImport contains details to import an offer during migration.
 type OfferImport struct {
 	UUID            uuid.UUID

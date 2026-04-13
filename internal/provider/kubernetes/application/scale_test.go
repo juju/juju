@@ -73,7 +73,7 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 			StorageName: "database",
 			Size:        1024, // 1GiB in MiB
 			Provider:    storage.ProviderType("kubernetes"),
-			Attributes:  map[string]interface{}{"storage-class": "fast"},
+			Attributes:  map[string]any{"storage-class": "fast"},
 		},
 	}
 
@@ -109,7 +109,7 @@ func (s *applicationSuite) TestEnsurePVCsWithProvisionedAttachments(c *tc.C) {
 			StorageName: "database",
 			Size:        1024, // 1GiB in MiB
 			Provider:    storage.ProviderType("kubernetes"),
-			Attributes:  map[string]interface{}{"storage-class": "fast"},
+			Attributes:  map[string]any{"storage-class": "fast"},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
 					ProvisionedPVCNames: []string{"gitlab-database-uniqid-gitlab-0"},
@@ -150,7 +150,7 @@ func (s *applicationSuite) TestEnsurePVCsUnknownPVCNameFormat(c *tc.C) {
 			StorageName: "database",
 			Size:        1024, // 1GiB in MiB
 			Provider:    storage.ProviderType("kubernetes"),
-			Attributes:  map[string]interface{}{"storage-class": "fast"},
+			Attributes:  map[string]any{"storage-class": "fast"},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
 					ProvisionedPVCNames: []string{"gitlab-database-uniqid-gitlabunknown-%#$0"},

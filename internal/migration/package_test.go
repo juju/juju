@@ -22,7 +22,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration -destination services_mock_test.go github.com/juju/juju/internal/migration ProviderConfigServicesGetter,ProviderConfigServices,CloudService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination storage_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v11 Model
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v12 Model
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter
 
 type precheckBaseSuite struct {

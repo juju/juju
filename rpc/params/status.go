@@ -235,14 +235,14 @@ func (epStatus *EndpointStatus) String() string {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  string                 `json:"status"`
-	Info    string                 `json:"info"`
-	Data    map[string]interface{} `json:"data"`
-	Since   *time.Time             `json:"since"`
-	Kind    string                 `json:"kind"`
-	Version string                 `json:"version"`
-	Life    life.Value             `json:"life"`
-	Err     *Error                 `json:"err,omitempty"`
+	Status  string         `json:"status"`
+	Info    string         `json:"info"`
+	Data    map[string]any `json:"data"`
+	Since   *time.Time     `json:"since"`
+	Kind    string         `json:"kind"`
+	Version string         `json:"version"`
+	Life    life.Value     `json:"life"`
+	Err     *Error         `json:"err,omitempty"`
 }
 
 // History holds many DetailedStatus.
@@ -286,13 +286,13 @@ type StatusHistoryResults struct {
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
-	Error  *Error                 `json:"error,omitempty"`
-	Id     string                 `json:"id"`
-	Life   life.Value             `json:"life"`
-	Status string                 `json:"status"`
-	Info   string                 `json:"info"`
-	Data   map[string]interface{} `json:"data"`
-	Since  *time.Time             `json:"since"`
+	Error  *Error         `json:"error,omitempty"`
+	Id     string         `json:"id"`
+	Life   life.Value     `json:"life"`
+	Status string         `json:"status"`
+	Info   string         `json:"info"`
+	Data   map[string]any `json:"data"`
+	Since  *time.Time     `json:"since"`
 }
 
 // StatusResults holds multiple status results.

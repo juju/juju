@@ -40,7 +40,7 @@ type Validator interface {
 	// RegisterVocabulary records allowed values for the specified constraint attribute.
 	// allowedValues is expected to be a slice/array but is declared as interface{} so
 	// that vocabs of different types can be passed in.
-	RegisterVocabulary(attributeName string, allowedValues interface{})
+	RegisterVocabulary(attributeName string, allowedValues any)
 
 	// Validate returns an error if the given constraints are not valid, and also
 	// any unsupported attributes.
@@ -55,17 +55,17 @@ type Validator interface {
 	//     if existing values are {a, b}
 	//     and new values are {c, d},
 	//     then the merge result would be {a, b, c, d}.
-	UpdateVocabulary(attributeName string, newValues interface{})
+	UpdateVocabulary(attributeName string, newValues any)
 }
 
-type ConflictResolver func(attrValues map[string]interface{}) error
+type ConflictResolver func(attrValues map[string]any) error
 
 // NewValidator returns a new constraints Validator instance.
 func NewValidator() Validator {
 	return &validator{
 		conflicts:             make(map[string]set.Strings),
 		conflictResolvers:     make(map[string]ConflictResolver),
-		vocab:                 make(map[string][]interface{}),
+		vocab:                 make(map[string][]any),
 		validValuesCountLimit: 10,
 	}
 }
@@ -74,7 +74,7 @@ type validator struct {
 	unsupported           set.Strings
 	conflicts             map[string]set.Strings
 	conflictResolvers     map[string]ConflictResolver
-	vocab                 map[string][]interface{}
+	vocab                 map[string][]any
 	validValuesCountLimit int
 }
 
@@ -105,20 +105,20 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 }
 
 // RegisterVocabulary is defined on Validator.
-func (v *validator) RegisterVocabulary(attributeName string, allowedValues interface{}) {
+func (v *validator) RegisterVocabulary(attributeName string, allowedValues any) {
 	v.vocab[resolveAlias(attributeName)] = convertToSlice(allowedValues)
 }
 
-var checkIsCollection = func(coll interface{}) {
+var checkIsCollection = func(coll any) {
 	k := reflect.TypeOf(coll).Kind()
 	if k != reflect.Slice && k != reflect.Array {
 		panic(errors.Errorf("invalid vocab: %v of type %T is not a slice", coll, coll))
 	}
 }
 
-var convertToSlice = func(coll interface{}) []interface{} {
+var convertToSlice = func(coll any) []any {
 	checkIsCollection(coll)
-	var slice []interface{}
+	var slice []any
 	val := reflect.ValueOf(coll)
 	for i := 0; i < val.Len(); i++ {
 		slice = append(slice, val.Index(i).Interface())
@@ -127,7 +127,7 @@ var convertToSlice = func(coll interface{}) []interface{} {
 }
 
 // UpdateVocabulary is defined on Validator.
-func (v *validator) UpdateVocabulary(attributeName string, allowedValues interface{}) {
+func (v *validator) UpdateVocabulary(attributeName string, allowedValues any) {
 	attributeName = resolveAlias(attributeName)
 	// If this attribute is not registered, delegate to RegisterVocabulary()
 	currentValues, ok := v.vocab[attributeName]
@@ -135,8 +135,8 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 		v.RegisterVocabulary(attributeName, allowedValues)
 	}
 
-	unique := map[interface{}]bool{}
-	writeUnique := func(all []interface{}) {
+	unique := map[any]bool{}
+	writeUnique := func(all []any) {
 		for _, one := range all {
 			unique[one] = true
 		}
@@ -150,9 +150,9 @@ func (v *validator) UpdateVocabulary(attributeName string, allowedValues interfa
 	v.updateVocabularyFromMap(attributeName, unique)
 }
 
-func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
+func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[any]bool) {
 	attributeName = resolveAlias(attributeName)
-	var merged []interface{}
+	var merged []any
 	for one := range valuesMap {
 		// TODO (anastasiamac) Because it's coming from the map, the order maybe affected
 		// and can be unreliable. Not sure how to fix it yet...
@@ -247,7 +247,7 @@ func (ve *InvalidVocabValueError) Error() string {
 
 // checkInVocab returns an error if the attribute value is not allowed by the
 // vocab which may have been registered for it.
-func (v *validator) checkInVocab(attributeName string, attributeValue interface{}) error {
+func (v *validator) checkInVocab(attributeName string, attributeValue any) error {
 	validValues, ok := v.vocab[resolveAlias(attributeName)]
 	if !ok {
 		return nil
@@ -298,7 +298,7 @@ func (v *validator) checkInVocab(attributeName string, attributeValue interface{
 // coerce returns v in a format that allows constraint values to be easily
 // compared. Its main purpose is to cast all numeric values to float64 (since
 // the numbers we compare are generated from json serialization).
-func coerce(v interface{}) interface{} {
+func coerce(v any) any {
 	switch val := v.(type) {
 	case string:
 		return v

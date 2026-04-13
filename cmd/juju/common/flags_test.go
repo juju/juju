@@ -31,19 +31,19 @@ func (*FlagsSuite) TestConfigFlagSet(c *tc.C) {
 	c.Assert(f.Set("b.yaml"), tc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, nil)
 	c.Assert(f.Set("k1=v1"), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "v1"})
 	c.Assert(f.Set("k1="), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": ""})
 	c.Assert(f.Set("k1=v1"), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "v1"})
 	c.Assert(f.Set("k1==v2"), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "=v2"})
 	c.Assert(f.Set("k2=3"), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "=v2", "k2": "3"})
 	c.Assert(f.Set("k3="), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": ""})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "=v2", "k2": "3", "k3": ""})
 	c.Assert(f.Set("k4=4.0"), tc.ErrorIsNil)
-	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": "3", "k3": "", "k4": "4.0"})
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]any{"k1": "=v2", "k2": "3", "k3": "", "k4": "4.0"})
 }
 
 func (*FlagsSuite) TestConfigFlagSetErrors(c *tc.C) {
@@ -59,14 +59,14 @@ bar: 2
 
 	var f ConfigFlag
 	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), tc.ErrorIsNil)
-	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 1, "bar": 2})
+	assertConfigFlag(c, f, nil, map[string]any{"foo": 1, "bar": 2})
 
 	yaml = `
 foo: 3
 baz: 4
 `[1:]
 	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), tc.ErrorIsNil)
-	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 3, "bar": 2, "baz": 4})
+	assertConfigFlag(c, f, nil, map[string]any{"foo": 3, "bar": 2, "baz": 4})
 }
 
 func (*FlagsSuite) TestConfigFlagSetAttrsFromReaderErrors(c *tc.C) {
@@ -98,13 +98,13 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var f ConfigFlag
-	assertConfigFlagReadAttrs(c, f, map[string]interface{}{})
+	assertConfigFlagReadAttrs(c, f, map[string]any{})
 	f.files = append(f.files, configFile1)
-	assertConfigFlagReadAttrs(c, f, map[string]interface{}{"over": "'n'out"})
+	assertConfigFlagReadAttrs(c, f, map[string]any{"over": "'n'out"})
 	f.files = append(f.files, configFile2)
-	assertConfigFlagReadAttrs(c, f, map[string]interface{}{"over": "'n'under"})
-	f.attrs = map[string]interface{}{"over": "ridden"}
-	assertConfigFlagReadAttrs(c, f, map[string]interface{}{"over": "ridden"})
+	assertConfigFlagReadAttrs(c, f, map[string]any{"over": "'n'under"})
+	f.attrs = map[string]any{"over": "ridden"}
+	assertConfigFlagReadAttrs(c, f, map[string]any{"over": "ridden"})
 }
 
 func (*FlagsSuite) TestConfigFlagReadConfigPairs(c *tc.C) {
@@ -115,10 +115,10 @@ func (*FlagsSuite) TestConfigFlagReadConfigPairs(c *tc.C) {
 
 	var f ConfigFlag
 	f.files = append(f.files, configFile1)
-	f.attrs = map[string]interface{}{"key": "value"}
+	f.attrs = map[string]any{"key": "value"}
 	attrs, err := f.ReadConfigPairs(ctx)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(attrs, tc.DeepEquals, map[string]interface{}{"key": "value"})
+	c.Assert(attrs, tc.DeepEquals, map[string]any{"key": "value"})
 }
 
 func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *tc.C) {
@@ -149,12 +149,12 @@ func (*FlagsSuite) TestAbsoluteFilenames(c *tc.C) {
 	})
 }
 
-func assertConfigFlag(c *tc.C, f ConfigFlag, files []string, attrs map[string]interface{}) {
+func assertConfigFlag(c *tc.C, f ConfigFlag, files []string, attrs map[string]any) {
 	c.Assert(f.files, tc.DeepEquals, files)
 	c.Assert(f.attrs, tc.DeepEquals, attrs)
 }
 
-func assertConfigFlagReadAttrs(c *tc.C, f ConfigFlag, expect map[string]interface{}) {
+func assertConfigFlagReadAttrs(c *tc.C, f ConfigFlag, expect map[string]any) {
 	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(err, tc.ErrorIsNil)

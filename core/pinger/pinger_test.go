@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -38,7 +38,7 @@ func (s *suite) TestPing(c *tc.C) {
 	p := NewPinger(action, s.clock, time.Second)
 	defer workertest.CleanKill(c, p)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		p.Ping()
 		// Ensure that the ping timer has been at least called
 		<-time.After(testhelpers.ShortWait)

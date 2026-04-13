@@ -9,6 +9,7 @@ package cloud
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -31,10 +32,10 @@ func (e *ValidationWarning) Error() string {
 	return str
 }
 
-var cloudSetSchema = map[string]interface{}{
+var cloudSetSchema = map[string]any{
 	"type": "object",
-	"properties": map[string]interface{}{
-		"clouds": map[string]interface{}{
+	"properties": map[string]any{
+		"clouds": map[string]any{
 			"type":                 "object",
 			"additionalProperties": cloudSchema,
 		},
@@ -42,39 +43,39 @@ var cloudSetSchema = map[string]interface{}{
 	"additionalProperties": false,
 }
 
-var cloudSchema = map[string]interface{}{
+var cloudSchema = map[string]any{
 	"type": "object",
-	"properties": map[string]interface{}{
-		"name":        map[string]interface{}{"type": "string"},
-		"type":        map[string]interface{}{"type": "string"},
-		"description": map[string]interface{}{"type": "string"},
-		"auth-types": map[string]interface{}{
+	"properties": map[string]any{
+		"name":        map[string]any{"type": "string"},
+		"type":        map[string]any{"type": "string"},
+		"description": map[string]any{"type": "string"},
+		"auth-types": map[string]any{
 			"type":  "array",
-			"items": map[string]interface{}{"type": "string"},
+			"items": map[string]any{"type": "string"},
 		},
-		"host-cloud-region": map[string]interface{}{"type": "string"},
-		"endpoint":          map[string]interface{}{"type": "string"},
-		"identity-endpoint": map[string]interface{}{"type": "string"},
-		"storage-endpoint":  map[string]interface{}{"type": "string"},
-		"config":            map[string]interface{}{"type": "object"},
+		"host-cloud-region": map[string]any{"type": "string"},
+		"endpoint":          map[string]any{"type": "string"},
+		"identity-endpoint": map[string]any{"type": "string"},
+		"storage-endpoint":  map[string]any{"type": "string"},
+		"config":            map[string]any{"type": "object"},
 		"regions":           regionsSchema,
-		"region-config":     map[string]interface{}{"type": "object"},
-		"ca-certificates": map[string]interface{}{
+		"region-config":     map[string]any{"type": "object"},
+		"ca-certificates": map[string]any{
 			"type":  "array",
-			"items": map[string]interface{}{"type": "string"},
+			"items": map[string]any{"type": "string"},
 		},
 	},
 	"additionalProperties": false,
 }
 
-var regionsSchema = map[string]interface{}{
+var regionsSchema = map[string]any{
 	"type": "object",
-	"additionalProperties": map[string]interface{}{
+	"additionalProperties": map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"endpoint":          map[string]interface{}{"type": "string"},
-			"identity-endpoint": map[string]interface{}{"type": "string"},
-			"storage-endpoint":  map[string]interface{}{"type": "string"},
+		"properties": map[string]any{
+			"endpoint":          map[string]any{"type": "string"},
+			"identity-endpoint": map[string]any{"type": "string"},
+			"storage-endpoint":  map[string]any{"type": "string"},
 		},
 		"additionalProperties": false,
 	},
@@ -94,8 +95,8 @@ func ValidateOneCloud(data []byte) error {
 	return validateCloud(data, &cloudSchema)
 }
 
-func validateCloud(data []byte, jsonSchema *map[string]interface{}) error {
-	var body interface{}
+func validateCloud(data []byte, jsonSchema *map[string]any) error {
+	var body any
 	if err := yaml.Unmarshal(data, &body); err != nil {
 		return errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
@@ -128,7 +129,7 @@ func validateCloud(data []byte, jsonSchema *map[string]interface{}) error {
 
 func cloudTags() []string {
 	keys := make(map[string]struct{})
-	collectTags(reflect.TypeOf((*cloud)(nil)), "yaml", []string{"map[string]*cloud.region", "yaml.MapSlice"}, &keys)
+	collectTags(reflect.TypeFor[*cloud](), "yaml", []string{"map[string]*cloud.region", "yaml.MapSlice"}, &keys)
 	keyList := make([]string, 0, len(keys))
 	for k := range keys {
 		keyList = append(keyList, k)
@@ -150,19 +151,11 @@ func collectTags(t reflect.Type, tag string, ignoreTypes []string, keys *map[str
 		collectTags(t.Elem(), tag, ignoreTypes, keys)
 
 	case reflect.Struct:
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-
+		for field := range t.Fields() {
 			fieldTag := field.Tag.Get(tag)
 			var fieldTagKey string
 
-			ignoredType := false
-			for _, it := range ignoreTypes {
-				if field.Type.String() == it {
-					ignoredType = true
-					break
-				}
-			}
+			ignoredType := slices.Contains(ignoreTypes, field.Type.String())
 
 			if fieldTag == "-" || ignoredType {
 				continue
@@ -180,7 +173,7 @@ func collectTags(t reflect.Type, tag string, ignoreTypes []string, keys *map[str
 	}
 }
 
-func validateCloudMetaData(body interface{}, jsonSchema *map[string]interface{}) (map[string]string, error) {
+func validateCloudMetaData(body any, jsonSchema *map[string]any) (map[string]string, error) {
 	documentLoader := gojsonschema.NewGoLoader(body)
 	schemaLoader := gojsonschema.NewGoLoader(jsonSchema)
 
@@ -212,15 +205,15 @@ func validateCloudMetaData(body interface{}, jsonSchema *map[string]interface{})
 	return suggestionMap, nil
 }
 
-func yamlToJSON(i interface{}) interface{} {
+func yamlToJSON(i any) any {
 	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
+	case map[any]any:
+		m2 := map[string]any{}
 		for k, v := range x {
 			m2[k.(string)] = yamlToJSON(v)
 		}
 		return m2
-	case []interface{}:
+	case []any:
 		for i, v := range x {
 			x[i] = yamlToJSON(v)
 		}

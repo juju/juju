@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/httprequest.v1"
@@ -360,7 +360,7 @@ func groupTagIds(tagStrs []string) ([]string, []string, []string, error) {
 	var units []string
 	var applications []string
 
-	for i := 0; i < len(tagStrs); i++ {
+	for i := range tagStrs {
 		tag, err := names.ParseTag(tagStrs[i])
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
@@ -32,7 +32,7 @@ type TrackedObjectStore interface {
 	worker.Worker
 	objectstore.ObjectStore
 	objectstore.ObjectStoreRemover
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 }
 
 // Option is the function signature for the options to create a new object

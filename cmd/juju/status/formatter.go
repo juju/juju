@@ -124,7 +124,7 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 	}
 	for k, m := range sf.status.Machines {
 		if len(machineId) != 0 {
-			for i := 0; i < len(machineId); i++ {
+			for i := range machineId {
 				if m.Id == machineId[i] {
 					out.Machines[k] = sf.formatMachine(m)
 				}

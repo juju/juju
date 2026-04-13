@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -228,7 +228,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func output(in worker.Worker, out interface{}) error {
+func output(in worker.Worker, out any) error {
 	uniter, _ := in.(*Uniter)
 	if uniter == nil {
 		return errors.Errorf("expected Uniter in")

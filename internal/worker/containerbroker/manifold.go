@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/provisioner"
@@ -87,7 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // manifoldOutput extracts an environs.Environ resource from a *Tracker.
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inTracker, ok := in.(*Tracker)
 	if !ok {
 		return errors.Errorf("expected *broker.Tracker, got %T", in)

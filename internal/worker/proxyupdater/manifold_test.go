@@ -10,9 +10,9 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestInProcessUpdateMissing(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": dependency.ErrMissing,
 	})
 
@@ -90,7 +90,7 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
@@ -102,7 +102,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 
 func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	s.startErr = errors.New("boom")
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
 	})
@@ -113,7 +113,7 @@ func (s *ManifoldSuite) TestStartError(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
 	})

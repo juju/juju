@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Action", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newActionAPIV7(ctx)
-	}, reflect.TypeOf((*APIv7)(nil)))
+	}, reflect.TypeFor[*APIv7]())
 }
 
 // newActionAPIV7 returns an initialized ActionAPI for version 7.

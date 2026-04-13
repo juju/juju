@@ -126,7 +126,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *t
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
 	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotLeader)
@@ -175,7 +175,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitNam
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
@@ -195,7 +195,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -290,20 +290,20 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
 	c.Check(unitWorkloadStatuses, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"foo/0": {
 			Status:  corestatus.Active,
 			Message: "boink",
-			Data:    map[string]interface{}{"foo": "baz"},
+			Data:    map[string]any{"foo": "baz"},
 			Since:   &now,
 		},
 		"foo/1": {
 			Status:  corestatus.Blocked,
 			Message: "poink",
-			Data:    map[string]interface{}{"foo": "bat"},
+			Data:    map[string]any{"foo": "bat"},
 			Since:   &now,
 		},
 	})
@@ -373,20 +373,20 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 	c.Check(applicationStatus, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "zoink",
-		Data:    map[string]interface{}{"foo": "baz"},
+		Data:    map[string]any{"foo": "baz"},
 		Since:   &now,
 	})
 	c.Check(unitWorkloadStatuses, tc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
 		"foo/0": {
 			Status:  corestatus.Active,
 			Message: "boink",
-			Data:    map[string]interface{}{"foo": "baz"},
+			Data:    map[string]any{"foo": "baz"},
 			Since:   &now,
 		},
 		"foo/1": {
 			Status:  corestatus.Active,
 			Message: "poink",
-			Data:    map[string]interface{}{"foo": "bat"},
+			Data:    map[string]any{"foo": "bat"},
 			Since:   &now,
 		},
 	})

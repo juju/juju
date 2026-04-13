@@ -6,6 +6,7 @@ package gce
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"strings"
 	"sync"
@@ -263,10 +264,7 @@ func (v *volumeSource) createOneVolume(ctx context.Context, p storage.VolumePara
 	}
 
 	// volume.Size is expressed in MiB, but GCE only accepts sizes in GiB.
-	size := mibToGib(p.Size)
-	if size < google.MinDiskSizeGB {
-		size = google.MinDiskSizeGB
-	}
+	size := max(mibToGib(p.Size), google.MinDiskSizeGB)
 	zone = path.Base(inst.GetZone())
 	volumeName, err = nameVolume(zone)
 	if err != nil {
@@ -435,9 +433,7 @@ func (v *volumeSource) ImportVolume(ctx context.Context, volName string, storage
 	if disk.Labels == nil {
 		disk.Labels = make(map[string]string)
 	}
-	for k, v := range resourceTagsToDiskLabels(tags) {
-		disk.Labels[k] = v
-	}
+	maps.Copy(disk.Labels, resourceTagsToDiskLabels(tags))
 	if err := v.gce.SetDiskLabels(ctx, zone, volName, disk.GetLabelFingerprint(), disk.GetLabels()); err != nil {
 		return storage.VolumeInfo{}, errors.Annotatef(
 			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot update labels on volume %q", volName)

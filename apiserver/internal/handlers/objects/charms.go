@@ -350,7 +350,7 @@ func encodeArchitecture(a architecture.Architecture) (string, error) {
 
 // sendStatusAndHeadersAndJSON send an HTTP status code, custom headers
 // and a JSON-encoded response to a client
-func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response interface{}) error {
+func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response any) error {
 	for k, v := range headers {
 		if !strings.HasPrefix(k, "Juju-") {
 			return errors.Errorf(`custom header %q must be prefixed with "Juju-"`, k)

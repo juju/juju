@@ -12,9 +12,9 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/macaroon.v2"
 
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
@@ -32,7 +32,7 @@ import (
 // Facade could be anything; it will be interpreted by the apiserver
 // machinery such that certain exported methods will be made available
 // as facade methods to connected clients.
-type Facade interface{}
+type Facade any
 
 // Factory is a callback used to create a Facade.
 type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)

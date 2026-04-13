@@ -260,10 +260,10 @@ func (s *marshalSuite) TestMarshalIndex(c *tc.C) {
 
 func assertIndex(c *tc.C, obtainedIndex []byte, expectedIndex string) {
 	// Unmarshall into objects so an order independent comparison can be done.
-	var obtained interface{}
+	var obtained any
 	err := json.Unmarshal(obtainedIndex, &obtained)
 	c.Assert(err, tc.ErrorIsNil)
-	var expected interface{}
+	var expected any
 	err = json.Unmarshal([]byte(expectedIndex), &expected)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.DeepEquals, expected)

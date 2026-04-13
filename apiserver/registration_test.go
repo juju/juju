@@ -73,7 +73,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *tc.C, hasProxy bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	rawConfig := map[string]interface{}{
+	rawConfig := map[string]any{
 		"api-host":              "https://127.0.0.1:16443",
 		"ca-cert":               "cert====",
 		"namespace":             "controller-k1",

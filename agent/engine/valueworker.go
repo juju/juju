@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 )
 
@@ -16,7 +16,7 @@ import (
 // their own dependency or lifecycle considerations; such values will subvert
 // the operation of any containing dependency.Engine by insulating it from the
 // failures and dependency changes of the contained value.
-func NewValueWorker(value interface{}) (worker.Worker, error) {
+func NewValueWorker(value any) (worker.Worker, error) {
 	if value == nil {
 		return nil, errors.New("NewValueWorker expects a value")
 	}
@@ -32,7 +32,7 @@ func NewValueWorker(value interface{}) (worker.Worker, error) {
 
 // ValueWorkerOutput sets the value wrapped by the supplied valueWorker into
 // the out pointer, if type-compatible, or fails.
-func ValueWorkerOutput(in worker.Worker, out interface{}) error {
+func ValueWorkerOutput(in worker.Worker, out any) error {
 	inWorker, _ := in.(*valueWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a *valueWorker; is %#v", in)
@@ -55,7 +55,7 @@ func ValueWorkerOutput(in worker.Worker, out interface{}) error {
 // valueWorker implements a degenerate worker wrapping a single value.
 type valueWorker struct {
 	tomb  tomb.Tomb
-	value interface{}
+	value any
 }
 
 // Kill is part of the worker.Worker interface.

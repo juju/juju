@@ -29,7 +29,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
-		args, response interface{},
+		args, response any,
 	) error {
 		c.Check(objType, tc.Equals, "HostKeyReporter")
 		c.Check(version, tc.Equals, 0)
@@ -48,7 +48,7 @@ func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{{
-		"ReportKeys", []interface{}{params.SSHHostKeySet{
+		"ReportKeys", []any{params.SSHHostKeySet{
 			EntityKeys: []params.SSHHostKeys{{
 				Tag:        names.NewMachineTag("42").String(),
 				PublicKeys: []string{"rsa", "dsa"},
@@ -61,7 +61,7 @@ func (s *facadeSuite) TestCallError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
-		args, response interface{},
+		args, response any,
 	) error {
 		return errors.New("blam")
 	})
@@ -75,7 +75,7 @@ func (s *facadeSuite) TestInnerError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
-		args, response interface{},
+		args, response any,
 	) error {
 		*response.(*params.ErrorResults) = params.ErrorResults{
 			Results: []params.ErrorResult{{

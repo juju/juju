@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -292,10 +292,6 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 	}
 }
 
-func int64Ptr(a int64) *int64 {
-	return &a
-}
-
 func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
@@ -509,7 +505,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 				Spec: core.PodSpec{
 					ServiceAccountName:            "controller",
 					AutomountServiceAccountToken:  pointer.Bool(true),
-					TerminationGracePeriodSeconds: int64Ptr(30),
+					TerminationGracePeriodSeconds: new(int64(30)),
 					SecurityContext: &core.PodSecurityContext{
 						SupplementalGroups: []int64{170},
 						FSGroup:            pointer.Int64(170),
@@ -598,8 +594,8 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 				},
 			},
 			SecurityContext: &core.SecurityContext{
-				RunAsUser:  int64Ptr(170),
-				RunAsGroup: int64Ptr(170),
+				RunAsUser:  new(int64(170)),
+				RunAsGroup: new(int64(170)),
 			},
 			VolumeMounts: []core.VolumeMount{
 				{
@@ -892,8 +888,8 @@ exec /opt/pebble run --http :38811 --verbose
 			},
 		},
 		SecurityContext: &core.SecurityContext{
-			RunAsUser:  int64Ptr(170),
-			RunAsGroup: int64Ptr(170),
+			RunAsUser:  new(int64(170)),
+			RunAsGroup: new(int64(170)),
 			//TODO: this should be set
 			//ReadOnlyRootFilesystem: pointer.Bool(true),
 		},

@@ -46,7 +46,7 @@ func (s *LeasesSuite) TestLeases(c *tc.C) {
 		Holder: "redis/1",
 		Expiry: offset(time.Second),
 	}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		otherNS := fmt.Sprintf("ns%d", i)
 		leases[key(otherNS, "modelUUID", s.appName)] = bad
 		otherModel := fmt.Sprintf("model%d", i)

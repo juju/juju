@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine/enginetest"
@@ -122,7 +122,7 @@ type fakeAPIConn struct {
 	machineJob model.MachineJob
 }
 
-func (f *fakeAPIConn) APICall(ctx context.Context, objType string, version int, id, request string, args interface{}, response interface{}) error {
+func (f *fakeAPIConn) APICall(ctx context.Context, objType string, version int, id, request string, args any, response any) error {
 	if res, ok := response.(*params.AgentGetEntitiesResults); ok {
 		res.Entities = []params.AgentGetEntitiesResult{
 			{Jobs: []model.MachineJob{f.machineJob}},

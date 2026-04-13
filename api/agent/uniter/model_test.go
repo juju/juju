@@ -25,7 +25,7 @@ func TestModelSuite(t *testing.T) {
 }
 
 func (s *modelSuite) TestModel(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(id, tc.Equals, "")
 		switch request {

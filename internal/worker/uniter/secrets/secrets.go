@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"sync"
@@ -223,11 +224,11 @@ func (s *Secrets) SecretsRemoved(
 }
 
 // Report provides information for the engine report.
-func (s *Secrets) Report() map[string]interface{} {
+func (s *Secrets) Report(ctx context.Context) map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	obsolete := make(map[string][]int)
 	for u, v := range s.secretsState.SecretObsoleteRevisions {
 		rCopy := make([]int, len(v))
@@ -237,9 +238,7 @@ func (s *Secrets) Report() map[string]interface{} {
 	result["obsolete-revisions"] = obsolete
 
 	consumed := make(map[string]int)
-	for u, v := range s.secretsState.ConsumedSecretInfo {
-		consumed[u] = v
-	}
+	maps.Copy(consumed, s.secretsState.ConsumedSecretInfo)
 	result["consumed-revisions"] = consumed
 
 	return result

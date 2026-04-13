@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/internal/jwtparser"
@@ -59,7 +59,7 @@ func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) 
 
 // outputFunc extracts a jwtparser.Parser from a
 // jwtParserWorker contained within a CleanupWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*jwtParserWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

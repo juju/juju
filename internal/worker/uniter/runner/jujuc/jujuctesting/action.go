@@ -11,7 +11,7 @@ import (
 
 // ActionHook holds the values for the hook context.
 type ActionHook struct {
-	ActionParams map[string]interface{}
+	ActionParams map[string]any
 }
 
 // ContextActionHook is a test double for jujuc.ActionHookContext.
@@ -21,7 +21,7 @@ type ContextActionHook struct {
 }
 
 // ActionParams implements jujuc.ActionHookContext.
-func (c *ContextActionHook) ActionParams() (map[string]interface{}, error) {
+func (c *ContextActionHook) ActionParams() (map[string]any, error) {
 	c.stub.AddCall("ActionParams")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -34,7 +34,7 @@ func (c *ContextActionHook) ActionParams() (map[string]interface{}, error) {
 }
 
 // UpdateActionResults implements jujuc.ActionHookContext.
-func (c *ContextActionHook) UpdateActionResults(keys []string, value interface{}) error {
+func (c *ContextActionHook) UpdateActionResults(keys []string, value any) error {
 	c.stub.AddCall("UpdateActionResults", keys, value)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

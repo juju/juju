@@ -84,7 +84,7 @@ func parseAttributes(s string) (map[string]string, error) {
 		return kv, nil
 	}
 	attr := map[string]string{}
-	for _, attrStr := range strings.Split(s, ";") {
+	for attrStr := range strings.SplitSeq(s, ";") {
 		kv, err := parseAttribute(attrStr)
 		if err != nil {
 			return nil, err

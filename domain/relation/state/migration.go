@@ -135,7 +135,7 @@ WHERE name = $nameAndUUID.name
 }
 
 // SetRelationApplicationSettings records settings for a specific application
-// relation combination.
+// relation combination. Replaces all existing settings with the provided set.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.ApplicationNotFoundForRelation] is returned if the

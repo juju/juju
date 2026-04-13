@@ -7,7 +7,7 @@ package worker
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 )
 
 // NoopWorker returns a worker that waits for the context to be done.

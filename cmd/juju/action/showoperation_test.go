@@ -145,12 +145,12 @@ error: an apiserver error
 						ID:         "69",
 						Receiver:   "foo/0",
 						Name:       "backup",
-						Parameters: map[string]interface{}{"hello": "world"},
+						Parameters: map[string]any{"hello": "world"},
 					},
 					Status:  "completed",
 					Message: "oh dear",
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
+					Output: map[string]any{
+						"foo": map[string]any{
 							"bar": "baz",
 						},
 					},
@@ -194,12 +194,12 @@ tasks:
 						ID:         "69",
 						Receiver:   "foo/0",
 						Name:       "backup",
-						Parameters: map[string]interface{}{"hello": "world"},
+						Parameters: map[string]any{"hello": "world"},
 					},
 					Status:  "pending",
 					Message: "oh dear",
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
+					Output: map[string]any{
+						"foo": map[string]any{
 							"bar": "baz",
 						},
 					},
@@ -245,8 +245,8 @@ tasks:
 						Receiver: "foo/0",
 					},
 					Status: "completed",
-					Output: map[string]interface{}{
-						"foo": map[string]interface{}{
+					Output: map[string]any{
+						"foo": map[string]any{
 							"bar": "baz",
 						},
 					},
@@ -344,11 +344,9 @@ func (s *ShowOperationSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		ctx *cmd.Context
 		err error
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
-	}()
+	})
 
 	wg.Wait()
 

@@ -391,8 +391,8 @@ github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a/go.mod h1:JWeZdyt
 github.com/juju/collections v1.0.0/go.mod h1:JWeZdyttIEbkR51z2S13+J+aCuHVe0F6meRy+P0YGDo=
 github.com/juju/collections v1.0.4 h1:GjL+aN512m2rVDqhPII7P6qB0e+iYFubz8sqBhZaZtk=
 github.com/juju/collections v1.0.4/go.mod h1:hVrdB0Zwq9wIU1Fl6ItD2+UETeNeOEs+nGvJufVe+0c=
-github.com/juju/description/v11 v11.0.0-20260205224702-ea6d3105b20c h1:+s0h1if4nz5/ZmePcUgFahcxv+vnDGBuHSduOvYnBMY=
-github.com/juju/description/v11 v11.0.0-20260205224702-ea6d3105b20c/go.mod h1:7O7UhXGw29sIx7AoACdKSGq8rmwXkqfGinpCOn0fprE=
+github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1 h1:9lI/qZ4HF1yFERpoDF2wkBZ3Ai9bmXWn/BFbFJKwEzo=
+github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1/go.mod h1:Wkxg1UGfbDmez6y4bg8DRybgLwc8tWte3ma/vW/Vfok=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=
@@ -486,8 +486,8 @@ github.com/juju/version/v2 v2.0.0/go.mod h1:ZeFjNy+UFEWJDDPdzW7Cm9NeU6dsViGaFYhX
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
 github.com/juju/webbrowser v1.0.0/go.mod h1:RwVlbBcF91Q4vS+iwlkJ6bZTE3EwlrjbYlM3WMVD6Bc=
-github.com/juju/worker/v4 v4.3.0 h1:FE41r1z3Iq6L4hDnvNFTVCW3WcqcBchJh0WauJI1Myg=
-github.com/juju/worker/v4 v4.3.0/go.mod h1:yIOAF2j1onxDPxotE0x5O9AktexnjXRM23OJ5ahrxWY=
+github.com/juju/worker/v5 v5.0.0 h1:2WbU0J0IO4zyYecYWMPa9zR7F3lcfN21YTXsQmzbT9c=
+github.com/juju/worker/v5 v5.0.0/go.mod h1:cgCHz2U1uGuCKRFGTdD57OWg2m80z7vFiED3mBlemQE=
 github.com/juju/yaml/v2 v2.0.0 h1:94MzcdkHMB4w2AaC6VJ2NQ6YzMhoEFh2OIhMSvyevnc=
 github.com/juju/yaml/v2 v2.0.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 github.com/julienschmidt/httprouter v1.1.1-0.20151013225520-77a895ad01eb/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=

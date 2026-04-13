@@ -104,7 +104,7 @@ type ApplicationSpec struct {
 	// that were uploaded to the controller.
 	// A resource value can either be an integer revision number,
 	// or a string holding a path to a local resource file.
-	Resources map[string]interface{} `yaml:",omitempty" json:",omitempty"`
+	Resources map[string]any `yaml:",omitempty" json:",omitempty"`
 
 	// NumUnits holds the number of units of the
 	// application that will be deployed.
@@ -194,7 +194,7 @@ type ApplicationSpec struct {
 	// Options holds the configuration values
 	// to apply to the new application. They should
 	// be compatible with the charm configuration.
-	Options map[string]interface{} `json:",omitempty" yaml:",omitempty"`
+	Options map[string]any `json:",omitempty" yaml:",omitempty"`
 
 	// Annotations holds any annotations to apply to the
 	// application when deployed.
@@ -258,7 +258,7 @@ func (bd *BundleData) UnmarshalJSON(b []byte) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (bd *BundleData) UnmarshalYAML(f func(interface{}) error) error {
+func (bd *BundleData) UnmarshalYAML(f func(any) error) error {
 	var in bundleData
 	if err := f(&in); err != nil {
 		return err
@@ -393,7 +393,7 @@ type bundleDataVerifier struct {
 	verifyDevices     func(s string) error
 }
 
-func (verifier *bundleDataVerifier) addErrorf(f string, a ...interface{}) {
+func (verifier *bundleDataVerifier) addErrorf(f string, a ...any) {
 	verifier.addError(fmt.Errorf(f, a...))
 }
 

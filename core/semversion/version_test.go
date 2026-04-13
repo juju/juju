@@ -324,8 +324,8 @@ func (*suite) TestParseBinary(c *tc.C) {
 
 var marshallers = []struct {
 	name      string
-	marshal   func(interface{}) ([]byte, error)
-	unmarshal func([]byte, interface{}) error
+	marshal   func(any) ([]byte, error)
+	unmarshal func([]byte, any) error
 }{{
 	name:      "json",
 	marshal:   json.Marshal,

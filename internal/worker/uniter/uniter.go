@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent/tools"
@@ -895,7 +895,7 @@ func (u *Uniter) reportHookError(ctx stdcontext.Context, hookInfo hook.Info) err
 	// after attempting a runHookOp.
 	hookName := string(hookInfo.Kind)
 	hookMessage := string(hookInfo.Kind)
-	statusData := map[string]interface{}{}
+	statusData := map[string]any{}
 	if hookInfo.Kind.IsRelation() {
 		statusData["relation-id"] = hookInfo.RelationId
 		if hookInfo.RemoteUnit != "" {
@@ -929,8 +929,8 @@ func (u *Uniter) Terminate() error {
 }
 
 // Report provides information for the engine report.
-func (u *Uniter) Report() map[string]interface{} {
-	result := make(map[string]interface{})
+func (u *Uniter) Report(ctx stdcontext.Context) map[string]any {
+	result := make(map[string]any)
 
 	// We need to guard against attempting to report when setting up or dying,
 	// so we don't end up panic'ing with missing information.
@@ -938,13 +938,13 @@ func (u *Uniter) Report() map[string]interface{} {
 		result["unit"] = u.unit.Name()
 	}
 	if u.operationExecutor != nil {
-		result["local-state"] = u.operationExecutor.State().Report()
+		result["local-state"] = u.operationExecutor.State().Report(ctx)
 	}
 	if u.relationStateTracker != nil {
-		result["relations"] = u.relationStateTracker.Report()
+		result["relations"] = u.relationStateTracker.Report(ctx)
 	}
 	if u.secretsTracker != nil {
-		result["secrets"] = u.secretsTracker.Report()
+		result["secrets"] = u.secretsTracker.Report(ctx)
 	}
 
 	return result

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"

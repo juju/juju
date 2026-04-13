@@ -6,7 +6,7 @@ package agenttest
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 )
 
 // AssertManifoldsDependencies asserts that given manifolds have expected dependencies.

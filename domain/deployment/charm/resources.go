@@ -25,13 +25,13 @@ var resourceSchema = schema.FieldMap(
 	},
 )
 
-func parseMetaResources(data interface{}) (map[string]resource.Meta, error) {
+func parseMetaResources(data any) (map[string]resource.Meta, error) {
 	if data == nil {
 		return nil, nil
 	}
 
 	result := make(map[string]resource.Meta)
-	for name, val := range data.(map[string]interface{}) {
+	for name, val := range data.(map[string]any) {
 		meta, err := parseResourceMeta(name, val)
 		if err != nil {
 			return nil, err
@@ -56,7 +56,7 @@ func validateMetaResources(resources map[string]resource.Meta) error {
 
 // parseResourceMeta parses the provided data into a Meta, assuming
 // that the data has first been checked with resourceSchema.
-func parseResourceMeta(name string, data interface{}) (resource.Meta, error) {
+func parseResourceMeta(name string, data any) (resource.Meta, error) {
 	meta := resource.Meta{
 		Name: name,
 	}
@@ -64,7 +64,7 @@ func parseResourceMeta(name string, data interface{}) (resource.Meta, error) {
 	if data == nil {
 		return meta, nil
 	}
-	rMap := data.(map[string]interface{})
+	rMap := data.(map[string]any)
 
 	if val := rMap["type"]; val != nil {
 		var err error

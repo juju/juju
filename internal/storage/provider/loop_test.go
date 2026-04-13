@@ -44,11 +44,11 @@ func (s *loopSuite) loopProvider(c *tc.C) storage.Provider {
 
 func (s *loopSuite) TestVolumeSource(c *tc.C) {
 	p := s.loopProvider(c)
-	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.VolumeSource(cfg)
 	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
-	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
+	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]any{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *loopSuite) TestVolumeSource(c *tc.C) {
 
 func (s *loopSuite) TestValidateConfig(c *tc.C) {
 	p := s.loopProvider(c)
-	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
+	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]any{})
 	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	// The loop provider does not have any user

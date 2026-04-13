@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -487,6 +487,6 @@ func (w *Worker) handleModelDying(ctx context.Context) error {
 }
 
 // Report provides information for the engine report.
-func (w *Worker) Report() map[string]interface{} {
-	return w.runner.Report()
+func (w *Worker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }

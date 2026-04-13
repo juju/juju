@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"context"
+	"maps"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -27,12 +28,8 @@ var _ environs.ProviderCredentials = (*environProviderCredentials)(nil)
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	schemas := make(map[cloud.AuthType]cloud.CredentialSchema)
-	for k, v := range k8scloud.SupportedCredentialSchemas {
-		schemas[k] = v
-	}
-	for k, v := range k8scloud.LegacyCredentialSchemas {
-		schemas[k] = v
-	}
+	maps.Copy(schemas, k8scloud.SupportedCredentialSchemas)
+	maps.Copy(schemas, k8scloud.LegacyCredentialSchemas)
 	return schemas
 }
 

@@ -552,17 +552,17 @@ func (c *MockTrackedObjectStoreRemoveAllCall) DoAndReturn(f func(context.Context
 }
 
 // Report mocks base method.
-func (m *MockTrackedObjectStore) Report() map[string]any {
+func (m *MockTrackedObjectStore) Report(arg0 context.Context) map[string]any {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Report")
+	ret := m.ctrl.Call(m, "Report", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	return ret0
 }
 
 // Report indicates an expected call of Report.
-func (mr *MockTrackedObjectStoreMockRecorder) Report() *MockTrackedObjectStoreReportCall {
+func (mr *MockTrackedObjectStoreMockRecorder) Report(arg0 any) *MockTrackedObjectStoreReportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockTrackedObjectStore)(nil).Report))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockTrackedObjectStore)(nil).Report), arg0)
 	return &MockTrackedObjectStoreReportCall{Call: call}
 }
 
@@ -578,13 +578,13 @@ func (c *MockTrackedObjectStoreReportCall) Return(arg0 map[string]any) *MockTrac
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockTrackedObjectStoreReportCall) Do(f func() map[string]any) *MockTrackedObjectStoreReportCall {
+func (c *MockTrackedObjectStoreReportCall) Do(f func(context.Context) map[string]any) *MockTrackedObjectStoreReportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockTrackedObjectStoreReportCall) DoAndReturn(f func() map[string]any) *MockTrackedObjectStoreReportCall {
+func (c *MockTrackedObjectStoreReportCall) DoAndReturn(f func(context.Context) map[string]any) *MockTrackedObjectStoreReportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

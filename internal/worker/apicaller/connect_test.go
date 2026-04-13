@@ -67,10 +67,10 @@ func testEntityFine(c *tc.C, life apiagent.Life) {
 	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
-		Args:     []interface{}{entity},
+		Args:     []any{entity},
 	}, {
 		FuncName: "SetPassword",
-		Args:     []interface{}{entity, "new"},
+		Args:     []any{entity, "new"},
 	}})
 }
 
@@ -96,7 +96,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *tc.C) {
 	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
-		Args:     []interface{}{entity},
+		Args:     []any{entity},
 	}, {
 		FuncName: "Close",
 	}})
@@ -125,7 +125,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *tc.C) {
 	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
-		Args:     []interface{}{entity},
+		Args:     []any{entity},
 	}, {
 		FuncName: "Close",
 	}})
@@ -153,7 +153,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `unknown life value "zombie"`)
 	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Life",
-		Args:     []interface{}{entity},
+		Args:     []any{entity},
 	}, {
 		FuncName: "Close",
 	}})
@@ -280,14 +280,14 @@ func checkSaneChange(c *tc.C, calls []testhelpers.StubCall) {
 
 	c.Check(localSet, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetPassword",
-		Args:     []interface{}{chosePassword},
+		Args:     []any{chosePassword},
 	})
 	c.Check(localSetOld, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetOldPassword",
-		Args:     []interface{}{"old"},
+		Args:     []any{"old"},
 	})
 	c.Check(remoteSet, tc.DeepEquals, testhelpers.StubCall{
 		FuncName: "SetPassword",
-		Args:     []interface{}{names.NewApplicationTag("omg"), chosePassword},
+		Args:     []any{names.NewApplicationTag("omg"), chosePassword},
 	})
 }

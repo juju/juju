@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -126,8 +126,8 @@ func (w *remoteWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *remoteWorker) Report() map[string]any {
-	return w.runner.Report()
+func (w *remoteWorker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 // GetConnectionForModel returns the remote API connection for the
@@ -236,7 +236,7 @@ func (w *connectionWorker) Connection() api.Connection {
 	return w.conn
 }
 
-func (w *connectionWorker) Report() map[string]any {
+func (w *connectionWorker) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"addresses":       w.apiInfo.Addrs,
 		"controller-uuid": w.apiInfo.ControllerUUID,

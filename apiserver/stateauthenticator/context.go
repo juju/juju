@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"sync"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -282,10 +283,8 @@ func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (
 	// it.
 	// TODO (stickupkid): This should just be a switch. We don't need to loop
 	// through all the agent tags, it's pointless.
-	for _, kind := range AgentTags {
-		if tag.Kind() == kind {
-			return a.agentAuthenticator, nil
-		}
+	if slices.Contains(AgentTags, tag.Kind()) {
+		return a.agentAuthenticator, nil
 	}
 	return nil, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected login entity tag")
 }

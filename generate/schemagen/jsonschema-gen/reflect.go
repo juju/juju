@@ -15,9 +15,9 @@ import (
 
 // Cache the following types to special case them for speed.
 var (
-	timeType = reflect.TypeOf(time.Time{})
-	ipType   = reflect.TypeOf(net.IP{})
-	urlType  = reflect.TypeOf(url.URL{})
+	timeType = reflect.TypeFor[time.Time]()
+	ipType   = reflect.TypeFor[net.IP]()
+	urlType  = reflect.TypeFor[url.URL]()
 )
 
 // Type represents a JSON Schema type.
@@ -33,8 +33,8 @@ type Type struct {
 	MaxLength            int              `json:"maxLength,omitempty"`
 	MinLength            int              `json:"minLength,omitempty"`
 	Pattern              string           `json:"pattern,omitempty"`
-	Enum                 []interface{}    `json:"enum,omitempty"`
-	Default              interface{}      `json:"default,omitempty"`
+	Enum                 []any            `json:"enum,omitempty"`
+	Default              any              `json:"default,omitempty"`
 	Title                string           `json:"title,omitempty"`
 	Description          string           `json:"description,omitempty"`
 }
@@ -46,7 +46,7 @@ type Schema struct {
 }
 
 // Reflect a Schema from a value.
-func Reflect(v interface{}) *Schema {
+func Reflect(v any) *Schema {
 	return ReflectFromType(reflect.TypeOf(v))
 }
 
@@ -177,9 +177,7 @@ func reflectStructFields(st *Type, definitions Definitions, t reflect.Type) {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-
+	for f := range t.Fields() {
 		name, required, embedded := reflectFieldName(f)
 		if name == "" {
 			continue

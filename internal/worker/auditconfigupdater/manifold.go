@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -104,7 +104,7 @@ type withCurrentConfig interface {
 	CurrentConfig() auditlog.Config
 }
 
-func output(in worker.Worker, out interface{}) error {
+func output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}

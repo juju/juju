@@ -28,11 +28,11 @@ type TestUser struct {
 	SomeBaseType
 	nonExported
 
-	ID        int                    `json:"id"`
-	Name      string                 `json:"name"`
-	Friends   []int                  `json:"friends,omitempty"`
-	Tags      map[string]interface{} `json:"tags,omitempty"`
-	BirthDate time.Time              `json:"birth_date,omitempty"`
+	ID        int            `json:"id"`
+	Name      string         `json:"name"`
+	Friends   []int          `json:"friends,omitempty"`
+	Tags      map[string]any `json:"tags,omitempty"`
+	BirthDate time.Time      `json:"birth_date,omitempty"`
 
 	TestFlag       bool
 	IgnoredCounter int `json:"-"`

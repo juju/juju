@@ -12,7 +12,7 @@ type KubernetesFilesystemParams struct {
 	StorageName string                                `json:"storagename"`
 	Size        uint64                                `json:"size"`
 	Provider    string                                `json:"provider"`
-	Attributes  map[string]interface{}                `json:"attributes,omitempty"`
+	Attributes  map[string]any                        `json:"attributes,omitempty"`
 	Tags        map[string]string                     `json:"tags,omitempty"`
 	Attachment  *KubernetesFilesystemAttachmentParams `json:"attachment,omitempty"`
 }
@@ -29,7 +29,7 @@ type KubernetesVolumeParams struct {
 	StorageName string                            `json:"storagename"`
 	Size        uint64                            `json:"size"`
 	Provider    string                            `json:"provider"`
-	Attributes  map[string]interface{}            `json:"attributes,omitempty"`
+	Attributes  map[string]any                    `json:"attributes,omitempty"`
 	Tags        map[string]string                 `json:"tags,omitempty"`
 	Attachment  *KubernetesVolumeAttachmentParams `json:"attachment,omitempty"`
 }
@@ -44,28 +44,28 @@ type KubernetesVolumeAttachmentParams struct {
 // KubernetesFilesystemInfo describes a storage filesystem in the cloud
 // as reported to the model.
 type KubernetesFilesystemInfo struct {
-	StorageName  string                 `json:"storagename"`
-	Pool         string                 `json:"pool"`
-	Size         uint64                 `json:"size"`
-	MountPoint   string                 `json:"mount-point,omitempty"`
-	ReadOnly     bool                   `json:"read-only,omitempty"`
-	FilesystemId string                 `json:"filesystem-id"`
-	Status       string                 `json:"status"`
-	Info         string                 `json:"info"`
-	Data         map[string]interface{} `json:"data,omitempty"`
-	Volume       KubernetesVolumeInfo   `json:"volume"`
+	StorageName  string               `json:"storagename"`
+	Pool         string               `json:"pool"`
+	Size         uint64               `json:"size"`
+	MountPoint   string               `json:"mount-point,omitempty"`
+	ReadOnly     bool                 `json:"read-only,omitempty"`
+	FilesystemId string               `json:"filesystem-id"`
+	Status       string               `json:"status"`
+	Info         string               `json:"info"`
+	Data         map[string]any       `json:"data,omitempty"`
+	Volume       KubernetesVolumeInfo `json:"volume"`
 }
 
 // KubernetesVolumeInfo describes a storage volume in the cloud
 // as reported to the model.
 type KubernetesVolumeInfo struct {
-	VolumeId   string                 `json:"volume-id"`
-	Pool       string                 `json:"pool,omitempty"`
-	Size       uint64                 `json:"size"`
-	Persistent bool                   `json:"persistent"`
-	Status     string                 `json:"status"`
-	Info       string                 `json:"info"`
-	Data       map[string]interface{} `json:"data,omitempty"`
+	VolumeId   string         `json:"volume-id"`
+	Pool       string         `json:"pool,omitempty"`
+	Size       uint64         `json:"size"`
+	Persistent bool           `json:"persistent"`
+	Status     string         `json:"status"`
+	Info       string         `json:"info"`
+	Data       map[string]any `json:"data,omitempty"`
 }
 
 // DeviceType defines a device type.

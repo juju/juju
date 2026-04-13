@@ -43,7 +43,7 @@ type Action struct {
 	ID         string
 	Receiver   string
 	Name       string
-	Parameters map[string]interface{}
+	Parameters map[string]any
 }
 
 // ActionResult is the result of running an action.
@@ -55,7 +55,7 @@ type ActionResult struct {
 	Status    string
 	Message   string
 	Log       []ActionMessage
-	Output    map[string]interface{}
+	Output    map[string]any
 	Error     error
 }
 
@@ -70,7 +70,7 @@ type EnqueuedActions struct {
 // http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
 type ActionSpec struct {
 	Description string
-	Params      map[string]interface{}
+	Params      map[string]any
 }
 
 // OperationQueryArgs holds args for listing operations.

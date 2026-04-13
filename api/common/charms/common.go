@@ -6,6 +6,7 @@ package charms
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -262,9 +263,7 @@ func convertCharmLXDProfile(lxdProfile *params.CharmLXDProfile) *charm.LXDProfil
 
 func convertCharmLXDProfileConfigMap(config map[string]string) map[string]string {
 	result := make(map[string]string, len(config))
-	for k, v := range config {
-		result[k] = v
-	}
+	maps.Copy(result, config)
 	return result
 }
 
@@ -272,9 +271,7 @@ func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[
 	result := make(map[string]map[string]string, len(devices))
 	for k, v := range devices {
 		nested := make(map[string]string, len(v))
-		for nk, nv := range v {
-			nested[nk] = nv
-		}
+		maps.Copy(nested, v)
 		result[k] = nested
 	}
 	return result

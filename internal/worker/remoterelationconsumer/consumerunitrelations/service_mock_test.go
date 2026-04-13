@@ -181,17 +181,17 @@ func (c *MockReportableWorkerKillCall) DoAndReturn(f func()) *MockReportableWork
 }
 
 // Report mocks base method.
-func (m *MockReportableWorker) Report() map[string]any {
+func (m *MockReportableWorker) Report(ctx context.Context) map[string]any {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Report")
+	ret := m.ctrl.Call(m, "Report", ctx)
 	ret0, _ := ret[0].(map[string]any)
 	return ret0
 }
 
 // Report indicates an expected call of Report.
-func (mr *MockReportableWorkerMockRecorder) Report() *MockReportableWorkerReportCall {
+func (mr *MockReportableWorkerMockRecorder) Report(ctx any) *MockReportableWorkerReportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockReportableWorker)(nil).Report))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockReportableWorker)(nil).Report), ctx)
 	return &MockReportableWorkerReportCall{Call: call}
 }
 
@@ -207,13 +207,13 @@ func (c *MockReportableWorkerReportCall) Return(arg0 map[string]any) *MockReport
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReportableWorkerReportCall) Do(f func() map[string]any) *MockReportableWorkerReportCall {
+func (c *MockReportableWorkerReportCall) Do(f func(context.Context) map[string]any) *MockReportableWorkerReportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReportableWorkerReportCall) DoAndReturn(f func() map[string]any) *MockReportableWorkerReportCall {
+func (c *MockReportableWorkerReportCall) DoAndReturn(f func(context.Context) map[string]any) *MockReportableWorkerReportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

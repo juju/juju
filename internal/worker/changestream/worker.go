@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -151,8 +151,8 @@ func (w *changeStreamWorker) Wait() error {
 }
 
 // Report returns a map of the worker's status.
-func (w *changeStreamWorker) Report() map[string]any {
-	return w.runner.Report()
+func (w *changeStreamWorker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 // GetWatchableDB returns a new WatchableDB for the given namespace.

@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"maps"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -41,9 +43,7 @@ func (suite *maasSuite) makeEnviron(c *tc.C, controller gomaasapi.Controller) *m
 		suite.injectController(controller)
 	}
 	testAttrs := coretesting.Attrs{}
-	for k, v := range maasEnvAttrs {
-		testAttrs[k] = v
-	}
+	maps.Copy(testAttrs, maasEnvAttrs)
 	testAttrs["agent-version"] = version.Current.String()
 
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{

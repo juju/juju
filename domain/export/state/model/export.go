@@ -109,6 +109,10 @@ func (st *State) Export(ctx context.Context) (*v4_0_4.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExtraEndpoint statement: %w", err)
 	}
+	stmtApplicationK8sResourcesManaged, err := sqlair.Prepare(`SELECT &ApplicationK8sResourcesManaged.* FROM "application_k8s_resources_managed"`, v4_0_4.ApplicationK8sResourcesManaged{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApplicationK8sResourcesManaged statement: %w", err)
+	}
 	stmtApplicationPlatform, err := sqlair.Prepare(`SELECT &ApplicationPlatform.* FROM "application_platform"`, v4_0_4.ApplicationPlatform{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationPlatform statement: %w", err)
@@ -1057,6 +1061,9 @@ func (st *State) Export(ctx context.Context) (*v4_0_4.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtApplicationExtraEndpoint).GetAll(&modelExport.ApplicationExtraEndpoint); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationExtraEndpoint (table application_extra_endpoint): %w", err)
+		}
+		if err := tx.Query(ctx, stmtApplicationK8sResourcesManaged).GetAll(&modelExport.ApplicationK8sResourcesManaged); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApplicationK8sResourcesManaged (table application_k8s_resources_managed): %w", err)
 		}
 		if err := tx.Query(ctx, stmtApplicationPlatform).GetAll(&modelExport.ApplicationPlatform); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationPlatform (table application_platform): %w", err)

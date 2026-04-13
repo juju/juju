@@ -26,7 +26,7 @@ var configDefaults = schema.Defaults{}
 
 type maasModelConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*maasModelConfig, error) {

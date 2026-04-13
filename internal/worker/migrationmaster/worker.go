@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
@@ -308,16 +308,16 @@ func (w *Worker) killed() bool {
 	}
 }
 
-func (w *Worker) setInfoStatus(ctx context.Context, s string, a ...interface{}) {
+func (w *Worker) setInfoStatus(ctx context.Context, s string, a ...any) {
 	w.setStatusAndLog(ctx, w.logger.Infof, s, a...)
 }
 
-func (w *Worker) setErrorStatus(ctx context.Context, s string, a ...interface{}) {
+func (w *Worker) setErrorStatus(ctx context.Context, s string, a ...any) {
 	w.lastFailure = fmt.Sprintf(s, a...)
 	w.setStatusAndLog(ctx, w.logger.Errorf, s, a...)
 }
 
-func (w *Worker) setStatusAndLog(ctx context.Context, log func(context.Context, string, ...interface{}), s string, a ...interface{}) {
+func (w *Worker) setStatusAndLog(ctx context.Context, log func(context.Context, string, ...any), s string, a ...any) {
 	message := fmt.Sprintf(s, a...)
 	log(ctx, message)
 	if err := w.setStatus(ctx, message); err != nil {

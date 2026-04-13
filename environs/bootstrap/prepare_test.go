@@ -96,7 +96,7 @@ func (s *PrepareSuite) assertPrepare(c *tc.C, skipVerify bool) {
 			controller.APIPort:                 17777,
 			controller.SetNUMAControlPolicyKey: true,
 		},
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"firewall-mode":             "instance",
 			"ssl-hostname-verification": true,
 			"logging-config":            "<root>=INFO",

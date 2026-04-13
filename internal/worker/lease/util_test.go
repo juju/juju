@@ -178,7 +178,7 @@ func (store *Store) closeIfEmpty() {
 }
 
 // call implements the bulk of the lease.Store interface.
-func (store *Store) call(method string, args []interface{}) error {
+func (store *Store) call(method string, args []any) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
@@ -226,26 +226,26 @@ func (store *Store) call(method string, args []interface{}) error {
 
 // ClaimLease is part of the corelease.Store interface.
 func (store *Store) ClaimLease(_ context.Context, key lease.Key, request lease.Request) error {
-	return store.call("ClaimLease", []interface{}{key, request})
+	return store.call("ClaimLease", []any{key, request})
 }
 
 // ExtendLease is part of the corelease.Store interface.
 func (store *Store) ExtendLease(_ context.Context, key lease.Key, request lease.Request) error {
-	return store.call("ExtendLease", []interface{}{key, request})
+	return store.call("ExtendLease", []any{key, request})
 }
 
 func (store *Store) RevokeLease(_ context.Context, lease lease.Key, holder string) error {
-	return store.call("RevokeLease", []interface{}{lease, holder})
+	return store.call("RevokeLease", []any{lease, holder})
 }
 
 // PinLease is part of the corelease.Store interface.
 func (store *Store) PinLease(_ context.Context, key lease.Key, entity string) error {
-	return store.call("PinLease", []interface{}{key, entity})
+	return store.call("PinLease", []any{key, entity})
 }
 
 // UnpinLease is part of the corelease.Store interface.
 func (store *Store) UnpinLease(_ context.Context, key lease.Key, entity string) error {
-	return store.call("UnpinLease", []interface{}{key, entity})
+	return store.call("UnpinLease", []any{key, entity})
 }
 
 func (store *Store) Pinned(_ context.Context) (map[lease.Key][]string, error) {
@@ -271,7 +271,7 @@ type call struct {
 	method string
 
 	// args is the expected arguments.
-	args []interface{}
+	args []any
 
 	// err is the error to return.
 	err error

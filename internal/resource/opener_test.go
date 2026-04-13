@@ -372,7 +372,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 	s.unleash.Lock()
 	start := sync.WaitGroup{}
 	finished := sync.WaitGroup{}
-	for i := 0; i < numConcurrentRequests; i++ {
+	for range numConcurrentRequests {
 		start.Add(1)
 		finished.Add(1)
 		s.expectNewUnitResourceOpener(c)

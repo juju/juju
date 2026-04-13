@@ -86,7 +86,7 @@ func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	c.Assert(token.Issuer(), tc.Equals, "test")
 	c.Assert(token.Audience(), tc.DeepEquals, []string{"controller-1"})
 	c.Assert(token.Expiration().After(token.IssuedAt()), tc.Equals, true)
-	c.Assert(claims["access"], tc.DeepEquals, map[string]interface{}{"model-1": "read"})
+	c.Assert(claims["access"], tc.DeepEquals, map[string]any{"model-1": "read"})
 }
 
 // NewJWKSet returns a new key set and signing key.

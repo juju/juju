@@ -94,7 +94,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -159,7 +159,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -233,7 +233,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -323,7 +323,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 		ModelName:      "fred",
 		BackendConfig: provider.BackendConfig{
 			BackendType: "vault",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -360,7 +360,7 @@ func (s *providerSuite) TestNewBackend(c *tc.C) {
 		ModelUUID: coretesting.ModelTag.Id(),
 		BackendConfig: provider.BackendConfig{
 			BackendType: jujuvault.BackendType,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"namespace":       "ns",
 				"token":           "vault-token",
@@ -386,7 +386,7 @@ func (s *providerSuite) TestNewBackendWithMountPath(c *tc.C) {
 		ModelUUID: coretesting.ModelTag.Id(),
 		BackendConfig: provider.BackendConfig{
 			BackendType: jujuvault.BackendType,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault-ip:8200/",
 				"token":           "vault-token",
 				"mount-path":      "/some/path/",

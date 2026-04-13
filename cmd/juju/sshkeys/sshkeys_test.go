@@ -42,7 +42,7 @@ func TestListKeysSuite(t *testing.T) {
 func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
@@ -71,7 +71,7 @@ func (s *ListKeysSuite) TestListKeys(c *tc.C) {
 func (s *ListKeysSuite) TestListKeysWithModelUUID(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
@@ -102,7 +102,7 @@ func (s *ListKeysSuite) TestListKeysWithModelUUID(c *tc.C) {
 func (s *ListKeysSuite) TestListFullKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ListKeys")
@@ -147,7 +147,7 @@ func (s *AddKeySuite) TestAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	var added []string
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "AddKeys")
@@ -173,7 +173,7 @@ func (s *AddKeySuite) TestAddKey(c *tc.C) {
 func (s *AddKeySuite) TestBlockAddKey(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "AddKeys")
@@ -207,7 +207,7 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
 	var removed []string
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "DeleteKeys")
@@ -233,7 +233,7 @@ func (s *RemoveKeySuite) TestRemoveKeys(c *tc.C) {
 func (s *RemoveKeySuite) TestBlockRemoveKeys(c *tc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " (user@host)"
 	key2 := sshtesting.ValidKeyTwo.Key + " (another@host)"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "DeleteKeys")
@@ -267,7 +267,7 @@ func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 	key1 := "lp:user1"
 	key2 := "gh:user2"
 	var imported []string
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ImportKeys")
@@ -293,7 +293,7 @@ func (s *ImportKeySuite) TestImportKeys(c *tc.C) {
 func (s *ImportKeySuite) TestBlockImportKeys(c *tc.C) {
 	key1 := "lp:user1"
 	key2 := "gh:user2"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "KeyManager")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "ImportKeys")

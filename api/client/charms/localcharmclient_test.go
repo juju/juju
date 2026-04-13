@@ -293,7 +293,7 @@ type httpURLMatcher struct {
 	expectedURL string
 }
 
-func (m httpURLMatcher) Matches(x interface{}) bool {
+func (m httpURLMatcher) Matches(x any) bool {
 	req, ok := x.(*http.Request)
 	if !ok {
 		return false

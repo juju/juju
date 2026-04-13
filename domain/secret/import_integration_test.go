@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 

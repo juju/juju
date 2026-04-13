@@ -481,7 +481,7 @@ func (s *ConfigSuite) TestResourceDownloadLimits(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"application-resource-download-limit": "42",
 			"controller-resource-download-limit":  "666",
 		},
@@ -501,7 +501,7 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"max-txn-log-size": "8G",
 		},
 	)
@@ -520,7 +520,7 @@ func (s *ConfigSuite) TestMaxPruneTxnConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"max-prune-txn-batch-size": "12345678",
 			"max-prune-txn-passes":     "10",
 		},
@@ -534,7 +534,7 @@ func (s *ConfigSuite) TestPruneTxnQueryCount(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"prune-txn-query-count": "500",
 			"prune-txn-sleep-time":  "5ms",
 		},
@@ -548,7 +548,7 @@ func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"public-dns-address": "controller.test.com:12345",
 		},
 	)
@@ -562,7 +562,7 @@ func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
@@ -574,7 +574,7 @@ func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{},
+		map[string]any{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.JujuManagementSpace(), tc.Equals, network.SpaceName(""))
@@ -595,7 +595,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"auditing-enabled":          false,
 			"audit-log-capture-args":    true,
 			"audit-log-max-size":        "100M",
@@ -619,7 +619,7 @@ func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"audit-log-exclude-methods": []int{2, 3, 4},
 		},
 	)
@@ -641,7 +641,7 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.JujuManagementSpace: managementSpace,
 		},
 	)
@@ -655,7 +655,7 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{},
+		map[string]any{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.AsSpaceConstraints(nil), tc.IsNil)
@@ -696,7 +696,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *tc.C) {
 		cfg, err := controller.NewConfig(
 			testing.ControllerTag.Id(),
 			testing.CACert,
-			map[string]interface{}{
+			map[string]any{
 				controller.CAASImageRepo: imageRepo.content,
 			},
 		)
@@ -716,7 +716,7 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.ControllerName: "test",
 		},
 	)
@@ -728,7 +728,7 @@ func (s *ConfigSuite) TestMaxDebugLogDuration(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"max-debug-log-duration": "90m",
 		},
 	)
@@ -740,7 +740,7 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"max-debug-log-duration": "12",
 		},
 	)
@@ -751,7 +751,7 @@ func (s *ConfigSuite) TestFeatureFlags(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.Features: "foo,bar",
 		},
 	)
@@ -763,7 +763,7 @@ func (s *ConfigSuite) TestDefaults(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{},
+		map[string]any{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.AgentRateLimitMax(), tc.Equals, controller.DefaultAgentRateLimitMax)
@@ -785,7 +785,7 @@ func (s *ConfigSuite) TestAgentLogfile(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"agent-logfile-max-size":    "35M",
 			"agent-logfile-max-backups": "17",
 		},
@@ -799,7 +799,7 @@ func (s *ConfigSuite) TestAgentLogfileBackupErr(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"agent-logfile-max-backups": "two",
 		},
 	)
@@ -810,7 +810,7 @@ func (s *ConfigSuite) TestModelLogfile(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"model-logfile-max-size":    "25M",
 			"model-logfile-max-backups": "15",
 		},
@@ -824,7 +824,7 @@ func (s *ConfigSuite) TestModelLogfileBackupErr(c *tc.C) {
 	_, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"model-logfile-max-backups": "two",
 		},
 	)
@@ -835,7 +835,7 @@ func (s *ConfigSuite) TestAgentRateLimitMax(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			"agent-ratelimit-max": "0",
 		},
 	)
@@ -946,7 +946,7 @@ func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.OpenTelemetryEndpoint: mURL,
 		},
 	)
@@ -982,7 +982,7 @@ func (s *ConfigSuite) TestSSHServerPort(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.SSHServerPort: 10,
 		},
 	)
@@ -994,7 +994,7 @@ func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.SSHMaxConcurrentConnections: 10,
 		},
 	)
@@ -1007,7 +1007,7 @@ func (s *ConfigSuite) TestObjectStoreType(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.ObjectStoreType: backendType,
 		},
 	)
@@ -1019,7 +1019,7 @@ func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
 		},
 	)
@@ -1031,7 +1031,7 @@ func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
-		map[string]interface{}{
+		map[string]any{
 			controller.ObjectStoreS3StaticKey:     "key",
 			controller.ObjectStoreS3StaticSecret:  "secret",
 			controller.ObjectStoreS3StaticSession: "session",

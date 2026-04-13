@@ -28,11 +28,11 @@ type BlockCheckerGetter func(ctx context.Context, modelUUID coremodel.UUID) (com
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("ModelManager", 10, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newFacadeV10(stdCtx, ctx)
-	}, reflect.TypeOf((*ModelManagerAPIV10)(nil)))
+	}, reflect.TypeFor[*ModelManagerAPIV10]())
 	// v11 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegisterForMultiModel("ModelManager", 11, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newFacadeV11(stdCtx, ctx)
-	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
+	}, reflect.TypeFor[*ModelManagerAPI]())
 }
 
 // newFacadeV10 is used for API registration.

@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("HostKeyReporter", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+	}, reflect.TypeFor[*Facade]())
 }
 
 // newFacade wraps New to express the supplied *state.State as a Backend.

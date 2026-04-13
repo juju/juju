@@ -136,7 +136,7 @@ func (oes *overrideEnvStream) Config() *config.Config {
 	if oes.stream == "" {
 		return cfg
 	}
-	newCfg, err := cfg.Apply(map[string]interface{}{"image-stream": oes.stream})
+	newCfg, err := cfg.Apply(map[string]any{"image-stream": oes.stream})
 	if err != nil {
 		// This should never happen.
 		panic(errors.Errorf("unexpected error making override config: %v", err))
@@ -164,7 +164,7 @@ func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(ctx, fetcher, params)
 	if err != nil {
 		if resolveInfo != nil {
-			metadata := map[string]interface{}{
+			metadata := map[string]any{
 				"Resolve Metadata": *resolveInfo,
 			}
 			buff := &bytes.Buffer{}
@@ -175,7 +175,7 @@ func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if len(images) > 0 {
-		metadata := map[string]interface{}{
+		metadata := map[string]any{
 			"ImageIds":         images,
 			"Region":           params.Region,
 			"Resolve Metadata": *resolveInfo,

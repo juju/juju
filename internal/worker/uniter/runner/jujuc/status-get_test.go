@@ -30,27 +30,27 @@ func (s *statusGetSuite) SetUpTest(c *tc.C) {
 }
 
 var (
-	statusAttributes = map[string]interface{}{
+	statusAttributes = map[string]any{
 		"status":      "error",
 		"message":     "doing work",
-		"status-data": map[string]interface{}{"foo": "bar"},
+		"status-data": map[string]any{"foo": "bar"},
 	}
 )
 
 var statusGetTests = []struct {
 	args   []string
 	format int
-	out    interface{}
+	out    any
 }{
 	{[]string{"--format", "json", "--include-data"}, formatJson, statusAttributes},
-	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
+	{[]string{"--format", "yaml"}, formatYaml, map[string]any{"status": "error"}},
 }
 
 func setFakeStatus(c *tc.C, ctx *Context) {
 	ctx.SetUnitStatus(c.Context(), jujuc.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
-		Data:   statusAttributes["status-data"].(map[string]interface{}),
+		Data:   statusAttributes["status-data"].(map[string]any),
 	})
 }
 
@@ -81,8 +81,8 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *tc.C) {
 		c.Assert(code, tc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
-		var out interface{}
-		var outMap map[string]interface{}
+		var out any
+		var outMap map[string]any
 		switch t.format {
 		case formatYaml:
 			c.Check(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
@@ -110,20 +110,20 @@ func (s *statusGetSuite) TestOutputPath(c *tc.C) {
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	var out map[string]interface{}
+	var out map[string]any
 	c.Assert(json.Unmarshal(content, &out), tc.IsNil)
 	c.Assert(out, tc.DeepEquals, statusAttributes)
 }
 
 func (s *statusGetSuite) TestApplicationStatus(c *tc.C) {
-	expected := map[string]interface{}{
-		"application-status": map[interface{}]interface{}{
-			"status-data": map[interface{}]interface{}{},
-			"units": map[interface{}]interface{}{
-				"": map[interface{}]interface{}{
+	expected := map[string]any{
+		"application-status": map[any]any{
+			"status-data": map[any]any{},
+			"units": map[any]any{
+				"": map[any]any{
 					"message":     "this is a unit status",
 					"status":      "active",
-					"status-data": map[interface{}]interface{}{},
+					"status-data": map[any]any{},
 				},
 			},
 			"message": "this is a application status",
@@ -137,7 +137,7 @@ func (s *statusGetSuite) TestApplicationStatus(c *tc.C) {
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--include-data", "--application"})
 	c.Assert(code, tc.Equals, 0)
 
-	var out map[string]interface{}
+	var out map[string]any
 	c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), tc.IsNil)
 	c.Assert(out, tc.DeepEquals, expected)
 

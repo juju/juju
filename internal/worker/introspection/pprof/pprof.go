@@ -178,8 +178,8 @@ func (name handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Index responds to a request for "/debug/pprof/" with an HTML page
 // listing the available profiles.
 func Index(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/debug/pprof/") {
-		name := strings.TrimPrefix(r.URL.Path, "/debug/pprof/")
+	if after, ok := strings.CutPrefix(r.URL.Path, "/debug/pprof/"); ok {
+		name := after
 		if name != "" {
 			handler(name).ServeHTTP(w, r)
 			return

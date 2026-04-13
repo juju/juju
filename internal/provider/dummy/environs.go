@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +49,7 @@ const BootstrapInstanceId = "localhost"
 var errNotPrepared = errors.New("model is not prepared")
 
 // Operation represents an action on the dummy provider.
-type Operation interface{}
+type Operation any
 
 type OpBootstrap struct {
 	Context environs.BootstrapContext
@@ -197,7 +198,7 @@ var configDefaults = schema.Defaults{
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (c *environConfig) broken() string {
@@ -340,10 +341,8 @@ func (e *environ) ecfg() *environConfig {
 }
 
 func (e *environ) checkBroken(method string) error {
-	for _, m := range strings.Fields(e.ecfg().broken()) {
-		if m == method {
-			return fmt.Errorf("dummy.%s is broken", method)
-		}
+	if slices.Contains(strings.Fields(e.ecfg().broken()), method) {
+		return fmt.Errorf("dummy.%s is broken", method)
 	}
 	return nil
 }
@@ -667,7 +666,7 @@ func (e *environ) StartInstance(ctx context.Context, args environs.StartInstance
 		if subnetsToZones == nil {
 			subnetsToZones = make(map[network.Id][]string)
 		}
-		for isn := 0; isn < 2; isn++ {
+		for isn := range 2 {
 			providerId := fmt.Sprintf("subnet-%d", isp+isn)
 			zone := fmt.Sprintf("zone%d", isp+isn)
 			subnetsToZones[network.Id(providerId)] = []string{zone}
@@ -1072,10 +1071,8 @@ func SetInstanceStatus(inst instances.Instance, status string) {
 }
 
 func (inst *dummyInstance) checkBroken(method string) error {
-	for _, m := range inst.broken {
-		if m == method {
-			return fmt.Errorf("dummyInstance.%s is broken", method)
-		}
+	if slices.Contains(inst.broken, method) {
+		return fmt.Errorf("dummyInstance.%s is broken", method)
 	}
 	return nil
 }

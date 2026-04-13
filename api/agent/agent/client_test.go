@@ -27,7 +27,7 @@ func TestClientSuite(t *testing.T) {
 }
 
 func (s *clientSuite) TestStateServingInfo(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Agent")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -63,7 +63,7 @@ func (s *clientSuite) TestIsControllerShortCircuits(c *tc.C) {
 }
 
 func (s *clientSuite) TestMachineEntity(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Agent")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

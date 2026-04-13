@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
@@ -68,7 +68,7 @@ func (mock *mockFacade) Watch(_ context.Context, uuid string) (watcher.NotifyWat
 func newMockWatcher() *mockWatcher {
 	const count = 3
 	changes := make(chan struct{}, count)
-	for i := 0; i < count; i++ {
+	for range count {
 		changes <- struct{}{}
 	}
 	return &mockWatcher{
@@ -93,7 +93,7 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, tc.DeepEquals, []interface{}{validUUID})
+		c.Check(call.Args, tc.DeepEquals, []any{validUUID})
 	}
 }
 

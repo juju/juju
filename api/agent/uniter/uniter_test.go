@@ -26,7 +26,7 @@ func TestUniterSuite(t *stdtesting.T) {
 }
 
 func (s *uniterSuite) TestProviderType(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "ProviderType")
 		c.Assert(arg, tc.IsNil)
@@ -44,7 +44,7 @@ func (s *uniterSuite) TestProviderType(c *tc.C) {
 }
 
 func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "OpenedMachinePortRangesByEndpoint")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
@@ -92,7 +92,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *tc.C) {
 }
 
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "OpenedPortRangesByEndpoint")
 		c.Assert(arg, tc.IsNil)
@@ -140,7 +140,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 }
 
 func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "OpenedPortRangesByEndpoint")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
@@ -154,7 +154,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *tc.C) 
 }
 
 func (s *uniterSuite) TestUnitWorkloadVersion(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "WorkloadVersion")
 		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
@@ -173,7 +173,7 @@ func (s *uniterSuite) TestUnitWorkloadVersion(c *tc.C) {
 }
 
 func (s *uniterSuite) TestSetUnitWorkloadVersion(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "SetWorkloadVersion")
 		c.Assert(arg, tc.DeepEquals, params.EntityWorkloadVersions{Entities: []params.EntityWorkloadVersion{{Tag: "unit-mysql-0", WorkloadVersion: "mysql-1.2.3"}}})
@@ -191,7 +191,7 @@ func (s *uniterSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 }
 
 func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "GetUnitContext")
 		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
@@ -231,7 +231,7 @@ func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
 }
 
 func (s *uniterSuite) TestGetUnitContextDecodesCharmTracingConfig(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(request, tc.Equals, "GetUnitContext")
 		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
@@ -259,7 +259,7 @@ func (s *uniterSuite) TestGetUnitContextDecodesCharmTracingConfig(c *tc.C) {
 }
 
 func (s *uniterSuite) TestGetUnitContextAPICallError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("boom")
 	})
 	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}

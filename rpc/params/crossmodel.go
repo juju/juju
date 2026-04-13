@@ -347,7 +347,7 @@ type RemoteRelationUnitChange struct {
 	UnitId int `json:"unit-id"`
 
 	// Settings is the current settings for the relation unit.
-	Settings map[string]interface{} `json:"settings,omitempty"`
+	Settings map[string]any `json:"settings,omitempty"`
 }
 
 // RemoteRelationChangeEvent is pushed to the remote model to communicate
@@ -375,7 +375,7 @@ type RemoteRelationChangeEvent struct {
 
 	// ApplicationSettings represent the updated application-level settings in
 	// this relation.
-	ApplicationSettings map[string]interface{} `json:"application-settings,omitempty"`
+	ApplicationSettings map[string]any `json:"application-settings,omitempty"`
 
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`

@@ -27,7 +27,7 @@ func (s *serverSuite) TestUpdateServerConfig(c *tc.C) {
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockInstanceServer(ctrl)
 
-	updateReq := api.ServerPut{Config: map[string]interface{}{"key1": "val1"}}
+	updateReq := api.ServerPut{Config: map[string]any{"key1": "val1"}}
 	gomock.InOrder(
 		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),

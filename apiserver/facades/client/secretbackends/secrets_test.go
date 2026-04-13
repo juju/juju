@@ -51,7 +51,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
-	addedConfig := map[string]interface{}{
+	addedConfig := map[string]any{
 		"endpoint": "http://vault",
 	}
 	s.mockBackendService.EXPECT().CreateSecretBackend(gomock.Any(), secrets.SecretBackend{
@@ -75,14 +75,14 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 				Name:                "myvault",
 				BackendType:         "vault",
 				TokenRotateInterval: new(200 * time.Minute),
-				Config:              map[string]interface{}{"endpoint": "http://vault"},
+				Config:              map[string]any{"endpoint": "http://vault"},
 			},
 		}, {
 			ID: "existing-id",
 			SecretBackend: params.SecretBackend{
 				Name:        "myvault2",
 				BackendType: "vault",
-				Config:      map[string]interface{}{"endpoint": "http://vault"},
+				Config:      map[string]any{"endpoint": "http://vault"},
 			},
 		}},
 	})
@@ -176,7 +176,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 				Result: params.SecretBackend{
 					Name:        "internal",
 					BackendType: "controller",
-					Config:      map[string]interface{}{},
+					Config:      map[string]any{},
 				},
 				ID:         coretesting.ControllerTag.Id(),
 				Status:     "active",
@@ -232,7 +232,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 			Name:                "myvault",
 			NameChange:          new("new-name"),
 			TokenRotateInterval: new(200 * time.Minute),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"endpoint":        "http://vault",
 				"namespace":       "foo",
 				"tls-server-name": "server-name",

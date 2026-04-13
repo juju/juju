@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"

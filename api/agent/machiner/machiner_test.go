@@ -26,7 +26,7 @@ func TestMachinerSuite(t *testing.T) {
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -49,9 +49,9 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *tc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *tc.C) {
-	data := map[string]interface{}{"foo": "bar"}
+	data := map[string]any{"foo": "bar"}
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -93,7 +93,7 @@ func (s *machinerSuite) TestSetStatus(c *tc.C) {
 
 func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -126,7 +126,7 @@ func (s *machinerSuite) TestEnsureDead(c *tc.C) {
 
 func (s *machinerSuite) TestRefresh(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -157,7 +157,7 @@ func (s *machinerSuite) TestRefresh(c *tc.C) {
 
 func (s *machinerSuite) TestWatch(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -191,7 +191,7 @@ func (s *machinerSuite) TestWatch(c *tc.C) {
 
 func (s *machinerSuite) TestRecordAgentStartInformation(c *tc.C) {
 	calls := 0
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Machiner")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

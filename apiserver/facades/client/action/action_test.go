@@ -394,10 +394,10 @@ func (s *actionSuite) TestApplicationsCharmsActionsSuccess(c *tc.C) {
 		ActionSpecs: map[string]internalcharm.ActionSpec{
 			"backup": {
 				Description: "Create a backup",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"target": map[string]interface{}{
+					"properties": map[string]any{
+						"target": map[string]any{
 							"type": "string",
 						},
 					},
@@ -405,7 +405,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsSuccess(c *tc.C) {
 			},
 			"restore": {
 				Description: "Restore from backup",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"type": "object",
 				},
 			},
@@ -562,7 +562,7 @@ func (s *actionSuite) TestApplicationsCharmsActionsMultipleEntities(c *tc.C) {
 		ActionSpecs: map[string]internalcharm.ActionSpec{
 			"backup": {
 				Description: "Create a backup",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"type": "object",
 				},
 			},

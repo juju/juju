@@ -91,7 +91,8 @@ func (st *State) InitialWatchRelatedUnits(
 
 			// Always include the application UUID for the initial settings,
 			// as this is the base line, so we don't want to miss it.
-			entityUUIDs := []string{domainrelation.EncodeApplicationUUID(appUUID)}
+			// For non-peer relations, this is the remote application's UUID.
+			entityUUIDs := []string{domainrelation.EncodeApplicationUUID(appUUIDForAppSettingsChange)}
 
 			// Exclude the input unit from the list of related units.
 			for _, u := range units {

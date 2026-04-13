@@ -11,13 +11,13 @@ package machineactions
 type Action struct {
 	id             string
 	name           string
-	params         map[string]interface{}
+	params         map[string]any
 	parallel       bool
 	executionGroup string
 }
 
 // NewAction makes a new Action with specified id, name and params map.
-func NewAction(id, name string, params map[string]interface{}, parallel bool, executionGroup string) *Action {
+func NewAction(id, name string, params map[string]any, parallel bool, executionGroup string) *Action {
 	return &Action{id: id, name: name, params: params, parallel: parallel, executionGroup: executionGroup}
 }
 
@@ -31,7 +31,7 @@ func (a *Action) Name() string {
 }
 
 // Params retrieves the params map of the Action.
-func (a *Action) Params() map[string]interface{} {
+func (a *Action) Params() map[string]any {
 	return a.params
 }
 

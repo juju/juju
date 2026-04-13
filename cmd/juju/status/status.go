@@ -347,7 +347,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
+func (c *statusCommand) formatYaml(writer io.Writer, value any) error {
 	var noColor bool
 
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
@@ -369,7 +369,7 @@ func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
 	return cmd.FormatYaml(writer, value)
 }
 
-func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
+func (c *statusCommand) formatOneline(writer io.Writer, value any) error {
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
 		return FormatOneline(writer, false, value)
 	}
@@ -389,7 +389,7 @@ func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error
 	return FormatOneline(writer, false, value)
 }
 
-func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
+func (c *statusCommand) formatJson(writer io.Writer, value any) error {
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
 		return cmd.FormatJson(writer, value)
 	}
@@ -409,7 +409,7 @@ func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
 	return cmd.FormatJson(writer, value)
 }
 
-func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+func (c *statusCommand) FormatTabular(writer io.Writer, value any) error {
 	if c.noColor {
 		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
 			defer os.Unsetenv("NO_COLOR")

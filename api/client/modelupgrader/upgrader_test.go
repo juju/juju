@@ -66,7 +66,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *tc.C) {
 			IgnoreAgentVersions: true,
 			DryRun:              true,
 		}, &params.UpgradeModelResult{},
-	).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result interface{}) error {
+	).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result any) error {
 		out := result.(*params.UpgradeModelResult)
 		out.ChosenVersion = semversion.MustParse("2.9.99")
 		return nil

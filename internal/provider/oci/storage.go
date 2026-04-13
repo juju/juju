@@ -33,7 +33,7 @@ var poolTypeMap map[string]poolType = map[string]poolType{
 	"iscsi": iscsiPool,
 }
 
-type StorageAPI interface{}
+type StorageAPI any
 
 type storageProvider struct {
 	env *Environ

@@ -17,7 +17,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Deployer", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewDeployerFacade(ctx)
-	}, reflect.TypeOf((*DeployerAPI)(nil)))
+	}, reflect.TypeFor[*DeployerAPI]())
 }
 
 // NewDeployerFacade creates a new server-side DeployerAPI facade.

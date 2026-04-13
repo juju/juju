@@ -4,11 +4,45 @@
 package internal
 
 import (
+	corecharm "github.com/juju/juju/core/charm"
+	coremachine "github.com/juju/juju/core/machine"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
+
+// StorageDirective defines a storage directive that already exists for either
+// an application or unit.
+type StorageDirective struct {
+	// CharmMetadataName is the metadata name of the charm the directive exists
+	// for.
+	CharmMetadataName string
+
+	// Count represents the number of storage instances that should be made for
+	// this directive. This value should be the desired count but not the limit.
+	// For the maximum supported limit see [StorageDirective.MaxCount].
+	Count uint32
+
+	// CharmStorageType represents the storage type of the charm that the
+	// directive relates to.
+	CharmStorageType domainapplicationcharm.StorageType
+
+	// MaxCount represents the maximum number of storage instances that can be
+	// made for this directive. If [domainapplicationcharm.StorageNoMaxCount] is
+	// the value, it means that no maximum exists for the storage directive.
+	MaxCount int
+
+	// Name relates to the charm storage name definition and must match up.
+	Name domainstorage.Name
+
+	// PoolUUID defines the storage pool uuid to use for the directive.
+	PoolUUID domainstorage.StoragePoolUUID
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
+}
 
 // CreateApplicationStorageDirectiveArg defines an individual storage directive to be
 // associated with an application.
@@ -394,4 +428,24 @@ type StorageInstanceCompositionVolumeAttachment struct {
 	// VolumeUUID is the unique id of the volume that is associated with this
 	// volume attachment.
 	VolumeUUID domainstorage.VolumeUUID
+}
+
+// UnitStorageRefreshArgs describes the required arguments to refresh a unit
+// to use a new charm with new storage.
+type UnitStorageRefreshArgs struct {
+	// NetNodeUUID is the net node of the unit.
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// MachineUUID is not nil when this unit exists on a machine.
+	MachineUUID *coremachine.UUID
+
+	// CurrentCharmUUID is the uuid of the current charm the unit is using.
+	CurrentCharmUUID corecharm.ID
+
+	// RefreshCharmUUID is the uuid of the refresh charm the unit will use.
+	RefreshCharmUUID corecharm.ID
+
+	// RefreshStorageDirectives is the storage directives when the unit uses the
+	// charm specified in [RefreshCharmUUID].
+	RefreshStorageDirectives []StorageDirective
 }

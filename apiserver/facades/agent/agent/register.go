@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Agent", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewAgentAPIV3(ctx)
-	}, reflect.TypeOf((*AgentAPI)(nil)))
+	}, reflect.TypeFor[*AgentAPI]())
 }
 
 // NewAgentAPIV3 returns an object implementing version 3 of the Agent API

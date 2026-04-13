@@ -112,7 +112,7 @@ type backendConfigParamsMatcher struct {
 	expected any
 }
 
-func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
+func (m backendConfigParamsMatcher) Matches(x any) bool {
 	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
 		m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 		obtained.GrantedSecretsGetter = nil
@@ -156,7 +156,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "bar"},
+					Config:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -176,7 +176,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *tc.C) {
 				Draining:       false,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -205,7 +205,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "admin"},
+					Config:      map[string]any{"foo": "admin"},
 				},
 			},
 		},
@@ -226,7 +226,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *tc.C) {
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "admin"},
+					Params:      map[string]any{"foo": "admin"},
 				},
 			},
 		},
@@ -710,7 +710,7 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "bar"},
+					Config:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -736,7 +736,7 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *tc.C) {
 				Draining:       false,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -1053,7 +1053,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C)
 			ModelName:      "fred",
 			BackendConfig: provider.BackendConfig{
 				BackendType: "vault",
-				Config:      map[string]interface{}{"foo": "bar"},
+				Config:      map[string]any{"foo": "bar"},
 			},
 		}, 666, true, nil)
 
@@ -1082,7 +1082,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C)
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -1128,7 +1128,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 			ModelName:      "fred",
 			BackendConfig: provider.BackendConfig{
 				BackendType: "vault",
-				Config:      map[string]interface{}{"foo": "bar"},
+				Config:      map[string]any{"foo": "bar"},
 			},
 		}, 666, true, nil)
 
@@ -1153,7 +1153,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -1199,7 +1199,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 			ModelName:      "fred",
 			BackendConfig: provider.BackendConfig{
 				BackendType: "vault",
-				Config:      map[string]interface{}{"foo": "bar"},
+				Config:      map[string]any{"foo": "bar"},
 			},
 		}, 666, true, nil)
 
@@ -1224,7 +1224,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -1270,7 +1270,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 			ModelName:      "fred",
 			BackendConfig: provider.BackendConfig{
 				BackendType: "vault",
-				Config:      map[string]interface{}{"foo": "bar"},
+				Config:      map[string]any{"foo": "bar"},
 			},
 		}, 666, true, nil)
 
@@ -1300,7 +1300,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -1350,7 +1350,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerMigr
 			ModelName:      "fred",
 			BackendConfig: provider.BackendConfig{
 				BackendType: "vault",
-				Config:      map[string]interface{}{"foo": "bar"},
+				Config:      map[string]any{"foo": "bar"},
 			},
 		}, 666, true, nil)
 
@@ -1380,7 +1380,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerMigr
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "vault",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},

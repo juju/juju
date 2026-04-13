@@ -48,10 +48,10 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 }
 
 // GetApplicationStorageDirectives mocks base method.
-func (m *MockStorageService) GetApplicationStorageDirectives(arg0 context.Context, arg1 application.UUID) ([]application0.StorageDirective, error) {
+func (m *MockStorageService) GetApplicationStorageDirectives(arg0 context.Context, arg1 application.UUID) ([]internal.StorageDirective, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStorageDirectives", arg0, arg1)
-	ret0, _ := ret[0].([]application0.StorageDirective)
+	ret0, _ := ret[0].([]internal.StorageDirective)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -69,19 +69,19 @@ type MockStorageServiceGetApplicationStorageDirectivesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceGetApplicationStorageDirectivesCall) Return(arg0 []application0.StorageDirective, arg1 error) *MockStorageServiceGetApplicationStorageDirectivesCall {
+func (c *MockStorageServiceGetApplicationStorageDirectivesCall) Return(arg0 []internal.StorageDirective, arg1 error) *MockStorageServiceGetApplicationStorageDirectivesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceGetApplicationStorageDirectivesCall) Do(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockStorageServiceGetApplicationStorageDirectivesCall {
+func (c *MockStorageServiceGetApplicationStorageDirectivesCall) Do(f func(context.Context, application.UUID) ([]internal.StorageDirective, error)) *MockStorageServiceGetApplicationStorageDirectivesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceGetApplicationStorageDirectivesCall) DoAndReturn(f func(context.Context, application.UUID) ([]application0.StorageDirective, error)) *MockStorageServiceGetApplicationStorageDirectivesCall {
+func (c *MockStorageServiceGetApplicationStorageDirectivesCall) DoAndReturn(f func(context.Context, application.UUID) ([]internal.StorageDirective, error)) *MockStorageServiceGetApplicationStorageDirectivesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -126,10 +126,10 @@ func (c *MockStorageServiceGetApplicationStorageDirectivesInfoCall) DoAndReturn(
 }
 
 // GetUnitStorageDirectiveByName mocks base method.
-func (m *MockStorageService) GetUnitStorageDirectiveByName(arg0 context.Context, arg1 unit.UUID, arg2 storage.Name) (application0.StorageDirective, error) {
+func (m *MockStorageService) GetUnitStorageDirectiveByName(arg0 context.Context, arg1 unit.UUID, arg2 storage.Name) (internal.StorageDirective, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitStorageDirectiveByName", arg0, arg1, arg2)
-	ret0, _ := ret[0].(application0.StorageDirective)
+	ret0, _ := ret[0].(internal.StorageDirective)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -147,19 +147,19 @@ type MockStorageServiceGetUnitStorageDirectiveByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) Return(arg0 application0.StorageDirective, arg1 error) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
+func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) Return(arg0 internal.StorageDirective, arg1 error) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) Do(f func(context.Context, unit.UUID, storage.Name) (application0.StorageDirective, error)) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
+func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) Do(f func(context.Context, unit.UUID, storage.Name) (internal.StorageDirective, error)) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) DoAndReturn(f func(context.Context, unit.UUID, storage.Name) (application0.StorageDirective, error)) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
+func (c *MockStorageServiceGetUnitStorageDirectiveByNameCall) DoAndReturn(f func(context.Context, unit.UUID, storage.Name) (internal.StorageDirective, error)) *MockStorageServiceGetUnitStorageDirectiveByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -321,7 +321,7 @@ func (c *MockStorageServiceMakeRegisterNewCAASUnitStorageArgCall) DoAndReturn(f 
 }
 
 // MakeUnitAddStorageArgs mocks base method.
-func (m *MockStorageService) MakeUnitAddStorageArgs(arg0 context.Context, arg1 unit.UUID, arg2 uint32, arg3 application0.StorageDirective) (internal.UnitAddStorageArg, error) {
+func (m *MockStorageService) MakeUnitAddStorageArgs(arg0 context.Context, arg1 unit.UUID, arg2 uint32, arg3 internal.StorageDirective) (internal.UnitAddStorageArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeUnitAddStorageArgs", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(internal.UnitAddStorageArg)
@@ -348,19 +348,19 @@ func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Return(arg0 internal.Unit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Do(f func(context.Context, unit.UUID, uint32, application0.StorageDirective) (internal.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
+func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Do(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (internal.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeUnitAddStorageArgsCall) DoAndReturn(f func(context.Context, unit.UUID, uint32, application0.StorageDirective) (internal.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
+func (c *MockStorageServiceMakeUnitAddStorageArgsCall) DoAndReturn(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (internal.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // MakeUnitStorageArgs mocks base method.
-func (m *MockStorageService) MakeUnitStorageArgs(arg0 context.Context, arg1 network.NetNodeUUID, arg2 []application0.StorageDirective, arg3 []internal.StorageInstanceComposition, arg4 []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error) {
+func (m *MockStorageService) MakeUnitStorageArgs(arg0 context.Context, arg1 network.NetNodeUUID, arg2 []internal.StorageDirective, arg3 []internal.StorageInstanceComposition, arg4 []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeUnitStorageArgs", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(internal.CreateUnitStorageArg)
@@ -387,19 +387,19 @@ func (c *MockStorageServiceMakeUnitStorageArgsCall) Return(arg0 internal.CreateU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeUnitStorageArgsCall) Do(f func(context.Context, network.NetNodeUUID, []application0.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
+func (c *MockStorageServiceMakeUnitStorageArgsCall) Do(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeUnitStorageArgsCall) DoAndReturn(f func(context.Context, network.NetNodeUUID, []application0.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
+func (c *MockStorageServiceMakeUnitStorageArgsCall) DoAndReturn(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (internal.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReconcileStorageDirectivesAgainstCharmStorage mocks base method.
-func (m *MockStorageService) ReconcileStorageDirectivesAgainstCharmStorage(arg0 context.Context, arg1 []application0.StorageDirective, arg2 map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error) {
+func (m *MockStorageService) ReconcileStorageDirectivesAgainstCharmStorage(arg0 context.Context, arg1 []internal.StorageDirective, arg2 map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcileStorageDirectivesAgainstCharmStorage", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]internal.CreateStorageDirectiveArg)
@@ -427,13 +427,13 @@ func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) Re
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) Do(f func(context.Context, []application0.StorageDirective, map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error)) *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall {
+func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) Do(f func(context.Context, []internal.StorageDirective, map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error)) *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) DoAndReturn(f func(context.Context, []application0.StorageDirective, map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error)) *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall {
+func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) DoAndReturn(f func(context.Context, []internal.StorageDirective, map[string]charm.Storage) ([]internal.CreateStorageDirectiveArg, []internal.CreateStorageDirectiveArg, error)) *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

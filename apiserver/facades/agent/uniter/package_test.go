@@ -64,7 +64,7 @@ func (s *uniterSuiteBase) setUpMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *tc.C) {
-	s.ControllerConfigAttrs = map[string]interface{}{
+	s.ControllerConfigAttrs = map[string]any{
 		controller.Features: featureflag.RawK8sSpec,
 	}
 	s.WithLeaseManager = true

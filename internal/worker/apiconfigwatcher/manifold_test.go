@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -37,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent": s.agent,
 	})
 	s.agentConfigChanged = voyeur.NewValue(0)
@@ -61,7 +61,7 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent": dependency.ErrMissing,
 	})
 	_, err := s.manifold.Start(c.Context(), getter)

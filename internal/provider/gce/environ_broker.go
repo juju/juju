@@ -312,9 +312,7 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 	logger.Debugf(context.TODO(), "GCE user data; %d bytes", len(userData))
 
 	metadata := make(map[string]string)
-	for tag, value := range args.InstanceConfig.Tags {
-		metadata[tag] = value
-	}
+	maps.Copy(metadata, args.InstanceConfig.Tags)
 	switch os {
 	case ostype.Ubuntu:
 		// We store a gz snapshop of information that is used by

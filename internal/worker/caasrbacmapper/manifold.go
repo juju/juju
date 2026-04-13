@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"k8s.io/client-go/informers"
 
 	"github.com/juju/juju/caas"
@@ -34,7 +34,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inMapper, ok := in.(Mapper)
 	if !ok {
 		return errors.Errorf("expected Mapper, got %T", in)

@@ -12,8 +12,8 @@ import (
 
 // None of the tests in this package require mongo.
 
-func unmarshalStringAsJSON(str string) (interface{}, error) {
-	var v interface{}
+func unmarshalStringAsJSON(str string) (any, error) {
+	var v any
 	if err := json.Unmarshal([]byte(str), &v); err != nil {
 		return struct{}{}, err
 	}

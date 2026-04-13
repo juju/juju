@@ -14,7 +14,7 @@ import (
 
 // Open opens a streaming connection to the endpoint path that conforms
 // to the provided config.
-func Open(ctx context.Context, conn base.StreamConnector, path string, cfg interface{}) (base.Stream, error) {
+func Open(ctx context.Context, conn base.StreamConnector, path string, cfg any) (base.Stream, error) {
 	attrs, err := query.Values(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to generate URL query from config")

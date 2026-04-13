@@ -6,12 +6,12 @@ package modelmigration
 import (
 	"testing"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/unitstate"
-	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 )
 
 type importSuite struct {
@@ -111,9 +111,9 @@ func (s *importSuite) TestImportError(c *tc.C) {
 		Name:         "prometheus/0",
 		UniterState:  new("uniter"),
 		StorageState: new("storage"),
-	}).Return(unitstateerrors.UnitNotFound)
+	}).Return(applicationerrors.UnitNotFound)
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(c.Context(), model)
-	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }

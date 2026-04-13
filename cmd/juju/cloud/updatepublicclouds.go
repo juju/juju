@@ -431,7 +431,7 @@ func (c *changes) summary() string {
 	sort.Strings(types)
 
 	msgs := []string{}
-	details := ""
+	var details strings.Builder
 	tabSpace := "    "
 	detailsSeparator := fmt.Sprintf("\n%v%v- ", tabSpace, tabSpace)
 	for _, aType := range types {
@@ -449,19 +449,19 @@ func (c *changes) summary() string {
 			scopeGroup := typeGroup[scope(aScope)]
 			sort.Strings(scopeGroup)
 			entityMsgs = append(entityMsgs, adjustPlurality(aScope, len(scopeGroup)))
-			details += fmt.Sprintf("\n%v%v %v:%v%v",
+			details.WriteString(fmt.Sprintf("\n%v%v %v:%v%v",
 				tabSpace,
 				aType,
 				aScope,
 				detailsSeparator,
-				strings.Join(scopeGroup, detailsSeparator))
+				strings.Join(scopeGroup, detailsSeparator)))
 		}
 		typeMsg := formatSlice(entityMsgs, ", ", " and ")
 		msgs = append(msgs, fmt.Sprintf("%v %v", typeMsg, aType))
 	}
 
 	result := formatSlice(msgs, "; ", " as well as ")
-	return fmt.Sprintf("%v:\n%v", result, details)
+	return fmt.Sprintf("%v:\n%v", result, details.String())
 }
 
 // TODO(anastasiamac 2014-04-13) Move this to

@@ -135,7 +135,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *tc.C) {
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 		Since: &s.now,
@@ -151,7 +151,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *tc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 		Info:   "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 	}}})
@@ -243,7 +243,7 @@ func (s *unitGetStatusSuite) TestStatus(c *tc.C) {
 	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 		Since: &s.now,
@@ -260,7 +260,7 @@ func (s *unitGetStatusSuite) TestStatus(c *tc.C) {
 	c.Assert(result.Results[0], tc.DeepEquals, params.StatusResult{
 		Status: status.Active.String(),
 		Info:   "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 		Since: &s.now,

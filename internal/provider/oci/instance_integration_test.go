@@ -81,11 +81,11 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *tc.C) {
 	request, response := makeGetInstanceRequestResponse(
 		ociCore.Instance{
 			CompartmentId:      &s.testCompartment,
-			AvailabilityDomain: makeStringPointer("QXay:PHX-AD-3"),
+			AvailabilityDomain: new("QXay:PHX-AD-3"),
 			Id:                 &s.testInstanceID,
-			Region:             makeStringPointer("us-phoenix-1"),
-			Shape:              makeStringPointer("VM.Standard1.1"),
-			DisplayName:        makeStringPointer("fake"),
+			Region:             new("us-phoenix-1"),
+			Shape:              new("VM.Standard1.1"),
+			DisplayName:        new("fake"),
 			FreeformTags:       s.tags,
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
@@ -106,14 +106,14 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *tc.C) {
 func (s *instanceSuite) setupListVnicsExpectations(c *tc.C, instanceId, vnicID string) {
 	attachResponse := []ociCore.VnicAttachment{
 		{
-			Id:                 makeStringPointer("fakeAttachmentId"),
-			AvailabilityDomain: makeStringPointer("fake"),
-			CompartmentId:      makeStringPointer(s.testCompartment),
-			InstanceId:         makeStringPointer(s.testInstanceID),
+			Id:                 new("fakeAttachmentId"),
+			AvailabilityDomain: new("fake"),
+			CompartmentId:      new(s.testCompartment),
+			InstanceId:         new(s.testInstanceID),
 			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-			DisplayName:        makeStringPointer("fakeAttachmentName"),
-			NicIndex:           makeIntPointer(0),
-			VnicId:             makeStringPointer(vnicID),
+			DisplayName:        new("fakeAttachmentName"),
+			NicIndex:           new(0),
+			VnicId:             new(vnicID),
 		},
 	}
 
@@ -123,12 +123,12 @@ func (s *instanceSuite) setupListVnicsExpectations(c *tc.C, instanceId, vnicID s
 	vnicRequest, vnicResponse := makeGetVnicRequestResponse([]ociCore.GetVnicResponse{
 		{
 			Vnic: ociCore.Vnic{
-				Id:             makeStringPointer(vnicID),
-				PrivateIp:      makeStringPointer("1.1.1.1"),
-				SubnetId:       makeStringPointer("fakeSubnetId"),
-				DisplayName:    makeStringPointer("fakeVnicName"),
-				MacAddress:     makeStringPointer("11:11:11:11:11:11"),
-				PublicIp:       makeStringPointer("2.2.2.2"),
+				Id:             new(vnicID),
+				PrivateIp:      new("1.1.1.1"),
+				SubnetId:       new("fakeSubnetId"),
+				DisplayName:    new("fakeVnicName"),
+				MacAddress:     new("11:11:11:11:11:11"),
+				PublicIp:       new("2.2.2.2"),
 				IsPrimary:      &trueBoolean,
 				LifecycleState: ociCore.VnicLifecycleStateAvailable,
 			},

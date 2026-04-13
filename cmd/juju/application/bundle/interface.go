@@ -16,7 +16,7 @@ import (
 type ModelExtractor interface {
 	GetAnnotations(ctx context.Context, tags []string) ([]params.AnnotationsGetResult, error)
 	GetConstraints(ctx context.Context, applications ...string) ([]constraints.Value, error)
-	GetConfig(ctx context.Context, applications ...string) ([]map[string]interface{}, error)
+	GetConfig(ctx context.Context, applications ...string) ([]map[string]any, error)
 	Sequences(ctx context.Context) (map[string]int, error)
 }
 

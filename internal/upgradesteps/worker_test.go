@@ -105,11 +105,11 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *tc.C) {
 	//  - It will set the error status on each attempt.
 
 	go func() {
-		for i := 0; i < DefaultRetryAttempts; i++ {
+		for range DefaultRetryAttempts {
 			ch <- time.Now()
 		}
 	}()
-	for i := 0; i < DefaultRetryAttempts; i++ {
+	for range DefaultRetryAttempts {
 		s.expectStatus(status.Error)
 	}
 

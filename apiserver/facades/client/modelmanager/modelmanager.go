@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -304,7 +305,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// Create the model information in the model database.
 	// modelInfoCreate will be calling one of the Create* funcs on the model
 	// info service. When handling the error we need to handle the total set of
-	// possabilities.
+	// possibilities.
 	err = m.createModelInfo(ctx, args.Config, modelDomainServices.ModelInfo())
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
@@ -337,7 +338,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, modelUUID)
+	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
 	if err != nil {
 		return result, err
 	}
@@ -485,7 +486,9 @@ func (m *ModelManagerAPI) DumpModelsDB(ctx context.Context, args params.Entities
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+func (m *ModelManagerAPI) ListModelSummaries(
+	ctx context.Context, req params.ModelSummariesRequest,
+) (params.ModelSummaryResults, error) {
 	userTag, err := names.ParseUserTag(req.UserTag)
 	if err != nil {
 		return params.ModelSummaryResults{}, errors.Trace(err)
@@ -561,7 +564,9 @@ func (m *ModelManagerAPI) listAllModelSummaries(ctx context.Context) (params.Mod
 
 // listModelSummariesForUser returns the model summary results containing
 // summaries for all the models known to the user.
-func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag names.UserTag) (params.ModelSummaryResults, error) {
+func (m *ModelManagerAPI) listModelSummariesForUser(
+	ctx context.Context, tag names.UserTag,
+) (params.ModelSummaryResults, error) {
 	makeErrorReturn := func(err error) error {
 		switch {
 		case errors.Is(err, accesserrors.UserNotFound):
@@ -607,7 +612,7 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 		modelSummary, err := services.ModelInfo().GetUserModelSummary(ctx, userUUID)
 		switch {
 		// For these errors it indicates that the state of the controller has
-		// changed since retrieving the list of model's for the user. That is ok
+		// changed since retrieving the list of model's for the user. That is OK
 		// and we can safely ignore them.
 		case errors.Is(err, modelerrors.NotFound):
 			logger.Debugf(
@@ -757,15 +762,18 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 	for _, mi := range models {
 		var lastConnection *time.Time
 		lc, err := m.accessService.LastModelLogin(ctx, coreuser.NameFromTag(userTag), mi.UUID)
-		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
-			lastConnection = nil
-		} else if errors.Is(err, modelerrors.NotFound) {
-			// Continue if the model has been removed since we got the UUID.
-			continue
-		} else if err != nil {
-			return result, errors.Annotatef(err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
-		} else {
+		if err == nil {
 			lastConnection = &lc
+		} else {
+			if errors.Is(err, modelerrors.NotFound) {
+				// Continue if the model has been removed since we got the UUID.
+				continue
+			}
+
+			if !errors.Is(err, accesserrors.UserNeverAccessedModel) {
+				return result, errors.Annotatef(
+					err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
+			}
 		}
 
 		result.UserModels = append(result.UserModels, params.UserModel{
@@ -783,7 +791,9 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 
 // DestroyModels will try to destroy the specified models. If there is a block
 // on destruction, this method will return an error.
-func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) DestroyModels(
+	ctx context.Context, args params.DestroyModelsParams,
+) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
@@ -873,7 +883,13 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			}
 		}
 
-		modelInfo, err := m.getModelInfo(ctx, coremodel.UUID(tag.Id()))
+		modelUUID := coremodel.UUID(tag.Id())
+		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+
+		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -886,19 +902,14 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			valid := !cred.Invalid
-			modelInfo.CloudCredentialValidity = &valid
+			modelInfo.CloudCredentialValidity = new(!cred.Invalid)
 		}
 		if !canWrite {
 			return modelInfo, nil
 		}
 
-		modelUUID := coremodel.UUID(tag.Id())
-		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(ctx, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
+		if modelInfo.Machines, err = commonmodel.ModelMachineInfo(
+			ctx, modelDomainServices.Machine(), modelDomainServices.Status()); err != nil {
 			return params.ModelInfo{}, err
 		}
 
@@ -912,7 +923,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 				name = kubernetes.BuiltInName(modelInfo.Name)
 			}
 			modelInfo.SecretBackends = append(modelInfo.SecretBackends, params.SecretBackendResult{
-				// Don't expose the id.
+				// Don't expose the ID.
 				NumSecrets: backend.NumSecrets,
 				Status:     backend.Status,
 				Message:    backend.Message,
@@ -930,6 +941,16 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	for i, arg := range args.Entities {
 		modelInfo, err := getModelInfo(arg)
 		if err != nil {
+			// If a model is removed during this call, we can fail to retrieve
+			// the model's database.
+			// In that event, or if we get a domain error indicating the model
+			// is not found, we need to meet client compatibility expectations,
+			// and return the plain NotFound error.
+			if errors.Is(err, database.ErrDBDead) ||
+				errors.Is(err, database.ErrDBNotFound) ||
+				errors.Is(err, modelerrors.NotFound) {
+				err = errors.NewNotFound(err, "")
+			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -938,13 +959,12 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.UUID) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	modelDomainServices ModelDomainServices,
+) (params.ModelInfo, error) {
 	modelTag := names.NewModelTag(modelUUID.String())
-
-	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
 	modelInfoService := modelDomainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if err != nil {
@@ -1035,7 +1055,9 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, modelUUID coremodel.
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
+func (m *ModelManagerAPI) ModifyModelAccess(
+	ctx context.Context, args params.ModifyModelAccessRequest,
+) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -1185,7 +1207,9 @@ func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.Mode
 }
 
 // UnsetModelDefaults removes the specified default model settings.
-func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.UnsetModelDefaults) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) UnsetModelDefaults(
+	ctx context.Context, args params.UnsetModelDefaults,
+) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
 	if !m.isAdmin {
 		return results, apiservererrors.ErrPerm
@@ -1233,8 +1257,9 @@ func (m *ModelManagerAPI) unsetModelDefaults(ctx context.Context, arg params.Mod
 
 // ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
-func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
-
+func (m *ModelManagerAPI) ChangeModelCredential(
+	ctx context.Context, args params.ChangeModelCredentialsParams,
+) (params.ErrorResults, error) {
 	err := m.authorizer.HasPermission(ctx, permission.SuperuserAccess,
 		names.NewControllerTag(m.controllerUUID.String()))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {

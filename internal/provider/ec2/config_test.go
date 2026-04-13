@@ -31,9 +31,9 @@ func TestConfigSuite(t *stdtesting.T) {
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config             map[string]interface{}
-	change             map[string]interface{}
-	expect             map[string]interface{}
+	config             map[string]any
+	change             map[string]any
+	expect             map[string]any
 	vpcID              string
 	forceVPCID         bool
 	firewallMode       string
@@ -41,7 +41,7 @@ type configTest struct {
 	err                string
 }
 
-type attrs map[string]interface{}
+type attrs map[string]any
 
 func (t configTest) check(c *tc.C) {
 	credential := cloud.NewCredential(

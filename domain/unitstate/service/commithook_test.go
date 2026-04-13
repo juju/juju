@@ -67,7 +67,7 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 		UnitUUID: unitUUID,
 		RelationSettings: []internal.RelationSettings{{
 			RelationUUID: expectedRelationUUID,
-			Settings:     map[string]string{"key": "value"},
+			UnitSet:      map[string]string{"key": "value"},
 		},
 		},
 	}
@@ -170,6 +170,50 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *commitHookSuite) TestParseForSetAndUnsetSettings(c *tc.C) {
+	// Arrange
+	input := unitstate.Settings{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "",
+	}
+
+	// Act
+	obtainedSettings, obtainedKeys := parseForSetAndUnsetSettings(input)
+
+	// Assert
+	c.Check(obtainedSettings, tc.DeepEquals, unitstate.Settings{"key1": "value1", "key2": "value2"})
+	c.Check(obtainedKeys, tc.DeepEquals, []string{"key3"})
+}
+
+func (s *commitHookSuite) TestParseForSetAndUnsetSettingsNilKeys(c *tc.C) {
+	// Arrange
+	input := unitstate.Settings{
+		"key1": "value1",
+	}
+
+	// Act
+	obtainedSettings, obtainedKeys := parseForSetAndUnsetSettings(input)
+
+	// Assert
+	c.Check(obtainedSettings, tc.DeepEquals, unitstate.Settings{"key1": "value1"})
+	c.Check(obtainedKeys, tc.DeepEquals, []string(nil))
+}
+
+func (s *commitHookSuite) TestParseForSetAndUnsetSettingsNilSettings(c *tc.C) {
+	// Arrange
+	input := unitstate.Settings{
+		"key1": "",
+	}
+
+	// Act
+	obtainedSettings, obtainedKeys := parseForSetAndUnsetSettings(input)
+
+	// Assert
+	c.Check(obtainedSettings, tc.DeepEquals, unitstate.Settings(nil))
+	c.Check(obtainedKeys, tc.DeepEquals, []string{"key1"})
 }
 
 func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -301,10 +301,10 @@ type ImportEndpoint struct {
 	EndpointName string
 	// UnitSettings is a map by unit name containing a map of key value pairs
 	// comprising that unit's settings.
-	UnitSettings map[string]map[string]interface{}
+	UnitSettings map[string]map[string]any
 	// UnitSettings is a map of key value pairs comprising the
 	// application's settings.
-	ApplicationSettings map[string]interface{}
+	ApplicationSettings map[string]any
 }
 
 // ExportRelation holds information about a relation to use in export.

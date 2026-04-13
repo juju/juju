@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -20,6 +20,7 @@ import (
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainstatus "github.com/juju/juju/domain/status"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type modelOfferSuite struct {
@@ -531,220 +532,6 @@ func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUIDNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
-func (s *modelOfferSuite) TestGetOfferConnections(c *tc.C) {
-	// Arrange
-	// One relation between a real and synthetic application with
-	// relation ingress networks.
-	cmrCharmUUID := s.addCMRCharm(c)
-	provider := charm.Relation{
-		Name:      "db-admin-p",
-		Role:      charm.RoleProvider,
-		Interface: "db",
-		Scope:     charm.ScopeGlobal,
-	}
-	cmrCharmRelationUUID := s.addCharmRelation(c, cmrCharmUUID, provider)
-	cmrAppName := "cmr-test-application"
-	cmrAppUUID := s.addApplication(c, cmrCharmUUID, cmrAppName)
-	cmrAppEndpointUUD := s.addApplicationEndpoint(c, cmrAppUUID, cmrCharmRelationUUID)
-
-	charmUUID := s.addCharm(c)
-	requirer := charm.Relation{
-		Name:      "db-admin-r",
-		Role:      charm.RoleRequirer,
-		Interface: "db",
-		Scope:     charm.ScopeGlobal,
-	}
-	charmRelationUUID := s.addCharmRelation(c, charmUUID, requirer)
-	appName := "test-application"
-	appUUID := s.addApplication(c, charmUUID, appName)
-	appEndpointUUD := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
-	offerUUID := s.addOffer(c, appName, []string{appEndpointUUD})
-
-	relationUUID := s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoined)
-	s.addRelationEndpoint(c, relationUUID, cmrAppEndpointUUD)
-	s.addRelationEndpoint(c, relationUUID, appEndpointUUD)
-	s.addRelationIngressNetwork(c, relationUUID, "203.0.113.42/24")
-	s.addRelationIngressNetwork(c, relationUUID, "203.0.113.8/24")
-
-	// Act
-	obtained, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID.String()})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(obtained), tc.Equals, 1)
-	obtainedConnections, ok := obtained[offerUUID.String()]
-	c.Assert(ok, tc.Equals, true)
-	c.Assert(obtainedConnections, tc.HasLen, 1)
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.IngressSubnets", tc.Ignore)
-	mc.AddExpr("_.Since", tc.Ignore)
-	c.Check(obtainedConnections[0], mc, crossmodelrelation.OfferConnection{
-		Username:   "bob",
-		RelationId: 0,
-		Endpoint:   "db-admin-r",
-		Status:     status.Joined,
-	})
-	if !c.Check(obtainedConnections[0].IngressSubnets, tc.SameContents, []string{"203.0.113.8/24", "203.0.113.42/24"}) {
-		s.DumpTable(c, "relation_network_ingress")
-	}
-}
-
-func (s *modelOfferSuite) TestGetOfferConnectionsNoIngressNetworks(c *tc.C) {
-	// Arrange
-	// One relation between a real and synthetic application with
-	// no relation ingress networks.
-	cmrCharmUUID := s.addCMRCharm(c)
-	provider := charm.Relation{
-		Name:      "db-admin-p",
-		Role:      charm.RoleProvider,
-		Interface: "db",
-		Scope:     charm.ScopeGlobal,
-	}
-	cmrCharmRelationUUID := s.addCharmRelation(c, cmrCharmUUID, provider)
-	cmrAppName := "cmr-test-application"
-	cmrAppUUID := s.addApplication(c, cmrCharmUUID, cmrAppName)
-	cmrAppEndpointUUD := s.addApplicationEndpoint(c, cmrAppUUID, cmrCharmRelationUUID)
-
-	charmUUID := s.addCharm(c)
-	requirer := charm.Relation{
-		Name:      "db-admin-r",
-		Role:      charm.RoleRequirer,
-		Interface: "db",
-		Scope:     charm.ScopeGlobal,
-	}
-	charmRelationUUID := s.addCharmRelation(c, charmUUID, requirer)
-	appName := "test-application"
-	appUUID := s.addApplication(c, charmUUID, appName)
-	appEndpointUUD := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
-	offerUUID := s.addOffer(c, appName, []string{appEndpointUUD})
-
-	relationUUID := s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoined)
-	s.addRelationEndpoint(c, relationUUID, cmrAppEndpointUUD)
-	s.addRelationEndpoint(c, relationUUID, appEndpointUUD)
-
-	// Act
-	obtained, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID.String()})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(len(obtained), tc.Equals, 1)
-	obtainedConnections, ok := obtained[offerUUID.String()]
-	c.Assert(ok, tc.Equals, true)
-	c.Assert(obtainedConnections, tc.HasLen, 1)
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.Since", tc.Ignore)
-	c.Check(obtainedConnections[0], mc, crossmodelrelation.OfferConnection{
-		Username:   "bob",
-		RelationId: 0,
-		Endpoint:   "db-admin-r",
-		Status:     status.Joined,
-	})
-}
-
-func (s *modelOfferSuite) TestGetOfferConnectionsNoConnections(c *tc.C) {
-	// Arrange
-	// One application with an offer, no relations, nor connections.
-	charmUUID := s.addCharm(c)
-	requirer := charm.Relation{
-		Name:      "db-admin-r",
-		Role:      charm.RoleRequirer,
-		Interface: "db",
-		Scope:     charm.ScopeGlobal,
-	}
-	charmRelationUUID := s.addCharmRelation(c, charmUUID, requirer)
-	appName := "test-application"
-	appUUID := s.addApplication(c, charmUUID, appName)
-	appEndpointUUD := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
-	offerUUID := s.addOffer(c, appName, []string{appEndpointUUD})
-
-	// Act
-	obtained, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID.String()})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained, tc.IsNil)
-}
-
-func (s *modelOfferSuite) TestTransformToOfferConnectionMap(c *tc.C) {
-	// Arrange
-	// 2 offers, 1 with 2 connections, 1 with 1 connection.
-	// 3 relations, 2 on one offer.
-	// Ingress networks for 2 of the relations.
-	offerConnections := []offerConnectionDetail{
-		{
-			OfferUUID:    "offerOne",
-			EndpointName: "endpointOne",
-			RelationUUID: "relationOne",
-			RelationID:   1,
-			Status:       "joined",
-			Username:     "bob",
-		}, {
-			OfferUUID:    "offerOne",
-			EndpointName: "endpointTwo",
-			RelationUUID: "relationTwo",
-			RelationID:   2,
-			Status:       "joined",
-			Username:     "bob",
-		}, {
-			OfferUUID:    "offerTwo",
-			EndpointName: "endpointThree",
-			RelationUUID: "relationThree",
-			RelationID:   3,
-			Status:       "joined",
-			Username:     "bob",
-		},
-	}
-	ingressNetworks := []relationNetworkIngress{
-		{
-			RelationUUID: "relationOne",
-			CIDR:         "203.0.113.1/24",
-		}, {
-			RelationUUID: "relationThree",
-			CIDR:         "203.0.113.3/24",
-		}, {
-			RelationUUID: "relationThree",
-			CIDR:         "203.0.113.33/24",
-		},
-	}
-
-	// Act
-	obtained := transformToOfferConnectionMap(offerConnections, ingressNetworks)
-
-	// Assert
-	c.Check(obtained, tc.HasLen, 2)
-	offerOne, ok := obtained["offerOne"]
-	c.Check(ok, tc.Equals, true)
-
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.Since", tc.Ignore)
-	c.Check(offerOne, tc.UnorderedMatch[[]crossmodelrelation.OfferConnection](mc), []crossmodelrelation.OfferConnection{
-		{
-			Endpoint:   "endpointTwo",
-			RelationId: 2,
-			Status:     status.Joined,
-			Username:   "bob",
-		}, {
-			Endpoint:       "endpointOne",
-			RelationId:     1,
-			Status:         status.Joined,
-			Username:       "bob",
-			IngressSubnets: []string{"203.0.113.1/24"},
-		},
-	})
-
-	offerTwo, ok := obtained["offerTwo"]
-	c.Check(ok, tc.Equals, true)
-	mc.AddExpr("_.IngressSubnets", tc.SameContents, []string{"203.0.113.3/24", "203.0.113.33/24"})
-	c.Check(offerTwo, tc.UnorderedMatch[[]crossmodelrelation.OfferConnection](mc), []crossmodelrelation.OfferConnection{
-		{
-			Endpoint:   "endpointThree",
-			RelationId: 3,
-			Status:     status.Joined,
-			Username:   "bob",
-		},
-	})
-}
-
 // setupForGetOfferDetails
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
 	// Create an offer with one endpoint.
@@ -888,4 +675,114 @@ func (s *modelOfferSuite) setupOfferConnection(c *tc.C) (string, string) {
 	s.addOfferConnection(c, offerUUID, domainstatus.RelationStatusTypeJoining)
 
 	return crossModelRelUUID, offerUUID.String()
+}
+
+// addOfferConnectionWithConsumer sets up a complete offer connection scenario
+// including the synthetic remote consumer application. It returns the offer
+// UUID, consumer model UUID, and relation UUID.
+func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string) {
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appName := "test-app"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+
+	offerUUID := s.addOffer(c, "test-offer", []string{appEndpointUUID})
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID.String(), appEndpointUUID)
+
+	connUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'consumer-user')`, connUUID, offerUUID, relUUID)
+
+	synthCharmUUID := s.addCMRCharm(c)
+	s.addCharmMetadata(c, synthCharmUUID, false)
+	s.query(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, 'remote-consumer', 0, ?, ?)`, connUUID, synthCharmUUID, network.AlphaSpaceId)
+
+	consumerModelUUID := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO application_remote_consumer
+(offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, connUUID, appUUID, internaluuid.MustNewUUID().String(), consumerModelUUID)
+
+	return offerUUID.String(), consumerModelUUID, relUUID.String()
+}
+
+func (s *modelOfferSuite) TestGetOfferConnections(c *tc.C) {
+	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+
+	// Set relation status with message and timestamp.
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+VALUES (?, '1', 'test message', '2025-06-15T10:30:00Z')`, relUUID)
+
+	// Add ingress subnets.
+	s.query(c, `
+INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '10.0.0.0/24')`, relUUID)
+	s.query(c, `
+INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '192.168.1.0/24')`, relUUID)
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(connections, tc.HasLen, 1)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].SourceModelUUID, tc.Equals, consumerModelUUID)
+	c.Check(connections[0].RelationID, tc.Equals, 0)
+	c.Check(connections[0].Username, tc.Equals, "consumer-user")
+	c.Check(connections[0].Endpoint, tc.Equals, "db")
+	c.Check(connections[0].Status, tc.Equals, "joined")
+	c.Check(connections[0].Message, tc.Equals, "test message")
+	c.Assert(connections[0].StatusSince, tc.Not(tc.IsNil))
+	c.Check(connections[0].StatusSince.UTC().Format("2006-01-02T15:04:05Z"), tc.Equals, "2025-06-15T10:30:00Z")
+	c.Check(connections[0].IngressSubnets, tc.SameContents, []string{"10.0.0.0/24", "192.168.1.0/24"})
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsNullMessageAndTimestamp(c *tc.C) {
+	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+
+	// Set relation status with NULL message and NULL updated_at.
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID)
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.HasLen, 1)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].SourceModelUUID, tc.Equals, consumerModelUUID)
+	c.Check(connections[0].Username, tc.Equals, "consumer-user")
+	c.Check(connections[0].Endpoint, tc.Equals, "db")
+	c.Check(connections[0].Status, tc.Equals, "joining")
+	c.Check(connections[0].Message, tc.Equals, "")
+	c.Check(connections[0].StatusSince, tc.IsNil)
+	c.Check(connections[0].IngressSubnets, tc.IsNil)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsNoConnections(c *tc.C) {
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{internaluuid.MustNewUUID().String()})
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.HasLen, 0)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsEmptyUUIDs(c *tc.C) {
+	connections, err := s.state.GetOfferConnections(c.Context(), nil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(connections, tc.IsNil)
 }

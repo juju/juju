@@ -43,7 +43,7 @@ type StorageService interface {
 	// when the application no longer exists.
 	GetApplicationStorageDirectives(
 		context.Context, coreapplication.UUID,
-	) ([]application.StorageDirective, error)
+	) ([]internal.StorageDirective, error)
 
 	// MakeRegisterExistingCAASUnitStorageArg is responsible for constructing the
 	// storage arguments for registering an existing caas unit in the model. This
@@ -105,7 +105,7 @@ type StorageService interface {
 	MakeUnitStorageArgs(
 		ctx context.Context,
 		attachNetNodeUUID domainnetwork.NetNodeUUID,
-		storageDirectives []application.StorageDirective,
+		storageDirectives []internal.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
 		existingStorageAttachments []internal.StorageAttachmentComposition,
 	) (internal.CreateUnitStorageArg, error)
@@ -126,7 +126,7 @@ type StorageService interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		addCount uint32,
-		storageDirectives application.StorageDirective,
+		storageDirectives internal.StorageDirective,
 	) (internal.UnitAddStorageArg, error)
 
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
@@ -159,13 +159,13 @@ type StorageService interface {
 		ctx context.Context,
 		uuid coreunit.UUID,
 		storageName corestorage.Name,
-	) (application.StorageDirective, error)
+	) (internal.StorageDirective, error)
 
 	// ReconcileStorageDirectivesAgainstCharmStorage reconciles existing application storage directives
 	// and adds any new storage definitions.
 	ReconcileStorageDirectivesAgainstCharmStorage(
 		ctx context.Context,
-		existingStorageDirectives []application.StorageDirective,
+		existingStorageDirectives []internal.StorageDirective,
 		newCharmStorages map[string]internalcharm.Storage,
 	) (
 		toCreate []internal.CreateApplicationStorageDirectiveArg,

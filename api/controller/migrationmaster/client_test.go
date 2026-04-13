@@ -13,7 +13,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -45,7 +45,7 @@ func TestClientSuite(t *stdtesting.T) {
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "123",
@@ -62,11 +62,11 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	w, err := client.Watch(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
-	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
+	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.Watch", Args: []any{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchCallError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -85,7 +85,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 	controllerUUID := uuid.MustNewUUID().String()
 	controllerTag := names.NewControllerTag(controllerUUID)
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
-	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result any) error {
 		out := result.(*params.MasterMigrationStatus)
 		*out = params.MasterMigrationStatus{
 			Spec: params.MigrationSpec{
@@ -134,7 +134,7 @@ func (s *ClientSuite) TestMigrationStatus(c *tc.C) {
 
 func (s *ClientSuite) TestSetPhase(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
@@ -143,12 +143,12 @@ func (s *ClientSuite) TestSetPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.SetPhase", Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetPhase", Args: []any{"", expectedArg}},
 	})
 }
 
 func (s *ClientSuite) TestSetPhaseError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -158,7 +158,7 @@ func (s *ClientSuite) TestSetPhaseError(c *tc.C) {
 
 func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
@@ -167,12 +167,12 @@ func (s *ClientSuite) TestSetStatusMessage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.SetStatusMessage", Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetStatusMessage", Args: []any{"", expectedArg}},
 	})
 }
 
 func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -182,7 +182,7 @@ func (s *ClientSuite) TestSetStatusMessageError(c *tc.C) {
 
 func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
@@ -198,7 +198,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.ModelInfo", Args: []any{"", nil}},
 	})
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
@@ -211,13 +211,13 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *tc.C) {
 
 func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	modelDescription := description.NewModel(description.ModelArgs{
-		Config: make(map[string]interface{}),
+		Config: make(map[string]any),
 	})
 	serialized, err := description.Serialize(modelDescription)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var stub testhelpers.Stub
-	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, v int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
 			UUID:                   "uuid",
@@ -234,7 +234,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.ModelInfo", Args: []any{"", nil}},
 	})
 	c.Check(model, tc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
@@ -248,7 +248,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 
 func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.MigrationSourceInfo)) = params.MigrationSourceInfo{
 			LocalRelatedModels: []string{"related-model-uuid"},
@@ -262,7 +262,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	info, relatedModels, err := client.SourceControllerInfo(c.Context())
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []any{"", nil}},
 	})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(info, tc.DeepEquals, migration.SourceControllerInfo{
@@ -276,7 +276,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
 
 func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("blam")
 	}, BestVersion: 5}
@@ -285,13 +285,13 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.Prechecks", Args: []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.Prechecks", Args: []any{"", expectedArg}},
 	})
 }
 
 func (s *ClientSuite) TestProcessRelations(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
@@ -302,7 +302,7 @@ func (s *ClientSuite) TestProcessRelations(c *tc.C) {
 }
 
 func (s *ClientSuite) TestProcessRelationsError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -318,7 +318,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 
 	appTs := time.Now()
 
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.SerializedModel)
 		*out = params.SerializedModel{
@@ -347,7 +347,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 	out, err := client.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Export", Args: []any{"", nil}},
 	})
 	c.Assert(out, tc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
@@ -374,7 +374,7 @@ func (s *ClientSuite) TestExport(c *tc.C) {
 }
 
 func (s *ClientSuite) TestExportError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -410,7 +410,7 @@ func (s *ClientSuite) TestOpenResource(c *tc.C) {
 
 func (s *ClientSuite) TestReap(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
@@ -418,12 +418,12 @@ func (s *ClientSuite) TestReap(c *tc.C) {
 	err := client.Reap(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Reap", Args: []any{"", nil}},
 	})
 }
 
 func (s *ClientSuite) TestReapError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -433,7 +433,7 @@ func (s *ClientSuite) TestReapError(c *tc.C) {
 
 func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "123",
@@ -451,11 +451,11 @@ func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 	w, err := client.WatchMinionReports(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWatch)
-	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
+	stub.CheckCalls(c, []testhelpers.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []any{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchMinionReportsError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -465,7 +465,7 @@ func (s *ClientSuite) TestWatchMinionReportsError(c *tc.C) {
 
 func (s *ClientSuite) TestMinionReports(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
@@ -492,7 +492,7 @@ func (s *ClientSuite) TestMinionReports(c *tc.C) {
 	out, err := client.MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.MinionReports", Args: []any{"", nil}},
 	})
 	c.Assert(out, tc.DeepEquals, migration.MinionReports{
 		MigrationId:             "id",
@@ -509,7 +509,7 @@ func (s *ClientSuite) TestMinionReports(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportsFailedCall(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
@@ -518,7 +518,7 @@ func (s *ClientSuite) TestMinionReportsFailedCall(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportsInvalidPhase(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ any, result any) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			Phase: "BLARGH",
@@ -531,7 +531,7 @@ func (s *ClientSuite) TestMinionReportsInvalidPhase(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ any, result any) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			Phase:         "IMPORT",
@@ -545,7 +545,7 @@ func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportsBadFailedTag(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ any, result any) error {
 		out := result.(*params.MinionReports)
 		*out = params.MinionReports{
 			Phase:  "IMPORT",
@@ -559,7 +559,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *tc.C) {
 }
 
 func (s *ClientSuite) TestMinionReportTimeout(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(facade string, _ int, _, method string, _ interface{}, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(facade string, _ int, _, method string, _ any, result any) error {
 		c.Assert(facade, tc.Equals, "MigrationMaster")
 		c.Assert(method, tc.Equals, "MinionReportTimeout")
 

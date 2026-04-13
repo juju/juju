@@ -46,12 +46,12 @@ type Actions struct {
 
 // Action describes an Action that will be or has been queued up.
 type Action struct {
-	Tag            string                 `json:"tag"`
-	Receiver       string                 `json:"receiver"`
-	Name           string                 `json:"name"`
-	Parameters     map[string]interface{} `json:"parameters,omitempty"`
-	Parallel       *bool                  `json:"parallel,omitempty"`
-	ExecutionGroup *string                `json:"execution-group,omitempty"`
+	Tag            string         `json:"tag"`
+	Receiver       string         `json:"receiver"`
+	Name           string         `json:"name"`
+	Parameters     map[string]any `json:"parameters,omitempty"`
+	Parallel       *bool          `json:"parallel,omitempty"`
+	ExecutionGroup *string        `json:"execution-group,omitempty"`
 }
 
 // EnqueuedActions represents the result of enqueuing actions to run.
@@ -78,15 +78,15 @@ type ActionMessage struct {
 
 // ActionResult describes an Action that will be or has been completed.
 type ActionResult struct {
-	Action    *Action                `json:"action,omitempty"`
-	Enqueued  time.Time              `json:"enqueued,omitempty"`
-	Started   time.Time              `json:"started,omitempty"`
-	Completed time.Time              `json:"completed,omitempty"`
-	Status    string                 `json:"status,omitempty"`
-	Message   string                 `json:"message,omitempty"`
-	Log       []ActionMessage        `json:"log,omitempty"`
-	Output    map[string]interface{} `json:"output,omitempty"`
-	Error     *Error                 `json:"error,omitempty"`
+	Action    *Action         `json:"action,omitempty"`
+	Enqueued  time.Time       `json:"enqueued,omitempty"`
+	Started   time.Time       `json:"started,omitempty"`
+	Completed time.Time       `json:"completed,omitempty"`
+	Status    string          `json:"status,omitempty"`
+	Message   string          `json:"message,omitempty"`
+	Log       []ActionMessage `json:"log,omitempty"`
+	Output    map[string]any  `json:"output,omitempty"`
+	Error     *Error          `json:"error,omitempty"`
 }
 
 // ActionsByReceivers wrap a slice of Actions for API calls.
@@ -157,10 +157,10 @@ type ActionExecutionResults struct {
 // ActionExecutionResult holds the action tag and output used when
 // recording the result of an action.
 type ActionExecutionResult struct {
-	ActionTag string                 `json:"action-tag"`
-	Status    string                 `json:"status"`
-	Results   map[string]interface{} `json:"results,omitempty"`
-	Message   string                 `json:"message,omitempty"`
+	ActionTag string         `json:"action-tag"`
+	Status    string         `json:"status"`
+	Results   map[string]any `json:"results,omitempty"`
+	Message   string         `json:"message,omitempty"`
 }
 
 // ApplicationsCharmActionsResults holds a slice of ApplicationCharmActionsResult for
@@ -182,8 +182,8 @@ type ApplicationCharmActionsResult struct {
 // The Params map is expected to conform to JSON-Schema Draft 4 as defined at
 // http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
 type ActionSpec struct {
-	Description string                 `json:"description"`
-	Params      map[string]interface{} `json:"params"`
+	Description string         `json:"description"`
+	Params      map[string]any `json:"params"`
 }
 
 type ActionPruneArgs struct {

@@ -30,7 +30,7 @@ func TestFirewallerSuite(t *stdtesting.T) {
 
 func (s *firewallerSuite) TestModelFirewallRules(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -52,7 +52,7 @@ func (s *firewallerSuite) TestModelFirewallRules(c *tc.C) {
 
 func (s *firewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -74,7 +74,7 @@ func (s *firewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 
 func (s *firewallerSuite) TestWatchModelMachines(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -96,7 +96,7 @@ func (s *firewallerSuite) TestWatchModelMachines(c *tc.C) {
 
 func (s *firewallerSuite) TestControllerAPIInfoForModel(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -120,7 +120,7 @@ func (s *firewallerSuite) TestControllerAPIInfoForModel(c *tc.C) {
 
 func (s *firewallerSuite) TestMacaroonForRelation(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -145,7 +145,7 @@ func (s *firewallerSuite) TestMacaroonForRelation(c *tc.C) {
 
 func (s *firewallerSuite) TestSetRelationStatus(c *tc.C) {
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Firewaller")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -196,7 +196,7 @@ func (s *firewallerSuite) TestAllSpaceInfos(c *tc.C) {
 
 	var callCount int
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "Firewaller")
 			c.Check(version, tc.Equals, 6)
 			c.Check(id, tc.Equals, "")

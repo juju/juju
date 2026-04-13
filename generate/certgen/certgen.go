@@ -31,7 +31,7 @@ func main() {
 	params := paramSet{
 		GeneratedAt: time.Now().Format(time.RFC822),
 	}
-	for i := 0; i < count; i++ {
+	for range count {
 		caSigner, err := pki.DefaultKeyProfile()
 		if err != nil {
 			panic(err)
@@ -68,7 +68,7 @@ func main() {
 		params.Server = append(params.Server, keyPair{leafCertPem, leafKeyPem})
 	}
 
-	for i := 0; i < count; i++ {
+	for range count {
 		caSigner, err := pki.DefaultKeyProfile()
 		if err != nil {
 			panic(err)

@@ -14,6 +14,7 @@ linters:
     - sqlclosecheck
     - unconvert
     - unused
+    - modernize
   settings:
     gocritic:
       disable-all: true
@@ -69,6 +70,9 @@ linters:
               - method-call
           severity: error
           disabled: false
+    modernize:
+      disable:
+        - omitzero
   exclusions:
     generated: lax
     presets:

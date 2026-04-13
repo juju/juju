@@ -34,7 +34,7 @@ func (s *eventsSuite) TestList(c *tc.C) {
 		},
 	}
 	res := []corev1.Event{}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		ev := template
 		ev.ObjectMeta.Name = strconv.Itoa(i)
 		_, err := s.client.CoreV1().Events("test").Create(c.Context(), &ev, metav1.CreateOptions{})

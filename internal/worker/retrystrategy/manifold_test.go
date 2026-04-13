@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -43,7 +43,7 @@ func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.fakeAgent = &fakeAgent{}
 	s.fakeCaller = &fakeCaller{}
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent":      s.fakeAgent,
 		"api-caller": s.fakeCaller,
 	})
@@ -78,7 +78,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":      dependency.ErrMissing,
 		"api-caller": s.fakeCaller,
 	})
@@ -93,7 +93,7 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *tc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent":      s.fakeAgent,
 		"api-caller": dependency.ErrMissing,
 	})
@@ -189,7 +189,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	c.Assert(err, tc.ErrorIsNil)
 
-	var out interface{}
+	var out any
 	err = manifold.Output(w, &out)
 	c.Assert(err.Error(), tc.Equals, "out should be a *params.RetryStrategy; is *interface {}")
 }

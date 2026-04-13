@@ -19,7 +19,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserSecretsDrain", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUserSecretsDrainAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*SecretsDrainAPI)(nil)))
+	}, reflect.TypeFor[*SecretsDrainAPI]())
 }
 
 // newUserSecretsDrainAPI creates a SecretsDrainAPI for draining user secrets.

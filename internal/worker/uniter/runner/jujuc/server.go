@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/rpc"
 	"os"
@@ -96,9 +97,7 @@ var actionCommands = map[string]creator{
 func allEnabledCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
-		for k, v := range m {
-			all[k] = v
-		}
+		maps.Copy(all, m)
 	}
 	add(baseCommands)
 	add(storageCommands)
@@ -112,9 +111,7 @@ func allEnabledCommands() map[string]creator {
 func allHookCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
-		for k, v := range m {
-			all[k] = v
-		}
+		maps.Copy(all, m)
 	}
 	add(baseCommands)
 	add(storageCommands)
@@ -127,9 +124,7 @@ func allHookCommands() map[string]creator {
 func allActionCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
-		for k, v := range m {
-			all[k] = v
-		}
+		maps.Copy(all, m)
 	}
 
 	add(actionCommands)
@@ -232,7 +227,7 @@ type Jujuc struct {
 }
 
 // badReqErrorf returns an error indicating a bad Request.
-func badReqErrorf(format string, v ...interface{}) error {
+func badReqErrorf(format string, v ...any) error {
 	return fmt.Errorf("bad request: "+format, v...)
 }
 

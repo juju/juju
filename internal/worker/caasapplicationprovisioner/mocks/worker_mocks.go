@@ -15,7 +15,7 @@ import (
 
 	application "github.com/juju/juju/core/application"
 	resource "github.com/juju/juju/core/resource"
-	worker "github.com/juju/worker/v4"
+	worker "github.com/juju/worker/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -79,17 +79,17 @@ func (c *MockRunnerKillCall) DoAndReturn(f func()) *MockRunnerKillCall {
 }
 
 // Report mocks base method.
-func (m *MockRunner) Report() map[string]any {
+func (m *MockRunner) Report(arg0 context.Context) map[string]any {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Report")
+	ret := m.ctrl.Call(m, "Report", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	return ret0
 }
 
 // Report indicates an expected call of Report.
-func (mr *MockRunnerMockRecorder) Report() *MockRunnerReportCall {
+func (mr *MockRunnerMockRecorder) Report(arg0 any) *MockRunnerReportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRunner)(nil).Report))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRunner)(nil).Report), arg0)
 	return &MockRunnerReportCall{Call: call}
 }
 
@@ -105,13 +105,13 @@ func (c *MockRunnerReportCall) Return(arg0 map[string]any) *MockRunnerReportCall
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRunnerReportCall) Do(f func() map[string]any) *MockRunnerReportCall {
+func (c *MockRunnerReportCall) Do(f func(context.Context) map[string]any) *MockRunnerReportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRunnerReportCall) DoAndReturn(f func() map[string]any) *MockRunnerReportCall {
+func (c *MockRunnerReportCall) DoAndReturn(f func(context.Context) map[string]any) *MockRunnerReportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

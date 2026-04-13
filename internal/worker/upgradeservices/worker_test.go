@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	changestream "github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"

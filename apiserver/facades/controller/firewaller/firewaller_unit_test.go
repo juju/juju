@@ -109,9 +109,9 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]any{}))
 
-	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+	modelAttrs := coretesting.FakeConfig().Merge(map[string]any{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
@@ -134,13 +134,13 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	ctrlAttrs := map[string]interface{}{
+	ctrlAttrs := map[string]any{
 		controller.APIPort:            17777,
 		controller.AutocertDNSNameKey: "example.com",
 	}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
 
-	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
+	modelAttrs := coretesting.FakeConfig().Merge(map[string]any{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))

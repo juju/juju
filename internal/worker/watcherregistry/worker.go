@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -58,7 +58,7 @@ type WatcherRegistry interface {
 	Count() int
 
 	// Report returns a map of the current state of the registry.
-	Report() map[string]any
+	Report(ctx context.Context) map[string]any
 }
 
 // WatcherRegistryGetter defines an interface for retrieving
@@ -144,8 +144,8 @@ func (w *Worker) Wait() error {
 }
 
 // Report returns a map of the current state of the registry.
-func (w *Worker) Report() map[string]any {
-	return w.runner.Report()
+func (w *Worker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 // GetWatcherRegistry returns the watcher registry for a given id.
@@ -313,11 +313,11 @@ func (r *trackedWorker) Wait() error {
 }
 
 // Report returns a map of the current state of the registry.
-func (r *trackedWorker) Report() map[string]any {
+func (r *trackedWorker) Report(ctx context.Context) map[string]any {
 	report := make(map[string]any)
 	report["namespacePrefix"] = r.namespacePrefix
 	report["namespaceCounter"] = r.namespaceCounter
-	report["workers"] = r.runner.Report()
+	report["workers"] = r.runner.Report(ctx)
 	return report
 }
 

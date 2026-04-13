@@ -124,7 +124,7 @@ func NewSSHCommandForTest(
 	sshClient SSHClientAPI,
 	statusClient StatusClientAPI,
 	hostChecker jujussh.ReachableChecker,
-	isTerminal func(interface{}) bool,
+	isTerminal func(any) bool,
 	retryStrategy retry.CallArgs,
 	publicKeyRetryStrategy retry.CallArgs,
 ) *sshCommand {

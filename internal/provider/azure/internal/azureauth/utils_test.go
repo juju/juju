@@ -6,7 +6,6 @@ package azureauth_test
 import (
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/juju/tc"
 	"github.com/microsoft/kiota-abstractions-go/store"
 	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
@@ -27,8 +26,8 @@ func (s *ErrorSuite) TestAsDataError(c *tc.C) {
 	dataErr := odataerrors.NewODataError()
 	dataErr.SetBackingStore(store.NewInMemoryBackingStore())
 	me := odataerrors.NewMainError()
-	me.SetCode(to.Ptr("code"))
-	me.SetMessage(to.Ptr("message"))
+	me.SetCode(new("code"))
+	me.SetMessage(new("message"))
 	dataErr.SetErrorEscaped(me)
 
 	de, ok := azureauth.AsDataError(dataErr)

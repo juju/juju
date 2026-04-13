@@ -4,8 +4,8 @@
 package watcher
 
 import (
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 )
 
 // Normalise takes any watcher and normalises it down to a NotifyWatcher.

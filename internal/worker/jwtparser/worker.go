@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"gopkg.in/tomb.v2"
 

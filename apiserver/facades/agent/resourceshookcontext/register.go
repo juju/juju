@@ -17,7 +17,7 @@ var _ = Register
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ResourcesHookContext", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacade(ctx)
-	}, reflect.TypeOf((*UnitFacade)(nil)))
+	}, reflect.TypeFor[*UnitFacade]())
 }
 
 // newStateFacade provides the signature to register this resource facade

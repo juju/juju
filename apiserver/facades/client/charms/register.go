@@ -23,7 +23,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Charms", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV7(stdCtx, ctx)
-	}, reflect.TypeOf((*APIv7)(nil)))
+	}, reflect.TypeFor[*APIv7]())
 }
 
 func newFacadeV7(stdCtx context.Context, ctx facade.ModelContext) (*APIv7, error) {

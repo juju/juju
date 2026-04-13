@@ -42,7 +42,7 @@ func setFlags(rawValues ...string) {
 	flags = set.NewStrings()
 	for _, values := range rawValues {
 		values = strings.ToLower(values)
-		for _, flag := range strings.Split(values, ",") {
+		for flag := range strings.SplitSeq(values, ",") {
 			if flag = strings.TrimSpace(flag); flag != "" {
 				flags.Add(flag)
 			}

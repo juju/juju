@@ -40,6 +40,7 @@ type Client struct {
 	portService               PortService
 	relationService           RelationService
 	statusService             StatusService
+	controllerConfigService   ControllerConfigService
 
 	isControllerModel bool
 }
@@ -87,5 +88,5 @@ func SkipReplicaCheck(patcher Patcher) {
 
 // Patcher is provided by the test suites to temporarily change values.
 type Patcher interface {
-	PatchValue(dest, value interface{})
+	PatchValue(dest, value any)
 }

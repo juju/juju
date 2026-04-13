@@ -118,7 +118,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.fullSchema {
-		verboseSpecs := make(map[string]interface{})
+		verboseSpecs := make(map[string]any)
 		for k, v := range actions {
 			verboseSpecs[k] = v.Params
 		}
@@ -141,7 +141,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	naturalsort.Sort(sortedNames)
 
-	var output interface{}
+	var output any
 	switch c.out.Name() {
 	case "yaml", "json":
 		output = shortOutput
@@ -171,7 +171,7 @@ type listOutput struct {
 }
 
 // printTabular prints the list of actions in tabular format
-func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+func (c *listCommand) printTabular(writer io.Writer, value any) error {
 	list, ok := value.([]listOutput)
 	if !ok {
 		return errors.New("unexpected value")
@@ -204,6 +204,6 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 // is desired. NOTE: It is very possible that this functionality should live in
 // the cmd package where this kind of thing can be handled in a more elegant
 // and DRY fashion.
-func (c *listCommand) dummyDefault(writer io.Writer, value interface{}) error {
+func (c *listCommand) dummyDefault(writer io.Writer, value any) error {
 	return nil
 }

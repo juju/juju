@@ -14,9 +14,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -165,7 +165,7 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *tc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, err := worker.Provider()
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -230,7 +230,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *tc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, err := worker.Provider()
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -247,7 +247,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 	// Ensure that calling the provider multiple times returns the same
 	// provider.
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("hunter-%d", i)
 		s.expectDomainServices(name)
 	}
@@ -258,7 +258,7 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("hunter-%d", i)
 
 		_, err := worker.ProviderForModel(c.Context(), name)
@@ -277,7 +277,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *tc.C) {
 	// Ensure that calling the provider multiple times returns the same
 	// provider.
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("hunter-%d", i)
 		s.expectDomainServices(name)
 	}
@@ -291,7 +291,7 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *tc.C) {
 	wg.Add(10)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 			name := fmt.Sprintf("hunter-%d", i)
@@ -332,7 +332,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDiffe
 	s.ensureStartup(c)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 
 		_, err := worker.EphemeralProviderFromConfig(c.Context(), providertracker.EphemeralProviderConfig{})
 		c.Assert(err, tc.ErrorIsNil)
@@ -356,7 +356,7 @@ func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *tc.
 	wg.Add(10)
 
 	worker := w.(*providerWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 

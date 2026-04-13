@@ -53,7 +53,7 @@ type InstanceStatusHistoryGetter interface {
 type DetailedStatus struct {
 	Status Status
 	Info   string
-	Data   map[string]interface{}
+	Data   map[string]any
 	Since  *time.Time
 	Kind   HistoryKind
 }

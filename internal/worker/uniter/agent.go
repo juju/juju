@@ -10,7 +10,7 @@ import (
 )
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.
-func setAgentStatus(ctx stdcontext.Context, u *Uniter, agentStatus status.Status, info string, data map[string]interface{}) error {
+func setAgentStatus(ctx stdcontext.Context, u *Uniter, agentStatus status.Status, info string, data map[string]any) error {
 	u.setStatusMutex.Lock()
 	defer u.setStatusMutex.Unlock()
 	if u.lastReportedStatus == agentStatus && u.lastReportedMessage == info {

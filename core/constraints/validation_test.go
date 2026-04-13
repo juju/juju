@@ -23,7 +23,7 @@ var validationTests = []struct {
 	desc        string
 	cons        string
 	unsupported []string
-	vocab       map[string][]interface{}
+	vocab       map[string][]any
 	reds        []string
 	blues       []string
 	err         string
@@ -84,63 +84,63 @@ var validationTests = []struct {
 	{
 		desc:  "arch vocab",
 		cons:  "arch=amd64 mem=4G cores=4",
-		vocab: map[string][]interface{}{"arch": {"amd64", "arm64"}},
+		vocab: map[string][]any{"arch": {"amd64", "arm64"}},
 	},
 	{
 		desc:  "cores vocab",
 		cons:  "mem=4G cores=4",
-		vocab: map[string][]interface{}{"cores": {2, 4, 8}},
+		vocab: map[string][]any{"cores": {2, 4, 8}},
 	},
 	{
 		desc:  "instance-type vocab",
 		cons:  "mem=4G instance-type=foo",
-		vocab: map[string][]interface{}{"instance-type": {"foo", "bar"}},
+		vocab: map[string][]any{"instance-type": {"foo", "bar"}},
 	},
 	{
 		desc:  "tags vocab",
 		cons:  "mem=4G tags=foo,bar",
-		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
+		vocab: map[string][]any{"tags": {"foo", "bar", "another"}},
 	},
 	{
 		desc:  "invalid arch vocab",
 		cons:  "arch=arm64 mem=4G cores=4",
-		vocab: map[string][]interface{}{"arch": {"amd64"}},
+		vocab: map[string][]any{"arch": {"amd64"}},
 		err:   "invalid constraint value: arch=arm64\nvalid values are:.*",
 	},
 	{
 		desc:  "invalid cores vocab",
 		cons:  "mem=4G cores=5",
-		vocab: map[string][]interface{}{"cores": {2, 4, 8}},
+		vocab: map[string][]any{"cores": {2, 4, 8}},
 		err:   "invalid constraint value: cores=5\nvalid values are:.*",
 	},
 	{
 		desc:  "invalid instance-type vocab",
 		cons:  "mem=4G instance-type=foo",
-		vocab: map[string][]interface{}{"instance-type": {"bar"}},
+		vocab: map[string][]any{"instance-type": {"bar"}},
 		err:   "invalid constraint value: instance-type=foo\nvalid values are:.*",
 	},
 	{
 		desc:  "invalid tags vocab",
 		cons:  "mem=4G tags=foo,other",
-		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
+		vocab: map[string][]any{"tags": {"foo", "bar", "another"}},
 		err:   "invalid constraint value: tags=other\nvalid values are:.*",
 	},
 	{
 		desc: "instance-type and arch",
 		cons: "arch=arm64 mem=4G instance-type=foo",
-		vocab: map[string][]interface{}{
+		vocab: map[string][]any{
 			"instance-type": {"foo", "bar"},
 			"arch":          {"amd64", "arm64"}},
 	},
 	{
 		desc:  "virt-type",
 		cons:  "virt-type=bar",
-		vocab: map[string][]interface{}{"virt-type": {"bar"}},
+		vocab: map[string][]any{"virt-type": {"bar"}},
 	},
 	{
 		desc: "valid instance-type",
 		cons: "instance-type=a1.4xlarge",
-		vocab: map[string][]interface{}{
+		vocab: map[string][]any{
 			"instance-type": {"a1.4xlarge", "a1.large", "a1.xlarge", "a1.medium", "a1.metal",
 				"c3.2xlarge", "c3.xlarge",
 			},
@@ -148,14 +148,14 @@ var validationTests = []struct {
 	}, {
 		desc: "invalid instance-type unique and sorted by closest Levenshtein Distance vocabs",
 		cons: "instance-type=ba",
-		vocab: map[string][]interface{}{
+		vocab: map[string][]any{
 			"instance-type": {"car", "bar", "tar", "car", "bar", "car"},
 		},
 		err: "invalid constraint value: instance-type=ba\nvalid values are: bar car tar",
 	}, {
 		desc: "invalid instance-type return count of extra possible vocabs if length of closest vocabs exceeds limit",
 		cons: "instance-type=1a.4xlarge",
-		vocab: map[string][]interface{}{
+		vocab: map[string][]any{
 			"instance-type": {"a1.4xlarge", "a1.large", "a1.xlarge", "a1.medium", "a1.metal",
 				"c3.2xlarge", "c3.xlarge", "c4.large", "c4.8xlarge", "c4.4xlarge",
 				"c4.2xlarge", "c4.xlarge", "c5.4xlarge",
@@ -191,7 +191,7 @@ func (s *validationSuite) TestConstraintResolver(c *tc.C) {
 	cons := constraints.MustParse("arch=amd64 instance-type=foo-amd64")
 	_, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type"`)
-	validator.RegisterConflictResolver("instance-type", "arch", func(attrValues map[string]interface{}) error {
+	validator.RegisterConflictResolver("instance-type", "arch", func(attrValues map[string]any) error {
 		if attrValues["arch"] == "amd64" && attrValues["instance-type"] == "foo-amd64" {
 			return nil
 		}

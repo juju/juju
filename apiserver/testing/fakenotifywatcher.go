@@ -4,8 +4,8 @@
 package testing
 
 import (
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/core/watcher"
 )

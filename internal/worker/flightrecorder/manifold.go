@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/flightrecorder"
 )
@@ -19,7 +19,7 @@ func Manifold(flightRecorder flightrecorder.FlightRecorderWorker) dependency.Man
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return flightRecorder, nil
 		},
-		Output: func(in worker.Worker, out interface{}) error {
+		Output: func(in worker.Worker, out any) error {
 			recorder, ok := in.(flightrecorder.FlightRecorderWorker)
 			if !ok {
 				return errors.NotValidf("expected flightrecorder.FlightRecorderWorker, got %T", in)

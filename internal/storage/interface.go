@@ -259,7 +259,7 @@ type VolumeParams struct {
 	// Attributes is the set of provider-specific attributes to pass to
 	// the storage provider when creating the volume. Attributes is derived
 	// from the storage pool configuration.
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// ResourceTags is a set of tags to set on the created volume, if the
 	// storage provider supports tags.

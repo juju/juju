@@ -134,7 +134,7 @@ func (s *AddModelSuite) TestInit(c *tc.C) {
 		name        string
 		owner       string
 		cloudRegion string
-		values      map[string]interface{}
+		values      map[string]any
 	}{
 		{
 			err: common.MissingModelNameError("add-model").Error(),
@@ -166,7 +166,7 @@ func (s *AddModelSuite) TestInit(c *tc.C) {
 		}, {
 			args:   []string{"new-model", "--config", "key=value", "--config", "key2=value2"},
 			name:   "new-model",
-			values: map[string]interface{}{"key": "value", "key2": "value2"},
+			values: map[string]any{"key": "value", "key2": "value2"},
 		}, {
 			args:        []string{"new-model", "cloud/region"},
 			name:        "new-model",
@@ -382,9 +382,9 @@ func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
+		{"Cloud", []any{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
-		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
+		{"Cloud", []any{names.NewCloudTag("aws")}},
 	})
 	c.Assert(s.fakeAddModelAPI.cloudName, tc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, tc.Equals, "us-west-1")
@@ -400,7 +400,7 @@ func (s *AddModelSuite) TestNoDefaultCloudRegion(c *tc.C) {
 	//Please ask the controller administrator to grant you add-model permission
 	//for a particular cloud to which you want to add a model.`[1:])
 	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
+		{"Cloud", []any{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
 	})
 }
@@ -423,9 +423,9 @@ func (s *AddModelSuite) TestAmbiguousCloud(c *tc.C) {
 	//lxd
 	//`[1:])
 	s.fakeCloudAPI.CheckCalls(c, []testhelpers.StubCall{
-		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
+		{"Cloud", []any{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
-		{"Cloud", []interface{}{names.NewCloudTag("aws")}},
+		{"Cloud", []any{names.NewCloudTag("aws")}},
 	})
 }
 
@@ -532,11 +532,11 @@ func (s *AddModelSuite) TestConfigFileValuesPassedThrough(c *tc.C) {
 }
 
 func (s *AddModelSuite) TestConfigFileWithNestedMaps(c *tc.C) {
-	nestedConfig := map[string]interface{}{
+	nestedConfig := map[string]any{
 		"account": "magic",
 		"cloud":   "9",
 	}
-	config := map[string]interface{}{
+	config := map[string]any{
 		"foo":    "bar",
 		"nested": nestedConfig,
 	}
@@ -555,10 +555,10 @@ func (s *AddModelSuite) TestConfigFileWithNestedMaps(c *tc.C) {
 }
 
 func (s *AddModelSuite) TestConfigFileFailsToConform(c *tc.C) {
-	nestedConfig := map[int]interface{}{
+	nestedConfig := map[int]any{
 		9: "9",
 	}
-	config := map[string]interface{}{
+	config := map[string]any{
 		"foo":    "bar",
 		"nested": nestedConfig,
 	}
@@ -708,7 +708,7 @@ type fakeAddClient struct {
 	cloudName       string
 	cloudRegion     string
 	cloudCredential names.CloudCredentialTag
-	config          map[string]interface{}
+	config          map[string]any
 	err             error
 	model           base.ModelInfo
 }
@@ -719,7 +719,7 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (f *fakeAddClient) CreateModel(ctx context.Context, name string, modelCreator names.UserTag, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]interface{}) (base.ModelInfo, error) {
+func (f *fakeAddClient) CreateModel(ctx context.Context, name string, modelCreator names.UserTag, cloudName, cloudRegion string, cloudCredential names.CloudCredentialTag, config map[string]any) (base.ModelInfo, error) {
 	if f.err != nil {
 		return base.ModelInfo{}, f.err
 	}

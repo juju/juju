@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
-func fakeCallback(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
+func fakeCallback(_ context.Context, _ status.Status, _ string, _ map[string]any) error {
 	return nil
 }
 
@@ -399,7 +400,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var userDataMap map[string]interface{}
+	var userDataMap map[string]any
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, tc.ErrorIsNil)
 	var keys []string
@@ -407,7 +408,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 		keys = append(keys, key)
 	}
 	c.Assert(keys, tc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
-	c.Assert(userDataMap["runcmd"], tc.DeepEquals, []interface{}{
+	c.Assert(userDataMap["runcmd"], tc.DeepEquals, []any{
 		"set -xe",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 		"echo 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
@@ -608,7 +609,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	// Create a hosted model with an instance and a volume.
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
-	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+	cfg, err := controllerEnv.Config().Apply(map[string]any{
 		"uuid":          hostedModelUUID,
 		"firewall-mode": "global",
 	})
@@ -1975,7 +1976,7 @@ func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *tc.C) {
 	}
 
 	// Sort instance list so we always get consistent results
-	sort.Slice(ids, func(l, r int) bool { return ids[l] < ids[r] })
+	slices.Sort(ids)
 
 	ifLists, err := env.NetworkInterfaces(c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2271,7 +2272,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	// Create a hosted model with an instance and a volume.
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
 	s.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
-	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+	cfg, err := controllerEnv.Config().Apply(map[string]any{
 		"uuid":          hostedModelUUID,
 		"firewall-mode": "global",
 	})
@@ -2392,13 +2393,13 @@ func patchEC2ForTesting(c *tc.C, region types.Region) func() {
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *tc.C, userDataMap map[string]interface{}, pattern string, match bool) {
+func CheckScripts(c *tc.C, userDataMap map[string]any, pattern string, match bool) {
 	scripts0 := userDataMap["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
 		return
 	}
-	scripts := scripts0.([]interface{})
+	scripts := scripts0.([]any)
 	re := regexp.MustCompile(pattern)
 	found := false
 	for _, s0 := range scripts {
@@ -2418,7 +2419,7 @@ func CheckScripts(c *tc.C, userDataMap map[string]interface{}, pattern string, m
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *tc.C, userDataMap map[string]interface{}, pkg string, match bool) {
+func CheckPackage(c *tc.C, userDataMap map[string]any, pkg string, match bool) {
 	pkgs0 := userDataMap["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -2427,7 +2428,7 @@ func CheckPackage(c *tc.C, userDataMap map[string]interface{}, pkg string, match
 		return
 	}
 
-	pkgs := pkgs0.([]interface{})
+	pkgs := pkgs0.([]any)
 
 	found := false
 	for _, p0 := range pkgs {

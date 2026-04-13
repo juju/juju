@@ -35,7 +35,7 @@ func (s *storageSuite) TestVolumeSource(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(source, tc.NotNil)
 	cfg, err := storage.NewConfig("iscsi", oci.OciStorageProviderType,
-		map[string]interface{}{
+		map[string]any{
 			oci.OciVolumeType: oci.IscsiPool,
 		})
 	c.Assert(err, tc.IsNil)
@@ -61,7 +61,7 @@ func (s *storageSuite) TestDynamic(c *tc.C) {
 
 func (s *storageSuite) TestValidateConfig(c *tc.C) {
 	cfg, err := storage.NewConfig("iscsi", oci.OciStorageProviderType,
-		map[string]interface{}{
+		map[string]any{
 			oci.OciVolumeType: oci.IscsiPool,
 		})
 	c.Assert(err, tc.IsNil)
@@ -71,7 +71,7 @@ func (s *storageSuite) TestValidateConfig(c *tc.C) {
 
 func (s *storageSuite) TestValidateConfigWithError(c *tc.C) {
 	cfg, err := storage.NewConfig("random-pool", oci.OciStorageProviderType,
-		map[string]interface{}{
+		map[string]any{
 			oci.OciVolumeType: "no-idea-what-I-am",
 		})
 	c.Assert(err, tc.IsNil)

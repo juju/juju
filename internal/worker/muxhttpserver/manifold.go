@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/logger"
@@ -38,7 +38,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
 	inServer, ok := in.(*Server)
 	if !ok {
 		return errors.Errorf("expected Server, got %T", in)

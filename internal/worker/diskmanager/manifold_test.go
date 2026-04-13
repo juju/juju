@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
@@ -34,7 +34,7 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 		func(objType string,
 			version int,
 			id, request string,
-			a, response interface{},
+			a, response any,
 		) error {
 
 			// We don't test the api call. We test that NewWorker is

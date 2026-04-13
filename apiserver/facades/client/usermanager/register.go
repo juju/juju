@@ -22,7 +22,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserManager", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUserManagerAPI(stdCtx, ctx) // Adds ModelUserInfo
-	}, reflect.TypeOf((*UserManagerAPI)(nil)))
+	}, reflect.TypeFor[*UserManagerAPI]())
 }
 
 // newUserManagerAPI provides the signature required for facade registration.

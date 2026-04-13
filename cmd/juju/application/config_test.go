@@ -6,6 +6,7 @@ package application_test
 import (
 	"bytes"
 	"context"
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -32,8 +33,8 @@ type configCommandSuite struct {
 	dir                string
 	fake               *fakeApplicationAPI
 	store              jujuclient.ClientStore
-	defaultCharmValues map[string]interface{}
-	defaultAppValues   map[string]interface{}
+	defaultCharmValues map[string]any
+	defaultAppValues   map[string]any
 }
 
 func TestConfigCommandSuite(t *testing.T) {
@@ -46,28 +47,28 @@ var (
 	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin002\n\n"
 )
 
-var charmSettings = map[string]interface{}{
-	"multiline-value": map[string]interface{}{
+var charmSettings = map[string]any{
+	"multiline-value": map[string]any{
 		"description": "Specifies multiline-value",
 		"type":        "string",
 		"value":       "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
 	},
-	"title": map[string]interface{}{
+	"title": map[string]any{
 		"description": "Specifies title",
 		"type":        "string",
 		"value":       "Nearly There",
 	},
-	"skill-level": map[string]interface{}{
+	"skill-level": map[string]any{
 		"description": "Specifies skill-level",
 		"value":       100,
 		"type":        "int",
 	},
-	"username": map[string]interface{}{
+	"username": map[string]any{
 		"description": "Specifies username",
 		"type":        "string",
 		"value":       "admin001",
 	},
-	"outlook": map[string]interface{}{
+	"outlook": map[string]any{
 		"description": "Specifies outlook",
 		"type":        "string",
 		"value":       "true",
@@ -77,16 +78,16 @@ var charmSettings = map[string]interface{}{
 var getTests = []struct {
 	application  string
 	useAppConfig bool
-	expected     map[string]interface{}
+	expected     map[string]any
 }{
 	{
 		"dummy-application",
 		true,
-		map[string]interface{}{
+		map[string]any{
 			"application": "dummy-application",
 			"charm":       "dummy",
-			"application-config": map[string]interface{}{
-				"trust": map[string]interface{}{
+			"application-config": map[string]any{
+				"trust": map[string]any{
 					"description": "Specifies trust",
 					"type":        "bool",
 					"value":       true,
@@ -97,7 +98,7 @@ var getTests = []struct {
 	}, {
 		"dummy-application",
 		false,
-		map[string]interface{}{
+		map[string]any{
 			"application": "dummy-application",
 			"charm":       "dummy",
 			"settings":    charmSettings,
@@ -108,14 +109,14 @@ var getTests = []struct {
 func (s *configCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.defaultCharmValues = map[string]interface{}{
+	s.defaultCharmValues = map[string]any{
 		"title":           "Nearly There",
 		"skill-level":     100,
 		"username":        "admin001",
 		"outlook":         "true",
 		"multiline-value": "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" ",
 	}
-	s.defaultAppValues = map[string]interface{}{
+	s.defaultAppValues = map[string]any{
 		"trust": true,
 	}
 
@@ -168,11 +169,11 @@ func (s *configCommandSuite) TestGetConfig(c *tc.C) {
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
 		c.Assert(err, tc.ErrorIsNil)
-		expected := make(map[string]interface{})
+		expected := make(map[string]any)
 		err = goyaml.Unmarshal(buf, &expected)
 		c.Assert(err, tc.ErrorIsNil)
 
-		actual := make(map[string]interface{})
+		actual := make(map[string]any)
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Log(ctx.Stdout.(*bytes.Buffer).String())
 		c.Assert(err, tc.ErrorIsNil)
@@ -279,25 +280,25 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, s.defaultAppValues, map[string]interface{}{
+	}, s.defaultAppValues, map[string]any{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello=foo",
-	}, s.defaultAppValues, map[string]interface{}{
+	}, s.defaultAppValues, map[string]any{
 		"username": "hello=foo",
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=@valid.txt",
-	}, s.defaultAppValues, map[string]interface{}{
+	}, s.defaultAppValues, map[string]any{
 		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=",
-	}, s.defaultAppValues, map[string]interface{}{
+	}, s.defaultAppValues, map[string]any{
 		"username": "",
 		"outlook":  "hello@world.tld",
 	})
@@ -306,12 +307,12 @@ func (s *configCommandSuite) TestSetCharmConfigSuccess(c *tc.C) {
 func (s *configCommandSuite) TestSetAppConfigSuccess(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"trust=false",
-	}, map[string]interface{}{
+	}, map[string]any{
 		"trust": "false",
 	}, s.defaultCharmValues)
 	s.assertSetSuccess(c, s.dir, []string{
 		"trust=true",
-	}, map[string]interface{}{
+	}, map[string]any{
 		"trust": "true",
 	}, s.defaultCharmValues)
 }
@@ -320,7 +321,7 @@ func (s *configCommandSuite) TestSetSameValue(c *tc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, s.defaultAppValues, map[string]interface{}{
+	}, s.defaultAppValues, map[string]any{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
@@ -373,24 +374,24 @@ func (s *configCommandSuite) TestSetFromStdin(c *tc.C) {
 
 func (s *configCommandSuite) TestResetCharmConfigToDefault(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
-		name: "dummy-application", charmValues: map[string]interface{}{
+		name: "dummy-application", charmValues: map[string]any{
 			"username": "hello",
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
 		"--reset",
 		"username",
-	}, nil, make(map[string]interface{}))
+	}, nil, make(map[string]any))
 }
 
 func (s *configCommandSuite) TestResetAppConfig(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
-		name: "dummy-application", appValues: map[string]interface{}{
+		name: "dummy-application", appValues: map[string]any{
 			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
 		"--reset",
 		"trust",
-	}, make(map[string]interface{}), nil)
+	}, make(map[string]any), nil)
 }
 
 func (s *configCommandSuite) TestBlockSetConfig(c *tc.C) {
@@ -408,14 +409,14 @@ func (s *configCommandSuite) TestBlockSetConfig(c *tc.C) {
 
 func (s *configCommandSuite) TestSetReset(c *tc.C) {
 	s.fake = &fakeApplicationAPI{
-		name: "dummy-application", appValues: map[string]interface{}{
+		name: "dummy-application", appValues: map[string]any{
 			"trust": false,
 		}}
 	s.assertResetSuccess(c, s.dir, []string{
 		"username=foo",
 		"--reset",
 		"trust",
-	}, make(map[string]interface{}), map[string]interface{}{"username": "foo"})
+	}, make(map[string]any), map[string]any{"username": "foo"})
 }
 
 func (s *configCommandSuite) TestSetYAML(c *tc.C) {
@@ -451,7 +452,7 @@ func (s *configCommandSuite) TestSetYAMLOverrideReset(c *tc.C) {
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *configCommandSuite) assertSetSuccess(
 	c *tc.C, dir string, args []string,
-	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
+	expectAppValues map[string]any, expectCharmValues map[string]any,
 ) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
@@ -459,28 +460,20 @@ func (s *configCommandSuite) assertSetSuccess(
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
 	c.Assert(err, tc.ErrorIsNil)
-	appValues := make(map[string]interface{})
-	for k, v := range s.defaultAppValues {
-		appValues[k] = v
-	}
-	for k, v := range expectAppValues {
-		appValues[k] = v
-	}
+	appValues := make(map[string]any)
+	maps.Copy(appValues, s.defaultAppValues)
+	maps.Copy(appValues, expectAppValues)
 	c.Assert(s.fake.appValues, tc.DeepEquals, appValues)
 
-	charmValues := make(map[string]interface{})
-	for k, v := range s.defaultCharmValues {
-		charmValues[k] = v
-	}
-	for k, v := range expectCharmValues {
-		charmValues[k] = v
-	}
+	charmValues := make(map[string]any)
+	maps.Copy(charmValues, s.defaultCharmValues)
+	maps.Copy(charmValues, expectCharmValues)
 	c.Assert(s.fake.charmValues, tc.DeepEquals, charmValues)
 }
 
 func (s *configCommandSuite) assertResetSuccess(
 	c *tc.C, dir string, args []string,
-	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
+	expectAppValues map[string]any, expectCharmValues map[string]any,
 ) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
@@ -532,7 +525,7 @@ func setupBigFile(c *tc.C, dir string) string {
 	for i := 0; i < cap(chunk); i++ {
 		chunk[i] = byte(i % 256)
 	}
-	for i := 0; i < 6000; i++ {
+	for range 6000 {
 		_, err = file.Write(chunk)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -572,9 +565,7 @@ func (f *parseYamlAPI) SetConfig(ctx context.Context, application, configYAML st
 	}
 	for app, cfg := range parsed {
 		if app == application {
-			for key, val := range cfg {
-				config[key] = val
-			}
+			maps.Copy(config, cfg)
 		}
 	}
 
@@ -584,7 +575,7 @@ func (f *parseYamlAPI) SetConfig(ctx context.Context, application, configYAML st
 
 	charmKeys := set.NewStrings("title", "skill-level", "username", "outlook")
 	if f.charmValues == nil {
-		f.charmValues = make(map[string]interface{})
+		f.charmValues = make(map[string]any)
 	}
 	for k, v := range config {
 		if charmKeys.Contains(k) {

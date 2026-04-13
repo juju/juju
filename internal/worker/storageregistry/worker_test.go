@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -103,7 +103,7 @@ func (s *workerSuite) TestGetStorageRegistryIsCached(c *tc.C) {
 	}).AnyTimes()
 
 	worker := w.(*storageRegistryWorker)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 
 		_, err := worker.GetStorageRegistry(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
@@ -134,7 +134,7 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 	}).AnyTimes()
 
 	worker := w.(*storageRegistryWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("anything-%d", i)
 
 		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
@@ -174,7 +174,7 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 	wg.Add(10)
 
 	worker := w.(*storageRegistryWorker)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 

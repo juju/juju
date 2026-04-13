@@ -285,7 +285,7 @@ func (api *APIBase) addUnits(
 	units := make([]coreunit.Name, 0, n)
 
 	// TODO what do we do if we fail half-way through this process?
-	for i := 0; i < n; i++ {
+	for i := range n {
 		var unitPlacement *instance.Placement
 		if i < len(placement) {
 			unitPlacement = placement[i]
