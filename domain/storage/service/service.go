@@ -72,6 +72,13 @@ type State interface {
 	GetStorageInstanceUUIDByID(
 		ctx context.Context, storageID string,
 	) (domainstorage.StorageInstanceUUID, error)
+
+	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
+	// their IDs.
+	GetStorageInstanceUUIDsByIDs(
+		ctx context.Context,
+		storageIDs []string,
+	) (map[string]domainstorage.StorageInstanceUUID, error)
 }
 
 // Service defines a service for interacting with the underlying state.
