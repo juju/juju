@@ -767,6 +767,7 @@ func (s *placementSuite) TestCreateMachineWithName_PopulatesHardwareCharacterist
 					Architecture: architecture.ARM64,
 				},
 				HardwareCharacteristics: characteristics,
+				Hostname:                "host-name-123",
 			},
 		)
 
@@ -790,6 +791,8 @@ WHERE m.machine_uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(azUuid, tc.Equals, expectedAzUUID.String())
+
+	s.checkHostnameForMachine(c, "0", "host-name-123")
 }
 
 func (s *placementSuite) TestCreateMachineWithNameIndicatesUnmanagedMachine(c *tc.C) {
@@ -808,6 +811,7 @@ func (s *placementSuite) TestCreateMachineWithNameIndicatesUnmanagedMachine(c *t
 				MachineUUID: machineUUID.String(),
 				NetNodeUUID: netNodeUUID.String(),
 				InstanceID:  &instanceID,
+				Hostname:    "host-name-123",
 			},
 		)
 	})
@@ -822,6 +826,8 @@ func (s *placementSuite) TestCreateMachineWithNameIndicatesUnmanagedMachine(c *t
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
+
+	s.checkHostnameForMachine(c, "0", "host-name-123")
 }
 
 func (s *placementSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {
@@ -954,4 +960,21 @@ WHERE name = ?
 	} else {
 		c.Check(nonce.V, tc.Equals, *expected)
 	}
+}
+
+func (s *placementSuite) checkHostnameForMachine(c *tc.C, name machine.Name, expected string) {
+	var nonce sql.Null[string]
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT hostname
+FROM machine
+WHERE name = ?
+`, name).Scan(&nonce)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nonce.V, tc.Equals, expected)
 }

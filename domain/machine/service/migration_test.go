@@ -117,6 +117,7 @@ func (s *migrationServiceSuite) TestCreateMachine(c *tc.C) {
 
 	obtainedUUID, err := s.service.CreateMachine(
 		c.Context(),
+		"host-name-123",
 		"666",
 		nil,
 		deployment.Platform{Architecture: architecture.AMD64},
@@ -143,6 +144,7 @@ func (s *migrationServiceSuite) TestCreateMachineSuccessNonce(c *tc.C) {
 
 	obtainedUUID, err := s.service.CreateMachine(
 		c.Context(),
+		"host-name-123",
 		"666",
 		new("foo"),
 		deployment.Platform{Architecture: architecture.AMD64},
@@ -163,6 +165,7 @@ func (s *migrationServiceSuite) TestCreateMachineError(c *tc.C) {
 
 	_, err := s.service.CreateMachine(
 		c.Context(),
+		"host-name-123",
 		"666",
 		nil,
 		deployment.Platform{Architecture: architecture.AMD64},
@@ -184,6 +187,7 @@ func (s *migrationServiceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 
 	_, err := s.service.CreateMachine(
 		c.Context(),
+		"host-name-123",
 		coremachine.Name("666"),
 		nil,
 		deployment.Platform{Architecture: architecture.AMD64},
@@ -208,6 +212,7 @@ func (s *migrationServiceSuite) TestCreateSubordinateMachine(c *tc.C) {
 
 	obtainedUUID, err := s.service.CreateSubordinateMachine(
 		c.Context(),
+		"host-name-123",
 		coremachine.Name("666"),
 		coremachine.UUID("parent-uuid"),
 		nil,
@@ -235,6 +240,7 @@ func (s *migrationServiceSuite) TestCreateSubordinateMachineNonce(c *tc.C) {
 
 	obtainedUUID, err := s.service.CreateSubordinateMachine(
 		c.Context(),
+		"host-name-123",
 		coremachine.Name("666"),
 		coremachine.UUID("parent-uuid"),
 		new("foo"),
@@ -256,6 +262,7 @@ func (s *migrationServiceSuite) TestCreateSubordinateMachineError(c *tc.C) {
 
 	_, err := s.service.CreateSubordinateMachine(
 		c.Context(),
+		"host-name-123",
 		coremachine.Name("666"),
 		coremachine.UUID("parent-uuid"),
 		nil,
@@ -278,6 +285,7 @@ func (s *migrationServiceSuite) TestCreateSubordinateMachineAlreadyExists(c *tc.
 
 	_, err := s.service.CreateSubordinateMachine(
 		c.Context(),
+		"host-name-123",
 		coremachine.Name("666"),
 		coremachine.UUID("parent-uuid"),
 		nil,
