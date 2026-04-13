@@ -273,6 +273,13 @@ CREATE TABLE device_constraint_attribute (
     PRIMARY KEY (device_constraint_uuid, "key")
 );
 
+CREATE TABLE application_k8s_resources_managed (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_application_k8s_resources_managed_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
 CREATE VIEW v_application_constraint AS
 SELECT
     ac.application_uuid,
