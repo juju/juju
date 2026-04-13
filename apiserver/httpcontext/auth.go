@@ -95,19 +95,27 @@ func (c CompositeAuthorizer) Authorize(ctx context.Context, authInfo authenticat
 }
 
 // AuthorizerFunc is a function type implementing Authorizer.
-type AuthorizerFunc func(authentication.AuthInfo) error
+type AuthorizerFunc func(context.Context, authentication.AuthInfo) error
 
 // Authorize is part of the Authorizer interface.
-func (f AuthorizerFunc) Authorize(info authentication.AuthInfo) error {
-	return f(info)
+func (f AuthorizerFunc) Authorize(ctx context.Context, info authentication.AuthInfo) error {
+	return f(ctx, info)
 }
 
-// TODOAuthorizer is a placeholder Authorizer that always returns success. It
-// should be replaced with a real implementation before being used in
-// production.
-type TODOAuthorizer struct{}
+// ControllerAuthorizer is an Authorizer that authorizes any request with a
+// controller credential.
+var ControllerAuthorizer AuthorizerFunc = func(_ context.Context, info authentication.AuthInfo) error {
+	if info.Controller {
+		return nil
+	}
+	return apiservererrors.ErrPerm
+}
 
-// Authorize is part of the Authorizer interface.
-func (a TODOAuthorizer) Authorize(_ context.Context, _ authentication.AuthInfo) error {
+// TODOAuthorizer is a placeholder Authorizer that always returns success. This
+// should be used until an appropriate Authorizer is implemented.
+//
+// Deprecated: TODOAuthorizer should be replaced with an appropriate Authorizer
+// and removed.
+var TODOAuthorizer AuthorizerFunc = func(context.Context, authentication.AuthInfo) error {
 	return nil
 }
