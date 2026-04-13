@@ -1025,16 +1025,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 
-	locator, err := api.getCharmLocatorByApplicationName(ctx, args.ApplicationName)
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-	charm, err := api.getCharm(ctx, locator)
-	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
-	}
-
-	units, err := api.addApplicationUnits(ctx, args, charm.Meta())
+	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1045,7 +1036,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 
 // addApplicationUnits adds a given number of units to an application.
 func (api *APIBase) addApplicationUnits(
-	ctx context.Context, args params.AddApplicationUnits, charmMeta *charm.Meta,
+	ctx context.Context, args params.AddApplicationUnits,
 ) ([]coreunit.Name, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
@@ -1091,7 +1082,6 @@ func (api *APIBase) addApplicationUnits(
 		args.Placement,
 		attachStorage,
 		assignUnits,
-		charmMeta,
 	)
 }
 

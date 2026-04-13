@@ -335,7 +335,6 @@ func (api *APIBase) addUnits(
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
 	assignUnits bool,
-	charmMeta *charm.Meta,
 ) ([]coreunit.Name, error) {
 	units := make([]coreunit.Name, 0, n)
 
