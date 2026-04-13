@@ -12,7 +12,9 @@ import (
 // when validating a storage instance for attachment. Filesystem or volume
 // provisioned sizes are used when set; otherwise the requested size is used.
 // If the kind is unknown, the requested size is used.
-func CalculateStorageInstanceSizeForAttachment(info internal.StorageInstanceInfo) uint64 {
+func CalculateStorageInstanceSizeForAttachment(
+	info internal.StorageInstanceInfo,
+) uint64 {
 	fallback := max(info.RequestedSizeMIB, 0)
 
 	switch info.Kind {
