@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
@@ -17,26 +17,32 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	domainapplicationservice "github.com/juju/juju/domain/application/service"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // AddUnits adds a given number of units to an application.
-func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
-	if api.modelType == model.CAAS {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
-	}
-
+func (api *APIBase) AddUnits(
+	ctx context.Context, args params.AddApplicationUnits,
+) (params.AddApplicationUnitsResults, error) {
 	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+		return params.AddApplicationUnitsResults{}, errors.Capture(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+		return params.AddApplicationUnitsResults{}, errors.Capture(err)
+	}
+
+	if api.modelType == model.CAAS {
+		return params.AddApplicationUnitsResults{}, errors.Errorf(
+			"adding units to a container-based model is not supported",
+		).Add(coreerrors.NotSupported)
 	}
 
 	units, err := api.addApplicationUnits(ctx, args)
 	if err != nil {
-		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+		return params.AddApplicationUnitsResults{}, errors.Capture(err)
 	}
+
 	return params.AddApplicationUnitsResults{
 		Units: transform.Slice(units, coreunit.Name.String),
 	}, nil
