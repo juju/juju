@@ -3488,6 +3488,44 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *tc
 	c.Check(*cons.Zones, tc.SameContents, []string{"zone3"})
 }
 
+func (s *applicationStateSuite) TestGetConstraintsPreservesInsertionOrder(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Insert spaces in reverse alphabetical order to confirm we get
+	// insertion order back, not sorted order.
+	for _, sp := range []struct{ uuid, name string }{
+		{"gamma-uuid", "gamma"},
+		{"beta-uuid", "beta"},
+		{"aaa-uuid", "aaa"},
+	} {
+		_, err := s.DB().ExecContext(c.Context(), "INSERT INTO space (uuid, name) VALUES (?, ?)", sp.uuid, sp.name)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		Tags: new([]string{"zzz", "aaa", "mmm"}),
+		Spaces: new([]constraints.SpaceConstraint{
+			{SpaceName: "gamma", Exclude: false},
+			{SpaceName: "beta", Exclude: true},
+			{SpaceName: "aaa", Exclude: false},
+		}),
+		Zones: new([]string{"zone-c", "zone-a", "zone-b"}),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify insertion order is preserved, not alphabetical.
+	c.Check(*cons.Tags, tc.DeepEquals, []string{"zzz", "aaa", "mmm"})
+	c.Check(*cons.Spaces, tc.DeepEquals, []constraints.SpaceConstraint{
+		{SpaceName: "gamma", Exclude: false},
+		{SpaceName: "beta", Exclude: true},
+		{SpaceName: "aaa", Exclude: false},
+	})
+	c.Check(*cons.Zones, tc.DeepEquals, []string{"zone-c", "zone-a", "zone-b"})
+}
+
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *tc.C) {
 	err := s.state.SetApplicationConstraints(c.Context(), "foo", constraints.Constraints{Mem: new(uint64(8))})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)

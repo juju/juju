@@ -163,6 +163,7 @@ var modelPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0053-network.PATCH.sql",
 		"0054-application-k8s-resources.PATCH.sql",
+		"0055-constraint-view.PATCH.sql",
 	},
 }}
 
