@@ -1030,7 +1030,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	return params.AddApplicationUnitsResults{
-		Units: transform.Slice(units, func(unit coreunit.Name) string { return unit.String() }),
+		Units: transform.Slice(units, coreunit.Name.String),
 	}, nil
 }
 
@@ -1042,11 +1042,9 @@ func (api *APIBase) addApplicationUnits(
 		return nil, errors.New("must add at least one unit")
 	}
 
-	assignUnits := true
-	if api.modelType != model.IAAS {
+	if api.modelType == model.CAAS {
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
-		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
@@ -1081,7 +1079,6 @@ func (api *APIBase) addApplicationUnits(
 		args.NumUnits,
 		args.Placement,
 		attachStorage,
-		assignUnits,
 	)
 }
 

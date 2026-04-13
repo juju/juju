@@ -334,7 +334,6 @@ func (api *APIBase) addUnits(
 	n int,
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
-	assignUnits bool,
 ) ([]coreunit.Name, error) {
 	units := make([]coreunit.Name, 0, n)
 
