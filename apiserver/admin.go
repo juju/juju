@@ -347,6 +347,7 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			return nil, errors.Trace(err)
 		}
 	}
+
 	// Ensure external users are persisted only after authorisation checks
 	// pass. At this point the user has been both authenticated and authorised
 	// (via checkUserPermissions above), so it is safe to create a DB record.
@@ -355,10 +356,12 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		if !ok {
 			return nil, errors.Errorf("externally authenticated entity %q is not a user", authInfo.Tag)
 		}
-		userName := coreuser.NameFromTag(userTag)
-		if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
-			logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
-			return nil, errors.Annotatef(err, "ensuring external user %q", userName)
+		if !userTag.IsLocal() {
+			userName := coreuser.NameFromTag(userTag)
+			if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
+				logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
+				return nil, errors.Annotatef(err, "ensuring external user %q", userName)
+			}
 		}
 	}
 
