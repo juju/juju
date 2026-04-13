@@ -53,7 +53,9 @@ func (api *APIBase) addApplicationUnits(
 	ctx context.Context, args params.AddApplicationUnits,
 ) ([]coreunit.Name, error) {
 	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
+		return nil, errors.New(
+			"must add at least one unit",
+		).Add(coreerrors.NotValid)
 	}
 
 	if api.modelType == model.CAAS {
@@ -63,26 +65,28 @@ func (api *APIBase) addApplicationUnits(
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
 				api.modelType,
-			)
+			).Add(coreerrors.NotSupported)
 		}
 		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
 				"only 1 placement directive is supported for %s models, got %d",
 				api.modelType,
 				len(args.Placement),
-			)
+			).Add(coreerrors.NotSupported)
 		}
 	}
 
 	// Parse storage tags in AttachStorage.
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return nil, errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
+		return nil, errors.Errorf(
+			"AttachStorage is non-empty, but NumUnits is %d", args.NumUnits,
+		).Add(coreerrors.NotValid)
 	}
 	attachStorage := make([]names.StorageTag, len(args.AttachStorage))
 	for i, tagString := range args.AttachStorage {
 		tag, err := names.ParseStorageTag(tagString)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		attachStorage[i] = tag
 	}
