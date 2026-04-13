@@ -134,7 +134,7 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 
 	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 	harness.AddTest(c, func(c *tc.C) {
-		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false, false)
+		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.MarkApplicationAsDead(c.Context(), appID.String())
 		c.Assert(err, tc.ErrorIsNil)
@@ -1234,7 +1234,7 @@ WHERE uuid=?
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false, false)
+		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.MarkApplicationAsDead(c.Context(), appID.String())
 		c.Assert(err, tc.ErrorIsNil)

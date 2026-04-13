@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
+	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
@@ -102,7 +103,7 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil).Times(2)
 
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(true, nil).Times(2)
-	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true, false).Return(removalinternal.CascadedApplicationLives{}, nil).Times(2)
+	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true).Return(removalinternal.CascadedApplicationLives{}, nil).Times(2)
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", false, when.UTC()).Return(nil).Times(2)
 
 	jobUUID1, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
@@ -159,8 +160,8 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC()).Return(nil)
 
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(true, nil).Times(2)
-	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true, false).Return(removalinternal.CascadedApplicationLives{}, nil)
-	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true, true).Return(removalinternal.CascadedApplicationLives{}, nil)
+	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true).Return(removalinternal.CascadedApplicationLives{}, nil)
+	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true).Return(removalinternal.CascadedApplicationLives{}, nil)
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", false, when.UTC()).Return(nil)
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", true, when.UTC()).Return(nil)
 
@@ -271,6 +272,82 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestRemoveModelNoForceSuccessWithRemoteApplicationOfferer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).Times(2)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+		ApplicationUUIDs: []string{"some-application-id"},
+	}, nil)
+	mExp.ModelScheduleRemoval(
+		gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC(),
+	).Return(nil)
+	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(
+		false,
+		errors.Errorf(
+			"application %q is a remote application", "some-application-id",
+		).Add(removalerrors.ApplicationIsRemoteOfferer),
+	)
+	mExp.GetRemoteApplicationOffererUUIDByApplicationUUID(
+		gomock.Any(), "some-application-id",
+	).Return(remoteAppUUID.String(), nil)
+	mExp.RemoteApplicationOffererExists(
+		gomock.Any(), remoteAppUUID.String(),
+	).Return(true, nil)
+	mExp.EnsureRemoteApplicationOffererNotAliveCascade(
+		gomock.Any(), remoteAppUUID.String(),
+	).Return(removalinternal.CascadedRemoteApplicationOffererLives{}, nil)
+	mExp.RemoteApplicationOffererScheduleRemoval(
+		gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC(),
+	).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestRemoveModelIgnoresApplicationErrorWithoutRemoteOffererFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+		ApplicationUUIDs: []string{"some-application-id"},
+	}, nil)
+	mExp.ModelScheduleRemoval(
+		gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC(),
+	).Return(nil)
+	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(
+		false, errors.Errorf("the front fell off"),
+	)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }

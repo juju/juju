@@ -499,6 +499,7 @@ func (s *Service) removeApplications(
 			// error. The applications are already transitioned to dying and
 			// there is no way to transition them back to alive.
 			s.logger.Errorf(ctx, "scheduling removal of application %q: %v", applicationUUID, err)
+			continue
 		} else if err == nil {
 			continue
 		}
@@ -516,11 +517,10 @@ func (s *Service) removeApplications(
 			// If the unit fails to be scheduled for removal, we log out the
 			// error. The applications are already transitioned to dying and
 			// there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of application %q: %v", applicationUUID, err)
+			s.logger.Errorf(ctx, "scheduling removal of remote application offerer %q: %v", applicationUUID, err)
+			continue
 		} else if err == nil {
 			continue
 		}
-
-		// TODO: Handle remote application consumers
 	}
 }
