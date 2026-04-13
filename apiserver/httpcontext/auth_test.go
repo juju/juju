@@ -170,3 +170,23 @@ func (s *CompositeAuthSuite) TestAuthorizeFail(c *tc.C) {
 	err := auth.Authorize(context.Background(), authInfo)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
+
+type ControllerAuthorizerSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestControllerAuthorizerSuite(t *testing.T) {
+	tc.Run(t, &ControllerAuthorizerSuite{})
+}
+
+func (s *ControllerAuthorizerSuite) TestAuthorizeController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	err := ControllerAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ControllerAuthorizerSuite) TestAuthorizeNonController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: false}
+	err := ControllerAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
