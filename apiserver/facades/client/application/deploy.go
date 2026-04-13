@@ -5,6 +5,8 @@ package application
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
@@ -17,6 +19,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -26,7 +29,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
@@ -36,6 +38,25 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// DeployApplicationLocalRepo describes an interface for deploying applications where the
+// charm does not need to come from a repository.
+type DeployApplicationLocalRepo interface {
+	Deploy(
+		context.Context,
+		model.ModelType,
+		ApplicationService,
+		StorageService,
+		objectstore.ObjectStore,
+		DeployApplicationParams,
+		corelogger.Logger,
+		clock.Clock,
+	) error
+}
+
+// deployApplicationLocalRepo is an internal implementation of
+// [DeployApplicationLocalRepo]
+type deployApplicationLocalRepo struct{}
 
 // ModelService provides access to the model state.
 type ModelService interface {
@@ -69,61 +90,8 @@ type DeployApplicationParams struct {
 	Force bool
 }
 
-// handleApplicationDomainError is a first low pass effort to start handling
-// some of the errors that will come out of the application domain. If a handler
-// does not exist then the original error will be returned.
-func handleApplicationDomainError(err error) error {
-	switch {
-	// When the supplied storage directive overrides violates the charm's
-	// storage.
-	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
-		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
-		if limitErr.Requested < limitErr.Minimum {
-			return errors.Errorf(
-				"storage directive %q request count %d insufficient for the charm's minimum count of %d",
-				limitErr.StorageName, limitErr.Requested, limitErr.Minimum,
-			).Add(coreerrors.NotValid)
-		} else if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
-			return errors.Errorf(
-				"storage directive %q request count %d exceeds the charm's maximum count of %d",
-				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
-			).Add(coreerrors.NotValid)
-		}
-	// When a request is made to attach storage but it's not allowed.
-	case errors.HasType[applicationerrors.StorageAttachmentNotAllowed](err):
-		attachErr, _ := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
-		if len(attachErr.AttachedToUnits) > 0 {
-			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"storage is already attached to other unit(s): %v",
-				attachErr.AttachedToUnits,
-			)
-		}
-		if attachErr.ExistingStorageMachineOwner != nil {
-			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"storage is bound to machine %v but the unit is assigned to a different machine",
-				*attachErr.ExistingStorageMachineOwner,
-			)
-		}
-		return apiservererrors.ParamsErrorf(params.CodeNotValid,
-			"storage attachment not allowed",
-		)
-	// When the charm storage location violates a prohibited filesystem mount
-	// point.
-	case errors.HasType[applicationerrors.CharmStorageLocationProhibited](err):
-		prohibitErr, _ := errors.AsType[applicationerrors.CharmStorageLocationProhibited](err)
-		return errors.Errorf(
-			"charm storage %q wants to use a prohibited location %q, must not be in %q",
-			prohibitErr.CharmStorageName,
-			prohibitErr.CharmStorageLocation,
-			prohibitErr.ProhibitedLocation,
-		).Add(coreerrors.NotValid)
-	}
-
-	return err
-}
-
-// DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(
+// Deploy takes a charm and various parameters and deploys it.
+func (d deployApplicationLocalRepo) Deploy(
 	ctx context.Context,
 	modelType coremodel.ModelType,
 	applicationService ApplicationService,
@@ -162,25 +130,62 @@ func DeployApplication(
 				args.ApplicationName,
 			).Add(coreerrors.NotSupported)
 		}
+
+		// We don't yet currently support attaching storage to CAAS units.
+		if len(args.AttachStorage) > 0 {
+			return apiservererrors.ParamsErrorf(
+				params.CodeNotSupported,
+				"attaching storage to CAAS units is not supported",
+			)
+		}
 	}
 
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
-		return errors.Errorf(
-			"attaching existing storage to a new deployment can only be performed when the number of units is 1",
-		).Add(coreerrors.NotValid)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound,
+			"attaching existing storage can only be done when the number of units is 1",
+		)
 	}
 
-	var storageUUIDsToAttach []domainstorage.StorageInstanceUUID
-	for _, storageTag := range args.AttachStorage {
-		storageUUID, err := storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
+	// Dedupe the supplied input to avoid repeated work.
+	storageTagsToAttach := slices.SortedFunc(
+		slices.Values(args.AttachStorage),
+		func(a, b names.StorageTag) int {
+			return strings.Compare(a.String(), b.String())
+		},
+	)
+	storageTagsToAttach = slices.Compact(storageTagsToAttach)
+
+	// Storage UUIDs to attach to the new deployment's first unit.
+	storageUUIDsToAttach := make(
+		[]domainstorage.StorageInstanceUUID,
+		0,
+		len(storageTagsToAttach),
+	)
+	for _, storageTag := range storageTagsToAttach {
+		storageUUID, err := storageService.GetStorageInstanceUUIDForID(
+			ctx, storageTag.Id(),
+		)
+
 		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-			return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
+			return apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"storage instance %q does not exist",
+				storageTag.Id(),
+			)
 		} else if err != nil {
+			// Log the error instead of reporting verbatim to client
+			logger.Warningf(
+				ctx,
+				"getting storage instance uuid for id %q during deploying application %q from local: %s",
+				args.ApplicationName,
+				err.Error(),
+			)
 			return errors.Errorf(
-				"getting storage instance uuid for storage id %q: %w",
-				storageTag.Id(), err,
+				"getting information for storage instance %q", storageTag.Id(),
 			)
 		}
+
 		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
 	}
 
@@ -221,11 +226,7 @@ func DeployApplication(
 		StorageDirectiveOverrides: sdo,
 	}
 	if modelType == coremodel.CAAS {
-		unitArgs, err := makeCAASUnitArgs(args, storageUUIDsToAttach)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
+		unitArgs := d.makeCAASUnitArgs(args, storageUUIDsToAttach)
 		_, err = applicationService.CreateCAASApplication(
 			ctx,
 			args.ApplicationName,
@@ -240,11 +241,7 @@ func DeployApplication(
 		return nil
 	}
 
-	unitArgs, err := makeIAASUnitArgs(args, storageUUIDsToAttach)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
+	unitArgs := d.makeIAASUnitArgs(args, storageUUIDsToAttach)
 	_, err = applicationService.CreateIAASApplication(
 		ctx,
 		args.ApplicationName,
@@ -260,60 +257,51 @@ func DeployApplication(
 	return nil
 }
 
-func makeIAASUnitArgs(
-	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
-) ([]applicationservice.AddIAASUnitArg, error) {
-	unitArgs := make([]applicationservice.AddIAASUnitArg, args.NumUnits)
+func (deployApplicationLocalRepo) makeIAASUnitArgs(
+	args DeployApplicationParams,
+	storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) []applicationservice.AddIAASUnitArg {
+	unitArgs := make([]applicationservice.AddIAASUnitArg, 0, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
 		if i < len(args.Placement) {
 			unitPlacement = args.Placement[i]
 		}
-		unitArgs[i] = applicationservice.AddIAASUnitArg{
+		unitArg := applicationservice.AddIAASUnitArg{
 			AddUnitArg: applicationservice.AddUnitArg{
 				Placement: unitPlacement,
 			},
 		}
 		if i == 0 {
-			// We currently only support attach existing to storage to the first
-			// unit being created as part of the application. This is because
-			// the facade layer has no mechanism for the caller to control which
-			// unit they intend for the storage to be attached to.
-			//
-			// TODO (tlm): This is really interface logic and should be shuffled
-			// up to the facade layer.
-			unitArgs[i].AddUnitArg.StorageInstancesToAttach = storageUUIDsToAttach
+			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
 		}
+
+		unitArgs = append(unitArgs, unitArg)
 	}
 
-	return unitArgs, nil
+	return unitArgs
 }
 
-func makeCAASUnitArgs(
+func (deployApplicationLocalRepo) makeCAASUnitArgs(
 	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
-) ([]applicationservice.AddUnitArg, error) {
-	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
+) []applicationservice.AddUnitArg {
+	unitArgs := make([]applicationservice.AddUnitArg, 0, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
 		if i < len(args.Placement) {
 			unitPlacement = args.Placement[i]
 		}
-		unitArgs[i] = applicationservice.AddUnitArg{
+		unitArg := applicationservice.AddUnitArg{
 			Placement: unitPlacement,
 		}
 		if i == 0 {
-			// We currently only support attach existing to storage to the first
-			// unit being created as part of the application. This is because
-			// the facade layer has no mechanism for the caller to control which
-			// unit they intend for the storage to be attached to.
-			//
-			// TODO (tlm): This is really interface logic and should be shuffled
-			// up to the facade layer.
-			unitArgs[i].StorageInstancesToAttach = storageUUIDsToAttach
+			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
 		}
+
+		unitArgs = append(unitArgs, unitArg)
 	}
 
-	return unitArgs, nil
+	return unitArgs
 }
 
 func transformBindings(endpointBindings map[string]string) map[string]network.SpaceName {

@@ -6,15 +6,17 @@ package application
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/kr/pretty"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -24,6 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -36,6 +39,8 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -60,6 +65,7 @@ type DeployFromRepositoryAPI struct {
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
 	applicationService ApplicationService
+	storageService     StorageService
 	logger             corelogger.Logger
 	clock              clock.Clock
 }
@@ -68,7 +74,9 @@ type DeployFromRepositoryAPI struct {
 func NewDeployFromRepositoryAPI(
 	modelType model.ModelType,
 	applicationService ApplicationService,
-	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+	storageService StorageService,
+	store objectstore.ObjectStore,
+	validator DeployFromRepositoryValidator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) DeployFromRepository {
@@ -77,12 +85,16 @@ func NewDeployFromRepositoryAPI(
 		store:              store,
 		validator:          validator,
 		applicationService: applicationService,
+		storageService:     storageService,
 		logger:             logger,
 		clock:              clock,
 	}
 }
 
-func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
+func (api *DeployFromRepositoryAPI) DeployFromRepository(
+	ctx context.Context,
+	arg params.DeployFromRepositoryArg,
+) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
 	api.logger.Tracef(ctx, "deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
 	dt, errs := api.validator.ValidateArg(ctx, arg)
@@ -106,18 +118,65 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return info, nil, nil
 	}
 
-	unitArgs := make([]applicationservice.AddIAASUnitArg, dt.numUnits)
-	for i := 0; i < dt.numUnits; i++ {
-		var unitPlacement *instance.Placement
-		if i < len(dt.placement) {
-			unitPlacement = dt.placement[i]
+	// We don't yet currently support attaching storage to CAAS units.
+	if api.modelType == coremodel.CAAS && len(dt.attachStorage) > 0 {
+		err := apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"attaching storage to CAAS units is not supported",
+		)
+		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+	}
+
+	if len(dt.attachStorage) > 0 && dt.numUnits != 1 {
+		err := apiservererrors.ParamsErrorf(
+			params.CodeNotFound,
+			"attaching existing storage can only be done when the number of units is 1",
+		)
+		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+	}
+
+	// Dedupe the supplied input to avoid repeated work.
+	storageTagsToAttach := slices.SortedFunc(
+		slices.Values(dt.attachStorage),
+		func(a, b names.StorageTag) int {
+			return strings.Compare(a.String(), b.String())
+		},
+	)
+	storageTagsToAttach = slices.Compact(storageTagsToAttach)
+
+	// Storage UUIDs to attach to the new deployment's first unit.
+	storageUUIDsToAttach := make(
+		[]domainstorage.StorageInstanceUUID,
+		0,
+		len(storageTagsToAttach),
+	)
+	for _, storageTag := range storageTagsToAttach {
+		storageUUID, err := api.storageService.GetStorageInstanceUUIDForID(
+			ctx, storageTag.Id(),
+		)
+
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			err := apiservererrors.ParamsErrorf(
+				params.CodeNotFound,
+				"storage instance %q does not exist",
+				storageTag.Id(),
+			)
+			return params.DeployFromRepositoryInfo{}, nil, []error{err}
+		} else if err != nil {
+			// Log the error instead of reporting verbatim to client
+			api.logger.Warningf(
+				ctx,
+				"getting storage instance uuid for id %q during deploying application %q from repository: %s",
+				arg.ApplicationName,
+				err.Error(),
+			)
+			err = errors.Errorf(
+				"getting information for storage instance %q", storageTag.Id(),
+			)
+			return params.DeployFromRepositoryInfo{}, nil, []error{err}
 		}
 
-		unitArgs[i] = applicationservice.AddIAASUnitArg{
-			AddUnitArg: applicationservice.AddUnitArg{
-				Placement: unitPlacement,
-			},
-		}
+		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
 	}
 
 	applicationArg := applicationservice.AddApplicationArgs{
@@ -146,13 +205,25 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 
 	var err error
 	if api.modelType == model.IAAS {
-		_, err = api.applicationService.CreateIAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
-			applicationArg, unitArgs...)
+		unitArgs := api.makeIAASUnitArgs(dt, storageUUIDsToAttach)
+		_, err = api.applicationService.CreateIAASApplication(
+			ctx,
+			dt.applicationName,
+			dt.charm,
+			dt.origin,
+			applicationArg,
+			unitArgs...,
+		)
 	} else {
-		_, err = api.applicationService.CreateCAASApplication(ctx, dt.applicationName, dt.charm, dt.origin,
-			applicationArg, transform.Slice(unitArgs, func(arg applicationservice.AddIAASUnitArg) applicationservice.AddUnitArg {
-				return arg.AddUnitArg
-			})...)
+		unitArgs := api.makeCAASunitArgs(dt, storageUUIDsToAttach)
+		_, err = api.applicationService.CreateCAASApplication(
+			ctx,
+			dt.applicationName,
+			dt.charm,
+			dt.origin,
+			applicationArg,
+			unitArgs...,
+		)
 	}
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{
@@ -161,6 +232,54 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 	}
 
 	return info, dt.resourcesToUpload, nil
+}
+
+func (v *DeployFromRepositoryAPI) makeIAASUnitArgs(
+	dt deployTemplate,
+	storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) []applicationservice.AddIAASUnitArg {
+	unitArgs := make([]applicationservice.AddIAASUnitArg, 0, dt.numUnits)
+	for i := range dt.numUnits {
+		var unitPlacement *instance.Placement
+		if i < len(dt.placement) {
+			unitPlacement = dt.placement[i]
+		}
+		unitArg := applicationservice.AddIAASUnitArg{
+			AddUnitArg: applicationservice.AddUnitArg{
+				Placement: unitPlacement,
+			},
+		}
+
+		if i == 0 {
+			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
+		}
+		unitArgs = append(unitArgs, unitArg)
+	}
+
+	return unitArgs
+}
+
+func (v *DeployFromRepositoryAPI) makeCAASunitArgs(
+	dt deployTemplate,
+	storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) []applicationservice.AddUnitArg {
+	unitArgs := make([]applicationservice.AddUnitArg, 0, dt.numUnits)
+	for i := range dt.numUnits {
+		var unitPlacement *instance.Placement
+		if i < len(dt.placement) {
+			unitPlacement = dt.placement[i]
+		}
+		unitArg := applicationservice.AddUnitArg{
+			Placement: unitPlacement,
+		}
+
+		if i == 0 {
+			unitArg.StorageInstancesToAttach = storageUUIDsToAttach
+		}
+		unitArgs = append(unitArgs, unitArg)
+	}
+
+	return unitArgs
 }
 
 // resolveResources resolves and maps resources for deployment, handling input
@@ -427,7 +546,12 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 			numUnits = 0
 		}
 		if !constraints.IsEmpty(&arg.Cons) {
-			errs = append(errs, fmt.Errorf("subordinate application must be deployed without constraints, not %q", arg.Cons))
+			errs = append(
+				errs,
+				internalerrors.Errorf(
+					"subordinate application must be deployed without constraints, not %q",
+					arg.Cons),
+			)
 		}
 	} else {
 		cons = arg.Cons

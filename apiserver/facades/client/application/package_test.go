@@ -132,7 +132,7 @@ func (s *baseSuite) newCAASAPI(c *tc.C) {
 }
 
 func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
-	s.deployApplication = DeployApplication
+	s.deployApplication = DeployApplicationLocalRepo
 	s.modelType = modelType
 	var err error
 	s.api, err = NewAPIBase(
