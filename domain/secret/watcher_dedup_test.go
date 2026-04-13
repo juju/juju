@@ -54,3 +54,26 @@ func (s *watcherDedupSuite) TestDedupEvents(c *tc.C) {
 	w.AssertChange("foo", "baz") // We should get foo again.
 	w.AssertNoChange()
 }
+
+func (s *watcherDedupSuite) TestInitialEventSentBeforeBufferedSourceChanges(c *tc.C) {
+	logger := loggertesting.WrapCheckLog(c)
+
+	inputChan := make(chan []string, 1)
+	inputChan <- []string{"foo"}
+
+	sw, err := secret.NewSecretStringWatcher(
+		watchertest.NewMockStringsWatcher(inputChan),
+		logger,
+		func(ctx context.Context, events ...string) ([]string, error) {
+			return events, nil
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	defer watchertest.CleanKill(c, sw)
+	w := watchertest.NewWatcherC(c, sw)
+
+	w.CheckInitial(watchertest.SliceAssert([]string(nil)))
+	w.Check(watchertest.StringSliceAssert("foo"))
+	w.AssertNoChange()
+}
