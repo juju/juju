@@ -186,7 +186,7 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 				Filesystem: &internal.StorageInstanceFilesystemInfo{
 					UUID:           fs1UUID,
 					ProvisionScope: domainstorageprov.ProvisionScopeModel,
-					Size:           1024,
+					SizeMib:        1024,
 				},
 				Kind:             domainstorage.StorageKindFilesystem,
 				Life:             life.Alive,
@@ -1354,7 +1354,7 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 			CharmName: &charmName,
 			Filesystem: &internal.StorageInstanceFilesystemInfo{
 				UUID:           filesystemUUID,
-				Size:           1024,
+				SizeMib:        1024,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
 			},
 			Kind:             domainstorage.StorageKindFilesystem,

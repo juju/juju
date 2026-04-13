@@ -861,7 +861,7 @@ func makeStorageInstanceInfosForAttach(
 					ProvisionScope: domainstorageprov.ProvisionScope(
 						storageInstInfo.FilesystemProvisionScopeID.V,
 					),
-					Size: storageInstInfo.FilesystemSizeMIB.V,
+					SizeMib: storageInstInfo.FilesystemSizeMIB.V,
 				}
 		}
 		if storageInstInfo.FilesystemOwnedMachineUUID.Valid &&

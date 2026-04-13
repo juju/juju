@@ -52,7 +52,7 @@ func makeValidAttachInfo(
 		StorageInstanceInfo: internal.StorageInstanceInfo{
 			UUID:             storageUUID,
 			CharmName:        &charmName,
-			Filesystem:       &internal.StorageInstanceFilesystemInfo{UUID: filesystemUUID, Size: 1024},
+			Filesystem:       &internal.StorageInstanceFilesystemInfo{UUID: filesystemUUID, SizeMib: 1024},
 			Kind:             domainstorage.StorageKindFilesystem,
 			Life:             domainlife.Alive,
 			RequestedSizeMIB: 1024,
@@ -291,7 +291,7 @@ func (s *attachStorageSuite) TestAttachStorageSizeBelowMinimum(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Filesystem.Size = 1
+	attachInfo.StorageInstanceInfo.Filesystem.SizeMib = 1
 	attachInfo.StorageInstanceInfo.RequestedSizeMIB = 1
 	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.MinimumSize = 2
 
@@ -315,7 +315,7 @@ func (s *attachStorageSuite) TestAttachStorageSizeFallbackToRequested(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Filesystem.Size = 0
+	attachInfo.StorageInstanceInfo.Filesystem.SizeMib = 0
 	attachInfo.StorageInstanceInfo.RequestedSizeMIB = 1
 	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.MinimumSize = 2
 

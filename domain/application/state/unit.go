@@ -2573,7 +2573,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		retVal.StorageInstanceInfo.Filesystem = &applicationinternal.StorageInstanceFilesystemInfo{
 			UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
 			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
-			Size:           storageInstInfo.FilesystemSizeMIB.V,
+			SizeMib:        storageInstInfo.FilesystemSizeMIB.V,
 		}
 	}
 	if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
