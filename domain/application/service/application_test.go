@@ -1613,6 +1613,45 @@ func (s *applicationServiceSuite) TestSetApplicationCharmEmptyChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestSetApplicationCharmWithPlatformChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+	origin := corecharm.Origin{
+		Source: corecharm.CharmHub,
+		ID:     "charm-id",
+		Platform: corecharm.Platform{
+			OS:           "ubuntu",
+			Architecture: arch.AMD64,
+			Channel:      "22.04",
+		},
+	}
+	params := application.SetCharmParams{
+		CharmOrigin: origin,
+	}
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]application.StorageDirective{}, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
+		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+			// Verify that platform was correctly encoded and passed through.
+			c.Assert(params.Platform, tc.NotNil)
+			c.Assert(params.Platform.OSType, tc.Equals, deployment.Ubuntu)
+			c.Assert(params.Platform.Architecture, tc.Equals, architecture.AMD64)
+			c.Assert(params.Platform.Channel, tc.Equals, "22.04")
+			return nil
+		})
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestSetApplicationCharmWithStorageNameAdded tests that adding a new
 // storage name in the new charm is allowed.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameAdded(c *tc.C) {
