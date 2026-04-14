@@ -235,7 +235,7 @@ func (d deployApplicationLocalRepo) Deploy(
 			unitArgs...,
 		)
 		if err != nil {
-			return handleApplicationDomainError(errors.Capture(err))
+			return handleApplicationDomainDeployError(errors.Capture(err))
 		}
 		return nil
 	}
@@ -250,7 +250,7 @@ func (d deployApplicationLocalRepo) Deploy(
 		unitArgs...,
 	)
 	if err != nil {
-		return handleApplicationDomainError(err)
+		return handleApplicationDomainDeployError(err)
 	}
 
 	return nil

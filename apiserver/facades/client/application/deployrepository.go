@@ -226,7 +226,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 	}
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{
-			handleApplicationDomainError(errors.Trace(err)),
+			handleApplicationDomainDeployError(errors.Trace(err)),
 		}
 	}
 
