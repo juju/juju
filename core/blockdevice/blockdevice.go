@@ -3,6 +3,19 @@
 
 package blockdevice
 
+// Provenance indicates the source of a block device's information.
+type Provenance int
+
+const (
+	// ProviderProvenance indicates the block device information was
+	// sourced from the provider.
+	ProviderProvenance Provenance = 0
+
+	// MachineProvenance indicates the block device information was
+	// sourced from the machine agent.
+	MachineProvenance Provenance = 1
+)
+
 // BlockDevice describes information about a block device.
 type BlockDevice struct {
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
@@ -66,4 +79,7 @@ type BlockDevice struct {
 
 	// SerialId is the block device's serial id used for matching.
 	SerialId string
+
+	// Provenance indicates the source of the block device information.
+	Provenance Provenance
 }
