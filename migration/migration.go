@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/description/v10"
+	"github.com/juju/description/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
