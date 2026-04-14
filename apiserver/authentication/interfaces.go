@@ -42,8 +42,9 @@ type AuthInfo struct {
 	Controller bool
 
 	// IsExternallyAuthenticated reports whether the entity was authenticated
-	// via an external mechanism (JWT or macaroon discharge for an external user).
-	// Set by the authenticator; used to drive external user creation at login.
+	// via an external mechanism (JWT or macaroon discharge for an external
+	// user). Set by the authenticator; used to drive external user creation at
+	// login.
 	IsExternallyAuthenticated bool
 }
 
@@ -65,10 +66,10 @@ type AuthParams struct {
 }
 
 // PermissionDelegator is an interface that represents a window back into the
-// original authentication method that generated an AuthInfo struct. Specifically
-// it allows users of AuthInfo to ask specific details about an entity's
-// permissions that needs response aligned with the way in which they were
-// authenticated.
+// original authentication method that generated an AuthInfo struct.
+// Specifically it allows users of AuthInfo to ask specific details about an
+// entity's permissions that needs response aligned with the way in which they
+// were authenticated.
 type PermissionDelegator interface {
 	// SubjectPermissions returns the permission the entity has for the
 	// specified subject.
