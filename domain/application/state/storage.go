@@ -2242,6 +2242,9 @@ SELECT * AS &unitStorageNameInfo.* FROM (
               u.net_node_uuid AS unit_net_node_uuid,
               cm.name AS charm_metadata_name,
               u.charm_uuid AS unit_charm_uuid,
+              
+              -- Count how many attachments this unit already has for storage
+              -- definition.
               (SELECT count(*)
                FROM storage_attachment sa
                JOIN storage_instance si ON sa.storage_instance_uuid = si.uuid
