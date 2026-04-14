@@ -2485,10 +2485,6 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		unitStorageNameInfo    unitStorageNameInfo
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// err is defined locally so as not to be captured due to retries of
-		// the transaction.
-		var err error
-
 		unitExists, err := st.checkUnitExists(ctx, tx, unitUUID.String())
 		if err != nil {
 			return errors.Errorf("check if unit exists: %w", err)
