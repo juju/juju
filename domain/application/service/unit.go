@@ -373,11 +373,13 @@ func (s *ProviderService) AttachStorageToUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if storageUUID.Validate() != nil {
-		return errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
+	if err := storageUUID.Validate(); err != nil {
+		return errors.Errorf("storage uuid is not valid: %w", err).Add(
+			coreerrors.NotValid)
 	}
-	if unitUUID.Validate() != nil {
-		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	if err := unitUUID.Validate(); err != nil {
+		return errors.Errorf("unit uuid is not valid: %w", err).Add(
+			coreerrors.NotValid)
 	}
 
 	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
