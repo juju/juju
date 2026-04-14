@@ -242,6 +242,51 @@ SELECT track, risk, branch FROM application_channel WHERE application_uuid = ?`
 	})
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmChangePlatform(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{})
+	charmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+	})
+
+	var initialArchID int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT architecture_id FROM application_platform WHERE application_uuid = ?", appID).Scan(&initialArchID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{
+		Platform: &deployment.Platform{
+			Channel:      "20.04",
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.Unknown,
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	var platform applicationPlatform
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_platform WHERE application_uuid = ?", appID).Scan(&count); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT application_uuid, os_id, channel, architecture_id
+FROM   application_platform
+WHERE  application_uuid = ?
+`, appID).Scan(&platform.ApplicationID, &platform.OSTypeID, &platform.Channel, &platform.ArchitectureID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Check(platform.ApplicationID, tc.Equals, appID.String())
+	c.Check(platform.OSTypeID, tc.Equals, int(deployment.Ubuntu))
+	c.Check(platform.Channel, tc.Equals, "20.04")
+	c.Check(platform.ArchitectureID, tc.Equals, initialArchID)
+}
+
 func (s *applicationRefreshSuite) TestSetApplicationCharmFromEmptyChannel(c *tc.C) {
 	// Arrange
 	appName := "my-app"
