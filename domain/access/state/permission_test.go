@@ -1227,18 +1227,56 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	ctx := c.Context()
 
-	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
 	key := credential.Key{
 		Cloud: "model-access",
 		Owner: usertesting.GenNewName(c, "test-usermodel-access"),
 		Name:  "foobar",
 	}
 
+	// Add a second user (bob) with write access to the same model. The query
+	// must only return the credential owner's access, not bob's.
+	_, err := st.CreatePermission(ctx, uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: usertesting.GenNewName(c, "bob"),
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        modelUUID.String(),
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.WriteAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	obtained, err := st.AllModelAccessForCloudCredential(ctx, key)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained, tc.HasLen, 1)
 	c.Check(obtained[0].ModelName, tc.DeepEquals, "model-access")
 	c.Check(obtained[0].OwnerAccess, tc.DeepEquals, corepermission.AdminAccess)
+}
+
+func (s *permissionStateSuite) TestModelAccessForCloudCredentialRemovedOwner(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	ctx := c.Context()
+
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access-removed")
+	key := credential.Key{
+		Cloud: "model-access-removed",
+		Owner: usertesting.GenNewName(c, "test-usermodel-access-removed"),
+		Name:  "foobar",
+	}
+
+	// Mark the credential owner as removed.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE user SET removed = true WHERE name = ?
+		`, key.Owner.Name())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.AllModelAccessForCloudCredential(ctx, key)
+	c.Assert(err, tc.ErrorIs, accesserrors.PermissionNotFound)
 }
 
 func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {

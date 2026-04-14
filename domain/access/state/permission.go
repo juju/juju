@@ -622,13 +622,17 @@ func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context,
 	}
 
 	query := `
-SELECT m.name AS &CredentialOwnerModelAccess.model_name, 
-       p.access_type AS &CredentialOwnerModelAccess.access_type
-FROM   v_model m
-       JOIN v_permission AS p ON m.uuid = p.grant_on
-WHERE  m.cloud_credential_owner_name = $input.owner_name 
+SELECT DISTINCT m.name AS &CredentialOwnerModelAccess.model_name,
+       pat.type AS &CredentialOwnerModelAccess.access_type
+FROM   v_model AS m
+       JOIN permission AS p ON m.uuid = p.grant_on
+       JOIN permission_access_type AS pat ON p.access_type_id = pat.id
+       JOIN user AS u ON p.grant_to = u.uuid
+WHERE  m.cloud_credential_owner_name = $input.owner_name
 AND    m.cloud_credential_cloud_name = $input.cloud_name
 AND    m.cloud_credential_name = $input.cred_name
+AND    u.name = $input.owner_name
+AND    u.removed = FALSE
 `
 	readStmt, err := st.Prepare(query, input{}, access.CredentialOwnerModelAccess{})
 	if err != nil {
