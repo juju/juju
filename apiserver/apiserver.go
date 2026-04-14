@@ -1256,7 +1256,7 @@ func (srv *Server) serveConn(
 	// requests to the relevant business facade.
 	// There may be more than one since we need a new API each
 	// time login changes in a non-backwards compatible way.
-	adminAPIs := make(map[int]interface{})
+	adminAPIs := make(map[int]any)
 	for apiVersion, factory := range adminAPIFactories {
 		adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 	}
