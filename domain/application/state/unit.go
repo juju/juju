@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/charm"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
@@ -1275,7 +1274,7 @@ SELECT &storageDirective.* FROM (
 	for _, v := range sdVals {
 		sd := applicationinternal.StorageDirective{
 			CharmMetadataName: v.CharmMetadataName,
-			CharmStorageType:  charm.StorageType(v.CharmStorageKind),
+			CharmStorageType:  domainapplicationcharm.StorageType(v.CharmStorageKind),
 			Count:             v.Count,
 			MaxCount:          v.CountMax,
 			Name:              domainstorage.Name(v.StorageName),
@@ -1347,7 +1346,7 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			)
 		}
 		// Ensure unit is alive for update.
-		if unitLifeCharm.LifeID == int(life.Dead) {
+		if unitLifeCharm.LifeID == int(domainlife.Dead) {
 			return errors.Errorf(
 				"unit %q is dead", arg.UUID,
 			).Add(applicationerrors.UnitIsDead)
@@ -1368,28 +1367,28 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 		}
 
 		// Insert new storage instances.
-		_, err = st.unitState.insertUnitStorageInstances(
+		_, err = st.insertUnitStorageInstances(
 			ctx, tx, arg.UnitStorage.StorageInstances)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = st.unitState.insertUnitStorageOwnership(
+		err = st.insertUnitStorageOwnership(
 			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToOwn)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = st.unitState.insertUnitStorageAttachments(
-			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToAttach)
+		err = st.insertUnitStorageAttachments(
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageInstancesToAttach)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		if arg.MachineUUID != nil && arg.IAASUnitStorage != nil {
-			err = st.unitState.insertMachineFilesystemOwnership(
+			err = st.insertMachineFilesystemOwnership(
 				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.FilesystemsToOwn)
 			if err != nil {
 				return errors.Capture(err)
 			}
-			err = st.unitState.insertMachineVolumeOwnership(
+			err = st.insertMachineVolumeOwnership(
 				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.VolumesToOwn)
 			if err != nil {
 				return errors.Capture(err)

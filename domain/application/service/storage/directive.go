@@ -182,7 +182,7 @@ func makeApplicationStorageDirectiveArg(
 
 // MakeStorageDirectiveFromApplicationArg is responsible for takeing the storage
 // directive create params for an application and converting them into
-// [application.StorageDirective] types.
+// [internal.StorageDirective] types.
 func MakeStorageDirectiveFromApplicationArg(
 	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,

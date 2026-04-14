@@ -102,7 +102,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	}
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
+		[]applicationinternal.StorageInstanceInfoForAttach{},
 		[]applicationinternal.StorageAttachmentComposition{},
 		nil,
 	)
@@ -171,7 +171,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
+		[]applicationinternal.StorageInstanceInfoForAttach{},
 		[]applicationinternal.StorageAttachmentComposition{},
 		nil,
 	)
@@ -280,7 +280,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
+		[]applicationinternal.StorageInstanceInfoForAttach{},
 		[]applicationinternal.StorageAttachmentComposition{},
 		nil,
 	)

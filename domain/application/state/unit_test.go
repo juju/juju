@@ -1015,7 +1015,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 			RequestSizeMiB:  8192,
 			StoragePoolUUID: newPoolID,
 		}},
-		StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{{
+		StorageInstancesToAttach: []applicationinternal.CreateStorageInstanceAttachmentArg{{
 			UUID:                tc.Must(c, domainstorage.NewStorageAttachmentUUID),
 			StorageInstanceUUID: storageInstanceUUID,
 		}},

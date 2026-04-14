@@ -279,7 +279,7 @@ func (s *Service) makeRegisterCAASUnitStorageArg(
 	attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 	providerFilesystemInfo []caas.FilesystemInfo,
 	directivesToFollow []internal.StorageDirective,
-	existingUnitOwnedStorage []internal.StorageInstanceComposition,
+	existingUnitOwnedStorage []internal.StorageInstanceInfoForAttach,
 	existingUnitOwnedStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.RegisterUnitStorageArg, error) {
 	existingUnitOwnedStorageComp := makeStorageInstanceCompositionsFromAttachInfos(
@@ -728,9 +728,9 @@ func (s *Service) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []internal.StorageDirective,
-	existingStorage []internal.StorageInstanceComposition,
-	existingStorageAttachments []internal.StorageAttachmentComposition,
-) (domainstorage.CreateUnitStorageArg, error) {
+	existingStorageInstancesToUse []internal.StorageInstanceComposition,
+	existingUnitStorageInstanceAttachments []internal.StorageAttachmentComposition,
+) (internal.CreateUnitStorageArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -848,11 +848,10 @@ func (s *Service) MakeUnitStorageArgs(
 
 // MakeIAASUnitStorageArgs returns [domainstorage.CreateIAASUnitStorageArg] that
 // complement the unit storage arguments provided for IAAS units.
-func (s *Service) MakeIAASUnitStorageArgs(
-	ctx context.Context,
-	storageInst []domainstorage.CreateUnitStorageInstanceArg,
-) (domainstorage.CreateIAASUnitStorageArg, error) {
-	var arg domainstorage.CreateIAASUnitStorageArg
+func (s Service) MakeIAASUnitStorageArgs(
+	storageInst []internal.CreateUnitStorageInstanceArg,
+) (internal.CreateIAASUnitStorageArg, error) {
+	var arg internal.CreateIAASUnitStorageArg
 	for _, v := range storageInst {
 		// TODO(storage): refactor this to use the storage instance composition
 		// calculated from the storageprovisioning domain.
@@ -901,7 +900,7 @@ func (s *Service) MakeUnitAddStorageArgs(
 	unitUUID coreunit.UUID,
 	addCount uint32,
 	sd internal.StorageDirective,
-) (domainstorage.UnitAddStorageArg, error) {
+) (internal.AddStorageToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

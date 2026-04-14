@@ -284,7 +284,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 
 // TestMakeStorageDirectiveFromApplicationArg tests the happy path of
 // transferring set of application create storage directive args to
-// [domainapplication.StorageDirective] args.
+// [internal.StorageDirective] args.
 func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 

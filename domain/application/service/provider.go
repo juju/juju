@@ -1186,15 +1186,8 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		return nil, errors.Capture(err)
 	}
 
-	storageInst := transform.Slice(unitStorageArgs.StorageInstances,
-		func(in internal.CreateUnitStorageInstanceArg) internal.AddStorageInstanceArg {
-			return internal.AddStorageInstanceArg{
-				Filesystem: in.Filesystem,
-				Volume:     in.Volume,
-				UUID:       in.UUID,
-			}
-		})
-	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(storageInst)
+	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+		unitStorageArgs.StorageInstances)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

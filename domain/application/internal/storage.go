@@ -6,7 +6,9 @@ package internal
 import (
 	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
+	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 )

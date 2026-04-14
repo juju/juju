@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/proxy"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -102,7 +101,7 @@ type UnitState interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 	) (
-		[]applicationinternal.StorageInstanceComposition,
+		[]applicationinternal.StorageInstanceInfoForAttach,
 		[]applicationinternal.StorageAttachmentComposition,
 		error,
 	)
@@ -597,7 +596,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 	unitUUID coreunit.UUID,
 	unitMachineUUID *coremachine.UUID,
 	unitNetNodeUUID domainnetwork.NetNodeUUID,
-	storageDirectives []application.StorageDirective,
+	storageDirectives []applicationinternal.StorageDirective,
 	attachInfos []applicationinternal.StorageInstanceInfoForAttach,
 ) error {
 	if len(attachInfos) == 0 {
@@ -605,7 +604,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 	}
 
 	storageDirectivesByName := make(
-		map[domainstorage.Name]application.StorageDirective,
+		map[domainstorage.Name]applicationinternal.StorageDirective,
 		len(storageDirectives),
 	)
 	for _, directive := range storageDirectives {
@@ -837,15 +836,9 @@ func (s *ProviderService) makeIAASUnitArgs(
 				"making storage arguments for IAAS unit: %w", err,
 			)
 		}
-		storageInst := transform.Slice(unitStorageArgs.StorageInstances,
-			func(in applicationinternal.CreateUnitStorageInstanceArg) applicationinternal.AddStorageInstanceArg {
-				return applicationinternal.AddStorageInstanceArg{
-					Filesystem: in.Filesystem,
-					Volume:     in.Volume,
-					UUID:       in.UUID,
-				}
-			})
-		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(storageInst)
+
+		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+			unitStorageArgs.StorageInstances)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
@@ -1076,9 +1069,14 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 			unitName, err,
 		)
 	}
+	ownedStorageComposition := storageInstanceCompositionsFromAttachInfos(sic)
 
 	unitStorageArgs, err := s.storageService.MakeUnitStorageArgs(
-		ctx, args.NetNodeUUID, args.RefreshStorageDirectives, sic, sac,
+		ctx,
+		args.NetNodeUUID,
+		args.RefreshStorageDirectives,
+		ownedStorageComposition,
+		sac,
 	)
 	if err != nil {
 		return errors.Errorf("making storage for unit %q: %w", unitName, err)
@@ -1092,7 +1090,7 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 
 	if args.MachineUUID != nil {
 		iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			ctx, unitStorageArgs.StorageInstances)
+			unitStorageArgs.StorageInstances)
 		if err != nil {
 			return errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,

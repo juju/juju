@@ -7,7 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
