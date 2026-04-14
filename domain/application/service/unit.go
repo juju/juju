@@ -517,12 +517,12 @@ func (s *ProviderService) validateStorageInstanceForUnitAttachment(
 		}
 	}
 
-	// Validate that the unit is not already attach to the storage instance. We
-	// do this after the checks above, by this stage we know that the storage
+	// Validate that the storage instance is not already attached to the unit.
+	// We do this after the checks above, by this stage we know that the storage
 	// instance is valid for attachment.
 	//
 	// It is an explicit decision to return an error for this case as it should
-	// be the callers decression if this is a case they are concerned with.
+	// be the callers discretion if this is a case they are concerned with.
 	// Our job is to report that the operation as requested cannot be performed.
 	for _, attachment := range info.StorageInstanceAttachments {
 		if attachment.UnitUUID == info.UnitNamedStorageInfo.UUID {
