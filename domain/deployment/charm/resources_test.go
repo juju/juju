@@ -18,7 +18,7 @@ func TestResourceSuite(t *testing.T) {
 type resourceSuite struct{}
 
 func (s *resourceSuite) TestSchemaOkay(c *tc.C) {
-	raw := map[interface{}]interface{}{
+	raw := map[any]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -26,7 +26,7 @@ func (s *resourceSuite) TestSchemaOkay(c *tc.C) {
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -34,14 +34,14 @@ func (s *resourceSuite) TestSchemaOkay(c *tc.C) {
 }
 
 func (s *resourceSuite) TestSchemaMissingType(c *tc.C) {
-	raw := map[interface{}]interface{}{
+	raw := map[any]any{
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "One line that is useful when operators need to push it.",
@@ -49,7 +49,7 @@ func (s *resourceSuite) TestSchemaMissingType(c *tc.C) {
 }
 
 func (s *resourceSuite) TestSchemaUnknownType(c *tc.C) {
-	raw := map[interface{}]interface{}{
+	raw := map[any]any{
 		"type":        "repo",
 		"filename":    "juju",
 		"description": "One line that is useful when operators need to push it.",
@@ -57,7 +57,7 @@ func (s *resourceSuite) TestSchemaUnknownType(c *tc.C) {
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"type":        "repo",
 		"filename":    "juju",
 		"description": "One line that is useful when operators need to push it.",
@@ -65,14 +65,14 @@ func (s *resourceSuite) TestSchemaUnknownType(c *tc.C) {
 }
 
 func (s *resourceSuite) TestSchemaMissingComment(c *tc.C) {
-	raw := map[interface{}]interface{}{
+	raw := map[any]any{
 		"type":     "file",
 		"filename": "filename.tgz",
 	}
 	v, err := charm.ResourceSchema.Coerce(raw, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(v, tc.DeepEquals, map[string]interface{}{
+	c.Check(v, tc.DeepEquals, map[string]any{
 		"type":        "file",
 		"filename":    "filename.tgz",
 		"description": "",

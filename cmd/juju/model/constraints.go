@@ -105,7 +105,7 @@ func (c *modelGetConstraintsCommand) getAPI(ctx context.Context) (ConstraintsAPI
 	return client, nil
 }
 
-func formatConstraints(writer io.Writer, value interface{}) error {
+func formatConstraints(writer io.Writer, value any) error {
 	fmt.Fprintln(writer, value.(constraints.Value).String())
 	return nil
 }

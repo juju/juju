@@ -77,7 +77,7 @@ func (s *builtinSuite) SetUpTest(c *tc.C) {
 					Clouds: map[string]clientconfig.CloudConfig{
 						"microk8s": {
 							Endpoint: "http://1.1.1.1:8080",
-							Attributes: map[string]interface{}{
+							Attributes: map[string]any{
 								"CAData": "fakecadata1",
 							},
 						},

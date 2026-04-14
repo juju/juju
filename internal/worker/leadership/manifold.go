@@ -11,8 +11,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/leadership"
@@ -75,7 +75,7 @@ var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, clock 
 }
 
 // outputFunc extracts the coreleadership.TrackerWorker from a *Tracker passed in as a Worker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*Tracker)
 	if inWorker == nil {
 		return errors.Errorf("expected *Tracker input; got %T", in)

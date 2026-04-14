@@ -53,7 +53,7 @@ type macaroonAuthSuite struct {
 	agentPasswordService       *MockAgentPasswordService
 	agentPasswordServiceGetter *MockAgentPasswordServiceGetter
 
-	controllerConfig map[string]interface{}
+	controllerConfig map[string]any
 }
 
 func TestMacaroonAuthSuite(t *stdtesting.T) {
@@ -62,7 +62,7 @@ func TestMacaroonAuthSuite(t *stdtesting.T) {
 
 func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
-	s.controllerConfig = map[string]interface{}{
+	s.controllerConfig = map[string]any{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.clock = testclock.NewClock(time.Now())

@@ -13,7 +13,6 @@ import (
 
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
@@ -201,10 +200,40 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 	unitUUID := unitUUIDs[0]
 
 	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	otherCharmUUID, _, err := u.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "another",
+			Storage: storage,
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskStable,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		ReferenceName: "another",
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		Hash:          "hash",
+	},
+		&charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+		false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
 
-	_, err := u.DB().ExecContext(
+	_, err = u.DB().ExecContext(
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
@@ -237,6 +266,18 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 		8,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	// Other charm with same unit.
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		otherCharmUUID,
+		"st3",
+		storagePoolUUID.String(),
+		5000,
+		8,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID, storagePoolUUID
 }
 
@@ -247,7 +288,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectives(c *tc.C) {
 
 	gotDirectives, err := u.state.GetUnitStorageDirectives(c.Context(), unitUUID)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(gotDirectives, tc.SameContents, []application.StorageDirective{
+	c.Check(gotDirectives, tc.SameContents, []internal.StorageDirective{
 		{
 			CharmMetadataName: "foo",
 			CharmStorageType:  charm.StorageBlock,
@@ -334,10 +375,40 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 	unitUUID := unitUUIDs[0]
 
 	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	otherCharmUUID, _, err := u.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "another",
+			Storage: storage,
+		},
+		Manifest: charm.Manifest{
+			Bases: []charm.Base{
+				{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk: charm.RiskStable,
+					},
+					Architectures: []string{"amd64"},
+				},
+			},
+		},
+		ReferenceName: "another",
+		Source:        charm.CharmHubSource,
+		Revision:      42,
+		Hash:          "hash",
+	},
+		&charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+		false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storagePoolUUID := u.newStoragePool(c, "test-pool", "test-provider")
 
-	_, err := u.DB().ExecContext(
+	_, err = u.DB().ExecContext(
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
@@ -359,10 +430,22 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 		1,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	// Insert a unit storage directive for the same unit, wrong charm.
+	_, err = u.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		otherCharmUUID,
+		"st2",
+		storagePoolUUID.String(),
+		8000,
+		1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 
 	gotDirective, err := u.state.GetUnitStorageDirectiveByName(c.Context(), unitUUID, "st2")
 	c.Check(err, tc.ErrorIsNil)
-	c.Assert(gotDirective, tc.DeepEquals, application.StorageDirective{
+	c.Assert(gotDirective, tc.DeepEquals, internal.StorageDirective{
 		CharmMetadataName: "foo",
 		CharmStorageType:  charm.StorageBlock,
 		Count:             1,

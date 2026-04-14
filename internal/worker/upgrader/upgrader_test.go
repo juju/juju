@@ -15,8 +15,8 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -266,7 +266,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *tc.C) {
 	defer func() { _ = workertest.CheckKilled(c, u) }()
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	for i := 0; i < retryCount; i++ {
+	for range retryCount {
 		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 		c.Assert(err, tc.ErrorIsNil)
 	}

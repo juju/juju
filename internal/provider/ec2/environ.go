@@ -292,7 +292,7 @@ func (e *environ) ConstraintsValidator(ctx context.Context) (constraints.Validat
 		instTypeNames[i] = itype.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]any) error {
 		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
 		if !ok {
 			return nil

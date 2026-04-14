@@ -100,16 +100,14 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
 		c.Check(err, tc.ErrorIsNil)
-	}()
+	})
 
 	// wait for the tunnel request to be processed
 	select {
@@ -186,16 +184,14 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
 		c.Check(err, tc.ErrorMatches, `failed-to-connect`)
-	}()
+	})
 
 	// wait for the tunnel request to be processed
 	select {

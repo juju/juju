@@ -17,8 +17,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -1983,7 +1983,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 
 	s.ensureMocks(c, ctrl)
 
-	attr := map[string]interface{}{
+	attr := map[string]any{
 		"name":               "name",
 		"uuid":               coretesting.ModelTag.Id(),
 		"type":               "foo",

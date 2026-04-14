@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
@@ -35,6 +36,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1123,38 +1125,241 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 	return nil
 }
 
+// GetUnitStorageDirectivesCurrentNext returns the current and the next storage
+// directives for this unit, if the unit was to switch to the given charm.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [applicationerrors.CharmNotFound] when the charm does not exist.
+func (st *State) GetUnitStorageRefreshArgs(
+	ctx context.Context, unit coreunit.UUID, next corecharm.ID,
+) (applicationinternal.UnitStorageRefreshArgs, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	charmUUID := charmUUID{UUID: next.String()}
+	unitUUID := unitUUID{UnitUUID: unit.String()}
+
+	unitStmt, err := st.Prepare(`
+SELECT &unitNetNodeWithCharmAndMachine.* FROM (
+	SELECT    u.uuid,
+	          u.net_node_uuid,
+	          u.charm_uuid, 
+	          m.uuid AS machine_uuid
+	FROM      unit u
+	LEFT JOIN machine m ON u.net_node_uuid = m.net_node_uuid
+	WHERE     u.uuid = $unitUUID.uuid
+)
+`, unitUUID, unitNetNodeWithCharmAndMachine{})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	sdStmt, err := st.Prepare(`
+SELECT &storageDirective.* FROM (
+    SELECT usd.count,
+           usd.size_mib,
+           usd.storage_name,
+           usd.storage_pool_uuid,
+           cm.name AS charm_metadata_name,
+           csk.kind AS charm_storage_kind,
+           cs.count_max AS count_max
+    FROM   unit_storage_directive usd
+    JOIN   charm_storage cs ON cs.charm_uuid = usd.charm_uuid AND
+                               cs.name = usd.storage_name
+    JOIN   charm_metadata cm ON cm.charm_uuid = usd.charm_uuid
+    JOIN   charm_storage_kind csk ON csk.id = cs.storage_kind_id
+    WHERE  usd.unit_uuid = $unitUUID.uuid AND
+           usd.charm_uuid = $charmUUID.charm_uuid
+)`, unitUUID, charmUUID, storageDirective{})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	unitVal := unitNetNodeWithCharmAndMachine{}
+	sdVals := []storageDirective{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, unitStmt, unitUUID).Get(&unitVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit %q does not exist", unit,
+			).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting unit %q details: %w", unit, err,
+			)
+		}
+
+		err = st.checkCharmExists(ctx, tx, charmUUID.UUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking charm %q exists: %w", charmUUID.UUID, err,
+			)
+		}
+
+		err = tx.Query(ctx, sdStmt, unitUUID, charmUUID).GetAll(&sdVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return applicationinternal.UnitStorageRefreshArgs{}, errors.Capture(err)
+	}
+
+	retVal := applicationinternal.UnitStorageRefreshArgs{
+		NetNodeUUID:      domainnetwork.NetNodeUUID(unitVal.NetNodeUUID),
+		CurrentCharmUUID: corecharm.ID(unitVal.CharmUUID),
+		RefreshCharmUUID: next,
+		RefreshStorageDirectives: make(
+			[]applicationinternal.StorageDirective, 0, len(sdVals)),
+	}
+	if unitVal.MachineUUID.Valid {
+		retVal.MachineUUID = new(coremachine.UUID(unitVal.MachineUUID.V))
+	}
+	for _, v := range sdVals {
+		sd := applicationinternal.StorageDirective{
+			CharmMetadataName: v.CharmMetadataName,
+			CharmStorageType:  charm.StorageType(v.CharmStorageKind),
+			Count:             v.Count,
+			MaxCount:          v.CountMax,
+			Name:              domainstorage.Name(v.StorageName),
+			PoolUUID:          domainstorage.StoragePoolUUID(v.StoragePoolUUID),
+			Size:              v.SizeMiB,
+		}
+		retVal.RefreshStorageDirectives = append(
+			retVal.RefreshStorageDirectives, sd)
+	}
+
+	return retVal, nil
+}
+
 // UpdateUnitCharm updates the currently running charm marker for the given
-// unit.
+// unit, creates new storage instances required, and deletes unit storage
+// directives for the old charm.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm does not exist.
-func (st *State) UpdateUnitCharm(ctx context.Context, name coreunit.Name, uuid corecharm.ID) error {
+func (st *State) UpdateUnitCharm(
+	ctx context.Context, arg applicationinternal.UpdateUnitCharmArg,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	charmUUID := charmUUID{UUID: uuid.String()}
-	unitName := unitName{Name: name.String()}
 
-	query, err := st.Prepare(`
-UPDATE unit SET charm_uuid = $charmUUID.charm_uuid
-WHERE name = $unitName.name
-`, charmUUID, unitName)
+	unitUUID := unitUUID{UnitUUID: arg.UUID.String()}
+	targetCharmUUID := charmUUID{UUID: arg.CharmUUID.String()}
+
+	unitStmt, err := st.Prepare(`
+SELECT &unitLifeWithCharm.*
+FROM   unit u
+WHERE  u.uuid = $unitUUID.uuid
+`, unitUUID, unitLifeWithCharm{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	updateUnitCharmStmt, err := st.Prepare(`
+UPDATE unit
+SET    charm_uuid = $charmUUID.charm_uuid
+WHERE  uuid = $unitUUID.uuid
+`, unitUUID, targetCharmUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteStorageDirectiveStmt, err := st.Prepare(`
+DELETE FROM unit_storage_directive
+WHERE       unit_uuid = $unitUUID.uuid AND
+            charm_uuid = $charmUUID.charm_uuid
+`, unitUUID, charmUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkUnitNotDeadByName(ctx, tx, name.String()); err != nil {
-			return errors.Capture(err)
-		}
-		err := tx.Query(ctx, query, charmUUID, unitName).Run()
-		if internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("charm %q not found", uuid).Add(applicationerrors.CharmNotFound)
+		unitLifeCharm := unitLifeWithCharm{}
+		err := tx.Query(ctx, unitStmt, unitUUID).Get(&unitLifeCharm)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"unit %q not found", arg.UUID,
+			).Add(applicationerrors.UnitNotFound)
 		} else if err != nil {
+			return errors.Errorf(
+				"getting unit %q charm and life: %w", arg.UUID, err,
+			)
+		}
+		// Ensure unit is alive for update.
+		if unitLifeCharm.LifeID == int(life.Dead) {
+			return errors.Errorf(
+				"unit %q is dead", arg.UUID,
+			).Add(applicationerrors.UnitIsDead)
+		}
+		// Ensure the target charm exists.
+		err = st.checkCharmExists(ctx, tx, targetCharmUUID.UUID)
+		if err != nil {
 			return errors.Capture(err)
 		}
+
+		// Update unit charm UUID.
+		err = tx.Query(ctx, updateUnitCharmStmt, targetCharmUUID, unitUUID).Run()
+		if err != nil {
+			return errors.Errorf(
+				"updating unit %q charm to %q: %w",
+				arg.UUID, arg.CharmUUID, err,
+			)
+		}
+
+		// Insert new storage instances.
+		_, err = st.unitState.insertUnitStorageInstances(
+			ctx, tx, arg.UnitStorage.StorageInstances)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = st.unitState.insertUnitStorageOwnership(
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToOwn)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = st.unitState.insertUnitStorageAttachments(
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToAttach)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if arg.MachineUUID != nil && arg.IAASUnitStorage != nil {
+			err = st.unitState.insertMachineFilesystemOwnership(
+				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.FilesystemsToOwn)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			err = st.unitState.insertMachineVolumeOwnership(
+				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.VolumesToOwn)
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		// Delete old unit storage directives.
+		oldCharmUUID := charmUUID{
+			UUID: unitLifeCharm.CharmUUID,
+		}
+		err = tx.Query(
+			ctx, deleteStorageDirectiveStmt, unitUUID, oldCharmUUID,
+		).Run()
+		if err != nil {
+			return errors.Errorf(
+				"deleting previous unit %q storage directives: %w",
+				arg.UUID, err,
+			)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -1665,7 +1870,7 @@ GROUP BY
 	result := make(map[coreunit.Name]application.K8sPodInfo)
 	for _, info := range infos {
 		ports := make([]k8sPodPort, 0)
-		for _, p := range strings.Split(info.Ports, ",") {
+		for p := range strings.SplitSeq(info.Ports, ",") {
 			ports = append(ports, k8sPodPort{Port: p})
 		}
 		result[coreunit.Name(info.UnitName)] = encodeK8sPodInfo(

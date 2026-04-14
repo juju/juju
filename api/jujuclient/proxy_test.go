@@ -61,7 +61,7 @@ func (p *proxyWrapperSuite) TestUnmarshalling(c *tc.C) {
 		ServiceAccountToken: "token====",
 	}
 	proxier := proxy.NewProxier(config)
-	rawConfig := map[string]interface{}{
+	rawConfig := map[string]any{
 		"api-host":              "https://127.0.0.1:443",
 		"ca-cert":               "cadata====",
 		"namespace":             "test",

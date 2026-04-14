@@ -71,7 +71,7 @@ type ContentAsserterC struct {
 	// C is a gocheck C structure for doing assertions
 	C *tc.C
 	// Chan is the channel we want to receive on
-	Chan interface{}
+	Chan any
 	// Precond will be called before waiting on the channel, can be nil
 	Precond func()
 }
@@ -80,7 +80,7 @@ type ContentAsserterC struct {
 // time. It returns the value received, if any, whether it
 // was received ok (the channel was not closed) and
 // whether the receive timed out.
-func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, timedOut bool) {
+func (a *ContentAsserterC) recv(timeout time.Duration) (val any, ok, timedOut bool) {
 	if a.Precond != nil {
 		a.Precond()
 	}
@@ -103,7 +103,7 @@ func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, tim
 
 // AssertReceive will ensure that we get an event on the channel and the
 // channel is not closed. It will return the content received
-func (a *ContentAsserterC) AssertReceive() interface{} {
+func (a *ContentAsserterC) AssertReceive() any {
 	v, ok, timedOut := a.recv(LongWait)
 	if timedOut {
 		a.C.Fatalf("timed out waiting for channel message")
@@ -113,7 +113,7 @@ func (a *ContentAsserterC) AssertReceive() interface{} {
 }
 
 // AssertOneReceive checks that we have exactly one message, and no more
-func (a *ContentAsserterC) AssertOneReceive() interface{} {
+func (a *ContentAsserterC) AssertOneReceive() any {
 	res := a.AssertReceive()
 	a.AssertNoReceive()
 	return res
@@ -121,7 +121,7 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 
 // AssertOneValue checks that exactly 1 message was sent, and that the content DeepEquals the value.
 // It also returns the value in case further inspection is desired.
-func (a *ContentAsserterC) AssertOneValue(val interface{}) interface{} {
+func (a *ContentAsserterC) AssertOneValue(val any) any {
 	res := a.AssertReceive()
 	a.C.Assert(val, tc.DeepEquals, res)
 	a.AssertNoReceive()

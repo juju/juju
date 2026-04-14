@@ -237,7 +237,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *tc.C) {
 			Clouds: map[string]clientconfig.CloudConfig{
 				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": "A"}}},
+					Attributes: map[string]any{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},
@@ -275,7 +275,7 @@ func (s *k8sConfigSuite) TestGetSingleConfigSnapHome(c *tc.C) {
 		Clouds: map[string]clientconfig.CloudConfig{
 			"the-cluster": {
 				Endpoint:   "https://1.1.1.1:8888",
-				Attributes: map[string]interface{}{"CAData": "A"}}},
+				Attributes: map[string]any{"CAData": "A"}}},
 		Credentials: map[string]cloud.Credential{
 			"the-user": cred,
 		},
@@ -308,7 +308,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 				Clouds: map[string]clientconfig.CloudConfig{
 					"default-cluster": {
 						Endpoint:   "https://10.10.10.10:1010",
-						Attributes: map[string]interface{}{"CAData": ""},
+						Attributes: map[string]any{"CAData": ""},
 					},
 				},
 				Credentials: map[string]cloud.Credential{
@@ -330,7 +330,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 				Clouds: map[string]clientconfig.CloudConfig{
 					"the-cluster": {
 						Endpoint:   "https://1.1.1.1:8888",
-						Attributes: map[string]interface{}{"CAData": "A"}}},
+						Attributes: map[string]any{"CAData": "A"}}},
 				Credentials: map[string]cloud.Credential{
 					"the-user": theCred,
 				},
@@ -350,7 +350,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 				Clouds: map[string]clientconfig.CloudConfig{
 					"second-cluster": {
 						Endpoint:   "https://100.100.100.100:1010",
-						Attributes: map[string]interface{}{"CAData": "A"}}},
+						Attributes: map[string]any{"CAData": "A"}}},
 				Credentials: map[string]cloud.Credential{
 					"second-user": secondCred,
 				},
@@ -370,7 +370,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 				Clouds: map[string]clientconfig.CloudConfig{
 					"the-cluster": {
 						Endpoint:   "https://1.1.1.1:8888",
-						Attributes: map[string]interface{}{"CAData": "A"}}},
+						Attributes: map[string]any{"CAData": "A"}}},
 				Credentials: map[string]cloud.Credential{
 					"the-user": theCred,
 				},
@@ -390,7 +390,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *tc.C) {
 				Clouds: map[string]clientconfig.CloudConfig{
 					"default-cluster": {
 						Endpoint:   "https://10.10.10.10:1010",
-						Attributes: map[string]interface{}{"CAData": ""},
+						Attributes: map[string]any{"CAData": ""},
 					}},
 				Credentials: map[string]cloud.Credential{
 					"default-user": firstCred,
@@ -436,7 +436,7 @@ func (s *k8sConfigSuite) TestConfigWithExternalCA(c *tc.C) {
 			Clouds: map[string]clientconfig.CloudConfig{
 				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": "QQ=="}}},
+					Attributes: map[string]any{"CAData": "QQ=="}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},
@@ -464,7 +464,7 @@ func (s *k8sConfigSuite) TestConfigWithInsecureSkilTLSVerify(c *tc.C) {
 				"the-cluster": {
 					Endpoint:      "https://1.1.1.1:8888",
 					SkipTLSVerify: true,
-					Attributes:    map[string]interface{}{"CAData": ""}}},
+					Attributes:    map[string]any{"CAData": ""}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},
@@ -529,7 +529,7 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *tc.C) {
 			Clouds: map[string]clientconfig.CloudConfig{
 				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": "A"}}},
+					Attributes: map[string]any{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},

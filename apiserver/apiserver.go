@@ -21,7 +21,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/ratelimit"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	apimacaroon "github.com/juju/juju/api/macaroon"
@@ -460,10 +460,10 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 }
 
 // Report is shown in the juju_engine_report.
-func (srv *Server) Report() map[string]interface{} {
+func (srv *Server) Report(ctx context.Context) map[string]any {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"agent-ratelimit-max":  srv.agentRateLimitMax,
 		"agent-ratelimit-rate": srv.agentRateLimitRate,
 	}
@@ -1256,7 +1256,7 @@ func (srv *Server) serveConn(
 	// requests to the relevant business facade.
 	// There may be more than one since we need a new API each
 	// time login changes in a non-backwards compatible way.
-	adminAPIs := make(map[int]interface{})
+	adminAPIs := make(map[int]any)
 	for apiVersion, factory := range adminAPIFactories {
 		adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 	}

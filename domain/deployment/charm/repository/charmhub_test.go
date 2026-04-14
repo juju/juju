@@ -1501,7 +1501,7 @@ type RefreshConfigMatcher struct {
 	Config charmhub.RefreshConfig
 }
 
-func (m RefreshConfigMatcher) Matches(x interface{}) bool {
+func (m RefreshConfigMatcher) Matches(x any) bool {
 	rc, ok := x.(charmhub.RefreshConfig)
 	if !ok {
 		return false
@@ -1531,7 +1531,7 @@ type charmhubConfigMatcher struct {
 	id bool
 }
 
-func (m charmhubConfigMatcher) Matches(x interface{}) bool {
+func (m charmhubConfigMatcher) Matches(x any) bool {
 	config, ok := x.(charmhub.RefreshConfig)
 	if !ok {
 		return false

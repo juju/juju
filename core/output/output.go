@@ -21,7 +21,7 @@ var DefaultFormatters = map[string]cmd.Formatter{
 }
 
 // FormatYamlWithColor formats yaml output with color.
-func FormatYamlWithColor(w io.Writer, value interface{}) error {
+func FormatYamlWithColor(w io.Writer, value any) error {
 	result, err := marshalYaml(value)
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func FormatYamlWithColor(w io.Writer, value interface{}) error {
 }
 
 // FormatJsonWithColor formats json output with color.
-func FormatJsonWithColor(w io.Writer, val interface{}) error {
+func FormatJsonWithColor(w io.Writer, val any) error {
 	if val == nil {
 		return nil
 	}
@@ -72,26 +72,26 @@ type Wrapper struct {
 }
 
 // Print writes each value followed by a tab.
-func (w *Wrapper) Print(values ...interface{}) {
+func (w *Wrapper) Print(values ...any) {
 	for _, v := range values {
 		fmt.Fprintf(w, "%v\t", v)
 	}
 }
 
 // PrintNoTab writes each value adjacent to each other.
-func (w *Wrapper) PrintNoTab(values ...interface{}) {
+func (w *Wrapper) PrintNoTab(values ...any) {
 	for _, v := range values {
 		fmt.Fprintf(w, "%v", v)
 	}
 }
 
 // Printf writes the formatted text followed by a tab.
-func (w *Wrapper) Printf(format string, values ...interface{}) {
+func (w *Wrapper) Printf(format string, values ...any) {
 	fmt.Fprintf(w, format+"\t", values...)
 }
 
 // Println writes many tab separated values finished with a new line.
-func (w *Wrapper) Println(values ...interface{}) {
+func (w *Wrapper) Println(values ...any) {
 	for i, v := range values {
 		if i != len(values)-1 {
 			fmt.Fprintf(w, "%v\t", v)
@@ -103,7 +103,7 @@ func (w *Wrapper) Println(values ...interface{}) {
 }
 
 // PrintColor writes the value out in the color context specified.
-func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
+func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value any) {
 	if ctx != nil {
 		ctx.Fprintf(w.TabWriter, "%v\t", value)
 	} else {
@@ -112,7 +112,7 @@ func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 }
 
 // PrintColorNoTab writes the value out in the color context specified.
-func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
+func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value any) {
 	if ctx != nil {
 		ctx.Fprintf(w.TabWriter, "%v", value)
 	} else {
@@ -121,7 +121,7 @@ func (w *Wrapper) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
 }
 
 // PrintHeaders writes out many tab separated values in the color context specified.
-func (w *Wrapper) PrintHeaders(ctx *ansiterm.Context, values ...interface{}) {
+func (w *Wrapper) PrintHeaders(ctx *ansiterm.Context, values ...any) {
 	for i, v := range values {
 		if i != len(values)-1 {
 			ctx.Fprintf(w, "%v\t", v)
@@ -151,7 +151,7 @@ type PrintWriter struct {
 }
 
 // Printf writes each value.
-func (w *PrintWriter) Printf(ctx *ansiterm.Context, format string, values ...interface{}) {
+func (w *PrintWriter) Printf(ctx *ansiterm.Context, format string, values ...any) {
 	if ctx != nil {
 		ctx.Fprintf(w, format, values...) //if ctx != nil {"%v" =format
 	} else {
@@ -160,7 +160,7 @@ func (w *PrintWriter) Printf(ctx *ansiterm.Context, format string, values ...int
 }
 
 // Println writes each value.
-func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...interface{}) {
+func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...any) {
 	for _, v := range values {
 		ctx.Fprintf(w, "%v", v)
 	}
@@ -168,17 +168,17 @@ func (w *PrintWriter) Println(ctx *ansiterm.Context, values ...interface{}) {
 }
 
 // Print empty tab after values
-func (w *PrintWriter) Print(values ...interface{}) {
+func (w *PrintWriter) Print(values ...any) {
 	w.Printf(CurrentHighlight, "%v", values...)
 }
 
 // PrintNoTab prints values without a tab delimiter
-func (w *PrintWriter) PrintNoTab(values ...interface{}) {
+func (w *PrintWriter) PrintNoTab(values ...any) {
 	w.Printf(CurrentHighlight, "%v", values...)
 }
 
 // PrintColorNoTab writes the value out in the color context specified.
-func (w *PrintWriter) PrintColorNoTab(ctx *ansiterm.Context, value interface{}) {
+func (w *PrintWriter) PrintColorNoTab(ctx *ansiterm.Context, value any) {
 	w.Printf(ctx, "%v", value)
 }
 

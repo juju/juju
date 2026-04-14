@@ -80,7 +80,7 @@ func (s *LoopSuite) TestAbort(c *tc.C) {
 }
 
 func (s *LoopSuite) TestOnIdle(c *tc.C) {
-	onIdleCh := make(chan interface{}, 1)
+	onIdleCh := make(chan any, 1)
 	s.onIdle = func() error {
 		onIdleCh <- nil
 		return nil
@@ -91,7 +91,7 @@ func (s *LoopSuite) TestOnIdle(c *tc.C) {
 
 	loopFn := s.loop(c)
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 	go func() {
 		_, err := loopFn(ctx)
 		done <- err
@@ -246,7 +246,7 @@ func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 	remoteStateSnapshotCount := 0
 	s.executor.run = func(op operation.Operation, rs <-chan remotestate.Snapshot) error {
 		remoteStateSnapshotChan = rs
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			// queue up a change to trigger snapshot channel.
 			s.watcher.changes <- struct{}{}
 			// wait for changes to propagate
@@ -504,7 +504,7 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *tc.C) {
 	c.Assert(err, tc.Equals, resolver.ErrRestart)
 }
 
-func waitChannel(c *tc.C, ch <-chan interface{}, activity string) interface{} {
+func waitChannel(c *tc.C, ch <-chan any, activity string) any {
 	select {
 	case v := <-ch:
 		return v

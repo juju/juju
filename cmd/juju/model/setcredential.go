@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -125,12 +126,9 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 		// This is ok - we can proceed with local ones anyway.
 		ctx.Infof("Could not determine if there are remote credentials for the user: %v", err)
 	} else {
-		for _, credTag := range remoteCredentials {
-			if credTag == credentialTag {
-				remote = true
-				ctx.Infof("Found credential remotely, on the controller. Not looking locally...")
-				break
-			}
+		if slices.Contains(remoteCredentials, credentialTag) {
+			remote = true
+			ctx.Infof("Found credential remotely, on the controller. Not looking locally...")
 		}
 	}
 

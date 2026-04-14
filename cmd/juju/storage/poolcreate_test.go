@@ -51,7 +51,7 @@ func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *tc.C) {
@@ -81,7 +81,7 @@ func (s *PoolCreateSuite) TestPoolCreateAttrEmptyValue(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "\"\""})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{"something": "\"\""})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *tc.C) {
@@ -91,7 +91,7 @@ func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too"})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{"something": "too"})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *tc.C) {
@@ -101,7 +101,7 @@ func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "lollypop")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too", "another": "one"})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{"something": "too", "another": "one"})
 }
 
 func (s *PoolCreateSuite) TestPoolCreateWithDisallowedAttrs(c *tc.C) {
@@ -122,7 +122,7 @@ func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProvider(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "kubernetes")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{})
 }
 
 func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProviderWithArgs(c *tc.C) {
@@ -135,7 +135,7 @@ func (s *PoolCreateSuite) TestCAASPoolCreateDefaultProviderWithArgs(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "kubernetes")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too"})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{"something": "too"})
 }
 
 func (s *PoolCreateSuite) TestCAASPoolCreateNonDefaultProvider(c *tc.C) {
@@ -148,20 +148,20 @@ func (s *PoolCreateSuite) TestCAASPoolCreateNonDefaultProvider(c *tc.C) {
 	createdConfigs := s.mockAPI.Creates[0]
 	c.Assert(createdConfigs.Name, tc.Equals, "sunshine")
 	c.Assert(createdConfigs.Provider, tc.Equals, "tmpfs")
-	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]interface{}{"something": "too"})
+	c.Assert(createdConfigs.Config, tc.DeepEquals, map[string]any{"something": "too"})
 }
 
 type mockCreateData struct {
 	Name     string
 	Provider string
-	Config   map[string]interface{}
+	Config   map[string]any
 }
 
 type mockPoolCreateAPI struct {
 	Creates []mockCreateData
 }
 
-func (s *mockPoolCreateAPI) CreatePool(ctx context.Context, pname, ptype string, pconfig map[string]interface{}) error {
+func (s *mockPoolCreateAPI) CreatePool(ctx context.Context, pname, ptype string, pconfig map[string]any) error {
 	s.Creates = append(s.Creates, mockCreateData{Name: pname, Provider: ptype, Config: pconfig})
 	return nil
 }

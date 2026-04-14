@@ -7,6 +7,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -215,7 +216,7 @@ func (c *Client) GetCharmURLOrigin(ctx context.Context, applicationName string) 
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.
-func (c *Client) GetConfig(ctx context.Context, appNames ...string) ([]map[string]interface{}, error) {
+func (c *Client) GetConfig(ctx context.Context, appNames ...string) ([]map[string]any, error) {
 	arg := params.ApplicationGetArgs{Args: make([]params.ApplicationGet, len(appNames))}
 	for i, appName := range appNames {
 		arg.Args[i] = params.ApplicationGet{ApplicationName: appName}
@@ -227,7 +228,7 @@ func (c *Client) GetConfig(ctx context.Context, appNames ...string) ([]map[strin
 		return nil, errors.Trace(err)
 	}
 
-	var settings []map[string]interface{}
+	var settings []map[string]any
 	for i, result := range results.Results {
 		if result.Error != nil {
 			return nil, errors.Annotatef(err, "unable to get settings for %q", appNames[i])
@@ -950,7 +951,7 @@ type UnitInfo struct {
 // RelationData holds information about a unit's relation.
 type RelationData struct {
 	InScope  bool
-	UnitData map[string]interface{}
+	UnitData map[string]any
 }
 
 // EndpointRelationData holds information about a relation to a given endpoint.
@@ -959,7 +960,7 @@ type EndpointRelationData struct {
 	Endpoint         string
 	CrossModel       bool
 	RelatedEndpoint  string
-	ApplicationData  map[string]interface{}
+	ApplicationData  map[string]any
 	UnitRelationData map[string]RelationData
 }
 
@@ -1011,10 +1012,8 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 			RelatedEndpoint: inRd.RelatedEndpoint,
 		}
 		if len(inRd.ApplicationData) > 0 {
-			erd.ApplicationData = make(map[string]interface{})
-			for k, v := range inRd.ApplicationData {
-				erd.ApplicationData[k] = v
-			}
+			erd.ApplicationData = make(map[string]any)
+			maps.Copy(erd.ApplicationData, inRd.ApplicationData)
 		}
 		if len(inRd.UnitRelationData) > 0 {
 			erd.UnitRelationData = make(map[string]RelationData)
@@ -1023,10 +1022,8 @@ func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
 					InScope: inUrd.InScope,
 				}
 				if len(inUrd.UnitData) > 0 {
-					urd.UnitData = make(map[string]interface{})
-					for k, v := range inUrd.UnitData {
-						urd.UnitData[k] = v
-					}
+					urd.UnitData = make(map[string]any)
+					maps.Copy(urd.UnitData, inUrd.UnitData)
 				}
 				erd.UnitRelationData[unit] = urd
 			}

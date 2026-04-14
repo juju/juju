@@ -23,7 +23,7 @@ type HTTPClient interface {
 // HTTPDoer exposes the functionality of httprequest.Client needed here.
 type HTTPDoer interface {
 	// Do sends the given request.
-	Do(context context.Context, req *http.Request, resp interface{}) error
+	Do(context context.Context, req *http.Request, resp any) error
 }
 
 // URIOpener provides the OpenURI method.

@@ -32,7 +32,7 @@ type TestCommon struct {
 }
 
 // Init returns a new, initialised instance of TestCommon.
-func Init(c *tc.C, facade, method string, expectArgs, useResults interface{}, err error) (t *TestCommon) {
+func Init(c *tc.C, facade, method string, expectArgs, useResults any, err error) (t *TestCommon) {
 	t = &TestCommon{}
 	caller := apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        facade,

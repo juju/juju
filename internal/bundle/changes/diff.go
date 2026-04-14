@@ -310,7 +310,7 @@ func (d *differ) diffAnnotations(bundle, model map[string]string) map[string]Str
 	return result
 }
 
-func (d *differ) diffOptions(bundle, model map[string]interface{}) map[string]OptionDiff {
+func (d *differ) diffOptions(bundle, model map[string]any) map[string]OptionDiff {
 	all := set.NewStrings()
 	for name := range bundle {
 		all.Add(name)
@@ -470,8 +470,8 @@ type BoolDiff struct {
 // OptionDiff stores different bundle and model values for some
 // configuration value.
 type OptionDiff struct {
-	Bundle interface{} `yaml:"bundle"`
-	Model  interface{} `yaml:"model"`
+	Bundle any `yaml:"bundle"`
+	Model  any `yaml:"model"`
 }
 
 // MachineDiff stores differences between a machine in a bundle and a model.

@@ -220,7 +220,7 @@ func (c *addCommand) Init(args []string) error {
 }
 
 type ModelConfigAPI interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 	Close() error
 }
 
@@ -235,8 +235,8 @@ type MachineManagerAPI interface {
 // splitUserHost given a host string of example user@192.168.122.122
 // it will return user and 192.168.122.122
 func splitUserHost(host string) (string, string) {
-	if at := strings.Index(host, "@"); at != -1 {
-		return host[:at], host[at+1:]
+	if before, after, ok := strings.Cut(host, "@"); ok {
+		return before, after
 	}
 	return "", host
 }

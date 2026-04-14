@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/machinelock"
@@ -150,10 +150,10 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *tc.C) {
 
 	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
-		Args:     []interface{}{firstAction.Name()},
+		Args:     []any{firstAction.Name()},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{thirdAction.Name()},
+		Args:     []any{thirdAction.Name()},
 	}})
 }
 
@@ -187,10 +187,10 @@ func (s *WorkerSuite) TestRunActions(c *tc.C) {
 	c.Check(errors.Cause(err), tc.ErrorMatches, "got invalid action id invalid-action-id")
 	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
-		Args:     []interface{}{secondAction.Name()},
+		Args:     []any{secondAction.Name()},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{thirdAction.Name()},
+		Args:     []any{thirdAction.Name()},
 	}})
 	c.Assert(released, tc.IsTrue)
 }
@@ -208,7 +208,7 @@ func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Times(1).Return(nil)
 
 	// To deal with the race because of the goroutines, we will use assertions based on the message.
-	assertFinish := func(_ context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+	assertFinish := func(_ context.Context, tag names.ActionTag, status string, results map[string]any, message string) error {
 		if message == "slob" {
 			c.Assert(status, tc.Equals, params.ActionFailed)
 			return nil
@@ -234,10 +234,10 @@ func (s *WorkerSuite) TestActionHandleError(c *tc.C) {
 
 	stub.CheckCallsUnordered(c, []testhelpers.StubCall{{
 		FuncName: "HandleAction",
-		Args:     []interface{}{firstAction.Name()},
+		Args:     []any{firstAction.Name()},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{thirdAction.Name()},
+		Args:     []any{thirdAction.Name()},
 	}})
 }
 

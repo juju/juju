@@ -418,7 +418,7 @@ type addIAASUnitArgMatcher struct {
 	expected domainapplication.AddIAASUnitArg
 }
 
-func (m addIAASUnitArgMatcher) Matches(x interface{}) bool {
+func (m addIAASUnitArgMatcher) Matches(x any) bool {
 	obtained, ok := x.(domainapplication.AddIAASUnitArg)
 	if !ok {
 		return false

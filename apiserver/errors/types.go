@@ -134,8 +134,8 @@ func (e *NotLeaderError) ServerID() string {
 
 // AsMap returns a map of the error. Useful when crossing the facade boundary
 // and wanting information in the client.
-func (e *NotLeaderError) AsMap() map[string]interface{} {
-	return map[string]interface{}{
+func (e *NotLeaderError) AsMap() map[string]any {
+	return map[string]any{
 		"server-address": e.serverAddress,
 		"server-id":      e.serverID,
 	}
@@ -157,8 +157,8 @@ type AccessRequiredError struct {
 }
 
 // AsMap returns the data for the info part of an error param struct.
-func (e *AccessRequiredError) AsMap() map[string]interface{} {
-	result := make(map[string]interface{})
+func (e *AccessRequiredError) AsMap() map[string]any {
+	result := make(map[string]any)
 	for t, a := range e.RequiredAccess {
 		result[t.String()] = a
 	}

@@ -22,7 +22,7 @@ type CloudConfig interface {
 	// SetAttr sets an arbitrary attribute in the cloudinit config.
 	// The value will be marshalled according to the rules
 	// of the goyaml.Marshal.
-	SetAttr(string, interface{})
+	SetAttr(string, any)
 
 	// UnsetAttr unsets the attribute given from the cloudinit config.
 	// If the attribute has not been previously set, no error occurs.
@@ -434,7 +434,7 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 	cfg := &cloudConfig{
 		osName:   osname,
 		renderer: r,
-		attrs:    make(map[string]interface{}),
+		attrs:    make(map[string]any),
 	}
 	for _, opt := range opts {
 		opt(cfg)

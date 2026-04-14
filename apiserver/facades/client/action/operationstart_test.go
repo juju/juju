@@ -76,7 +76,7 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 	api := s.newActionAPI(c)
 	taskArgs := operation.TaskArgs{
 		ActionName:     "do",
-		Parameters:     map[string]interface{}{"k": "v"},
+		Parameters:     map[string]any{"k": "v"},
 		IsParallel:     true,
 		ExecutionGroup: "grp",
 	}
@@ -98,7 +98,7 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 	res, err := api.EnqueueOperation(c.Context(), params.Actions{Actions: []params.Action{{
 		Receiver:       "unit-app-0",
 		Name:           "do",
-		Parameters:     map[string]interface{}{"k": "v"},
+		Parameters:     map[string]any{"k": "v"},
 		Parallel:       new(true),
 		ExecutionGroup: new("grp")}}})
 
@@ -111,7 +111,7 @@ func (s *enqueueSuite) TestEnqueueSingleUnit(c *tc.C) {
 		Tag:            "action-2",
 		Receiver:       "unit-app-0",
 		Name:           "do",
-		Parameters:     map[string]interface{}{"k": "v"},
+		Parameters:     map[string]any{"k": "v"},
 		Parallel:       new(true),
 		ExecutionGroup: new("grp"),
 	})
@@ -235,7 +235,7 @@ func (s *enqueueSuite) TestEnqueueMultipleActionsErrors(c *tc.C) {
 		}, {
 			Receiver:       "unit-app-2",
 			Name:           "y",
-			Parameters:     map[string]interface{}{"a": 1},
+			Parameters:     map[string]any{"a": 1},
 			Parallel:       new(true),
 			ExecutionGroup: new("eg-1"),
 		}}})

@@ -24,6 +24,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
@@ -232,6 +233,7 @@ type State interface {
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
+		unset []string,
 	) error
 }
 
@@ -306,7 +308,9 @@ func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	return settings, nil
 }
 
-// SetRelationUnitSettings records settings for a unit in a relation.
+// SetRelationUnitSettings records settings for a unit in a relation. If a
+// setting with the same key already exists, it is updated. If a key with
+// no value is provided, the setting is removed from the database.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] is returned if the
@@ -320,10 +324,7 @@ func (s *LeadershipService) SetRelationUnitSettings(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Note: do not check if the settings are length 0 here, as we want to
-	// enable clearing settings by passing empty maps. If the maps are nil, then
-	// it becomes a no-op.
-	if unitSettings == nil {
+	if len(unitSettings) == 0 {
 		return nil
 	}
 
@@ -340,7 +341,28 @@ func (s *LeadershipService) SetRelationUnitSettings(
 		return errors.Capture(fmt.Errorf("getting relation unit: %w", err))
 	}
 
-	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings))
+	settings, unset := parseForSetAndUnsetSettings(unitSettings)
+
+	return errors.Capture(s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings, unset))
+}
+
+func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []string) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	// Determine the keys to set and unset.
+	out := make(unitstate.Settings, 0)
+	var unset []string
+	for k, v := range in {
+		if v == "" {
+			unset = append(unset, k)
+		} else {
+			out[k] = v
+		}
+	}
+
+	return out, unset
 }
 
 // Service provides the API for working with relations.
@@ -452,7 +474,16 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	subordinateUnitStatusHistoryData, err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	warning := func(key string) {
+		s.logger.Warningf(ctx, "dropping empty value for key %q in unit %q settings of relation %q",
+			key, unitName, relationUUID)
+	}
+	subordinateUnitStatusHistoryData, err := s.st.EnterScope(
+		ctx,
+		relationUUID,
+		unitName,
+		ensureNoEmptySettingsValues(warning, settings),
+	)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
 	} else if err != nil {
@@ -542,20 +573,48 @@ func (s *Service) SetRelationRemoteApplicationAndUnitSettings(
 		if err := unitName.Validate(); err != nil {
 			return errors.Capture(err)
 		}
+		warningUnit := func(key string) {
+			s.logger.Warningf(ctx, "dropping empty value for key %q in unit %s settings of relation %q",
+				key, unitName, relationUUID)
+		}
+		uSettings[unitName.String()] = ensureNoEmptySettingsValues(warningUnit, settings)
+	}
 
-		uSettings[unitName.String()] = settings
+	warningApp := func(key string) {
+		s.logger.Warningf(ctx, "dropping empty value for key %q in application %q settings of relation %q",
+			key, applicationUUID, relationUUID)
 	}
 
 	// Enter the units into the relation scope.
 	if err := s.st.SetRelationRemoteApplicationAndUnitSettings(
 		ctx,
-		applicationUUID.String(), relationUUID.String(),
-		applicationSettings, uSettings,
+		applicationUUID.String(),
+		relationUUID.String(),
+		ensureNoEmptySettingsValues(warningApp, applicationSettings),
+		uSettings,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
 	return nil
+}
+
+func ensureNoEmptySettingsValues(
+	warning func(string),
+	settings map[string]string,
+) map[string]string {
+	if len(settings) == 0 {
+		return nil
+	}
+	out := make(map[string]string)
+	for k, v := range settings {
+		if v == "" {
+			warning(k)
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // SetRemoteRelationSuspendedState sets the suspended state of the specified
@@ -1164,16 +1223,4 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerel
 	}
 
 	return key, nil
-}
-
-func settingsMap(in map[string]interface{}) (map[string]string, error) {
-	var errs error
-	return transform.Map(in, func(k string, v interface{}) (string, string) {
-		switch v.(type) {
-		case string:
-		default:
-			errs = errors.Join(errs, errors.Errorf("%+v no a string", v))
-		}
-		return k, fmt.Sprintf("%v", v)
-	}), errs
 }

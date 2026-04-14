@@ -114,8 +114,8 @@ func ParseInterfaceType(sysPath, interfaceName string) LinkLayerDeviceType {
 	}
 
 	var devType string
-	lines := strings.Fields(string(data))
-	for _, line := range lines {
+	lines := strings.FieldsSeq(string(data))
+	for line := range lines {
 		if !strings.HasPrefix(line, deviceType) {
 			continue
 		}

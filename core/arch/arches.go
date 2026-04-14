@@ -6,6 +6,7 @@ package arch
 import (
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -108,10 +109,5 @@ func NormaliseArch(rawArch string) string {
 
 // IsSupportedArch returns true if arch is one supported by Juju.
 func IsSupportedArch(arch string) bool {
-	for _, a := range AllSupportedArches {
-		if a == arch {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AllSupportedArches, arch)
 }

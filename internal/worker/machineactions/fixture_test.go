@@ -6,8 +6,8 @@ package machineactions_test
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	"github.com/juju/juju/core/watcher"
@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func mockHandleAction(stub *testhelpers.Stub) func(string, map[string]interface{}) (map[string]interface{}, error) {
-	return func(name string, params map[string]interface{}) (map[string]interface{}, error) {
+func mockHandleAction(stub *testhelpers.Stub) func(string, map[string]any) (map[string]any, error) {
+	return func(name string, params map[string]any) (map[string]any, error) {
 		stub.AddCall("HandleAction", name)
 		return nil, stub.NextErr()
 	}

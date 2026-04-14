@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -22,8 +23,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/api"
@@ -112,12 +113,12 @@ type ApiServerSuite struct {
 	// ControllerConfigAttrs can be set up before SetUpTest
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller configuration.
-	ControllerConfigAttrs map[string]interface{}
+	ControllerConfigAttrs map[string]any
 
 	// ControllerModelConfigAttrs can be set up before SetUpTest
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller model configuration.
-	ControllerModelConfigAttrs map[string]interface{}
+	ControllerModelConfigAttrs map[string]any
 
 	// These are exposed for the tests to use.
 	Server            *apiserver.Server
@@ -215,9 +216,7 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 		"name": "controller",
 		"type": DefaultCloud.Type,
 	}
-	for k, v := range s.ControllerModelConfigAttrs {
-		modelAttrs[k] = v
-	}
+	maps.Copy(modelAttrs, s.ControllerModelConfigAttrs)
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
 	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
@@ -358,9 +357,7 @@ func (s *ApiServerSuite) SetUpTest(c *tc.C) {
 	s.setupHttpServer(c)
 
 	controllerCfg := coretesting.FakeControllerConfig()
-	for key, value := range s.ControllerConfigAttrs {
-		controllerCfg[key] = value
-	}
+	maps.Copy(controllerCfg, s.ControllerConfigAttrs)
 	s.ControllerUUID = controllerCfg.ControllerUUID()
 	s.setupControllerModel(c, controllerCfg)
 	s.setupAPIServer(c, controllerCfg)
@@ -772,6 +769,6 @@ func (r *testRegistry) loop() error {
 	return r.catacomb.ErrDying()
 }
 
-func (r *testRegistry) Report() map[string]any {
+func (r *testRegistry) Report(ctx context.Context) map[string]any {
 	return map[string]any{}
 }

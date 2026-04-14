@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -529,7 +530,7 @@ func (c *sshMachine) reachableAddressGetter(ctx context.Context, entity string) 
 	var sshPort = defaultSSHPort
 	args := c.getArgs()
 
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		arg := args[i]
 		if arg == "-p" && i != len(args)-1 {
 			if sshPortNum, err := strconv.Atoi(args[i+1]); err == nil {
@@ -565,24 +566,20 @@ func (c *sshMachine) maybePopulateTargetViaField(ctx context.Context, target *re
 			continue
 		}
 
-		for _, machIPAddr := range machStatus.IPAddresses {
-			if machIPAddr == target.host {
-				// We are connecting to a machine. No need to
-				// populate the via field.
-				return nil
-			}
+		if slices.Contains(machStatus.IPAddresses, target.host) {
+			// We are connecting to a machine. No need to
+			// populate the via field.
+			return nil
 		}
 
 		for _, contStatus := range machStatus.Containers {
-			for _, contMachIPAddr := range contStatus.IPAddresses {
-				if contMachIPAddr == target.host {
-					target.via = &resolvedTarget{
-						user: "ubuntu",
-						// We have already checked that the host machine has at least one address
-						host: machStatus.IPAddresses[0],
-					}
-					return nil
+			if slices.Contains(contStatus.IPAddresses, target.host) {
+				target.via = &resolvedTarget{
+					user: "ubuntu",
+					// We have already checked that the host machine has at least one address
+					host: machStatus.IPAddresses[0],
 				}
+				return nil
 			}
 
 		}

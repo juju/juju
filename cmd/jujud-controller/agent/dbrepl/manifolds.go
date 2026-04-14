@@ -5,11 +5,12 @@ package dbrepl
 
 import (
 	"io"
+	"maps"
 	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -140,9 +141,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

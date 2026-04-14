@@ -8,8 +8,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -54,7 +54,7 @@ func (mc ManifoldConfig) start(ctx context.Context, a agent.Agent, apiCaller bas
 	})
 }
 
-func (mc ManifoldConfig) output(in worker.Worker, out interface{}) error {
+func (mc ManifoldConfig) output(in worker.Worker, out any) error {
 	inWorker, _ := in.(*RetryStrategyWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a *retryStrategyWorker; is %T", in)

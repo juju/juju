@@ -39,7 +39,7 @@ func TestHttpSuite(t *stdtesting.T) {
 func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		return &testRootAPI{}, nil
 	})
 	s.AddCleanup(func(_ *tc.C) { srv.Close() })
@@ -61,17 +61,17 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 var httpClientTests = []struct {
 	about           string
 	handler         http.HandlerFunc
-	expectResponse  interface{}
+	expectResponse  any
 	expectError     string
 	expectErrorIs   errors.ConstError
 	expectErrorCode string
-	expectErrorInfo map[string]interface{}
+	expectErrorInfo map[string]any
 }{{
 	about: "success",
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		httprequest.WriteJSON(w, http.StatusOK, "hello, world")
 	},
-	expectResponse: newString("hello, world"),
+	expectResponse: new("hello, world"),
 }, {
 	about: "unauthorized status without discharge-required error",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -187,7 +187,7 @@ func (s *httpSuite) TestHTTPClient(c *tc.C) {
 	for i, test := range httpClientTests {
 		c.Logf("test %d: %s", i, test.about)
 		handler = test.handler
-		var resp interface{}
+		var resp any
 		if test.expectResponse != nil {
 			resp = reflect.New(reflect.TypeOf(test.expectResponse).Elem()).Interface()
 		}
@@ -213,7 +213,7 @@ func (s *httpSuite) TestHTTPClient(c *tc.C) {
 func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 	const nonce = "gary"
 
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (any, error) {
 		return &testRootAPI{}, nil
 	})
 	s.AddCleanup(func(_ *tc.C) { srv.Close() })
@@ -308,7 +308,3 @@ func (s *httpSuite) authHTTPRequest(c *tc.C, info *api.Info) *http.Request {
 // This suite focuses on less reachable paths by changing
 // the BaseURL of the httprequest.Client so that
 // we can use our own custom servers.
-
-func newString(s string) *string {
-	return &s
-}

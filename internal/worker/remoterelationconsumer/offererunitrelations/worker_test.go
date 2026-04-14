@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
@@ -246,7 +246,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		c.Fatalf("timed out waiting for WatchRelationUnits to be called")
 	}
 
-	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+	c.Assert(w.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"offerer-application-uuid": s.offererApplicationUUID.String(),
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"changed-units":            []map[string]any(nil),
@@ -281,7 +281,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		c.Fatalf("timed out waiting to send change event")
 	}
 
-	c.Assert(w.Report(), tc.DeepEquals, map[string]any{
+	c.Assert(w.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"offerer-application-uuid": s.offererApplicationUUID.String(),
 		"consumer-relation-uuid":   s.consumerRelationUUID.String(),
 		"changed-units": []map[string]any{{

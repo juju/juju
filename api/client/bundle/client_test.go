@@ -37,7 +37,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 		{
 			Id:     "addCharm-0",
 			Method: "addCharm",
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"charm":  "ch:ubuntu",
 				"series": "jammy",
 			},
@@ -46,11 +46,11 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 		{
 			Id:     "deploy-1",
 			Method: "deploy",
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"charm":     "$addCharm-0",
 				"series":    "jammy",
 				"num_units": "1",
-				"options": map[string]interface{}{
+				"options": map[string]any{
 					"key":    "value",
 					"series": "focal",
 				},

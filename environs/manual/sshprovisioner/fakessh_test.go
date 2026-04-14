@@ -57,7 +57,7 @@ fi`
 //   - nil (no output)
 //   - a string (stdout)
 //   - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *tc.C, input, output interface{}, rc int) testhelpers.Restorer {
+func installFakeSSH(c *tc.C, input, output any, rc int) testhelpers.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -137,7 +137,7 @@ type fakeSSH struct {
 // output and exit codes.
 func (r fakeSSH) install(c *tc.C) testhelpers.Restorer {
 	var restore testhelpers.Restorer
-	add := func(input, output interface{}, rc int) {
+	add := func(input, output any, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}
 	if !r.SkipProvisionAgent {
@@ -146,7 +146,7 @@ func (r fakeSSH) install(c *tc.C) testhelpers.Restorer {
 	if !r.SkipDetection {
 		restore.Add(installDetectionFakeSSH(c, r.Base, r.Arch))
 	}
-	var checkProvisionedOutput interface{}
+	var checkProvisionedOutput any
 	if r.Provisioned {
 		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
 	}

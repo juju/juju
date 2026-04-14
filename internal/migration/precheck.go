@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/credential"
@@ -490,7 +490,7 @@ const (
 
 // checkNoFanConfig makes sure that no fan config was used in the config of the
 // model being migrated.
-func checkNoFanConfig(modelConfig map[string]interface{}) error {
+func checkNoFanConfig(modelConfig map[string]any) error {
 	if modelConfig[fanConfigKey] != nil && modelConfig[fanConfigKey] != "" {
 		return errors.Errorf("fan networking not supported, remove fan-config %q from migrating model config", modelConfig[fanConfigKey])
 	}

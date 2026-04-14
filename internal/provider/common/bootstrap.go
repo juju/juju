@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -171,7 +172,7 @@ func BootstrapInstance(
 	// line of stderr, not a new line.
 	lastLength := 0
 	statusCleanedUp := false
-	instanceStatus := func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error {
+	instanceStatus := func(ctx context.Context, settableStatus status.Status, info string, data map[string]any) error {
 		// The data arg is not expected to be used in this case, but
 		// print it, rather than ignore it, if we get something.
 		dataString := ""
@@ -243,11 +244,8 @@ func BootstrapInstance(
 		// from the same logic regarding placement.
 		var filteredZones []string
 		for _, zone := range zones {
-			for _, zoneConstraint := range *args.BootstrapConstraints.Zones {
-				if zone == zoneConstraint {
-					filteredZones = append(filteredZones, zone)
-					break
-				}
+			if slices.Contains(*args.BootstrapConstraints.Zones, zone) {
+				filteredZones = append(filteredZones, zone)
 			}
 		}
 		if len(filteredZones) == 0 {
@@ -846,7 +844,7 @@ func WaitSSH(
 			checker.Close()
 			lastErr := checker.Wait()
 			format := "waited for %v "
-			args := []interface{}{opts.Timeout}
+			args := []any{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
 			} else {

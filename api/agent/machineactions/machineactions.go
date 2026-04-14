@@ -119,7 +119,7 @@ func (c *Client) ActionBegin(ctx context.Context, tag names.ActionTag) error {
 }
 
 // ActionFinish captures the structured output of an action.
-func (c *Client) ActionFinish(ctx context.Context, tag names.ActionTag, status string, actionResults map[string]interface{}, message string) error {
+func (c *Client) ActionFinish(ctx context.Context, tag names.ActionTag, status string, actionResults map[string]any, message string) error {
 	var results params.ErrorResults
 
 	args := params.ActionExecutionResults{

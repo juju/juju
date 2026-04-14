@@ -109,7 +109,7 @@ type ControllerAccessAPI interface {
 
 // ModelConfigAPI defines a subset of the model config API.
 type ModelConfigAPI interface {
-	ModelGet(ctx context.Context) (map[string]interface{}, error)
+	ModelGet(ctx context.Context) (map[string]any, error)
 	Close() error
 }
 

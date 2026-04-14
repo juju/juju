@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/internal/testhelpers"
 )

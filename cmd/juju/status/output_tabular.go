@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,7 +43,7 @@ const (
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
-func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
+func FormatTabular(writer io.Writer, forceColor bool, value any) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
@@ -60,8 +61,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	// Default table output
-	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
-	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion}
+	header := []any{"Model", "Controller", "Cloud/Region", "Version"}
+	values := []any{fs.Model.Name, fs.Model.Controller, cloudRegion}
 	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
 	if cs := fs.Controller; cs != nil && cs.Timestamp != "" {
@@ -115,7 +116,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
-func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) *output.Wrapper {
+func startSection(tw *ansiterm.TabWriter, top bool, headers ...any) *output.Wrapper {
 	w := &output.Wrapper{TabWriter: tw}
 	if !top {
 		w.Println()
@@ -226,9 +227,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 		w.PrintColorNoTab(output.EmphasisHighlight.Gray, truncateMessage(app.StatusInfo.Message))
 		w.Println()
-		for un, u := range app.Units {
-			units[un] = u
-		}
+		maps.Copy(units, app.Units)
 	}
 	endSection(tw)
 
@@ -311,9 +310,9 @@ func (s sortablePorts) Swap(i, j int) {
 }
 
 type OutputWriter interface {
-	Print(values ...interface{})
-	PrintNoTab(values ...interface{})
-	PrintColorNoTab(ctx *ansiterm.Context, value interface{})
+	Print(values ...any)
+	PrintNoTab(values ...any)
+	PrintColorNoTab(ctx *ansiterm.Context, value any)
 }
 
 func printPorts(w OutputWriter, ps []string) {
@@ -592,7 +591,7 @@ func getStatusAndMessageFromMachineStatus(m machineStatus) (status.Status, strin
 }
 
 // FormatMachineTabular writes a tabular summary of machine
-func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) error {
+func FormatMachineTabular(writer io.Writer, forceColor bool, value any) error {
 	fs, valueConverted := value.(formattedMachineStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)

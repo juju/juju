@@ -35,7 +35,7 @@ func NewMapKeyValueSizeChecker(maxKeySize, maxValueSize int) *MapKeyValueSizeChe
 // internal state. Check expects a map as an argument where both the keys and
 // the values can be serialized to JSON; any other value will cause an error
 // to be returned when Outcome is called.
-func (c *MapKeyValueSizeChecker) Check(v interface{}) {
+func (c *MapKeyValueSizeChecker) Check(v any) {
 	if v == nil || c.lastErr != nil {
 		return
 	}
@@ -68,7 +68,7 @@ func (c *MapKeyValueSizeChecker) Outcome() error {
 // data.
 //
 // Any of the max values can be set to zero to bypass the size check.
-func CheckTupleSize(key, value interface{}, maxKeyLen, maxValueLen int) error {
+func CheckTupleSize(key, value any, maxKeyLen, maxValueLen int) error {
 	size, err := effectiveSize(key)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func CheckTupleSize(key, value interface{}, maxKeyLen, maxValueLen int) error {
 	return nil
 }
 
-func effectiveSize(v interface{}) (int, error) {
+func effectiveSize(v any) (int, error) {
 	switch rawValue := v.(type) {
 	case string:
 		return len(rawValue), nil

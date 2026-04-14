@@ -58,7 +58,7 @@ func NewYamlFormatter() *YamlFormatter {
 	}
 }
 
-func marshalYaml(obj interface{}) ([]byte, error) {
+func marshalYaml(obj any) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	if err := NewYamlFormatter().MarshalYaml(&buffer, obj); err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func marshalYaml(obj interface{}) ([]byte, error) {
 }
 
 // MarshalYaml renders yaml string with ansi color escape sequences to output colorized yaml string.
-func (f *YamlFormatter) MarshalYaml(buf *bytes.Buffer, obj interface{}) error {
+func (f *YamlFormatter) MarshalYaml(buf *bytes.Buffer, obj any) error {
 	if obj == nil {
 		f.Colors.Null.Fprint(f.writer, null)
 		buf.WriteString(f.buff.String())

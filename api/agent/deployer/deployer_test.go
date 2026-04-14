@@ -26,7 +26,7 @@ func TestDeployerSuite(t *stdtesting.T) {
 }
 
 func (s *deployerSuite) TestWatchUnits(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -52,7 +52,7 @@ func (s *deployerSuite) TestWatchUnits(c *tc.C) {
 }
 
 func (s *deployerSuite) TestUnit(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -79,7 +79,7 @@ func (s *deployerSuite) TestUnit(c *tc.C) {
 func (s *deployerSuite) TestUnitLifeRefresh(c *tc.C) {
 	calls := 0
 	lifeResult := life.Alive
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -112,7 +112,7 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *tc.C) {
 
 func (s *deployerSuite) TestUnitRemove(c *tc.C) {
 	calls := 0
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -149,7 +149,7 @@ func (s *deployerSuite) TestUnitRemove(c *tc.C) {
 
 func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 	calls := 0
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -191,8 +191,8 @@ func (s *deployerSuite) TestUnitSetPassword(c *tc.C) {
 
 func (s *deployerSuite) TestUnitSetStatus(c *tc.C) {
 	calls := 0
-	data := map[string]interface{}{"foo": "bar"}
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	data := map[string]any{"foo": "bar"}
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Deployer")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

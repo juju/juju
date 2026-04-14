@@ -22,11 +22,11 @@ func TestSampleSuite(t *testing.T) {
 var sampleYAMLTests = []struct {
 	about  string
 	indent int
-	attrs  map[string]interface{}
+	attrs  map[string]any
 	fields configschema.Fields
 	expect string
 }{{
-	about: "simple values, all attributes specified", attrs: map[string]interface{}{
+	about: "simple values, all attributes specified", attrs: map[string]any{
 		"foo": "foovalue",
 		"bar": 1243,
 		"baz": false,
@@ -84,7 +84,7 @@ var sampleYAMLTests = []struct {
 	`,
 }, {
 	about: "when a value is not specified, it's commented out",
-	attrs: map[string]interface{}{
+	attrs: map[string]any{
 		"foo": "foovalue",
 	},
 	fields: configschema.Fields{
@@ -109,7 +109,7 @@ var sampleYAMLTests = []struct {
 	`,
 }, {
 	about: "environment variables are mentioned as defaults",
-	attrs: map[string]interface{}{
+	attrs: map[string]any{
 		"bar": 1324,
 		"baz": true,
 		"foo": "foovalue",

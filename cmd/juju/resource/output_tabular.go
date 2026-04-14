@@ -15,7 +15,7 @@ import (
 )
 
 // FormatCharmTabular returns a tabular summary of charm resources.
-func FormatCharmTabular(writer io.Writer, value interface{}) error {
+func FormatCharmTabular(writer io.Writer, value any) error {
 	resources, valueConverted := value.([]FormattedCharmResource)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", resources, value)
@@ -63,7 +63,7 @@ func groupCharmResourcesByName(resources []FormattedCharmResource) ([]string, ma
 }
 
 // FormatAppTabular returns a tabular summary of resources.
-func FormatAppTabular(writer io.Writer, value interface{}) error {
+func FormatAppTabular(writer io.Writer, value any) error {
 	switch resources := value.(type) {
 	case FormattedApplicationInfo:
 		formatApplicationTabular(writer, resources)

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -694,8 +695,8 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 	}
 
 	if v, ok := cfg.defined[EgressSubnets].(string); ok && v != "" {
-		cidrs := strings.Split(v, ",")
-		for _, cidr := range cidrs {
+		cidrs := strings.SplitSeq(v, ",")
+		for cidr := range cidrs {
 			if _, _, err := net.ParseCIDR(strings.TrimSpace(cidr)); err != nil {
 				return errors.Annotatef(err, "invalid egress subnet: %v", cidr)
 			}
@@ -920,11 +921,8 @@ func (c *Config) validateDefaultBase() error {
 	supported := corebase.WorkloadBases()
 	logger.Tracef(context.TODO(), "supported bases %s", supported)
 	var found bool
-	for _, supportedBase := range supported {
-		if parsedBase.IsCompatible(supportedBase) {
-			found = true
-			break
-		}
+	if slices.ContainsFunc(supported, parsedBase.IsCompatible) {
+		found = true
 	}
 	if !found {
 		return errors.NotSupportedf("base %q", parsedBase.DisplayString())
@@ -1406,7 +1404,7 @@ func (c *Config) Mode() (set.Strings, bool) {
 	}
 	if m, ok := modes.(string); ok {
 		s := set.NewStrings()
-		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
+		for v := range strings.SplitSeq(strings.TrimSpace(m), ",") {
 			if v == "" {
 				continue
 			}
@@ -1584,18 +1582,14 @@ func (c *Config) Telemetry() bool {
 // implementation can tell.
 func (c *Config) UnknownAttrs() map[string]any {
 	newAttrs := make(map[string]any)
-	for k, v := range c.unknown {
-		newAttrs[k] = v
-	}
+	maps.Copy(newAttrs, c.unknown)
 	return newAttrs
 }
 
 // AllAttrs returns a copy of the raw configuration attributes.
 func (c *Config) AllAttrs() map[string]any {
 	allAttrs := c.UnknownAttrs()
-	for k, v := range c.defined {
-		allAttrs[k] = v
-	}
+	maps.Copy(allAttrs, c.defined)
 	return allAttrs
 }
 
@@ -1611,9 +1605,7 @@ func (c *Config) Remove(attrs []string) (*Config, error) {
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]any) (*Config, error) {
 	defined := c.AllAttrs()
-	for k, v := range attrs {
-		defined[k] = v
-	}
+	maps.Copy(defined, attrs)
 	return New(NoDefaults, defined)
 }
 
@@ -1720,9 +1712,7 @@ func allowEmpty(attr string) bool {
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{}
 	configDefaults := ConfigDefaults()
-	for attr, val := range configDefaults {
-		d[attr] = val
-	}
+	maps.Copy(d, configDefaults)
 	for attr, val := range alwaysOptional {
 		if developerConfigValue(attr) {
 			continue

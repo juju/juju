@@ -18,10 +18,10 @@ var (
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
-func newModelConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
+func newModelConfig(config *config.Config, attrs map[string]any) *environConfig {
 	return &environConfig{Config: config, attrs: attrs}
 }
 

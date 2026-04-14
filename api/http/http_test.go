@@ -30,7 +30,7 @@ type uriMatcher struct {
 	expectedURL string
 }
 
-func (m uriMatcher) Matches(x interface{}) bool {
+func (m uriMatcher) Matches(x any) bool {
 	req, ok := x.(*http.Request)
 	if !ok {
 		return false
@@ -56,7 +56,7 @@ func (s *httpSuite) TestOpenURI(c *tc.C) {
 		Body:       io.NopCloser(strings.NewReader("2.6.6-ubuntu-amd64")),
 	}
 	resultResp.Header.Add("Content-Type", "application/json")
-	mockHttp.EXPECT().Do(gomock.Any(), &uriMatcher{"/tools/2.6.6-ubuntu-amd64"}, gomock.Any()).DoAndReturn(func(_ context.Context, _ *http.Request, resp interface{}) error {
+	mockHttp.EXPECT().Do(gomock.Any(), &uriMatcher{"/tools/2.6.6-ubuntu-amd64"}, gomock.Any()).DoAndReturn(func(_ context.Context, _ *http.Request, resp any) error {
 		out := resp.(**http.Response)
 		*out = resultResp
 		return nil

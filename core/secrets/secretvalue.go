@@ -103,8 +103,8 @@ func (v secretValue) Values() (map[string]string, error) {
 // KeyValue implements SecretValue.
 func (v secretValue) KeyValue(key string) (string, error) {
 	useBase64 := false
-	if strings.HasSuffix(key, base64Suffix) {
-		key = strings.TrimSuffix(key, base64Suffix)
+	if before, ok := strings.CutSuffix(key, base64Suffix); ok {
+		key = before
 		useBase64 = true
 	}
 	val, ok := v.data[key]

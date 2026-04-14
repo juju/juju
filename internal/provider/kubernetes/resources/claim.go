@@ -20,11 +20,11 @@ type Claim interface {
 	// Assert defines the assertion to run. Returns true if a claim is asserted
 	// over the provided object or if an error occurred where a claim can not be
 	// made.
-	Assert(obj interface{}) (bool, error)
+	Assert(obj any) (bool, error)
 }
 
 // ClaimFn is a helper type for making Claim types out of functions. See Claim
-type ClaimFn func(obj interface{}) (bool, error)
+type ClaimFn func(obj any) (bool, error)
 
 var (
 	// ClaimJujuOwnership asserts that the Kubernetes object has labels that
@@ -35,7 +35,7 @@ var (
 	)
 )
 
-func (c ClaimFn) Assert(obj interface{}) (bool, error) {
+func (c ClaimFn) Assert(obj any) (bool, error) {
 	return c(obj)
 }
 
@@ -43,7 +43,7 @@ func (c ClaimFn) Assert(obj interface{}) (bool, error) {
 // If no claims are provided or no claim returns true false is returned. The
 // first claim to error stops execution.
 func ClaimAggregateOr(claims ...Claim) Claim {
-	return ClaimFn(func(obj interface{}) (bool, error) {
+	return ClaimFn(func(obj any) (bool, error) {
 		for _, claim := range claims {
 			if r, err := claim.Assert(obj); err != nil {
 				return r, err
@@ -60,7 +60,7 @@ func ClaimAggregateOr(claims ...Claim) Claim {
 // has the lowercase word "juju". We use this because our labeling at one stage
 // is a bit hit and miss and no consistency to fall back on.
 // TODO: Remove in Juju 3.0
-func claimHasJujuLabel(obj interface{}) (bool, error) {
+func claimHasJujuLabel(obj any) (bool, error) {
 	if obj == nil {
 		return false, errors.NewNotValid(nil, "obj for claim cannot be nil")
 	}
@@ -80,7 +80,7 @@ func claimHasJujuLabel(obj interface{}) (bool, error) {
 // claimIsManagedByJuju is a check to assert that the Kubernetes object provided
 // is managed by Juju by having the label key and value of
 // app.kubernetes.io/managed-by: juju.
-func claimIsManagedByJuju(obj interface{}) (bool, error) {
+func claimIsManagedByJuju(obj any) (bool, error) {
 	if obj == nil {
 		return false, errors.NewNotValid(nil, "obj for claim cannot be nil")
 	}
@@ -100,7 +100,7 @@ func claimIsManagedByJuju(obj interface{}) (bool, error) {
 // RunClaims runs the provided claims until the first true condition is found or
 // the first error occurs. If no claims are provided then true is returned.
 func RunClaims(claims ...Claim) Claim {
-	return ClaimFn(func(obj interface{}) (bool, error) {
+	return ClaimFn(func(obj any) (bool, error) {
 		for _, claim := range claims {
 			if r, err := claim.Assert(obj); err != nil {
 				return r, err

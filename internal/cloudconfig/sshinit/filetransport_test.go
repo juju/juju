@@ -126,7 +126,7 @@ func (s *sshInitSuite) TestFileTransportParallel(c *tc.C) {
 		SSHOptions: options,
 	})
 
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		hint := fmt.Sprintf("hint-%d", i)
 		p := ft.SendBytes(hint, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 		c.Assert(p, tc.Matches, "/tmp.*/juju-.*-"+hint)

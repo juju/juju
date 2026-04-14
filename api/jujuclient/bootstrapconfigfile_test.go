@@ -98,7 +98,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 			"api-port":   17070,
 			"state-port": 37017,
 		},
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"type": "ec2",
 			"name": "admin",
 		},
@@ -114,7 +114,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 			"api-port":   17070,
 			"state-port": 37017,
 		},
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"type": "maas",
 			"name": "admin",
 		},

@@ -209,7 +209,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 	return c.out.Write(cmdContext, &view)
 }
 
-func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
+func (c *infoCommand) formatter(writer io.Writer, value any) error {
 	results, ok := value.(*InfoResponse)
 	if !ok {
 		return errors.Errorf("unexpected results")

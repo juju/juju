@@ -24,7 +24,7 @@ type Machine interface {
 	Refresh(context.Context) error
 	Life() life.Value
 	EnsureDead(context.Context) error
-	SetStatus(ctx context.Context, machineStatus status.Status, info string, data map[string]interface{}) error
+	SetStatus(ctx context.Context, machineStatus status.Status, info string, data map[string]any) error
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 	SetObservedNetworkConfig(ctx context.Context, netConfig []params.NetworkConfig) error
 }

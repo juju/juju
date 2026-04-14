@@ -292,8 +292,8 @@ func (s *charmSuite) expectResolveChannel() {
 		}).AnyTimes()
 }
 
-func minimalModelConfig() map[string]interface{} {
-	return map[string]interface{}{
+func minimalModelConfig() map[string]any {
+	return map[string]any{
 		"name":            "test",
 		"type":            "unmanaged",
 		"uuid":            coretesting.ModelTag.Id(),

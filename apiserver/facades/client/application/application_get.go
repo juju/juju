@@ -24,7 +24,7 @@ import (
 func (api *APIBase) getConfig(
 	ctx context.Context,
 	args params.ApplicationGet,
-	describe func(applicationConfig charm.Config, charmConfig charm.ConfigSpec) map[string]interface{},
+	describe func(applicationConfig charm.Config, charmConfig charm.ConfigSpec) map[string]any,
 ) (params.ApplicationGetResults, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// There is no reason to split all these calls into multiple DB calls.
@@ -46,7 +46,7 @@ func (api *APIBase) getConfig(
 	}
 	mergedCharmConfig := describe(appInfo.ApplicationConfig, appInfo.CharmConfig)
 
-	appSettings := map[string]interface{}{
+	appSettings := map[string]any{
 		coreapplication.TrustConfigOptionName: appInfo.Trust,
 	}
 	providerSchema, providerDefaults, err := ConfigSchema()
@@ -169,7 +169,7 @@ func (api *APIBase) getCharm(ctx context.Context, locator applicationcharm.Charm
 	}, nil
 }
 
-func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName string) (map[string]interface{}, error) {
+func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName string) (map[string]any, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// Thee application service should return the merged config, this should
 	// not happen at the API server level.
@@ -196,14 +196,14 @@ func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName stri
 }
 
 func describeAppSettings(
-	appConfig map[string]interface{},
+	appConfig map[string]any,
 	schemaFields configschema.Fields,
 	defaults schema.Defaults,
-) map[string]interface{} {
-	results := make(map[string]interface{})
+) map[string]any {
+	results := make(map[string]any)
 	for name, field := range schemaFields {
 		defaultValue := defaults[name]
-		info := map[string]interface{}{
+		info := map[string]any{
 			"description": field.Description,
 			"type":        field.Type,
 			"source":      "unset",
@@ -230,10 +230,10 @@ func describeAppSettings(
 	return results
 }
 
-func describe(settings charm.Config, config charm.ConfigSpec) map[string]interface{} {
-	results := make(map[string]interface{})
+func describe(settings charm.Config, config charm.ConfigSpec) map[string]any {
+	results := make(map[string]any)
 	for name, option := range config.Options {
-		info := map[string]interface{}{
+		info := map[string]any{
 			"description": option.Description,
 			"type":        option.Type,
 			"source":      "unset",

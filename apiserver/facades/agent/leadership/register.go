@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("LeadershipService", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newLeadershipServiceFacade(ctx)
-	}, reflect.TypeOf((*LeadershipService)(nil)).Elem())
+	}, reflect.TypeFor[LeadershipService]())
 }
 
 // newLeadershipServiceFacade constructs a new LeadershipService and presents

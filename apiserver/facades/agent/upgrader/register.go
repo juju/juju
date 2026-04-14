@@ -20,7 +20,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Upgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUpgraderFacade(stdCtx, ctx)
-	}, reflect.TypeOf((*Upgrader)(nil)).Elem())
+	}, reflect.TypeFor[Upgrader]())
 }
 
 // The upgrader facade is a bit unique vs the other API Facades, as it

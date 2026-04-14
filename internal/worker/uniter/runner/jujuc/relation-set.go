@@ -6,6 +6,7 @@ package jujuc
 import (
 	"fmt"
 	"io"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -154,9 +155,7 @@ func (c *RelationSetCommand) handleSettingsFile(ctx *cmd.Context) error {
 	}
 
 	overrides := c.Settings
-	for k, v := range overrides {
-		settings[k] = v
-	}
+	maps.Copy(settings, overrides)
 	c.Settings = settings
 	return nil
 }

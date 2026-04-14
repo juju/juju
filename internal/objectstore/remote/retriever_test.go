@@ -15,7 +15,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
@@ -541,7 +541,7 @@ func (s *retrieverSuite) TestScopedContextDoneIgnoresChildAfterIgnore(c *tc.C) {
 	childCancel()
 
 	// Give the goroutine behind Done a chance to process child cancellation.
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		runtime.Gosched()
 	}
 

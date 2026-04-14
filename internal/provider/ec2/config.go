@@ -44,7 +44,7 @@ var configDefaults = schema.Defaults{
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 func (c *environConfig) vpcID() string {

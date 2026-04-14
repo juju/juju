@@ -27,7 +27,7 @@ func (o firewallRules) Less(i, j int) bool {
 	return o[i].KnownService < o[j].KnownService
 }
 
-func formatListTabular(writer io.Writer, value interface{}) error {
+func formatListTabular(writer io.Writer, value any) error {
 	rules, ok := value.([]firewallRule)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", rules, value)

@@ -8,7 +8,7 @@ import (
 	"net"
 	"reflect"
 
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"

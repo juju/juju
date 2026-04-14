@@ -38,65 +38,65 @@ func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 		},
 		{
 			name:        "flexible shape, no constraints => default minimum cpus",
-			maxCpuCores: makeUint64Pointer(32),
-			maxMem:      makeUint64Pointer(512 * 1024),
+			maxCpuCores: new(uint64(32)),
+			maxMem:      new(uint64(512 * 1024)),
 			cpuCores:    1,
 			mem:         1024,
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus: makeFloat32Pointer(float32(instances.MinCpuCores)),
+				Ocpus: new(float32(instances.MinCpuCores)),
 			},
 		},
 		{
 			name:        "flexible shape, only MaxCpuCores, no constraints => default minimum cpus",
-			maxCpuCores: makeUint64Pointer(32),
+			maxCpuCores: new(uint64(32)),
 			cpuCores:    1,
 			mem:         1024,
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus: makeFloat32Pointer(float32(instances.MinCpuCores)),
+				Ocpus: new(float32(instances.MinCpuCores)),
 			},
 		},
 		{
 			name:     "flexible shape, only MaxMem, no constraints => default minimum cpus",
-			maxMem:   makeUint64Pointer(512 * 1024),
+			maxMem:   new(uint64(512 * 1024)),
 			cpuCores: 1,
 			mem:      1024,
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus: makeFloat32Pointer(float32(instances.MinCpuCores)),
+				Ocpus: new(float32(instances.MinCpuCores)),
 			},
 		},
 		{
 			name:        "flexible shape, cpu constraints",
-			maxCpuCores: makeUint64Pointer(32),
-			maxMem:      makeUint64Pointer(512 * 1024),
+			maxCpuCores: new(uint64(32)),
+			maxMem:      new(uint64(512 * 1024)),
 			cpuCores:    1,
 			mem:         1024,
 			constraints: "cores=31",
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus: makeFloat32Pointer(31),
+				Ocpus: new(float32(31)),
 			},
 		},
 		{
 			name:        "flexible shape, mem constraints",
-			maxCpuCores: makeUint64Pointer(32),
-			maxMem:      makeUint64Pointer(512 * 1024),
+			maxCpuCores: new(uint64(32)),
+			maxMem:      new(uint64(512 * 1024)),
 			cpuCores:    1,
 			mem:         1024,
 			constraints: "mem=64G",
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus:       makeFloat32Pointer(float32(instances.MinCpuCores)),
-				MemoryInGBs: makeFloat32Pointer(64),
+				Ocpus:       new(float32(instances.MinCpuCores)),
+				MemoryInGBs: new(float32(64)),
 			},
 		},
 		{
 			name:        "flexible shape, cpu and mem constraints",
-			maxCpuCores: makeUint64Pointer(32),
-			maxMem:      makeUint64Pointer(512 * 1024),
+			maxCpuCores: new(uint64(32)),
+			maxMem:      new(uint64(512 * 1024)),
 			cpuCores:    1,
 			mem:         1024,
 			constraints: "cores=31 mem=64G",
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
-				Ocpus:       makeFloat32Pointer(31),
-				MemoryInGBs: makeFloat32Pointer(64),
+				Ocpus:       new(float32(31)),
+				MemoryInGBs: new(float32(64)),
 			},
 		},
 	}
@@ -115,12 +115,4 @@ func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 		ensureShapeConfig(instanceSpec, cons, &instanceDetails)
 		c.Check(instanceDetails.ShapeConfig, tc.DeepEquals, test.want)
 	}
-}
-
-func makeUint64Pointer(val uint64) *uint64 {
-	return &val
-}
-
-func makeFloat32Pointer(val float32) *float32 {
-	return &val
 }

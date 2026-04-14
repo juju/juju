@@ -57,8 +57,8 @@ func (a *ActionAPI) EnqueueOperation(ctx context.Context, arg params.Actions) (p
 	var applicationName string
 	for i, action := range arg.Actions {
 
-		if strings.HasSuffix(action.Receiver, leader) {
-			receiver := strings.TrimSuffix(action.Receiver, leader)
+		if before, ok := strings.CutSuffix(action.Receiver, leader); ok {
+			receiver := before
 
 			// Now check if the leader application is the same as the previous
 			// ones.

@@ -89,7 +89,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 			ExpireTime:   new(s.clock.Now()),
 			Description:  new("my secret"),
 			Label:        new("foobar"),
-			Params:       map[string]interface{}{"param": 1},
+			Params:       map[string]any{"param": 1},
 			Data:         data,
 			Checksum:     checksum,
 		},
@@ -110,7 +110,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 				ExpireTime:   new(s.clock.Now()),
 				Description:  new("my secret"),
 				Label:        new("foobar"),
-				Params:       map[string]interface{}{"param": 1},
+				Params:       map[string]any{"param": 1},
 				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
 			},
 		}, {
@@ -186,7 +186,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 		ExpireTime:   new(s.clock.Now()),
 		Description:  new("my secret"),
 		Label:        new("foobar"),
-		Params:       map[string]interface{}{"param": 1},
+		Params:       map[string]any{"param": 1},
 		Data:         data,
 		Checksum:     checksum,
 	}
@@ -210,7 +210,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 				ExpireTime:   new(s.clock.Now()),
 				Description:  new("my secret"),
 				Label:        new("foobar"),
-				Params:       map[string]interface{}{"param": 1},
+				Params:       map[string]any{"param": 1},
 				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
 			},
 		}, {
@@ -220,7 +220,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 				ExpireTime:   new(s.clock.Now()),
 				Description:  new("my secret"),
 				Label:        new("foobar"),
-				Params:       map[string]interface{}{"param": 1},
+				Params:       map[string]any{"param": 1},
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
 					BackendID:  "backend-id",
 					RevisionID: "rev-id",

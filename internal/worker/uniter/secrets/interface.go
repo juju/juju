@@ -46,5 +46,5 @@ type SecretStateTracker interface {
 	SecretsRemoved(ctx context.Context, deletedRevisions, deletedObsoleteRevisions map[string][]int) error
 
 	// Report provides information for the engine report.
-	Report() map[string]interface{}
+	Report(ctx context.Context) map[string]any
 }

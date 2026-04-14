@@ -417,8 +417,8 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 		// Replace slash-escaped spaces with a null byte so we can
 		// safely split on remaining whitespace.
 		arg = strings.Replace(arg, `\ `, "\x00", -1)
-		raws := strings.Split(strings.TrimSpace(arg), " ")
-		for _, raw := range raws {
+		raws := strings.SplitSeq(strings.TrimSpace(arg), " ")
+		for raw := range raws {
 			// Replace null bytes back to spaces
 			raw = strings.TrimSpace(strings.Replace(raw, "\x00", " ", -1))
 			if raw == "" {
@@ -479,16 +479,16 @@ func (v ConstraintsValue) String() string {
 }
 
 // attributesWithValues returns the non-zero attribute tags and their values from the constraint.
-func (v *Value) attributesWithValues() map[string]interface{} {
+func (v *Value) attributesWithValues() map[string]any {
 	// These can never fail, so we ignore the error for the sake of keeping our
 	// API clean.  I'm sorry (but not that sorry).
 	b, _ := json.Marshal(v)
-	result := map[string]interface{}{}
+	result := map[string]any{}
 	_ = json.Unmarshal(b, &result)
 	return result
 }
 
-func fromAttributes(attr map[string]interface{}) Value {
+func fromAttributes(attr map[string]any) Value {
 	b, _ := json.Marshal(attr)
 	var result Value
 	_ = json.Unmarshal(b, &result)
@@ -574,8 +574,8 @@ func (v *Value) setRaw(name, str string) error {
 // Because ContainerType is an alias for string, Go's reflect logic used in the
 // YAML decode determines that *string and *ContainerType are not assignable so
 // the container value of "" in the YAML is ignored.
-func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	values := map[interface{}]interface{}{}
+func (v *Value) UnmarshalYAML(unmarshal func(any) error) error {
+	values := map[any]any{}
 	err := unmarshal(&values)
 	if err != nil {
 		return errors.Capture(err)
@@ -852,8 +852,8 @@ func parseCommaDelimited(s string) *[]string {
 	return &t
 }
 
-func parseYamlStrings(entityName string, val interface{}) (*[]string, error) {
-	ifcs, ok := val.([]interface{})
+func parseYamlStrings(entityName string, val any) (*[]string, error) {
+	ifcs, ok := val.([]any)
 	if !ok {
 		return nil, errors.Errorf("unexpected type passed to %s: %T", entityName, val)
 	}

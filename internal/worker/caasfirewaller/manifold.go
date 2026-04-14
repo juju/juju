@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"

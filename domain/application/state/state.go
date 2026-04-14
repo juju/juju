@@ -49,21 +49,23 @@ func NewState(factory database.TxnRunnerFactory, modelUUID model.UUID, clock clo
 	}
 }
 
-func (s *State) checkCharmExists(ctx context.Context, tx *sqlair.TX, id entityUUID) error {
+func (s *State) checkCharmExists(ctx context.Context, tx *sqlair.TX, id string) error {
 	selectQuery := `
 SELECT &entityUUID.*
 FROM charm
 WHERE uuid = $entityUUID.uuid;
 	`
 
-	result := entityUUID{UUID: id.UUID}
+	result := entityUUID{UUID: id}
 	selectStmt, err := s.Prepare(selectQuery, result)
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
 	}
 	if err := tx.Query(ctx, selectStmt, result).Get(&result); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.CharmNotFound
+			return errors.Errorf(
+				"charm %q not found", id,
+			).Add(applicationerrors.CharmNotFound)
 		}
 		return errors.Errorf("failed to check charm exists: %w", err)
 	}

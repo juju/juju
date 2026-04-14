@@ -5,7 +5,7 @@ package engine
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	tomb "gopkg.in/tomb.v2"
 )
 
@@ -20,7 +20,7 @@ type Flag interface {
 }
 
 // FlagOutput will expose, as a Flag, any worker that implements Flag.
-func FlagOutput(in worker.Worker, out interface{}) error {
+func FlagOutput(in worker.Worker, out any) error {
 	inFlag, ok := in.(Flag)
 	if !ok {
 		return errors.Errorf("expected in to implement Flag; got a %T", in)

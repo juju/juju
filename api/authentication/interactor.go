@@ -60,7 +60,7 @@ func (i Interactor) Interact(ctx context.Context, client *httpbakery.Client, loc
 	}
 	lr := form.LoginRequest{
 		Body: form.LoginBody{
-			Form: map[string]interface{}{
+			Form: map[string]any{
 				"user":     i.username,
 				"password": password,
 			},

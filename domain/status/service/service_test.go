@@ -1779,7 +1779,7 @@ func (s *serviceSuite) TestGetMachineStatusSuccess(c *tc.C) {
 
 	expectedStatus := corestatus.StatusInfo{
 		Status: corestatus.Started,
-		Data:   map[string]interface{}{"foo": "bar"},
+		Data:   map[string]any{"foo": "bar"},
 	}
 	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.MachineStatusInfo[status.MachineStatusType]{
 		StatusInfo: status.StatusInfo[status.MachineStatusType]{
@@ -1835,19 +1835,19 @@ func (s *serviceSuite) TestGetAllMachineStatuses(c *tc.C) {
 	expectedStatuses := map[machine.Name]corestatus.StatusInfo{
 		"666": {
 			Status: corestatus.Started,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "bar",
 			},
 		},
 		"777": {
 			Status: corestatus.Pending,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "baz",
 			},
 		},
 		"888": {
 			Status: corestatus.Stopped,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "qux",
 			},
 		},
@@ -1891,13 +1891,13 @@ func (s *serviceSuite) TestGetAllMachineStatusesNotPresent(c *tc.C) {
 		},
 		"777": {
 			Status: corestatus.Pending,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "baz",
 			},
 		},
 		"888": {
 			Status: corestatus.Stopped,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"foo": "qux",
 			},
 		},
@@ -1941,7 +1941,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "bar",
 				},
 			},
@@ -1956,7 +1956,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Pending,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "baz",
 				},
 			},
@@ -1971,7 +1971,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Stopped,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "qux",
 				},
 			},
@@ -2066,7 +2066,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "bar",
 				},
 			},
@@ -2086,7 +2086,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Pending,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "baz",
 				},
 			},
@@ -2106,7 +2106,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Stopped,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"foo": "qux",
 				},
 			},
@@ -2232,7 +2232,7 @@ func (s *serviceSuite) TestGetInstanceStatusSuccess(c *tc.C) {
 
 	expectedStatus := corestatus.StatusInfo{
 		Status: corestatus.Running,
-		Data:   map[string]interface{}{"foo": "bar"},
+		Data:   map[string]any{"foo": "bar"},
 	}
 	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{
 		Status: status.InstanceStatusRunning,
@@ -2566,7 +2566,7 @@ func (s *serviceSuite) TestGetStatusSuspended(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(modelStatus.Status, tc.Equals, corestatus.Suspended)
 	c.Assert(modelStatus.Message, tc.Equals, "suspended since cloud credential is not valid")
-	c.Assert(modelStatus.Data, tc.DeepEquals, map[string]interface{}{"reason": modelStatusContext.InvalidCloudCredentialReason})
+	c.Assert(modelStatus.Data, tc.DeepEquals, map[string]any{"reason": modelStatusContext.InvalidCloudCredentialReason})
 
 }
 

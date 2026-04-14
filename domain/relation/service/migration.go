@@ -5,8 +5,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -43,7 +45,7 @@ type MigrationState interface {
 	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
 
 	// SetRelationApplicationSettings records settings for a specific application
-	// relation combination.
+	// relation combination. Replaces all existing settings with the provided set.
 	SetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -69,12 +71,16 @@ type MigrationState interface {
 
 // MigrationService provides the API for importing relations.
 type MigrationService struct {
-	st MigrationState
+	st     MigrationState
+	logger logger.Logger
 }
 
 // NewMigrationService returns a new service reference wrapping the input state.
-func NewMigrationService(st MigrationState) *MigrationService {
-	return &MigrationService{st: st}
+func NewMigrationService(st MigrationState, logger logger.Logger) *MigrationService {
+	return &MigrationService{
+		st:     st,
+		logger: logger,
+	}
 }
 
 // ImportRelations sets relations imported in migration.
@@ -132,7 +138,11 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 		return err
 	}
 
-	settings, err := settingsMap(ep.ApplicationSettings)
+	warningApp := func(key string) {
+		s.logger.Warningf(ctx, "dropping empty value for key %q in application %q settings of relation %q",
+			key, ep.ApplicationName, relUUID)
+	}
+	settings, err := settingsMap(warningApp, ep.ApplicationSettings)
 	if err != nil {
 		return err
 	}
@@ -140,8 +150,13 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 	if err != nil {
 		return err
 	}
+
 	for unitName, unitSettings := range ep.UnitSettings {
-		settings, err = settingsMap(unitSettings)
+		warningUnit := func(key string) {
+			s.logger.Warningf(ctx, "dropping empty value for key %q in unit %s settings of relation %q",
+				key, unitName, relUUID)
+		}
+		settings, err = settingsMap(warningUnit, unitSettings)
 		if err != nil {
 			return err
 		}
@@ -181,4 +196,23 @@ func (s *MigrationService) ExportRelations(ctx context.Context) ([]relation.Expo
 	}
 
 	return relations, nil
+}
+
+func settingsMap(warning func(string), in map[string]any) (map[string]string, error) {
+	var errs error
+	out := make(map[string]string)
+	for k, v := range in {
+		switch v.(type) {
+		case string:
+		default:
+			errs = errors.Join(errs, errors.Errorf("%+v not a string", v))
+			continue
+		}
+		if v == "" {
+			warning(k)
+			continue
+		}
+		out[k] = fmt.Sprintf("%v", v)
+	}
+	return out, errs
 }

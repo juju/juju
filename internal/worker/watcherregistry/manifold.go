@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common"
@@ -65,7 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // outputFunc extracts an API connection from a *apiConnWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Unwrap()
 	}

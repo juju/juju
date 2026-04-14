@@ -698,10 +698,10 @@ func (c *MockModelStateGetModelEgressSubnetsCall) DoAndReturn(f func(context.Con
 }
 
 // GetOfferConnections mocks base method.
-func (m *MockModelState) GetOfferConnections(arg0 context.Context, arg1 []string) (map[string][]crossmodelrelation.OfferConnection, error) {
+func (m *MockModelState) GetOfferConnections(arg0 context.Context, arg1 []string) ([]crossmodelrelation.OfferConnectionDetail, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOfferConnections", arg0, arg1)
-	ret0, _ := ret[0].(map[string][]crossmodelrelation.OfferConnection)
+	ret0, _ := ret[0].([]crossmodelrelation.OfferConnectionDetail)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -719,19 +719,19 @@ type MockModelStateGetOfferConnectionsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetOfferConnectionsCall) Return(arg0 map[string][]crossmodelrelation.OfferConnection, arg1 error) *MockModelStateGetOfferConnectionsCall {
+func (c *MockModelStateGetOfferConnectionsCall) Return(arg0 []crossmodelrelation.OfferConnectionDetail, arg1 error) *MockModelStateGetOfferConnectionsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetOfferConnectionsCall) Do(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferConnection, error)) *MockModelStateGetOfferConnectionsCall {
+func (c *MockModelStateGetOfferConnectionsCall) Do(f func(context.Context, []string) ([]crossmodelrelation.OfferConnectionDetail, error)) *MockModelStateGetOfferConnectionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetOfferConnectionsCall) DoAndReturn(f func(context.Context, []string) (map[string][]crossmodelrelation.OfferConnection, error)) *MockModelStateGetOfferConnectionsCall {
+func (c *MockModelStateGetOfferConnectionsCall) DoAndReturn(f func(context.Context, []string) ([]crossmodelrelation.OfferConnectionDetail, error)) *MockModelStateGetOfferConnectionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

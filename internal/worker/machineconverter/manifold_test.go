@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/dependency"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"

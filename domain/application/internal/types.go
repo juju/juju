@@ -4,6 +4,8 @@
 package internal
 
 import (
+	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 )
@@ -44,4 +46,26 @@ type CAASUnitContext struct {
 	// OpenedPortRangesByEndpoint contains the opened port ranges by endpoint
 	// for a unit context.
 	OpenedPortRangesByEndpoint map[unit.Name]network.GroupedPortRanges
+}
+
+// UpdateUnitCharmArg contains information required for changing the charm used
+// by a unit.
+type UpdateUnitCharmArg struct {
+	// UUID is the uuid of the unit to be refreshed.
+	UUID unit.UUID
+
+	// CharmUUID is the uuid of the new charm that the unit will use.
+	CharmUUID charm.ID
+
+	// UnitStorage are the arguments required to create new storage for this
+	// unit once it has changed charms.
+	UnitStorage CreateUnitStorageArg
+
+	// MachineUUID is set when this unit is an IAAS unit on a machine.
+	MachineUUID *machine.UUID
+
+	// IAASUnitStorage is set when this is an IAAS unit on a machine, they are
+	// the arguments required to create new storage for this unit once it has
+	// changed charms.
+	IAASUnitStorage *CreateIAASUnitStorageArg
 }

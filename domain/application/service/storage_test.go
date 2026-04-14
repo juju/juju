@@ -6,7 +6,6 @@ package service
 import (
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/internal"
 )
 
@@ -19,7 +18,7 @@ func setAddUnitNoopStorageExpects(
 	storageService *MockStorageService,
 ) {
 	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
-		[]application.StorageDirective{}, nil,
+		[]internal.StorageDirective{}, nil,
 	).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
@@ -38,7 +37,7 @@ func setCreateApplicationNoopStorageExpects(
 	storageService *MockStorageService,
 ) {
 	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
-		[]application.StorageDirective{}, nil,
+		[]internal.StorageDirective{}, nil,
 	).AnyTimes()
 	storageService.EXPECT().MakeApplicationStorageDirectiveArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(),

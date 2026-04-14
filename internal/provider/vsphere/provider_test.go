@@ -93,7 +93,7 @@ regions:
   foo: {}
   bar: {}
 `[1:])
-	var v interface{}
+	var v any
 	err := yaml.Unmarshal(y, &v)
 	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)

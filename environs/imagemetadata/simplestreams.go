@@ -211,7 +211,7 @@ func (im *ImageMetadata) productId() string {
 // server.
 type SimplestreamsFetcher interface {
 	NewDataSource(simplestreams.Config) simplestreams.DataSource
-	GetMetadata(context.Context, []simplestreams.DataSource, simplestreams.GetMetadataParams) ([]interface{}, *simplestreams.ResolveInfo, error)
+	GetMetadata(context.Context, []simplestreams.DataSource, simplestreams.GetMetadataParams) ([]any, *simplestreams.ResolveInfo, error)
 }
 
 // Fetch returns a list of images for the specified cloud matching the
@@ -270,8 +270,8 @@ type imageKey struct {
 
 // appendMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
-func appendMatchingImages(source simplestreams.DataSource, matchingImages []interface{},
-	images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
+func appendMatchingImages(source simplestreams.DataSource, matchingImages []any,
+	images map[string]any, cons simplestreams.LookupConstraint) ([]any, error) {
 
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {

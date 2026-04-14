@@ -274,7 +274,7 @@ type VolumeParams struct {
 	VolumeTag  string                  `json:"volume-tag"`
 	SizeMiB    uint64                  `json:"size"`
 	Provider   string                  `json:"provider"`
-	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Attributes map[string]any          `json:"attributes,omitempty"`
 	Tags       map[string]string       `json:"tags,omitempty"`
 	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
@@ -439,7 +439,7 @@ type FilesystemParams struct {
 	VolumeTag     string                      `json:"volume-tag,omitempty"`
 	SizeMiB       uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
-	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
+	Attributes    map[string]any              `json:"attributes,omitempty"`
 	Tags          map[string]string           `json:"tags,omitempty"`
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
@@ -702,7 +702,7 @@ type StoragePool struct {
 	Provider string `json:"provider"`
 
 	// Attrs are the pool's configuration attributes.
-	Attrs map[string]interface{} `json:"attrs"`
+	Attrs map[string]any `json:"attrs"`
 }
 
 // StoragePoolArgs contains a set of StoragePool.

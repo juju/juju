@@ -40,8 +40,8 @@ func (s *baseSuite) txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) err
 
 // queryRows returns rows as a slice of maps for the given query.
 // This is intended to be used with SELECT statements for assertions.
-func (s *baseSuite) queryRows(c *tc.C, query string, args ...interface{}) []map[string]interface{} {
-	var results []map[string]interface{}
+func (s *baseSuite) queryRows(c *tc.C, query string, args ...any) []map[string]any {
+	var results []map[string]any
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
@@ -55,8 +55,8 @@ func (s *baseSuite) queryRows(c *tc.C, query string, args ...interface{}) []map[
 		}
 
 		for rows.Next() {
-			values := make([]interface{}, len(cols))
-			valuePtrs := make([]interface{}, len(cols))
+			values := make([]any, len(cols))
+			valuePtrs := make([]any, len(cols))
 			for i := range values {
 				valuePtrs[i] = &values[i]
 			}
@@ -65,7 +65,7 @@ func (s *baseSuite) queryRows(c *tc.C, query string, args ...interface{}) []map[
 				return err
 			}
 
-			row := make(map[string]interface{})
+			row := make(map[string]any)
 			for i, col := range cols {
 				row[col] = values[i]
 			}

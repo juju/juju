@@ -946,7 +946,7 @@ func (s *stateSuite) addUnits(c *tc.C, appName, charmUUID string) []string {
 	unitUUIDs := make([]string, 2)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// Do 2 units.
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			netNodeUUID := uuid.MustNewUUID().String()
 			_, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 			if err != nil {

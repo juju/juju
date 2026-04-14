@@ -84,13 +84,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		},
 	}
 
-	// TODO(secrets) - move to crossmodelrelation domain
-	// s.state.EXPECT().UpdateRemoteSecretRevision(gomock.Any(), uri2, 668)
-	//s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri2, unittesting.GenNewName(c, "mysql/0"), coresecrets.SecretConsumerMetadata{
-	//	Label:           "remote label",
-	//	CurrentRevision: 666,
-	//})
-
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil).AnyTimes()
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -141,23 +134,17 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	}).Return(nil)
 
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
-		func() error { return nil }, nil,
-	)
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String(), uri.ID).
+		Return(func() error { return nil }, nil)
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), &coresecrets.ValueRef{
 		BackendID:  "backend-id",
 		RevisionID: "revision-id",
-	}, s.modelID, s.fakeUUID.String()).Return(
-		func() error { return nil }, nil,
-	)
+	}, s.modelID, s.fakeUUID.String(), uri.ID).
+		Return(func() error { return nil }, nil)
 	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0"), coresecrets.SecretConsumerMetadata{
 		Label:           "my label",
 		CurrentRevision: 666,
 	})
-	// TODO(secrets) - move to crossmodelrelation domain
-	//s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), coresecrets.SecretConsumerMetadata{
-	//	CurrentRevision: 668,
-	//})
 	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
 		ScopeTypeID:   3,
 		ScopeUUID:     relUUID.String(),
@@ -193,9 +180,8 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 			Checksum:   "checksum-1234",
 		},
 	}).Return(nil)
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
-		func() error { return nil }, nil,
-	)
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String(), uri2.ID).
+		Return(func() error { return nil }, nil)
 
 	toImport := &SecretImport{
 		Secrets: secrets,
@@ -294,12 +280,16 @@ func (s *serviceSuite) TestImportSecretsRollbackOnFailure(c *tc.C) {
 		rolledBack1 = true
 		return nil
 	}
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String()).Return(
+	s.secretBackendState.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String(), uri.ID,
+	).Return(
 		rollback1, nil,
 	)
 
 	// Second revision fails.
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String()).Return(
+	s.secretBackendState.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String(), uri.ID,
+	).Return(
 		nil, fmt.Errorf("failed to add reference"),
 	)
 
@@ -359,7 +349,9 @@ func (s *serviceSuite) TestImportSecretsRollbackOnStateFailure(c *tc.C) {
 		rolledBack = true
 		return nil
 	}
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String()).Return(
+	s.secretBackendState.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), s.modelID, s.fakeUUID.String(), uri.ID,
+	).Return(
 		rollback, nil,
 	)
 

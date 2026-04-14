@@ -508,17 +508,17 @@ func (c *MockRelationStateTrackerRemoteApplicationCall) DoAndReturn(f func(int) 
 }
 
 // Report mocks base method.
-func (m *MockRelationStateTracker) Report() map[string]any {
+func (m *MockRelationStateTracker) Report(arg0 context.Context) map[string]any {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Report")
+	ret := m.ctrl.Call(m, "Report", arg0)
 	ret0, _ := ret[0].(map[string]any)
 	return ret0
 }
 
 // Report indicates an expected call of Report.
-func (mr *MockRelationStateTrackerMockRecorder) Report() *MockRelationStateTrackerReportCall {
+func (mr *MockRelationStateTrackerMockRecorder) Report(arg0 any) *MockRelationStateTrackerReportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRelationStateTracker)(nil).Report))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRelationStateTracker)(nil).Report), arg0)
 	return &MockRelationStateTrackerReportCall{Call: call}
 }
 
@@ -534,13 +534,13 @@ func (c *MockRelationStateTrackerReportCall) Return(arg0 map[string]any) *MockRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationStateTrackerReportCall) Do(f func() map[string]any) *MockRelationStateTrackerReportCall {
+func (c *MockRelationStateTrackerReportCall) Do(f func(context.Context) map[string]any) *MockRelationStateTrackerReportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationStateTrackerReportCall) DoAndReturn(f func() map[string]any) *MockRelationStateTrackerReportCall {
+func (c *MockRelationStateTrackerReportCall) DoAndReturn(f func(context.Context) map[string]any) *MockRelationStateTrackerReportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

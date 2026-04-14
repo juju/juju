@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
@@ -93,7 +93,7 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisioner(c *tc.C) {
 	defer close(workers)
 	go func() {
 		for {
-			rep := work.Report()
+			rep := work.Report(context.Background())
 			if _, ok := rep["lxd-provisioner"].(string); ok {
 				workers <- struct{}{}
 				return
@@ -233,7 +233,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(6, notifySource).Return(nil).AnyTimes()
 
 	modelCfgSource := params.ModelConfigResult{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"uuid":           s.modelUUID.String(),
 			"type":           "maas",
 			"name":           "container-init-test-model",
@@ -263,7 +263,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(6, watchSource).Return(nil).AnyTimes()
 
 	controllerCfgSource := params.ControllerConfigResult{
-		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
+		Config: map[string]any{"controller-uuid": s.controllerUUID.String()},
 	}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(6, controllerCfgSource).Return(nil).AnyTimes()
 }

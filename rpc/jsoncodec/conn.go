@@ -38,13 +38,13 @@ func NewWebsocketConn(conn *websocket.Conn) JSONConn {
 	return &wsJSONConn{conn: conn}
 }
 
-func (conn *wsJSONConn) Send(msg interface{}) error {
+func (conn *wsJSONConn) Send(msg any) error {
 	conn.writeMutex.Lock()
 	defer conn.writeMutex.Unlock()
 	return conn.conn.WriteJSON(msg)
 }
 
-func (conn *wsJSONConn) Receive(msg interface{}) error {
+func (conn *wsJSONConn) Receive(msg any) error {
 	conn.readMutex.Lock()
 	defer conn.readMutex.Unlock()
 	// When receiving a message, if error has been closed from the other
@@ -204,11 +204,11 @@ type netConn struct {
 	conn io.ReadWriteCloser
 }
 
-func (conn *netConn) Send(msg interface{}) error {
+func (conn *netConn) Send(msg any) error {
 	return conn.enc.Encode(msg)
 }
 
-func (conn *netConn) Receive(msg interface{}) error {
+func (conn *netConn) Receive(msg any) error {
 	return conn.dec.Decode(msg)
 }
 

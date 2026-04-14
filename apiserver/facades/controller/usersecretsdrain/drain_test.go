@@ -55,7 +55,7 @@ type backendConfigParamsMatcher struct {
 	expected any
 }
 
-func (m backendConfigParamsMatcher) Matches(x interface{}) bool {
+func (m backendConfigParamsMatcher) Matches(x any) bool {
 	if obtained, ok := x.(secretbackendservice.BackendConfigParams); ok {
 		m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
 		obtained.GrantedSecretsGetter = nil
@@ -96,7 +96,7 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "admin"},
+					Config:      map[string]any{"foo": "admin"},
 				},
 			},
 		},
@@ -116,7 +116,7 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 				Draining:       true,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "admin"},
+					Params:      map[string]any{"foo": "admin"},
 				},
 			},
 		},
@@ -192,7 +192,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "bar"},
+					Config:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -219,7 +219,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 				Draining:       false,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},
@@ -282,7 +282,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 				ModelName:      "fred",
 				BackendConfig: provider.BackendConfig{
 					BackendType: "some-backend",
-					Config:      map[string]interface{}{"foo": "bar"},
+					Config:      map[string]any{"foo": "bar"},
 				},
 			},
 		},
@@ -308,7 +308,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 				Draining:       false,
 				Config: params.SecretBackendConfig{
 					BackendType: "some-backend",
-					Params:      map[string]interface{}{"foo": "bar"},
+					Params:      map[string]any{"foo": "bar"},
 				},
 			},
 		}},

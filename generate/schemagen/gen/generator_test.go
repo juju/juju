@@ -39,7 +39,7 @@ func (s *GenSuite) TestResult(c *tc.C) {
 	result, err := Generate(s.pkgRegistry, s.apiServer)
 	c.Check(err, tc.ErrorIsNil)
 
-	objtype := rpcreflect.ObjTypeOf(reflect.TypeOf(ResourcesFacade{}))
+	objtype := rpcreflect.ObjTypeOf(reflect.TypeFor[ResourcesFacade]())
 	c.Check(result, tc.DeepEquals, []FacadeSchema{
 		{
 			Name:        "Resources",
@@ -92,5 +92,5 @@ func (ResourcesFacade) Resources(params []string) ([]string, error) {
 
 func (s *GenSuite) expectGetType() {
 	rExp := s.registry.EXPECT()
-	rExp.GetType("Resources", 4).Return(reflect.TypeOf(ResourcesFacade{}), nil)
+	rExp.GetType("Resources", 4).Return(reflect.TypeFor[ResourcesFacade](), nil)
 }

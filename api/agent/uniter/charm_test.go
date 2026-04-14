@@ -24,7 +24,7 @@ func TestCharmSuite(t *testing.T) {
 }
 
 func (s *charmSuite) TestCharmWithNilFails(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
@@ -33,7 +33,7 @@ func (s *charmSuite) TestCharmWithNilFails(c *tc.C) {
 }
 
 func (s *charmSuite) TestCharm(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
@@ -45,7 +45,7 @@ func (s *charmSuite) TestCharm(c *tc.C) {
 
 func (s *charmSuite) TestArchiveSha256(c *tc.C) {
 	curl := "ch:mysql"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "CharmArchiveSha256")
@@ -70,7 +70,7 @@ func (s *charmSuite) TestArchiveSha256(c *tc.C) {
 
 func (s *charmSuite) TestLXDProfileRequired(c *tc.C) {
 	curl := "ch:mysql"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Assert(objType, tc.Equals, "Uniter")
 		c.Assert(id, tc.Equals, "")
 		c.Assert(request, tc.Equals, "LXDProfileRequired")

@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/domain/schema"
 )
 
+var skippedVersions = map[semversion.Number]struct{}{
+	semversion.MustParse("4.0.4"): {},
+}
+
 func main() {
 	current := version.Current
 
@@ -27,6 +31,11 @@ func main() {
 	version := current
 	for p := 0; p < current.Patch; p++ {
 		version.Patch = p
+
+		if _, ok := skippedVersions[version]; ok {
+			continue
+		}
+
 		writeModelDDL(version)
 		writeControllerDDL(version)
 	}

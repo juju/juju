@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -263,8 +263,8 @@ func (w *providerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *providerWorker) Report() map[string]any {
-	return w.trackedRunner.Report()
+func (w *providerWorker) Report(ctx context.Context) map[string]any {
+	return w.trackedRunner.Report(ctx)
 }
 
 func (w *providerWorker) loop() (err error) {

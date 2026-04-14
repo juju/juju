@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -55,7 +56,7 @@ type JSONCallParams struct {
 	// be ignored and the Content-Type header will
 	// be set to application/json. The request
 	// body will implement io.Seeker.
-	JSONBody interface{}
+	JSONBody any
 
 	// Body holds the body to send in the request.
 	Body io.Reader
@@ -83,7 +84,7 @@ type JSONCallParams struct {
 	// This may be a function of type BodyAsserter in which case it
 	// will be called with the http response body to check the
 	// result.
-	ExpectBody interface{}
+	ExpectBody any
 
 	// ExpectHeader holds any HTTP headers that must be present in the response.
 	// Note that the response may also contain headers not in this field.
@@ -128,7 +129,7 @@ func AssertJSONCall(c *tc.C, p JSONCallParams) {
 // recorded the given HTTP status, response body and content type. If
 // expectBody is of type BodyAsserter it will be called with the response
 // body to ensure the response is correct.
-func AssertJSONResponse(c *tc.C, rec *httptest.ResponseRecorder, expectStatus int, expectBody interface{}) {
+func AssertJSONResponse(c *tc.C, rec *httptest.ResponseRecorder, expectStatus int, expectBody any) {
 	c.Assert(rec.Code, tc.Equals, expectStatus, tc.Commentf("body: %s", rec.Body.Bytes()))
 
 	// Ensure the response includes the expected body.
@@ -186,7 +187,7 @@ type DoRequestParams struct {
 	// be ignored and the Content-Type header will
 	// be set to application/json. The request
 	// body will implement io.Seeker.
-	JSONBody interface{}
+	JSONBody any
 
 	// Body holds the body to send in the request.
 	Body io.Reader
@@ -221,9 +222,7 @@ func DoRequest(c *tc.C, p DoRequestParams) *httptest.ResponseRecorder {
 	defer resp.Body.Close()
 	rec := httptest.NewRecorder()
 	h := rec.Header()
-	for k, v := range resp.Header {
-		h[k] = v
-	}
+	maps.Copy(h, resp.Header)
 	rec.WriteHeader(resp.StatusCode)
 	_, err := io.Copy(rec.Body, resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
@@ -258,9 +257,7 @@ func Do(c *tc.C, p DoRequestParams) *http.Response {
 	if p.JSONBody != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	for key, val := range p.Header {
-		req.Header[key] = val
-	}
+	maps.Copy(req.Header, p.Header)
 	if p.ContentLength != 0 {
 		req.ContentLength = p.ContentLength
 	} else {

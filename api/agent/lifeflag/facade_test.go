@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
@@ -30,7 +30,7 @@ func TestFacadeSuite(t *testing.T) {
 
 func (*FacadeSuite) TestLifeCall(c *tc.C) {
 	var called bool
-	caller := apiCaller(c, func(request string, args, _ interface{}) error {
+	caller := apiCaller(c, func(request string, args, _ any) error {
 		called = true
 		c.Check(request, tc.Equals, "Life")
 		c.Check(args, tc.DeepEquals, params.Entities{
@@ -45,7 +45,7 @@ func (*FacadeSuite) TestLifeCall(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeCallError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
+	caller := apiCaller(c, func(_ string, _, _ any) error {
 		return errors.New("crunch belch")
 	})
 	facade := lifeflag.NewClient(caller)
@@ -56,7 +56,7 @@ func (*FacadeSuite) TestLifeCallError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeNoResultsError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
+	caller := apiCaller(c, func(_ string, _, _ any) error {
 		return nil
 	})
 	facade := lifeflag.NewClient(caller)
@@ -67,7 +67,7 @@ func (*FacadeSuite) TestLifeNoResultsError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeExtraResultsError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.LifeResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
@@ -83,7 +83,7 @@ func (*FacadeSuite) TestLifeExtraResultsError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeNotFoundError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.LifeResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
@@ -101,7 +101,7 @@ func (*FacadeSuite) TestLifeNotFoundError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeInvalidResultError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.LifeResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
@@ -117,7 +117,7 @@ func (*FacadeSuite) TestLifeInvalidResultError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestLifeSuccess(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.LifeResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.LifeResults{
@@ -134,7 +134,7 @@ func (*FacadeSuite) TestLifeSuccess(c *tc.C) {
 
 func (*FacadeSuite) TestWatchCall(c *tc.C) {
 	var called bool
-	caller := apiCaller(c, func(request string, args, _ interface{}) error {
+	caller := apiCaller(c, func(request string, args, _ any) error {
 		called = true
 		c.Check(request, tc.Equals, "Watch")
 		c.Check(args, tc.DeepEquals, params.Entities{
@@ -149,7 +149,7 @@ func (*FacadeSuite) TestWatchCall(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchCallError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
+	caller := apiCaller(c, func(_ string, _, _ any) error {
 		return errors.New("crunch belch")
 	})
 	facade := lifeflag.NewClient(caller)
@@ -160,7 +160,7 @@ func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchNoResultsError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, _ interface{}) error {
+	caller := apiCaller(c, func(_ string, _, _ any) error {
 		return nil
 	})
 	facade := lifeflag.NewClient(caller)
@@ -171,7 +171,7 @@ func (*FacadeSuite) TestWatchNoResultsError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchExtraResultsError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.NotifyWatchResults{
@@ -187,7 +187,7 @@ func (*FacadeSuite) TestWatchExtraResultsError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchNotFoundError(c *tc.C) {
-	caller := apiCaller(c, func(_ string, _, results interface{}) error {
+	caller := apiCaller(c, func(_ string, _, results any) error {
 		typed, ok := results.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
 		*typed = params.NotifyWatchResults{
@@ -205,7 +205,7 @@ func (*FacadeSuite) TestWatchNotFoundError(c *tc.C) {
 }
 
 func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
-	caller := apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+	caller := apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result any) error {
 		switch facade {
 		case "AgentLifeFlag":
 			c.Check(request, tc.Equals, "Watch")
@@ -232,8 +232,8 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	workertest.CheckKilled(c, watcher)
 }
 
-func apiCaller(c *tc.C, check func(request string, arg, result interface{}) error) base.APICaller {
-	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+func apiCaller(c *tc.C, check func(request string, arg, result any) error) base.APICaller {
+	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result any) error {
 		c.Check(facade, tc.Equals, "AgentLifeFlag")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

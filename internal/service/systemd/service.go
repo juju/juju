@@ -7,6 +7,7 @@ import (
 	"context"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -110,7 +111,7 @@ var newChan = func() chan string {
 	return make(chan string)
 }
 
-func (s *Service) errorf(err error, msg string, args ...interface{}) error {
+func (s *Service) errorf(err error, msg string, args ...any) error {
 	msg += " for application %q"
 	args = append(args, s.Service.Name)
 	if err == nil {
@@ -184,10 +185,8 @@ func (s *Service) Installed() (bool, error) {
 	if err != nil {
 		return false, s.errorf(err, "failed to list services")
 	}
-	for _, name := range names {
-		if name == s.Service.Name {
-			return true, nil
-		}
+	if slices.Contains(names, s.Service.Name) {
+		return true, nil
 	}
 	return false, nil
 }

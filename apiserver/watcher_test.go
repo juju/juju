@@ -181,13 +181,13 @@ func (s *remoteRelationWatcherSuite) TestNext(c *tc.C) {
 		DepartedUnits:           []int{0},
 		InScopeUnits:            []int{1, 2, 3},
 		UnitCount:               3,
-		ApplicationSettings:     map[string]interface{}{"foo": "bar"},
+		ApplicationSettings:     map[string]any{"foo": "bar"},
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
-			Settings: map[string]interface{}{"thing1": "thing2"},
+			Settings: map[string]any{"thing1": "thing2"},
 		}, {
 			UnitId:   2,
-			Settings: map[string]interface{}{"thing2": "thing1"},
+			Settings: map[string]any{"thing2": "thing1"},
 		}},
 	})
 }
@@ -250,10 +250,10 @@ func (s *remoteRelationWatcherSuite) TestNextNoApplicationSettingsChange(c *tc.C
 		ApplicationSettings:     nil,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
-			Settings: map[string]interface{}{"thing1": "thing2"},
+			Settings: map[string]any{"thing1": "thing2"},
 		}, {
 			UnitId:   2,
-			Settings: map[string]interface{}{"thing2": "thing1"},
+			Settings: map[string]any{"thing2": "thing1"},
 		}},
 	})
 }
@@ -318,10 +318,10 @@ func (s *remoteRelationWatcherSuite) TestNextNoChangeThenChange(c *tc.C) {
 		ApplicationSettings:     nil,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
-			Settings: map[string]interface{}{"thing1": "thing2"},
+			Settings: map[string]any{"thing1": "thing2"},
 		}, {
 			UnitId:   2,
-			Settings: map[string]interface{}{"thing2": "thing1"},
+			Settings: map[string]any{"thing2": "thing1"},
 		}},
 	})
 }

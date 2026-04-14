@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common"

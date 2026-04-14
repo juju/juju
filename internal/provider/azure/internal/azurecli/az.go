@@ -66,7 +66,7 @@ func (a AzureCLI) exec(cmd string, args []string) ([]byte, error) {
 
 // run attempts to execute "az" with the given arguments. Unmarshalling
 // the json output into v.
-func (a AzureCLI) run(v interface{}, args ...string) error {
+func (a AzureCLI) run(v any, args ...string) error {
 	args = append(args, "-o", "json")
 	logger.Debugf(context.TODO(), "running az %s", strings.Join(args, " "))
 	b, err := a.exec("az", args)

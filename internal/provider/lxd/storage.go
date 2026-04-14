@@ -115,12 +115,12 @@ type lxdStorageConfig struct {
 	attrs   map[string]string
 }
 
-func newLXDStorageConfig(attrs map[string]interface{}) (*lxdStorageConfig, error) {
+func newLXDStorageConfig(attrs map[string]any) (*lxdStorageConfig, error) {
 	coerced, err := lxdStorageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating LXD storage config")
 	}
-	attrs = coerced.(map[string]interface{})
+	attrs = coerced.(map[string]any)
 
 	driver := attrs[attrLXDStorageDriver].(string)
 	lxdPool, _ := attrs[attrLXDStoragePool].(string)

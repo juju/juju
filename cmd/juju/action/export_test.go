@@ -170,7 +170,7 @@ func NewExecCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logM
 	return modelcmd.Wrap(c), &ExecCommand{c}
 }
 
-func ActionResultsToMap(results []actionapi.ActionResult) map[string]interface{} {
+func ActionResultsToMap(results []actionapi.ActionResult) map[string]any {
 	return resultsToMap(results)
 }
 

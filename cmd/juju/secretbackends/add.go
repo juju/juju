@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ type addSecretBackendCommand struct {
 	// Attributes from a file.
 	ConfigFile cmd.FileVar
 	// Attributes from key value args.
-	KeyValueAttrs map[string]interface{}
+	KeyValueAttrs map[string]any
 }
 
 var addSecretBackendsDoc = `
@@ -122,8 +123,8 @@ func (c *addSecretBackendCommand) Init(args []string) error {
 	return nil
 }
 
-func parseArgs(args []string) (map[string]interface{}, error) {
-	keyValueAttrs := make(map[string]interface{})
+func parseArgs(args []string) (map[string]any, error) {
+	keyValueAttrs := make(map[string]any)
 	for _, arg := range args {
 		splitArg := strings.SplitN(arg, "=", 2)
 		if len(splitArg) != 2 {
@@ -142,8 +143,8 @@ func parseArgs(args []string) (map[string]interface{}, error) {
 	return keyValueAttrs, nil
 }
 
-func readFile(ctx *cmd.Context, configFile cmd.FileVar) (map[string]interface{}, error) {
-	attrs := make(map[string]interface{})
+func readFile(ctx *cmd.Context, configFile cmd.FileVar) (map[string]any, error) {
+	attrs := make(map[string]any)
 	if configFile.Path == "" {
 		return attrs, nil
 	}
@@ -168,7 +169,7 @@ func readFile(ctx *cmd.Context, configFile cmd.FileVar) (map[string]interface{},
 	return attrs, nil
 }
 
-func parseTokenRotate(attrs map[string]interface{}, zeroAllowed bool) (*time.Duration, error) {
+func parseTokenRotate(attrs map[string]any, zeroAllowed bool) (*time.Duration, error) {
 	const tokenRotate = "token-rotate"
 	tokenRotateStr, ok := attrs[tokenRotate]
 	if ok {
@@ -199,9 +200,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for k, v := range c.KeyValueAttrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, c.KeyValueAttrs)
 
 	tokenRotateInterval, err := parseTokenRotate(attrs, false)
 	if err != nil {

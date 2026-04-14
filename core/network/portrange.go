@@ -5,6 +5,7 @@ package network
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -74,12 +75,7 @@ func (grp GroupedPortRanges) rangeExistsForEndpoint(endpointName string, portRan
 		return false
 	}
 
-	for _, existingRange := range grp[endpointName] {
-		if existingRange == portRange {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(grp[endpointName], portRange)
 }
 
 // UniquePortRanges returns the unique set of PortRanges in this group.

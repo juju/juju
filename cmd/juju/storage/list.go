@@ -224,11 +224,11 @@ func (c *CombinedStorage) Empty() bool {
 }
 
 // formatListTabularOne writes a tabular summary of storage instances or filesystems or volumes.
-func formatListTabularOne(writer io.Writer, value interface{}) error {
+func formatListTabularOne(writer io.Writer, value any) error {
 	return formatListTabular(writer, value, false)
 }
 
-func formatListTabular(writer io.Writer, value interface{}, all bool) error {
+func formatListTabular(writer io.Writer, value any, all bool) error {
 	combined := value.(CombinedStorage)
 	var newline bool
 	if len(combined.StorageInstances) > 0 {
@@ -266,6 +266,6 @@ func formatListTabular(writer io.Writer, value interface{}, all bool) error {
 }
 
 // FormatListTabularAll writes a tabular summary of storage instances, filesystems and volumes.
-func FormatListTabularAll(writer io.Writer, value interface{}) error {
+func FormatListTabularAll(writer io.Writer, value any) error {
 	return formatListTabular(writer, value, true)
 }

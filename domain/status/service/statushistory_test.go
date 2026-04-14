@@ -204,7 +204,7 @@ func (s *statusHistorySuite) TestGetStatusHistorySizeReturnsNewest(c *tc.C) {
 
 	var records []statushistory.HistoryRecord
 	var expected []status.DetailedStatus
-	for i := 0; i < total; i++ {
+	for i := range total {
 		rec := statushistory.HistoryRecord{
 			Kind: status.KindUnit,
 			Status: status.DetailedStatus{

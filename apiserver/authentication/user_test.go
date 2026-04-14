@@ -378,7 +378,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 	service.CheckCallNames(c, "Auth", "NewMacaroon")
 	calls := service.Calls()
 	c.Assert(calls, tc.HasLen, 2)
-	c.Check(calls[1].Args, tc.SameContents, []interface{}{
+	c.Check(calls[1].Args, tc.SameContents, []any{
 		[]checkers.Caveat{
 			{
 				Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std",

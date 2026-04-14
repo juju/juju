@@ -29,7 +29,7 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *tc.C) {
 	s.MockService.EXPECT().DefaultServiceAccount(gomock.Any()).Return("fred@googledev.com", nil)
 
 	p := environs.BootstrapParams{
-		ControllerConfig: map[string]interface{}{
+		ControllerConfig: map[string]any{
 			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 		},
 	}

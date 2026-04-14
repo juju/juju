@@ -61,12 +61,12 @@ func (b *Binary) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.v2.Marshaller interface.
-func (b Binary) MarshalYAML() (interface{}, error) {
+func (b Binary) MarshalYAML() (any, error) {
 	return b.String(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaller interface.
-func (b *Binary) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (b *Binary) UnmarshalYAML(unmarshal func(any) error) error {
 	var vstr string
 	err := unmarshal(&vstr)
 	if err != nil {
@@ -307,12 +307,12 @@ func (n *Number) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements yaml.v2.Marshaller interface
-func (n Number) MarshalYAML() (interface{}, error) {
+func (n Number) MarshalYAML() (any, error) {
 	return n.String(), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaller interface
-func (n *Number) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (n *Number) UnmarshalYAML(unmarshal func(any) error) error {
 	var vstr string
 	err := unmarshal(&vstr)
 	if err != nil {

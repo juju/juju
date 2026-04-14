@@ -24,7 +24,7 @@ func (s Status) String() string {
 type StatusInfo struct {
 	Status  Status
 	Message string
-	Data    map[string]interface{}
+	Data    map[string]any
 	Since   *time.Time
 }
 

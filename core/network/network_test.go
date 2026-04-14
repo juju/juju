@@ -4,7 +4,7 @@
 package network_test
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/juju/tc"
@@ -91,12 +91,8 @@ func assertValues(c *tc.C, s network.IDSet, expected ...network.Id) {
 		expected = make([]network.Id, 0)
 	}
 
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i] < expected[j]
-	})
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
+	slices.Sort(expected)
+	slices.Sort(values)
 
 	c.Assert(values, tc.DeepEquals, expected)
 	c.Assert(s.Size(), tc.Equals, len(expected))

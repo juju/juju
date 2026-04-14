@@ -6,6 +6,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
@@ -229,12 +230,7 @@ Please choose a model name of no more than %d characters.`,
 // isKnownLoadBalancerSkuName reports whether or not the given string
 // a valid storage SKU within the Azure SDK
 func isKnownLoadBalancerSkuName(n string) bool {
-	for _, skuName := range knownLoadBalancerSkuNames() {
-		if n == skuName {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(knownLoadBalancerSkuNames(), n)
 }
 
 // canonicalLocation returns the canonicalized location string. This involves

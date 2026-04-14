@@ -161,12 +161,12 @@ func (*RestrictedContext) RemoteUnitName() (string, error) { return "", ErrRestr
 func (*RestrictedContext) RemoteApplicationName() (string, error) { return "", ErrRestrictedContext }
 
 // ActionParams implements hooks.Context.
-func (*RestrictedContext) ActionParams() (map[string]interface{}, error) {
+func (*RestrictedContext) ActionParams() (map[string]any, error) {
 	return nil, ErrRestrictedContext
 }
 
 // UpdateActionResults implements hooks.Context.
-func (*RestrictedContext) UpdateActionResults(keys []string, value interface{}) error {
+func (*RestrictedContext) UpdateActionResults(keys []string, value any) error {
 	return ErrRestrictedContext
 }
 

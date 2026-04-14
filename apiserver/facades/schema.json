@@ -7821,7 +7821,7 @@
     {
         "Name": "Controller",
         "Description": "",
-        "Version": 14,
+        "Version": 13,
         "Schema": {
             "type": "object",
             "properties": {
@@ -7830,17 +7830,6 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/UserModelList"
-                        }
-                    }
-                },
-                "CloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResults"
                         }
                     }
                 },
@@ -8085,30 +8074,6 @@
                         "type",
                         "name"
                     ]
-                },
-                "CloudSpecResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/CloudSpec"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "CloudSpecResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudSpecResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "ControllerAPIInfoResult": {
                     "type": "object",

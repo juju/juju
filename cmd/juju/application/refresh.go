@@ -325,7 +325,7 @@ func (b *optBoolValue) Set(s string) error {
 	return err
 }
 
-func (b *optBoolValue) Get() interface{} {
+func (b *optBoolValue) Get() any {
 	if *b.target != nil {
 		return **b.target
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
@@ -189,6 +192,13 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch open port ranges: %w", err)
+	}
+	if c.isControllerModel {
+		controllerConfig, err := c.controllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return noStatus, internalerrors.Errorf("could not fetch controller config: %w", err)
+		}
+		context.populateControllerPorts(controllerConfig)
 	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.linkLayerDevices, err = fetchNetworkInterfaces(ctx,
@@ -428,6 +438,41 @@ func (c *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService 
 	return err
 }
 
+func (c *statusContext) populateControllerPorts(controllerConfig controller.Config) {
+	controllerApp, ok := c.allAppsUnitsCharmBindings.applications[coreapplication.ControllerApplicationName]
+	if !ok || len(controllerApp.Units) == 0 {
+		return
+	}
+
+	if c.allOpenPortRanges == nil {
+		c.allOpenPortRanges = make(port.UnitGroupedPortRanges)
+	}
+	controllerPorts := []network.PortRange{
+		network.MustParsePortRange(strconv.Itoa(controllerConfig.APIPort())),
+		network.MustParsePortRange(strconv.Itoa(controllerConfig.SSHServerPort())),
+	}
+	for unitName := range controllerApp.Units {
+		existing := c.allOpenPortRanges[unitName]
+		// Build a lookup of currently-open ports for this unit.
+		existingSet := make(map[network.PortRange]struct{}, len(existing))
+		for _, openedPort := range existing {
+			existingSet[openedPort] = struct{}{}
+		}
+		// Add controller API and SSH ports when missing.
+		for _, controllerPort := range controllerPorts {
+			if _, found := existingSet[controllerPort]; !found {
+				existing = append(existing, controllerPort)
+				existingSet[controllerPort] = struct{}{}
+			}
+		}
+		// Keep deterministic order for status rendering and tests.
+		sort.Slice(existing, func(i, j int) bool {
+			return existing[i].LessThan(existing[j])
+		})
+		c.allOpenPortRanges[unitName] = existing
+	}
+}
+
 func fetchNetworkInterfaces(
 	ctx context.Context,
 	networkService NetworkService,
@@ -652,15 +697,15 @@ func fetchOffers(ctx context.Context, service CrossModelRelationService) (map[st
 	}), nil
 }
 
-func (s *statusContext) processModel(ctx context.Context) (params.ModelStatusInfo, error) {
+func (c *statusContext) processModel(ctx context.Context) (params.ModelStatusInfo, error) {
 	var info params.ModelStatusInfo
 
-	info.Name = s.model.Name
-	info.Type = s.model.Type.String()
-	info.CloudTag = names.NewCloudTag(s.model.Cloud).String()
-	info.CloudRegion = s.model.CloudRegion
+	info.Name = c.model.Name
+	info.Type = c.model.Type.String()
+	info.CloudTag = names.NewCloudTag(c.model.Cloud).String()
+	info.CloudRegion = c.model.CloudRegion
 
-	currentVersion := s.model.AgentVersion
+	currentVersion := c.model.AgentVersion
 	info.Version = currentVersion.String()
 
 	// TODO: AvailableVersion being an empty string controls if the juju client
@@ -668,15 +713,15 @@ func (s *statusContext) processModel(ctx context.Context) (params.ModelStatusInf
 	// is the controller should just report the version back to the client of
 	// the facade. Let the client do the calculation and work out if some
 	// information should be displayed.
-	latestVersion := s.model.LatestAgentVersion
+	latestVersion := c.model.LatestAgentVersion
 	if currentVersion.Compare(latestVersion) < 0 {
 		info.AvailableVersion = latestVersion.String()
 	}
 
-	aStatus, err := s.statusService.GetModelStatus(ctx)
+	aStatus, err := c.statusService.GetModelStatus(ctx)
 	if internalerrors.Is(err, domainmodelerrors.NotFound) {
 		// This should never happen but just in case.
-		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", s.model.Name, errors.NotFound)
+		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", c.model.Name, errors.NotFound)
 	}
 	if err != nil {
 		return params.ModelStatusInfo{}, internalerrors.Errorf("cannot obtain model status info: %w", err)
@@ -1256,8 +1301,8 @@ func (c *statusContext) processMachine(ctx context.Context, m statusservice.Mach
 
 // filterStatusData limits what agent StatusData data is passed over
 // the API. This prevents unintended leakage of internal-only data.
-func filterStatusData(status map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
+func filterStatusData(status map[string]any) map[string]any {
+	out := make(map[string]any)
 	for name, value := range status {
 		// use a set here if we end up with a larger whitelist
 		if name == "relation-id" {

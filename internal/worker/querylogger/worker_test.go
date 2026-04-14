@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	time "time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -72,7 +73,7 @@ func (s *loggerSuite) TestLoggerMultipleTimes(c *tc.C) {
 	w := s.newWorker(c, dir)
 	defer workertest.DirtyKill(c, w)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		stmt := fmt.Sprintf("SELECT %d FROM foo", i)
 		args := []any{i, stmt}
 
@@ -94,12 +95,12 @@ dummy stack
 
 `[1:]
 
-	var expected string
-	for i := 0; i < 100; i++ {
-		expected += fmt.Sprintf(template, float64(i), i)
+	var expected strings.Builder
+	for i := range 100 {
+		expected.WriteString(fmt.Sprintf(template, float64(i), i))
 	}
 
-	s.expectLogResult(c, dir, expected)
+	s.expectLogResult(c, dir, expected.String())
 
 	workertest.CleanKill(c, w)
 }

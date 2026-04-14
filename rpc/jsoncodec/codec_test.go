@@ -33,7 +33,7 @@ func (*suite) TestRead(c *tc.C) {
 	for i, test := range []struct {
 		msg        string
 		expectHdr  rpc.Header
-		expectBody interface{}
+		expectBody any
 		expectErr  string
 	}{{
 		msg: `{"RequestId": 1, "Type": "foo", "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
@@ -92,20 +92,20 @@ func (*suite) TestRead(c *tc.C) {
 			ErrorCode: "a code",
 			Version:   1,
 		},
-		expectBody: new(map[string]interface{}),
+		expectBody: new(map[string]any),
 	}, {
 		msg: `{"request-id": 2, "error": "an error", "error-code": "a code", "error-info": {"foo": "bar", "baz": true}}`,
 		expectHdr: rpc.Header{
 			RequestId: 2,
 			Error:     "an error",
 			ErrorCode: "a code",
-			ErrorInfo: map[string]interface{}{
+			ErrorInfo: map[string]any{
 				"foo": "bar",
 				"baz": true,
 			},
 			Version: 1,
 		},
-		expectBody: new(map[string]interface{}),
+		expectBody: new(map[string]any),
 	}, {
 		msg: `{"request-id": 3, "response": {"X": "result"}}`,
 		expectHdr: rpc.Header{
@@ -172,7 +172,7 @@ func (*suite) TestErrorAfterClose(c *tc.C) {
 func (*suite) TestWrite(c *tc.C) {
 	for i, test := range []struct {
 		hdr       *rpc.Header
-		body      interface{}
+		body      any
 		isRequest bool
 		expect    string
 		expectErr string
@@ -199,7 +199,7 @@ func (*suite) TestWrite(c *tc.C) {
 			RequestId: 2,
 			Error:     "an error",
 			ErrorCode: "a code",
-			ErrorInfo: map[string]interface{}{
+			ErrorInfo: map[string]any{
 				"ignored": "for version0",
 			},
 		},
@@ -247,7 +247,7 @@ func (*suite) TestWrite(c *tc.C) {
 			RequestId: 2,
 			Error:     "an error",
 			ErrorCode: "a code",
-			ErrorInfo: map[string]interface{}{
+			ErrorInfo: map[string]any{
 				"foo": "bar",
 				"baz": true,
 			},
@@ -293,7 +293,7 @@ func (*suite) TestWrite(c *tc.C) {
 func (*suite) TestDumpRequest(c *tc.C) {
 	for i, test := range []struct {
 		hdr    rpc.Header
-		body   interface{}
+		body   any
 		expect string
 	}{{
 		hdr: rpc.Header{
@@ -405,7 +405,7 @@ func (*suite) TestDumpRequest(c *tc.C) {
 // assertJSONEqual compares the json strings v0
 // and v1 ignoring white space.
 func assertJSONEqual(c *tc.C, v0, v1 string) {
-	var m0, m1 interface{}
+	var m0, m1 any
 	err := json.Unmarshal([]byte(v0), &m0)
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal([]byte(v1), &m1)
@@ -424,7 +424,7 @@ type testConn struct {
 	closed    bool
 }
 
-func (c *testConn) Receive(msg interface{}) error {
+func (c *testConn) Receive(msg any) error {
 	if len(c.readMsgs) > 0 {
 		s := c.readMsgs[0]
 		c.readMsgs = c.readMsgs[1:]
@@ -436,7 +436,7 @@ func (c *testConn) Receive(msg interface{}) error {
 	return io.EOF
 }
 
-func (c *testConn) Send(msg interface{}) error {
+func (c *testConn) Send(msg any) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err

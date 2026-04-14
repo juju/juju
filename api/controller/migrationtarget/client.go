@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/httprequest.v1"
@@ -195,15 +195,15 @@ func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resou
 	return errors.Trace(err)
 }
 
-func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response any) error {
 	return c.http(ctx, "POST", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) httpPut(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) httpPut(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response any) error {
 	return c.http(ctx, "PUT", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) http(ctx context.Context, method, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) http(ctx context.Context, method, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response any) error {
 	req, err := http.NewRequest(method, endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")

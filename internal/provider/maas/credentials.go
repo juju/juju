@@ -48,7 +48,7 @@ func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.Cl
 		return nil, errors.Trace(err)
 	}
 
-	details := make(map[string]interface{})
+	details := make(map[string]any)
 	err = json.Unmarshal(fileBytes, &details)
 	if err != nil {
 		return nil, errors.Trace(err)

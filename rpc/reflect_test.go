@@ -25,20 +25,20 @@ func TestReflectSuite(t *stdtesting.T) {
 }
 
 func (*reflectSuite) TestTypeOf(c *tc.C) {
-	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))
+	rtype := rpcreflect.TypeOf(reflect.TypeFor[*Root]())
 	c.Assert(rtype.DiscardedMethods(), tc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
 		"Discard3",
 	})
 	expect := map[string]reflect.Type{
-		"CallbackMethods":  reflect.TypeOf(&CallbackMethods{}),
-		"ChangeAPIMethods": reflect.TypeOf(&ChangeAPIMethods{}),
-		"DelayedMethods":   reflect.TypeOf(&DelayedMethods{}),
-		"ErrorMethods":     reflect.TypeOf(&ErrorMethods{}),
-		"InterfaceMethods": reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
-		"SimpleMethods":    reflect.TypeOf(&SimpleMethods{}),
-		"ContextMethods":   reflect.TypeOf(&ContextMethods{}),
+		"CallbackMethods":  reflect.TypeFor[*CallbackMethods](),
+		"ChangeAPIMethods": reflect.TypeFor[*ChangeAPIMethods](),
+		"DelayedMethods":   reflect.TypeFor[*DelayedMethods](),
+		"ErrorMethods":     reflect.TypeFor[*ErrorMethods](),
+		"InterfaceMethods": reflect.TypeFor[InterfaceMethods](),
+		"SimpleMethods":    reflect.TypeFor[*SimpleMethods](),
+		"ContextMethods":   reflect.TypeFor[*ContextMethods](),
 	}
 	c.Assert(rtype.MethodNames(), tc.HasLen, len(expect))
 	for name, expectGoType := range expect {
@@ -55,7 +55,7 @@ func (*reflectSuite) TestTypeOf(c *tc.C) {
 }
 
 func (*reflectSuite) TestObjTypeOf(c *tc.C) {
-	objType := rpcreflect.ObjTypeOf(reflect.TypeOf(&SimpleMethods{}))
+	objType := rpcreflect.ObjTypeOf(reflect.TypeFor[*SimpleMethods]())
 	c.Check(objType.DiscardedMethods(), tc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
@@ -65,19 +65,19 @@ func (*reflectSuite) TestObjTypeOf(c *tc.C) {
 	expect := map[string]*rpcreflect.ObjMethod{
 		"SliceArg": {
 			Params: reflect.TypeOf(struct{ X []string }{}),
-			Result: reflect.TypeOf(stringVal{}),
+			Result: reflect.TypeFor[stringVal](),
 		},
 	}
-	for narg := 0; narg < 2; narg++ {
-		for nret := 0; nret < 2; nret++ {
-			for nerr := 0; nerr < 2; nerr++ {
+	for narg := range 2 {
+		for nret := range 2 {
+			for nerr := range 2 {
 				retErr := nerr != 0
 				var m rpcreflect.ObjMethod
 				if narg > 0 {
-					m.Params = reflect.TypeOf(stringVal{})
+					m.Params = reflect.TypeFor[stringVal]()
 				}
 				if nret > 0 {
-					m.Result = reflect.TypeOf(stringVal{})
+					m.Result = reflect.TypeFor[stringVal]()
 				}
 				expect[callName(narg, nret, retErr)] = &m
 			}
@@ -131,8 +131,8 @@ func (*reflectSuite) TestFindMethod(c *tc.C) {
 
 	m, err = v.FindMethod("SimpleMethods", 0, "Call1r1e")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeFor[stringVal]())
+	c.Assert(m.ResultType(), tc.Equals, reflect.TypeFor[stringVal]())
 
 	ret, err := m.Call(c.Context(), "a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, tc.ErrorIsNil)
@@ -149,11 +149,11 @@ func (*reflectSuite) TestFindMethodAcceptsAnyVersion(c *tc.C) {
 
 	m, err := v.FindMethod("SimpleMethods", 0, "Call1r1e")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeFor[stringVal]())
+	c.Assert(m.ResultType(), tc.Equals, reflect.TypeFor[stringVal]())
 
 	m, err = v.FindMethod("SimpleMethods", 1, "Call1r1e")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType(), tc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), tc.Equals, reflect.TypeFor[stringVal]())
+	c.Assert(m.ResultType(), tc.Equals, reflect.TypeFor[stringVal]())
 }

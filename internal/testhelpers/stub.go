@@ -23,7 +23,7 @@ type StubCall struct {
 
 	// Args is the set of arguments passed to the function. They are
 	// in the same order as the function's parameters
-	Args []interface{}
+	Args []any
 }
 
 // Stub is used in testing to stand in for some other value, to record
@@ -100,7 +100,7 @@ type Stub struct {
 	// receivers are tracked here rather than as a Receiver field on
 	// StubCall because StubCall represents the common case for
 	// testing. Typically the receiver does not need to be checked.
-	receivers []interface{}
+	receivers []any
 
 	// errors holds the list of error return values to use for
 	// successive calls to methods that return an error. Each call
@@ -138,7 +138,7 @@ func (f *Stub) PopNoErr() {
 	}
 }
 
-func (f *Stub) addCall(rcvr interface{}, funcName string, args []interface{}) {
+func (f *Stub) addCall(rcvr any, funcName string, args []any) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, StubCall{
@@ -168,13 +168,13 @@ func (f *Stub) ResetCalls() {
 // AddCall records a stubbed function call for later inspection using the
 // CheckCalls method. A nil receiver is recorded. Thus for methods use
 // MethodCall. All stubbed functions should call AddCall.
-func (f *Stub) AddCall(funcName string, args ...interface{}) {
+func (f *Stub) AddCall(funcName string, args ...any) {
 	f.addCall(nil, funcName, args)
 }
 
 // MethodCall records a stubbed method call for later inspection using
 // the CheckCalls method. The receiver is added to Stub.Receivers.
-func (f *Stub) MethodCall(receiver interface{}, funcName string, args ...interface{}) {
+func (f *Stub) MethodCall(receiver any, funcName string, args ...any) {
 	f.addCall(receiver, funcName, args)
 }
 
@@ -229,7 +229,7 @@ func (f *Stub) CheckCallsUnordered(c StubC, expected []StubCall) {
 // can be checked separately:
 //
 //	c.Check(mystub.Receivers[index], tc.Equals, expected)
-func (f *Stub) CheckCall(c StubC, index int, funcName string, args ...interface{}) {
+func (f *Stub) CheckCall(c StubC, index int, funcName string, args ...any) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if !c.Check(index, tc.LessThan, len(f.calls)) {
@@ -265,7 +265,7 @@ func (f *Stub) CheckErrors(c StubC, expected ...error) bool {
 }
 
 // CheckReceivers verifies that the list of errors is matches the expected list.
-func (f *Stub) CheckReceivers(c StubC, expected ...interface{}) bool {
+func (f *Stub) CheckReceivers(c StubC, expected ...any) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return c.Check(f.receivers, tc.DeepEquals, expected)

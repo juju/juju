@@ -208,7 +208,7 @@ network:
 
 func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *tc.C, base, src, exp string) {
 	var (
-		baseMap, srcMap, expMap map[interface{}]interface{}
+		baseMap, srcMap, expMap map[any]any
 	)
 
 	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), tc.ErrorIsNil)
@@ -218,14 +218,14 @@ func (s *NetplanConfigurationMergeSuite) assertMergeResult(c *tc.C, base, src, e
 	mergeRes, err := mergeNetplanConfigs(baseMap, srcMap)
 	c.Assert(err, tc.ErrorIsNil)
 
-	mergeResMap, ok := mergeRes.(map[interface{}]interface{})
+	mergeResMap, ok := mergeRes.(map[any]any)
 	c.Assert(ok, tc.IsTrue, tc.Commentf("expected merge result to be a map[interface{}]interface{}; got %T", mergeRes))
 	c.Assert(mergeResMap, tc.DeepEquals, expMap)
 }
 
 func (s *NetplanConfigurationMergeSuite) assertMergeError(c *tc.C, base, src, expErr string) {
 	var (
-		baseMap, srcMap map[interface{}]interface{}
+		baseMap, srcMap map[any]any
 	)
 
 	c.Assert(goyaml.Unmarshal([]byte(base), &baseMap), tc.ErrorIsNil)

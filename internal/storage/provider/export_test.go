@@ -91,7 +91,7 @@ func (m *MockFileInfo) Mode() os.FileMode {
 func (m *MockFileInfo) ModTime() time.Time {
 	return time.Now()
 }
-func (m *MockFileInfo) Sys() interface{} {
+func (m *MockFileInfo) Sys() any {
 	return nil
 }
 

@@ -299,7 +299,7 @@ func (s *logsinkSuite) TestRateLimit(c *tc.C) {
 		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	}
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		err := conn.WriteJSON(&record)
 		c.Assert(err, tc.ErrorIsNil)
 	}

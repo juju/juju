@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -29,7 +29,7 @@ func TestClientSuite(t *testing.T) {
 
 func (s *ClientSuite) TestWatch(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		switch request {
 		case "Watch":
@@ -58,9 +58,9 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 	case err := <-errC:
 		c.Assert(err, tc.ErrorMatches, "boom")
 		expectedCalls := []testhelpers.StubCall{
-			{FuncName: "Migrationminion.Watch", Args: []interface{}{"", nil}},
-			{FuncName: "MigrationStatusWatcher.Next", Args: []interface{}{"abc", nil}},
-			{FuncName: "MigrationStatusWatcher.Stop", Args: []interface{}{"abc", nil}},
+			{FuncName: "Migrationminion.Watch", Args: []any{"", nil}},
+			{FuncName: "MigrationStatusWatcher.Next", Args: []any{"abc", nil}},
+			{FuncName: "MigrationStatusWatcher.Stop", Args: []any{"abc", nil}},
 		}
 		// The Stop API call happens in a separate goroutine which
 		// might execute after the worker has exited so wait for the
@@ -77,7 +77,7 @@ func (s *ClientSuite) TestWatch(c *tc.C) {
 }
 
 func (s *ClientSuite) TestWatchErr(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return errors.New("boom")
 	})
 	client := migrationminion.NewClient(apiCaller)
@@ -87,7 +87,7 @@ func (s *ClientSuite) TestWatchErr(c *tc.C) {
 
 func (s *ClientSuite) TestReport(c *tc.C) {
 	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		stub.AddCall(objType+"."+request, arg)
 		return nil
 	})
@@ -97,7 +97,7 @@ func (s *ClientSuite) TestReport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMinion.Report", Args: []interface{}{params.MinionReport{
+		{FuncName: "MigrationMinion.Report", Args: []any{params.MinionReport{
 			MigrationId: "id",
 			Phase:       "IMPORT",
 			Success:     true,
@@ -106,7 +106,7 @@ func (s *ClientSuite) TestReport(c *tc.C) {
 }
 
 func (s *ClientSuite) TestReportError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
 		return errors.New("boom")
 	})
 

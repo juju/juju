@@ -98,7 +98,7 @@ func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		settings, err := cache.Settings(c.Context(), "x/2")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})
@@ -172,7 +172,7 @@ func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *tc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		settings, err := cache.Settings(c.Context(), "x/2")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(settings, tc.DeepEquals, params.Settings{"foo": "bar"})

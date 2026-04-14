@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/auditlog"
@@ -76,7 +76,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
-	resources := map[string]interface{}{
+	resources := map[string]any{
 		"agent":           s.agent,
 		"domain-services": &stubDomainServicesGetter{},
 	}

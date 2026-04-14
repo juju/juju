@@ -63,7 +63,7 @@ func (c *dumpCommand) Init(args []string) error {
 // DumpModelAPI specifies the used function calls of the ModelManager.
 type DumpModelAPI interface {
 	Close() error
-	DumpModel(context.Context, names.ModelTag) (map[string]interface{}, error)
+	DumpModel(context.Context, names.ModelTag) (map[string]any, error)
 }
 
 func (c *dumpCommand) getAPI(ctx context.Context) (DumpModelAPI, error) {

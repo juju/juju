@@ -72,7 +72,7 @@ func destroyStorage(env environs.Environ, ctx context.Context) error {
 		storageConfig, err := storage.NewConfig(
 			string(storageProviderType),
 			storageProviderType,
-			map[string]interface{}{},
+			map[string]any{},
 		)
 		if err != nil {
 			return errors.Trace(err)

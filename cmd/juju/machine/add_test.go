@@ -291,7 +291,7 @@ func (f *fakeAddMachineAPI) ProvisioningScript(ctx context.Context, p params.Pro
 	return "", errors.NotImplementedf("ProvisioningScript")
 }
 
-func (f *fakeAddMachineAPI) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (f *fakeAddMachineAPI) ModelGet(ctx context.Context) (map[string]any, error) {
 	if f.addModelGetError != nil {
 		return nil, f.addModelGetError
 	}
@@ -299,7 +299,7 @@ func (f *fakeAddMachineAPI) ModelGet(ctx context.Context) (map[string]interface{
 	if f.providerType != "" {
 		providerType = f.providerType
 	}
-	return testing.FakeConfig().Merge(map[string]interface{}{
+	return testing.FakeConfig().Merge(map[string]any{
 		"type": providerType,
 	}), nil
 }

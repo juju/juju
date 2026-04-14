@@ -17,11 +17,11 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Storage", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStorageAPIV6(stdCtx, ctx) // modify Remove to support force and maxWait;
-	}, reflect.TypeOf((*StorageAPIv6)(nil)))
+	}, reflect.TypeFor[*StorageAPIv6]())
 
 	registry.MustRegister("Storage", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStorageAPI(stdCtx, ctx) // support force option on import-fileystem.
-	}, reflect.TypeOf((*StorageAPI)(nil)))
+	}, reflect.TypeFor[*StorageAPI]())
 }
 
 func newStorageAPIV6(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPIv6, error) {

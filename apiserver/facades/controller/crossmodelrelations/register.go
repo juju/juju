@@ -19,7 +19,7 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("creating CrossModelRelations facade: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*CrossModelRelationsAPIv3)(nil)))
+	}, reflect.TypeFor[*CrossModelRelationsAPIv3]())
 }
 
 // newCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade

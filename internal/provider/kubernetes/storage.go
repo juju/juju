@@ -21,7 +21,7 @@ import (
 	jujustorage "github.com/juju/juju/internal/storage"
 )
 
-func validateStorageAttributes(attributes map[string]interface{}) error {
+func validateStorageAttributes(attributes map[string]any) error {
 	if _, err := storage.ParseStorageConfig(attributes); err != nil {
 		return errors.Capture(err)
 	}

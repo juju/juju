@@ -60,7 +60,7 @@ func (s *MacaroonSuite) SetUpTest(c *tc.C) {
 		}
 		return []checkers.Caveat{checkers.DeclaredCaveat("username", username)}, nil
 	})
-	s.ApiServerSuite.ControllerConfigAttrs = map[string]interface{}{
+	s.ApiServerSuite.ControllerConfigAttrs = map[string]any{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 
@@ -213,13 +213,13 @@ func MacaroonsEqual(c *tc.C, ms1, ms2 []macaroon.Slice) error {
 		return errors.Errorf("length mismatch, %d vs %d", len(ms1), len(ms2))
 	}
 
-	for i := 0; i < len(ms1); i++ {
+	for i := range ms1 {
 		m1 := ms1[i]
 		m2 := ms2[i]
 		if len(m1) != len(m2) {
 			return errors.Errorf("length mismatch, %d vs %d", len(m1), len(m2))
 		}
-		for i := 0; i < len(m1); i++ {
+		for i := range m1 {
 			MacaroonEquals(c, m1[i], m2[i])
 		}
 	}

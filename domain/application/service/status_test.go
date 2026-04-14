@@ -245,7 +245,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *tc.C) {
 			input: corestatus.StatusInfo{
 				Status:  corestatus.Active,
 				Message: "I'm active!",
-				Data:    map[string]interface{}{"foo": "bar"},
+				Data:    map[string]any{"foo": "bar"},
 				Since:   &now,
 			},
 			output: status.StatusInfo[status.WorkloadStatusType]{

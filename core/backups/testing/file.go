@@ -83,7 +83,7 @@ func internalTopFiles(files, dump []File) ([]File, error) {
 	var sysFiles []File
 	for _, file := range files {
 		var parent string
-		for _, p := range strings.Split(path.Dir(file.Name), "/") {
+		for p := range strings.SplitSeq(path.Dir(file.Name), "/") {
 			if parent == "" {
 				parent = p
 			} else {

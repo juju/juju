@@ -6,6 +6,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"sort"
 	"strings"
@@ -564,9 +565,7 @@ func (c *CharmHubRepository) ResolveResources(ctx context.Context, resources []c
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-	for k, v := range revisionResources {
-		storeResourcesMap[k] = v
-	}
+	maps.Copy(storeResourcesMap, revisionResources)
 	resolved, err := c.resolveResources(ctx, resources, storeResourcesMap, id)
 	if err != nil {
 		return nil, internalerrors.Capture(err)

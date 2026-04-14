@@ -38,7 +38,7 @@ type ExpressionTree struct {
 //   - bar >= 1.42
 //   - any-of: ... (nested expr)
 //   - all-of: ... (nested expr)
-func parseAssumesExpressionTree(rootExprList []interface{}) (Expression, error) {
+func parseAssumesExpressionTree(rootExprList []any) (Expression, error) {
 	var (
 		rootExpr = CompositeExpression{
 			ExprType:       AllOfExpression,
@@ -63,10 +63,10 @@ func parseAssumesExpressionTree(rootExprList []interface{}) (Expression, error) 
 // 1) feature request expression with optional version constraint (e.g. foo < 1)
 // 2) any-of composite expression
 // 3) all-of composite expression
-func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
+func parseAssumesExpr(exprDecl any) (Expression, error) {
 	// Is it a composite expression?
-	if exprAsMap, isMap := exprDecl.(map[interface{}]interface{}); isMap {
-		coercedMap := make(map[string]interface{})
+	if exprAsMap, isMap := exprDecl.(map[any]any); isMap {
+		coercedMap := make(map[string]any)
 		for key, val := range exprAsMap {
 			keyStr, ok := key.(string)
 			if !ok {
@@ -75,7 +75,7 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 			coercedMap[keyStr] = val
 		}
 		return parseCompositeExpr(coercedMap)
-	} else if exprAsMap, isMap := exprDecl.(map[string]interface{}); isMap {
+	} else if exprAsMap, isMap := exprDecl.(map[string]any); isMap {
 		return parseCompositeExpr(exprAsMap)
 	}
 
@@ -101,14 +101,14 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 //
 // The function expects a map with either a "any-of" or "all-of" key and
 // a value that is a slice of sub-expressions.
-func parseCompositeExpr(exprDecl map[string]interface{}) (CompositeExpression, error) {
+func parseCompositeExpr(exprDecl map[string]any) (CompositeExpression, error) {
 	if len(exprDecl) != 1 {
 		return CompositeExpression{}, internalerrors.New("malformed composite expression")
 	}
 
 	var (
 		compositeExpr CompositeExpression
-		subExprDecls  interface{}
+		subExprDecls  any
 		err           error
 	)
 
@@ -120,7 +120,7 @@ func parseCompositeExpr(exprDecl map[string]interface{}) (CompositeExpression, e
 		return CompositeExpression{}, internalerrors.New(`malformed composite expression; expected an "any-of" or "all-of" block`)
 	}
 
-	subExprDeclList, isList := subExprDecls.([]interface{})
+	subExprDeclList, isList := subExprDecls.([]any)
 	if !isList {
 		return CompositeExpression{}, internalerrors.Errorf(`malformed %q expression; expected a list of sub-expressions`, string(compositeExpr.ExprType))
 	}
@@ -173,8 +173,8 @@ func parseFeatureExpr(exprDecl string) (FeatureExpression, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (tree *ExpressionTree) UnmarshalYAML(unmarshalFn func(interface{}) error) error {
-	var exprTree []interface{}
+func (tree *ExpressionTree) UnmarshalYAML(unmarshalFn func(any) error) error {
+	var exprTree []any
 	if err := unmarshalFn(&exprTree); err != nil {
 		if _, isTypeErr := err.(*yaml.TypeError); isTypeErr {
 			return internalerrors.New(`malformed "assumes" block; expected an expression list`)
@@ -192,7 +192,7 @@ func (tree *ExpressionTree) UnmarshalYAML(unmarshalFn func(interface{}) error) e
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (tree *ExpressionTree) UnmarshalJSON(data []byte) error {
-	var exprTree []interface{}
+	var exprTree []any
 	if err := json.Unmarshal(data, &exprTree); err != nil {
 		return internalerrors.Errorf("decoding assumes block: %w", err)
 	}
@@ -206,7 +206,7 @@ func (tree *ExpressionTree) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (tree *ExpressionTree) MarshalYAML() (interface{}, error) {
+func (tree *ExpressionTree) MarshalYAML() (any, error) {
 	if tree == nil || tree.Expression == nil {
 		return nil, nil
 	}
@@ -227,7 +227,7 @@ func (tree *ExpressionTree) MarshalJSON() ([]byte, error) {
 	return json.Marshal(exprList)
 }
 
-func marshalAssumesExpressionTree(tree *ExpressionTree) (interface{}, error) {
+func marshalAssumesExpressionTree(tree *ExpressionTree) (any, error) {
 	// The root of the expression tree (top level of the assumes block) is
 	// always an implicit "any-of".  We need to marshal it into a map and
 	// extract the expression list.
@@ -236,7 +236,7 @@ func marshalAssumesExpressionTree(tree *ExpressionTree) (interface{}, error) {
 		return nil, err
 	}
 
-	rootMap, ok := root.(map[string]interface{})
+	rootMap, ok := root.(map[string]any)
 	if !ok {
 		return nil, internalerrors.New(`unexpected serialized output for top-level "assumes" block`)
 	}
@@ -249,7 +249,7 @@ func marshalAssumesExpressionTree(tree *ExpressionTree) (interface{}, error) {
 	return exprList, nil
 }
 
-func marshalExpr(expr Expression) (interface{}, error) {
+func marshalExpr(expr Expression) (any, error) {
 	featExpr, ok := expr.(FeatureExpression)
 	if ok {
 		if featExpr.Version == nil {
@@ -272,7 +272,7 @@ func marshalExpr(expr Expression) (interface{}, error) {
 	}
 
 	var (
-		exprList = make([]interface{}, len(compExpr.SubExpressions))
+		exprList = make([]any, len(compExpr.SubExpressions))
 		err      error
 	)
 
@@ -282,7 +282,7 @@ func marshalExpr(expr Expression) (interface{}, error) {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		string(compExpr.ExprType): exprList,
 	}, nil
 }

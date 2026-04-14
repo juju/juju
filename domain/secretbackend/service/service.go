@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
@@ -463,7 +464,7 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 	if ok {
 		defaults := configValidator.ConfigDefaults()
 		if backend.Config == nil && len(defaults) > 0 {
-			backend.Config = make(map[string]interface{})
+			backend.Config = make(map[string]any)
 		}
 		for k, v := range defaults {
 			if _, ok := backend.Config[k]; !ok {
@@ -529,13 +530,9 @@ func (s *Service) UpdateSecretBackend(ctx context.Context, params UpdateSecretBa
 		return errors.Capture(err)
 	}
 
-	cfgToApply := make(map[string]interface{})
-	for k, v := range existing.Config {
-		cfgToApply[k] = v
-	}
-	for k, v := range params.Config {
-		cfgToApply[k] = v
-	}
+	cfgToApply := make(map[string]any)
+	maps.Copy(cfgToApply, existing.Config)
+	maps.Copy(cfgToApply, params.Config)
 	for _, k := range params.Reset {
 		delete(cfgToApply, k)
 	}

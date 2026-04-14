@@ -142,6 +142,10 @@ type ApplicationExtraEndpoint struct {
 	CharmExtraBindingUUID string  `db:"charm_extra_binding_uuid" json:"charm_extra_binding_uuid" yaml:"charm_extra_binding_uuid"`
 }
 
+type ApplicationK8sResourcesManaged struct {
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+}
+
 type ApplicationPlatform struct {
 	ApplicationUUID string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
 	OsID            string  `db:"os_id" json:"os_id" yaml:"os_id"`
@@ -1044,9 +1048,9 @@ type Relation struct {
 }
 
 type RelationApplicationSetting struct {
-	RelationEndpointUUID string  `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
-	Key                  string  `db:"key" json:"key" yaml:"key"`
-	Value                *string `db:"value" json:"value" yaml:"value"`
+	RelationEndpointUUID string `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
+	Key                  string `db:"key" json:"key" yaml:"key"`
+	Value                string `db:"value" json:"value" yaml:"value"`
 }
 
 type RelationApplicationSettingsHash struct {
@@ -1089,9 +1093,9 @@ type RelationUnit struct {
 }
 
 type RelationUnitSetting struct {
-	RelationUnitUUID string  `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
-	Key              string  `db:"key" json:"key" yaml:"key"`
-	Value            *string `db:"value" json:"value" yaml:"value"`
+	RelationUnitUUID string `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
+	Key              string `db:"key" json:"key" yaml:"key"`
+	Value            string `db:"value" json:"value" yaml:"value"`
 }
 
 type RelationUnitSettingArchive struct {
@@ -1604,6 +1608,7 @@ type ModelExport struct {
 	ApplicationExposedEndpointCidr           []ApplicationExposedEndpointCidr           `json:"application_exposed_endpoint_cidr" yaml:"application_exposed_endpoint_cidr"`
 	ApplicationExposedEndpointSpace          []ApplicationExposedEndpointSpace          `json:"application_exposed_endpoint_space" yaml:"application_exposed_endpoint_space"`
 	ApplicationExtraEndpoint                 []ApplicationExtraEndpoint                 `json:"application_extra_endpoint" yaml:"application_extra_endpoint"`
+	ApplicationK8sResourcesManaged           []ApplicationK8sResourcesManaged           `json:"application_k8s_resources_managed" yaml:"application_k8s_resources_managed"`
 	ApplicationPlatform                      []ApplicationPlatform                      `json:"application_platform" yaml:"application_platform"`
 	ApplicationRemoteConsumer                []ApplicationRemoteConsumer                `json:"application_remote_consumer" yaml:"application_remote_consumer"`
 	ApplicationRemoteOfferer                 []ApplicationRemoteOfferer                 `json:"application_remote_offerer" yaml:"application_remote_offerer"`

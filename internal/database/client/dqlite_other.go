@@ -60,7 +60,7 @@ type NodeStore interface {
 }
 
 // LogFunc is a function that can be used for logging.
-type LogFunc = func(LogLevel, string, ...interface{})
+type LogFunc = func(LogLevel, string, ...any)
 
 // LogLevel defines the logging level.
 type LogLevel int

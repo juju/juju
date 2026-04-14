@@ -70,12 +70,12 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 	templateCisp := baseCisp()
 	templateCisp.EntityName = args.TemplateName
 	s.roundTripper.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "CreateImportSpec", Args: []interface{}{
+		{FuncName: "CreateImportSpec", Args: []any{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 			templateCisp,
 		}},
-		{FuncName: "ImportVApp", Args: []interface{}{
+		{FuncName: "ImportVApp", Args: []any{
 			&types.VirtualMachineImportSpec{
 				ConfigSpec: types.VirtualMachineConfigSpec{
 					Name: "vm-name",
@@ -85,8 +85,8 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 		{FuncName: "CreatePropertyCollector", Args: nil},
 		{FuncName: "CreateFilter", Args: nil},
 		{FuncName: "WaitForUpdatesEx", Args: nil},
-		{FuncName: "HttpNfcLeaseComplete", Args: []interface{}{"FakeLease"}},
-		{FuncName: "ReconfigVM_Task", Args: []interface{}{
+		{FuncName: "HttpNfcLeaseComplete", Args: []any{"FakeLease"}},
+		{FuncName: "ReconfigVM_Task", Args: []any{
 			types.VirtualMachineConfigSpec{
 				ExtraConfig: []types.BaseOptionValue{
 					&types.OptionValue{Key: ArchTag, Value: "amd64"},
@@ -96,7 +96,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *tc.C) {
 		{FuncName: "CreatePropertyCollector", Args: nil},
 		{FuncName: "CreateFilter", Args: nil},
 		{FuncName: "WaitForUpdatesEx", Args: nil},
-		{FuncName: "MarkAsTemplate", Args: []interface{}{"FakeVm0"}},
+		{FuncName: "MarkAsTemplate", Args: []any{"FakeVm0"}},
 	})
 }
 
@@ -158,7 +158,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeVm0"),
 		retrievePropertiesStubCall("FakeVm0"),
-		{FuncName: "CloneVM_Task", Args: []interface{}{
+		{FuncName: "CloneVM_Task", Args: []any{
 			types.ManagedObjectReference{
 				Type: "Folder", Value: "FakeControllerVmFolder",
 			},
@@ -168,7 +168,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 					&types.OptionValue{Key: "k", Value: "v"},
 				},
 				Flags: &types.VirtualMachineFlagInfo{
-					DiskUuidEnabled: newBool(true),
+					DiskUuidEnabled: new(true),
 				},
 				VAppConfig: &types.VmConfigSpec{
 					Property: []types.VAppPropertySpec{{
@@ -186,8 +186,8 @@ func (s *clientSuite) TestCreateVirtualMachine(c *tc.C) {
 				Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 					{
 						DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-							EagerlyScrub:    newBool(false),
-							ThinProvisioned: newBool(true),
+							EagerlyScrub:    new(false),
+							ThinProvisioned: new(true),
 						},
 						DiskId:    0,
 						Datastore: datastore,
@@ -242,7 +242,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *tc.C) {
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(args.EnableDiskUUID)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(args.EnableDiskUUID)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -258,8 +258,8 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *tc.C) {
 			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(true),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(true),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -286,7 +286,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *tc.C) {
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -303,8 +303,8 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *tc.C) {
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
 						// Thick disk provisioning, lazy zeros
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(false),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(false),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -332,7 +332,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -349,8 +349,8 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
 						// Thick disk provisioning, eager zeros
-						EagerlyScrub:    newBool(true),
-						ThinProvisioned: newBool(false),
+						EagerlyScrub:    new(true),
+						ThinProvisioned: new(false),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -373,7 +373,7 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *tc.C) {
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
-		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 		VAppConfig: &types.VmConfigSpec{
 			Property: []types.VAppPropertySpec{{
 				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -390,8 +390,8 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *tc.C) {
 			{
 				DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
 					// Thin disk provisioning
-					EagerlyScrub:    newBool(false),
-					ThinProvisioned: newBool(true),
+					EagerlyScrub:    new(false),
+					ThinProvisioned: new(true),
 				},
 				DiskId:    0,
 				Datastore: datastore,
@@ -425,7 +425,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *tc.C) {
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -441,8 +441,8 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *tc.C) {
 			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(true),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(true),
 					},
 					DiskId:    0,
 					Datastore: datastoreLocation,
@@ -574,7 +574,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 					Device:    &networkDevice2,
 				},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -590,8 +590,8 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(true),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(true),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -647,7 +647,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *tc.
 					Device:    &networkDevice,
 				},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(true)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -663,8 +663,8 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *tc.
 			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(true),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(true),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -746,7 +746,7 @@ func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *tc.C) {
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(args.EnableDiskUUID)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: new(args.EnableDiskUUID)},
 			VAppConfig: &types.VmConfigSpec{
 				Property: []types.VAppPropertySpec{{
 					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
@@ -762,8 +762,8 @@ func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *tc.C) {
 			Disk: []types.VirtualMachineRelocateSpecDiskLocator{
 				{
 					DiskBackingInfo: &types.VirtualDiskFlatVer2BackingInfo{
-						EagerlyScrub:    newBool(false),
-						ThinProvisioned: newBool(true),
+						EagerlyScrub:    new(false),
+						ThinProvisioned: new(true),
 					},
 					DiskId:    0,
 					Datastore: datastore,
@@ -890,8 +890,4 @@ func baseCisp() types.OvfCreateImportSpecParams {
 	return types.OvfCreateImportSpecParams{
 		EntityName: "vm-0",
 	}
-}
-
-func newBool(v bool) *bool {
-	return &v
 }

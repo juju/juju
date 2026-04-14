@@ -127,8 +127,8 @@ timing:
 		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			},
@@ -154,8 +154,8 @@ timing:
 		withClientWait:    "1s",
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			},
@@ -178,8 +178,8 @@ timing:
 		withClientWait:    "1s",
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			},
@@ -203,8 +203,8 @@ timing:
 		withClientWait:    "1s",
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			},
@@ -230,8 +230,8 @@ timing:
 		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 				"stdout": "hello",
@@ -253,8 +253,8 @@ hello
 		withAPIDelay:      1 * time.Second,
 		withAPIResponse: []actionapi.ActionResult{{
 			Status: "completed",
-			Output: map[string]interface{}{
-				"foo": map[string]interface{}{
+			Output: map[string]any{
+				"foo": map[string]any{
 					"bar": "baz",
 				},
 			},
@@ -390,11 +390,9 @@ func (s *ShowTaskSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 		ctx *cmd.Context
 		err error
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ctx, err = cmdtesting.RunCommand(c, runCmd, args...)
-	}()
+	})
 
 	wg.Wait()
 

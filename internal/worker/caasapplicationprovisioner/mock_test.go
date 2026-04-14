@@ -4,7 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/internal/testhelpers"
 )

@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -45,7 +47,7 @@ type PrepareParams struct {
 	//
 	// This includes the model name, cloud type, any user-supplied
 	// configuration, config inherited from controller, and any defaults.
-	ModelConfig map[string]interface{}
+	ModelConfig map[string]any
 
 	// ControllerConfig is the configuration of the controller being prepared.
 	ControllerConfig controller.Config
@@ -205,10 +207,8 @@ func prepare(
 	// default attributes, generated secrets/certificates, or
 	// UUIDs stored in the bootstrap config. Make a copy, so
 	// we don't disturb the caller's config map.
-	details.Config = make(map[string]interface{})
-	for k, v := range args.ModelConfig {
-		details.Config[k] = v
-	}
+	details.Config = make(map[string]any)
+	maps.Copy(details.Config, args.ModelConfig)
 	delete(details.Config, config.UUIDKey)
 
 	// TODO(axw) change signature of CACert() to not return a bool.

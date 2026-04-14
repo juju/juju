@@ -79,7 +79,7 @@ func (s *containerUnitAgentSuite) setupCommand(c *tc.C, configChangedVal *voyeur
 
 func (s *containerUnitAgentSuite) prepareAgentConf(c *tc.C, appName string) string {
 	fPath := filepath.Join(s.dataDir, k8sconstants.TemplateFileNameAgentConf)
-	err := os.WriteFile(fPath, []byte(fmt.Sprintf(agentConfigContents, appName)), 0600)
+	err := os.WriteFile(fPath, fmt.Appendf(nil, agentConfigContents, appName), 0600)
 	c.Assert(err, tc.IsNil)
 	return fPath
 }

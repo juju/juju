@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -57,7 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(AuthorityWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got a %T", inWorker, in)

@@ -4,6 +4,7 @@
 package unit_test
 
 import (
+	"slices"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -169,10 +170,8 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 }
 
 func checkContains(c *tc.C, names []string, seek string) {
-	for _, name := range names {
-		if name == seek {
-			return
-		}
+	if slices.Contains(names, seek) {
+		return
 	}
 	c.Errorf("%q not present in %v", seek, names)
 }

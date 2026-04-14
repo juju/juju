@@ -242,7 +242,7 @@ func (s *BufferedLogWriterSuite) TestInsertSorts(c *tc.C) {
 
 	now := time.Now()
 	initial := make([]corelogger.LogRecord, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		d := rand.Int63n(int64(20))
 		r := corelogger.LogRecord{
 			Time:    now.Add(time.Millisecond * time.Duration(d)),
@@ -257,7 +257,7 @@ func (s *BufferedLogWriterSuite) TestInsertSorts(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	in := make([]corelogger.LogRecord, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		d := rand.Int63n(int64(20))
 		r := corelogger.LogRecord{
 			Time:    now.Add(time.Millisecond * time.Duration(d)),

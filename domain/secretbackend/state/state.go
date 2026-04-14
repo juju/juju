@@ -450,7 +450,7 @@ SELECT
     b.name                                   AS &SecretBackendRow.name,
     bt.type                                  AS &SecretBackendRow.backend_type,
     b.token_rotate_interval                  AS &SecretBackendRow.token_rotate_interval,
-    COUNT(DISTINCT sbr.secret_revision_uuid) AS &SecretBackendRow.num_secrets,
+    COUNT(DISTINCT sbr.secret_id) AS &SecretBackendRow.num_secrets,
     c.name                                   AS &SecretBackendRow.config_name,
     c.content                                AS &SecretBackendRow.config_content
 FROM secret_backend b
@@ -511,7 +511,7 @@ SELECT
     bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
     vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
     vcca.uuid                                AS &secretBackendForK8sModelRow.cloud_credential_uuid,
-    COUNT(DISTINCT sbr.secret_revision_uuid) AS &secretBackendForK8sModelRow.num_secrets,
+    COUNT(DISTINCT sbr.secret_id) AS &secretBackendForK8sModelRow.num_secrets,
     (vc.uuid,
     vc.name,
     vc.endpoint,
@@ -1014,7 +1014,7 @@ WHERE  secret_backend_uuid = $SecretBackendReference.secret_backend_uuid`, input
 // If the ValueRef is nil, the internal controller backend is used.
 // It returns a rollback function which can be used to revert the changes.
 func (s *State) AddSecretBackendReference(
-	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 ) (func() error, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -1027,7 +1027,7 @@ func (s *State) AddSecretBackendReference(
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID)
+		err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID, secretID)
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -1076,12 +1076,13 @@ func (s *State) getSecretBackendID(ctx context.Context, tx *sqlair.TX, valueRef 
 }
 
 func (s *State) addSecretBackendReference(
-	ctx context.Context, tx *sqlair.TX, backendID string, modelID coremodel.UUID, revisionID string,
+	ctx context.Context, tx *sqlair.TX, backendID string, modelID coremodel.UUID, revisionID string, secretID string,
 ) error {
 	ref := SecretBackendReference{
 		BackendID:        backendID,
 		ModelID:          modelID,
 		SecretRevisionID: revisionID,
+		SecretID:         secretID,
 	}
 
 	stmt, err := s.Prepare(`
@@ -1144,7 +1145,7 @@ WHERE  model_uuid = $SecretBackendReference.model_uuid
 // satisfying [secretbackenderrors.RefCountNotFound] if no existing refcount was found.
 // It returns a rollback function which can be used to revert the changes.
 func (s *State) UpdateSecretBackendReference(
-	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
+	ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 ) (func() error, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -1165,7 +1166,7 @@ func (s *State) UpdateSecretBackendReference(
 		if err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionID); err != nil {
 			return errors.Capture(err)
 		}
-		if err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID); err != nil {
+		if err := s.addSecretBackendReference(ctx, tx, backendID, modelID, revisionID, secretID); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1178,7 +1179,7 @@ func (s *State) UpdateSecretBackendReference(
 			if err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionID); err != nil {
 				return errors.Capture(err)
 			}
-			err := s.addSecretBackendReference(ctx, tx, existing.BackendID, modelID, revisionID)
+			err := s.addSecretBackendReference(ctx, tx, existing.BackendID, modelID, revisionID, secretID)
 			return errors.Capture(err)
 		})
 		return errors.Capture(err)

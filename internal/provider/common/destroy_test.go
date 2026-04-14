@@ -165,8 +165,8 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *tc.C) {
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
 	volumeSource.CheckCalls(c, []testhelpers.StubCall{
-		{"ListVolumes", []interface{}{c.Context()}},
-		{"DestroyVolumes", []interface{}{c.Context(), []string{"vol-0", "vol-1", "vol-2"}}},
+		{"ListVolumes", []any{c.Context()}},
+		{"DestroyVolumes", []any{c.Context(), []string{"vol-0", "vol-1", "vol-2"}}},
 	})
 }
 

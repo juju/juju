@@ -12,9 +12,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -92,7 +92,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *manifoldSuite) newGetter() *dt.Getter {
-	return dt.StubGetter(map[string]interface{}{
+	return dt.StubGetter(map[string]any{
 		"clock-name":       clock.WallClock,
 		"db-accessor-name": stubDBGetter{runner: noopTxnRunner{}},
 		"trace-name":       stubTracerGetter{},

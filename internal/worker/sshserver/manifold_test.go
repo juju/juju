@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -114,7 +114,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	// Start the worker
 	result, err := manifold.Start(
 		c.Context(),
-		dt.StubGetter(map[string]interface{}{}),
+		dt.StubGetter(map[string]any{}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, result)
@@ -180,7 +180,7 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	// Start the worker
 	_, err := manifold.Start(
 		c.Context(),
-		dt.StubGetter(map[string]interface{}{}),
+		dt.StubGetter(map[string]any{}),
 	)
 	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)
 }

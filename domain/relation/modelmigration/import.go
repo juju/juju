@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -72,6 +72,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 			i.logger,
 			unitState,
 		),
+		i.logger,
 	)
 	return nil
 }

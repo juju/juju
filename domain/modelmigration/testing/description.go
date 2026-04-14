@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 )
 
 // This file contains structures which implement the description package

@@ -332,7 +332,7 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(bootstrapConfig.Cloud, tc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, tc.Equals, "")
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"name":         bootstrap.ControllerModelName,
 		"type":         "dummy",
 		"default-base": "ubuntu@22.04",
@@ -665,7 +665,7 @@ func checkConfigs(
 	bootstrapCmd bootstrapCommand,
 	key string,
 	ctx *cmd.Context, cloud *cloud.Cloud, provider environs.EnvironProvider,
-	expect map[string]map[string]interface{}) {
+	expect map[string]map[string]any) {
 
 	configs, err := bootstrapCmd.bootstrapConfigs(ctx, *cloud, provider)
 
@@ -681,7 +681,7 @@ func checkConfigs(
 
 // checkConfigEntryMatches tests that a keys existence and indexed value in configMap
 // matches those in expect[name].
-func checkConfigEntryMatches(c *tc.C, configMap map[string]interface{}, key, name string, expect map[string]map[string]interface{}) {
+func checkConfigEntryMatches(c *tc.C, configMap map[string]any, key, name string, expect map[string]map[string]any) {
 	v, ok := configMap[key]
 	expectedConfig, expectedConfigOk := expect[name]
 	c.Assert(expectedConfigOk, tc.IsTrue)
@@ -711,7 +711,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	key := "use-default-secgroup"
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
@@ -722,7 +722,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *tc.C) {
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, tc.ErrorIsNil)
 
-	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: true},
 		"inheritedControllerAttrs": {key: true},
 		"userConfigAttrs":          {},
@@ -760,7 +760,7 @@ func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *t
 	testCloud, err := cloud.CloudByName("dummy-cloud-with-region-config")
 	c.Assert(err, tc.ErrorIsNil)
 
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: "cloud-network"},
 		"inheritedControllerAttrs": {key: "cloud-network"},
 		"userConfigAttrs":          {},
@@ -771,7 +771,7 @@ func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *t
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-region-config")
 	c.Assert(err, tc.ErrorIsNil)
 
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: "region-network"},
 		"inheritedControllerAttrs": {key: "region-network"},
 		"userConfigAttrs":          {},
@@ -796,7 +796,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	key := "use-default-secgroup"
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
@@ -806,7 +806,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *tc.C) {
 	// provider default of false with true
 	err = s.bootstrapCmd.config.Set("use-default-secgroup=true")
 	c.Assert(err, tc.ErrorIsNil)
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: "true"},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {key: "true"},
@@ -831,7 +831,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	key := "use-default-secgroup"
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
@@ -843,7 +843,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.bootstrapCmd.config.Set("use-default-secgroup=false")
 	c.Assert(err, tc.ErrorIsNil)
-	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]any{
 		"bootstrapModelConfig":     {key: "false"},
 		"inheritedControllerAttrs": {key: true},
 		"userConfigAttrs":          {key: "false"},

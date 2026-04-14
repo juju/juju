@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -63,7 +64,7 @@ type MultiList struct {
 	Default  []string
 }
 
-var listTmpl = template.Must(template.New("").Funcs(map[string]interface{}{"title": strings.Title}).Parse(`
+var listTmpl = template.Must(template.New("").Funcs(map[string]any{"title": strings.Title}).Parse(`
 {{title .Plural}}
 {{range .Options}}  {{.}}
 {{end}}
@@ -99,7 +100,7 @@ func (p *Pollster) SelectVerify(l List, verify VerifyFunc) (string, error) {
 }
 
 var multiSelectTmpl = template.Must(template.New("").Funcs(
-	map[string]interface{}{"join": strings.Join}).Parse(`
+	map[string]any{"join": strings.Join}).Parse(`
 Select one or more {{.Plural}} separated by commas{{if .Default}} [{{join .Default ", "}}]{{end}}: `[1:]))
 
 // MultiSelect queries the user to select one more answers from the given list of
@@ -313,7 +314,7 @@ func multiSplit(s string) []string {
 	return chosen
 }
 
-func sprint(t *template.Template, data interface{}) (string, error) {
+func sprint(t *template.Template, data any) (string, error) {
 	b := &bytes.Buffer{}
 	if err := t.Execute(b, data); err != nil {
 		return "", err
@@ -324,14 +325,14 @@ func sprint(t *template.Template, data interface{}) (string, error) {
 // QuerySchema takes a jsonschema and queries the user to input value(s) for the
 // schema.  It returns an object as defined by the schema (generally a
 // map[string]interface{} for objects, etc).
-func (p *Pollster) QuerySchema(schema *jsonschema.Schema) (interface{}, error) {
+func (p *Pollster) QuerySchema(schema *jsonschema.Schema) (any, error) {
 	if len(schema.Type) == 0 {
 		return nil, errors.Errorf("invalid schema, no type specified")
 	}
 	if len(schema.Type) > 1 {
 		return nil, errors.Errorf("don't know how to query for a value with multiple types")
 	}
-	var v interface{}
+	var v any
 	var err error
 	if schema.Type[0] == jsonschema.ObjectType {
 		v, err = p.queryObjectSchema(schema)
@@ -344,9 +345,9 @@ func (p *Pollster) QuerySchema(schema *jsonschema.Schema) (interface{}, error) {
 	return v, nil
 }
 
-func (p *Pollster) queryObjectSchema(schema *jsonschema.Schema) (map[string]interface{}, error) {
+func (p *Pollster) queryObjectSchema(schema *jsonschema.Schema) (map[string]any, error) {
 	// TODO(natefinch): support for optional values.
-	vals := map[string]interface{}{}
+	vals := map[string]any{}
 	if len(schema.Order) != 0 {
 		m, err := p.queryOrder(schema)
 		if err != nil {
@@ -383,8 +384,8 @@ func names(m map[string]*jsonschema.Schema) []string {
 	return ret
 }
 
-func (p *Pollster) queryOrder(schema *jsonschema.Schema) (map[string]interface{}, error) {
-	vals := map[string]interface{}{}
+func (p *Pollster) queryOrder(schema *jsonschema.Schema) (map[string]any, error) {
+	vals := map[string]any{}
 	for _, name := range schema.Order {
 		prop, ok := schema.Properties[name]
 		if !ok {
@@ -399,14 +400,14 @@ func (p *Pollster) queryOrder(schema *jsonschema.Schema) (map[string]interface{}
 	return vals, nil
 }
 
-func (p *Pollster) queryProp(prop *jsonschema.Schema) (interface{}, error) {
+func (p *Pollster) queryProp(prop *jsonschema.Schema) (any, error) {
 	if isObject(prop) {
 		return p.queryObjectSchema(prop)
 	}
 	return p.queryOneSchema(prop)
 }
 
-func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jsonschema.Schema) error {
+func (p *Pollster) queryAdditionalProps(vals map[string]any, schema *jsonschema.Schema) error {
 	if schema.AdditionalProperties.Type[0] != jsonschema.ObjectType {
 		return errors.Errorf("don't know how to query for additional properties of type %d", schema.AdditionalProperties.Type[0])
 	}
@@ -489,7 +490,7 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 	return nil
 }
 
-func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error) {
+func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (any, error) {
 	if len(schema.Type) == 0 {
 		return nil, errors.Errorf("invalid schema, no type specified")
 	}
@@ -568,7 +569,7 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 	return convert(a, schema.Type[0])
 }
 
-func (p *Pollster) queryArray(schema *jsonschema.Schema) (interface{}, error) {
+func (p *Pollster) queryArray(schema *jsonschema.Schema) (any, error) {
 	if !supportedArraySchema(schema) {
 		b, err := schema.MarshalJSON()
 		if err != nil {
@@ -636,7 +637,7 @@ func optFromEnum(schema *jsonschema.Schema) []string {
 	return ret
 }
 
-func (p *Pollster) selectOne(schema *jsonschema.Schema) (interface{}, error) {
+func (p *Pollster) selectOne(schema *jsonschema.Schema) (any, error) {
 	options := make([]string, len(schema.Enum))
 	for i := range schema.Enum {
 		options[i] = fmt.Sprint(schema.Enum[i])
@@ -661,17 +662,12 @@ func (p *Pollster) selectOne(schema *jsonschema.Schema) (interface{}, error) {
 }
 
 func isObject(schema *jsonschema.Schema) bool {
-	for _, t := range schema.Type {
-		if t == jsonschema.ObjectType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(schema.Type, jsonschema.ObjectType)
 }
 
 // convert converts the given string to a specific value based on the schema
 // type that validated it.
-func convert(s string, t jsonschema.Type) (interface{}, error) {
+func convert(s string, t jsonschema.Type) (any, error) {
 	switch t {
 	case jsonschema.IntegerType:
 		return strconv.Atoi(s)

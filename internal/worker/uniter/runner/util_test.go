@@ -220,7 +220,7 @@ func makeCharm(c *tc.C, spec hookSpec, charmDir string) {
 		c.Assert(hook.Close(), tc.IsNil)
 	}()
 
-	printf := func(f string, a ...interface{}) {
+	printf := func(f string, a ...any) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, tc.ErrorIsNil)
 	}

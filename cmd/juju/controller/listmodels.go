@@ -357,7 +357,7 @@ type ModelSet struct {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error {
+func (c *modelsCommand) formatTabular(writer io.Writer, value any) error {
 	summariesSet, ok := value.(ModelSummarySet)
 	if !ok {
 		return errors.Errorf("expected value of type ModelSummarySet, got %T", value)

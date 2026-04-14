@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -49,7 +49,13 @@ type appWorker struct {
 	provisioningInfo *ProvisioningInfo
 	life             life.Value
 
-	engineReportRequest chan chan<- map[string]any
+	engineReportRequest chan engineReportRequest
+}
+
+// engineReportRequest represents a request for generating an engine report in a given context.
+type engineReportRequest struct {
+	ctx    context.Context
+	result chan map[string]any
 }
 
 type AppWorkerConfig struct {
@@ -96,7 +102,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			logger:                     config.Logger,
 			changes:                    changes,
 			ops:                        ops,
-			engineReportRequest:        make(chan chan<- map[string]any),
+			engineReportRequest:        make(chan engineReportRequest),
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -166,8 +172,8 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
-			err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
-				a.applicationService, a.statusService, a.clock, a.logger)
+			err = a.ops.AppDead(ctx, name, a.appUUID, app,
+				a.applicationService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -285,6 +291,11 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
+				// Signal that we are managing k8s resources for this app,
+				// blocking removal until we explicitly clear the flag.
+				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
+					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
+				}
 				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
@@ -330,8 +341,8 @@ func (a *appWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
-					a.applicationService, a.statusService, a.clock, a.logger)
+				err = a.ops.AppDead(ctx, name, a.appUUID, app,
+					a.applicationService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -487,10 +498,10 @@ func (a *appWorker) loop() error {
 			}
 		case <-refreshTimer.Chan():
 			// Force refresh of application status.
-		case reportChan := <-a.engineReportRequest:
+		case reportRequest := <-a.engineReportRequest:
 			// Respond to engine reports.
 			var reportErrors []string
-			ps, err := a.applicationService.GetApplicationScalingState(ctx, name)
+			ps, err := a.applicationService.GetApplicationScalingState(reportRequest.ctx, name)
 			if err != nil {
 				reportErrors = append(reportErrors, err.Error())
 			}
@@ -504,9 +515,15 @@ func (a *appWorker) loop() error {
 				"report-error":     reportErrors,
 			}
 			select {
-			case reportChan <- report:
-			case <-a.catacomb.Dying():
-				return a.catacomb.ErrDying()
+			case reportRequest.result <- report:
+			// the request context should be handled as a child context for tomb,
+			// so there is no need to check the tomb context here.
+			case <-reportRequest.ctx.Done():
+				select {
+				case <-a.catacomb.Dying():
+					return a.catacomb.ErrDying()
+				default:
+				}
 			}
 			shouldRefresh = false
 		}
@@ -524,18 +541,23 @@ func (a *appWorker) loop() error {
 }
 
 // Report returns a report about this application provisioner.
-func (a *appWorker) Report() map[string]any {
-	reportChan := make(chan map[string]any)
-	select {
-	case a.engineReportRequest <- reportChan:
-	case <-a.catacomb.Dying():
-		return nil
+func (a *appWorker) Report(ctx context.Context) map[string]any {
+	ctx = a.catacomb.Context(ctx)
+
+	reportChan := engineReportRequest{
+		ctx:    ctx,
+		result: make(chan map[string]any),
 	}
 	select {
-	case report := <-reportChan:
+	case a.engineReportRequest <- reportChan:
+	case <-ctx.Done():
+		return map[string]any{"error": ctx.Err().Error()}
+	}
+	select {
+	case report := <-reportChan.result:
 		return report
-	case <-a.catacomb.Dying():
-		return nil
+	case <-ctx.Done():
+		return map[string]any{"error": ctx.Err().Error()}
 	}
 }
 

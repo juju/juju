@@ -99,7 +99,7 @@ func (s *stubAPI) HTTPClient(base.HTTPClientScope) (*httprequest.Client, error) 
 	return &httprequest.Client{}, nil
 }
 
-func (s *stubAPI) APICall(ctx context.Context, objType string, version int, id, request string, args, response interface{}) error {
+func (s *stubAPI) APICall(ctx context.Context, objType string, version int, id, request string, args, response any) error {
 	s.AddCall(request, args, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -117,7 +117,7 @@ func (s *stubAPI) Unit() string {
 	return s.ReturnUnit
 }
 
-func (s *stubAPI) Do(ctx context.Context, req *http.Request, response interface{}) error {
+func (s *stubAPI) Do(ctx context.Context, req *http.Request, response any) error {
 	s.AddCall("Do", req, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)

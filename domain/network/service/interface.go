@@ -172,20 +172,39 @@ type NetworkInfoState interface {
 	// Kubernetes service.
 	IsCaasUnit(ctx context.Context, unitUUID string) (bool, error)
 
+	// GetUnitRelationEndpointName retrieves the endpoint name used by the
+	// specified unit in the specified relation.
+	GetUnitRelationEndpointName(
+		ctx context.Context, unitUUID, relationUUID string,
+	) (string, error)
+
+	// GetRelationEgressSubnets retrieves the egress subnets for the specified
+	// relation.
+	GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error)
+
+	// GetModelEgressSubnets retrieves the egress-subnets configuration from
+	// model config.
+	GetModelEgressSubnets(ctx context.Context) ([]string, error)
+
 	// GetUnitEgressSubnets retrieves the egress subnets for the specified
 	// unit.
 	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
 
-	// GetUnitEndpointNetworkAddresses retrieves raw unit addresses for the
-	// specified endpoints. It returns one result per endpoint name.
-	GetUnitEndpointNetworkAddresses(
-		ctx context.Context, unitUUID string, endpointNames []string,
-	) ([]networkinternal.EndpointAddresses, error)
+	// GetUnitPublicAddressForEgress retrieves the best unit address to use
+	// when deriving fallback egress subnets.
+	GetUnitPublicAddressForEgress(ctx context.Context, unitUUID string) (string, error)
 
-	// GetUnitNetworkAddresses retrieves all raw unit addresses for the
-	// specified unit. This is used on providers that do not support spaces and
-	// therefore cannot factor endpoint bindings.
-	GetUnitNetworkAddresses(
+	// GetUnitEndpointNetworkInfo retrieves raw unit addresses and selected
+	// ingress addresses for the specified endpoints. It returns one result per
+	// endpoint name.
+	GetUnitEndpointNetworkInfo(
+		ctx context.Context, unitUUID string, endpointNames []string,
+	) ([]networkinternal.EndpointNetworkInfo, error)
+
+	// GetUnitNetworkInfo retrieves raw unit addresses and selected ingress
+	// addresses for the specified unit when provider networking is not
+	// supported.
+	GetUnitNetworkInfo(
 		ctx context.Context, unitUUID string,
-	) ([]networkinternal.UnitAddress, error)
+	) (networkinternal.UnitNetworkInfo, error)
 }

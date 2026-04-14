@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Bundle", 8, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV8(ctx)
-	}, reflect.TypeOf((*APIv8)(nil)))
+	}, reflect.TypeFor[*APIv8]())
 }
 
 // newFacadeV8 provides the signature required for facade registration

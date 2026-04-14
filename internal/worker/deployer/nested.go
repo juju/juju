@@ -13,8 +13,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -204,16 +204,16 @@ func (c *nestedContext) Wait() error {
 
 // Report shows both the expected units and the status of the
 // engine reports for those units.
-func (c *nestedContext) Report() map[string]interface{} {
+func (c *nestedContext) Report(ctx context.Context) map[string]any {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	deployed := c.deployedUnits()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"deployed": deployed.SortedValues(),
 	}
 	if c.runner != nil {
-		result["units"] = c.runner.Report()
+		result["units"] = c.runner.Report(ctx)
 	}
 	if len(c.errors) > 0 {
 		errors := make(map[string]string)

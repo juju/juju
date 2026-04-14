@@ -155,11 +155,11 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) api
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
-			ApplicationData: map[string]interface{}{app: "setting"},
+			ApplicationData: map[string]any{app: "setting"},
 			UnitRelationData: map[string]apiapplication.RelationData{
 				"mariadb/2": {
 					InScope:  true,
-					UnitData: map[string]interface{}{"mariadb/2": "mariadb/2-setting"},
+					UnitData: map[string]any{"mariadb/2": "mariadb/2-setting"},
 				},
 			},
 		}},
@@ -173,7 +173,7 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) api
 		})
 		result.RelationData[0].UnitRelationData["mariadb/3"] = apiapplication.RelationData{
 			InScope:  true,
-			UnitData: map[string]interface{}{"mariadb/3": "mariadb/3-setting"},
+			UnitData: map[string]any{"mariadb/3": "mariadb/3-setting"},
 		}
 	}
 	return result

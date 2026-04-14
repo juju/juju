@@ -29,7 +29,7 @@ func (s *ProvisionerWorkerPoolSuite) TestIdle(c *tc.C) {
 	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 5)
 	c.Assert(wp.Size(), tc.Equals, 5)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		task := Task{
 			Type: "alien invasion",
 			Process: func() error {
@@ -53,7 +53,7 @@ func (s *ProvisionerWorkerPoolSuite) TestIdle(c *tc.C) {
 	c.Assert(wp.Close(), tc.ErrorIsNil)
 
 	// Check that everything was actually processed.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		select {
 		case <-doneCh:
 		default:
@@ -67,7 +67,7 @@ func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *tc.C) {
 	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 5)
 	c.Assert(wp.Size(), tc.Equals, 5)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		task := Task{
 			Type: "alien invasion",
 			Process: func() error {
@@ -83,7 +83,7 @@ func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *tc.C) {
 		}
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		select {
 		case <-doneCh: // task ACK'd
 		case <-time.After(coretesting.LongWait):
@@ -103,7 +103,7 @@ func (s *ProvisionerWorkerPoolSuite) TestConsolidateErrors(c *tc.C) {
 	)
 
 	wg.Add(3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		// The even-numbered workers emit an error while the odd ones
 		// do not.
 		var expErr error

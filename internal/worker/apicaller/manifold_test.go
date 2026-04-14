@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -73,7 +73,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		model:  coretesting.ModelTag,
 		entity: names.NewMachineTag("42"),
 	}
-	s.getter = dt.StubGetter(map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]any{
 		"agent-name": s.agent,
 	})
 
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name": dependency.ErrMissing,
 	})
 
@@ -119,7 +119,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
-		Args:     []interface{}{s.agent},
+		Args:     []any{s.agent},
 	}})
 }
 
@@ -129,7 +129,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
-		Args:     []interface{}{s.agent},
+		Args:     []any{s.agent},
 	}})
 }
 
@@ -205,7 +205,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 
-	var apicaller interface{}
+	var apicaller any
 	err := s.manifold.Output(worker, &apicaller)
 	c.Check(apicaller, tc.IsNil)
 	c.Check(err.Error(), tc.Equals, "out should be *base.APICaller or *api.Connection; got *interface {}")

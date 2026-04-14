@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/juju/gnuflag"
@@ -105,10 +106,8 @@ func (c *ActionSetCommand) Init(args []string) error {
 				return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
 			}
 
-			for _, reserved := range reservedKeys {
-				if reserved == key {
-					return fmt.Errorf(`cannot set reserved action key "%s"`, key)
-				}
+			if slices.Contains(reservedKeys, key) {
+				return fmt.Errorf(`cannot set reserved action key "%s"`, key)
 			}
 		}
 		// [key, key, key, key, value]

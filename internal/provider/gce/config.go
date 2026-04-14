@@ -60,7 +60,7 @@ var configDefaults = schema.Defaults{
 
 type environConfig struct {
 	config *config.Config
-	attrs  map[string]interface{}
+	attrs  map[string]any
 }
 
 // newConfig builds a new environConfig from the provided Config

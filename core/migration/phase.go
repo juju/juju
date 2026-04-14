@@ -3,6 +3,8 @@
 
 package migration
 
+import "slices"
+
 // Phase values specify model migration phases.
 type Phase int
 
@@ -68,23 +70,13 @@ func (p Phase) CanTransitionTo(targetPhase Phase) bool {
 	if !exists {
 		return false
 	}
-	for _, nextPhase := range nextPhases {
-		if nextPhase == targetPhase {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(nextPhases, targetPhase)
 }
 
 // IsTerminal returns true if the phase is one which signifies the end
 // of a migration.
 func (p Phase) IsTerminal() bool {
-	for _, t := range terminalPhases {
-		if p == t {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(terminalPhases, p)
 }
 
 // IsRunning returns true if the phase indicates the migration is

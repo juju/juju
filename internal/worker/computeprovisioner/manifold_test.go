@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -67,7 +67,7 @@ func (s *ManifoldSuite) TestManifold(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingAgent(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"agent":      dependency.ErrMissing,
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
@@ -78,7 +78,7 @@ func (s *ManifoldSuite) TestMissingAgent(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": dependency.ErrMissing,
 		"environ":    struct{ environs.Environ }{},
@@ -89,7 +89,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 
 func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    dependency.ErrMissing,
@@ -100,7 +100,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 
 func (s *ManifoldSuite) TestStarts(c *tc.C) {
 	manifold := s.makeManifold(c)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"agent":      new(fakeAgent),
 		"api-caller": apitesting.APICallerFunc(nil),
 		"environ":    struct{ environs.Environ }{},

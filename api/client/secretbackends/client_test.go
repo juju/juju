@@ -25,7 +25,7 @@ type SecretBackendsSuite struct {
 }
 
 func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		return nil
 	})
 	client := secretbackends.NewClient(apiCaller)
@@ -33,9 +33,9 @@ func (s *SecretBackendsSuite) TestNewClient(c *tc.C) {
 }
 
 func (s *SecretBackendsSuite) TestListSecretBackends(c *tc.C) {
-	config := map[string]interface{}{"foo": "bar"}
+	config := map[string]any{"foo": "bar"}
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "SecretBackends")
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
@@ -80,10 +80,10 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *tc.C) {
 		Name:                "foo",
 		BackendType:         "vault",
 		TokenRotateInterval: new(666 * time.Minute),
-		Config:              map[string]interface{}{"foo": "bar"},
+		Config:              map[string]any{"foo": "bar"},
 	}
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "SecretBackends")
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
@@ -115,7 +115,7 @@ func (s *SecretBackendsSuite) TestAddSecretsBackend(c *tc.C) {
 
 func (s *SecretBackendsSuite) TestRemoveSecretsBackend(c *tc.C) {
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "SecretBackends")
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")
@@ -145,10 +145,10 @@ func (s *SecretBackendsSuite) TestUpdateSecretsBackend(c *tc.C) {
 		Name:                "foo",
 		NameChange:          new("new-name"),
 		TokenRotateInterval: new(666 * time.Minute),
-		Config:              map[string]interface{}{"foo": "bar"},
+		Config:              map[string]any{"foo": "bar"},
 	}
 	apiCaller := testing.BestVersionCaller{
-		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 			c.Check(objType, tc.Equals, "SecretBackends")
 			c.Check(version, tc.Equals, 1)
 			c.Check(id, tc.Equals, "")

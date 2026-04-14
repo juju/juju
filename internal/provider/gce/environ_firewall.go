@@ -74,7 +74,7 @@ var randomSuffixNamer = func(sourceCIDRs []string, prefix string, existingNames 
 		return prefix, nil
 	}
 	data := make([]byte, 4)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, err := rand.Read(data)
 		if err != nil {
 			return "", errors.Trace(err)

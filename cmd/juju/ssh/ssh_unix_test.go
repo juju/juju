@@ -190,7 +190,7 @@ func (s *SSHSuite) TestSSHCommand(c *tc.C) {
 	for i, t := range sshTests {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 
-		isTerminal := func(stdin interface{}) bool {
+		isTerminal := func(stdin any) bool {
 			return t.isTerminal
 		}
 		target := t.args[0]
@@ -261,9 +261,9 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *tc.C) {
 	type concrete struct {
 		coreSSHClient
 	}
-	t := reflect.TypeOf(concrete{})
-	for i := 0; i < t.NumMethod(); i++ {
-		name := t.Method(i).Name
+	t := reflect.TypeFor[concrete]()
+	for method := range t.Methods() {
+		name := method.Name
 
 		// Close isn't an API method.
 		if name == "Close" {
@@ -340,7 +340,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	isTerminal := func(stdin interface{}) bool {
+	isTerminal := func(stdin any) bool {
 		return false
 	}
 

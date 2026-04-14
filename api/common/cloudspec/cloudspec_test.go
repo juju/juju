@@ -33,7 +33,7 @@ func (s *CloudSpecSuite) TestNewCloudSpecAPI(c *tc.C) {
 
 func (s *CloudSpecSuite) TestCloudSpec(c *tc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+	facadeCaller.FacadeCallFn = func(name string, args, response any) error {
 		c.Assert(name, tc.Equals, "CloudSpec")
 		c.Assert(args, tc.DeepEquals, params.Entities{Entities: []params.Entity{
 			{Tag: coretesting.ModelTag.String()},
@@ -82,7 +82,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *tc.C) {
 func (s *CloudSpecSuite) TestCloudSpecOverallError(c *tc.C) {
 	expect := errors.New("bewm")
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+	facadeCaller.FacadeCallFn = func(name string, args, response any) error {
 		return expect
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
@@ -92,7 +92,7 @@ func (s *CloudSpecSuite) TestCloudSpecOverallError(c *tc.C) {
 
 func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *tc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+	facadeCaller.FacadeCallFn = func(name string, args, response any) error {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
@@ -102,7 +102,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *tc.C) {
 
 func (s *CloudSpecSuite) TestCloudSpecResultError(c *tc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+	facadeCaller.FacadeCallFn = func(name string, args, response any) error {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
 			Results: []params.CloudSpecResult{{
 				Error: &params.Error{
@@ -121,7 +121,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *tc.C) {
 
 func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *tc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testhelpers.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+	facadeCaller.FacadeCallFn = func(name string, args, response any) error {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{Results: []params.CloudSpecResult{{
 			Result: &params.CloudSpec{
 				Type: "",

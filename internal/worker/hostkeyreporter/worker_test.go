@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/dependency"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
@@ -102,7 +102,7 @@ func (s *Suite) TestSuccess(c *tc.C) {
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.Equals, dependency.ErrUninstall)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{{
-		"ReportKeys", []interface{}{"42", []string{"dsa", "ecdsa", "rsa"}},
+		"ReportKeys", []any{"42", []string{"dsa", "ecdsa", "rsa"}},
 	}})
 }
 

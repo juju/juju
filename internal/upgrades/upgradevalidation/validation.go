@@ -97,11 +97,12 @@ func (e ModelUpgradeBlockers) string() string {
 	if len(e.blockers) == 0 {
 		return ""
 	}
-	errString := fmt.Sprintf("%q:", e.modelName)
+	var errString strings.Builder
+	errString.WriteString(fmt.Sprintf("%q:", e.modelName))
 	for _, b := range e.blockers {
-		errString += b.String()
+		errString.WriteString(b.String())
 	}
-	return errString
+	return errString.String()
 }
 
 // ModelUpgradeCheck sumarizes a list of blockers for upgrading the provided model.

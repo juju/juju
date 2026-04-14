@@ -15,10 +15,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("PayloadsHookContext", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV1(ctx)
-	}, reflect.TypeOf((*UnitFacadeV1)(nil)))
+	}, reflect.TypeFor[*UnitFacadeV1]())
 	registry.MustRegister("PayloadsHookContext", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV2(ctx)
-	}, reflect.TypeOf((*UnitFacadeV2)(nil)))
+	}, reflect.TypeFor[*UnitFacadeV2]())
 }
 
 // newFacadeV1 provides the signature to register this resource facade

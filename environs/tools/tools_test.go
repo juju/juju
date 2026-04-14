@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -63,14 +64,12 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]interface{}) {
-	final := map[string]interface{}{
+func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]any) {
+	final := map[string]any{
 		"agent-metadata-url": utils.MakeFileURL(s.customToolsDir),
 		"agent-stream":       "proposed",
 	}
-	for k, v := range attrs {
-		final[k] = v
-	}
+	maps.Copy(final, attrs)
 	s.resetEnv(c, final)
 }
 
@@ -97,7 +96,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *tc.C, versions toolstesting.S
 	return toolstesting.UploadToDirectory(c, s.publicToolsDir, versions)
 }
 
-func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]interface{}) {
+func (s *SimpleStreamsToolsSuite) resetEnv(c *tc.C, attrs map[string]any) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
 	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c.Context(), c),
@@ -219,7 +218,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, tc.ErrorIsNil)
-	for i := 0; i < len(sources); i++ {
+	for range sources {
 		messages = append(messages,
 			loggo.Entry{Level: loggo.TRACE, Message: `fetchData failed for .*`},
 			loggo.Entry{Level: loggo.DEBUG, Message: `cannot load index .*`})

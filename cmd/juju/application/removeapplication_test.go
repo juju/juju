@@ -85,7 +85,7 @@ func (s *removeApplicationSuite) TestRemoveApplication(c *tc.C) {
 func (s *removeApplicationSuite) TestRemoveApplicationWithRequiresPromptModeAbsent(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: ""})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: ""})
 	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{
@@ -152,7 +152,7 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]any{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyApplications(gomock.Any(), apiapplication.DestroyApplicationsParams{

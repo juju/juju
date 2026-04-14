@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
@@ -394,7 +394,7 @@ func (s *streamSuite) TestMultipleTerms(c *tc.C) {
 	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		// Insert a change and wait for it to be streamed.
 		chg := change{
 			id:   1000,
@@ -455,7 +455,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *tc.C) {
 	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
 	defer workertest.DirtyKill(c, stream)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		// Insert a change and wait for it to be streamed.
 		chg := change{
 			id:   1000,
@@ -944,7 +944,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 			// A report during a term, shouldn't be blocked. This test proves
 			// that case.
-			data := stream.Report()
+			data := stream.Report(c.Context())
 			c.Check(data["last-recorded-watermark"], tc.Equals, "")
 
 			term.Done(false, make(chan struct{}))
@@ -958,7 +958,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	// closed before we update the watermark.
 	syncPoint := func(c *tc.C) map[string]any {
 		for range 3 {
-			data := stream.Report()
+			data := stream.Report(c.Context())
 			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
 			}
@@ -988,7 +988,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 	s.expectWaterMark(c, id, 1)
 
-	data = stream.Report()
+	data = stream.Report(c.Context())
 	c.Check(data, tc.DeepEquals, map[string]any{
 		"id":                      id,
 		"watermarks":              constructWatermark(1, changestream.DefaultNumTermWatermarks),
@@ -1231,7 +1231,7 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *tc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	uuid := uuid.MustNewUUID().String()
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		ch := change{
 			id:   1000,
 			uuid: uuid,
@@ -1253,7 +1253,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *tc.C) {
 	s.insertNamespace(c, 1000, "foo")
 
 	changes := make([]change, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ch := change{
 			id:   1000,
 			uuid: uuid.MustNewUUID().String(),
@@ -1278,14 +1278,14 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *tc.C)
 	s.insertNamespace(c, 1000, "foo")
 
 	changes := make([]change, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		var (
 			ch   change
 			uuid = uuid.MustNewUUID().String()
 		)
 		// Grouping is done via uuid, so we should only ever see the last change
 		// when grouping them.
-		for j := 0; j < 10; j++ {
+		for range 10 {
 			ch = change{
 				id:   1000,
 				uuid: uuid,
@@ -1465,7 +1465,7 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *tc.C) {
 	// buffer is capped FIFO, so we will only witness the last view of the
 	// buffer.
 	total := int64(changestream.DefaultNumTermWatermarks * 10)
-	for i := int64(0); i < total; i++ {
+	for i := range total {
 		stream.recordTermView(&termView{lower: i, upper: i + 1})
 	}
 

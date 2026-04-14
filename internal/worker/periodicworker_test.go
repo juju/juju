@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
@@ -61,7 +61,7 @@ func (t *testNextPeriod) nextPeriod(period time.Duration, jitter float64) time.D
 }
 
 func (s *periodicWorkerSuite) TestNextPeriod(c *tc.C) {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		p := nextPeriod(time.Second, 0.1)
 		c.Assert(p.Seconds()/time.Second.Seconds() <= 1.1, tc.IsTrue)
 		c.Assert(p.Seconds()/time.Second.Seconds() >= 0.9, tc.IsTrue)
@@ -69,7 +69,7 @@ func (s *periodicWorkerSuite) TestNextPeriod(c *tc.C) {
 }
 
 func (s *periodicWorkerSuite) TestNextPeriodWithoutJitter(c *tc.C) {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		p := nextPeriod(time.Second, 0)
 		c.Assert(p, tc.DeepEquals, time.Second)
 	}
@@ -107,10 +107,10 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *tc.C) {
 	// to nextPeriod because we have Kill()ed the worker.
 	tPeriod.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+		Args:     []any{testing.ShortWait, float64(0.2)},
 	}, {
 		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+		Args:     []any{testing.ShortWait, float64(0.2)},
 	}})
 	select {
 	case <-funcHasRun:
@@ -204,7 +204,7 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *tc.C) {
 	unacceptableWait := time.Second * 10
 	w := NewPeriodicWorker(doWork, period, NewTimer)
 	defer func() { c.Assert(worker.Stop(w), tc.IsNil) }()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		select {
 		case <-funcHasRun:
 		case <-time.After(unacceptableWait):

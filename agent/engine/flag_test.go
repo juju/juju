@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/internal/testhelpers"
@@ -31,7 +31,7 @@ func (*FlagSuite) TestFlagOutputBadWorker(c *tc.C) {
 
 func (*FlagSuite) TestFlagOutputBadTarget(c *tc.C) {
 	in := &stubFlagWorker{}
-	var out interface{}
+	var out any
 	err := engine.FlagOutput(in, &out)
 	c.Check(err, tc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
 	c.Check(out, tc.IsNil)

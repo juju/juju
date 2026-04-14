@@ -43,7 +43,7 @@ func TestBundleDeploySuite(t *testing.T) {
 }
 
 func (s *BundleDeploySuite) SetUpTest(c *tc.C) {
-	cfg := map[string]interface{}{
+	cfg := map[string]any{
 		"name":           "name",
 		"uuid":           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type":           "foo",
@@ -405,7 +405,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 	}
 	s.fakeAPI.Call("Deploy", deployArgs).Returns(error(nil))
 	s.fakeAPI.Call("AddRelation",
-		[]interface{}{"wordpress:db", "mysql:server"}, []interface{}{},
+		[]any{"wordpress:db", "mysql:server"}, []any{},
 	).Returns(
 		&params.AddRelationResults{},
 		error(nil),
@@ -495,7 +495,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *tc.C) {
 		NumUnits:        1,
 	}).Returns([]string{"wordpress/0"}, error(nil))
 	s.fakeAPI.Call("AddRelation",
-		[]interface{}{"wordpress:db", "mysql:server"}, []interface{}{},
+		[]any{"wordpress:db", "mysql:server"}, []any{},
 	).Returns(
 		&params.AddRelationResults{},
 		error(nil),
@@ -772,7 +772,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *tc.C) {
 	).Returns("mysql", nil)
 
 	s.fakeAPI.Call("AddRelation",
-		[]interface{}{"wordpress:db", "mysql:db"}, []interface{}{},
+		[]any{"wordpress:db", "mysql:db"}, []any{},
 	).Returns(
 		&params.AddRelationResults{},
 		error(nil),

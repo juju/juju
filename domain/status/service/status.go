@@ -201,7 +201,7 @@ func decodeK8sPodStatus(s status.StatusInfo[status.K8sPodStatusType]) (corestatu
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -272,7 +272,7 @@ func decodeUnitAgentStatus(s status.StatusInfo[status.UnitAgentStatusType], pres
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -329,7 +329,7 @@ func decodeUnitWorkloadStatus(s status.StatusInfo[status.WorkloadStatusType], pr
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -354,14 +354,14 @@ func decodeUnitWorkloadAgentStatus(s status.UnitWorkloadAgentStatus) (bool, core
 		return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, err
 	}
 
-	var agentData map[string]interface{}
+	var agentData map[string]any
 	if len(s.AgentStatus.Data) > 0 {
 		if err := json.Unmarshal(s.AgentStatus.Data, &agentData); err != nil {
 			return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling agent status data: %w", err)
 		}
 	}
 
-	var workloadData map[string]interface{}
+	var workloadData map[string]any
 	if len(s.WorkloadStatus.Data) > 0 {
 		if err := json.Unmarshal(s.WorkloadStatus.Data, &workloadData); err != nil {
 			return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling workload status data: %w", err)
@@ -389,7 +389,7 @@ func decodeApplicationStatus(s status.StatusInfo[status.WorkloadStatusType]) (co
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -419,7 +419,7 @@ func decodeUnitDisplayAndAgentStatus(
 	// maintain the same behaviour. This can be disingenuous if there is a legitimate
 	// agent error and the workload is fine, but we're trying to maintain compatibility.
 	if fullUnitStatus.AgentStatus.Status == status.UnitAgentStatusError {
-		var data map[string]interface{}
+		var data map[string]any
 		if len(fullUnitStatus.AgentStatus.Data) > 0 {
 			if err := json.Unmarshal(fullUnitStatus.AgentStatus.Data, &data); err != nil {
 				return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -656,7 +656,7 @@ func decodeMachineStatus(s status.StatusInfo[status.MachineStatusType], present 
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
@@ -740,7 +740,7 @@ func decodeInstanceStatus(s status.StatusInfo[status.InstanceStatusType]) (cores
 		return corestatus.StatusInfo{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
 			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)

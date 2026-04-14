@@ -287,6 +287,94 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubord
 	harness.Run(c, []string{relationKey})
 }
 
+// TestWatchRelationUnitApplicationLifeSuspendedStatusSubordinateNewGlobalRelation
+// is a regression test for: https://github.com/juju/juju/issues/21967
+// It verifies that when a subordinate unit's watcher is running, it is notified
+// when a new global-scoped relation is created between the subordinate
+// application and a third-party application (not the principal).
+func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubordinateNewGlobalRelation(c *tc.C) {
+	// Arrange: create the required state.
+	// - my-application (subordinate) is related to two (principal).
+	// - my-application/0 is the subordinate unit under two/0.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+
+	_, appTwoUUID, charmTwoUUID := s.setupSecondAppAndRelate(c, "two")
+
+	subordinateUnitUUID := unittesting.GenUnitUUID(c)
+	principalUnitUUID := unittesting.GenUnitUUID(c)
+	s.setCharmSubordinate(c, s.charmUUID, true)
+	s.addUnit(c, subordinateUnitUUID, "my-application/0", s.appUUID, s.charmUUID)
+	s.addUnit(c, principalUnitUUID, "two/0", appTwoUUID, charmTwoUUID)
+	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
+
+	// Set up a third application (ldap-integrator) that is NOT the principal.
+	charmThirdUUID := charmtesting.GenCharmID(c)
+	charmRelationThirdUUID := uuid.MustNewUUID()
+	appThirdUUID := tc.Must(c, coreapplication.NewUUID)
+	appEndpointThirdUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmThirdUUID, "ldap-integrator")
+	// scope_id=0 is global scope — the ldap relation is cross-application.
+	s.addCharmRelation(c, charmThirdUUID, charmRelationThirdUUID, 1)
+	s.addApplication(c, charmThirdUUID, appThirdUUID, "ldap-integrator")
+	s.addApplicationEndpoint(c, appEndpointThirdUUID, appThirdUUID, charmRelationThirdUUID)
+
+	s.AssertChangeStreamIdle(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The relation key for the principal-subordinate relation (initial state).
+	initialRelationKey := relationtesting.GenNewKey(c, "two:fake-1 my-application:fake-0").String()
+	// The relation key for the new global-scope relation with the third app.
+	newRelationKey := relationtesting.GenNewKey(c, "ldap-integrator:fake-1 my-application:fake-0").String()
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act: create a new relation between my-application and ldap-integrator.
+	// This simulates `juju integrate my-application:ldap ldap-integrator:ldap`.
+	// All inserts must be in a single transaction so that when the relation
+	// change event fires, the endpoints already exist and the mapper can
+	// resolve the application UUID correctly.
+	harness.AddTest(c, func(c *tc.C) {
+		newRelUUID := relationtesting.GenRelationUUID(c)
+		newRelEndpointSubUUID := relationtesting.GenEndpointUUID(c)
+		newRelEndpointThirdUUID := relationtesting.GenEndpointUUID(c)
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?,0,?,0)`,
+				newRelUUID, s.relationCount,
+			); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?,?,?)`,
+				newRelEndpointSubUUID, newRelUUID, s.appEndpointUUID.String(),
+			); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?,?,?)`,
+				newRelEndpointThirdUUID, newRelUUID, appEndpointThirdUUID.String(),
+			); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		s.relationCount++
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: the watcher fires with the new relation key.
+		w.Check(
+			watchertest.StringSliceAssert(newRelationKey),
+		)
+	})
+
+	// Act: run test harness.
+	// Assert: initial event is only the principal-subordinate relation key.
+	harness.Run(c, []string{initialRelationKey})
+}
+
 func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplication(c *tc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
@@ -1039,7 +1127,7 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
 	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
 
-	config.initialAppUUID = watchedUUID
+	config.initialAppUUID = config.otherUUID
 	config.initialUnitUUIDs = []coreunit.UUID{config.other0UUID, config.other1UUID}
 	slices.Sort(config.initialUnitUUIDs)
 
@@ -1079,7 +1167,7 @@ func (s *watcherSuite) setupTestWatchRelationUnitNoRemoteUnits(c *tc.C) testWatc
 	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
 	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
 
-	config.initialAppUUID = watchedUUID
+	config.initialAppUUID = config.otherUUID
 	config.initialUnitUUIDs = nil
 	return config
 }

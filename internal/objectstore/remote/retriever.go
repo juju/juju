@@ -115,7 +115,7 @@ func NewModelBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, na
 }
 
 // Report returns a map of internal state for the BlobRetriever.
-func (r *BlobRetriever) Report() map[string]any {
+func (r *BlobRetriever) Report(_ context.Context) map[string]any {
 	report := make(map[string]any)
 
 	report["namespace"] = r.namespace

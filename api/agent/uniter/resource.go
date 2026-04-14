@@ -23,7 +23,7 @@ import (
 // FacadeCaller exposes the raw API caller functionality needed here.
 type FacadeCaller interface {
 	// FacadeCall makes an API request.
-	FacadeCall(ctx context.Context, request string, args, response interface{}) error
+	FacadeCall(ctx context.Context, request string, args, response any) error
 }
 
 // UnitHTTPClient exposes the raw API HTTP caller functionality needed here.
@@ -129,7 +129,7 @@ func (uhc unitHTTPClient) Unit() string {
 }
 
 // Do implements httprequest.Doer.
-func (uhc *unitHTTPClient) Do(ctx context.Context, req *http.Request, response interface{}) error {
+func (uhc *unitHTTPClient) Do(ctx context.Context, req *http.Request, response any) error {
 	req.URL.Path = path.Join("/units", uhc.unitName, req.URL.Path)
 	return uhc.HTTPDoer.Do(ctx, req, response)
 }

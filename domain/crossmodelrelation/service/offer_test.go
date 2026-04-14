@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	relationtesting "github.com/juju/juju/core/relation/testing"
-	"github.com/juju/juju/core/status"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -562,8 +561,8 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{})
 }
 
-// TestGetOffersWithConnections focuses on the GetOfferConnections state call.
-// The other functionality has been tested in TestGetOffers tests.
+// TestGetOffersWithConnections ensures that GetOffersWithConnections returns
+// offer details with connections populated from the state layer.
 func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -600,18 +599,17 @@ func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
-	offerConnections := map[string][]crossmodelrelation.OfferConnection{
-		offerUUIDs[0]: {
-			{
-				Username:       "bob",
-				RelationId:     0,
-				Endpoint:       "db-admin-r",
-				Status:         status.Joined,
-				IngressSubnets: []string{"203.0.113.42/24"},
-			},
+	connections := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUIDs[0],
+			SourceModelUUID: "consumer-model-uuid",
+			RelationID:      1,
+			Username:        "consumer-user",
+			Endpoint:        "endpoint",
+			Status:          "joined",
 		},
 	}
-	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(offerConnections, nil)
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(connections, nil)
 
 	filters := []OfferFilter{{
 		ApplicationName: inputFilter.ApplicationName,
@@ -645,20 +643,13 @@ func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
 				TotalConnections:       2,
 				TotalActiveConnections: 1,
 			},
-			OfferConnections: []crossmodelrelation.OfferConnection{{
-				Username:       "bob",
-				RelationId:     0,
-				Endpoint:       "db-admin-r",
-				Status:         status.Joined,
-				IngressSubnets: []string{"203.0.113.42/24"},
-			}},
+			OfferConnections: connections,
 		},
 	})
 }
 
-// TestGetOffersWithConnections focuses on the GetOfferConnections state call.
-// The other functionality has been tested in TestGetOffers tests. Ensure that
-// if there are no connections, the call does not fail.
+// TestGetOffersWithConnectionsNoConnections ensures GetOffersWithConnections
+// returns offer details correctly when there are no connections.
 func (s *offerServiceSuite) TestGetOffersWithConnectionsNoConnections(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -693,6 +684,7 @@ func (s *offerServiceSuite) TestGetOffersWithConnectionsNoConnections(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
 
+	// No connections found for these offers.
 	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(nil, nil)
 
 	filters := []OfferFilter{{
@@ -822,7 +814,7 @@ type createOfferArgsMatcher struct {
 	expected crossmodelrelation.CreateOfferArgs
 }
 
-func (m createOfferArgsMatcher) Matches(x interface{}) bool {
+func (m createOfferArgsMatcher) Matches(x any) bool {
 	obtained, ok := x.(crossmodelrelation.CreateOfferArgs)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
@@ -836,6 +828,48 @@ func (m createOfferArgsMatcher) Matches(x interface{}) bool {
 
 func (m createOfferArgsMatcher) String() string {
 	return "match CreateOfferArgs"
+}
+
+func (s *offerServiceSuite) TestGetOfferConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+	expected := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUIDs[0],
+			SourceModelUUID: uuid.MustNewUUID().String(),
+			RelationID:      42,
+			Username:        "consumer-user",
+			Endpoint:        "db",
+			Status:          "joined",
+			Message:         "",
+			IngressSubnets:  []string{"10.0.0.0/24"},
+		},
+	}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(expected, nil)
+
+	// Act
+	result, err := s.service(c).GetOfferConnections(c.Context(), offerUUIDs)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
+}
+
+func (s *offerServiceSuite) TestGetOfferConnectionsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).
+		Return(nil, errors.New("boom"))
+
+	// Act
+	_, err := s.service(c).GetOfferConnections(c.Context(), offerUUIDs)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *offerServiceSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {

@@ -103,7 +103,7 @@ var configDefaults = schema.Defaults{
 }
 
 type backendConfig struct {
-	validAttrs map[string]interface{}
+	validAttrs map[string]any
 }
 
 func (c *backendConfig) endpoint() string {
@@ -150,7 +150,7 @@ func (c *backendConfig) caCerts() []string {
 	if ok {
 		return v
 	}
-	certs, ok := c.validAttrs[caCertsKey].([]interface{})
+	certs, ok := c.validAttrs[caCertsKey].([]any)
 	if ok {
 		cacerts := make([]string, len(certs))
 		for i, cert := range certs {
@@ -231,7 +231,7 @@ func (p k8sProvider) ValidateConfig(oldCfg, newCfg provider.ConfigAttrs, tokenRo
 	return nil
 }
 
-func newConfig(attrs map[string]interface{}) (*backendConfig, error) {
+func newConfig(attrs map[string]any) (*backendConfig, error) {
 	cfg, err := coreconfig.NewConfig(attrs, configSchema, configDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)

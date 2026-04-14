@@ -493,7 +493,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, re
 		return nil, errors.Trace(err)
 	}
 	// Creating "Juju Controller (...)" folder and then model folder, for example.
-	for _, name := range strings.Split(relativeFolderPath, "/") {
+	for name := range strings.SplitSeq(relativeFolderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating folder %q in %q", name, parentFolder.InventoryPath)
@@ -842,7 +842,7 @@ func (c *Client) buildConfigSpec(
 	}
 
 	spec.Flags = &types.VirtualMachineFlagInfo{
-		DiskUuidEnabled: types.NewBool(args.EnableDiskUUID),
+		DiskUuidEnabled: new(args.EnableDiskUUID),
 	}
 
 	for k, v := range args.Metadata {

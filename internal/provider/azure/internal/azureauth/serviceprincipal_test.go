@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/google/uuid"
 	"github.com/juju/clock/testclock"
@@ -87,10 +86,10 @@ const fakeTenantId = "11111111-1111-1111-1111-111111111111"
 
 func roleDefinitionListSender(name string) *azuretesting.MockSender {
 	roleDefinitions := []*armauthorization.RoleDefinition{{
-		ID:   to.Ptr("owner-role-id"),
-		Name: to.Ptr("name-id"),
+		ID:   new("owner-role-id"),
+		Name: new("name-id"),
 		Properties: &armauthorization.RoleDefinitionProperties{
-			RoleName: to.Ptr(name),
+			RoleName: new(name),
 		},
 	}}
 	return azuretesting.NewSenderWithValue(armauthorization.RoleDefinitionListResult{
@@ -140,13 +139,13 @@ func (s *InteractiveSuite) TestInteractive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("app-id"))
-	sp.SetId(to.Ptr("sp-object-id"))
+	sp.SetAppId(new("app-id"))
+	sp.SetId(new("sp-object-id"))
 	cred := models.NewPasswordCredential()
-	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
+	cred.SetSecretText(new("33333333-3333-3333-3333-333333333333"))
 
 	app := models.NewApplication()
-	app.SetAppId(to.Ptr("app-id"))
+	app.SetAppId(new("app-id"))
 	appResp := models.NewApplicationCollectionResponse()
 	appResp.SetValue([]models.Applicationable{app})
 
@@ -201,13 +200,13 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("app-id"))
-	sp.SetId(to.Ptr("sp-object-id"))
+	sp.SetAppId(new("app-id"))
+	sp.SetId(new("sp-object-id"))
 	cred := models.NewPasswordCredential()
-	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
+	cred.SetSecretText(new("33333333-3333-3333-3333-333333333333"))
 
 	app := models.NewApplication()
-	app.SetAppId(to.Ptr("app-id"))
+	app.SetAppId(new("app-id"))
 	appResp := models.NewApplicationCollectionResponse()
 	appResp.SetValue([]models.Applicationable{app})
 
@@ -259,7 +258,7 @@ Initiating interactive authentication.
 func dataError(code string) error {
 	result := odataerrors.NewODataError()
 	mainErr := odataerrors.NewMainError()
-	mainErr.SetCode(to.Ptr(code))
+	mainErr.SetCode(new(code))
 	bs := store.NewInMemoryBackingStore()
 	result.SetBackingStore(bs)
 	result.SetErrorEscaped(mainErr)
@@ -271,13 +270,13 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("app-id"))
-	sp.SetId(to.Ptr("sp-object-id"))
+	sp.SetAppId(new("app-id"))
+	sp.SetId(new("sp-object-id"))
 	cred := models.NewPasswordCredential()
-	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
+	cred.SetSecretText(new("33333333-3333-3333-3333-333333333333"))
 
 	app := models.NewApplication()
-	app.SetAppId(to.Ptr("app-id"))
+	app.SetAppId(new("app-id"))
 	appResp := models.NewApplicationCollectionResponse()
 	appResp.SetValue([]models.Applicationable{app})
 
@@ -330,13 +329,13 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("app-id"))
-	sp.SetId(to.Ptr("sp-object-id"))
+	sp.SetAppId(new("app-id"))
+	sp.SetId(new("sp-object-id"))
 	cred := models.NewPasswordCredential()
-	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
+	cred.SetSecretText(new("33333333-3333-3333-3333-333333333333"))
 
 	app := models.NewApplication()
-	app.SetAppId(to.Ptr("app-id"))
+	app.SetAppId(new("app-id"))
 	appResp := models.NewApplicationCollectionResponse()
 	appResp.SetValue([]models.Applicationable{app})
 
@@ -391,13 +390,13 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp := models.NewServicePrincipal()
-	sp.SetAppId(to.Ptr("app-id"))
-	sp.SetId(to.Ptr("sp-object-id"))
+	sp.SetAppId(new("app-id"))
+	sp.SetId(new("sp-object-id"))
 	cred := models.NewPasswordCredential()
-	cred.SetSecretText(to.Ptr("33333333-3333-3333-3333-333333333333"))
+	cred.SetSecretText(new("33333333-3333-3333-3333-333333333333"))
 
 	app := models.NewApplication()
-	app.SetAppId(to.Ptr("app-id"))
+	app.SetAppId(new("app-id"))
 	appResp := models.NewApplicationCollectionResponse()
 	appResp.SetValue([]models.Applicationable{app})
 

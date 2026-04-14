@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -166,7 +167,7 @@ type AddModelAPI interface {
 		modelCreator names.UserTag,
 		cloudName, cloudRegion string,
 		cloudCredential names.CloudCredentialTag,
-		config map[string]interface{},
+		config map[string]any,
 	) (base.ModelInfo, error)
 }
 
@@ -284,7 +285,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	messageFormat := "Added '%s' model"
-	messageArgs := []interface{}{c.Name}
+	messageArgs := []any{c.Name}
 
 	details := jujuclient.ModelDetails{
 		ModelUUID: model.UUID,
@@ -506,10 +507,8 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 	}
 	// If the user has not specified a credential, and the cloud advertises
 	// itself as supporting the "empty" auth-type, then return immediately.
-	for _, authType := range p.cloud.AuthTypes {
-		if authType == jujucloud.EmptyAuthType {
-			return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
-		}
+	if slices.Contains(p.cloud.AuthTypes, jujucloud.EmptyAuthType) {
+		return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
 	}
 
 	// No credential has been specified, so see if there is one already on the controller we can use.
@@ -627,7 +626,7 @@ func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentia
 	return fail(errors.Trace(err))
 }
 
-func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interface{}, error) {
+func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]any, error) {
 	configValues, err := c.Config.ReadAttrs(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to parse config")
@@ -636,7 +635,7 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to parse config")
 	}
-	attrs, ok := coercedValues.(map[string]interface{})
+	attrs, ok := coercedValues.(map[string]any)
 	if !ok {
 		return nil, errors.New("params must contain a YAML map with string keys")
 	}

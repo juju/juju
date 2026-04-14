@@ -19,10 +19,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("HighAvailability", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newHighAvailabilityAPIV2(stdCtx, ctx)
-	}, reflect.TypeOf((*HighAvailabilityAPIV2)(nil)))
+	}, reflect.TypeFor[*HighAvailabilityAPIV2]())
 	registry.MustRegister("HighAvailability", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newHighAvailabilityAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*HighAvailabilityAPI)(nil)))
+	}, reflect.TypeFor[*HighAvailabilityAPI]())
 }
 
 // newHighAvailabilityAPI creates a new server-side highavailability API end point.

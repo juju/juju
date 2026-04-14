@@ -12,8 +12,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	coreleadership "github.com/juju/juju/core/leadership"
@@ -49,7 +49,7 @@ func (s *TrackerSuite) refreshes(count int) {
 	// and adds delay to that time. Here we advance the clock
 	// in small jumps, and then wait a short time to allow the
 	// worker to do stuff.
-	for i := 0; i < halfRefreshes; i++ {
+	for range halfRefreshes {
 		s.clock.Advance(halfDuration)
 		<-time.After(coretesting.ShortWait)
 	}

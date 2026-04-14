@@ -107,11 +107,11 @@ var cloudSchema = &jsonschema.Schema{
 			Singular:    "auth type",
 			Plural:      "auth types",
 			Type:        []jsonschema.Type{jsonschema.ArrayType},
-			UniqueItems: jsonschema.Bool(true),
+			UniqueItems: new(true),
 			Items: &jsonschema.ItemSpec{
 				Schemas: []*jsonschema.Schema{{
 					Type: []jsonschema.Type{jsonschema.StringType},
-					Enum: []interface{}{
+					Enum: []any{
 						string(cloud.AccessKeyAuthType),
 						string(cloud.UserPassAuthType),
 					},
@@ -127,7 +127,7 @@ var cloudSchema = &jsonschema.Schema{
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				Required:      []string{cloud.EndpointKey},
-				MaxProperties: jsonschema.Int(1),
+				MaxProperties: new(1),
 				Properties: map[string]*jsonschema.Schema{
 					cloud.EndpointKey: {
 						Singular:      "the API endpoint url for the region",

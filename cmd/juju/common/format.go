@@ -119,11 +119,11 @@ func FormatTimeAsTimestamp(t *time.Time, formatISO bool) string {
 // necessary because YAML unmarshals map[interface{}]interface{} in nested
 // maps, which cannot be serialized by bson. Also, handle []interface{}.
 // cf. gopkg.in/juju/charm.v4/actions.go cleanse
-func ConformYAML(input interface{}) (interface{}, error) {
+func ConformYAML(input any) (any, error) {
 	switch typedInput := input.(type) {
 
-	case map[string]interface{}:
-		newMap := make(map[string]interface{})
+	case map[string]any:
+		newMap := make(map[string]any)
 		for key, value := range typedInput {
 			newValue, err := ConformYAML(value)
 			if err != nil {
@@ -133,8 +133,8 @@ func ConformYAML(input interface{}) (interface{}, error) {
 		}
 		return newMap, nil
 
-	case map[interface{}]interface{}:
-		newMap := make(map[string]interface{})
+	case map[any]any:
+		newMap := make(map[string]any)
 		for key, value := range typedInput {
 			typedKey, ok := key.(string)
 			if !ok {
@@ -144,8 +144,8 @@ func ConformYAML(input interface{}) (interface{}, error) {
 		}
 		return ConformYAML(newMap)
 
-	case []interface{}:
-		newSlice := make([]interface{}, len(typedInput))
+	case []any:
+		newSlice := make([]any, len(typedInput))
 		for i, sliceValue := range typedInput {
 			newSliceValue, err := ConformYAML(sliceValue)
 			if err != nil {

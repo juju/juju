@@ -4,13 +4,14 @@
 package safemode_test
 
 import (
+	"slices"
 	"sort"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -132,20 +133,16 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 }
 
 func checkContains(c *tc.C, names []string, seek string) {
-	for _, name := range names {
-		if name == seek {
-			return
-		}
+	if slices.Contains(names, seek) {
+		return
 	}
 	c.Errorf("%q not found in %v", seek, names)
 }
 
 func checkNotContains(c *tc.C, names []string, seek string) {
-	for _, name := range names {
-		if name == seek {
-			c.Errorf("%q found in %v", seek, names)
-			return
-		}
+	if slices.Contains(names, seek) {
+		c.Errorf("%q found in %v", seek, names)
+		return
 	}
 }
 

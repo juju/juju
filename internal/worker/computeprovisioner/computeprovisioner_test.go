@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 
@@ -461,7 +461,7 @@ type startInstanceParamsMatcher struct {
 	failMsg  string
 }
 
-func (m *startInstanceParamsMatcher) Matches(params interface{}) bool {
+func (m *startInstanceParamsMatcher) Matches(params any) bool {
 	siParams := params.(environs.StartInstanceParams)
 	for msg, match := range m.matchers {
 		if !match(siParams) {
@@ -573,7 +573,7 @@ func (m *testMachine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.id)
 }
 
-func (m *testMachine) SetInstanceStatus(ctx context.Context, status status.Status, message string, _ map[string]interface{}) error {
+func (m *testMachine) SetInstanceStatus(ctx context.Context, status status.Status, message string, _ map[string]any) error {
 	m.mu.Lock()
 	m.instStatus = status
 	m.instStatusMsg = message
@@ -590,7 +590,7 @@ func (m *testMachine) InstanceStatus(context.Context) (status.Status, string, er
 	return m.instStatus, m.instStatusMsg, nil
 }
 
-func (m *testMachine) SetStatus(_ context.Context, status status.Status, _ string, _ map[string]interface{}) error {
+func (m *testMachine) SetStatus(_ context.Context, status status.Status, _ string, _ map[string]any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.machineStatus = status

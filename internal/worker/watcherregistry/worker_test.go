@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -127,32 +127,25 @@ func (s *registrySuite) TestConcurrency(c *tc.C) {
 	defer workertest.CleanKill(c, regGetter)
 
 	var wg sync.WaitGroup
-	start := func(f func()) {
-		wg.Add(1)
-		go func() {
-			f()
-			wg.Done()
-		}()
-	}
 	_, err := reg.Register(c.Context(), workertest.NewErrorWorker(nil))
 	c.Assert(err, tc.ErrorIsNil)
 
-	start(func() {
+	wg.Go(func() {
 		_, _ = reg.Register(c.Context(), workertest.NewErrorWorker(nil))
 	})
-	start(func() {
+	wg.Go(func() {
 		_ = reg.RegisterNamed(c.Context(), "named", workertest.NewErrorWorker(nil))
 	})
-	start(func() {
+	wg.Go(func() {
 		_ = reg.Stop("1")
 	})
-	start(func() {
+	wg.Go(func() {
 		_ = reg.Count()
 	})
-	start(func() {
+	wg.Go(func() {
 		_, _ = reg.Get("2")
 	})
-	start(func() {
+	wg.Go(func() {
 		_, _ = reg.Get("named")
 	})
 	wg.Wait()

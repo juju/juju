@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -47,7 +47,7 @@ func (s *MachineStartupSuite) TestInputs(c *tc.C) {
 }
 
 func (s *MachineStartupSuite) TestStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": new(mockAPIConn),
 	})
 	worker, err := s.manifold.Start(c.Context(), getter)

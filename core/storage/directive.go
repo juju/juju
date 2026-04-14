@@ -52,8 +52,8 @@ var (
 //	powers of 1024.
 func ParseDirective(s string) (Directive, error) {
 	var directive Directive
-	fields := strings.Split(s, ",")
-	for _, field := range fields {
+	fields := strings.SplitSeq(s, ",")
+	for field := range fields {
 		if field == "" {
 			continue
 		}

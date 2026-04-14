@@ -23,18 +23,18 @@ const (
 // Config is a group of charm config option names and values. A Config
 // S is considered valid by the Config C if every key in S is an option in
 // C, and every value either has the correct type or is nil.
-type Config map[string]interface{}
+type Config map[string]any
 
 // Option represents a single charm config option.
 type Option struct {
-	Type        string      `yaml:"type"`
-	Description string      `yaml:"description,omitempty"`
-	Default     interface{} `yaml:"default,omitempty"`
+	Type        string `yaml:"type"`
+	Description string `yaml:"description,omitempty"`
+	Default     any    `yaml:"default,omitempty"`
 }
 
 // error replaces any supplied non-nil error with a new error describing a
 // validation failure for the supplied value.
-func (option Option) error(err *error, name string, value interface{}) {
+func (option Option) error(err *error, name string, value any) {
 	if *err != nil {
 		*err = errors.Errorf("option %q expected %s, got %#v", name, option.Type, value)
 	}
@@ -45,7 +45,7 @@ const secretScheme = "secret"
 type secretC struct{}
 
 // Coerce implements schema.Checker.Coerce for secretC.
-func (c secretC) Coerce(v interface{}, path []string) (interface{}, error) {
+func (c secretC) Coerce(v any, path []string) (any, error) {
 	s, err := schema.String().Coerce(v, path)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (c secretC) Coerce(v interface{}, path []string) (interface{}, error) {
 // validate returns an appropriately-typed value for the supplied value, or
 // returns an error if it cannot be converted to the correct type. Nil values
 // are always considered valid.
-func (option Option) validate(name string, value interface{}) (_ interface{}, err error) {
+func (option Option) validate(name string, value any) (_ any, err error) {
 	if value == nil {
 		return nil, nil
 	}
@@ -93,7 +93,7 @@ var optionTypeCheckers = map[string]schema.Checker{
 	"secret":  secretC{},
 }
 
-func (option Option) parse(name, str string) (val interface{}, err error) {
+func (option Option) parse(name, str string) (val any, err error) {
 	switch option.Type {
 	case "string", "secret":
 		return str, nil
@@ -140,11 +140,11 @@ func ReadConfig(r io.Reader) (*ConfigSpec, error) {
 		// field is explicitly specified, but there is no easy way
 		// to tell if it was specified or not without unmarshaling
 		// into interface{} and explicitly checking the field.
-		var configInterface interface{}
+		var configInterface any
 		if err := yaml.Unmarshal(data, &configInterface); err != nil {
 			return nil, err
 		}
-		m, _ := configInterface.(map[interface{}]interface{})
+		m, _ := configInterface.(map[any]any)
 		if _, ok := m["options"]; !ok {
 			return nil, errors.Errorf("invalid config: empty configuration")
 		}

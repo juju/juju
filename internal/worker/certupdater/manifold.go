@@ -6,8 +6,8 @@ package certupdater
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	coredependency "github.com/juju/juju/core/dependency"
 	coreerrors "github.com/juju/juju/core/errors"

@@ -23,7 +23,7 @@ func (s *PackageSource) KeyFileName() string {
 
 // renderTemplate is a helper function which renders a given object to a given
 // template and returns its output as a string.
-func renderTemplate(t *template.Template, obj interface{}) (string, error) {
+func renderTemplate(t *template.Template, obj any) (string, error) {
 	var buf bytes.Buffer
 
 	err := t.Execute(&buf, obj)

@@ -26,17 +26,17 @@ func (s *ActionsSuite) TestValidateOk(c *tc.C) {
 	for i, test := range []struct {
 		description      string
 		actionSpec       *ActionSpec
-		objectToValidate map[string]interface{}
+		objectToValidate map[string]any
 	}{{
 		description: "Validation of an empty object is ok.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
 				"additionalProperties": false}},
@@ -45,61 +45,61 @@ func (s *ActionsSuite) TestValidateOk(c *tc.C) {
 		description: "Validation of one required value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
-		objectToValidate: map[string]interface{}{
+				"required":             []any{"outfile"}}},
+		objectToValidate: map[string]any{
 			"outfile": "out-2014-06-12.bz2",
 		},
 	}, {
 		description: "Validation of one required and one optional value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"},
-					"quality": map[string]interface{}{
+					"quality": map[string]any{
 						"description": "Compression quality",
 						"type":        "integer",
 						"minimum":     0,
 						"maximum":     9}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
-		objectToValidate: map[string]interface{}{
+				"required":             []any{"outfile"}}},
+		objectToValidate: map[string]any{
 			"outfile": "out-2014-06-12.bz2",
 		},
 	}, {
 		description: "Validation of an optional, range limited value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"},
-					"quality": map[string]interface{}{
+					"quality": map[string]any{
 						"description": "Compression quality",
 						"type":        "integer",
 						"minimum":     0,
 						"maximum":     9}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
-		objectToValidate: map[string]interface{}{
+				"required":             []any{"outfile"}}},
+		objectToValidate: map[string]any{
 			"outfile": "out-2014-06-12.bz2",
 			"quality": 5,
 		},
@@ -107,16 +107,16 @@ func (s *ActionsSuite) TestValidateOk(c *tc.C) {
 		description: "Validation of extra params with additionalProperties set to true",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
 				"additionalProperties": true}},
-		objectToValidate: map[string]interface{}{
+		objectToValidate: map[string]any{
 			"outfile":     "out-2014-06-12.bz2",
 			"extraParam1": 1,
 			"extraParam2": 2,
@@ -138,31 +138,31 @@ func (s *ActionsSuite) TestValidateFail(c *tc.C) {
 		description: "Validation of one required value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
+				"required":             []any{"outfile"}}},
 		badActionJson: `{"outfile": 5}`,
 		expectedError: "validation failed: (root).outfile : must be of type string, given 5",
 	}, {
 		description: "Restrict to only one property",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
-				"required":             []interface{}{"outfile"},
+				"required":             []any{"outfile"},
 				"additionalProperties": false}},
 		badActionJson: `{"outfile": "foo.bz", "bar": "foo"}`,
 		expectedError: "validation failed: (root) : additional property \"bar\" is not allowed, given {\"bar\":\"foo\",\"outfile\":\"foo.bz\"}",
@@ -170,42 +170,42 @@ func (s *ActionsSuite) TestValidateFail(c *tc.C) {
 		description: "Validation of one required and one optional value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"},
-					"quality": map[string]interface{}{
+					"quality": map[string]any{
 						"description": "Compression quality",
 						"type":        "integer",
 						"minimum":     0,
 						"maximum":     9}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
+				"required":             []any{"outfile"}}},
 		badActionJson: `{"quality": 5}`,
 		expectedError: "validation failed: (root) : \"outfile\" property is missing and required, given {\"quality\":5}",
 	}, {
 		description: "Validation of an optional, range limited value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"},
-					"quality": map[string]interface{}{
+					"quality": map[string]any{
 						"description": "Compression quality",
 						"type":        "integer",
 						"minimum":     0,
 						"maximum":     9}},
 				"additionalProperties": false,
-				"required":             []interface{}{"outfile"}}},
+				"required":             []any{"outfile"}}},
 		badActionJson: `
 { "outfile": "out-2014-06-12.bz2", "quality": "two" }`,
 		expectedError: "validation failed: (root).quality : must be of type integer, given \"two\"",
@@ -213,12 +213,12 @@ func (s *ActionsSuite) TestValidateFail(c *tc.C) {
 		description: "Validation of misspelled value.",
 		actionSpec: &ActionSpec{
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
 				"additionalProperties": false,
@@ -229,7 +229,7 @@ func (s *ActionsSuite) TestValidateFail(c *tc.C) {
 
 	for i, test := range validActionTests {
 		c.Logf("test %d: %s", i, test.description)
-		var params map[string]interface{}
+		var params map[string]any
 		jsonBytes := []byte(test.badActionJson)
 		err := json.Unmarshal(jsonBytes, &params)
 		c.Assert(err, tc.IsNil)
@@ -242,65 +242,65 @@ func (s *ActionsSuite) TestCleanseOk(c *tc.C) {
 
 	var goodInterfaceTests = []struct {
 		description         string
-		acceptableInterface map[string]interface{}
-		expectedInterface   map[string]interface{}
+		acceptableInterface map[string]any
+		expectedInterface   map[string]any
 	}{{
 		description: "An interface requiring no changes.",
-		acceptableInterface: map[string]interface{}{
+		acceptableInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
 	}, {
 		description: "Substitute a single inner map[i]i.",
-		acceptableInterface: map[string]interface{}{
+		acceptableInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[interface{}]interface{}{
+			"key3": map[any]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[string]interface{}{
+			"key3": map[string]any{
 				"foo1": "val1",
 				"foo2": "val2"}},
 	}, {
 		description: "Substitute nested inner map[i]i.",
-		acceptableInterface: map[string]interface{}{
+		acceptableInterface: map[string]any{
 			"key1a": "val1a",
 			"key2a": "val2a",
-			"key3a": map[interface{}]interface{}{
+			"key3a": map[any]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c"}}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1a": "val1a",
 			"key2a": "val2a",
-			"key3a": map[string]interface{}{
+			"key3a": map[string]any{
 				"key1b": "val1b",
-				"key2b": map[string]interface{}{
+				"key2b": map[string]any{
 					"key1c": "val1c"}}},
 	}, {
 		description: "Substitute nested map[i]i within []i.",
-		acceptableInterface: map[string]interface{}{
+		acceptableInterface: map[string]any{
 			"key1a": "val1a",
-			"key2a": []interface{}{5, "foo", map[string]interface{}{
+			"key2a": []any{5, "foo", map[string]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c"}}}},
-		expectedInterface: map[string]interface{}{
+		expectedInterface: map[string]any{
 			"key1a": "val1a",
-			"key2a": []interface{}{5, "foo", map[string]interface{}{
+			"key2a": []any{5, "foo", map[string]any{
 				"key1b": "val1b",
-				"key2b": map[string]interface{}{
+				"key2b": map[string]any{
 					"key1c": "val1c"}}}},
 	}}
 
@@ -316,25 +316,25 @@ func (s *ActionsSuite) TestCleanseFail(c *tc.C) {
 
 	var badInterfaceTests = []struct {
 		description   string
-		failInterface map[string]interface{}
+		failInterface map[string]any
 		expectedError string
 	}{{
 		description: "An inner map[interface{}]interface{} with an int key.",
-		failInterface: map[string]interface{}{
+		failInterface: map[string]any{
 			"key1": "value1",
 			"key2": "value2",
-			"key3": map[interface{}]interface{}{
+			"key3": map[any]any{
 				"foo1": "val1",
 				5:      "val2"}},
 		expectedError: "map keyed with non-string value",
 	}, {
 		description: "An inner []interface{} containing a map[i]i with an int key.",
-		failInterface: map[string]interface{}{
+		failInterface: map[string]any{
 			"key1a": "val1b",
 			"key2a": "val2b",
-			"key3a": []interface{}{"foo1", 5, map[interface{}]interface{}{
+			"key3a": []any{"foo1", 5, map[any]any{
 				"key1b": "val1b",
-				"key2b": map[interface{}]interface{}{
+				"key2b": map[any]any{
 					"key1c": "val1c",
 					5:       "val2c"}}}},
 		expectedError: "map keyed with non-string value",
@@ -384,16 +384,16 @@ snapshot:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "Take a snapshot of the database.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "snapshot",
 					"description": "Take a snapshot of the database.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"outfile": map[string]interface{}{
+					"properties": map[string]any{
+						"outfile": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string"}},
 					"additionalProperties": false,
-					"required":             []interface{}{"outfile"}}}}},
+					"required":             []any{"outfile"}}}}},
 	}, {
 		description: "An empty Actions definition.",
 		yaml:        "",
@@ -435,15 +435,15 @@ remote-sync:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "Take a snapshot of the database.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "snapshot",
 					"description": "Take a snapshot of the database.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"outfile": map[string]interface{}{
+					"properties": map[string]any{
+						"outfile": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string"},
-						"compression-quality": map[string]interface{}{
+						"compression-quality": map[string]any{
 							"description":      "The compression quality.",
 							"type":             "integer",
 							"minimum":          0,
@@ -452,25 +452,25 @@ remote-sync:
 					"additionalProperties": false}},
 			"remote-sync": {
 				Description: "Sync a file to a remote host.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "remote-sync",
 					"description": "Sync a file to a remote host.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"file": map[string]interface{}{
+					"properties": map[string]any{
+						"file": map[string]any{
 							"description": "The file to send out.",
 							"type":        "string",
 							"format":      "uri"},
-						"remote-uri": map[string]interface{}{
+						"remote-uri": map[string]any{
 							"description": "The host to sync to.",
 							"type":        "string",
 							"format":      "uri"},
-						"util": map[string]interface{}{
+						"util": map[string]any{
 							"description": "The util to perform the sync (rsync or scp.)",
 							"type":        "string",
-							"enum":        []interface{}{"rsync", "scp"}}},
+							"enum":        []any{"rsync", "scp"}}},
 					"additionalProperties": false,
-					"required":             []interface{}{"file", "remote-uri"}}}}},
+					"required":             []any{"file", "remote-uri"}}}}},
 	}, {
 		description: "A schema with other keys, e.g. \"definitions\"",
 		yaml: `
@@ -493,16 +493,16 @@ snapshot:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "Take a snapshot of the database.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "snapshot",
 					"description": "Take a snapshot of the database.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"outfile": map[string]interface{}{
+					"properties": map[string]any{
+						"outfile": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string",
 						},
-						"compression-quality": map[string]interface{}{
+						"compression-quality": map[string]any{
 							"description":      "The compression quality.",
 							"type":             "integer",
 							"minimum":          0,
@@ -511,9 +511,9 @@ snapshot:
 						},
 					},
 					"additionalProperties": false,
-					"definitions": map[string]interface{}{
-						"diskdevice":     map[string]interface{}{},
-						"something-else": map[string]interface{}{},
+					"definitions": map[string]any{
+						"diskdevice":     map[string]any{},
+						"something-else": map[string]any{},
 					},
 				},
 			},
@@ -528,11 +528,11 @@ snapshot:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "Take a snapshot of the database.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"description":          "Take a snapshot of the database.",
 					"title":                "snapshot",
 					"type":                 "object",
-					"properties":           map[string]interface{}{},
+					"properties":           map[string]any{},
 					"additionalProperties": false,
 				}}}},
 	}, {
@@ -544,11 +544,11 @@ snapshot:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "No description",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"description":          "No description",
 					"title":                "snapshot",
 					"type":                 "object",
-					"properties":           map[string]interface{}{},
+					"properties":           map[string]any{},
 					"additionalProperties": false,
 				}}}},
 	}, {
@@ -565,16 +565,16 @@ snapshot-01:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot-01": {
 				Description: "Take database first snapshot.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "snapshot-01",
 					"description": "Take database first snapshot.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"outfile-01": map[string]interface{}{
+					"properties": map[string]any{
+						"outfile-01": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string"}},
 					"additionalProperties": false,
-					"required":             []interface{}{"outfile"}}}}},
+					"required":             []any{"outfile"}}}}},
 	}, {
 		description: "A simple snapshot actions YAML with names containing characters.",
 		yaml: `
@@ -589,16 +589,16 @@ snapshot-0-foo:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot-0-foo": {
 				Description: "Take database first snapshot.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "snapshot-0-foo",
 					"description": "Take database first snapshot.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"outfile": map[string]interface{}{
+					"properties": map[string]any{
+						"outfile": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string"}},
 					"additionalProperties": false,
-					"required":             []interface{}{"outfile"}}}}},
+					"required":             []any{"outfile"}}}}},
 	}, {
 		description: "A simple snapshot actions YAML with names starting characters.",
 		yaml: `
@@ -613,16 +613,16 @@ snapshot-0-foo:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"01-snapshot": {
 				Description: "Take database first snapshot.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":       "01-snapshot",
 					"description": "Take database first snapshot.",
 					"type":        "object",
-					"properties": map[string]interface{}{
-						"01-outfile": map[string]interface{}{
+					"properties": map[string]any{
+						"01-outfile": map[string]any{
 							"description": "The file to write out to.",
 							"type":        "string"}},
 					"additionalProperties": false,
-					"required":             []interface{}{"outfile"}}}}},
+					"required":             []any{"outfile"}}}}},
 	}, {
 		description: "An action with parallel and execution group values set",
 		yaml: `
@@ -636,11 +636,11 @@ snapshot:
 				Description:    "Take a snapshot of the database.",
 				Parallel:       true,
 				ExecutionGroup: "exec group",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":                "snapshot",
 					"description":          "Take a snapshot of the database.",
 					"type":                 "object",
-					"properties":           map[string]interface{}{},
+					"properties":           map[string]any{},
 					"additionalProperties": false},
 			},
 		}},
@@ -654,11 +654,11 @@ snapshot:
 		expectedActions: &Actions{map[string]ActionSpec{
 			"snapshot": {
 				Description: "Take a snapshot of the database.",
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"title":                "snapshot",
 					"description":          "Take a snapshot of the database.",
 					"type":                 "object",
-					"properties":           map[string]interface{}{},
+					"properties":           map[string]any{},
 					"additionalProperties": true,
 				},
 			},
@@ -688,15 +688,15 @@ juju-snapshot:
 	expectedActions := &Actions{map[string]ActionSpec{
 		"juju-snapshot": {
 			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"title":       "juju-snapshot",
 				"description": "Take a snapshot of the database.",
 				"type":        "object",
-				"properties": map[string]interface{}{
-					"outfile": map[string]interface{}{
+				"properties": map[string]any{
+					"outfile": map[string]any{
 						"description": "The file to write out to.",
 						"type":        "string"}},
-				"required":             []interface{}{"outfile"},
+				"required":             []any{"outfile"},
 				"additionalProperties": false}}}}
 
 	reader := bytes.NewReader([]byte(actionsYaml))
@@ -892,14 +892,14 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 	tests := []struct {
 		should     string
 		givenKeys  []string
-		givenMap   map[string]interface{}
-		expected   interface{}
+		givenMap   map[string]any
+		expected   any
 		shouldFail bool
 	}{{
 		should:    "fail if the specified key was not in the map",
 		givenKeys: []string{"key", "key2"},
-		givenMap: map[string]interface{}{
-			"key": map[string]interface{}{
+		givenMap: map[string]any{
+			"key": map[string]any{
 				"key": "value",
 			},
 		},
@@ -907,8 +907,8 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 	}, {
 		should:    "fail if a key was not a string",
 		givenKeys: []string{"key", "key2"},
-		givenMap: map[string]interface{}{
-			"key": map[interface{}]interface{}{
+		givenMap: map[string]any{
+			"key": map[any]any{
 				5: "value",
 			},
 		},
@@ -916,15 +916,15 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 	}, {
 		should:    "fail if we have more keys but not a recursable val",
 		givenKeys: []string{"key", "key2"},
-		givenMap: map[string]interface{}{
+		givenMap: map[string]any{
 			"key": []string{"a", "b", "c"},
 		},
 		shouldFail: true,
 	}, {
 		should:    "retrieve a good value",
 		givenKeys: []string{"key", "key2"},
-		givenMap: map[string]interface{}{
-			"key": map[string]interface{}{
+		givenMap: map[string]any{
+			"key": map[string]any{
 				"key2": "value",
 			},
 		},
@@ -932,18 +932,18 @@ func (s *ActionsSuite) TestRecurseMapOnKeys(c *tc.C) {
 	}, {
 		should:    "retrieve a map",
 		givenKeys: []string{"key"},
-		givenMap: map[string]interface{}{
-			"key": map[string]interface{}{
+		givenMap: map[string]any{
+			"key": map[string]any{
 				"key": "value",
 			},
 		},
-		expected: map[string]interface{}{
+		expected: map[string]any{
 			"key": "value",
 		},
 	}, {
 		should:    "retrieve a slice",
 		givenKeys: []string{"key"},
-		givenMap: map[string]interface{}{
+		givenMap: map[string]any{
 			"key": []string{"a", "b", "c"},
 		},
 		expected: []string{"a", "b", "c"},
@@ -1009,8 +1009,8 @@ act:
 	for i, t := range []struct {
 		should         string
 		schema         string
-		withParams     map[string]interface{}
-		expectedResult map[string]interface{}
+		withParams     map[string]any
+		expectedResult map[string]any
 		expectedError  string
 	}{{
 		should:        "error with no schema",
@@ -1019,59 +1019,59 @@ act:
 		should:         "create a map if handed nil",
 		schema:         schemas["none"],
 		withParams:     nil,
-		expectedResult: map[string]interface{}{},
+		expectedResult: map[string]any{},
 	}, {
 		should:         "create and fill target if handed nil",
 		schema:         schemas["simple"],
 		withParams:     nil,
-		expectedResult: map[string]interface{}{"val": "somestr"},
+		expectedResult: map[string]any{"val": "somestr"},
 	}, {
 		should:         "create a simple default value",
 		schema:         schemas["simple"],
-		withParams:     map[string]interface{}{},
-		expectedResult: map[string]interface{}{"val": "somestr"},
+		withParams:     map[string]any{},
+		expectedResult: map[string]any{"val": "somestr"},
 	}, {
 		should:         "do nothing for no default value",
 		schema:         schemas["none"],
-		withParams:     map[string]interface{}{},
-		expectedResult: map[string]interface{}{},
+		withParams:     map[string]any{},
+		expectedResult: map[string]any{},
 	}, {
 		should:     "insert a default value within a nested map",
 		schema:     schemas["complicated"],
-		withParams: map[string]interface{}{},
-		expectedResult: map[string]interface{}{
-			"val": map[string]interface{}{
-				"bar": map[string]interface{}{
+		withParams: map[string]any{},
+		expectedResult: map[string]any{
+			"val": map[string]any{
+				"bar": map[string]any{
 					"baz": "boz",
 				}}},
 	}, {
 		should:     "create a default value which is an object",
 		schema:     schemas["default-object"],
-		withParams: map[string]interface{}{},
-		expectedResult: map[string]interface{}{
-			"val": map[string]interface{}{
+		withParams: map[string]any{},
+		expectedResult: map[string]any{
+			"val": map[string]any{
 				"foo": "bar",
-				"bar": map[string]interface{}{
+				"bar": map[string]any{
 					"baz": "woz",
 				}}},
 	}, {
 		should:         "not overwrite existing values with default objects",
 		schema:         schemas["default-object"],
-		withParams:     map[string]interface{}{"val": 5},
-		expectedResult: map[string]interface{}{"val": 5},
+		withParams:     map[string]any{"val": 5},
+		expectedResult: map[string]any{"val": 5},
 	}, {
 		should: "interleave defaults into existing objects",
 		schema: schemas["complicated"],
-		withParams: map[string]interface{}{
-			"val": map[string]interface{}{
+		withParams: map[string]any{
+			"val": map[string]any{
 				"foo": "bar",
-				"bar": map[string]interface{}{
+				"bar": map[string]any{
 					"faz": "foz",
 				}}},
-		expectedResult: map[string]interface{}{
-			"val": map[string]interface{}{
+		expectedResult: map[string]any{
+			"val": map[string]any{
 				"foo": "bar",
-				"bar": map[string]interface{}{
+				"bar": map[string]any{
 					"baz": "boz",
 					"faz": "foz",
 				}}},
@@ -1101,7 +1101,7 @@ func getSchemaForAction(c *tc.C, wholeSchema string) ActionSpec {
 // recurseMapOnKeys returns the value of a map keyed recursively by the
 // strings given in "keys".  Thus, recurseMapOnKeys({a,b}, {a:{b:{c:d}}})
 // would return {c:d}.
-func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}, bool) {
+func recurseMapOnKeys(keys []string, params map[string]any) (any, bool) {
 	key, rest := keys[0], keys[1:]
 	answer, ok := params[key]
 
@@ -1118,11 +1118,11 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 
 	switch typed := answer.(type) {
 	// If our value is a map[s]i{}, we can keep recursing.
-	case map[string]interface{}:
+	case map[string]any:
 		return recurseMapOnKeys(keys[1:], typed)
 	// If it's a map[i{}]i{}, we need to check whether it's a map[s]i{}.
-	case map[interface{}]interface{}:
-		m := make(map[string]interface{})
+	case map[any]any:
+		m := make(map[string]any)
 		for k, v := range typed {
 			if tK, ok := k.(string); ok {
 				m[tK] = v

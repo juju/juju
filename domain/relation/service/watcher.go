@@ -195,7 +195,7 @@ func (s *WatchableService) WatchRelationUnitApplicationLifeSuspendedStatus(
 	if subordinateID.IsEmpty() {
 		w = newPrincipalLifeSuspendedStatusWatcher(s, principalID)
 	} else {
-		w = newSubordinateLifeSuspendedStatusWatcher(s, principalID, subordinateID)
+		w = newSubordinateLifeSuspendedStatusWatcher(s, subordinateID, principalID)
 	}
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,

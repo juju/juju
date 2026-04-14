@@ -6,12 +6,16 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
+
+	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
+	"github.com/juju/juju/domain/controllerupgrader/internal"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -52,10 +56,10 @@ type AgentBinaryFinder interface {
 // ControllerState defines the interface for interacting with the underlying
 // controller version.
 type ControllerState interface {
-	// GetControllerNodeVersions returns the current version that is running for
-	// each controller in the cluster. This is the version that each controller
-	// reports when it starts up.
-	GetControllerNodeVersions(ctx context.Context) (map[string]semversion.Number, error)
+	// GetControllerNodes returns the current version and architecture of nodes
+	// running for each controller in the cluster.
+	// The version is the one that each controller reports when it starts up.
+	GetControllerNodes(ctx context.Context) ([]internal.ControllerNode, error)
 
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
@@ -397,18 +401,12 @@ func (s *Service) UpgradeControllerToVersionWithStream(
 func (s *Service) validateControllerCanBeUpgraded(
 	ctx context.Context,
 	currentVersion semversion.Number,
+	controllerNodes []internal.ControllerNode,
 ) error {
-	controllerNodeVersions, err := s.ctrlSt.GetControllerNodeVersions(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"getting controller version for each node in cluster: %w", err,
-		)
-	}
-
 	// blockedNodes is the set of nodes that are blocking the controller
 	// upgrade.
 	blockedNodes := []string{}
-	for node, version := range controllerNodeVersions {
+	for _, node := range controllerNodes {
 		// if the current version for controllers is greater than that of this
 		// node, then this node still needs to be upgraded.
 		//
@@ -417,8 +415,8 @@ func (s *Service) validateControllerCanBeUpgraded(
 		// controller version it is possible for the controller nodes to be
 		// running a version higher than the current version. This is ok and
 		// permissible.
-		if currentVersion.Compare(version) > 0 {
-			blockedNodes = append(blockedNodes, node)
+		if currentVersion.Compare(node.Version) > 0 {
+			blockedNodes = append(blockedNodes, node.ID)
 		}
 	}
 
@@ -444,10 +442,9 @@ func (s *Service) validateControllerCanBeUpgraded(
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) validateControllerCanBeUpgradedTo(
-	ctx context.Context,
-	desiredVersion semversion.Number,
-) error {
+// - [controllerupgradererrors.MissingControllerBinaries] if no controller
+// binaries can be found for the requested version and architecture.
+func (s *Service) validateControllerCanBeUpgradedTo(ctx context.Context, desiredVersion semversion.Number, stream *agentbinary.Stream) error {
 	currentVersion, err := s.ctrlSt.GetControllerTargetVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
@@ -469,11 +466,50 @@ func (s *Service) validateControllerCanBeUpgradedTo(
 		).Add(controllerupgradererrors.VersionNotSupported)
 	}
 
-	err = s.validateControllerCanBeUpgraded(ctx, currentVersion)
+	controllerNodes, err := s.ctrlSt.GetControllerNodes(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting controller version and architecture for each node in cluster: %w", err,
+		)
+	}
+
+	if len(controllerNodes) == 0 {
+		return errors.New("no controller nodes found")
+	}
+
+	err = s.validateControllerCanBeUpgraded(ctx, currentVersion, controllerNodes)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	err = s.validateBinariesExists(ctx, desiredVersion, controllerNodes, stream)
+	return errors.Capture(err)
+}
+
+func (s *Service) validateBinariesExists(ctx context.Context, desiredVersion semversion.Number, controllerNodes []internal.ControllerNode, stream *agentbinary.Stream) error {
+	binaryFinder := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures
+	if stream != nil {
+		binaryFinder = func(ctx context.Context, version semversion.Number, architectures []agentbinary.Architecture) (bool, error) {
+			return s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(ctx, version, *stream, architectures)
+		}
+	}
+
+	architectures := transform.Slice(controllerNodes, func(node internal.ControllerNode) agentbinary.Architecture {
+		return node.Architecture
+	})
+	slices.Sort(architectures)
+	architectures = slices.Compact(architectures)
+	hasBinaries, err := binaryFinder(ctx, desiredVersion, architectures)
+	if err != nil {
+		return errors.Errorf(
+			"checking if binaries exist for version %q: %w", desiredVersion, err,
+		)
+	}
+	if !hasBinaries {
+		return errors.Errorf(
+			"no controller binaries exist for version %q", desiredVersion,
+		).Add(controllerupgradererrors.MissingControllerBinaries)
+	}
 	return nil
 }
 
@@ -524,6 +560,8 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
+// - [controllerupgradererrors.MissingControllerBinaries] if no controller
+// binaries can be found for the requested version.
 func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
@@ -532,29 +570,8 @@ func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersi
 		).Add(coreerrors.NotValid)
 	}
 
-	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
-		ctx, desiredVersion, architectures,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"checking if binaries exist for version %q: %w", desiredVersion, err,
-		)
-	}
-	if !hasBinaries {
-		return errors.Errorf(
-			"no controller binaries exist for version %q", desiredVersion,
-		).Add(controllerupgradererrors.MissingControllerBinaries)
-	}
-
-	return nil
+	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion, nil)
+	return errors.Capture(err)
 }
 
 // RunPreUpgradeChecksWithStream determines whether the controller can be upgraded
@@ -611,6 +628,9 @@ func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agen
 // being upgraded to is more than a patch version upgrade.
 // - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
+// - [controllerupgradererrors.MissingControllerBinaries] if no controller
+// binaries can be found for the requested version and architecture.
+// - [modelagenterrors.AgentStreamNotValid] if the agent stream is not valid.
 func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream agentbinary.Stream) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
@@ -625,27 +645,6 @@ func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, de
 		).Add(modelagenterrors.AgentStreamNotValid)
 	}
 
-	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
-	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
-		ctx, desiredVersion, stream, architectures,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"checking if binaries exist for version %q: %w", desiredVersion, err,
-		)
-	}
-	if !hasBinaries {
-		return errors.Errorf(
-			"no controller binaries exist for version %q", desiredVersion,
-		).Add(controllerupgradererrors.MissingControllerBinaries)
-	}
-
-	return nil
+	err := s.validateControllerCanBeUpgradedTo(ctx, desiredVersion, &stream)
+	return errors.Capture(err)
 }

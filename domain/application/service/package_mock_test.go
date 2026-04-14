@@ -23,6 +23,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
 	machine "github.com/juju/juju/core/machine"
+	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
@@ -814,6 +815,44 @@ func (c *MockStateCheckApplicationsForMigrationCall) Do(f func(context.Context) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCheckApplicationsForMigrationCall) DoAndReturn(f func(context.Context) error) *MockStateCheckApplicationsForMigrationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ClearApplicationHasK8sResources mocks base method.
+func (m *MockState) ClearApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClearApplicationHasK8sResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClearApplicationHasK8sResources indicates an expected call of ClearApplicationHasK8sResources.
+func (mr *MockStateMockRecorder) ClearApplicationHasK8sResources(arg0, arg1 any) *MockStateClearApplicationHasK8sResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearApplicationHasK8sResources", reflect.TypeOf((*MockState)(nil).ClearApplicationHasK8sResources), arg0, arg1)
+	return &MockStateClearApplicationHasK8sResourcesCall{Call: call}
+}
+
+// MockStateClearApplicationHasK8sResourcesCall wrap *gomock.Call
+type MockStateClearApplicationHasK8sResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateClearApplicationHasK8sResourcesCall) Return(arg0 error) *MockStateClearApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateClearApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockStateClearApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateClearApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockStateClearApplicationHasK8sResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3251,6 +3290,45 @@ func (c *MockStateGetModelStoragePoolsCall) DoAndReturn(f func(context.Context) 
 	return c
 }
 
+// GetModelType mocks base method.
+func (m *MockState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockStateMockRecorder) GetModelType(arg0 any) *MockStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockState)(nil).GetModelType), arg0)
+	return &MockStateGetModelTypeCall{Call: call}
+}
+
+// MockStateGetModelTypeCall wrap *gomock.Call
+type MockStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockStateGetModelTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetNodeUUIDByUnitName mocks base method.
 func (m *MockState) GetNetNodeUUIDByUnitName(arg0 context.Context, arg1 unit.Name) (string, error) {
 	m.ctrl.T.Helper()
@@ -3602,6 +3680,46 @@ func (c *MockStateGetUnitNetNodesByNameCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// GetUnitOwnedStorageInstances mocks base method.
+func (m *MockState) GetUnitOwnedStorageInstances(arg0 context.Context, arg1 unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitOwnedStorageInstances", arg0, arg1)
+	ret0, _ := ret[0].([]internal.StorageInstanceComposition)
+	ret1, _ := ret[1].([]internal.StorageAttachmentComposition)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetUnitOwnedStorageInstances indicates an expected call of GetUnitOwnedStorageInstances.
+func (mr *MockStateMockRecorder) GetUnitOwnedStorageInstances(arg0, arg1 any) *MockStateGetUnitOwnedStorageInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitOwnedStorageInstances", reflect.TypeOf((*MockState)(nil).GetUnitOwnedStorageInstances), arg0, arg1)
+	return &MockStateGetUnitOwnedStorageInstancesCall{Call: call}
+}
+
+// MockStateGetUnitOwnedStorageInstancesCall wrap *gomock.Call
+type MockStateGetUnitOwnedStorageInstancesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitOwnedStorageInstancesCall) Return(arg0 []internal.StorageInstanceComposition, arg1 []internal.StorageAttachmentComposition, arg2 error) *MockStateGetUnitOwnedStorageInstancesCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitOwnedStorageInstancesCall) Do(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitOwnedStorageInstancesCall) DoAndReturn(f func(context.Context, unit.UUID) ([]internal.StorageInstanceComposition, []internal.StorageAttachmentComposition, error)) *MockStateGetUnitOwnedStorageInstancesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitPrincipal mocks base method.
 func (m *MockState) GetUnitPrincipal(arg0 context.Context, arg1 unit.Name) (unit.Name, bool, error) {
 	m.ctrl.T.Helper()
@@ -3677,6 +3795,45 @@ func (c *MockStateGetUnitRefreshAttributesCall) Do(f func(context.Context, unit.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitRefreshAttributesCall) DoAndReturn(f func(context.Context, unit.Name) (application0.UnitAttributes, error)) *MockStateGetUnitRefreshAttributesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitStorageRefreshArgs mocks base method.
+func (m *MockState) GetUnitStorageRefreshArgs(arg0 context.Context, arg1 unit.UUID, arg2 charm.ID) (internal.UnitStorageRefreshArgs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitStorageRefreshArgs", arg0, arg1, arg2)
+	ret0, _ := ret[0].(internal.UnitStorageRefreshArgs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitStorageRefreshArgs indicates an expected call of GetUnitStorageRefreshArgs.
+func (mr *MockStateMockRecorder) GetUnitStorageRefreshArgs(arg0, arg1, arg2 any) *MockStateGetUnitStorageRefreshArgsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitStorageRefreshArgs", reflect.TypeOf((*MockState)(nil).GetUnitStorageRefreshArgs), arg0, arg1, arg2)
+	return &MockStateGetUnitStorageRefreshArgsCall{Call: call}
+}
+
+// MockStateGetUnitStorageRefreshArgsCall wrap *gomock.Call
+type MockStateGetUnitStorageRefreshArgsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitStorageRefreshArgsCall) Return(arg0 internal.UnitStorageRefreshArgs, arg1 error) *MockStateGetUnitStorageRefreshArgsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitStorageRefreshArgsCall) Do(f func(context.Context, unit.UUID, charm.ID) (internal.UnitStorageRefreshArgs, error)) *MockStateGetUnitStorageRefreshArgsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitStorageRefreshArgsCall) DoAndReturn(f func(context.Context, unit.UUID, charm.ID) (internal.UnitStorageRefreshArgs, error)) *MockStateGetUnitStorageRefreshArgsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -5200,6 +5357,44 @@ func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// SetApplicationHasK8sResources mocks base method.
+func (m *MockState) SetApplicationHasK8sResources(arg0 context.Context, arg1 application.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationHasK8sResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationHasK8sResources indicates an expected call of SetApplicationHasK8sResources.
+func (mr *MockStateMockRecorder) SetApplicationHasK8sResources(arg0, arg1 any) *MockStateSetApplicationHasK8sResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationHasK8sResources", reflect.TypeOf((*MockState)(nil).SetApplicationHasK8sResources), arg0, arg1)
+	return &MockStateSetApplicationHasK8sResourcesCall{Call: call}
+}
+
+// MockStateSetApplicationHasK8sResourcesCall wrap *gomock.Call
+type MockStateSetApplicationHasK8sResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetApplicationHasK8sResourcesCall) Return(arg0 error) *MockStateSetApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetApplicationHasK8sResourcesCall) Do(f func(context.Context, application.UUID) error) *MockStateSetApplicationHasK8sResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetApplicationHasK8sResourcesCall) DoAndReturn(f func(context.Context, application.UUID) error) *MockStateSetApplicationHasK8sResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationScalingState mocks base method.
 func (m *MockState) SetApplicationScalingState(arg0 context.Context, arg1 string, arg2 int, arg3 bool) error {
 	m.ctrl.T.Helper()
@@ -5660,17 +5855,17 @@ func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.N
 }
 
 // UpdateUnitCharm mocks base method.
-func (m *MockState) UpdateUnitCharm(arg0 context.Context, arg1 unit.Name, arg2 charm.ID) error {
+func (m *MockState) UpdateUnitCharm(arg0 context.Context, arg1 internal.UpdateUnitCharmArg) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateUnitCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateUnitCharm indicates an expected call of UpdateUnitCharm.
-func (mr *MockStateMockRecorder) UpdateUnitCharm(arg0, arg1, arg2 any) *MockStateUpdateUnitCharmCall {
+func (mr *MockStateMockRecorder) UpdateUnitCharm(arg0, arg1 any) *MockStateUpdateUnitCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitCharm), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnitCharm", reflect.TypeOf((*MockState)(nil).UpdateUnitCharm), arg0, arg1)
 	return &MockStateUpdateUnitCharmCall{Call: call}
 }
 
@@ -5686,13 +5881,13 @@ func (c *MockStateUpdateUnitCharmCall) Return(arg0 error) *MockStateUpdateUnitCh
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitCharmCall) Do(f func(context.Context, unit.Name, charm.ID) error) *MockStateUpdateUnitCharmCall {
+func (c *MockStateUpdateUnitCharmCall) Do(f func(context.Context, internal.UpdateUnitCharmArg) error) *MockStateUpdateUnitCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, unit.Name, charm.ID) error) *MockStateUpdateUnitCharmCall {
+func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, internal.UpdateUnitCharmArg) error) *MockStateUpdateUnitCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

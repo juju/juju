@@ -98,8 +98,8 @@ type StringResults struct {
 
 // MapResult holds a generic map or an error.
 type MapResult struct {
-	Result map[string]interface{} `json:"result"`
-	Error  *Error                 `json:"error,omitempty"`
+	Result map[string]any `json:"result"`
+	Error  *Error         `json:"error,omitempty"`
 }
 
 // MapResults holds the bulk operation result of an API call
@@ -133,7 +133,7 @@ type ModelCreateArgs struct {
 	// Config defines the model config, which includes the name of the
 	// model. A model UUID is allocated by the API server during the
 	// creation of the model.
-	Config map[string]interface{} `json:"config,omitempty"`
+	Config map[string]any `json:"config,omitempty"`
 
 	// CloudTag is the tag of the cloud to create the model in.
 	// If this is empty, the model will be created in the same
@@ -251,7 +251,7 @@ type SettingsResults struct {
 
 // ConfigSettings holds unit, application or charm configuration settings
 // with string keys and arbitrary values.
-type ConfigSettings map[string]interface{}
+type ConfigSettings map[string]any
 
 // ConfigSettingsResult holds a configuration map or an error.
 type ConfigSettingsResult struct {
@@ -332,10 +332,10 @@ type CommitHookChangesArg struct {
 }
 
 // ModelConfig holds a model configuration.
-type ModelConfig map[string]interface{}
+type ModelConfig map[string]any
 
 // ControllerConfig holds a controller configuration.
-type ControllerConfig map[string]interface{}
+type ControllerConfig map[string]any
 
 // ModelConfigResult holds model configuration.
 type ModelConfigResult struct {
@@ -545,18 +545,18 @@ type InstancesInfo struct {
 
 // EntityStatus holds the status of an entity.
 type EntityStatus struct {
-	Status status.Status          `json:"status"`
-	Info   string                 `json:"info"`
-	Data   map[string]interface{} `json:"data,omitempty"`
-	Since  *time.Time             `json:"since"`
+	Status status.Status  `json:"status"`
+	Info   string         `json:"info"`
+	Data   map[string]any `json:"data,omitempty"`
+	Since  *time.Time     `json:"since"`
 }
 
 // EntityStatusArgs holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
-	Tag    string                 `json:"tag"`
-	Status string                 `json:"status"`
-	Info   string                 `json:"info"`
-	Data   map[string]interface{} `json:"data"`
+	Tag    string         `json:"tag"`
+	Status string         `json:"status"`
+	Info   string         `json:"info"`
+	Data   map[string]any `json:"data"`
 }
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
@@ -768,7 +768,7 @@ type CharmsResponse struct {
 	ErrorCode string `json:"error-code,omitempty"`
 
 	// ErrorInfo holds extra information associated with the error.
-	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
+	ErrorInfo map[string]any `json:"error-info,omitempty"`
 
 	CharmURL string   `json:"charm-url,omitempty"`
 	Files    []string `json:"files,omitempty"`
@@ -846,8 +846,8 @@ type ProvisioningInfo struct {
 	Tags              map[string]string        `json:"tags,omitempty"`
 	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
 	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
-	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
-	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
+	ControllerConfig  map[string]any           `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]any           `json:"cloudinit-userdata,omitempty"`
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 
 	ProvisioningNetworkTopology

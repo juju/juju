@@ -5,11 +5,12 @@ package modelmigration
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -249,9 +250,7 @@ func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevi
 	secretContent := make(map[int]secrets.SecretData)
 	for j, rev := range revisions {
 		dataCopy := make(secrets.SecretData)
-		for k, v := range rev.Content() {
-			dataCopy[k] = v
-		}
+		maps.Copy(dataCopy, rev.Content())
 		var valueRef *secrets.ValueRef
 		if len(dataCopy) == 0 {
 			// This should ever happen, but just in case, avoid a nil pointer dereference.

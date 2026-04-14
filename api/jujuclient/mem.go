@@ -4,6 +4,7 @@
 package jujuclient
 
 import (
+	"maps"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -57,9 +58,7 @@ func (c *MemStore) AllControllers() (map[string]ControllerDetails, error) {
 	defer c.mu.Unlock()
 
 	result := make(map[string]ControllerDetails)
-	for name, details := range c.Controllers {
-		result[name] = details
-	}
+	maps.Copy(result, c.Controllers)
 	return result, nil
 }
 
@@ -478,9 +477,7 @@ func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	defer c.mu.Unlock()
 
 	result := make(map[string]cloud.CloudCredential)
-	for k, v := range c.Credentials {
-		result[k] = v
-	}
+	maps.Copy(result, c.Credentials)
 	return result, nil
 }
 

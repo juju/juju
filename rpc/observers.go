@@ -20,7 +20,7 @@ type Observer interface {
 	//
 	// ServerRequest is called just before the server method
 	// is invoked.
-	ServerRequest(ctx context.Context, hdr *Header, body interface{})
+	ServerRequest(ctx context.Context, hdr *Header, body any)
 
 	// ServerReply informs the RequestNotifier of a reply sent to a
 	// server request. The given Request gives details of the call
@@ -28,7 +28,7 @@ type Observer interface {
 	// body sent as reply.
 	//
 	// ServerReply is called just before the reply is written.
-	ServerReply(ctx context.Context, req Request, hdr *Header, body interface{})
+	ServerReply(ctx context.Context, req Request, hdr *Header, body any)
 }
 
 // ObserverFactory is a type which can construct a new Observer.
@@ -54,14 +54,14 @@ type ObserverMultiplexer struct {
 }
 
 // ServerReply implements Observer.
-func (m *ObserverMultiplexer) ServerReply(ctx context.Context, req Request, hdr *Header, body interface{}) {
+func (m *ObserverMultiplexer) ServerReply(ctx context.Context, req Request, hdr *Header, body any) {
 	mapConcurrent(ctx, func(ctx context.Context, n Observer) {
 		n.ServerReply(ctx, req, hdr, body)
 	}, m.rpcObservers)
 }
 
 // ServerRequest implements Observer.
-func (m *ObserverMultiplexer) ServerRequest(ctx context.Context, hdr *Header, body interface{}) {
+func (m *ObserverMultiplexer) ServerRequest(ctx context.Context, hdr *Header, body any) {
 	mapConcurrent(ctx, func(ctx context.Context, n Observer) {
 		n.ServerRequest(ctx, hdr, body)
 	}, m.rpcObservers)

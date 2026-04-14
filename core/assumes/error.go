@@ -6,6 +6,7 @@ package assumes
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 
@@ -47,9 +48,7 @@ func requirementsNotSatisfied(message string, errList []error) *RequirementsNotS
 
 	notSatFeatureDescrs := make(map[string]string)
 	for _, nestedErr := range errList {
-		for featName, featDescr := range notSatisfiedFeatureSet(nestedErr) {
-			notSatFeatureDescrs[featName] = featDescr
-		}
+		maps.Copy(notSatFeatureDescrs, notSatisfiedFeatureSet(nestedErr))
 	}
 
 	// Create a footer section where we list description for the features
@@ -74,9 +73,7 @@ func notSatisfiedFeatureSet(err error) map[string]string {
 	switch t := err.(type) {
 	case *notSatisfiedErr:
 		for _, nestedErr := range t.errList {
-			for featName, featDescr := range notSatisfiedFeatureSet(nestedErr) {
-				set[featName] = featDescr
-			}
+			maps.Copy(set, notSatisfiedFeatureSet(nestedErr))
 		}
 	case *featureErr:
 		set[t.featureName] = t.featureDescr
@@ -138,7 +135,7 @@ type featureErr struct {
 	featureDescr string
 }
 
-func featureError(featureName, featureDescr, format string, args ...interface{}) *featureErr {
+func featureError(featureName, featureDescr, format string, args ...any) *featureErr {
 	return &featureErr{
 		message:      fmt.Sprintf(format, args...),
 		featureName:  featureName,

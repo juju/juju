@@ -136,7 +136,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		},
 		{
 			FuncName: "Release",
@@ -193,15 +193,15 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices},
+			Args:     []any{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
 			FuncName: "SetHostMachineNetworkConfig",
-			Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
+			Args:     []any{names.NewMachineTag("1"), cannedObservedNetworkConfig},
 		}, {
 			FuncName: "Release",
 		},
@@ -223,10 +223,10 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices},
+			Args:     []any{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 			// We don't call SetHostMachineNetworkConfig if ObserveNetwork returns nothing
@@ -254,7 +254,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Release",
 		},
@@ -282,10 +282,10 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{[]network.DeviceToBridge{{DeviceName: "eth0", BridgeName: "br-eth0", MACAddress: ""}}},
+			Args:     []any{[]network.DeviceToBridge{{DeviceName: "eth0", BridgeName: "br-eth0", MACAddress: ""}}},
 		}, {
 			FuncName: "Release",
 		},
@@ -331,10 +331,10 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices},
+			Args:     []any{devices},
 		}, {
 			// We don't observe the network information.
 			// TODO(jam): 2017-02-15 This is possibly wrong, we might consider
@@ -366,10 +366,10 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices},
+			Args:     []any{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
@@ -400,15 +400,15 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *tc.C) {
 			FuncName: "AcquireLock",
 		}, {
 			FuncName: "HostChangesForContainer",
-			Args:     []interface{}{containerTag},
+			Args:     []any{containerTag},
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices},
+			Args:     []any{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
 			FuncName: "SetHostMachineNetworkConfig",
-			Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
+			Args:     []any{names.NewMachineTag("1"), cannedObservedNetworkConfig},
 		}, {
 			FuncName: "Release",
 		},

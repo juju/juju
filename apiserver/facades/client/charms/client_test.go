@@ -306,7 +306,7 @@ func (s *charmsMockSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	uuid := testing.ModelTag.Id()
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name":         "model",
 		"type":         "type",
 		"uuid":         uuid,

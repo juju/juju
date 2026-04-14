@@ -60,16 +60,16 @@ import (
 
 var (
 	jammyImageReferenceGen2 = armcompute.ImageReference{
-		Publisher: to.Ptr("Canonical"),
-		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
-		SKU:       to.Ptr("22_04-lts-gen2"),
-		Version:   to.Ptr("latest"),
+		Publisher: new("Canonical"),
+		Offer:     new("0001-com-ubuntu-server-jammy"),
+		SKU:       new("22_04-lts-gen2"),
+		Version:   new("latest"),
 	}
 	jammyImageReferenceArm64 = armcompute.ImageReference{
-		Publisher: to.Ptr("Canonical"),
-		Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
-		SKU:       to.Ptr("22_04-lts-arm64"),
-		Version:   to.Ptr("latest"),
+		Publisher: new("Canonical"),
+		Offer:     new("0001-com-ubuntu-server-jammy"),
+		SKU:       new("22_04-lts-arm64"),
+		Version:   new("latest"),
 	}
 )
 
@@ -83,7 +83,7 @@ func toValue[T any](v *T) T {
 func toMapPtr(in map[string]string) map[string]*string {
 	result := make(map[string]*string)
 	for k, v := range in {
-		result[k] = to.Ptr(v)
+		result[k] = new(v)
 	}
 	return result
 }
@@ -153,102 +153,102 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.group = &armresources.ResourceGroup{
-		Location: to.Ptr("westus"),
+		Location: new("westus"),
 		Tags:     toMapPtr(s.envTags),
 		Properties: &armresources.ResourceGroupProperties{
-			ProvisioningState: to.Ptr("Succeeded"),
+			ProvisioningState: new("Succeeded"),
 		},
 	}
 
 	resourceSKUs := []*armcompute.ResourceSKU{{
-		Name:         to.Ptr("Standard_A1"),
+		Name:         new("Standard_A1"),
 		Locations:    to.SliceOfPtrs("westus"),
-		ResourceType: to.Ptr("virtualMachines"),
+		ResourceType: new("virtualMachines"),
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
-			Name:  to.Ptr("MemoryGB"),
-			Value: to.Ptr("1.75"),
+			Name:  new("MemoryGB"),
+			Value: new("1.75"),
 		}, {
-			Name:  to.Ptr("vCPUs"),
-			Value: to.Ptr("1"),
+			Name:  new("vCPUs"),
+			Value: new("1"),
 		}, {
-			Name:  to.Ptr("OSVhdSizeMB"),
-			Value: to.Ptr("1047552"),
+			Name:  new("OSVhdSizeMB"),
+			Value: new("1047552"),
 		}},
 	}, {
-		Name:         to.Ptr("Standard_D1"),
+		Name:         new("Standard_D1"),
 		Locations:    to.SliceOfPtrs("westus"),
-		ResourceType: to.Ptr("virtualMachines"),
+		ResourceType: new("virtualMachines"),
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
-			Name:  to.Ptr("MemoryGB"),
-			Value: to.Ptr("3.5"),
+			Name:  new("MemoryGB"),
+			Value: new("3.5"),
 		}, {
-			Name:  to.Ptr("vCPUs"),
-			Value: to.Ptr("1"),
+			Name:  new("vCPUs"),
+			Value: new("1"),
 		}, {
-			Name:  to.Ptr("OSVhdSizeMB"),
-			Value: to.Ptr("1047552"),
+			Name:  new("OSVhdSizeMB"),
+			Value: new("1047552"),
 		}},
 	}, {
-		Name:         to.Ptr("Standard_D2"),
+		Name:         new("Standard_D2"),
 		Locations:    to.SliceOfPtrs("westus"),
-		ResourceType: to.Ptr("virtualMachines"),
+		ResourceType: new("virtualMachines"),
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
-			Name:  to.Ptr("MemoryGB"),
-			Value: to.Ptr("7"),
+			Name:  new("MemoryGB"),
+			Value: new("7"),
 		}, {
-			Name:  to.Ptr("vCPUs"),
-			Value: to.Ptr("2"),
+			Name:  new("vCPUs"),
+			Value: new("2"),
 		}, {
-			Name:  to.Ptr("OSVhdSizeMB"),
-			Value: to.Ptr("1047552"),
+			Name:  new("OSVhdSizeMB"),
+			Value: new("1047552"),
 		}},
 	}, {
-		Name:         to.Ptr("Standard_D666"),
+		Name:         new("Standard_D666"),
 		Locations:    to.SliceOfPtrs("westus"),
-		ResourceType: to.Ptr("virtualMachines"),
+		ResourceType: new("virtualMachines"),
 		Restrictions: []*armcompute.ResourceSKURestrictions{{
 			ReasonCode: to.Ptr(armcompute.ResourceSKURestrictionsReasonCodeNotAvailableForSubscription),
 		}},
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
-			Name:  to.Ptr("MemoryGB"),
-			Value: to.Ptr("7"),
+			Name:  new("MemoryGB"),
+			Value: new("7"),
 		}, {
-			Name:  to.Ptr("vCPUs"),
-			Value: to.Ptr("2"),
+			Name:  new("vCPUs"),
+			Value: new("2"),
 		}, {
-			Name:  to.Ptr("OSVhdSizeMB"),
-			Value: to.Ptr("1047552"),
+			Name:  new("OSVhdSizeMB"),
+			Value: new("1047552"),
 		}},
 	}, {
-		Name:         to.Ptr("Standard_D8ps_v5"),
+		Name:         new("Standard_D8ps_v5"),
 		Locations:    to.SliceOfPtrs("westus"),
-		ResourceType: to.Ptr("virtualMachines"),
+		ResourceType: new("virtualMachines"),
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
-			Name:  to.Ptr("MemoryGB"),
-			Value: to.Ptr("32"),
+			Name:  new("MemoryGB"),
+			Value: new("32"),
 		}, {
-			Name:  to.Ptr("vCPUs"),
-			Value: to.Ptr("8"),
+			Name:  new("vCPUs"),
+			Value: new("8"),
 		}, {
-			Name:  to.Ptr("OSVhdSizeMB"),
-			Value: to.Ptr("1047552"),
+			Name:  new("OSVhdSizeMB"),
+			Value: new("1047552"),
 		}},
-		Family: to.Ptr("standardDPSv5Family"),
+		Family: new("standardDPSv5Family"),
 	}}
 	s.skus = resourceSKUs
 
 	s.ubuntuServerSKUs = []armcompute.VirtualMachineImageResource{
-		{Name: to.Ptr("12.04-lts")},
-		{Name: to.Ptr("12.10")},
-		{Name: to.Ptr("14.04-lts")},
-		{Name: to.Ptr("15.04")},
-		{Name: to.Ptr("15.10")},
-		{Name: to.Ptr("16.04-lts")},
-		{Name: to.Ptr("18.04-lts")},
-		{Name: to.Ptr("20_04-lts")},
-		{Name: to.Ptr("22_04-lts")},
-		{Name: to.Ptr("22_04-lts-gen2")},
-		{Name: to.Ptr("22_04-lts-arm64")},
+		{Name: new("12.04-lts")},
+		{Name: new("12.10")},
+		{Name: new("14.04-lts")},
+		{Name: new("15.04")},
+		{Name: new("15.10")},
+		{Name: new("16.04-lts")},
+		{Name: new("18.04-lts")},
+		{Name: new("20_04-lts")},
+		{Name: new("22_04-lts")},
+		{Name: new("22_04-lts-gen2")},
+		{Name: new("22_04-lts-arm64")},
 	}
 
 	s.commonDeployment = &armresources.DeploymentExtended{
@@ -256,22 +256,22 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
 		},
 		Tags: map[string]*string{
-			"juju-model-uuid": to.Ptr(testing.ModelTag.Id()),
+			"juju-model-uuid": new(testing.ModelTag.Id()),
 		},
 	}
 
 	s.deployment = nil
 
 	s.sshPublicKeys = []*armcompute.SSHPublicKey{{
-		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+		Path:    new("/home/ubuntu/.ssh/authorized_keys"),
 		KeyData: to.Ptr(testing.FakeAuthKeys),
 	}}
 	s.linuxOsProfile = armcompute.OSProfile{
-		ComputerName:  to.Ptr("juju-06f00d-0"),
-		CustomData:    to.Ptr("<juju-goes-here>"),
-		AdminUsername: to.Ptr("ubuntu"),
+		ComputerName:  new("juju-06f00d-0"),
+		CustomData:    new("<juju-goes-here>"),
+		AdminUsername: new("ubuntu"),
 		LinuxConfiguration: &armcompute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.Ptr(true),
+			DisablePasswordAuthentication: new(true),
 			SSH: &armcompute.SSHConfiguration{
 				PublicKeys: s.sshPublicKeys,
 			},
@@ -422,8 +422,8 @@ func (s *environSuite) startInstanceSenders(c *tc.C, args startInstanceSenderPar
 		if args.vaultName != "" {
 			senders = append(senders, makeSender("/diskEncryptionSets/"+args.diskEncryptionSetName, &armcompute.DiskEncryptionSet{
 				Identity: &armcompute.EncryptionSetIdentity{
-					PrincipalID: to.Ptr("foo"),
-					TenantID:    to.Ptr(fakeTenantId),
+					PrincipalID: new("foo"),
+					TenantID:    new(fakeTenantId),
 				},
 			}))
 			vaultName := args.vaultName + "-deadbeef"
@@ -434,14 +434,14 @@ func (s *environSuite) startInstanceSenders(c *tc.C, args startInstanceSenderPar
 			), 1)
 			senders = append(senders, &deletedVaultSender)
 			senders = append(senders, makeSender("/vaults/"+vaultName, &armkeyvault.Vault{
-				ID:   to.Ptr("vault-id"),
-				Name: to.Ptr(vaultName),
+				ID:   new("vault-id"),
+				Name: new(vaultName),
 				Properties: &armkeyvault.VaultProperties{
-					VaultURI: to.Ptr("https://vault-uri"),
+					VaultURI: new("https://vault-uri"),
 				},
 			}))
 			senders = append(senders, makeSender(fmt.Sprintf("keys/%s/create", args.vaultKeyName), &keyBundle{
-				Key: &jsonWebKey{Kid: to.Ptr("https://key-url")},
+				Key: &jsonWebKey{Kid: new("https://key-url")},
 			}))
 		}
 	}
@@ -458,10 +458,10 @@ func (s *environSuite) startInstanceSenders(c *tc.C, args startInstanceSenderPar
 				subnetName = "juju-controller-subnet"
 			}
 			args.subnets = []*armnetwork.Subnet{{
-				ID:   to.Ptr(fmt.Sprintf("/virtualNetworks/%s/subnet/%s", vnetName, subnetName)),
-				Name: to.Ptr(subnetName),
+				ID:   new(fmt.Sprintf("/virtualNetworks/%s/subnet/%s", vnetName, subnetName)),
+				Name: new(subnetName),
 				Properties: &armnetwork.SubnetPropertiesFormat{
-					AddressPrefix: to.Ptr("192.168.0.0/20"),
+					AddressPrefix: new("192.168.0.0/20"),
 				},
 			}}
 		}
@@ -528,7 +528,7 @@ func makeResourceGroupNotFoundSender(pattern string) *azuretesting.MockSender {
 	return &sender
 }
 
-func makeSender(pattern string, v interface{}) *azuretesting.MockSender {
+func makeSender(pattern string, v any) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(v)
 	sender.PathPattern = pattern
 	return sender
@@ -618,14 +618,14 @@ func makeToolsList(osType string) tools.List {
 	}}
 }
 
-func unmarshalRequestBody(c *tc.C, req *http.Request, out interface{}) {
+func unmarshalRequestBody(c *tc.C, req *http.Request, out any) {
 	bytes, err := io.ReadAll(req.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(bytes, out)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func assertRequestBody(c *tc.C, req *http.Request, expect interface{}) {
+func assertRequestBody(c *tc.C, req *http.Request, expect any) {
 	unmarshalled := reflect.New(reflect.TypeOf(expect).Elem()).Interface()
 	unmarshalRequestBody(c, req, unmarshalled)
 	c.Assert(unmarshalled, tc.DeepEquals, expect)
@@ -678,7 +678,7 @@ func (s *environSuite) TestStartInstanceConflictRetry(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceRootDiskAccountTypeSetsStorageAccountType(c *tc.C) {
-	rootDiskSourceParams := map[string]interface{}{
+	rootDiskSourceParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-des",
 		"account-type":             "Premium_LRS",
@@ -687,7 +687,7 @@ func (s *environSuite) TestStartInstanceRootDiskAccountTypeSetsStorageAccountTyp
 }
 
 func (s *environSuite) assertStartInstance(
-	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
+	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]any,
 	publicIP, withQuotaRetry, withHypervisorGenRetry, withConflictRetry bool,
 ) {
 	env := s.openEnviron(c)
@@ -713,7 +713,7 @@ func (s *environSuite) assertStartInstance(
 			vaultKeyName, _ = rootDiskSourceParams["vault-key-name"].(string)
 			rds, exists := rootDiskSourceParams["account-type"].(string)
 			if exists {
-				storageAccountType = to.Ptr(armcompute.StorageAccountType(rds))
+				storageAccountType = new(armcompute.StorageAccountType(rds))
 			}
 		}
 	}
@@ -832,7 +832,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
-		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+		Path:    new("/home/ubuntu/.ssh/authorized_keys"),
 		KeyData: to.Ptr(testing.FakeAuthKeys),
 	}}
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
@@ -910,7 +910,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 
 	const failures = 60 // 5 minutes / 5 seconds
 	head, tail := senders[:2], senders[2:]
-	for i := 0; i < failures; i++ {
+	for range failures {
 		head = append(head, makeSender("/deployments/common", s.commonDeployment))
 	}
 	senders = append(head, tail...)
@@ -924,9 +924,9 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 			`max duration exceeded: deployment incomplete`)
 
 	var expectedCalls []testhelpers.StubCall
-	for i := 0; i < failures; i++ {
+	for range failures {
 		expectedCalls = append(expectedCalls, testhelpers.StubCall{
-			FuncName: "After", Args: []interface{}{5 * time.Second},
+			FuncName: "After", Args: []any{5 * time.Second},
 		})
 	}
 	s.retryClock.CheckCalls(c, expectedCalls)
@@ -1004,16 +1004,16 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *tc.C) {
 func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *tc.C) {
 	env := s.openEnviron(c)
 	subnets := []*armnetwork.Subnet{{
-		ID:   to.Ptr("/path/to/subnet1"),
-		Name: to.Ptr("subnet1"),
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.0.0/20"),
+			AddressPrefix: new("192.168.0.0/20"),
 		},
 	}, {
-		ID:   to.Ptr("/path/to/subnet2"),
-		Name: to.Ptr("subnet2"),
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.1.0/20"),
+			AddressPrefix: new("192.168.1.0/20"),
 		},
 	}}
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
@@ -1041,16 +1041,16 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *tc.C)
 func (s *environSuite) TestStartInstanceWithPlacement(c *tc.C) {
 	env := s.openEnviron(c)
 	subnets := []*armnetwork.Subnet{{
-		ID:   to.Ptr("/path/to/subnet1"),
-		Name: to.Ptr("subnet1"),
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.0.0/20"),
+			AddressPrefix: new("192.168.0.0/20"),
 		},
 	}, {
-		ID:   to.Ptr("/path/to/subnet2"),
-		Name: to.Ptr("subnet2"),
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.1.0/20"),
+			AddressPrefix: new("192.168.1.0/20"),
 		},
 	}}
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
@@ -1119,16 +1119,16 @@ func (s *environSuite) assertStartInstanceRequests(
 ) startInstanceRequests {
 	nsgId := `[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`
 	securityRules := []*armnetwork.SecurityRule{{
-		Name: to.Ptr("SSHInbound"),
+		Name: new("SSHInbound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("Allow SSH access to all machines"),
+			Description:              new("Allow SSH access to all machines"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			SourceAddressPrefix:      to.Ptr("*"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr("*"),
-			DestinationPortRange:     to.Ptr("22"),
+			SourceAddressPrefix:      new("*"),
+			SourcePortRange:          new("*"),
+			DestinationAddressPrefix: new("*"),
+			DestinationPortRange:     new("22"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(100)),
+			Priority:                 new(int32(100)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}}
@@ -1137,63 +1137,63 @@ func (s *environSuite) assertStartInstanceRequests(
 		// Therefore ports 443 (for the API server) and 80 (for the HTTP
 		// challenge) are accessible.
 		securityRules = append(securityRules, &armnetwork.SecurityRule{
-			Name: to.Ptr("JujuAPIInbound443"),
+			Name: new("JujuAPIInbound443"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Description:              to.Ptr("Allow API connections to controller machines"),
+				Description:              new("Allow API connections to controller machines"),
 				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-				SourceAddressPrefix:      to.Ptr("*"),
-				SourcePortRange:          to.Ptr("*"),
-				DestinationAddressPrefix: to.Ptr("192.168.16.0/20"),
-				DestinationPortRange:     to.Ptr("443"),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("192.168.16.0/20"),
+				DestinationPortRange:     new("443"),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 to.Ptr(int32(101)),
+				Priority:                 new(int32(101)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}, &armnetwork.SecurityRule{
-			Name: to.Ptr("JujuAPIInbound80"),
+			Name: new("JujuAPIInbound80"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Description:              to.Ptr("Allow API connections to controller machines"),
+				Description:              new("Allow API connections to controller machines"),
 				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-				SourceAddressPrefix:      to.Ptr("*"),
-				SourcePortRange:          to.Ptr("*"),
-				DestinationAddressPrefix: to.Ptr("192.168.16.0/20"),
-				DestinationPortRange:     to.Ptr("80"),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("192.168.16.0/20"),
+				DestinationPortRange:     new("80"),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 to.Ptr(int32(102)),
+				Priority:                 new(int32(102)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
 	} else {
 		port := fmt.Sprint(testing.FakeControllerConfig()["api-port"])
 		securityRules = append(securityRules, &armnetwork.SecurityRule{
-			Name: to.Ptr("JujuAPIInbound" + port),
+			Name: new("JujuAPIInbound" + port),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
-				Description:              to.Ptr("Allow API connections to controller machines"),
+				Description:              new("Allow API connections to controller machines"),
 				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-				SourceAddressPrefix:      to.Ptr("*"),
-				SourcePortRange:          to.Ptr("*"),
-				DestinationAddressPrefix: to.Ptr("192.168.16.0/20"),
-				DestinationPortRange:     to.Ptr(port),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("192.168.16.0/20"),
+				DestinationPortRange:     new(port),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 to.Ptr(int32(101)),
+				Priority:                 new(int32(101)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
 	}
 	subnets := []*armnetwork.Subnet{{
-		Name: to.Ptr("juju-internal-subnet"),
+		Name: new("juju-internal-subnet"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.0.0/20"),
+			AddressPrefix: new("192.168.0.0/20"),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: to.Ptr(nsgId),
+				ID: new(nsgId),
 			},
 		},
 	}, {
-		Name: to.Ptr("juju-controller-subnet"),
+		Name: new("juju-controller-subnet"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("192.168.16.0/20"),
+			AddressPrefix: new("192.168.16.0/20"),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: to.Ptr(nsgId),
+				ID: new(nsgId),
 			},
 		},
 	}}
@@ -1248,7 +1248,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			args.availabilitySetName,
 		)
 		availabilitySetProperties := &armcompute.AvailabilitySetProperties{
-			PlatformFaultDomainCount: to.Ptr(int32(3)),
+			PlatformFaultDomainCount: new(int32(3)),
 		}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: azure.ComputeAPIVersion,
@@ -1260,7 +1260,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
 		availabilitySetSubResource = &armcompute.SubResource{
-			ID: to.Ptr(availabilitySetId),
+			ID: new(availabilitySetId),
 		}
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
@@ -1306,7 +1306,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	if args.publicIP {
 		publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'juju-06f00d-0-public-ip')]`
 		publicIPAddress = &armnetwork.PublicIPAddress{
-			ID: to.Ptr(publicIPAddressId),
+			ID: new(publicIPAddressId),
 		}
 	}
 
@@ -1319,11 +1319,11 @@ func (s *environSuite) assertStartInstanceRequests(
 			name = fmt.Sprintf("interface-%d", i)
 		}
 		ipConfigurations := []*armnetwork.InterfaceIPConfiguration{{
-			Name: to.Ptr(name),
+			Name: new(name),
 			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-				Primary:                   to.Ptr(primary),
+				Primary:                   new(primary),
 				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
-				Subnet:                    &armnetwork.Subnet{ID: to.Ptr(subnetId)},
+				Subnet:                    &armnetwork.Subnet{ID: new(subnetId)},
 			},
 		}}
 		if primary && publicIPAddress != nil {
@@ -1333,9 +1333,9 @@ func (s *environSuite) assertStartInstanceRequests(
 
 		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', 'juju-06f00d-0-%s')]`, name)
 		nics = append(nics, &armcompute.NetworkInterfaceReference{
-			ID: to.Ptr(nicId),
+			ID: new(nicId),
 			Properties: &armcompute.NetworkInterfaceReferenceProperties{
-				Primary: to.Ptr(primary),
+				Primary: new(primary),
 			},
 		})
 		vmDependsOn = append(vmDependsOn, nicId)
@@ -1358,17 +1358,17 @@ func (s *environSuite) assertStartInstanceRequests(
 	}
 
 	osDisk := &armcompute.OSDisk{
-		Name:         to.Ptr("juju-06f00d-0"),
+		Name:         new("juju-06f00d-0"),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
-		DiskSizeGB:   to.Ptr(int32(args.diskSizeGB)),
+		DiskSizeGB:   new(int32(args.diskSizeGB)),
 		ManagedDisk: &armcompute.ManagedDiskParameters{
 			StorageAccountType: storageAccountType,
 		},
 	}
 	if args.diskEncryptionSet != "" {
 		osDisk.ManagedDisk.DiskEncryptionSet = &armcompute.DiskEncryptionSetParameters{
-			ID: to.Ptr(
+			ID: new(
 				fmt.Sprintf("[resourceId('Microsoft.Compute/diskEncryptionSets', '%s')]", args.diskEncryptionSet)),
 		}
 	}
@@ -1396,7 +1396,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		Tags:       s.vmTags,
 		Properties: &armcompute.VirtualMachineProperties{
 			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes(args.instanceType)),
+				VMSize: new(armcompute.VirtualMachineSizeTypes(args.instanceType)),
 			},
 			StorageProfile: &armcompute.StorageProfile{
 				ImageReference: args.imageReference,
@@ -1432,7 +1432,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			DependsOn:  []string{"Microsoft.Compute/virtualMachines/juju-06f00d-0"},
 		})
 	}
-	templateMap := map[string]interface{}{
+	templateMap := map[string]any{
 		"$schema":        "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
 		"contentVersion": "1.0.0.0",
 		"resources":      templateResources,
@@ -1533,7 +1533,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	unmarshalRequestBody(c, startInstanceRequests.deployment, &actual)
 	c.Assert(actual.Properties, tc.NotNil)
 	c.Assert(actual.Properties.Template, tc.NotNil)
-	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	resources, ok := actual.Properties.Template.(map[string]any)["resources"].([]any)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(resources, tc.HasLen, len(templateResources))
 
@@ -1541,19 +1541,19 @@ func (s *environSuite) assertStartInstanceRequests(
 	if args.vmExtension != nil {
 		vmResourceIndex--
 	}
-	vmResource := resources[vmResourceIndex].(map[string]interface{})
-	vmResourceProperties := vmResource["properties"].(map[string]interface{})
-	osProfile := vmResourceProperties["osProfile"].(map[string]interface{})
+	vmResource := resources[vmResourceIndex].(map[string]any)
+	vmResourceProperties := vmResource["properties"].(map[string]any)
+	osProfile := vmResourceProperties["osProfile"].(map[string]any)
 	osProfile["customData"] = "<juju-goes-here>"
 
 	// Fix the round tripping of the vm identities.
-	resources, ok = expected.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	resources, ok = expected.Properties.Template.(map[string]any)["resources"].([]any)
 	c.Assert(ok, tc.IsTrue)
-	identity, _ := resources[vmResourceIndex].(map[string]interface{})["identity"]
+	identity, _ := resources[vmResourceIndex].(map[string]any)["identity"]
 	if identity != nil {
-		userAssignedIdentities, _ := identity.(map[string]interface{})["userAssignedIdentities"].(map[string]interface{})
+		userAssignedIdentities, _ := identity.(map[string]any)["userAssignedIdentities"].(map[string]any)
 		for k := range userAssignedIdentities {
-			userAssignedIdentities[k] = map[string]interface{}{}
+			userAssignedIdentities[k] = map[string]any{}
 		}
 	}
 
@@ -1946,11 +1946,11 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *tc.C) {
 	env := s.openEnviron(c)
 
 	dependencies := []*armresources.Dependency{{
-		ID: to.Ptr("whatever"),
+		ID: new("whatever"),
 	}}
 	deployments := []*armresources.DeploymentExtended{{
 		// common deployment should be ignored
-		Name: to.Ptr("common"),
+		Name: new("common"),
 		Properties: &armresources.DeploymentPropertiesExtended{
 			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
 			Dependencies:      dependencies,
@@ -1996,7 +1996,7 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *tc.C) {
 
 	// Make a NIC with the Juju security group so we can
 	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
-	nic0IPConfiguration.Properties.Primary = to.Ptr(true)
+	nic0IPConfiguration.Properties.Primary = new(true)
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeManagedSubscriptionId,
 		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -2036,7 +2036,7 @@ func (s *environSuite) TestStopInstances(c *tc.C) {
 	// cause an update to the NIC to detach public IPs.
 	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{}
-	nic0IPConfiguration.Properties.Primary = to.Ptr(true)
+	nic0IPConfiguration.Properties.Primary = new(true)
 	nic0 := makeNetworkInterface("nic-0", "juju-06f00d-0", nic0IPConfiguration)
 	nic0.Properties.NetworkSecurityGroup = &nsg
 
@@ -2164,21 +2164,21 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *tc.C) {
 	env := s.openEnviron(c,
 		testing.Attrs{"controller-uuid": uuid.MustNewUUID().String(), "resource-group-name": "foo"})
 	res := []*armresources.GenericResourceExpanded{{
-		ID:   to.Ptr("id-0"),
-		Name: to.Ptr("juju-06f00d-0"),
-		Type: to.Ptr("Microsoft.Compute/virtualMachines"),
+		ID:   new("id-0"),
+		Name: new("juju-06f00d-0"),
+		Type: new("Microsoft.Compute/virtualMachines"),
 	}, {
-		ID:   to.Ptr("id-0"),
-		Name: to.Ptr("juju-06f00d-0-disk"),
-		Type: to.Ptr("Microsoft.Compute/disks"),
+		ID:   new("id-0"),
+		Name: new("juju-06f00d-0-disk"),
+		Type: new("Microsoft.Compute/disks"),
 	}, {
-		ID:   to.Ptr("networkSecurityGroups/nsg-0"),
-		Name: to.Ptr("nsg-0"),
-		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+		ID:   new("networkSecurityGroups/nsg-0"),
+		Name: new("nsg-0"),
+		Type: new("Microsoft.Network/networkSecurityGroups"),
 	}, {
-		ID:   to.Ptr("vaults/secret-0"),
-		Name: to.Ptr("secret-0"),
-		Type: to.Ptr("Microsoft.KeyVault/vaults"),
+		ID:   new("vaults/secret-0"),
+		Name: new("secret-0"),
+		Type: new("Microsoft.KeyVault/vaults"),
 	}}
 	resourceListResult := armresources.ResourceListResult{Value: res}
 
@@ -2228,9 +2228,9 @@ func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *tc.C) {
 
 func (s *environSuite) TestDestroyController(c *tc.C) {
 	groups := []*armresources.ResourceGroup{{
-		Name: to.Ptr("group1"),
+		Name: new("group1"),
 	}, {
-		Name: to.Ptr("group2"),
+		Name: new("group2"),
 	}}
 	result := armresources.ResourceGroupListResult{Value: groups}
 
@@ -2287,8 +2287,8 @@ func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *tc.C) {
 
 func (s *environSuite) TestDestroyControllerErrors(c *tc.C) {
 	groups := []*armresources.ResourceGroup{
-		{Name: to.Ptr("group1")},
-		{Name: to.Ptr("group2")},
+		{Name: new("group1")},
+		{Name: new("group2")},
 	}
 	result := armresources.ResourceGroupListResult{Value: groups}
 
@@ -2353,10 +2353,10 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 	resourcesResult := makeResourcesResult()
 
 	res1 := resourcesResult.Value[0]
-	res1.Properties = &map[string]interface{}{"has-properties": true}
+	res1.Properties = &map[string]any{"has-properties": true}
 
 	res2 := resourcesResult.Value[1]
-	res2.Properties = &map[string]interface{}{"has-properties": true}
+	res2.Properties = &map[string]any{"has-properties": true}
 
 	env := s.openEnviron(c)
 
@@ -2409,7 +2409,7 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 		rTags := resource.Tags
 		c.Check(toValue(rTags["something else"]), tc.Equals, "good")
 		c.Check(toValue(rTags[tags.JujuController]), tc.Equals, "new-controller")
-		c.Check(resource.Properties, tc.DeepEquals, map[string]interface{}{"has-properties": true})
+		c.Check(resource.Properties, tc.DeepEquals, map[string]any{"has-properties": true})
 	}
 	checkTagsAndProperties(5)
 	checkTagsAndProperties(7)
@@ -2434,21 +2434,21 @@ func (s *environSuite) TestAdoptResources(c *tc.C) {
 
 func makeProvidersResult() armresources.ProviderListResult {
 	providers := []*armresources.Provider{{
-		Namespace: to.Ptr("Beck.Replica"),
+		Namespace: new("Beck.Replica"),
 		ResourceTypes: []*armresources.ProviderResourceType{{
-			ResourceType: to.Ptr("battles/ladida"),
+			ResourceType: new("battles/ladida"),
 			APIVersions:  to.SliceOfPtrs("2016-12-15", "2014-02-02"),
 		}, {
-			ResourceType: to.Ptr("liars/scissor"),
+			ResourceType: new("liars/scissor"),
 			APIVersions:  to.SliceOfPtrs("2021-07-01", "2015-03-02"),
 		}},
 	}, {
-		Namespace: to.Ptr("Tuneyards.Bizness"),
+		Namespace: new("Tuneyards.Bizness"),
 		ResourceTypes: []*armresources.ProviderResourceType{{
-			ResourceType: to.Ptr("slaves/debbie"),
+			ResourceType: new("slaves/debbie"),
 			APIVersions:  to.SliceOfPtrs("2016-12-14", "2014-04-02"),
 		}, {
-			ResourceType: to.Ptr("micachu"),
+			ResourceType: new("micachu"),
 			APIVersions:  to.SliceOfPtrs("2021-07-01", "2015-05-02"),
 		}},
 	}}
@@ -2457,22 +2457,22 @@ func makeProvidersResult() armresources.ProviderListResult {
 
 func makeResourcesResult() armresources.ResourceListResult {
 	theResources := []*armresources.GenericResourceExpanded{{
-		ID:       to.Ptr("/subscriptions/foo/resourcegroups/bar/providers/Beck.Replica/liars/scissor/boxing-day-blues"),
-		Name:     to.Ptr("boxing-day-blues"),
-		Type:     to.Ptr("Beck.Replica/liars/scissor"),
-		Location: to.Ptr("westus"),
+		ID:       new("/subscriptions/foo/resourcegroups/bar/providers/Beck.Replica/liars/scissor/boxing-day-blues"),
+		Name:     new("boxing-day-blues"),
+		Type:     new("Beck.Replica/liars/scissor"),
+		Location: new("westus"),
 		Tags: map[string]*string{
-			tags.JujuController: to.Ptr("old-controller"),
-			"something else":    to.Ptr("good"),
+			tags.JujuController: new("old-controller"),
+			"something else":    new("good"),
 		},
 	}, {
-		ID:       to.Ptr("/subscriptions/foo/resourcegroups/bar/providers/Tuneyards.Bizness/micachu/drop-dead"),
-		Name:     to.Ptr("drop-dead"),
-		Type:     to.Ptr("Tuneyards.Bizness/micachu"),
-		Location: to.Ptr("westus"),
+		ID:       new("/subscriptions/foo/resourcegroups/bar/providers/Tuneyards.Bizness/micachu/drop-dead"),
+		Name:     new("drop-dead"),
+		Type:     new("Tuneyards.Bizness/micachu"),
+		Location: new("westus"),
 		Tags: map[string]*string{
-			tags.JujuController: to.Ptr("old-controller"),
-			"something else":    to.Ptr("good"),
+			tags.JujuController: new("old-controller"),
+			"something else":    new("good"),
 		},
 	}}
 	return armresources.ResourceListResult{Value: theResources}
@@ -2480,15 +2480,15 @@ func makeResourcesResult() armresources.ResourceListResult {
 
 func makeResourceGroupResult() *armresources.ResourceGroup {
 	return &armresources.ResourceGroup{
-		Name:     to.Ptr("charles"),
-		Location: to.Ptr("westus"),
+		Name:     new("charles"),
+		Location: new("westus"),
 		Properties: &armresources.ResourceGroupProperties{
-			ProvisioningState: to.Ptr("very yes"),
+			ProvisioningState: new("very yes"),
 		},
 		Tags: map[string]*string{
-			tags.JujuController: to.Ptr("old-controller"),
-			tags.JujuModel:      to.Ptr("deadbeef-0bad-400d-8000-4b1d0d06f00d"),
-			"something else":    to.Ptr("good"),
+			tags.JujuController: new("old-controller"),
+			tags.JujuModel:      new("deadbeef-0bad-400d-8000-4b1d0d06f00d"),
+			"something else":    new("good"),
 		},
 	}
 }
@@ -2573,7 +2573,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *tc.C) {
 
 	// Give the first resource the right controller tag so it doesn't need updating.
 	res1 := resourcesResult.Value[0]
-	res1.Tags[tags.JujuController] = to.Ptr("new-controller")
+	res1.Tags[tags.JujuController] = new("new-controller")
 	res2 := resourcesResult.Value[1]
 
 	env := s.openEnviron(c)
@@ -2659,7 +2659,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *tc.C) {
-	rootDiskParams := map[string]interface{}{
+	rootDiskParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 	}
@@ -2667,7 +2667,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *tc.C) {
 }
 
 func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *tc.C) {
-	rootDiskParams := map[string]interface{}{
+	rootDiskParams := map[string]any{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
 		"vault-name-prefix":        "my-vault",
@@ -2678,34 +2678,34 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *tc.C) {
 
 func (s *environSuite) TestGetArchFromResourceSKUARM64(c *tc.C) {
 	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr("standardDPSv5Family"),
+		Family: new("standardDPSv5Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.ARM64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr("standardDPLSv5Family"),
+		Family: new("standardDPLSv5Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.ARM64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr("standardEPSv5Family"),
+		Family: new("standardEPSv5Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.ARM64)
 }
 
 func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *tc.C) {
 	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr(""),
+		Family: new(""),
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr("StandardNCadsH100v5Family"),
+		Family: new("StandardNCadsH100v5Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
-		Family: to.Ptr("StandardNCADSA100v4Family"),
+		Family: new("StandardNCADSA100v4Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
 }

@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -49,7 +49,7 @@ type mockDependencyGetter struct {
 	env *mockEnviron
 }
 
-func (m *mockDependencyGetter) Get(name string, out interface{}) error {
+func (m *mockDependencyGetter) Get(name string, out any) error {
 	if name == "environ" {
 		*(out.(*environs.Environ)) = m.env
 	}

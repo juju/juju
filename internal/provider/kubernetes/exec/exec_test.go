@@ -416,7 +416,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 	}
 	waitTime := 11 * time.Second
 	requests := []*rest.Request{}
-	for i := 0; i < len(urls); i++ {
+	for range urls {
 		request := rest.NewRequestWithClient(
 			&url.URL{Path: "/path/"},
 			"",

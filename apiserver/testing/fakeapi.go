@@ -35,7 +35,7 @@ type Server struct {
 	Addrs []string
 
 	*httptest.Server
-	newRoot func(modelUUID string) (interface{}, error)
+	newRoot func(modelUUID string) (any, error)
 }
 
 // NewAPIServer serves RPC methods on a localhost HTTP server.
@@ -51,7 +51,7 @@ type Server struct {
 // to host the server.
 //
 // The returned server must be closed after use.
-func NewAPIServer(newRoot func(modelUUID string) (interface{}, error)) *Server {
+func NewAPIServer(newRoot func(modelUUID string) (any, error)) *Server {
 	tlsCert, err := tls.X509KeyPair([]byte(testing.ServerCert), []byte(testing.ServerKey))
 	if err != nil {
 		panic("bad key pair")

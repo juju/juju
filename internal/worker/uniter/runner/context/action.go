@@ -9,21 +9,21 @@ import "github.com/juju/names/v6"
 type ActionData struct {
 	Name           string
 	Tag            names.ActionTag
-	Params         map[string]interface{}
+	Params         map[string]any
 	Failed         bool
 	ResultsMessage string
-	ResultsMap     map[string]interface{}
+	ResultsMap     map[string]any
 	Cancel         <-chan struct{}
 }
 
 // NewActionData builds a suitable ActionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func NewActionData(name string, tag *names.ActionTag, params map[string]interface{}, cancel <-chan struct{}) *ActionData {
+func NewActionData(name string, tag *names.ActionTag, params map[string]any, cancel <-chan struct{}) *ActionData {
 	return &ActionData{
 		Name:       name,
 		Tag:        *tag,
 		Params:     params,
-		ResultsMap: map[string]interface{}{},
+		ResultsMap: map[string]any{},
 		Cancel:     cancel,
 	}
 }
@@ -31,7 +31,7 @@ func NewActionData(name string, tag *names.ActionTag, params map[string]interfac
 // addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
-func addValueToMap(keys []string, value interface{}, target map[string]interface{}) {
+func addValueToMap(keys []string, value any, target map[string]any) {
 	next := target
 
 	for i := range keys {
@@ -44,14 +44,14 @@ func addValueToMap(keys []string, value interface{}, target map[string]interface
 
 		if iface, ok := next[keys[i]]; ok {
 			switch typed := iface.(type) {
-			case map[string]interface{}:
+			case map[string]any:
 				// If we already had a map inside, keep
 				// stepping through.
 				next = typed
 			default:
 				// If we didn't, then overwrite value
 				// with a map and iterate with that.
-				m := map[string]interface{}{}
+				m := map[string]any{}
 				next[keys[i]] = m
 				next = m
 			}
@@ -60,7 +60,7 @@ func addValueToMap(keys []string, value interface{}, target map[string]interface
 
 		// Otherwise, it wasn't present, so make it and step
 		// into.
-		m := map[string]interface{}{}
+		m := map[string]any{}
 		next[keys[i]] = m
 		next = m
 	}

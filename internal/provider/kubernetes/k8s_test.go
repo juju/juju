@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -70,7 +70,7 @@ func getBasicPodspec() *specs.PodSpec {
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
-		EnvConfig: map[string]interface{}{
+		EnvConfig: map[string]any{
 			"foo":        "bar",
 			"restricted": "yes",
 			"bar":        true,
@@ -1005,7 +1005,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *tc.C) {
 				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
-			Scale:      k8sutils.IntPtr(2),
+			Scale:      new(2),
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,

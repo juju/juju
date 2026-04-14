@@ -6,9 +6,9 @@ package enginetest
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -41,11 +41,11 @@ func RunAgentAPIManifold(
 	}
 	if apiCaller == nil {
 		apiCaller = basetesting.APICallerFunc(
-			func(string, int, string, string, interface{}, interface{}) error {
+			func(string, int, string, string, any, any) error {
 				return nil
 			})
 	}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"agent-name":      agent,
 		"api-caller-name": apiCaller,
 	})

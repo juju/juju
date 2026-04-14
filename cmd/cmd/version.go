@@ -12,12 +12,12 @@ type versionCommand struct {
 	CommandBase
 	out           Output
 	version       string
-	versionDetail interface{}
+	versionDetail any
 
 	showAll bool
 }
 
-func newVersionCommand(version string, versionDetail interface{}) *versionCommand {
+func newVersionCommand(version string, versionDetail any) *versionCommand {
 	return &versionCommand{
 		version:       version,
 		versionDetail: versionDetail,

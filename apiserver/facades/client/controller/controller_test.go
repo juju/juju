@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -91,9 +91,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	}
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	controllerCfg := testing.FakeControllerConfig()
-	for key, value := range s.controllerConfigAttrs {
-		controllerCfg[key] = value
-	}
+	maps.Copy(controllerCfg, s.controllerConfigAttrs)
 
 	s.ControllerConfig = controllerCfg
 	s.DomainServicesSuite.SetUpTest(c)
@@ -307,65 +305,6 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	c.Assert(one.Qualifier, tc.Equals, "prod")
 	c.Assert(two.Name, tc.Equals, "second")
 	c.Assert(two.Qualifier, tc.Equals, "staging")
-}
-
-func (s *controllerSuite) TestCloudSpec(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	modelTag := names.NewModelTag(s.DefaultModelUUID.String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: modelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.IsNil)
-
-	modelProvider := s.ModelDomainServices(c, s.DefaultModelUUID).ModelProvider()
-	expected, err := modelProvider.GetCloudSpec(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
-}
-
-func (s *controllerSuite) TestCloudSpecInvalidTag(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: names.NewMachineTag("0").String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-0" is not a valid model tag`)
-}
-
-func (s *controllerSuite) TestCloudSpecUnauthorized(c *tc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("read-" + names.NewModelTag(s.DefaultModelUUID.String()).String()),
-	}
-	s.context.Auth_ = s.authorizer
-	defer s.setupMocks(c).Finish()
-
-	otherModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: otherModelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
-}
-
-func (s *controllerSuite) TestCloudSpecServiceError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unknownModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
-	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
-		Entities: []params.Entity{{Tag: unknownModelTag.String()}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Result, tc.IsNil)
-	c.Check(result.Results[0].Error, tc.NotNil)
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
@@ -629,7 +568,7 @@ func (s *controllerSuite) TestConfigSet(c *tc.C) {
 	c.Assert(config.AuditingEnabled(), tc.Equals, false)
 	c.Assert(config.SSHServerPort(), tc.Equals, 17022)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"auditing-enabled": true,
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -654,7 +593,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = endpoint.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = endpoint.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"something": 23,
 	}})
 
@@ -670,36 +609,36 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(config.CAASImageRepo(), tc.Equals, "")
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
 
 	err = controllerConfigService.UpdateControllerConfig(
 		c.Context(),
-		map[string]interface{}{
+		map[string]any{
 			"caas-image-repo": "jujusolutions",
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": "juju-repo.local",
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: repository read-only, only authentication can be updated`)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
 
 	err = controllerConfigService.UpdateControllerConfig(
 		c.Context(),
-		map[string]interface{}{
+		map[string]any{
 			"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
 		}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(c.Context(), params.ControllerConfigSet{Config: map[string]any{
 		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
 	}})
 	c.Assert(err, tc.ErrorIsNil)

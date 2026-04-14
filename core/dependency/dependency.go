@@ -4,7 +4,7 @@
 package dependency
 
 import (
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/internal/errors"
 )

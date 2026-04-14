@@ -10,9 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain/application/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/unitstate"
-	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -56,10 +55,10 @@ func (s *serviceSuite) TestSetStateUnitNotFound(c *tc.C) {
 	}
 
 	exp := s.st.EXPECT()
-	exp.SetUnitState(gomock.Any(), as).Return(errors.UnitNotFound)
+	exp.SetUnitState(gomock.Any(), as).Return(applicationerrors.UnitNotFound)
 
 	err := NewService(s.st, loggertesting.WrapCheckLog(c)).SetState(c.Context(), as)
-	c.Check(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestGetState(c *tc.C) {
@@ -76,10 +75,11 @@ func (s *serviceSuite) TestGetStateUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	name := unittesting.GenNewName(c, "unit/0")
-	s.st.EXPECT().GetUnitState(gomock.Any(), name.String()).Return(unitstate.RetrievedUnitState{}, unitstateerrors.UnitNotFound)
+	s.st.EXPECT().GetUnitState(gomock.Any(), name.String()).Return(
+		unitstate.RetrievedUnitState{}, applicationerrors.UnitNotFound)
 
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).GetState(c.Context(), name)
-	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

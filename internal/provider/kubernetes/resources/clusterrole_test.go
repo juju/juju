@@ -137,7 +137,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 	crApi := resources.NewClusterRole(s.client.RbacV1().ClusterRoles(), "test", clusterRole)
 	_, err := crApi.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -156,7 +156,7 @@ func (s *clusterRoleSuite) TestEnsureClusterRoleRegressionOnLabelChange(c *tc.C)
 
 	crApi.Ensure(
 		c.Context(),
-		resources.ClaimFn(func(_ interface{}) (bool, error) { return true, nil }),
+		resources.ClaimFn(func(_ any) (bool, error) { return true, nil }),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 

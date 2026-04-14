@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -486,10 +487,5 @@ func (s *Server) Clock() clock.Clock {
 // containerHasStatus returns true if the input container has a status
 // matching one from the input list.
 func containerHasStatus(container api.Instance, statuses []string) bool {
-	for _, status := range statuses {
-		if container.StatusCode.String() == status {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(statuses, container.StatusCode.String())
 }

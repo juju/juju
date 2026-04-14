@@ -84,7 +84,7 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 	}
 
 	if k8sCloud.Config == nil {
-		k8sCloud.Config = make(map[string]interface{})
+		k8sCloud.Config = make(map[string]any)
 	}
 
 	// TODO(storage): maybe re-implement this to create storage pool templates
@@ -107,7 +107,7 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		config.NameKey: "add-cloud",
 		config.TypeKey: "kubernetes",
 		config.UUIDKey: modelUUID.String(),

@@ -3,26 +3,22 @@
 
 package testing
 
+import "maps"
+
 // Attrs is a convenience type for messing
 // around with configuration attributes.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 func (a Attrs) Merge(with Attrs) Attrs {
 	new := make(Attrs)
-	for attr, val := range a {
-		new[attr] = val
-	}
-	for attr, val := range with {
-		new[attr] = val
-	}
+	maps.Copy(new, a)
+	maps.Copy(new, with)
 	return new
 }
 
 func (a Attrs) Delete(attrNames ...string) Attrs {
 	new := make(Attrs)
-	for attr, val := range a {
-		new[attr] = val
-	}
+	maps.Copy(new, a)
 	for _, attr := range attrNames {
 		delete(new, attr)
 	}

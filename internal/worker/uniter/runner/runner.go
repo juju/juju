@@ -33,7 +33,7 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead use the method defined in the Runner.
-type logger interface{}
+type logger any
 
 var _ logger = struct{}{}
 
@@ -372,7 +372,7 @@ type loggerAdaptor struct {
 }
 
 // Messagef implements the charmrunner MessageReceiver interface
-func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
+func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...any) {
 	l.Logf(stdcontext.Background(), l.level, corelogger.Labels{}, message, args...)
 }
 
@@ -395,7 +395,7 @@ func (b *bufferAdaptor) Read(p []byte) (n int, err error) {
 }
 
 // Messagef implements the charmrunner MessageReceiver interface
-func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
+func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...any) {
 	formattedMessage := message
 	if len(args) > 0 {
 		formattedMessage = fmt.Sprintf(message, args...)

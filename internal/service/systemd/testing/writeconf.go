@@ -51,7 +51,7 @@ func (wct WriteConfTest) checkWriteExecScript(c *tc.C, commands []string) {
 
 func (wct WriteConfTest) checkWriteConf(c *tc.C, commands []string) {
 	// This check must be done without regard to map order.
-	parse := func(lines []string) interface{} {
+	parse := func(lines []string) any {
 		return parseConfSections(lines)
 	}
 	testing.CheckWriteFileCommand(c, commands[0], wct.fileName(), wct.Expected, parse)

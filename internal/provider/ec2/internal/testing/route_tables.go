@@ -6,6 +6,7 @@ package testing
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -91,18 +92,14 @@ type routeTable struct {
 
 func (t *routeTable) matchAttr(attr, value string) (ok bool, err error) {
 	filterByAssociation := func(check func(assoc types.RouteTableAssociation) bool) (bool, error) {
-		for _, assoc := range t.Associations {
-			if check(assoc) {
-				return true, nil
-			}
+		if slices.ContainsFunc(t.Associations, check) {
+			return true, nil
 		}
 		return false, nil
 	}
 	filterByRoute := func(check func(route types.Route) bool) (bool, error) {
-		for _, route := range t.Routes {
-			if check(route) {
-				return true, nil
-			}
+		if slices.ContainsFunc(t.Routes, check) {
+			return true, nil
 		}
 		return false, nil
 	}

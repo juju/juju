@@ -28,28 +28,28 @@ func (s *configSuite) TestValidateConfig(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	rotateInterval := time.Hour
 	for _, t := range []struct {
-		cfg                 map[string]interface{}
-		oldCfg              map[string]interface{}
+		cfg                 map[string]any
+		oldCfg              map[string]any
 		tokenRotateInterval *time.Duration
 		err                 string
 	}{{
-		cfg: map[string]interface{}{"namespace": "foo"},
+		cfg: map[string]any{"namespace": "foo"},
 		err: "endpoint: expected string, got nothing",
 	}, {
-		cfg: map[string]interface{}{"endpoint": "newep"},
+		cfg: map[string]any{"endpoint": "newep"},
 		err: "namespace: expected string, got nothing",
 	}, {
-		cfg:    map[string]interface{}{"endpoint": "newep", "namespace": "foo"},
-		oldCfg: map[string]interface{}{"endpoint": "oldep", "namespace": "foo"},
+		cfg:    map[string]any{"endpoint": "newep", "namespace": "foo"},
+		oldCfg: map[string]any{"endpoint": "oldep", "namespace": "foo"},
 		err:    `cannot change immutable field "endpoint"`,
 	}, {
-		cfg: map[string]interface{}{"endpoint": "newep", "namespace": "foo", "client-cert": "aaa"},
+		cfg: map[string]any{"endpoint": "newep", "namespace": "foo", "client-cert": "aaa"},
 		err: `k8s config missing client key not valid`,
 	}, {
-		cfg: map[string]interface{}{"endpoint": "newep", "namespace": "foo", "client-key": "aaa"},
+		cfg: map[string]any{"endpoint": "newep", "namespace": "foo", "client-key": "aaa"},
 		err: `k8s config missing client certificate not valid`,
 	}, {
-		cfg:                 map[string]interface{}{"endpoint": "newep", "namespace": "foo"},
+		cfg:                 map[string]any{"endpoint": "newep", "namespace": "foo"},
 		tokenRotateInterval: &rotateInterval,
 		err:                 `k8s config missing service account not valid`,
 	}} {

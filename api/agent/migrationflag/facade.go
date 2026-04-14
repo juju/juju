@@ -84,7 +84,7 @@ func (facade *Facade) Watch(ctx context.Context, uuid string) (watcher.NotifyWat
 
 // call converts the supplied model uuid into a params.Entities and
 // invokes the facade caller.
-func (facade *Facade) call(ctx context.Context, name, uuid string, results interface{}) error {
+func (facade *Facade) call(ctx context.Context, name, uuid string, results any) error {
 	model := names.NewModelTag(uuid).String()
 	args := params.Entities{Entities: []params.Entity{{model}}}
 	err := facade.caller.FacadeCall(ctx, name, args, results)

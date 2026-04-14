@@ -100,7 +100,7 @@ type mockConnector struct {
 	connectError error
 	writeError   error
 	readError    error
-	written      []interface{}
+	written      []any
 	readDone     chan struct{}
 	closeCount   int
 	closed       chan bool
@@ -143,7 +143,7 @@ func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
 	return 0, nil, nil
 }
 
-func (s mockStream) WriteJSON(v interface{}) error {
+func (s mockStream) WriteJSON(v any) error {
 	// Wait for a NextReader call in case the test
 	// orchestration is for an error there.
 	select {
@@ -167,7 +167,7 @@ func (s mockStream) Close() error {
 	return nil
 }
 
-func (s mockStream) ReadJSON(v interface{}) error {
+func (s mockStream) ReadJSON(v any) error {
 	s.conn.c.Errorf("ReadJSON called unexpectedly")
 	return nil
 }

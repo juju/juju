@@ -66,19 +66,19 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 	}, {
 		"jammy",
 		"too small constraint ubuntu",
-		pInt(4000),
+		new(uint64(4000)),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(8)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"jammy",
 		"big constraint ubuntu",
-		pInt(20 * 1024),
+		new(uint64(20 * 1024)),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(20)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
 		"jammy",
 		"round up constraint ubuntu",
-		pInt(20*1024 + 1),
+		new(uint64(20*1024 + 1)),
 		nil,
 		types.BlockDeviceMapping{Ebs: &types.EbsBlockDevice{VolumeSize: aws.Int32(21)}, DeviceName: aws.String("/dev/sda1")},
 	}, {
@@ -86,7 +86,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root encryption",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"encrypted": true,
 			},
 		},
@@ -96,7 +96,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root custom key encryption",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"encrypted":  true,
 				"kms-key-id": "1234",
 			},
@@ -107,7 +107,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with root volume type",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "magnetic",
 			},
 		},
@@ -117,7 +117,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp3",
 				"throughput":  "10",
 			},
@@ -128,7 +128,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		"nil constraint ubuntu with throughput",
 		nil,
 		&storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "gp3",
 				"throughput":  "1G",
 			},
@@ -144,10 +144,6 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *tc.C) {
 		expected := append([]types.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, tc.DeepEquals, expected)
 	}
-}
-
-func pInt(i uint64) *uint64 {
-	return &i
 }
 
 func (*Suite) TestPortsToIPPerms(c *tc.C) {
@@ -275,23 +271,23 @@ func (*Suite) TestGatherAZ(c *tc.C) {
 	instances := []instances.Instance{
 		&sdkInstance{
 			i: types.Instance{
-				InstanceId: ptrString("id1"),
+				InstanceId: new("id1"),
 				Placement: &types.Placement{
-					AvailabilityZone: ptrString("aaa"),
+					AvailabilityZone: new("aaa"),
 				},
 			},
 		},
 		&sdkInstance{
 			i: types.Instance{
-				InstanceId: ptrString("id2"),
+				InstanceId: new("id2"),
 				Placement: &types.Placement{
-					AvailabilityZone: ptrString("bbb"),
+					AvailabilityZone: new("bbb"),
 				},
 			},
 		},
 		&sdkInstance{
 			i: types.Instance{
-				InstanceId: ptrString("id3"),
+				InstanceId: new("id3"),
 			},
 		},
 	}
@@ -300,8 +296,4 @@ func (*Suite) TestGatherAZ(c *tc.C) {
 		"id1": "aaa",
 		"id2": "bbb",
 	})
-}
-
-func ptrString(s string) *string {
-	return &s
 }

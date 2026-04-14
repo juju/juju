@@ -18,7 +18,7 @@ var logger = internallogger.GetLogger("juju.worker.common.runner")
 // MessageReceiver instances are fed messages written to stdout/stderr
 // when running hooks/actions.
 type MessageReceiver interface {
-	Messagef(isPrefix bool, message string, args ...interface{})
+	Messagef(isPrefix bool, message string, args ...any)
 }
 
 // NewHookLogger creates a new hook logger.
@@ -35,6 +35,7 @@ type HookLogger struct {
 	r         io.ReadCloser
 	done      chan struct{}
 	mu        sync.Mutex
+	stopOnce  sync.Once
 	stopped   bool
 	receivers []MessageReceiver
 }
@@ -78,22 +79,23 @@ type Stopper interface {
 
 // Stop stops the hook logger.
 func (l *HookLogger) Stop() {
-	// Ensure Stop() is idempotent.
-	if l == nil || l.stopped {
+	if l == nil {
 		return
 	}
-	// We can see the process exit before the logger has processed
-	// all its output, so allow a moment for the data buffered
-	// in the pipe to be processed. We don't wait indefinitely though,
-	// because the hook may have started a background process
-	// that keeps the pipe open.
-	select {
-	case <-l.done:
-	case <-time.After(100 * time.Millisecond):
-	}
-	// We can't close the pipe asynchronously, so just
-	// stifle output instead.
-	l.mu.Lock()
-	l.stopped = true
-	l.mu.Unlock()
+	l.stopOnce.Do(func() {
+		// We can see the process exit before the logger has processed
+		// all its output, so allow a moment for the data buffered
+		// in the pipe to be processed. We don't wait indefinitely though,
+		// because the hook may have started a background process
+		// that keeps the pipe open.
+		select {
+		case <-l.done:
+		case <-time.After(100 * time.Millisecond):
+		}
+		// We can't close the pipe asynchronously, so just
+		// stifle output instead.
+		l.mu.Lock()
+		l.stopped = true
+		l.mu.Unlock()
+	})
 }

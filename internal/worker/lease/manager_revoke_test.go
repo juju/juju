@@ -27,7 +27,7 @@ func (s *RevokeSuite) TestHolderSuccess(c *tc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "RevokeLease",
-			args: []interface{}{
+			args: []any{
 				corelease.Key{
 					Namespace: "namespace",
 					ModelUUID: "modelUUID",

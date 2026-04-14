@@ -45,8 +45,8 @@ type record struct {
 	Id       string
 	Requires []string
 	Method   string
-	Params   interface{}
-	Args     map[string]interface{}
+	Params   any
+	Args     map[string]any
 }
 
 func (s *changesSuite) TestMinimalBundle(c *tc.C) {
@@ -61,7 +61,7 @@ func (s *changesSuite) TestMinimalBundle(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
@@ -71,7 +71,7 @@ func (s *changesSuite) TestMinimalBundle(c *tc.C) {
 			Charm:       "$addCharm-0",
 			Application: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 		},
@@ -98,7 +98,7 @@ func (s *changesSuite) TestMinimalBundleWithRevision(c *tc.C) {
 			Revision: &rev,
 			Channel:  "candidate",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel":  "candidate",
 			"charm":    "django",
 			"revision": float64(42),
@@ -111,7 +111,7 @@ func (s *changesSuite) TestMinimalBundleWithRevision(c *tc.C) {
 			Application: "django",
 			Channel:     "candidate",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "candidate",
@@ -136,7 +136,7 @@ func (s *changesSuite) TestMinimalBundleWithChannels(c *tc.C) {
 			Charm:   "django",
 			Channel: "edge",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"channel": "edge",
 			"charm":   "django",
 		},
@@ -148,7 +148,7 @@ func (s *changesSuite) TestMinimalBundleWithChannels(c *tc.C) {
 			Application: "django",
 			Channel:     "edge",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "edge",
@@ -229,7 +229,7 @@ func (s *changesSuite) TestMinimalBundleWithDevices(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
@@ -239,7 +239,7 @@ func (s *changesSuite) TestMinimalBundleWithDevices(c *tc.C) {
 			Charm:       "$addCharm-0",
 			Application: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 		},
@@ -279,7 +279,7 @@ applications:
 				Revision: &twentySix,
 				Channel:  "stable",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"channel":  "stable",
 				"charm":    "apache2",
 				"revision": float64(26),
@@ -293,7 +293,7 @@ applications:
 				Application: "apache2",
 				Channel:     "stable",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
 				"channel":     "stable",
 				"charm":       "$addCharm-0",
@@ -307,7 +307,7 @@ applications:
 				URL:             "production:admin/info.keystone",
 				ApplicationName: "keystone",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application-name": "keystone",
 				"url":              "production:admin/info.keystone",
 			},
@@ -324,9 +324,9 @@ applications:
 				},
 				OfferName: "offer1",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
-				"endpoints": []interface{}{
+				"endpoints": []any{
 					"apache-website",
 					"apache-proxy",
 				},
@@ -380,9 +380,9 @@ applications:
 				},
 				OfferName: "offer1",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
-				"endpoints": []interface{}{
+				"endpoints": []any{
 					"apache-website",
 					"apache-proxy",
 				},
@@ -417,7 +417,7 @@ applications:
 			Params: bundlechanges.AddCharmParams{
 				Charm: "ch:apache2",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"charm": "ch:apache2",
 			},
 		},
@@ -428,7 +428,7 @@ applications:
 				Charm:       "$addCharm-0",
 				Application: "apache2",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
 				"charm":       "$addCharm-0",
 			},
@@ -445,9 +445,9 @@ applications:
 				},
 				OfferName: "offer1",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
-				"endpoints": []interface{}{
+				"endpoints": []any{
 					"apache-website",
 					"apache-proxy",
 				},
@@ -463,7 +463,7 @@ applications:
 				Access: "consume",
 				Offer:  "offer1",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"access": "consume",
 				"offer":  "offer1",
 				"user":   "foo",
@@ -504,9 +504,9 @@ applications:
 				OfferName: "offer1",
 				Update:    true,
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
-				"endpoints": []interface{}{
+				"endpoints": []any{
 					"apache-website",
 					"apache-proxy",
 				},
@@ -549,7 +549,7 @@ relations:
 			Params: bundlechanges.AddCharmParams{
 				Charm: "ch:apache2",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"charm": "ch:apache2",
 			},
 		},
@@ -560,7 +560,7 @@ relations:
 				Charm:       "$addCharm-0",
 				Application: "apache2",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application": "apache2",
 				"charm":       "$addCharm-0",
 			},
@@ -573,7 +573,7 @@ relations:
 				URL:             "production:admin/info.mysql",
 				ApplicationName: "mysql",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"application-name": "mysql",
 				"url":              "production:admin/info.mysql",
 			},
@@ -586,7 +586,7 @@ relations:
 				Endpoint1: "$deploy-1:db",
 				Endpoint2: "$consumeOffer-2:db",
 			},
-			Args: map[string]interface{}{
+			Args: map[string]any{
 				"endpoint1": "$deploy-1:db",
 				"endpoint2": "$consumeOffer-2:db",
 			},
@@ -630,7 +630,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			Charm: "ch:mediawiki",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mediawiki",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -641,16 +641,16 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
 			Base:        "ubuntu@20.04/stable",
-			Options:     map[string]interface{}{"debug": false},
+			Options:     map[string]any{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"debug": false,
 			},
-			"resources": map[string]interface{}{
+			"resources": map[string]any{
 				"data": float64(3),
 			},
 			"base": "ubuntu@20.04/stable",
@@ -662,7 +662,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 		Params: bundlechanges.ExposeParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -674,8 +674,8 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			EntityType:  bundlechanges.ApplicationType,
 			Annotations: map[string]string{"gui-x": "609", "gui-y": "-15"},
 		},
-		Args: map[string]interface{}{
-			"annotations": map[string]interface{}{
+		Args: map[string]any{
+			"annotations": map[string]any{
 				"gui-x": "609",
 				"gui-y": "-15",
 			},
@@ -690,7 +690,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			Charm: "ch:mysql",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mysql",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -703,10 +703,10 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			Base:           "ubuntu@20.04/stable",
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mysql",
 			"charm":       "$addCharm-4",
-			"local-resources": map[string]interface{}{
+			"local-resources": map[string]any{
 				"data": "./resources/data.tar",
 			},
 			"base": "ubuntu@20.04/stable",
@@ -719,7 +719,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 			Endpoint1: "$deploy-1:db",
 			Endpoint2: "$deploy-5:db",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:db",
 			"endpoint2": "$deploy-5:db",
 		},
@@ -730,7 +730,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -740,7 +740,7 @@ func (s *changesSuite) TestSimpleBundle(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-5",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-5",
 		},
 		Requires: []string{"deploy-5"},
@@ -782,7 +782,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			Charm: "ch:mediawiki",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mediawiki",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -793,16 +793,16 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
 			Base:        "ubuntu@20.04/stable",
-			Options:     map[string]interface{}{"debug": false},
+			Options:     map[string]any{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"debug": false,
 			},
-			"resources": map[string]interface{}{
+			"resources": map[string]any{
 				"data": float64(3),
 			},
 			"base": "ubuntu@20.04/stable",
@@ -814,7 +814,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 		Params: bundlechanges.ExposeParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -826,8 +826,8 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			EntityType:  bundlechanges.ApplicationType,
 			Annotations: map[string]string{"gui-x": "609", "gui-y": "-15"},
 		},
-		Args: map[string]interface{}{
-			"annotations": map[string]interface{}{
+		Args: map[string]any{
+			"annotations": map[string]any{
 				"gui-x": "609",
 				"gui-y": "-15",
 			},
@@ -842,7 +842,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			Charm: "ch:mysql",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mysql",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -855,10 +855,10 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			Base:           "ubuntu@20.04/stable",
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mysql",
 			"charm":       "$addCharm-4",
-			"local-resources": map[string]interface{}{
+			"local-resources": map[string]any{
 				"data": "./resources/data.tar",
 			},
 			"base": "ubuntu@20.04/stable",
@@ -871,7 +871,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 			Endpoint1: "$deploy-1:db",
 			Endpoint2: "$deploy-5:db",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:db",
 			"endpoint2": "$deploy-5:db",
 		},
@@ -882,7 +882,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -892,7 +892,7 @@ func (s *changesSuite) TestSimpleBundleWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-5",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-5",
 		},
 		Requires: []string{"deploy-5"},
@@ -933,7 +933,7 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "ch:mediawiki-k8s",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mediawiki-k8s",
 		},
 	}, {
@@ -943,17 +943,17 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 			Charm:       "$addCharm-0",
 			Application: "mediawiki",
 			NumUnits:    1,
-			Options:     map[string]interface{}{"debug": false},
+			Options:     map[string]any{"debug": false},
 			Resources:   map[string]int{"data": 3},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
 			"num-units":   float64(1),
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"debug": false,
 			},
-			"resources": map[string]interface{}{
+			"resources": map[string]any{
 				"data": float64(3),
 			},
 		},
@@ -964,7 +964,7 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 		Params: bundlechanges.ExposeParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -976,8 +976,8 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 			EntityType:  bundlechanges.ApplicationType,
 			Annotations: map[string]string{"gui-x": "609", "gui-y": "-15"},
 		},
-		Args: map[string]interface{}{
-			"annotations": map[string]interface{}{
+		Args: map[string]any{
+			"annotations": map[string]any{
 				"gui-x": "609",
 				"gui-y": "-15",
 			},
@@ -991,7 +991,7 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "ch:mysql-k8s",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mysql-k8s",
 		},
 	}, {
@@ -1003,10 +1003,10 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 			NumUnits:       2,
 			LocalResources: map[string]string{"data": "./resources/data.tar"},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mysql",
 			"charm":       "$addCharm-4",
-			"local-resources": map[string]interface{}{
+			"local-resources": map[string]any{
 				"data": "./resources/data.tar",
 			},
 			"num-units": float64(2),
@@ -1019,7 +1019,7 @@ func (s *changesSuite) TestKubernetesBundle(c *tc.C) {
 			Endpoint1: "$deploy-1:db",
 			Endpoint2: "$deploy-5:db",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:db",
 			"endpoint2": "$deploy-5:db",
 		},
@@ -1047,7 +1047,7 @@ func (s *changesSuite) TestSameCharmReused(c *tc.C) {
 			Charm: "ch:mediawiki",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mediawiki",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -1059,7 +1059,7 @@ func (s *changesSuite) TestSameCharmReused(c *tc.C) {
 			Application: "mediawiki",
 			Base:        "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
@@ -1073,7 +1073,7 @@ func (s *changesSuite) TestSameCharmReused(c *tc.C) {
 			Application: "otherwiki",
 			Base:        "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "otherwiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
@@ -1085,7 +1085,7 @@ func (s *changesSuite) TestSameCharmReused(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -1131,7 +1131,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1145,11 +1145,11 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Constraints:      "spaces=baz cpu-cores=4 cpu-power=42",
 			EndpointBindings: map[string]string{"": "foo", "http": "bar"},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"constraints": "spaces=baz cpu-cores=4 cpu-power=42",
-			"endpoint-bindings": map[string]interface{}{
+			"endpoint-bindings": map[string]any{
 				"":     "foo",
 				"http": "bar",
 			},
@@ -1163,7 +1163,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Charm: "ch:haproxy",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:haproxy",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1174,12 +1174,12 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Charm:       "$addCharm-2",
 			Application: "haproxy",
 			Base:        "ubuntu@22.04/stable",
-			Options:     map[string]interface{}{"bad": "wolf", "number": 42.47},
+			Options:     map[string]any{"bad": "wolf", "number": 42.47},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "haproxy",
 			"charm":       "$addCharm-2",
-			"options": map[string]interface{}{
+			"options": map[string]any{
 				"bad":    "wolf",
 				"number": 42.47,
 			},
@@ -1192,7 +1192,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 		Params: bundlechanges.ExposeParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"deploy-3"},
@@ -1202,14 +1202,14 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 	}, {
 		Id:       "addMachines-6",
 		Method:   "addMachines",
 		Params:   bundlechanges.AddMachineParams{},
-		Args:     map[string]interface{}{},
+		Args:     map[string]any{},
 		Requires: []string{"addMachines-5"},
 	}, {
 		Id:     "addUnit-7",
@@ -1218,7 +1218,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-5",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-5",
 		},
@@ -1232,7 +1232,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			ParentId:      "$addMachines-6",
 			Constraints:   "spaces=bar,baz,foo cpu-cores=4 cpu-power=42",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"constraints":    "spaces=bar,baz,foo cpu-cores=4 cpu-power=42",
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-6",
@@ -1247,7 +1247,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addUnit-7",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-7",
 			"base":           "ubuntu@22.04/stable",
@@ -1259,7 +1259,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-11", "addMachines-12", "addMachines-5", "addMachines-6"},
@@ -1270,7 +1270,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-11",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-11",
 		},
@@ -1282,7 +1282,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Application: "$deploy-3",
 			To:          "$addMachines-12",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 			"to":          "$addMachines-12",
 		},
@@ -1294,7 +1294,7 @@ func (s *changesSuite) TestMachinesAndUnitsPlacementWithBindings(c *tc.C) {
 			Application: "$deploy-3",
 			To:          "$addMachines-13",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 			"to":          "$addMachines-13",
 		},
@@ -1327,7 +1327,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1339,7 +1339,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 			Application: "django",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
@@ -1351,7 +1351,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 		},
 	}, {
@@ -1362,8 +1362,8 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 			EntityType:  bundlechanges.MachineType,
 			Annotations: map[string]string{"foo": "bar"},
 		},
-		Args: map[string]interface{}{
-			"annotations": map[string]interface{}{
+		Args: map[string]any{
+			"annotations": map[string]any{
 				"foo": "bar",
 			},
 			"entity-type": "machine",
@@ -1377,7 +1377,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-2",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-2",
 		},
@@ -1388,7 +1388,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-2"},
@@ -1399,7 +1399,7 @@ func (s *changesSuite) TestMachinesWithConstraintsAndAnnotations(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-6",
 		},
@@ -1430,7 +1430,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 			Charm: "ch:mediawiki",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mediawiki",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -1442,7 +1442,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 			Application: "mediawiki",
 			Base:        "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mediawiki",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
@@ -1455,7 +1455,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 			Charm: "mysql",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "mysql",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -1468,7 +1468,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 			Base:        "ubuntu@20.04/stable",
 			Constraints: "mem=42G",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "mysql",
 			"charm":       "$addCharm-2",
 			"constraints": "mem=42G",
@@ -1482,7 +1482,7 @@ func (s *changesSuite) TestEndpointWithoutRelationName(c *tc.C) {
 			Endpoint1: "$deploy-1:db",
 			Endpoint2: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"endpoint1": "$deploy-1:db",
 			"endpoint2": "$deploy-3",
 		},
@@ -1511,7 +1511,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1523,7 +1523,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 			Application: "django",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
@@ -1535,7 +1535,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "wordpress",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "wordpress",
 		},
 	}, {
@@ -1545,7 +1545,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 			Charm:       "$addCharm-2",
 			Application: "wordpress",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "wordpress",
 			"charm":       "$addCharm-2",
 		},
@@ -1556,7 +1556,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"deploy-3"},
@@ -1566,7 +1566,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"addUnit-6", "deploy-3"},
@@ -1576,7 +1576,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"addUnit-7", "deploy-3"},
@@ -1587,7 +1587,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addUnit-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addUnit-6",
 		},
@@ -1599,7 +1599,7 @@ func (s *changesSuite) TestUnitPlacedInApplication(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addUnit-7",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addUnit-7",
 		},
@@ -1628,7 +1628,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1640,7 +1640,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 			Application: "django",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
@@ -1652,7 +1652,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "wordpress",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "wordpress",
 		},
 	}, {
@@ -1662,7 +1662,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 			Charm:       "$addCharm-2",
 			Application: "wordpress",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "wordpress",
 			"charm":       "$addCharm-2",
 		},
@@ -1673,7 +1673,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"deploy-3"},
@@ -1683,7 +1683,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"addUnit-6", "deploy-3"},
@@ -1693,7 +1693,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 		},
 		Requires: []string{"addUnit-7", "deploy-3"},
@@ -1704,7 +1704,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addUnit-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addUnit-6",
 		},
@@ -1716,7 +1716,7 @@ func (s *changesSuite) TestUnitPlacedInApplicationWithDevices(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addUnit-7",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addUnit-7",
 		},
@@ -1760,7 +1760,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1772,7 +1772,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "django",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
@@ -1785,7 +1785,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Charm: "ch:mem",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:mem",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -1797,7 +1797,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "memcached",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "memcached",
 			"charm":       "$addCharm-2",
 			"base":        "ubuntu@22.04/stable",
@@ -1809,7 +1809,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "ch:rails",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:rails",
 		},
 	}, {
@@ -1819,7 +1819,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Charm:       "$addCharm-4",
 			Application: "ror",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "ror",
 			"charm":       "$addCharm-4",
 		},
@@ -1830,7 +1830,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 	}, {
@@ -1840,7 +1840,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-3",
 			To:          "$addMachines-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 			"to":          "$addMachines-6",
 		},
@@ -1851,7 +1851,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-6"},
@@ -1861,7 +1861,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-17", "addMachines-6"},
@@ -1869,7 +1869,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 		Id:       "addMachines-19",
 		Method:   "addMachines",
 		Params:   bundlechanges.AddMachineParams{},
-		Args:     map[string]interface{}{},
+		Args:     map[string]any{},
 		Requires: []string{"addMachines-17", "addMachines-18", "addMachines-6"},
 	}, {
 		Id:     "addUnit-7",
@@ -1878,7 +1878,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addUnit-12",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addUnit-12",
 		},
@@ -1890,7 +1890,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-3",
 			To:          "$addMachines-17",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 			"to":          "$addMachines-17",
 		},
@@ -1902,7 +1902,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-3",
 			To:          "$addMachines-18",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-3",
 			"to":          "$addMachines-18",
 		},
@@ -1914,7 +1914,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-5",
 			To:          "$addMachines-19",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-5",
 			"to":          "$addMachines-19",
 		},
@@ -1926,7 +1926,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-5",
 			To:          "$addMachines-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-5",
 			"to":          "$addMachines-6",
 		},
@@ -1939,7 +1939,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addUnit-13",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-13",
 			"base":           "ubuntu@22.04/stable",
@@ -1953,7 +1953,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addUnit-14",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"parent-id":      "$addUnit-14",
 			"base":           "ubuntu@22.04/stable",
@@ -1967,7 +1967,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addUnit-15",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-15",
 			"base":           "ubuntu@22.04/stable",
@@ -1981,7 +1981,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addUnit-16",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "kvm",
 			"parent-id":      "$addUnit-16",
 			"base":           "ubuntu@22.04/stable",
@@ -1994,7 +1994,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-20",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-20",
 		},
@@ -2006,7 +2006,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-21",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-21",
 		},
@@ -2018,7 +2018,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-22",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-22",
 		},
@@ -2030,7 +2030,7 @@ func (s *changesSuite) TestUnitColocationWithOtherUnits(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-23",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-23",
 		},
@@ -2065,7 +2065,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Charm: "ch:django",
 			Base:  "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:django",
 			"base":  "ubuntu@22.04/stable",
 		},
@@ -2077,7 +2077,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "django",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@22.04/stable",
@@ -2089,7 +2089,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Constraints: "cpu-cores=4",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"constraints": "cpu-cores=4",
 		},
 	}, {
@@ -2098,7 +2098,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Constraints: "cpu-cores=8",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"constraints": "cpu-cores=8",
 		},
 		Requires: []string{"addMachines-2"},
@@ -2108,7 +2108,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 		Requires: []string{"addMachines-2", "addMachines-3"},
@@ -2120,7 +2120,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Base:          "ubuntu@22.04/stable",
 			ParentId:      "$addMachines-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "kvm",
 			"parent-id":      "$addMachines-3",
 			"base":           "ubuntu@22.04/stable",
@@ -2133,7 +2133,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			ContainerType: "lxc",
 			Base:          "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"base":           "ubuntu@22.04/stable",
 		},
@@ -2145,7 +2145,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			ContainerType: "lxc",
 			Base:          "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"base":           "ubuntu@22.04/stable",
 		},
@@ -2157,7 +2157,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-9",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-9",
 		},
@@ -2169,7 +2169,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-2",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-2",
 		},
@@ -2181,7 +2181,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-10",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-10",
 		},
@@ -2193,7 +2193,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-11",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-11",
 		},
@@ -2205,7 +2205,7 @@ func (s *changesSuite) TestUnitPlacedToMachines(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-12",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-12",
 		},
@@ -2239,7 +2239,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *tc.C) {
 			Channel:  "stable",
 			Base:     "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm":    "django",
 			"revision": float64(42),
 			"channel":  "stable",
@@ -2255,7 +2255,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *tc.C) {
 			Channel:     "stable",
 			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "stable",
@@ -2270,7 +2270,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *tc.C) {
 			Constraints: "cpu-cores=4 image-id=ubuntu-bf2",
 			Base:        "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"constraints": "cpu-cores=4 image-id=ubuntu-bf2",
 			"base":        "ubuntu@22.04/stable",
 		},
@@ -2281,7 +2281,7 @@ func (s *changesSuite) TestUnitPlacedToNewMachineWithConstraints(c *tc.C) {
 			Application: "$deploy-1",
 			To:          "$addMachines-3",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-3",
 		},
@@ -2313,7 +2313,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *tc.C) {
 			Channel:  "stable",
 			Base:     "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm":    "django",
 			"base":     "ubuntu@22.04/stable",
 			"revision": float64(42),
@@ -2332,12 +2332,12 @@ func (s *changesSuite) TestApplicationWithStorage(c *tc.C) {
 				"tmpfs":       "tmpfs,1G",
 			},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "stable",
 			"base":        "ubuntu@22.04/stable",
-			"storage": map[string]interface{}{
+			"storage": map[string]any{
 				"osd-devices": "3,30G",
 				"tmpfs":       "tmpfs,1G",
 			},
@@ -2349,7 +2349,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -2359,7 +2359,7 @@ func (s *changesSuite) TestApplicationWithStorage(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"addUnit-2", "deploy-1"},
@@ -2392,7 +2392,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *tc.C) {
 			Channel:  "stable",
 			Base:     "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm":    "ch:django",
 			"channel":  "stable",
 			"revision": float64(42),
@@ -2413,11 +2413,11 @@ func (s *changesSuite) TestApplicationWithDevices(c *tc.C) {
 				"countmax":    "2",
 			},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"channel":     "stable",
-			"devices": map[string]interface{}{
+			"devices": map[string]any{
 				"countmax":    "2",
 				"countmin":    "1",
 				"description": "a nvidia gpu device",
@@ -2432,7 +2432,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"deploy-1"},
@@ -2442,7 +2442,7 @@ func (s *changesSuite) TestApplicationWithDevices(c *tc.C) {
 		Params: bundlechanges.AddUnitParams{
 			Application: "$deploy-1",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 		},
 		Requires: []string{"addUnit-2", "deploy-1"},
@@ -2465,7 +2465,7 @@ func (s *changesSuite) TestApplicationWithEndpointBindings(c *tc.C) {
 		Params: bundlechanges.AddCharmParams{
 			Charm: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
@@ -2476,10 +2476,10 @@ func (s *changesSuite) TestApplicationWithEndpointBindings(c *tc.C) {
 			Application:      "django",
 			EndpointBindings: map[string]string{"foo": "bar"},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
-			"endpoint-bindings": map[string]interface{}{
+			"endpoint-bindings": map[string]any{
 				"foo": "bar",
 			},
 		},
@@ -2508,7 +2508,7 @@ applications:
 		Params: bundlechanges.AddCharmParams{
 			Charm: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "django",
 		},
 	}, {
@@ -2518,7 +2518,7 @@ applications:
 			Charm:       "$addCharm-0",
 			Application: "django",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 		},
@@ -2534,11 +2534,11 @@ applications:
 				},
 			},
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
-			"exposed-endpoints": map[string]interface{}{
-				"": map[string]interface{}{
-					"expose-to-cidrs": []interface{}{"0.0.0.0/0"},
+			"exposed-endpoints": map[string]any{
+				"": map[string]any{
+					"expose-to-cidrs": []any{"0.0.0.0/0"},
 				},
 			},
 		},
@@ -2569,7 +2569,7 @@ machines:
 			Charm: "ch:juju-gui",
 			Base:  "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": "ch:juju-gui",
 			"base":  "ubuntu@20.04/stable",
 		},
@@ -2581,7 +2581,7 @@ machines:
 			Application: "gui3",
 			Base:        "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "gui3",
 			"charm":       "$addCharm-0",
 			"base":        "ubuntu@20.04/stable",
@@ -2593,7 +2593,7 @@ machines:
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@22.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@22.04/stable",
 		},
 	}, {
@@ -2603,7 +2603,7 @@ machines:
 		Params: bundlechanges.AddMachineParams{
 			Base: "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"base": "ubuntu@20.04/stable",
 		},
 	}, {
@@ -2615,7 +2615,7 @@ machines:
 			ParentId:      "$addMachines-2",
 			Base:          "ubuntu@20.04/stable",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"container-type": "lxc",
 			"parent-id":      "$addMachines-2",
 			"base":           "ubuntu@20.04/stable",
@@ -2628,7 +2628,7 @@ machines:
 			Application: "$deploy-1",
 			To:          "$addMachines-5",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-5",
 		},
@@ -2640,7 +2640,7 @@ machines:
 			Application: "$deploy-1",
 			To:          "$addMachines-6",
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "$deploy-1",
 			"to":          "$addMachines-6",
 		},
@@ -2659,7 +2659,7 @@ func (s *changesSuite) TestAddMachineParamsContainer(c *tc.C) {
 	c.Assert(param.Machine(), tc.Equals, "42/lxd/0")
 }
 
-func copyParams(value interface{}) interface{} {
+func copyParams(value any) any {
 	source := reflect.ValueOf(value).Elem().FieldByName("Params")
 	target := reflect.New(source.Type()).Elem()
 
@@ -2770,7 +2770,7 @@ func (s *changesSuite) assertLocalBundleChanges(c *tc.C, charmDir, bundleContent
 			Charm: charmDir,
 			Base:  base,
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": charmDir,
 			"base":  base,
 		},
@@ -2782,7 +2782,7 @@ func (s *changesSuite) assertLocalBundleChanges(c *tc.C, charmDir, bundleContent
 			Application: "django",
 			Base:        base,
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        base,
@@ -2800,7 +2800,7 @@ func (s *changesSuite) assertLocalBundleChangesWithDevices(c *tc.C, charmDir, bu
 			Charm: charmDir,
 			Base:  base,
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"charm": charmDir,
 			"base":  base,
 		},
@@ -2812,7 +2812,7 @@ func (s *changesSuite) assertLocalBundleChangesWithDevices(c *tc.C, charmDir, bu
 			Application: "django",
 			Base:        base,
 		},
-		Args: map[string]interface{}{
+		Args: map[string]any{
 			"application": "django",
 			"charm":       "$addCharm-0",
 			"base":        base,
@@ -3585,7 +3585,7 @@ func (s *changesSuite) TestAppExistsWithChangedOptionsAndAnnotations(c *tc.C) {
 				Charm:    "ch:django",
 				Revision: 4,
 				Channel:  "stable",
-				Options: map[string]interface{}{
+				Options: map[string]any{
 					"key-1": "value-1",
 					"key-2": "value-4",
 					"key-3": "value-5",
@@ -5187,8 +5187,8 @@ func (c *archConstraint) Arch() (string, error) {
 }
 
 func constraintParser(s string) bundlechanges.ArchConstraint {
-	parts := strings.Split(s, " ")
-	for _, part := range parts {
+	parts := strings.SplitSeq(s, " ")
+	for part := range parts {
 		keyValue := strings.Split(part, "=")
 		if len(keyValue) == 2 && keyValue[0] == "arch" {
 			return &archConstraint{arch: keyValue[1]}

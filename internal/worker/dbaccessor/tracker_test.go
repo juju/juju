@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"sync/atomic"
 	stdtesting "testing"
 	"time"
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -63,7 +64,9 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	report := w.(interface{ Report() map[string]any }).Report()
+	report := w.(interface {
+		Report(ctx context.Context) map[string]any
+	}).Report(c.Context())
 	c.Assert(report, MapHasKeys, []string{
 		"db-replacements",
 		"max-ping-duration",
@@ -467,7 +470,7 @@ var SliceContains tc.Checker = &sliceContainsChecker[string]{
 	&tc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
 }
 
-func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
+func (checker *sliceContainsChecker[T]) Check(params []any, names []string) (result bool, error string) {
 	expected, ok := params[1].(T)
 	if !ok {
 		var t T
@@ -480,10 +483,8 @@ func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []stri
 		return false, fmt.Sprintf("Obtained value is not a []%T", t)
 	}
 
-	for _, o := range obtained {
-		if o == expected {
-			return true, ""
-		}
+	if slices.Contains(obtained, expected) {
+		return true, ""
 	}
 	return false, ""
 }
@@ -496,7 +497,7 @@ var MapHasKeys tc.Checker = &hasKeysChecker[string]{
 	&tc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
 }
 
-func (checker *hasKeysChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
+func (checker *hasKeysChecker[T]) Check(params []any, names []string) (result bool, error string) {
 	expected, ok := params[1].([]T)
 	if !ok {
 		var t T

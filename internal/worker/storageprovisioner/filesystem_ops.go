@@ -568,7 +568,7 @@ type createFilesystemOp struct {
 	args storage.FilesystemParams
 }
 
-func (op *createFilesystemOp) key() interface{} {
+func (op *createFilesystemOp) key() any {
 	return op.args.Tag
 }
 
@@ -577,7 +577,7 @@ type removeFilesystemOp struct {
 	tag names.FilesystemTag
 }
 
-func (op *removeFilesystemOp) key() interface{} {
+func (op *removeFilesystemOp) key() any {
 	return op.tag
 }
 
@@ -586,7 +586,7 @@ type attachFilesystemOp struct {
 	args storage.FilesystemAttachmentParams
 }
 
-func (op *attachFilesystemOp) key() interface{} {
+func (op *attachFilesystemOp) key() any {
 	return params.MachineStorageId{
 		MachineTag:    op.args.Machine.String(),
 		AttachmentTag: op.args.Filesystem.String(),
@@ -598,7 +598,7 @@ type detachFilesystemOp struct {
 	args storage.FilesystemAttachmentParams
 }
 
-func (op *detachFilesystemOp) key() interface{} {
+func (op *detachFilesystemOp) key() any {
 	return params.MachineStorageId{
 		MachineTag:    op.args.Machine.String(),
 		AttachmentTag: op.args.Filesystem.String(),

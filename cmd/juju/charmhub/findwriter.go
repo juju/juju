@@ -116,7 +116,7 @@ func (f findWriter) Print() error {
 			f.warningf("%v", err)
 		}
 
-		colValues := make([]interface{}, 0, len(colNames))
+		colValues := make([]any, 0, len(colNames))
 		for _, name := range f.columns.Names() {
 			switch name {
 			case ColumnNameName:
@@ -212,12 +212,12 @@ func wordWrapLine(line string, inset, limit int) string {
 		lines[current] = append(lines[current], char)
 	}
 
-	var res string
+	var res strings.Builder
 	for i, line := range lines {
-		res += string(line)
+		res.WriteString(string(line))
 		if i < len(lines)-1 {
-			res += "\n" + strings.Repeat("\t", inset)
+			res.WriteString("\n" + strings.Repeat("\t", inset))
 		}
 	}
-	return res
+	return res.String()
 }

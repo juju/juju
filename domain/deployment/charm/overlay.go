@@ -131,10 +131,10 @@ func VerifyNoOverlayFieldsPresent(bd *BundleData) error {
 			}
 			return foundOverlay
 		},
-		indexedElemPreVisitor: func(index interface{}) {
+		indexedElemPreVisitor: func(index any) {
 			pathStack = append(pathStack, fmt.Sprint(index))
 		},
-		indexedElemPostVisitor: func(_ interface{}) {
+		indexedElemPostVisitor: func(_ any) {
 			pathStack = pathStack[:len(pathStack)-1]
 		},
 	}
@@ -160,8 +160,8 @@ type visitorContext struct {
 	structVisitor func(ctx *visitorContext, val reflect.Value, typ reflect.Type) bool
 
 	// An optional pre/post visitor for indexable items (slices, maps)
-	indexedElemPreVisitor  func(index interface{})
-	indexedElemPostVisitor func(index interface{})
+	indexedElemPreVisitor  func(index any)
+	indexedElemPostVisitor func(index any)
 
 	dropNonRequiredMapKeys bool
 }
@@ -169,7 +169,7 @@ type visitorContext struct {
 // visitField invokes ctx.structVisitor(val) if v is a struct and returns back
 // the visitor's result. On the other hand, if val is a slice or a map,
 // visitField invoke specialized functions that support iterating such types.
-func visitField(ctx *visitorContext, val interface{}) bool {
+func visitField(ctx *visitorContext, val any) bool {
 	if val == nil {
 		return false
 	}
@@ -351,8 +351,8 @@ func isZero(v reflect.Value) bool {
 	case reflect.String:
 		return v.Len() == 0
 	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if !isZero(v.Field(i)) {
+		for _, field := range v.Fields() {
+			if !isZero(field) {
 				return false
 			}
 		}
@@ -642,7 +642,7 @@ func removeRelations(data [][]string, appName string) [][]string {
 //   - if the value is nil/zero and non-scalar, it is deleted from the dst map.
 //   - otherwise, the key/value is inserted into the dst map overwriting any
 //     existing entries.
-func mergeStructs(dstStruct, srcStruct interface{}, fpm FieldPresenceMap) {
+func mergeStructs(dstStruct, srcStruct any, fpm FieldPresenceMap) {
 	dst := reflect.ValueOf(dstStruct)
 	src := reflect.ValueOf(srcStruct)
 	typ := src.Type()
@@ -712,7 +712,7 @@ func isNonScalar(val reflect.Value) bool {
 	kind := val.Kind()
 
 	if kind == reflect.Interface {
-		kind = reflect.TypeOf(val).Kind()
+		kind = reflect.TypeFor[reflect.Value]().Kind()
 	}
 
 	switch kind {
@@ -728,7 +728,7 @@ func isNonScalar(val reflect.Value) bool {
 // value for the presence of an include directive. If such a directive is
 // located, resolveIncludes invokes the provided includeResolver and returns
 // back its output after applying the appropriate encoding for the directive.
-func resolveIncludes(includeResolver func(path string) ([]byte, error), v interface{}) (string, bool, error) {
+func resolveIncludes(includeResolver func(path string) ([]byte, error), v any) (string, bool, error) {
 	directives := []struct {
 		directive string
 		encoder   func([]byte) string

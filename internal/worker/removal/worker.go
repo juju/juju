@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -169,10 +169,10 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 	return nil
 }
 
-// Report returns data for display in the dependency engine report.
+// Report data for display in the dependency engine report.
 // In this case, it simply reports on all jobs in the runner.
-func (w *removalWorker) Report() map[string]any {
-	return w.runner.Report()
+func (w *removalWorker) Report(ctx context.Context) map[string]any {
+	return w.runner.Report(ctx)
 }
 
 // Kill (worker.Worker) tells the worker to stop and return from its loop.
@@ -207,7 +207,7 @@ func newJobWorker(svc RemovalService, job removal.Job) func(context.Context) (wo
 }
 
 // Report returns information about the removal job that the worker is running.
-func (w *jobWorker) Report() map[string]any {
+func (w *jobWorker) Report(ctx context.Context) map[string]any {
 	return map[string]any{
 		"job-type":       w.job.RemovalType,
 		"removal-entity": w.job.EntityUUID,

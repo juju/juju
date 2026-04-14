@@ -210,3 +210,8 @@ type secretExternalRevisions []secretExternalRevision
 type storageRemoval struct {
 	Obliterate bool `db:"obliterate"`
 }
+
+// dbModelType represents the model type from the model table.
+type dbModelType struct {
+	Type string `db:"type"`
+}

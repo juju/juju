@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
@@ -75,7 +75,7 @@ func (s *baseSuite) expectTimer(ticks int) func() {
 
 	ch := s.setupTimer(PollInterval)
 	go func() {
-		for i := 0; i < ticks; i++ {
+		for range ticks {
 			select {
 			case ch <- time.Now():
 			case <-done:

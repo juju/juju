@@ -95,7 +95,7 @@ func (pc *ProxyConfig) useProxy(addr string) bool {
 		addr = addr[:strings.LastIndex(addr, ":")]
 	}
 
-	for _, p := range strings.Split(pc.noProxy, ",") {
+	for p := range strings.SplitSeq(pc.noProxy, ",") {
 		p = strings.ToLower(strings.TrimSpace(p))
 		if len(p) == 0 {
 			continue

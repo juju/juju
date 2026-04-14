@@ -25,6 +25,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -375,51 +376,27 @@ func (api *OffersAPI) applicationOffersFromModel(
 			apiUserDisplayName,
 			isAdminUser,
 		)
-		offerConnections := api.makeOfferConnections(
-			modelUUID,
-			requiredAccess,
-			appOffer.OfferConnections,
-		)
-
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		results = append(results, params.ApplicationOfferAdminDetailsV5{
+		result := params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: *offerParams,
 			ApplicationName:           appOffer.ApplicationName,
 			CharmURL:                  charmURL,
-			Connections:               offerConnections,
-		})
-	}
-	return results, nil
-}
-
-func (api *OffersAPI) makeOfferConnections(
-	modelUUID string,
-	requiredAccess permission.Access,
-	offerConnections []crossmodelrelation.OfferConnection,
-) []params.OfferConnection {
-
-	// Add offer connections if the required access is Admin only.
-	if offerConnections == nil || requiredAccess != permission.AdminAccess {
-		return nil
-	}
-
-	return transform.Slice(offerConnections, func(in crossmodelrelation.OfferConnection) params.OfferConnection {
-		return params.OfferConnection{
-			SourceModelTag: names.NewModelTag(modelUUID).String(),
-			RelationId:     in.RelationId,
-			Username:       in.Username,
-			Endpoint:       in.Endpoint,
-			Status: params.EntityStatus{
-				Status: in.Status,
-				Info:   in.Message,
-				Since:  in.Since,
-			},
-			IngressSubnets: in.IngressSubnets,
 		}
-	})
+
+		// Populate connections when the caller requires admin access.
+		if requiredAccess == permission.AdminAccess {
+			for _, conn := range appOffer.OfferConnections {
+				result.Connections = append(result.Connections, makeOfferConnection(conn))
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
 }
 
 func (api *OffersAPI) makeOfferParams(
@@ -499,6 +476,21 @@ func findOfferUserAccess(userName string, in []crossmodelrelation.OfferUser) per
 		}
 	}
 	return permission.NoAccess
+}
+
+func makeOfferConnection(conn crossmodelrelation.OfferConnectionDetail) params.OfferConnection {
+	return params.OfferConnection{
+		SourceModelTag: names.NewModelTag(conn.SourceModelUUID).String(),
+		RelationId:     conn.RelationID,
+		Username:       conn.Username,
+		Endpoint:       conn.Endpoint,
+		Status: params.EntityStatus{
+			Status: status.Status(conn.Status),
+			Info:   conn.Message,
+			Since:  conn.StatusSince,
+		},
+		IngressSubnets: conn.IngressSubnets,
+	}
 }
 
 func makeOfferFilterFromParams(filter params.OfferFilter) (crossmodelrelationservice.OfferFilter, error) {

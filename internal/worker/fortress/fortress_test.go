@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -43,7 +43,7 @@ func (s *FortressSuite) TestOutputBadTarget(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
-	var out interface{}
+	var out any
 	err := fix.manifold.Output(fix.worker, &out)
 	c.Check(err.Error(), tc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
 	c.Check(out, tc.IsNil)
@@ -176,7 +176,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 	var started sync.WaitGroup
 	finishes := make(chan int, count)
 	unblocked := make(chan struct{})
-	for i := 0; i < count; i++ {
+	for i := range count {
 		started.Add(1)
 		go func(i int) {
 			visit := func() error {
@@ -199,7 +199,7 @@ func (s *FortressSuite) TestConcurrentVisit(c *tc.C) {
 	close(unblocked)
 	timeout := time.After(coretesting.LongWait)
 	seen := make(map[int]bool)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		select {
 		case finished := <-finishes:
 			c.Logf("visit %d finished", finished)

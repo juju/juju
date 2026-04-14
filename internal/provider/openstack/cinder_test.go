@@ -63,10 +63,6 @@ func init() {
 	openstack.CinderAttempt.Delay = 0
 }
 
-func toStringPtr(s string) *string {
-	return &s
-}
-
 func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *tc.C) {
 	mockAdaptor := &mockAdaptor{
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
@@ -76,7 +72,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}
@@ -203,7 +199,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}
@@ -342,7 +338,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *tc.C) {
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
 		Size:     1024,
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"volume-type": "SSD",
 		},
 	}})
@@ -368,7 +364,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeInvalidCredential(c *tc.C) {
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
 		Size:     1024,
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"volume-type": "SSD",
 		},
 	}})
@@ -403,7 +399,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}
@@ -507,8 +503,8 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
-		{"DeleteVolume", []interface{}{mockVolId}},
+		{"GetVolume", []any{mockVolId}},
+		{"DeleteVolume", []any{mockVolId}},
 	})
 }
 
@@ -523,7 +519,7 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil})
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
+		{"GetVolume", []any{mockVolId}},
 	})
 }
 
@@ -549,13 +545,13 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *tc.C) {
 	c.Assert(errs[0], tc.ErrorIsNil)
 	c.Assert(statuses, tc.HasLen, 0)
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{{
-		"GetVolume", []interface{}{mockVolId},
+		"GetVolume", []any{mockVolId},
 	}, {
-		"GetVolume", []interface{}{mockVolId},
+		"GetVolume", []any{mockVolId},
 	}, {
-		"GetVolume", []interface{}{mockVolId},
+		"GetVolume", []any{mockVolId},
 	}, {
-		"DeleteVolume", []interface{}{mockVolId},
+		"DeleteVolume", []any{mockVolId},
 	}})
 }
 
@@ -587,8 +583,8 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumes(c *tc.C) {
 		"juju-model-uuid":      "",
 	}
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
-		{"SetVolumeMetadata", []interface{}{mockVolId, metadata}},
+		{"GetVolume", []any{mockVolId}},
+		{"SetVolumeMetadata", []any{mockVolId, metadata}},
 	})
 }
 
@@ -608,7 +604,7 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesAttached(c *tc.C) {
 	c.Assert(errs, tc.HasLen, 1)
 	c.Assert(errs[0], tc.ErrorMatches, `cannot release volume "0": volume still in-use`)
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{{
-		"GetVolume", []interface{}{mockVolId},
+		"GetVolume", []any{mockVolId},
 	}})
 }
 
@@ -625,7 +621,7 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesInvalidCredential(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.invalidCredential, tc.IsTrue)
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{{
-		"GetVolume", []interface{}{mockVolId},
+		"GetVolume", []any{mockVolId},
 	}})
 }
 
@@ -688,8 +684,8 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(errs, tc.DeepEquals, []error{nil, nil})
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"DetachVolume", []interface{}{mockServerId, mockVolId}},
-		{"DetachVolume", []interface{}{mockServerId2, "42"}},
+		{"DetachVolume", []any{mockServerId, mockVolId}},
+		{"DetachVolume", []any{mockServerId2, "42"}},
 	})
 }
 
@@ -797,8 +793,8 @@ func (s *cinderVolumeSourceSuite) TestImportVolume(c *tc.C) {
 		Persistent: true,
 	})
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
-		{"SetVolumeMetadata", []interface{}{mockVolId, tags}},
+		{"GetVolume", []any{mockVolId}},
+		{"SetVolumeMetadata", []any{mockVolId, tags}},
 	})
 }
 
@@ -815,7 +811,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInUse(c *tc.C) {
 	_, err := volSource.(storage.VolumeImporter).ImportVolume(c.Context(), mockVolId, "", nil, false)
 	c.Assert(err, tc.ErrorMatches, `cannot import volume "0" with status "in-use"`)
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
+		{"GetVolume", []any{mockVolId}},
 	})
 }
 
@@ -830,7 +826,7 @@ func (s *cinderVolumeSourceSuite) TestImportVolumeInvalidCredential(c *tc.C) {
 	_, err := volSource.(storage.VolumeImporter).ImportVolume(c.Context(), mockVolId, "", nil, false)
 	c.Assert(err, tc.ErrorMatches, `getting volume: invalid auth`)
 	mockAdaptor.CheckCalls(c, []testhelpers.StubCall{
-		{"GetVolume", []interface{}{mockVolId}},
+		{"GetVolume", []any{mockVolId}},
 	})
 	c.Assert(s.invalidCredential, tc.IsTrue)
 }

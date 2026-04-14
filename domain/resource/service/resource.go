@@ -68,20 +68,23 @@ type State interface {
 	// ListResources returns the list of resource for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
-	// GetApplicationResource returns the identified resource linked to
-	// an application.
+	// GetResource returns the identified resource linked to an application.
 	//
 	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if no resource is found.
-	GetApplicationResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
-
-	// GetResource returns the identified resource without requiring it to be
-	// linked to an application. The application name will be included if
-	// available.
-	//
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if no resource is found.
+	//   - [resourceerrors.ResourceNotFound] if no resource is found or its
+	//  application is not found.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
+
+	// GetResourceWithoutApplication returns the identified resource without
+	// requiring it to be linked to an application. The application name will
+	// be included if available.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource is found.
+	GetResourceWithoutApplication(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+	) (coreresource.Resource, error)
 
 	// GetResourceNameAndType returns the name and resource type for the given
 	// resource UUID.
@@ -356,7 +359,7 @@ func (s *Service) ExportResources(ctx context.Context, appName string) (
 	return s.st.ExportResources(ctx, appName)
 }
 
-// GetResource returns the identified application resource.
+// GetResource returns the identified resource linked to an application.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if resource does
@@ -368,7 +371,23 @@ func (s *Service) GetResource(
 	if err := resourceUUID.Validate(); err != nil {
 		return coreresource.Resource{}, errors.Errorf("resource id: %w", err)
 	}
-	return s.st.GetApplicationResource(ctx, resourceUUID)
+	return s.st.GetResource(ctx, resourceUUID)
+}
+
+// GetResourceWithoutApplication returns the identified resource,
+// without validation of its application.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if resource does
+//     exist, or does not have a linked application.
+func (s *Service) GetResourceWithoutApplication(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
+	if err := resourceUUID.Validate(); err != nil {
+		return coreresource.Resource{}, errors.Errorf("resource id: %w", err)
+	}
+	return s.st.GetResourceWithoutApplication(ctx, resourceUUID)
 }
 
 // StoreResource adds the resource to blob storage and updates the metadata.
@@ -399,7 +418,7 @@ func (s *Service) StoreResource(
 		return coreresource.Resource{}, err
 	}
 
-	return s.st.GetResource(ctx, args.ResourceUUID)
+	return s.st.GetResourceWithoutApplication(ctx, args.ResourceUUID)
 }
 
 // StoreResourceAndIncrementCharmModifiedVersion adds the application resource
@@ -437,7 +456,7 @@ func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
 		return coreresource.Resource{}, err
 	}
 
-	return s.st.GetApplicationResource(ctx, args.ResourceUUID)
+	return s.st.GetResource(ctx, args.ResourceUUID)
 }
 
 func (s *Service) storeResource(
@@ -520,7 +539,7 @@ func (s *Service) OpenResource(
 		return coreresource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 
-	res, err := s.st.GetApplicationResource(ctx, resourceUUID)
+	res, err := s.st.GetResource(ctx, resourceUUID)
 	if err != nil {
 		return coreresource.Resource{}, nil, err
 	}

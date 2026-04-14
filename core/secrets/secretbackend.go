@@ -25,7 +25,7 @@ type SecretBackend struct {
 	Name                string
 	BackendType         string
 	TokenRotateInterval *time.Duration
-	Config              map[string]interface{}
+	Config              map[string]any
 }
 
 // ValueRef represents a reference to a secret
@@ -47,10 +47,7 @@ func NextBackendRotateTime(now time.Time, rotateInterval time.Duration) (*time.T
 	}
 	// Rotate a reasonable time before the token is due to expire.
 	const maxInterval = 24 * time.Hour
-	nextInterval := time.Duration(0.75*rotateInterval.Seconds()) * time.Second
-	if nextInterval > maxInterval {
-		nextInterval = maxInterval
-	}
+	nextInterval := min(time.Duration(0.75*rotateInterval.Seconds())*time.Second, maxInterval)
 	when := now.Add(nextInterval)
 	return &when, nil
 }

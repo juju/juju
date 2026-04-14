@@ -38,7 +38,7 @@ func scheduleOperations(deps *dependencies, ops ...scheduleOp) {
 type scheduleOp interface {
 	// key is the key for the operation; this
 	// must be unique among all operations.
-	key() interface{}
+	key() any
 
 	// delay is the amount of time to delay
 	// before next executing the operation.

@@ -52,8 +52,8 @@ type Unit interface {
 	Name() string
 	NetworkInfo(ctx context.Context, bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	RequestReboot(context.Context) error
-	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
-	SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]interface{}) error
+	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]any) error
+	SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]any) error
 	State(ctx context.Context) (params.UnitStateResult, error)
 	SetState(ctx context.Context, unitState params.SetUnitStateArg) error
 	Tag() names.UnitTag
@@ -93,7 +93,7 @@ type Application interface {
 	Life() life.Value
 	Tag() names.ApplicationTag
 	Status(ctx context.Context, unitName string) (params.ApplicationStatusResult, error)
-	SetStatus(ctx context.Context, unitName string, appStatus status.Status, info string, data map[string]interface{}) error
+	SetStatus(ctx context.Context, unitName string, appStatus status.Status, info string, data map[string]any) error
 	CharmModifiedVersion(context.Context) (int, error)
 	CharmURL(context.Context) (string, bool, error)
 

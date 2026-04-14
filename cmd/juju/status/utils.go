@@ -16,7 +16,7 @@ import (
 
 // stringKeysFromMap takes a map with keys which are strings and returns
 // only the keys.
-func stringKeysFromMap(m interface{}) (keys []string) {
+func stringKeysFromMap(m any) (keys []string) {
 	for _, k := range reflect.ValueOf(m).MapKeys() {
 		keys = append(keys, k.String())
 	}
@@ -42,7 +42,7 @@ func indent(prepend string, level int, append string) string {
 }
 
 // indexOf returns the position of an element in a slice if it exists otherwise it returns -1.
-func indexOf(element interface{}, data []interface{}) int {
+func indexOf(element any, data []any) int {
 	for k, v := range data {
 		if element == v {
 			return k

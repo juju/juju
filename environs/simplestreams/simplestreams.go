@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -139,14 +141,14 @@ type MetadataCatalog struct {
 
 type ItemCollection struct {
 	rawItems   map[string]*json.RawMessage
-	Items      map[string]interface{} `json:"items"`
-	Arch       string                 `json:"arch,omitempty"`
-	Release    string                 `json:"release,omitempty"`
-	Version    string                 `json:"version,omitempty"`
-	RegionName string                 `json:"region,omitempty"`
-	Endpoint   string                 `json:"endpoint,omitempty"`
-	Storage    string                 `json:"root_store,omitempty"`
-	VirtType   string                 `json:"virt,omitempty"`
+	Items      map[string]any `json:"items"`
+	Arch       string         `json:"arch,omitempty"`
+	Release    string         `json:"release,omitempty"`
+	Version    string         `json:"version,omitempty"`
+	RegionName string         `json:"region,omitempty"`
+	Endpoint   string         `json:"endpoint,omitempty"`
+	Storage    string         `json:"root_store,omitempty"`
+	VirtType   string         `json:"virt,omitempty"`
 }
 
 // These structs define the model used for metadata indices.
@@ -314,7 +316,7 @@ func (e *noMatchingProductsError) Error() string {
 	return e.msg
 }
 
-func newNoMatchingProductsError(message string, args ...interface{}) error {
+func newNoMatchingProductsError(message string, args ...any) error {
 	return &noMatchingProductsError{fmt.Sprintf(message, args...)}
 }
 
@@ -344,7 +346,7 @@ const (
 // AppendMatchingFunc is the filter function signature used in our simple
 // streams parsing code. It collects matching items from a DataSource in the
 // returned interface slice.
-type AppendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
+type AppendMatchingFunc func(DataSource, []any, map[string]any, LookupConstraint) ([]any, error)
 
 // ValueParams contains the information required to pull out from the metadata
 // structs of a particular type.
@@ -356,7 +358,7 @@ type ValueParams struct {
 	// A function used to filter and return records of a given type.
 	FilterFunc AppendMatchingFunc
 	// An struct representing the type of records to return.
-	ValueTemplate interface{}
+	ValueTemplate any
 }
 
 // MirrorsPath returns the mirrors path for streamsVersion.
@@ -413,7 +415,7 @@ type GetMetadataParams struct {
 // unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match
 // is found.
-func (s Simplestreams) GetMetadata(ctx context.Context, sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+func (s Simplestreams) GetMetadata(ctx context.Context, sources []DataSource, params GetMetadataParams) (items []any, resolveInfo *ResolveInfo, err error) {
 	for _, source := range sources {
 		logger.Debugf(ctx, "searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = s.getMaybeSignedMetadata(ctx, source, params, true)
@@ -434,7 +436,7 @@ func (s Simplestreams) GetMetadata(ctx context.Context, sources []DataSource, pa
 }
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint in params.
-func (s Simplestreams) getMaybeSignedMetadata(ctx context.Context, source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
+func (s Simplestreams) getMaybeSignedMetadata(ctx context.Context, source DataSource, params GetMetadataParams, signed bool) ([]any, *ResolveInfo, error) {
 	makeIndexPath := func(basePath string) string {
 		pathNoSuffix := fmt.Sprintf(basePath, params.StreamsVersion)
 		indexPath := pathNoSuffix + UnsignedSuffix
@@ -840,12 +842,7 @@ func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud Clou
 
 // utility function to see if element exists in values slice.
 func containsString(values []string, element string) bool {
-	for _, value := range values {
-		if value == element {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, element)
 }
 
 // To keep the metadata concise, attributes on the metadata struct which have the same value for each
@@ -866,7 +863,7 @@ func (metadata *CloudMetadata) denormaliseMetadata() {
 
 // inherit sets any blank fields in dst to their equivalent values in fields in src that have matching json tags.
 // The dst parameter must be a pointer to a struct.
-func inherit(dst, src interface{}) {
+func inherit(dst, src any) {
 	for tag := range tags(dst) {
 		setFieldByTag(dst, tag, fieldByTag(src, tag), false)
 	}
@@ -874,7 +871,7 @@ func inherit(dst, src interface{}) {
 
 // processAliases looks through the struct fields to see if
 // any aliases apply, and sets attributes appropriately if so.
-func (metadata *CloudMetadata) processAliases(item interface{}) {
+func (metadata *CloudMetadata) processAliases(item any) {
 	for tag := range tags(item) {
 		aliases, ok := metadata.Aliases[tag]
 		if !ok {
@@ -923,18 +920,16 @@ var tagsForType structTags = make(structTags)
 
 // RegisterStructTags ensures the json tags for the given structs are able to be used
 // when parsing the simplestreams metadata.
-func RegisterStructTags(vals ...interface{}) {
+func RegisterStructTags(vals ...any) {
 	tags := mkTags(vals...)
-	for k, v := range tags {
-		tagsForType[k] = v
-	}
+	maps.Copy(tagsForType, tags)
 }
 
 func init() {
 	RegisterStructTags(CloudMetadata{}, MetadataCatalog{}, ItemCollection{})
 }
 
-func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
+func mkTags(vals ...any) map[reflect.Type]map[string]int {
 	typeMap := make(map[reflect.Type]map[string]int)
 	for _, v := range vals {
 		t := reflect.TypeOf(v)
@@ -951,7 +946,7 @@ func jsonTags(t reflect.Type) map[string]int {
 	tags := make(map[string]int)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.Type != reflect.TypeOf("") {
+		if f.Type != reflect.TypeFor[string]() {
 			continue
 		}
 		if tag := f.Tag.Get("json"); tag != "" {
@@ -972,7 +967,7 @@ func jsonTags(t reflect.Type) map[string]int {
 
 // tags returns the field offsets for the JSON tags defined by the given value, which must be
 // a struct or a pointer to a struct.
-func tags(x interface{}) map[string]int {
+func tags(x any) map[string]int {
 	t := reflect.TypeOf(x)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -988,7 +983,7 @@ func tags(x interface{}) map[string]int {
 }
 
 // fieldByTag returns the value for the field in x with the given JSON tag, or "" if there is no such field.
-func fieldByTag(x interface{}, tag string) string {
+func fieldByTag(x any, tag string) string {
 	tagm := tags(x)
 	v := reflect.ValueOf(x)
 	if v.Kind() == reflect.Ptr {
@@ -1002,7 +997,7 @@ func fieldByTag(x interface{}, tag string) string {
 
 // setFieldByTag sets the value for the field in x with the given JSON tag to val.
 // The override parameter specifies whether the value will be set even if the original value is non-empty.
-func setFieldByTag(x interface{}, tag, val string, override bool) {
+func setFieldByTag(x any, tag, val string, override bool) {
 	i, ok := tags(x)[tag]
 	if !ok {
 		return
@@ -1031,7 +1026,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(ctx context.Context, 
 }
 
 // ParseCloudMetadata parses the given bytes into simplestreams metadata.
-func ParseCloudMetadata(data []byte, format, url string, valueTemplate interface{}) (*CloudMetadata, error) {
+func ParseCloudMetadata(data []byte, format, url string, valueTemplate any) (*CloudMetadata, error) {
 	var metadata CloudMetadata
 	err := json.Unmarshal(data, &metadata)
 	if err != nil {
@@ -1055,7 +1050,7 @@ func ParseCloudMetadata(data []byte, format, url string, valueTemplate interface
 // getLatestMetadataWithFormat loads the metadata for the given cloud and orders the resulting structs
 // starting with the most recent, and returns items which match the product criteria, choosing from the
 // latest versions first.
-func (indexRef *IndexReference) getLatestMetadataWithFormat(ctx context.Context, cons LookupConstraint, format string, requireSigned bool) ([]interface{}, error) {
+func (indexRef *IndexReference) getLatestMetadataWithFormat(ctx context.Context, cons LookupConstraint, format string, requireSigned bool) ([]any, error) {
 	metadata, err := indexRef.GetCloudMetadataWithFormat(ctx, cons, format, requireSigned)
 	if err != nil {
 		return nil, err
@@ -1072,7 +1067,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(ctx context.Context,
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
-func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc AppendMatchingFunc) ([]interface{}, error) {
+func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc AppendMatchingFunc) ([]any, error) {
 	prodIds, err := cons.ProductIds()
 	if err != nil {
 		return nil, err
@@ -1088,7 +1083,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source Da
 			"index has no records for product ids %v; it does have product ids %v", prodIds, availableProducts)
 	}
 
-	var matchingItems []interface{}
+	var matchingItems []any
 	for _, catalog := range catalogs {
 		var bv byVersionDesc = make(byVersionDesc, len(catalog.Items))
 		i := 0

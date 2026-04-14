@@ -51,7 +51,7 @@ type combinedRecorder struct {
 }
 
 // HandleRequest implements rpc.Recorder.
-func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) error {
+func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body any) error {
 	cr.observer.ServerRequest(context.Background(), hdr, body)
 	if cr.recorder == nil {
 		return nil
@@ -74,7 +74,7 @@ func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) err
 }
 
 // HandleReply implements rpc.Recorder.
-func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body interface{}) error {
+func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body any) error {
 	cr.observer.ServerReply(context.Background(), req, replyHdr, body)
 	if cr.recorder == nil {
 		return nil
@@ -94,7 +94,7 @@ func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, b
 	}))
 }
 
-func extractErrors(body interface{}) []*auditlog.Error {
+func extractErrors(body any) []*auditlog.Error {
 	// To find errors in the API responses, we look for a struct where
 	// there is an attribute that is:
 	// * a slice of structs that have an attribute that is *Error or
@@ -107,15 +107,13 @@ func extractErrors(body interface{}) []*auditlog.Error {
 	}
 
 	// Prefer a slice of structs with Errors.
-	for i := 0; i < value.NumField(); i++ {
-		attr := value.Field(i)
+	for _, attr := range value.Fields() {
 		if errors, ok := tryStructSliceErrors(attr); ok {
 			return convertErrors(errors)
 		}
 	}
 
-	for i := 0; i < value.NumField(); i++ {
-		attr := value.Field(i)
+	for _, attr := range value.Fields() {
 		if err, ok := tryErrorPointer(attr); ok {
 			return convertErrors([]*params.Error{err})
 		}
@@ -156,7 +154,7 @@ func tryStructSliceErrors(value reflect.Value) ([]*params.Error, bool) {
 	return result, true
 }
 
-var errorType = reflect.TypeOf(params.Error{})
+var errorType = reflect.TypeFor[params.Error]()
 
 func findErrorField(itemType reflect.Type) (int, bool) {
 	for i := 0; i < itemType.NumField(); i++ {

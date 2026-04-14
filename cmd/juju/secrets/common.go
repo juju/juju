@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -37,8 +39,6 @@ func (c *SecretUpsertContentCommand) Init(args []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for k, v := range dataFromFile {
-		c.Data[k] = v
-	}
+	maps.Copy(c.Data, dataFromFile)
 	return nil
 }

@@ -82,7 +82,7 @@ func dialRPCClient(socket socketConfig) (*rpc.Client, error) {
 }
 
 type rpcClient interface {
-	Call(serviceMethod string, args interface{}, reply interface{}) error
+	Call(serviceMethod string, args any, reply any) error
 	Close() error
 }
 

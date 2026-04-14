@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ExternalControllerUpdater", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateAPI(ctx)
-	}, reflect.TypeOf((*ExternalControllerUpdaterAPI)(nil)))
+	}, reflect.TypeFor[*ExternalControllerUpdaterAPI]())
 }
 
 // newStateAPI creates a new server-side ExternalControllerUpdaterAPI API facade

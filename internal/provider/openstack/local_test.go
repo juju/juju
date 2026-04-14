@@ -9,12 +9,14 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -149,10 +151,8 @@ func (s *localServer) openstackCertificate(c *tc.C) ([]string, error) {
 }
 
 func (s *localHTTPSServerSuite) envUsingCertificate(c *tc.C) environs.Environ {
-	newattrs := make(map[string]interface{}, len(s.attrs))
-	for k, v := range s.attrs {
-		newattrs[k] = v
-	}
+	newattrs := make(map[string]any, len(s.attrs))
+	maps.Copy(newattrs, s.attrs)
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, tc.ErrorIsNil)
@@ -198,9 +198,7 @@ func makeMockAdaptor() *mockAdaptor {
 		},
 		setVolumeMetadata: func(volumeId string, metadata map[string]string) (map[string]string, error) {
 			if volume, ok := volumes[volumeId]; ok {
-				for k, v := range metadata {
-					volume.Metadata[k] = v
-				}
+				maps.Copy(volume.Metadata, metadata)
 				return volume.Metadata, nil
 			}
 			return nil, errors.New("not found")
@@ -370,7 +368,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *tc.C) {
 
 	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)
@@ -453,14 +451,14 @@ func (s *localServerSuite) TestAddressesWithoutPublicIPConstraints(c *tc.C) {
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *tc.C) {
 	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("add floating IP should not have been called")
 		},
 	)
 	defer cleanup()
 	cleanup = s.srv.Nova.RegisterControlPoint(
 		"addServerFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("add server floating IP should not have been called")
 		},
 	)
@@ -488,14 +486,14 @@ func (s *localServerSuite) TestStartInstanceWhenPublicIPError(c *tc.C) {
 
 	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("fail on purpose")
 		},
 	)
 	defer cleanup()
 	cleanup = s.srv.Nova.RegisterControlPoint(
 		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			addServerID = args[0].(*nova.ServerDetail).Id
 			return nil
 		},
@@ -503,7 +501,7 @@ func (s *localServerSuite) TestStartInstanceWhenPublicIPError(c *tc.C) {
 	defer cleanup()
 	cleanup = s.srv.Nova.RegisterControlPoint(
 		"removeServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			removeServerCalled = true
 			removeServerID = args[0].(string)
 			return nil
@@ -786,7 +784,7 @@ func (s *localServerSuite) TestStartInstanceGetServerFail(c *tc.C) {
 	// Force an error in waitForActiveServerDetails
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"server",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("GetServer failed on purpose")
 		},
 	)
@@ -826,7 +824,7 @@ func (s *localServerSuite) TestStartInstanceDeletesMachineSecurityGroupOnInstanc
 	// Force an error in waitForActiveServerDetails
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"server",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("GetServer failed on purpose")
 		},
 	)
@@ -878,13 +876,7 @@ func assertSecurityGroups(c *tc.C, env environs.Environ, expected []string) {
 		}
 	}
 	for _, group := range groups {
-		found := false
-		for _, name := range expected {
-			if group.Name == name {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(expected, group.Name)
 		if !found {
 			c.Errorf("existing security group %q is not expected", group.Name)
 		}
@@ -951,7 +943,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *tc.C) {
 	// Force an error when a security group is deleted.
 	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"removeSecurityGroup",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("failed on purpose")
 		},
 	)
@@ -1265,7 +1257,7 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *tc.C) {
 
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			details := args[0].(*nova.ServerDetail)
 			switch {
 			case strings.HasSuffix(details.Name, "-100"):
@@ -1299,7 +1291,7 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *tc.C) {
 
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"server",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("strange error not instance")
 		},
 	)
@@ -1315,7 +1307,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *tc.C) {
 
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"matchServers",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			return fmt.Errorf("strange error no instances")
 		},
 	)
@@ -1460,7 +1452,7 @@ func (s *localServerSuite) TestSubnetsFindAll(c *tc.C) {
 
 func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *tc.C) {
 	cfg := s.env.Config()
-	cfg, err := cfg.Apply(map[string]interface{}{"external-network": "ext-net"})
+	cfg, err := cfg.Apply(map[string]any{"external-network": "ext-net"})
 	c.Assert(err, tc.ErrorIsNil)
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
@@ -2530,7 +2522,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *tc.C) {
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
 		c, s.toolsMetadataStorage, "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
-	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
+	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]any) error {
 		return nil
 	}
 	params := environs.StartInstanceParams{
@@ -2650,7 +2642,7 @@ func (s *localServerSuite) TestTerminateInstanceNetworkPorts(c *tc.C) {
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
 	coretesting.BaseSuite
-	attrs map[string]interface{}
+	attrs map[string]any
 	cred  *identity.Credentials
 	srv   localServer
 	env   environs.Environ
@@ -2666,7 +2658,7 @@ func (s *localHTTPSServerSuite) SetUpSuite(c *tc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
-func (s *localHTTPSServerSuite) createConfigAttrs(c *tc.C) map[string]interface{} {
+func (s *localHTTPSServerSuite) createConfigAttrs(c *tc.C) map[string]any {
 	attrs := localConfigAttrs
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
@@ -2737,10 +2729,8 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *tc.C) {
 	// If you don't have ssl-hostname-verification set to false, then we
 	// fail to connect to the environment. Copy the attrs used by SetUp and
 	// force hostname verification.
-	newattrs := make(map[string]interface{}, len(s.attrs))
-	for k, v := range s.attrs {
-		newattrs[k] = v
-	}
+	newattrs := make(map[string]any, len(s.attrs))
+	maps.Copy(newattrs, s.attrs)
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2781,7 +2771,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *tc.C) {
 	c.Check(customURL[:8], tc.Equals, "https://")
 
 	envConfig, err := s.env.Config().Apply(
-		map[string]interface{}{"image-metadata-url": customURL},
+		map[string]any{"image-metadata-url": customURL},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.env.SetConfig(c.Context(), envConfig)
@@ -2841,7 +2831,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	c.Check(customURL[:8], tc.Equals, "https://")
 
 	envConfig, err := env.Config().Apply(
-		map[string]interface{}{"image-metadata-url": customURL},
+		map[string]any{"image-metadata-url": customURL},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	err = env.SetConfig(c.Context(), envConfig)
@@ -2891,7 +2881,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *tc.C) {
 	c.Check(customURL[:8], tc.Equals, "https://")
 
 	envConfig, err := s.env.Config().Apply(
-		map[string]interface{}{"agent-metadata-url": customURL},
+		map[string]any{"agent-metadata-url": customURL},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.env.SetConfig(c.Context(), envConfig)
@@ -3130,7 +3120,7 @@ func (s *localServerSuite) TestStartInstanceWithUnknownAZError(c *tc.C) {
 
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
+		func(sc hook.ServiceControl, args ...any) error {
 			serverDetail := args[0].(*nova.ServerDetail)
 			if serverDetail.AvailabilityZone == "az2" {
 				return fmt.Errorf("some unknown error")
@@ -3508,7 +3498,7 @@ func (s *localServerSuite) TestAdoptResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
-	cfg, err := s.env.Config().Apply(map[string]interface{}{
+	cfg, err := s.env.Config().Apply(map[string]any{
 		"uuid": hostedModelUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -3554,7 +3544,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
-	cfg, err := s.env.Config().Apply(map[string]interface{}{
+	cfg, err := s.env.Config().Apply(map[string]any{
 		"uuid": hostedModelUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -3786,7 +3776,7 @@ func (s *noNeutronSuite) SetUpTest(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	// Ensure that there's nothing returned with a type of "network",
 	// so that we switch over to nova networking.
-	cleanup := userPass.RegisterControlPoint("authorisation", func(sc hook.ServiceControl, args ...interface{}) error {
+	cleanup := userPass.RegisterControlPoint("authorisation", func(sc hook.ServiceControl, args ...any) error {
 		res, ok := args[0].(*identityservice.AccessResponse)
 		c.Assert(ok, tc.IsTrue)
 		var filtered []identityservice.V2Service
@@ -3833,7 +3823,7 @@ func (s *noNeutronSuite) TestSupport(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `OpenStack Neutron service`)
 }
 
-func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
+func prepareParams(attrs map[string]any, cred *identity.Credentials) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		ModelConfig:      attrs,

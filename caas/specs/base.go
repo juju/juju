@@ -5,6 +5,7 @@ package specs
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -35,7 +36,7 @@ type ImageDetails struct {
 type PullPolicy string
 
 // ContainerConfig describes the config used for setting up a pod container's environment variables.
-type ContainerConfig map[string]interface{}
+type ContainerConfig map[string]any
 
 // ContainerSpecV2 defines the data values used to configure
 // a container on the CAAS substrate.
@@ -134,10 +135,8 @@ func (spt ScalePolicyType) Validate() error {
 	if spt == "" {
 		return nil
 	}
-	for _, v := range supportedPolicies {
-		if spt == v {
-			return nil
-		}
+	if slices.Contains(supportedPolicies, spt) {
+		return nil
 	}
 	return errors.NotSupportedf("scale policy %q", spt)
 }
@@ -260,12 +259,7 @@ func (cs *caasContainers) Validate() error {
 
 		var uniqFileSets []FileSet
 		isDuplicateInContainer := func(f FileSet) bool {
-			for _, v := range uniqFileSets {
-				if f.Equal(v) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(uniqFileSets, f.Equal)
 		}
 		mountPaths := set.NewStrings()
 		for i := range c.VolumeConfig {

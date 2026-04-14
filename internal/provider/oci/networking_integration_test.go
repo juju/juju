@@ -31,13 +31,13 @@ func (s *networkingSuite) SetUpTest(c *tc.C) {
 func (s *networkingSuite) setupNetworkInterfacesExpectations(c *tc.C, vnicID, vcnID string) {
 	attachResponse := []ociCore.VnicAttachment{
 		{
-			Id:                 makeStringPointer("fakeAttachmentId"),
-			AvailabilityDomain: makeStringPointer("fake"),
+			Id:                 new("fakeAttachmentId"),
+			AvailabilityDomain: new("fake"),
 			CompartmentId:      &s.testCompartment,
 			InstanceId:         &s.testInstanceID,
 			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-			DisplayName:        makeStringPointer("fakeAttachmentName"),
-			NicIndex:           makeIntPointer(0),
+			DisplayName:        new("fakeAttachmentName"),
+			NicIndex:           new(0),
 			VnicId:             &vnicID,
 		},
 	}
@@ -45,12 +45,12 @@ func (s *networkingSuite) setupNetworkInterfacesExpectations(c *tc.C, vnicID, vc
 	vnicRequest, vnicResponse := makeGetVnicRequestResponse([]ociCore.GetVnicResponse{
 		{
 			Vnic: ociCore.Vnic{
-				Id:             makeStringPointer(vnicID),
-				PrivateIp:      makeStringPointer("1.1.1.1"),
-				DisplayName:    makeStringPointer("fakeVnicName"),
-				PublicIp:       makeStringPointer("2.2.2.2"),
-				MacAddress:     makeStringPointer("aa:aa:aa:aa:aa:aa"),
-				SubnetId:       makeStringPointer("fakeSubnetId"),
+				Id:             new(vnicID),
+				PrivateIp:      new("1.1.1.1"),
+				DisplayName:    new("fakeVnicName"),
+				PublicIp:       new("2.2.2.2"),
+				MacAddress:     new("aa:aa:aa:aa:aa:aa"),
+				SubnetId:       new("fakeSubnetId"),
 				LifecycleState: ociCore.VnicLifecycleStateAvailable,
 			},
 		},
@@ -59,36 +59,36 @@ func (s *networkingSuite) setupNetworkInterfacesExpectations(c *tc.C, vnicID, vc
 	vcnResponse := []ociCore.Vcn{
 		{
 			CompartmentId:         &s.testCompartment,
-			CidrBlock:             makeStringPointer("1.0.0.0/8"),
-			Id:                    makeStringPointer(vcnID),
+			CidrBlock:             new("1.0.0.0/8"),
+			Id:                    new(vcnID),
 			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
-			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
-			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
-			DisplayName:           makeStringPointer("amazingVcn"),
+			DefaultRouteTableId:   new("fakeRouteTable"),
+			DefaultSecurityListId: new("fakeSeclist"),
+			DisplayName:           new("amazingVcn"),
 			FreeformTags:          s.tags,
 		},
 	}
 
 	subnetResponse := []ociCore.Subnet{
 		{
-			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
-			CidrBlock:          makeStringPointer("1.0.0.0/8"),
+			AvailabilityDomain: new("us-phoenix-1"),
+			CidrBlock:          new("1.0.0.0/8"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer("fakeSubnetId"),
+			Id:                 new("fakeSubnetId"),
 			VcnId:              &vcnID,
-			DisplayName:        makeStringPointer("fakeSubnet"),
-			RouteTableId:       makeStringPointer("fakeRouteTable"),
+			DisplayName:        new("fakeSubnet"),
+			RouteTableId:       new("fakeRouteTable"),
 			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 		},
 	}
 
 	request, response := makeGetInstanceRequestResponse(ociCore.Instance{
 		CompartmentId:      &s.testCompartment,
-		AvailabilityDomain: makeStringPointer("QXay:PHX-AD-3"),
+		AvailabilityDomain: new("QXay:PHX-AD-3"),
 		Id:                 &s.testInstanceID,
-		Region:             makeStringPointer("us-phoenix-1"),
-		Shape:              makeStringPointer("VM.Standard1.1"),
-		DisplayName:        makeStringPointer("fake"),
+		Region:             new("us-phoenix-1"),
+		Shape:              new("VM.Standard1.1"),
+		DisplayName:        new("fake"),
 		FreeformTags:       s.tags,
 		LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 	})
@@ -108,25 +108,25 @@ func (s *networkingSuite) setupListSubnetsExpectations(c *tc.C) {
 	vcnResponse := []ociCore.Vcn{
 		{
 			CompartmentId:         &s.testCompartment,
-			CidrBlock:             makeStringPointer("1.0.0.0/8"),
-			Id:                    makeStringPointer(vcnID),
+			CidrBlock:             new("1.0.0.0/8"),
+			Id:                    new(vcnID),
 			LifecycleState:        ociCore.VcnLifecycleStateAvailable,
-			DefaultRouteTableId:   makeStringPointer("fakeRouteTable"),
-			DefaultSecurityListId: makeStringPointer("fakeSeclist"),
-			DisplayName:           makeStringPointer("amazingVcn"),
+			DefaultRouteTableId:   new("fakeRouteTable"),
+			DefaultSecurityListId: new("fakeSeclist"),
+			DisplayName:           new("amazingVcn"),
 			FreeformTags:          s.tags,
 		},
 	}
 
 	subnetResponse := []ociCore.Subnet{
 		{
-			AvailabilityDomain: makeStringPointer("us-phoenix-1"),
-			CidrBlock:          makeStringPointer("1.0.0.0/8"),
+			AvailabilityDomain: new("us-phoenix-1"),
+			CidrBlock:          new("1.0.0.0/8"),
 			CompartmentId:      &s.testCompartment,
-			Id:                 makeStringPointer("fakeSubnetId"),
-			VcnId:              makeStringPointer(vcnID),
-			DisplayName:        makeStringPointer("fakeSubnet"),
-			RouteTableId:       makeStringPointer("fakeRouteTable"),
+			Id:                 new("fakeSubnetId"),
+			VcnId:              new(vcnID),
+			DisplayName:        new("fakeSubnet"),
+			RouteTableId:       new("fakeRouteTable"),
 			LifecycleState:     ociCore.SubnetLifecycleStateAvailable,
 		},
 	}

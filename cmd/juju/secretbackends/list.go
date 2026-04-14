@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"time"
 
@@ -86,7 +87,7 @@ func (c *listSecretBackendsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
-		"tabular": func(writer io.Writer, value interface{}) error {
+		"tabular": func(writer io.Writer, value any) error {
 			return formatSecretBackendsTabular(writer, value)
 		},
 	})
@@ -154,9 +155,7 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 		}
 		if len(b.Config) > 0 {
 			info.Config = make(provider.ConfigAttrs)
-			for k, v := range b.Config {
-				info.Config[k] = v
-			}
+			maps.Copy(info.Config, b.Config)
 		}
 		details[info.Name] = info
 	}
@@ -177,7 +176,7 @@ func truncateMessage(msg string) string {
 }
 
 // formatSecretBackendsTabular writes a tabular summary of secret information.
-func formatSecretBackendsTabular(writer io.Writer, value interface{}) error {
+func formatSecretBackendsTabular(writer io.Writer, value any) error {
 	result, ok := value.(map[string]secretBackendDisplayDetails)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", result, value)

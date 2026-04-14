@@ -27,7 +27,7 @@ func TestMachineRebootSuite(t *stdtesting.T) {
 }
 
 func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -47,7 +47,7 @@ func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -68,7 +68,7 @@ func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -89,7 +89,7 @@ func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -113,7 +113,7 @@ func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -138,7 +138,7 @@ func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
@@ -159,7 +159,7 @@ func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 }
 
 func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Reboot")
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")

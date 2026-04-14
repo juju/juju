@@ -5,6 +5,7 @@ package storageprovisioner
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -53,11 +54,8 @@ func machineBlockDevicesChanged(ctx context.Context, deps *dependencies) error {
 			continue
 		}
 		var found bool
-		for _, tag := range volumeTags {
-			if filesystem.Volume == tag {
-				found = true
-				break
-			}
+		if slices.Contains(volumeTags, filesystem.Volume) {
+			found = true
 		}
 		if !found {
 			volumeTags = append(volumeTags, filesystem.Volume)
@@ -86,11 +84,8 @@ func machineBlockDevicesChanged(ctx context.Context, deps *dependencies) error {
 			Path:       attach.Path,
 		})
 		var found bool
-		for _, tag := range volumeTags {
-			if filesystem.Volume == tag {
-				found = true
-				break
-			}
+		if slices.Contains(volumeTags, filesystem.Volume) {
+			found = true
 		}
 		if !found {
 			volumeTags = append(volumeTags, filesystem.Volume)

@@ -85,7 +85,7 @@ type configTestSpec struct {
 	err string
 }
 
-func (ts configTestSpec) checkSuccess(c *tc.C, value interface{}, err error) {
+func (ts configTestSpec) checkSuccess(c *tc.C, value any, err error) {
 	if !c.Check(err, tc.ErrorIsNil) {
 		return
 	}
@@ -108,7 +108,7 @@ func (ts configTestSpec) checkFailure(c *tc.C, err error, msg string) {
 	c.Check(err, tc.ErrorMatches, msg+": "+ts.err)
 }
 
-func (ts configTestSpec) checkAttrs(c *tc.C, attrs map[string]interface{}, cfg *config.Config) {
+func (ts configTestSpec) checkAttrs(c *tc.C, attrs map[string]any, cfg *config.Config) {
 	for field, value := range cfg.UnknownAttrs() {
 		c.Check(attrs[field], tc.Equals, value)
 	}

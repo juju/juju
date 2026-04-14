@@ -182,7 +182,7 @@ func (c *baseClient) DecideBaseURL() error {
 	return errors.Trace(decideBaseURLCommon(c.APIVersion(), c.repoDetails, c.baseURL))
 }
 
-func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
+func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args ...any) string {
 	ver := version.String()
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	// Ensure we don't double up the version in the final URL.
@@ -198,7 +198,7 @@ func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args 
 	return url.String()
 }
 
-func (c *baseClient) url(pathTemplate string, args ...interface{}) string {
+func (c *baseClient) url(pathTemplate string, args ...any) string {
 	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
@@ -228,7 +228,7 @@ func (c *baseClient) Close() error {
 	return nil
 }
 
-func (c *baseClient) getPaginatedJSON(reqURL string, response interface{}) (string, error) {
+func (c *baseClient) getPaginatedJSON(reqURL string, response any) (string, error) {
 	resp, err := c.client.Get(reqURL)
 	logger.Tracef(context.TODO(), "getPaginatedJSON for %q, err %v", reqURL, err)
 	if err != nil {

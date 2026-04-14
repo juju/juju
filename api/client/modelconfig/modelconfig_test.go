@@ -31,7 +31,7 @@ func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var args interface{}
+	var args any
 	res := new(params.ModelConfigResults)
 	results := params.ModelConfigResults{
 		Config: map[string]params.ConfigValue{
@@ -43,7 +43,7 @@ func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGet(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, map[string]interface{}{
+	c.Assert(result, tc.DeepEquals, map[string]any{
 		"foo": "bar",
 	})
 }
@@ -52,7 +52,7 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var args interface{}
+	var args any
 	res := new(params.ModelConfigResults)
 	results := params.ModelConfigResults{
 		Config: map[string]params.ConfigValue{
@@ -73,9 +73,9 @@ func (s *modelconfigSuite) TestModelSet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var res interface{}
+	var res any
 	args := params.ModelSet{
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"some-name":  "value",
 			"other-name": true,
 		},
@@ -83,7 +83,7 @@ func (s *modelconfigSuite) TestModelSet(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelSet", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
-	err := client.ModelSet(c.Context(), map[string]interface{}{
+	err := client.ModelSet(c.Context(), map[string]any{
 		"some-name":  "value",
 		"other-name": true,
 	})
@@ -94,7 +94,7 @@ func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var res interface{}
+	var res any
 	args := params.ModelUnset{
 		Keys: []string{"foo", "bar"},
 	}
@@ -109,7 +109,7 @@ func (s *modelconfigSuite) TestSequences(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var args interface{}
+	var args any
 	res := new(params.ModelSequencesResult)
 	results := params.ModelSequencesResult{
 		Sequences: map[string]int{"foo": 5, "bar": 2},
@@ -126,7 +126,7 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var args interface{}
+	var args any
 	res := new(params.GetConstraintsResults)
 	results := params.GetConstraintsResults{
 		Constraints: constraints.MustParse("arch=amd64"),
@@ -143,7 +143,7 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	var res interface{}
+	var res any
 	args := params.SetConstraints{
 		Constraints: constraints.MustParse("arch=amd64"),
 	}

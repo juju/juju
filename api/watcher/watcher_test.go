@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
@@ -445,7 +445,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 				Status: params.EntityStatus{
 					Status: "maintenance",
 					Info:   "working",
-					Data:   map[string]interface{}{"foo": "bar"},
+					Data:   map[string]any{"foo": "bar"},
 					Since:  &now,
 				},
 			}},
@@ -475,7 +475,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 			c.Check(changes[0].Status, tc.DeepEquals, status.StatusInfo{
 				Status:  s,
 				Message: info,
-				Data:    map[string]interface{}{"foo": "bar"},
+				Data:    map[string]any{"foo": "bar"},
 				Since:   &now,
 			})
 		case <-time.After(coretesting.LongWait):
@@ -495,7 +495,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 				Status: params.EntityStatus{
 					Status: "active",
 					Info:   "finished",
-					Data:   map[string]interface{}{"foo": "bar"},
+					Data:   map[string]any{"foo": "bar"},
 					Since:  &now,
 				},
 			}},

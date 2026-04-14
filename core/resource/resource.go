@@ -67,11 +67,6 @@ func (r RetrievedByType) String() string {
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
-	// TODO(ericsnow) Ensure that the "placeholder" fields are not set
-	// if IsLocalPlaceholder() returns true (and that they *are* set
-	// otherwise)? Also ensure an "upload" origin in the "placeholder"
-	// case?
-
 	if err := res.Resource.Validate(); err != nil {
 		return errors.Errorf("bad info: %w", err)
 	}

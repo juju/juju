@@ -36,13 +36,13 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 }
 
 // ModelGet returns all model settings.
-func (c *Client) ModelGet(ctx context.Context) (map[string]interface{}, error) {
+func (c *Client) ModelGet(ctx context.Context) (map[string]any, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall(ctx, "ModelGet", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	values := make(map[string]interface{})
+	values := make(map[string]any)
 	for name, val := range result.Config {
 		values[name] = val.Value
 	}
@@ -68,7 +68,7 @@ func (c *Client) ModelGetWithMetadata(ctx context.Context) (config.ConfigValues,
 }
 
 // ModelSet sets the given key-value pairs in the model.
-func (c *Client) ModelSet(ctx context.Context, config map[string]interface{}) error {
+func (c *Client) ModelSet(ctx context.Context, config map[string]any) error {
 	args := params.ModelSet{Config: config}
 	return c.facade.FacadeCall(ctx, "ModelSet", args, nil)
 }

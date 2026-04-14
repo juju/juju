@@ -160,7 +160,7 @@ func ServerError(err error) *params.Error {
 	}
 
 	var (
-		info map[string]interface{}
+		info map[string]any
 		msg  = err.Error()
 	)
 

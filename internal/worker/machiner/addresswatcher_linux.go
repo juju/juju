@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 	"github.com/vishvananda/netlink"
 
 	"github.com/juju/juju/core/watcher"

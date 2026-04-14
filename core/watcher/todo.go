@@ -3,7 +3,11 @@
 
 package watcher
 
-import "gopkg.in/tomb.v2"
+import (
+	"context"
+
+	"gopkg.in/tomb.v2"
+)
 
 // TODO returns a watcher for type T that sends an initial change
 // with the empty value of type T.
@@ -39,7 +43,7 @@ func (w *todoWatcher[T]) Changes() <-chan T {
 	return w.ch
 }
 
-func (w *todoWatcher[T]) Report() map[string]any {
+func (w *todoWatcher[T]) Report(_ context.Context) map[string]any {
 	return map[string]any{
 		"type": "TODOWatcher",
 	}

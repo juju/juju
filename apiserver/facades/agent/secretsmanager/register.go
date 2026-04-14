@@ -25,7 +25,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretManagerAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
+	}, reflect.TypeFor[*SecretsManagerAPI]())
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.

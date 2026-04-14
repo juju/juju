@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
@@ -132,7 +132,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *tc.C) {
 		c, 4, "SetStatus",
 		status.Stopped,
 		"",
-		map[string]interface{}(nil),
+		map[string]any(nil),
 	)
 }
 
@@ -156,7 +156,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *tc.C) {
 		c, 6, "SetStatus",
 		status.Error,
 		"destroying machine: machine-123 failed to set machine to dead: cannot ensure machine is dead",
-		map[string]interface{}(nil),
+		map[string]any(nil),
 	)
 }
 
@@ -234,7 +234,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 
 	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
-		Args:     []interface{}{s.machineTag},
+		Args:     []any{s.machineTag},
 	}})
 
 	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
@@ -247,10 +247,10 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 		FuncName: "Life",
 	}, {
 		FuncName: "SetStatus",
-		Args: []interface{}{
+		Args: []any{
 			status.Stopped,
 			"",
-			map[string]interface{}(nil),
+			map[string]any(nil),
 		},
 	}, {
 		FuncName: "EnsureDead",
@@ -277,7 +277,7 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 
 	s.accessor.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Machine",
-		Args:     []interface{}{s.machineTag},
+		Args:     []any{s.machineTag},
 	}})
 
 	s.accessor.machine.CheckCalls(c, []testhelpers.StubCall{{
@@ -290,10 +290,10 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 		FuncName: "Life",
 	}, {
 		FuncName: "SetStatus",
-		Args: []interface{}{
+		Args: []any{
 			status.Stopped,
 			"",
-			map[string]interface{}(nil),
+			map[string]any(nil),
 		},
 	}, {
 		FuncName: "EnsureDead",
@@ -321,7 +321,7 @@ func (s *MachinerSuite) TestStartSetsStatus(c *tc.C) {
 	)
 	s.accessor.machine.CheckCall(
 		c, 1, "SetStatus",
-		status.Started, "", map[string]interface{}(nil),
+		status.Started, "", map[string]any(nil),
 	)
 }
 

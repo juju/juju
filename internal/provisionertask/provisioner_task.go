@@ -6,6 +6,7 @@ package provisionertask
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
 	"slices"
 	"sort"
@@ -16,8 +17,8 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -888,10 +889,8 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Trace(err)
 	}
 
-	instanceConfig.ControllerConfig = make(map[string]interface{})
-	for k, v := range pInfo.ControllerConfig {
-		instanceConfig.ControllerConfig[k] = v
-	}
+	instanceConfig.ControllerConfig = make(map[string]any)
+	maps.Copy(instanceConfig.ControllerConfig, pInfo.ControllerConfig)
 
 	instanceConfig.Tags = pInfo.Tags
 	if len(pInfo.Jobs) > 0 {
@@ -1048,12 +1047,7 @@ func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bo
 	if !cons.HasZones() {
 		return true
 	}
-	for _, zone := range *cons.Zones {
-		if az.ZoneName == zone {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*cons.Zones, az.ZoneName)
 }
 
 // updateAvailabilityZoneMachines maintains a mapping of AZs to machines

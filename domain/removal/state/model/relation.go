@@ -14,7 +14,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -244,8 +243,6 @@ func (st *State) DeleteRelationUnits(ctx context.Context, rUUID string) error {
 }
 
 // DeleteRelation removes a relation from the database completely.
-// Note that if any units are in scope, this will return a
-// constraint violation error.
 func (st *State) DeleteRelation(ctx context.Context, rUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -260,6 +257,16 @@ func (st *State) DeleteRelation(ctx context.Context, rUUID string) error {
 }
 
 func (st *State) deleteRelation(ctx context.Context, tx *sqlair.TX, relationUUID entityUUID) error {
+	// Include both regular units and synthetic units in scope
+	countUnitsInScopeStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  re.relation_uuid = $entityUUID.uuid`, count{}, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation units in scope count query: %w", err)
+	}
+
 	settingsStmt, err := st.Prepare(`
 DELETE FROM relation_application_setting
 WHERE  relation_endpoint_uuid IN (
@@ -307,6 +314,19 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 		return errors.Errorf("preparing relation deletion: %w", err)
 	}
 
+	var unitsInScope count
+	err = tx.Query(ctx, countUnitsInScopeStmt, relationUUID).Get(&unitsInScope)
+	if err != nil {
+		return errors.Errorf("running relation units in scope count query: %w", err)
+	}
+	if unitsInScope.Count > 0 {
+		// NOTE: units may be real or synthetic, so return incomplete in order
+		// to allow removal jobs for cmrs to complete.
+		return errors.Errorf("%d units still in scope for relation %q", unitsInScope.Count, relationUUID.UUID).
+			Add(removalerrors.UnitsStillInScope).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
 	err = tx.Query(ctx, settingsStmt, relationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running relation app settings deletion: %w", err)
@@ -319,9 +339,6 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 
 	err = tx.Query(ctx, endpointStmt, relationUUID).Run()
 	if err != nil {
-		if database.IsErrConstraintForeignKey(err) {
-			err = removalerrors.UnitsStillInScope
-		}
 		return errors.Errorf("running relation endpoint deletion: %w", err)
 	}
 

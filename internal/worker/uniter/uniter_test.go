@@ -298,7 +298,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "install"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "install",
 				},
 			},
@@ -395,7 +395,7 @@ func (s *UniterSuite) TestUniterStartHook(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "start",
 				},
 			},
@@ -484,7 +484,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "install"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "install",
 				},
 			},
@@ -493,7 +493,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "leader-elected"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "leader-elected",
 				},
 			},
@@ -502,7 +502,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "config-changed"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "config-changed",
 				},
 			},
@@ -511,7 +511,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "start",
 				},
 			},
@@ -553,7 +553,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "config-changed"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "config-changed",
 				},
 			},
@@ -691,7 +691,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeResolve(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "upgrade-charm",
 				},
 				charm: 1,
@@ -727,7 +727,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "upgrade-charm",
 				},
 				charm: 1,
@@ -741,7 +741,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "upgrade-charm",
 				},
 				charm: 1,
@@ -812,7 +812,7 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "start",
 				},
 			},
@@ -853,7 +853,7 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook": "start",
 				},
 				charm: 1,
@@ -1060,7 +1060,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-joined"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook":        "db-relation-joined",
 					"relation-id": 0,
 					"remote-unit": "mysql/0",
@@ -1073,7 +1073,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-changed"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook":        "db-relation-changed",
 					"relation-id": 0,
 					"remote-unit": "mysql/0",
@@ -1088,7 +1088,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-departed"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook":        "db-relation-departed",
 					"relation-id": 0,
 					"remote-unit": "mysql/0",
@@ -1104,7 +1104,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-broken"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook":        "db-relation-broken",
 					"relation-id": 0,
 				},
@@ -1138,7 +1138,7 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "relation-joined: relation: 1337 not found"`,
-				data: map[string]interface{}{
+				data: map[string]any{
 					"hook":        "relation-joined",
 					"relation-id": 1337,
 					"remote-unit": "other/9",
@@ -1174,7 +1174,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			addAction{"fakeaction", map[string]interface{}{"foo": "bar"}},
+			addAction{"fakeaction", map[string]any{"foo": "bar"}},
 			waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
 				args:       []string{"foo=bar"},
@@ -1189,7 +1189,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			createCharm{},
 			serveCharm{},
 			createApplicationAndUnit{},
-			addAction{"fakeaction", map[string]interface{}{"foo": "bar"}},
+			addAction{"fakeaction", map[string]any{"foo": "bar"}},
 			addAction{"fakeaction", nil},
 			addAction{"fakeaction", nil},
 			startUniter{},
@@ -1224,7 +1224,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data:         map[string]interface{}{"hook": "start"},
+				data:         map[string]any{"hook": "start"},
 			},
 			waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
@@ -1233,7 +1233,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
-				data:         map[string]interface{}{"hook": "start"},
+				data:         map[string]any{"hook": "start"},
 			},
 			verifyWaiting{},
 			resolveError{params.ResolvedNoHooks},

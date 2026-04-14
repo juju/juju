@@ -129,7 +129,7 @@ func (c *listCommand) listForController(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, info)
 }
 
-func (c *listCommand) formatter(writer io.Writer, value interface{}) error {
+func (c *listCommand) formatter(writer io.Writer, value any) error {
 	if c.all {
 		return FormatTabularBlockedModels(writer, value)
 	}
@@ -173,7 +173,7 @@ func formatBlockInfo(all []params.Block) []BlockInfo {
 }
 
 // formatBlocks writes block list representation.
-func formatBlocks(writer io.Writer, value interface{}) error {
+func formatBlocks(writer io.Writer, value any) error {
 	blocks, ok := value.([]BlockInfo)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", blocks, value)
@@ -228,7 +228,7 @@ func FormatModelBlockInfo(all []params.ModelBlockInfo) ([]modelBlockInfo, error)
 
 // FormatTabularBlockedModels writes out tabular format for blocked models.
 // This method is exported as it is also used by destroy-model.
-func FormatTabularBlockedModels(writer io.Writer, value interface{}) error {
+func FormatTabularBlockedModels(writer io.Writer, value any) error {
 	models, ok := value.([]modelBlockInfo)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", models, value)

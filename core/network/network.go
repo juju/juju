@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sort"
+	"slices"
 
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -25,7 +25,7 @@ const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 // GenerateVirtualMACAddress creates a random MAC address within the address
 // space implied by macAddressTemplate above.
 var GenerateVirtualMACAddress = func() string {
-	digits := make([]interface{}, 3)
+	digits := make([]any, 3)
 	for i := range digits {
 		digits[i] = rand.Intn(256)
 	}
@@ -105,9 +105,7 @@ func (s IDSet) Values() []Id {
 // SortedValues returns an ordered slice containing all the values in the set.
 func (s IDSet) SortedValues() []Id {
 	values := s.Values()
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
+	slices.Sort(values)
 	return values
 }
 

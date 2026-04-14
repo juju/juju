@@ -214,17 +214,21 @@ func (w *FlightRecorder) Enabled() bool {
 }
 
 // Report returns a map of internal state for introspection.
-func (w *FlightRecorder) Report() map[string]any {
+func (w *FlightRecorder) Report(ctx context.Context) map[string]any {
+	ctx = w.tomb.Context(ctx)
 	ch := make(chan report, 1)
 	select {
-	case <-w.tomb.Dying():
-		return map[string]any{}
+	case <-ctx.Done():
+		return map[string]any{"error": ctx.Err().Error()}
 	case w.reports <- ch:
 	}
 
 	select {
+	// No need to handle Report ctx.Done() here, as w.reports channel is not
+	// buffered and ch is buffered, so we are not really waiting for something here
+	// since as long as the loop will handle the request, we will get a response.
 	case <-w.tomb.Dying():
-		return map[string]any{}
+		return map[string]any{"error": w.tomb.Err().Error()}
 	case r := <-ch:
 		return map[string]any{
 			"enabled": r.Enabled,

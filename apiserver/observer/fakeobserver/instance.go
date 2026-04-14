@@ -62,12 +62,12 @@ type RPCInstance struct {
 }
 
 // ServerReply implements Observer.
-func (f *RPCInstance) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body any) {
 	f.AddCall(funcName(), req, hdr, body)
 }
 
 // ServerRequest implements Observer.
-func (f *RPCInstance) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerRequest(ctx context.Context, hdr *rpc.Header, body any) {
 	f.AddCall(funcName(), hdr, body)
 }
 

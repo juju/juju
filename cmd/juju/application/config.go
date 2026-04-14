@@ -292,9 +292,9 @@ func (c *configCommand) getConfig(client ApplicationAPI, ctx *cmd.Context) error
 		return errors.New("c.configBase.KeysToGet is empty")
 	}
 	key := c.configBase.KeysToGet[0]
-	info, found := results.CharmConfig[key].(map[string]interface{})
+	info, found := results.CharmConfig[key].(map[string]any)
 	if !found && len(results.ApplicationConfig) > 0 {
-		info, found = results.ApplicationConfig[key].(map[string]interface{})
+		info, found = results.ApplicationConfig[key].(map[string]any)
 	}
 	if !found {
 		return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
@@ -314,7 +314,7 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 		return err
 	}
 
-	resultsMap := map[string]interface{}{
+	resultsMap := map[string]any{
 		"application": results.Application,
 		"charm":       results.Charm,
 		"settings":    results.CharmConfig,
@@ -359,7 +359,7 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 }
 
 // FormatYaml serializes value into valid yaml string. If color flag is passed it adds ANSI color escape codes to the output.
-func (c *configCommand) FormatYaml(w io.Writer, value interface{}) error {
+func (c *configCommand) FormatYaml(w io.Writer, value any) error {
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.configBase.Color || c.configBase.NoColor {
 		return cmd.FormatYaml(w, value)
 	}
@@ -380,7 +380,7 @@ func (c *configCommand) FormatYaml(w io.Writer, value interface{}) error {
 }
 
 // FormatJson serializes value into valid json string. If color flag is passed it adds ANSI color escape codes to the output.
-func (c *configCommand) FormatJson(w io.Writer, val interface{}) error {
+func (c *configCommand) FormatJson(w io.Writer, val any) error {
 	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.configBase.Color || c.configBase.NoColor {
 		return cmd.FormatJson(w, val)
 	}

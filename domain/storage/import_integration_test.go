@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
 	coreblockdevice "github.com/juju/juju/core/blockdevice"
@@ -851,7 +851,7 @@ func (s *importSuite) createIAASApplication(
 	)
 
 	unitArgs := make([]domainapplication.AddIAASUnitArg, unitCount)
-	for i := 0; i < unitCount; i++ {
+	for i := range unitCount {
 		machineUUID := tc.Must(c, coremachine.NewUUID)
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		unitArgs[i] = domainapplication.AddIAASUnitArg{

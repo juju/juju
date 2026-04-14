@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/life"
@@ -490,8 +490,8 @@ func (r *relationStateTracker) LocalUnitAndApplicationLife(ctx stdcontext.Contex
 }
 
 // Report provides information for the engine report.
-func (r *relationStateTracker) Report() map[string]interface{} {
-	result := make(map[string]interface{})
+func (r *relationStateTracker) Report(_ stdcontext.Context) map[string]any {
+	result := make(map[string]any)
 
 	stateMgr, ok := r.stateMgr.(*stateManager)
 	if !ok {
@@ -502,7 +502,7 @@ func (r *relationStateTracker) Report() map[string]interface{} {
 	stateMgr.mu.Unlock()
 
 	for id, st := range relationState {
-		report := map[string]interface{}{
+		report := map[string]any{
 			"application-members": st.ApplicationMembers,
 			"members":             st.Members,
 			"is-peer":             r.isPeerRelation[id],

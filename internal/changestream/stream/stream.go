@@ -170,7 +170,7 @@ func NewInternalStates(
 }
 
 // Report returns
-func (s *Stream) Report() map[string]any {
+func (s *Stream) Report(_ context.Context) map[string]any {
 	s.watermarksMutex.Lock()
 	defer s.watermarksMutex.Unlock()
 
@@ -522,9 +522,9 @@ func (s *Stream) readChanges() ([]changeEvent, error) {
 		}
 		defer rows.Close()
 
-		dest := func(i int) []interface{} {
+		dest := func(i int) []any {
 			changes = append(changes, changeEvent{})
-			return []interface{}{
+			return []any{
 				&changes[i].id,
 				&changes[i].changeType,
 				&changes[i].namespace,

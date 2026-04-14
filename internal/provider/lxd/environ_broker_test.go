@@ -50,7 +50,7 @@ type containerSpecMatcher struct {
 	check func(spec containerlxd.ContainerSpec) bool
 }
 
-func (m containerSpecMatcher) Matches(arg interface{}) bool {
+func (m containerSpecMatcher) Matches(arg any) bool {
 	if spec, ok := arg.(containerlxd.ContainerSpec); ok {
 		return m.check(spec)
 	}
@@ -780,7 +780,7 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *tc.C) {
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	env := s.NewEnviron(c, svr, map[string]interface{}{
+	env := s.NewEnviron(c, svr, map[string]any{
 		"image-metadata-url": "https://my-test.com/images/",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
@@ -802,7 +802,7 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *tc.C) {
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
 	// HTTP should be converted to HTTPS.
-	env := s.NewEnviron(c, svr, map[string]interface{}{
+	env := s.NewEnviron(c, svr, map[string]any{
 		"image-metadata-url": "http://my-test.com/images/",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
@@ -823,7 +823,7 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *tc.C) {
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	env := s.NewEnviron(c, svr, map[string]interface{}{
+	env := s.NewEnviron(c, svr, map[string]any{
 		"image-stream": "released",
 	}, environscloudspec.CloudSpec{}, invalidator)
 
@@ -843,7 +843,7 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *tc.C) {
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	env := s.NewEnviron(c, svr, map[string]interface{}{
+	env := s.NewEnviron(c, svr, map[string]any{
 		"image-stream": "daily",
 	}, environscloudspec.CloudSpec{}, invalidator)
 

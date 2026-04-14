@@ -58,7 +58,7 @@ type cloudinitDataVerifyTest struct {
 	description   string
 	machineBase   corebase.Base
 	containerBase corebase.Base
-	result        map[string]interface{}
+	result        map[string]any
 }
 
 var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
@@ -124,24 +124,24 @@ func (s *fromHostSuite) TestCloudConfig(c *tc.C) {
 	resultMap := reader.ExtractPropertiesFromConfig(
 		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggertesting.WrapCheckLog(c))
 	c.Assert(resultMap, tc.DeepEquals,
-		map[string]interface{}{
-			"apt": map[string]interface{}{
-				"primary": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
+		map[string]any{
+			"apt": map[string]any{
+				"primary": []any{
+					map[any]any{
+						"arches": []any{"default"},
 						"uri":    "http://archive.ubuntu.com/ubuntu",
 					},
 				},
-				"security": []interface{}{
-					map[interface{}]interface{}{
-						"arches": []interface{}{"default"},
+				"security": []any{
+					map[any]any{
+						"arches": []any{"default"},
 						"uri":    "http://archive.ubuntu.com/ubuntu",
 					},
 				},
 			},
-			"ca-certs": map[interface{}]interface{}{
+			"ca-certs": map[any]any{
 				"remove-defaults": true,
-				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+				"trusted":         []any{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
 			},
 		})
 }
@@ -173,7 +173,7 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-security universe main multiver
 deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multiverse restricted
 # deb-src http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multiverse restricted
 `
-	expected := map[interface{}]interface{}{
+	expected := map[any]any{
 		"proxy":                 "http://10-0-0-0--24.maas-internal:8000/",
 		"sources_list":          expectedSources,
 		"preserve_sources_list": false,
@@ -188,7 +188,7 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multive
 		[]string{"apt-sources_list"}, obtained, loggertesting.WrapCheckLog(c))
 
 	c.Assert(resultMap["apt"], tc.HasLen, 1)
-	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], tc.Equals, expectedSources)
+	c.Assert(resultMap["apt"].(map[string]any)["sources_list"], tc.Equals, expectedSources)
 }
 
 func (s *fromHostSuite) newMachineInitReader(base corebase.Base) cloudconfig.InitReader {
@@ -315,24 +315,24 @@ var readmeFile = `
 # earlier files.
 `[1:]
 
-var expectedResult = map[string]interface{}{
-	"apt": map[interface{}]interface{}{
+var expectedResult = map[string]any{
+	"apt": map[any]any{
 		"preserve_sources_list": false,
-		"primary": []interface{}{
-			map[interface{}]interface{}{
-				"arches": []interface{}{"default"},
+		"primary": []any{
+			map[any]any{
+				"arches": []any{"default"},
 				"uri":    "http://archive.ubuntu.com/ubuntu",
 			},
 		},
-		"security": []interface{}{
-			map[interface{}]interface{}{
-				"arches": []interface{}{"default"},
+		"security": []any{
+			map[any]any{
+				"arches": []any{"default"},
 				"uri":    "http://archive.ubuntu.com/ubuntu",
 			},
 		},
 	},
-	"reporting": map[interface{}]interface{}{
-		"maas": map[interface{}]interface{}{
+	"reporting": map[any]any{
+		"maas": map[any]any{
 			"endpoint":     "http://10.10.101.2/MAAS/metadata/status/cmfcxx",
 			"token_key":    "tgEn5v5TcakKwWKwCf",
 			"token_secret": "jzLdPTuh7hHqHTG9kGEHSG7F25GMAmzJ",
@@ -341,60 +341,60 @@ var expectedResult = map[string]interface{}{
 		},
 	},
 	"system_info": expectedSystemInfoCommon,
-	"ntp": map[interface{}]interface{}{
-		"servers": []interface{}{"10.10.76.2"},
-		"pools":   []interface{}{},
+	"ntp": map[any]any{
+		"servers": []any{"10.10.76.2"},
+		"pools":   []any{},
 	},
-	"write_files": []interface{}{
-		map[interface{}]interface{}{
+	"write_files": []any{
+		map[any]any{
 			"path":        "/tmp/juju-test",
 			"permissions": 420,
 			"content":     "Hello World!\n",
 		}},
 	"apt_preserve_sources_list": true,
-	"packages":                  []interface{}{"‘python-novaclient’"},
-	"ca-certs": map[interface{}]interface{}{
+	"packages":                  []any{"‘python-novaclient’"},
+	"ca-certs": map[any]any{
 		"remove-defaults": true,
-		"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		"trusted":         []any{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
 	},
 	"network": expectedNetworkCommon,
 }
 
-var expectedSystemInfoCommon = map[interface{}]interface{}{
-	"package_mirrors": []interface{}{map[interface{}]interface{}{
-		"arches": []interface{}{"s390x", "amd64"},
-		"failsafe": map[interface{}]interface{}{
+var expectedSystemInfoCommon = map[any]any{
+	"package_mirrors": []any{map[any]any{
+		"arches": []any{"s390x", "amd64"},
+		"failsafe": map[any]any{
 			"primary":  "http://archive.ubuntu.com/ubuntu",
 			"security": "http://security.ubuntu.com/ubuntu",
 		},
-		"search": map[interface{}]interface{}{
-			"primary":  []interface{}{"http://archive.ubuntu.com/ubuntu"},
-			"security": []interface{}{"http://archive.ubuntu.com/ubuntu"},
+		"search": map[any]any{
+			"primary":  []any{"http://archive.ubuntu.com/ubuntu"},
+			"security": []any{"http://archive.ubuntu.com/ubuntu"},
 		},
 	},
-		map[interface{}]interface{}{
-			"arches": []interface{}{"default"},
-			"failsafe": map[interface{}]interface{}{
+		map[any]any{
+			"arches": []any{"default"},
+			"failsafe": map[any]any{
 				"primary":  "http://ports.ubuntu.com/ubuntu-ports",
 				"security": "http://ports.ubuntu.com/ubuntu-ports",
 			},
-			"search": map[interface{}]interface{}{
-				"primary":  []interface{}{"http://ports.ubuntu.com/ubuntu-ports"},
-				"security": []interface{}{"http://ports.ubuntu.com/ubuntu-ports"},
+			"search": map[any]any{
+				"primary":  []any{"http://ports.ubuntu.com/ubuntu-ports"},
+				"security": []any{"http://ports.ubuntu.com/ubuntu-ports"},
 			},
 		},
 	},
 }
 
-var expectedNetworkCommon = map[interface{}]interface{}{
-	"config": []interface{}{map[interface{}]interface{}{
+var expectedNetworkCommon = map[any]any{
+	"config": []any{map[any]any{
 		"mtu":  1500,
 		"name": "ens3",
-		"subnets": []interface{}{
-			map[interface{}]interface{}{
+		"subnets": []any{
+			map[any]any{
 				"type":            "static",
 				"address":         "10.10.76.124/24",
-				"dns_nameservers": []interface{}{"10.10.76.45"},
+				"dns_nameservers": []any{"10.10.76.45"},
 				"gateway":         "10.10.76.1",
 			},
 		},

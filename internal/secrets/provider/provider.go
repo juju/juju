@@ -48,7 +48,7 @@ const (
 )
 
 // ConfigAttrs defines config attributes for a secrets backend provider.
-type ConfigAttrs map[string]interface{}
+type ConfigAttrs map[string]any
 
 // ProviderConfig is implemented by providers that support config validation.
 type ProviderConfig interface {

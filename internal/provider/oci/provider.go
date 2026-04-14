@@ -37,7 +37,7 @@ type EnvironProvider struct {
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs map[string]any
 }
 
 var _ config.ConfigSchemaSource = (*EnvironProvider)(nil)

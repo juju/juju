@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4/dependency"
-	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5/dependency"
+	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"go.uber.org/goleak"
 
 	agent "github.com/juju/juju/agent"

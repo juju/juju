@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/logger"
@@ -110,9 +110,9 @@ func (w *Worker) Wait() error {
 }
 
 // Report provides information for the engine report.
-func (w *Worker) Report() map[string]interface{} {
+func (w *Worker) Report(_ context.Context) map[string]any {
 	w.mu.Lock()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"api-port":                  w.config.APIPort,
 		"status":                    w.status,
 		"idle-connection-timeout":   w.config.IdleConnectionTimeout,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/semversion"
@@ -80,7 +80,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
-	var outputNonsense interface{}
+	var outputNonsense any
 	err = manifold.Output(agentWorker, &outputNonsense)
 	c.Check(err.Error(), tc.Equals, "expected *agent.agentWorker->*agent.Agent; got *agent.agentWorker->*interface {}")
 }
@@ -97,7 +97,7 @@ func (s *ManifoldSuite) TestReport(c *tc.C) {
 
 	reporter, ok := agentWorker.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
+	c.Assert(reporter.Report(c.Context()), tc.DeepEquals, map[string]any{
 		"agent":      "machine-42",
 		"model-uuid": "model-uuid",
 		"version":    "3.2.1",

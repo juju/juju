@@ -716,27 +716,27 @@ func (s *applicationSuite) TestGetConfig(c *tc.C) {
 		{ApplicationName: "foo"},
 		{ApplicationName: "bar"},
 	}}
-	fooConfig := map[string]interface{}{
-		"outlook": map[string]interface{}{
+	fooConfig := map[string]any{
+		"outlook": map[string]any{
 			"description": "No default outlook.",
 			"source":      "unset",
 			"type":        "string",
 		},
-		"skill-level": map[string]interface{}{
+		"skill-level": map[string]any{
 			"description": "A number indicating skill.",
 			"source":      "user",
 			"type":        "int",
 			"value":       42,
 		}}
-	barConfig := map[string]interface{}{
-		"title": map[string]interface{}{
+	barConfig := map[string]any{
+		"title": map[string]any{
 			"default":     "My Title",
 			"description": "A descriptive title used for the application.",
 			"source":      "user",
 			"type":        "string",
 			"value":       "bar",
 		},
-		"username": map[string]interface{}{
+		"username": map[string]any{
 			"default":     "admin001",
 			"description": "The name of the initial account (given admin permissions).",
 			"source":      "default",
@@ -756,7 +756,7 @@ func (s *applicationSuite) TestGetConfig(c *tc.C) {
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.GetConfig(c.Context(), "foo", "bar")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, []map[string]interface{}{
+	c.Assert(res, tc.DeepEquals, []map[string]any{
 		fooConfig, barConfig,
 	})
 }
@@ -1385,11 +1385,11 @@ func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 					Endpoint:        "db",
 					CrossModel:      true,
 					RelatedEndpoint: "server",
-					ApplicationData: map[string]interface{}{"foo": "bar"},
+					ApplicationData: map[string]any{"foo": "bar"},
 					UnitRelationData: map[string]params.RelationData{
 						"baz": {
 							InScope:  true,
-							UnitData: map[string]interface{}{"hello": "world"},
+							UnitData: map[string]any{"hello": "world"},
 						},
 					},
 				}},
@@ -1424,11 +1424,11 @@ func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 				Endpoint:        "db",
 				CrossModel:      true,
 				RelatedEndpoint: "server",
-				ApplicationData: map[string]interface{}{"foo": "bar"},
+				ApplicationData: map[string]any{"foo": "bar"},
 				UnitRelationData: map[string]application.RelationData{
 					"baz": {
 						InScope:  true,
-						UnitData: map[string]interface{}{"hello": "world"},
+						UnitData: map[string]any{"hello": "world"},
 					},
 				},
 			}},

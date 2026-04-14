@@ -17,12 +17,12 @@ func Register(registry facade.FacadeRegistry) {
 	// api).
 	registry.MustRegister("Machiner", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMachinerAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*MachinerAPI)(nil)))
+	}, reflect.TypeFor[*MachinerAPI]())
 	// Register the Machiner facade at version 5, which, on Juju 4.0, stubs out
 	// the Jobs() and SetMachineAddresses() methods.
 	registry.MustRegister("Machiner", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMachinerAPIV5(stdCtx, ctx) // Adds RecordAgentHostAndStartTime.
-	}, reflect.TypeOf((*MachinerAPIv5)(nil)))
+	}, reflect.TypeFor[*MachinerAPIv5]())
 }
 
 // newMachinerAPI creates a new instance of the Machiner API.

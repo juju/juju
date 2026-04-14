@@ -187,7 +187,7 @@ type UpdateCharmSecretParams struct {
 	ExpireTime   *time.Time
 	Description  *string
 	Label        *string
-	Params       map[string]interface{}
+	Params       map[string]any
 	Data         secrets.SecretData
 	ValueRef     *secrets.ValueRef
 	Checksum     string

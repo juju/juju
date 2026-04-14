@@ -92,6 +92,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_controller",
 		"application_exposed_endpoint_cidr",
 		"application_exposed_endpoint_space",
+		"application_k8s_resources_managed",
 		"application_platform",
 		"application_scale",
 		"application_setting",
@@ -217,7 +218,6 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_placement_scope",
 		"machine_platform",
 		"machine_placement",
-		"machine_platform",
 		"machine_requires_reboot",
 		"machine_ssh_host_key",
 		"machine_status_value",
@@ -462,6 +462,7 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 		"v_full_unit_status",
 		"v_agent_binary_store",
 		"v_all_unit_address",
+		"v_unit_relation_network",
 		"v_secret_metadata",
 		"v_secret_owner",
 	)

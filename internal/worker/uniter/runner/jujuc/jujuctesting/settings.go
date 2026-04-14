@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"maps"
+
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -11,7 +13,7 @@ import (
 type Settings params.Settings
 
 // Get implements jujuc.Settings.
-func (s Settings) Get(k string) (interface{}, bool) {
+func (s Settings) Get(k string) (any, bool) {
 	v, f := s[k]
 	return v, f
 }
@@ -29,8 +31,6 @@ func (s Settings) Delete(k string) {
 // Map implements jujuc.Settings.
 func (s Settings) Map() params.Settings {
 	r := params.Settings{}
-	for k, v := range s {
-		r[k] = v
-	}
+	maps.Copy(r, s)
 	return r
 }

@@ -88,7 +88,7 @@ func (s *serviceSuite) TestGetPendingTaskByTaskID(c *tc.C) {
 		TaskInfo: operation.TaskInfo{
 			ID:         taskID,
 			ActionName: "fortune",
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"key": "value",
 			},
 			Status: corestatus.Pending,
@@ -99,7 +99,7 @@ func (s *serviceSuite) TestGetPendingTaskByTaskID(c *tc.C) {
 
 	expectedTaskArgs := operation.TaskArgs{
 		ActionName: "fortune",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"key": "value",
 		},
 	}
@@ -293,7 +293,7 @@ func (s *serviceSuite) TestFinishTask(c *tc.C) {
 		TaskID:  taskID,
 		Message: "done",
 		Status:  corestatus.Completed.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act
@@ -386,7 +386,7 @@ func (s *serviceSuite) TestFinishTaskError(c *tc.C) {
 		TaskID:  taskID,
 		Message: "done",
 		Status:  corestatus.Completed.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act
@@ -402,7 +402,7 @@ func (s *serviceSuite) TestFinishTaskInputStatusNotValid(c *tc.C) {
 		TaskID:  "42",
 		Message: "done",
 		Status:  corestatus.Pending.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act
@@ -439,7 +439,7 @@ func (s *serviceSuite) TestFinishTaskFailStorePut(c *tc.C) {
 		TaskID:  taskID,
 		Message: "done",
 		Status:  corestatus.Completed.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act
@@ -476,7 +476,7 @@ func (s *serviceSuite) TestFinishTaskFailState(c *tc.C) {
 		TaskID:  taskID,
 		Message: "done",
 		Status:  corestatus.Completed.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act
@@ -500,7 +500,7 @@ func (s *serviceSuite) TestFinishTaskNoStore(c *tc.C) {
 		TaskID:  taskID,
 		Message: "done",
 		Status:  corestatus.Completed.String(),
-		Results: map[string]interface{}{"foo": "bar"},
+		Results: map[string]any{"foo": "bar"},
 	}
 
 	// Act

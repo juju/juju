@@ -6,6 +6,7 @@ package jujuctesting
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -71,9 +72,7 @@ func (s *Storage) AddUnitStorage(all map[string]params.StorageDirectives) {
 	if s.Added == nil {
 		s.Added = make(map[string]params.StorageDirectives)
 	}
-	for k, v := range all {
-		s.Added[k] = v
-	}
+	maps.Copy(s.Added, all)
 }
 
 // ContextStorage is a test double for jujuc.ContextStorage.

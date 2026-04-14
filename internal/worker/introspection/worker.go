@@ -11,7 +11,7 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/tomb.v2"
@@ -32,7 +32,7 @@ var logger = internallogger.GetLogger("juju.worker.introspection")
 type DependencyEngine interface {
 	// Report returns a map describing the state of the receiver. It is expected
 	// to be goroutine-safe.
-	Report() map[string]interface{}
+	Report(ctx context.Context) map[string]any
 }
 
 // Reporter provides a simple method that the introspection
@@ -203,7 +203,7 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing dependency engine reporter", http.StatusNotFound)
 		return
 	}
-	bytes, err := yaml.Marshal(h.reporter.Report())
+	bytes, err := yaml.Marshal(h.reporter.Report(r.Context()))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 		return

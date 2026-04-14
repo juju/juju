@@ -4,6 +4,7 @@
 package introspection_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -17,8 +18,8 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/errors"
@@ -188,7 +189,7 @@ func (s *introspectionSuite) TestEngineReporter(c *tc.C) {
 	// so we can connect to the socket.
 	workertest.CleanKill(c, s.worker)
 	s.depEngine = &depEngine{
-		values: map[string]interface{}{
+		values: map[string]any{
 			"working": true,
 		},
 	}
@@ -215,10 +216,10 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 }
 
 type depEngine struct {
-	values map[string]interface{}
+	values map[string]any
 }
 
-func (r *depEngine) Report() map[string]interface{} {
+func (r *depEngine) Report(ctx context.Context) map[string]any {
 	return r.values
 }
 

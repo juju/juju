@@ -113,7 +113,7 @@ func (s *EnvironProviderSuite) TestSchema(c *tc.C) {
 auth-types: [oauth1]
 endpoint: http://foo.com/openstack
 `[1:])
-	var v interface{}
+	var v any
 	err := yaml.Unmarshal(y, &v)
 	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)

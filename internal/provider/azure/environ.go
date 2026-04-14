@@ -6,7 +6,9 @@ package azure
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -359,7 +361,7 @@ func (env *azureEnviron) createResourceGroup(ctx context.Context, resourceTags m
 	}
 	logger.Debugf(ctx, "creating resource group %q for model %q", env.resourceGroup, env.modelName)
 	if _, err := resourceGroups.CreateOrUpdate(ctx, env.resourceGroup, armresources.ResourceGroup{
-		Location: to.Ptr(env.location),
+		Location: new(env.location),
 		Tags:     toMapPtr(resourceTags),
 	}, nil); err != nil {
 		return env.HandleCredentialError(ctx, errors.Annotate(err, "creating resource group"))
@@ -473,7 +475,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.Context) (constraints.
 			constraints.Arch,
 		},
 	)
-	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]interface{}) error {
+	validator.RegisterConflictResolver(constraints.InstanceType, constraints.Arch, func(attrValues map[string]any) error {
 		instanceTypeName, ok := attrValues[constraints.InstanceType].(string)
 		if !ok {
 			return nil
@@ -544,9 +546,7 @@ func (env *azureEnviron) StartInstance(ctx context.Context, args environs.StartI
 		return nil, errors.Trace(err)
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
-	for k, v := range envInstanceTypes {
-		instanceTypes[k] = v
-	}
+	maps.Copy(instanceTypes, envInstanceTypes)
 	env.mu.Unlock()
 
 	// If the user has not specified a root-disk size, then
@@ -567,7 +567,7 @@ func (env *azureEnviron) StartInstance(ctx context.Context, args environs.StartI
 		return nil, errors.Trace(err)
 	}
 	preferGen1Image := false
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		// Identify the instance type and image to provision.
 		instanceSpec, err := env.findInstanceSpec(
 			ctx,
@@ -639,9 +639,7 @@ func (env *azureEnviron) startInstance(
 	}
 
 	vmTags := make(map[string]string)
-	for k, v := range args.InstanceConfig.Tags {
-		vmTags[k] = v
-	}
+	maps.Copy(vmTags, args.InstanceConfig.Tags)
 	// jujuMachineNameTag identifies the VM name, in which is encoded
 	// the Juju machine name. We tag all resources related to the
 	// machine with this.
@@ -767,7 +765,7 @@ func (env *azureEnviron) createVirtualMachine(
 	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
 	if args.RootDisk != nil && args.RootDisk.Attributes != nil {
 		if accountTypeVal, ok := args.RootDisk.Attributes[accountTypeAttr].(string); ok && accountTypeVal != "" {
-			storageAccountType = to.Ptr(armcompute.StorageAccountTypes(accountTypeVal))
+			storageAccountType = new(armcompute.StorageAccountTypes(accountTypeVal))
 		}
 	}
 
@@ -785,7 +783,7 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 	if diskEncryptionID != "" && storageProfile.OSDisk.ManagedDisk != nil {
 		storageProfile.OSDisk.ManagedDisk.DiskEncryptionSet = &armcompute.DiskEncryptionSetParameters{
-			ID: to.Ptr(diskEncryptionID),
+			ID: new(diskEncryptionID),
 		}
 	}
 
@@ -802,7 +800,7 @@ func (env *azureEnviron) createVirtualMachine(
 	)
 	if availabilitySetName != "" {
 		availabilitySetSubResource = &armcompute.SubResource{
-			ID: to.Ptr(availabilitySetId),
+			ID: new(availabilitySetId),
 		}
 	}
 	if !createAvailabilitySet && availabilitySetName != "" {
@@ -821,7 +819,7 @@ func (env *azureEnviron) createVirtualMachine(
 			// to be optional and default to the maximum.
 			// The maximum depends on the location, and
 			// there is no API to query it.
-			PlatformFaultDomainCount: to.Ptr(maxFaultDomains(env.location)),
+			PlatformFaultDomainCount: new(maxFaultDomains(env.location)),
 		}
 		res = append(res, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -867,7 +865,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
 			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
 				PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
-				PublicIPAllocationMethod: to.Ptr(publicIPAddressAllocationMethod),
+				PublicIPAllocationMethod: new(publicIPAddressAllocationMethod),
 			},
 		})
 	}
@@ -878,13 +876,13 @@ func (env *azureEnviron) createVirtualMachine(
 	for i, subnetID := range subnetIds {
 		primary := i == 0
 		ipConfig := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
-			Primary:                   to.Ptr(primary),
+			Primary:                   new(primary),
 			PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
-			Subnet:                    &armnetwork.Subnet{ID: to.Ptr(string(subnetID))},
+			Subnet:                    &armnetwork.Subnet{ID: new(string(subnetID))},
 		}
 		if primary && usePublicIP {
 			ipConfig.PublicIPAddress = &armnetwork.PublicIPAddress{
-				ID: to.Ptr(publicIPAddressId),
+				ID: new(publicIPAddressId),
 			}
 			nicDependsOn = append(nicDependsOn, publicIPAddressId)
 		}
@@ -895,7 +893,7 @@ func (env *azureEnviron) createVirtualMachine(
 		nicName := vmName + "-" + ipConfigName
 		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
 		ipConfigurations := []*armnetwork.InterfaceIPConfiguration{{
-			Name:       to.Ptr(ipConfigName),
+			Name:       new(ipConfigName),
 			Properties: ipConfig,
 		}}
 		res = append(res, armtemplates.Resource{
@@ -912,9 +910,9 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, nicId)
 
 		nics = append(nics, &armcompute.NetworkInterfaceReference{
-			ID: to.Ptr(nicId),
+			ID: new(nicId),
 			Properties: &armcompute.NetworkInterfaceReferenceProperties{
-				Primary: to.Ptr(primary),
+				Primary: new(primary),
 			},
 		})
 	}
@@ -927,7 +925,7 @@ func (env *azureEnviron) createVirtualMachine(
 		Tags:       vmTags,
 		Properties: &armcompute.VirtualMachineProperties{
 			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes(
+				VMSize: new(armcompute.VirtualMachineSizeTypes(
 					instanceSpec.InstanceType.Name,
 				)),
 			},
@@ -1055,7 +1053,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.Context) (
 		if state == armresources.ProvisioningStateSucceeded {
 			// The deployment has succeeded, so the resources are
 			// ready for use.
-			deployment = to.Ptr(result.DeploymentExtended)
+			deployment = new(result.DeploymentExtended)
 			return nil
 		}
 		err = errors.Errorf("%q resource deployment status is %q", commonDeployment, state)
@@ -1107,7 +1105,7 @@ func availabilitySetName(
 	// services assigned to the machine.
 	var availabilitySetName string
 	if unitNames, ok := vmTags[tags.JujuUnitsDeployed]; ok {
-		for _, unitName := range strings.Fields(unitNames) {
+		for unitName := range strings.FieldsSeq(unitNames) {
 			if !names.IsValidUnit(unitName) {
 				continue
 			}
@@ -1143,10 +1141,10 @@ func newStorageProfile(
 	osDiskName := vmName
 	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
 	osDisk := &armcompute.OSDisk{
-		Name:         to.Ptr(osDiskName),
+		Name:         new(osDiskName),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
-		DiskSizeGB:   to.Ptr(int32(osDiskSizeGB)),
+		DiskSizeGB:   new(int32(osDiskSizeGB)),
 		ManagedDisk: &armcompute.ManagedDiskParameters{
 			StorageAccountType: storageAccountType,
 		},
@@ -1154,10 +1152,10 @@ func newStorageProfile(
 
 	return &armcompute.StorageProfile{
 		ImageReference: &armcompute.ImageReference{
-			Publisher: to.Ptr(publisher),
-			Offer:     to.Ptr(offer),
-			SKU:       to.Ptr(sku),
-			Version:   to.Ptr(vers),
+			Publisher: new(publisher),
+			Offer:     new(offer),
+			SKU:       new(sku),
+			Version:   new(vers),
 		},
 		OSDisk: osDisk,
 	}, nil
@@ -1186,8 +1184,8 @@ func newOSProfile(
 	}
 
 	osProfile := &armcompute.OSProfile{
-		ComputerName: to.Ptr(vmName),
-		CustomData:   to.Ptr(string(customData)),
+		ComputerName: new(vmName),
+		CustomData:   new(string(customData)),
 	}
 
 	// SSH keys are handled by custom data, but must also be
@@ -1215,14 +1213,14 @@ func newOSProfile(
 	publicKeys := make([]*armcompute.SSHPublicKey, 0, len(keys))
 	for _, key := range keys {
 		publicKeys = append(publicKeys, &armcompute.SSHPublicKey{
-			Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.Ptr(key),
+			Path:    new("/home/ubuntu/.ssh/authorized_keys"),
+			KeyData: new(key),
 		})
 	}
 
-	osProfile.AdminUsername = to.Ptr("ubuntu")
+	osProfile.AdminUsername = new("ubuntu")
 	osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
-		DisablePasswordAuthentication: to.Ptr(true),
+		DisablePasswordAuthentication: new(true),
 		SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 	}
 	return osProfile, nil
@@ -1523,7 +1521,7 @@ func (env *azureEnviron) updateGroupControllerTag(ctx context.Context, client *a
 		"updating resource group %s juju controller uuid to %s",
 		toValue(group.Name), controllerUUID,
 	)
-	group.Tags[tags.JujuController] = to.Ptr(controllerUUID)
+	group.Tags[tags.JujuController] = new(controllerUUID)
 
 	// The Azure API forbids specifying ProvisioningState on the update.
 	if group.Properties != nil {
@@ -1561,7 +1559,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 	if resource.Tags == nil {
 		resource.Tags = make(map[string]*string)
 	}
-	resource.Tags[tags.JujuController] = to.Ptr(controllerUUID)
+	resource.Tags[tags.JujuController] = new(controllerUUID)
 	_, err = client.BeginCreateOrUpdateByID(
 		ctx,
 		toValue(stubResource.ID),
@@ -1864,13 +1862,7 @@ func (env *azureEnviron) allProvisionedInstances(
 				provisioningState = armresources.ProvisioningState(toValue(vm.Properties.ProvisioningState))
 			}
 			if len(instStates) > 0 {
-				haveState := false
-				for _, wantState := range instStates {
-					if provisioningState == wantState {
-						haveState = true
-						break
-					}
-				}
+				haveState := slices.Contains(instStates, provisioningState)
 				if !haveState {
 					continue
 				}
@@ -2031,7 +2023,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Conte
 		tags.JujuController, controllerUUID,
 	)
 	pager := resourceGroups.NewListPager(&armresources.ResourceGroupsClientListOptions{
-		Filter: to.Ptr(filter),
+		Filter: new(filter),
 	})
 	var groupNames []*string
 	for pager.More() {
@@ -2195,7 +2187,7 @@ func (env *azureEnviron) getModelResources(ctx context.Context, resourceGroup, m
 	}
 	var resourceItems []*armresources.GenericResourceExpanded
 	pager := resources.NewListByResourceGroupPager(resourceGroup, &armresources.ClientListByResourceGroupOptions{
-		Filter: to.Ptr(modelFilter),
+		Filter: new(modelFilter),
 	})
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
@@ -2400,13 +2392,13 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.Context) (map[string
 				switch toValue(capability.Name) {
 				case "MemoryGB":
 					memValue, _ := strconv.ParseFloat(*capability.Value, 32)
-					mem = to.Ptr(int32(1024 * memValue))
+					mem = new(int32(1024 * memValue))
 				case "vCPUsAvailable", "vCPUs":
 					coresValue, _ := strconv.Atoi(*capability.Value)
-					cores = to.Ptr(int32(coresValue))
+					cores = new(int32(coresValue))
 				case "OSVhdSizeMB":
 					rootDiskValue, _ := strconv.Atoi(*capability.Value)
-					rootDisk = to.Ptr(int32(rootDiskValue))
+					rootDisk = new(int32(rootDiskValue))
 				}
 			}
 			instanceType := newInstanceType(

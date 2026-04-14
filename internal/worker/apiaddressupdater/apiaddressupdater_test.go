@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
@@ -100,8 +100,8 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *tc.C, ctrl *gomock.Contr
 	// The values are also available through the report.
 	reporter, ok := w.(worker.Reporter)
 	c.Assert(ok, tc.IsTrue)
-	report := reporter.Report()["handler"]
-	c.Assert(report, tc.DeepEquals, map[string]interface{}{
+	report := reporter.Report(c.Context())["handler"]
+	c.Assert(report, tc.DeepEquals, map[string]any{
 		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
 	})
 	return w, client, ch

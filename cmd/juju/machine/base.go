@@ -88,6 +88,6 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, formatted)
 }
 
-func (c *baselistMachinesCommand) tabular(writer io.Writer, value interface{}) error {
+func (c *baselistMachinesCommand) tabular(writer io.Writer, value any) error {
 	return status.FormatMachineTabular(writer, c.color, value)
 }

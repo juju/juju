@@ -29,7 +29,6 @@ import (
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
-	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -648,7 +647,7 @@ func getAttachmentNetNodeUUID(
 	if unitName != "" {
 		unitNetNodeUUID, ok = unitNetNodeUUIDs[unitName]
 		if !ok {
-			return "", errors.Errorf("network node uuid for unit %q not found", unitName).Add(uniterrors.UnitNotFound)
+			return "", errors.Errorf("network node uuid for unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
 		}
 	}
 	if machineNetNodeUUID != "" && unitNetNodeUUID != "" && machineNetNodeUUID != unitNetNodeUUID {

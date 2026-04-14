@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
@@ -268,7 +268,9 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 		ID:      1,
 		Address: "10.10.1.1",
 	}, nil)
-	report := w.(interface{ Report() map[string]any }).Report()
+	report := w.(interface {
+		Report(ctx context.Context) map[string]any
+	}).Report(c.Context())
 	c.Assert(report, MapHasKeys, []string{
 		"leader",
 		"leader-id",

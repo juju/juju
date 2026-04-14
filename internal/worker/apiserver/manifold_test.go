@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"testing"
 	"time"
@@ -13,10 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
-	"github.com/juju/worker/v4/workertest"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 
@@ -164,8 +165,8 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
-	resources := map[string]interface{}{
+func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
+	resources := map[string]any{
 		"agent":               s.agent,
 		"authenticator":       s.authenticator,
 		"clock":               s.clock,
@@ -184,9 +185,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

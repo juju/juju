@@ -259,8 +259,8 @@ func (s *watcherSuite) addUnit(c *tc.C, unitName string) internaluuid.UUID {
 
 	// Extract application name from unit name (e.g., "test-app/0" -> "test-app")
 	appName := unitName
-	if slashIndex := strings.Index(unitName, "/"); slashIndex != -1 {
-		appName = unitName[:slashIndex]
+	if before, _, ok := strings.Cut(unitName, "/"); ok {
+		appName = before
 	}
 
 	// Insert net_node first

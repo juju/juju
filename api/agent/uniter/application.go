@@ -128,7 +128,7 @@ func (s *Application) CharmURL(ctx context.Context) (string, bool, error) {
 
 // SetStatus sets the status of the application if the passed unitName,
 // corresponding to the calling unit, is of the leader.
-func (s *Application) SetStatus(ctx context.Context, unitName string, appStatus status.Status, info string, data map[string]interface{}) error {
+func (s *Application) SetStatus(ctx context.Context, unitName string, appStatus status.Status, info string, data map[string]any) error {
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{

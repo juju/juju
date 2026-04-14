@@ -112,7 +112,7 @@ type ModelCreateArgsLegacy struct {
 	// Config defines the model config, which includes the name of the
 	// model. A model UUID is allocated by the API server during the
 	// creation of the model.
-	Config map[string]interface{} `json:"config,omitempty"`
+	Config map[string]any `json:"config,omitempty"`
 
 	// CloudTag is the tag of the cloud to create the model in.
 	// If this is empty, the model will be created in the same
@@ -154,11 +154,11 @@ type MigrationModelInfoLegacy struct {
 // It caters for old APIs which use model owner tag
 // rather than model qualifier.
 type HostedModelConfigLegacy struct {
-	Name      string                 `json:"name"`
-	OwnerTag  string                 `json:"owner"`
-	Config    map[string]interface{} `json:"config,omitempty"`
-	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
-	Error     *Error                 `json:"error,omitempty"`
+	Name      string         `json:"name"`
+	OwnerTag  string         `json:"owner"`
+	Config    map[string]any `json:"config,omitempty"`
+	CloudSpec *CloudSpec     `json:"cloud-spec,omitempty"`
+	Error     *Error         `json:"error,omitempty"`
 }
 
 // HostedModelConfigsResultsLegacy contains an entry for each hosted model

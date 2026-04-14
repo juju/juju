@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
@@ -90,8 +90,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 var (
-	muxType           = reflect.TypeOf(&apiserverhttp.Mux{})
-	authenticatorType = reflect.TypeOf((*macaroon.LocalMacaroonAuthenticator)(nil)).Elem()
+	muxType           = reflect.TypeFor[*apiserverhttp.Mux]()
+	authenticatorType = reflect.TypeFor[macaroon.LocalMacaroonAuthenticator]()
 )
 
 func manifoldOutput(in worker.Worker, out any) error {

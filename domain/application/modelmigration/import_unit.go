@@ -6,7 +6,7 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/description/v11"
+	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/dependency"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
@@ -101,7 +101,7 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": dependency.ErrMissing,
 	})
 	manifold := migrationflag.Manifold(validManifoldConfig())
@@ -113,7 +113,7 @@ func (*ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
 
 func (*ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 	expectCaller := &stubCaller{}
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": expectCaller,
 	})
 	config := validManifoldConfig()
@@ -129,7 +129,7 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": &stubCaller{},
 	})
 	expectFacade := &struct{ migrationflag.Facade }{}
@@ -151,7 +151,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
 }
 
 func (*ManifoldSuite) TestStartSuccess(c *tc.C) {
-	getter := dt.StubGetter(map[string]interface{}{
+	getter := dt.StubGetter(map[string]any{
 		"api-caller": &stubCaller{},
 	})
 	expectWorker := &struct{ worker.Worker }{}

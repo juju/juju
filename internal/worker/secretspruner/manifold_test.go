@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v4"
-	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v5"
+	dt "github.com/juju/worker/v5/dependency/testing"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
@@ -91,7 +91,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		return nil, nil
 	}
 	manifold := secretspruner.Manifold(s.config)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]interface{}{
+	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, tc.IsNil)

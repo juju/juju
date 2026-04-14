@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -91,6 +92,12 @@ type StatusService interface {
 
 	// GetAllVolumeStatuses returns all the volume statuses for the model.
 	GetAllVolumeStatuses(ctx context.Context) ([]statusservice.Volume, error)
+}
+
+// ControllerConfigService is used to retrieve API port and SSH port.
+type ControllerConfigService interface {
+	// ControllerConfig returns the current controller configuration.
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

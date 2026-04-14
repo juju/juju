@@ -6,8 +6,8 @@ package watcher
 import (
 	"context"
 
-	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -158,13 +158,13 @@ func (nw *NotifyWorker) Wait() error {
 }
 
 // Report implements dependency.Reporter.
-func (nw *NotifyWorker) Report() map[string]interface{} {
-	report := map[string]interface{}{
+func (nw *NotifyWorker) Report(ctx context.Context) map[string]any {
+	report := map[string]any{
 		"type": "NotifyWorker",
 	}
 
 	if r, ok := nw.config.Handler.(worker.Reporter); ok {
-		report["handler"] = r.Report()
+		report["handler"] = r.Report(ctx)
 	}
 	return report
 }

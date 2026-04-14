@@ -216,7 +216,7 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *tc.C) {
 }
 
 func (s *providerSuite) TestSchema(c *tc.C) {
-	vals := map[string]interface{}{"endpoint": "http://foo.com/bar"}
+	vals := map[string]any{"endpoint": "http://foo.com/bar"}
 
 	p, err := environs.Provider("unmanaged")
 	c.Assert(err, tc.ErrorIsNil)

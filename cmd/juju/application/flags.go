@@ -151,7 +151,7 @@ func (f attachStorageFlag) Set(s string) error {
 	if s == "" {
 		return nil
 	}
-	for _, id := range strings.Split(s, ",") {
+	for id := range strings.SplitSeq(s, ",") {
 		if !names.IsValidStorage(id) {
 			return errors.NotValidf("storage ID %q", id)
 		}

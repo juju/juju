@@ -28,7 +28,7 @@ func TestFacadeSuite(t *testing.T) {
 
 func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(interface{}) error {
+	apiCaller := apiCaller(c, stub, func(any) error {
 		return errors.New("bork")
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
@@ -41,7 +41,7 @@ func (*FacadeSuite) TestPhaseCallError(c *tc.C) {
 
 func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(interface{}) error {
+	apiCaller := apiCaller(c, stub, func(any) error {
 		return nil
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
@@ -54,7 +54,7 @@ func (*FacadeSuite) TestPhaseNoResults(c *tc.C) {
 
 func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{
@@ -73,7 +73,7 @@ func (*FacadeSuite) TestPhaseExtraResults(c *tc.C) {
 
 func (*FacadeSuite) TestPhaseError(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{
@@ -91,7 +91,7 @@ func (*FacadeSuite) TestPhaseError(c *tc.C) {
 
 func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{{Phase: "COLLABORATE"}}
@@ -107,7 +107,7 @@ func (*FacadeSuite) TestPhaseInvalid(c *tc.C) {
 
 func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.PhaseResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.PhaseResult{{Phase: "ABORT"}}
@@ -123,7 +123,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *tc.C) {
 
 func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(interface{}) error {
+	apiCaller := apiCaller(c, stub, func(any) error {
 		return errors.New("bork")
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
@@ -136,7 +136,7 @@ func (*FacadeSuite) TestWatchCallError(c *tc.C) {
 
 func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(interface{}) error {
+	apiCaller := apiCaller(c, stub, func(any) error {
 		return nil
 	})
 	facade := migrationflag.NewFacade(apiCaller, nil)
@@ -149,7 +149,7 @@ func (*FacadeSuite) TestWatchNoResults(c *tc.C) {
 
 func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
@@ -168,7 +168,7 @@ func (*FacadeSuite) TestWatchExtraResults(c *tc.C) {
 
 func (*FacadeSuite) TestWatchError(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
@@ -186,7 +186,7 @@ func (*FacadeSuite) TestWatchError(c *tc.C) {
 
 func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	stub := &testhelpers.Stub{}
-	apiCaller := apiCaller(c, stub, func(response interface{}) error {
+	apiCaller := apiCaller(c, stub, func(response any) error {
 		outPtr, ok := response.(*params.NotifyWatchResults)
 		c.Assert(ok, tc.IsTrue)
 		outPtr.Results = []params.NotifyWatchResult{
@@ -210,11 +210,11 @@ func (*FacadeSuite) TestWatchSuccess(c *tc.C) {
 	checkCalls(c, stub, "Watch")
 }
 
-func apiCaller(c *tc.C, stub *testhelpers.Stub, set func(interface{}) error) base.APICaller {
+func apiCaller(c *tc.C, stub *testhelpers.Stub, set func(any) error) base.APICaller {
 	return basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
-		args, response interface{},
+		args, response any,
 	) error {
 		c.Check(objType, tc.Equals, "MigrationFlag")
 		c.Check(version, tc.Equals, 0)
@@ -227,7 +227,7 @@ func apiCaller(c *tc.C, stub *testhelpers.Stub, set func(interface{}) error) bas
 func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
-		c.Check(call.Args, tc.DeepEquals, []interface{}{
+		c.Check(call.Args, tc.DeepEquals, []any{
 			params.Entities{
 				[]params.Entity{{"model-some-uuid"}},
 			},

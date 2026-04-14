@@ -14,7 +14,7 @@ type Server struct {
 	mu               sync.Mutex
 	createRootDisks  bool
 	apiCallErrors    map[string]error
-	apiCallModifiers map[string][]func(interface{})
+	apiCallModifiers map[string][]func(any)
 
 	attributes       map[string][]types.AccountAttributeValue // attr name -> values
 	reservations     map[string]*reservation                  // id -> reservation
@@ -67,7 +67,7 @@ func (srv *Server) SetAPIError(apiName string, err error) {
 }
 
 // SetAPIModifiers calls the specified functions with the result of an api call.
-func (srv *Server) SetAPIModifiers(apiName string, f ...func(interface{})) {
+func (srv *Server) SetAPIModifiers(apiName string, f ...func(any)) {
 	srv.apiCallModifiers[apiName] = f
 }
 
@@ -99,7 +99,7 @@ func (srv *Server) Reset(withoutZonesOrGroups bool) {
 	srv.tagsMutatingCalls.reset()
 
 	srv.apiCallErrors = make(map[string]error)
-	srv.apiCallModifiers = make(map[string][]func(interface{}))
+	srv.apiCallModifiers = make(map[string][]func(any))
 	srv.attributes = make(map[string][]types.AccountAttributeValue)
 	srv.instances = make(map[string]*Instance)
 	srv.groups = make(map[string]*securityGroup)

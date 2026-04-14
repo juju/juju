@@ -9,7 +9,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v5/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
@@ -70,8 +70,8 @@ func (w *kubernetesNotifyWatcher) loop() error {
 	signals := make(chan struct{}, 1)
 	defer close(w.out)
 
-	fireFn := func(evt WatchEvent) func(interface{}) {
-		return func(obj interface{}) {
+	fireFn := func(evt WatchEvent) func(any) {
+		return func(obj any) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
 				logger.Errorf(context.TODO(), "getting kubernetes watcher event meta: %v", err)
@@ -90,7 +90,7 @@ func (w *kubernetesNotifyWatcher) loop() error {
 	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    fireFn("add"),
 		DeleteFunc: fireFn("delete"),
-		UpdateFunc: func(_, obj interface{}) {
+		UpdateFunc: func(_, obj any) {
 			fireFn("update")(obj)
 		},
 	})
@@ -150,7 +150,7 @@ type kubernetesStringsWatcher struct {
 	filterFunc    K8sStringsWatcherFilterFunc
 }
 
-type K8sStringsWatcherFilterFunc func(evt WatchEvent, obj interface{}) (string, bool)
+type K8sStringsWatcherFilterFunc func(evt WatchEvent, obj any) (string, bool)
 
 // NewK8sStringsWatcherFunc defines a function which returns a k8s string watcher
 // based on the supplied config
@@ -189,8 +189,8 @@ func (w *kubernetesStringsWatcher) loop() error {
 	w.initialEvents = nil
 
 	signals := make(chan string)
-	fireFn := func(evt WatchEvent) func(interface{}) {
-		return func(obj interface{}) {
+	fireFn := func(evt WatchEvent) func(any) {
+		return func(obj any) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
 				logger.Errorf(context.TODO(), "getting kubernetes watcher event meta: %v", err)
@@ -211,7 +211,7 @@ func (w *kubernetesStringsWatcher) loop() error {
 	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    fireFn(WatchEventAdd),
 		DeleteFunc: fireFn(WatchEventDelete),
-		UpdateFunc: func(_, obj interface{}) {
+		UpdateFunc: func(_, obj any) {
 			fireFn(WatchEventUpdate)(obj)
 		},
 	})

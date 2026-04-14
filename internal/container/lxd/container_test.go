@@ -656,7 +656,7 @@ func (s *containerSuite) TestDeleteInstancesPartialFailure(c *tc.C) {
 	cExp.After(2 * time.Second).Return(ch).AnyTimes()
 
 	go func() {
-		for i := 0; i < retries; i++ {
+		for range retries {
 			ch <- time.Now()
 		}
 	}()
