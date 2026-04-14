@@ -495,7 +495,7 @@ func (s *ProviderService) validateStorageInstanceForUnitAttachment(
 	sizeMIB := storage.CalculateStorageInstanceSizeForAttachment(info.StorageInstanceInfo)
 	if sizeMIB < charmStorageDef.MinimumSize {
 		return errors.Errorf(
-			"storage instance %q size %d MiB is below charm storage definition %q minimum size %d MiB",
+			"storage instance %q size %d MiB is below charm storage definition %q minimum size of %d MiB",
 			info.StorageInstanceInfo.UUID,
 			sizeMIB,
 			charmStorageDef.Name,
