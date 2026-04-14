@@ -315,8 +315,8 @@ WITH matched_storage_instances AS (
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
-                              FROM storage_unit_owner)
+    LEFT JOIN storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
+    WHERE     suo.storage_instance_uuid IS NULL
     AND       (sf.provider_id IN ($storageProviderIDs[:])
            OR  sv.provider_id IN ($storageProviderIDs[:]))
 )
@@ -389,8 +389,8 @@ WITH matched_storage_instances AS (
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    WHERE     si.uuid NOT IN (SELECT storage_instance_uuid
-                              FROM storage_unit_owner)
+    LEFT JOIN storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
+    WHERE     suo.storage_instance_uuid IS NULL
     AND       (sf.provider_id IN ($storageProviderIDs[:])
            OR  sv.provider_id IN ($storageProviderIDs[:]))
 )
