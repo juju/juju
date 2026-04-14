@@ -393,7 +393,7 @@ func (s *ProviderService) AttachStorageToUnit(
 	}
 
 	// Can this storage instance be attached to this unit?
-	err = s.validateStorageInstanceForUnitAttachment(ctx, storageAttachInfo)
+	err = validateStorageInstanceForUnitAttachment(ctx, storageAttachInfo)
 	if err != nil {
 		return err
 	}
@@ -435,7 +435,7 @@ func (s *ProviderService) AttachStorageToUnit(
 // attachments.
 // - [applicationerrors.StorageInstanceAttachMachineOwnerMismatch] when the
 // storage instance owning machine does not match the unit's machine.
-func (s *ProviderService) validateStorageInstanceForUnitAttachment(
+func validateStorageInstanceForUnitAttachment(
 	ctx context.Context,
 	info applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
@@ -561,7 +561,7 @@ func (s *ProviderService) validateStorageInstancesForUnitAttachment(
 	infos []applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
 	for _, info := range infos {
-		if err := s.validateStorageInstanceForUnitAttachment(ctx, info); err != nil {
+		if err := validateStorageInstanceForUnitAttachment(ctx, info); err != nil {
 			return err
 		}
 	}
@@ -592,7 +592,7 @@ func (s *ProviderService) validateStorageInstancesForUnitAttachment(
 // attachments.
 // - [applicationerrors.StorageInstanceAttachMachineOwnerMismatch] when the
 // storage instance owning machine does not match the unit's machine.
-func (s *ProviderService) validateStorageInstanceAttachmentForNewUnit(
+func validateStorageInstanceAttachmentForNewUnit(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	unitMachineUUID *coremachine.UUID,
@@ -806,7 +806,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			)
 		}
 
-		err = s.validateStorageInstanceAttachmentForNewUnit(
+		err = validateStorageInstanceAttachmentForNewUnit(
 			ctx,
 			unitUUID,
 			&machineUUID,
@@ -913,7 +913,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 
 		// Validate that any existing storage instance attachments requested can
 		// be used for this unit.
-		err = s.validateStorageInstanceAttachmentForNewUnit(
+		err = validateStorageInstanceAttachmentForNewUnit(
 			ctx,
 			unitUUID,
 			nil,
