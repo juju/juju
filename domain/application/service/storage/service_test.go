@@ -12,12 +12,10 @@ import (
 
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
-	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -404,32 +402,5 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		StorageInstances: expectedStorageInstances,
 		StorageToAttach:  expectedStorageToAttach,
 		StorageToOwn:     expectedStorageToOwn,
-	})
-}
-
-func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	charmStorageDef := internal.CharmStorageDefinitionForValidation{
-		CountMin:    0,
-		CountMax:    2,
-		Name:        "st1",
-		MinimumSize: 1024,
-		Type:        charm.StorageBlock,
-	}
-
-	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
-	err := svc.ValidateAttachStorage(
-		charmStorageDef, 2, 1024,
-	)
-
-	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
-	c.Check(is, tc.IsTrue)
-	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
-		Maximum:     new(2),
-		Minimum:     0,
-		Requested:   3,
-		StorageName: "st1",
 	})
 }

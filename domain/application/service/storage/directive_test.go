@@ -345,32 +345,6 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 	c.Assert(gotDirectives, tc.SameContents, expected)
 }
 
-func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
-	defer s.setupMocks(c.T).Finish()
-
-	charmStorageDef := internal.CharmStorageDefinitionForValidation{
-		CountMin:    0,
-		CountMax:    2,
-		Name:        "st1",
-		MinimumSize: 1024,
-		Type:        domainapplicationcharm.StorageBlock,
-	}
-
-	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
-	err := svc.ValidateAttachStorage(
-		charmStorageDef, 3, 1024,
-	)
-
-	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
-	c.Check(is, tc.IsTrue)
-	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
-		Maximum:     new(2),
-		Minimum:     0,
-		Requested:   4,
-		StorageName: "st1",
-	})
-}
-
 // TestReconcileStorageDirectiveAgainstCharmStorageNoChanges tests that when existing
 // storage directives match new charm storage exactly, no changes are proposed.
 func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoChanges(c *tc.C) {

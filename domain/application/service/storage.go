@@ -174,19 +174,6 @@ type StorageService interface {
 		err error,
 	)
 
-	// ValidateAttachStorage checks that a storage instance can be attached
-	// to a unit with respect to the unit's charm storage definition, checking
-	// the existing count of storage instances and the size of the new storage.
-	//
-	// The following errors may be expected:
-	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
-	// falls outside of the bounds defined by the charm.
-	ValidateAttachStorage(
-		charmStorageDef internal.CharmStorageDefinitionForValidation,
-		existingCount uint32,
-		storageSize uint64,
-	) error
-
 	// MakeAttachStorageInstanceToUnitArg builds the arguments required to attach
 	// an existing storage instance to a unit. It constructs the attachment
 	// details, expected attachment checks, and unit precondition checks.

@@ -517,44 +517,6 @@ func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) DoA
 	return c
 }
 
-// ValidateAttachStorage mocks base method.
-func (m *MockStorageService) ValidateAttachStorage(arg0 internal.CharmStorageDefinitionForValidation, arg1 uint32, arg2 uint64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateAttachStorage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateAttachStorage indicates an expected call of ValidateAttachStorage.
-func (mr *MockStorageServiceMockRecorder) ValidateAttachStorage(arg0, arg1, arg2 any) *MockStorageServiceValidateAttachStorageCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateAttachStorage", reflect.TypeOf((*MockStorageService)(nil).ValidateAttachStorage), arg0, arg1, arg2)
-	return &MockStorageServiceValidateAttachStorageCall{Call: call}
-}
-
-// MockStorageServiceValidateAttachStorageCall wrap *gomock.Call
-type MockStorageServiceValidateAttachStorageCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceValidateAttachStorageCall) Return(arg0 error) *MockStorageServiceValidateAttachStorageCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceValidateAttachStorageCall) Do(f func(internal.CharmStorageDefinitionForValidation, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceValidateAttachStorageCall) DoAndReturn(f func(internal.CharmStorageDefinitionForValidation, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ValidateCharmStorage mocks base method.
 func (m *MockStorageService) ValidateCharmStorage(arg0 context.Context, arg1 map[string]charm.Storage) error {
 	m.ctrl.T.Helper()
