@@ -25,6 +25,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +54,6 @@ import (
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	"github.com/juju/juju/juju/osenv"
 	jujustorage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/wrench"
 )
 
@@ -2591,12 +2591,19 @@ func (a *app) EnsureStorage(
 	currentClaims := currentStatefulset.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
 	volumeClaimTemplateMatches := volumeClaimTemplateMatch(currentClaims, newClaims)
-	if volumeClaimTemplateMatches && !hasNonPVCFileSystem(config.Filesystems) {
+
+	currentPodSpec := currentStatefulset.StatefulSet.StatefulSet.Spec.Template.Spec
+	newPodSpec := newStatefulset.StatefulSet.Spec.Template.Spec
+	volumeMatches := equality.Semantic.DeepEqual(currentPodSpec.Volumes, newPodSpec.Volumes)
+
+	// If there are no changes, we can skip re-applying the statefulset.
+	if volumeClaimTemplateMatches && volumeMatches {
 		logger.Debugf("no changes in storage for app %q", a.name)
 		return nil
 	}
-	// We can just apply the new statefulset for any non-PVC storage updates
-	// if the volume claim templates match since template updates are allowed.
+
+	// We can just apply (without deleting) the new statefulset for any non-PVC storage updates
+	// if there are no changes in volume claim templates since template updates are allowed.
 	if volumeClaimTemplateMatches {
 		applier.Apply(newStatefulset)
 		if err := applier.Run(context.TODO(), false); err != nil {
@@ -2604,6 +2611,7 @@ func (a *app) EnsureStorage(
 		}
 		return nil
 	}
+
 	// We save the statefulset replica count before deleting the storage update.
 	// This helps us if we succeed deleting the statefulset but fail to reapply,
 	// we can create a new statefulset following the original replica count.
@@ -2680,16 +2688,6 @@ func volumeClaimTemplateEqual(currentVolClaim, newVolClaim corev1.PersistentVolu
 		return false
 	}
 	return true
-}
-
-func hasNonPVCFileSystem(filesystems []jujustorage.KubernetesFilesystemParams) bool {
-	for _, fs := range filesystems {
-		switch fs.Provider {
-		case storageprovider.RootfsProviderType, storageprovider.TmpfsProviderType:
-			return true
-		}
-	}
-	return false
 }
 
 func accessModesEqual(currentModes, newModes []corev1.PersistentVolumeAccessMode) bool {
