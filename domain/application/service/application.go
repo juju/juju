@@ -1983,8 +1983,18 @@ func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
 	}
 
+	var platform *deployment.Platform
+	if setCharmParams.CharmOrigin.Platform != (corecharm.Platform{}) {
+		encodedPlatform, err := encodePlatform(setCharmParams.CharmOrigin.Platform)
+		if err != nil {
+			return application.SetCharmStateParams{}, errors.Errorf("encoding charm platform: %w", err)
+		}
+		platform = &encodedPlatform
+	}
+
 	return application.SetCharmStateParams{
 		Channel:                   channel,
+		Platform:                  platform,
 		EndpointBindings:          setCharmParams.EndpointBindings,
 		StorageDirectivesToCreate: toCreate,
 		StorageDirectivesToUpdate: toUpdate,

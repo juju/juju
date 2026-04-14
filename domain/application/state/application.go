@@ -1816,6 +1816,12 @@ WHERE  uuid = $entityUUID.uuid
 			}
 		}
 
+		if params.Platform != nil {
+			if err := st.upsertApplicationPlatform(ctx, tx, *params.Platform, appID.String()); err != nil {
+				return errors.Errorf("updating application platform: %w", err)
+			}
+		}
+
 		charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
 			application.ApplicationCharmSequenceNamespace, appID.String(),
 		)
@@ -1860,6 +1866,52 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	if err := tx.Query(ctx, upsertAppChannelStmt, appChannel).Run(); err != nil {
 		return errors.Errorf("upserting application channel: %w", err)
 	}
+	return nil
+}
+
+func (st *State) upsertApplicationPlatform(ctx context.Context, tx *sqlair.TX, platform deployment.Platform, appID string) error {
+	if platform.Architecture == architecture.Unknown {
+		return errors.Errorf("cannot upsert application platform with an empty architecture")
+	}
+
+	archID, err := encodeArchitecture(platform.Architecture)
+	if err != nil {
+		return errors.Errorf("encoding architecture: %w", err)
+	}
+
+	appIDInput := entityUUID{UUID: appID}
+
+	// Need to delete manually as application_uuid doesn't have UNIQUE constraint here.
+	deleteStmt, err := st.Prepare(`
+DELETE FROM application_platform
+WHERE  application_uuid = $entityUUID.uuid
+`, appIDInput)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteStmt, appIDInput).Run(); err != nil {
+		return errors.Errorf("deleting old application platform: %w", err)
+	}
+
+	appPlatform := applicationPlatform{
+		ApplicationID:  appID,
+		OSTypeID:       int(platform.OSType),
+		Channel:        platform.Channel,
+		ArchitectureID: archID,
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)
+`, applicationPlatform{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, appPlatform).Run(); err != nil {
+		return errors.Errorf("inserting new application platform: %w", err)
+	}
+
 	return nil
 }
 

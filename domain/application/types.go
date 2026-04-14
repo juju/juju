@@ -489,6 +489,10 @@ type SetCharmStateParams struct {
 	// risk and branch of the charm when it was downloaded from the charm store.
 	Channel *deployment.Channel
 
+	// Platform contains the platform information for the application. The
+	// operating system and architecture.
+	Platform *deployment.Platform
+
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
