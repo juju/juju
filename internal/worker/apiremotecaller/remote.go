@@ -36,6 +36,7 @@ type RemoteConnection interface {
 // responsible modeling the remote API server.
 type RemoteServer interface {
 	worker.Worker
+	worker.Reporter
 	RemoteConnection
 	UpdateAddresses(addresses []string)
 }
@@ -241,14 +242,14 @@ func (w *remoteServer) loop() error {
 
 				// Keep request handoff to the main loop non-blocking and
 				// latest-wins. If the queue is full, replace the stale request.
-			ENQUEUE:
+			enqueue:
 				for {
 					select {
 					case <-w.tomb.Dying():
 						requestCancel(context.Canceled)
 						return tomb.ErrDying
 					case requests <- req:
-						break ENQUEUE
+						break enqueue
 					case stale := <-requests:
 						stale.cancel(newChangeRequestError)
 					}

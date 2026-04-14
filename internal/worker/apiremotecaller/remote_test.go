@@ -492,7 +492,7 @@ func (s *RemoteSuite) TestReconnectWithBrokenConnectionMultipleUpdatesKeepProgre
 				c.Fatalf("waiting for reconnect release: %v", c.Context().Err())
 			}
 			<-ctx.Done()
-			return ctx.Err()
+			return context.Cause(ctx)
 		default:
 			return nil
 		}
@@ -516,7 +516,6 @@ func (s *RemoteSuite) TestReconnectWithBrokenConnectionMultipleUpdatesKeepProgre
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
-	reporter := w.(interface{ Report() map[string]any })
 
 	s.ensureStartup(c)
 
@@ -558,7 +557,7 @@ func (s *RemoteSuite) TestReconnectWithBrokenConnectionMultipleUpdatesKeepProgre
 	}
 	s.ensureChanged(c)
 
-	report := reporter.Report()
+	report := w.Report(c.Context())
 	addresses, ok := report["addresses"].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr2.String()})
@@ -581,9 +580,6 @@ func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
-	reporter := w.(interface {
-		Report(ctx context.Context) map[string]any
-	})
 
 	s.ensureStartup(c)
 
@@ -597,14 +593,14 @@ func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
 
 	s.ensureChanged(c)
 
-	report := reporter.Report(c.Context())
+	report := w.Report(c.Context())
 	addresses, ok := report["addresses"].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
 
 	addresses[0] = "wss://10.0.0.99"
 
-	report = reporter.Report(c.Context())
+	report = w.Report(c.Context())
 	addresses, ok = report["addresses"].([]string)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
