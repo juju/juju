@@ -46,12 +46,6 @@ const (
 	maxPayloadBytes = 1 << 20 // 1MiB
 )
 
-var (
-	// userCreatorName is the user.Name corresponding to userCreator. We panic
-	// if this is not valid, since that would be a programming error.
-	userCreatorName = must(user.NewName, userCreator)
-)
-
 // AccessService is the interface for the access service.
 type AccessService interface {
 	// AddUser will add a new user to the database and return the UUID of the
@@ -163,6 +157,11 @@ type Worker struct {
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, internalerrors.Capture(err)
+	}
+
+	userCreatorName, err := user.NewName(userCreator)
+	if err != nil {
+		return nil, internalerrors.Errorf("invalid user creator name %q: %w", userCreator, err)
 	}
 
 	w := &Worker{
@@ -509,12 +508,4 @@ func validateMetricsUsername(username string) (user.Name, error) {
 	}
 
 	return name, nil
-}
-
-func must[T any](fn func(string) (T, error), arg string) T {
-	result, err := fn(arg)
-	if err != nil {
-		panic(fmt.Sprintf("unexpected error calling %T with %q: %v", fn, arg, err))
-	}
-	return result
 }
