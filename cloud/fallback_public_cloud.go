@@ -362,6 +362,22 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://login.microsoftonline.com
+      austriaeast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      belgiumcentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      brazilsoutheast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
+      denmarkeast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://login.microsoftonline.com
   azure-china:
     type: azure
     description: Microsoft Azure China
