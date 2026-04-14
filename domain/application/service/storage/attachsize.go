@@ -20,11 +20,11 @@ func CalculateStorageInstanceSizeForAttachment(
 	switch info.Kind {
 	case domainstorage.StorageKindFilesystem:
 		if info.Filesystem != nil && info.Filesystem.SizeMib != 0 {
-			return uint64(info.Filesystem.SizeMib)
+			return info.Filesystem.SizeMib
 		}
 	case domainstorage.StorageKindBlock:
 		if info.Volume != nil && info.Volume.SizeMiB != 0 {
-			return uint64(info.Volume.SizeMiB)
+			return info.Volume.SizeMiB
 		}
 	}
 	return fallback

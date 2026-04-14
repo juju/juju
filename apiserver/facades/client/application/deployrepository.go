@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -61,7 +60,7 @@ type DeployFromRepository interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	modelType          model.ModelType
+	modelType          coremodel.ModelType
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
 	applicationService ApplicationService
@@ -72,7 +71,7 @@ type DeployFromRepositoryAPI struct {
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
-	modelType model.ModelType,
+	modelType coremodel.ModelType,
 	applicationService ApplicationService,
 	storageService StorageService,
 	store objectstore.ObjectStore,
@@ -204,7 +203,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 	}
 
 	var err error
-	if api.modelType == model.IAAS {
+	if api.modelType == coremodel.IAAS {
 		unitArgs := api.makeIAASUnitArgs(dt, storageUUIDsToAttach)
 		_, err = api.applicationService.CreateIAASApplication(
 			ctx,
@@ -388,7 +387,7 @@ type deployTemplate struct {
 type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
-	modelInfo          model.ModelInfo
+	modelInfo          coremodel.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService
@@ -409,7 +408,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		},
 		logger: cfg.logger,
 	}
-	if cfg.modelInfo.Type == model.CAAS {
+	if cfg.modelInfo.Type == coremodel.CAAS {
 		return &caasDeployFromRepositoryValidator{
 			caasBroker:     cfg.caasBroker,
 			storageService: cfg.storageService,
@@ -435,7 +434,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 }
 
 type deployFromRepositoryValidator struct {
-	modelInfo          model.ModelInfo
+	modelInfo          coremodel.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
 	machineService     MachineService

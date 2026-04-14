@@ -143,7 +143,7 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesFile
 			Filesystem: &internal.StorageInstanceFilesystemInfo{
 				UUID:           filesystemUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				SizeMib:           1024,
+				SizeMib:        1024,
 			},
 			Kind:             domainstorage.StorageKindFilesystem,
 			Life:             life.Alive,

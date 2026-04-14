@@ -19,7 +19,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -44,7 +43,7 @@ import (
 type DeployApplicationLocalRepo interface {
 	Deploy(
 		context.Context,
-		model.ModelType,
+		coremodel.ModelType,
 		ApplicationService,
 		StorageService,
 		objectstore.ObjectStore,

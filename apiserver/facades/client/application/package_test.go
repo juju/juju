@@ -59,8 +59,8 @@ type baseSuite struct {
 	modelType      model.ModelType
 
 	// Legacy types that we're transitioning away from.
-	deployApplication DeployApplicationFunc
-	caasBroker        *MockCaasBrokerInterface
+	deployApplicationLocalRepo DeployApplicationLocalRepo
+	caasBroker                 *MockCaasBrokerInterface
 }
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -132,7 +132,7 @@ func (s *baseSuite) newCAASAPI(c *tc.C) {
 }
 
 func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
-	s.deployApplication = DeployApplicationLocalRepo
+	s.deployApplicationLocalRepo = deployApplicationLocalRepo{}
 	s.modelType = modelType
 	var err error
 	s.api, err = NewAPIBase(
@@ -158,7 +158,7 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		s.modelType,
 		s.leadershipReader,
 		s.deployFromRepo,
-		s.deployApplication,
+		s.deployApplicationLocalRepo,
 		s.caasBroker,
 		s.objectStore,
 		loggertesting.WrapCheckLog(c),
