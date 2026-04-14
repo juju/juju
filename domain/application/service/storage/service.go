@@ -146,7 +146,7 @@ type State interface {
 	// - [applicationerrors.UnitNotFound]: when the unit is not found.
 	GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error)
 
-	// GetStorageInstanceCompositionByUUID returns the storage compositions for
+	// GetStorageInstanceCompositionByUUID returns the storage composition for
 	// the specified storage instance.
 	//
 	// The following errors can be expected:
