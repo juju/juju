@@ -696,7 +696,7 @@ func (s *Service) MakeUnitStorageArgs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	rvalDirectives := make([]domainstorage.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
+	rvalDirectives := make([]domainstorage.DirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []domainstorage.CreateUnitStorageInstanceArg{}
 	rvalToAttach := make([]domainstorage.CreateUnitStorageAttachmentArg, 0, len(storageDirectives))
 	// rvalToOwn is the list of storage instance uuid's that the unit must own.
@@ -720,7 +720,7 @@ func (s *Service) MakeUnitStorageArgs(
 	for _, sd := range storageDirectives {
 		// Make the storage directive arg first. This MUST happen as the count
 		// value in [sd] is about to be modified.
-		rvalDirectives = append(rvalDirectives, domainstorage.CreateUnitStorageDirectiveArg{
+		rvalDirectives = append(rvalDirectives, domainstorage.DirectiveArg{
 			Count:    sd.Count,
 			Name:     sd.Name,
 			PoolUUID: sd.PoolUUID,

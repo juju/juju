@@ -39,6 +39,7 @@ import (
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -1610,12 +1611,12 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 }
 
 func overrideStorageDirectives(
-	toCreate []internal.CreateApplicationStorageDirectiveArg,
-	toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+	toCreate []domainstorage.DirectiveArg,
+	toUpdate []domainstorage.DirectiveArg,
 	overrides map[string]storage.StorageDirectiveOverride,
-) ([]internal.CreateApplicationStorageDirectiveArg, []internal.UpdateApplicationStorageDirectiveArg) {
-	created := append([]internal.CreateApplicationStorageDirectiveArg{}, toCreate...)
-	updated := append([]internal.UpdateApplicationStorageDirectiveArg{}, toUpdate...)
+) ([]domainstorage.DirectiveArg, []domainstorage.DirectiveArg) {
+	created := append([]domainstorage.DirectiveArg{}, toCreate...)
+	updated := append([]domainstorage.DirectiveArg{}, toUpdate...)
 
 	for i, dir := range created {
 		override, exists := overrides[dir.Name.String()]
@@ -1976,8 +1977,8 @@ func coerceValue(t charm.OptionType, value string) (any, error) {
 }
 
 func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
-	toCreate []internal.CreateApplicationStorageDirectiveArg,
-	toUpdate []internal.UpdateApplicationStorageDirectiveArg) (application.SetCharmStateParams, error) {
+	toCreate []domainstorage.DirectiveArg,
+	toUpdate []domainstorage.DirectiveArg) (application.SetCharmStateParams, error) {
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)

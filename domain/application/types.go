@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -54,7 +53,7 @@ type BaseAddApplicationArg struct {
 	PendingResources []resource.UUID
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
-	StorageDirectives []internal.CreateApplicationStorageDirectiveArg
+	StorageDirectives []domainstorage.DirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]AddApplicationConfig
@@ -495,11 +494,11 @@ type SetCharmStateParams struct {
 
 	// StorageDirectivesToCreate contains storage directives that need to be
 	// created based on the new charm's storage requirements.
-	StorageDirectivesToCreate []internal.CreateApplicationStorageDirectiveArg
+	StorageDirectivesToCreate []domainstorage.DirectiveArg
 
 	// StorageDirectivesToUpdate contains storage directives that need to be
 	// applied based on the new charm's storage requirements.
-	StorageDirectivesToUpdate []internal.UpdateApplicationStorageDirectiveArg
+	StorageDirectivesToUpdate []domainstorage.DirectiveArg
 }
 
 // ApplicationDetails contains details about an application.

@@ -623,7 +623,7 @@ func (st *State) insertApplicationStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid, charmUUID string,
-	directives []internal.CreateApplicationStorageDirectiveArg,
+	directives []domainstorage.DirectiveArg,
 ) error {
 	if len(directives) == 0 {
 		return nil
@@ -667,7 +667,7 @@ func (st *State) insertUnitStorageDirectivesForAllUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid, charmUUID string,
-	directives []internal.CreateApplicationStorageDirectiveArg,
+	directives []domainstorage.DirectiveArg,
 ) error {
 	if len(directives) == 0 {
 		return nil
@@ -742,7 +742,7 @@ func (st *State) updateApplicationStorageDirectives(
 	tx *sqlair.TX,
 	appUUID coreapplication.UUID,
 	charmUUID string,
-	updates []internal.UpdateApplicationStorageDirectiveArg,
+	updates []domainstorage.DirectiveArg,
 ) error {
 	if len(updates) == 0 {
 		return nil

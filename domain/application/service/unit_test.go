@@ -139,7 +139,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 		RefreshStorageDirectives: []applicationinternal.StorageDirective{sd},
 	}
 	storageArgs := storage.CreateUnitStorageArg{
-		StorageDirectives: []storage.CreateUnitStorageDirectiveArg{{
+		StorageDirectives: []storage.DirectiveArg{{
 			Count:    sd.Count,
 			Name:     sd.Name,
 			PoolUUID: sd.PoolUUID,
@@ -210,7 +210,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	fs := tc.Must(c, storage.NewFilesystemUUID)
 	vol := tc.Must(c, storage.NewVolumeUUID)
 	storageArgs := storage.CreateUnitStorageArg{
-		StorageDirectives: []storage.CreateUnitStorageDirectiveArg{{
+		StorageDirectives: []storage.DirectiveArg{{
 			Count:    sd.Count,
 			Name:     sd.Name,
 			PoolUUID: sd.PoolUUID,

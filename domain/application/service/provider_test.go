@@ -686,7 +686,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+//			StorageDirectives: []domainstorage.DirectiveArg{{
 //				Name:     "foo-data",
 //				Count:    2,
 //				Size:     2048,
@@ -723,7 +723,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		mc := tc.NewMultiChecker()
 //		mc.AddExpr(
 //			`_.BaseAddApplicationArg.StorageDirectives`,
-//			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+//			tc.UnorderedMatch[[]domainstorage.DirectiveArg](tc.DeepEquals),
 //			tc.ExpectedValue,
 //		)
 //		c.Assert(a, mc, app)
@@ -835,7 +835,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{{
+//			StorageDirectives: []domainstorage.DirectiveArg{{
 //				Name:     "foo-data",
 //				Count:    2,
 //				PoolUUID: blockDeviceStoragePoolUUID,
@@ -871,7 +871,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		mc := tc.NewMultiChecker()
 //		mc.AddExpr(
 //			`_.BaseAddApplicationArg.StorageDirectives`,
-//			tc.UnorderedMatch[[]application.CreateApplicationStorageDirectiveArg](tc.DeepEquals),
+//			tc.UnorderedMatch[[]domainstorage.DirectiveArg](tc.DeepEquals),
 //			tc.ExpectedValue,
 //		)
 //		c.Assert(a, mc, app)
@@ -1505,7 +1505,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				},
 //			},
 //			CreateUnitStorageArg: application.CreateUnitStorageArg{
-//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//				StorageDirectives: []domainstorage.DirectiveArg{
 //					{
 //						Count:    1,
 //						Name:     "data",
@@ -1564,7 +1564,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//			StorageDirectives: []domainstorage.DirectiveArg{
 //				{
 //					Name:     "data",
 //					Count:    1,
@@ -1667,7 +1667,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				},
 //			},
 //			CreateUnitStorageArg: application.CreateUnitStorageArg{
-//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//				StorageDirectives: []domainstorage.DirectiveArg{
 //					{
 //						Name:     "data",
 //						Count:    3,
@@ -1733,7 +1733,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//			StorageDirectives: []domainstorage.DirectiveArg{
 //				{
 //					Count:    3,
 //					Name:     "data",
@@ -1832,7 +1832,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				},
 //			},
 //			CreateUnitStorageArg: application.CreateUnitStorageArg{
-//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//				StorageDirectives: []domainstorage.DirectiveArg{
 //					{
 //						Name:     "data",
 //						Count:    1,
@@ -1892,7 +1892,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//			StorageDirectives: []domainstorage.DirectiveArg{
 //				{
 //					Count:    1,
 //					Name:     "data",
@@ -1993,7 +1993,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				},
 //			},
 //			CreateUnitStorageArg: application.CreateUnitStorageArg{
-//				StorageDirectives: []application.CreateUnitStorageDirectiveArg{
+//				StorageDirectives: []domainstorage.DirectiveArg{
 //					{
 //						Name:     "data",
 //						Count:    2,
@@ -2056,7 +2056,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform: platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{
+//			StorageDirectives: []domainstorage.DirectiveArg{
 //				{
 //					Count:    2,
 //					Name:     "data",
@@ -2190,7 +2190,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //				DownloadSize:       42,
 //			},
 //			Platform:          platform,
-//			StorageDirectives: []application.CreateApplicationStorageDirectiveArg{},
+//			StorageDirectives: []domainstorage.DirectiveArg{},
 //		},
 //	}
 //

@@ -43,7 +43,7 @@ func (s *applicationStorageSuite) createApplicationWithStorageDirectives(
 	c *tc.C,
 	charmName string,
 	charmStorage map[string]charm.Storage,
-	directives []internal.CreateApplicationStorageDirectiveArg,
+	directives []domainstorage.DirectiveArg,
 ) coreapplication.UUID {
 	state := NewState(
 		s.ModelSuite.TxnRunnerFactory(),
@@ -139,7 +139,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectives(c *tc.C) {
 				Type:     charm.StorageFilesystem,
 			},
 		},
-		[]internal.CreateApplicationStorageDirectiveArg{
+		[]domainstorage.DirectiveArg{
 			{
 				Count:    2,
 				Name:     domainstorage.Name("str1"),
@@ -195,7 +195,7 @@ func (s *applicationStorageSuite) TestGetApplicationStorageDirectivesEmpty(c *tc
 		c,
 		"testcharm",
 		map[string]charm.Storage{},
-		[]internal.CreateApplicationStorageDirectiveArg{},
+		[]domainstorage.DirectiveArg{},
 	)
 
 	st := NewState(

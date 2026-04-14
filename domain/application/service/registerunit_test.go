@@ -35,7 +35,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	rval := domainstorage.RegisterUnitStorageArg{
 		CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
-			StorageDirectives: []domainstorage.CreateUnitStorageDirectiveArg{
+			StorageDirectives: []domainstorage.DirectiveArg{
 				{
 					Count:    1,
 					Name:     "st1",

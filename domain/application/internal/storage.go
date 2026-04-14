@@ -42,33 +42,6 @@ type StorageDirective struct {
 	Size uint64
 }
 
-// CreateApplicationStorageDirectiveArg defines an individual storage directive to be
-// associated with an application.
-type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
-
-// UpdateApplicationStorageDirectiveArg defines the arguments required to
-// update an existing storage directive associated with an application.
-type UpdateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
-
-// CreateStorageDirectiveArg defines the arguments required to add a storage
-// directive to the model.
-type CreateStorageDirectiveArg struct {
-	// Count represents the number of storage instances that should be made for
-	// this directive.
-	Count uint32
-
-	// Name relates to the charm storage name definition and must match up.
-	Name domainstorage.Name
-
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID domainstorage.StoragePoolUUID
-
-	// Size defines the size of the storage directive in MiB.
-	Size uint64
-}
-
 // ModelStoragePools provides the default storage pools that have been set
 // within the model. If a value is nil then no default exists.
 type ModelStoragePools struct {

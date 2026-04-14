@@ -74,7 +74,7 @@ type StorageService interface {
 	) (domainstorage.RegisterUnitStorageArg, error)
 
 	// MakeApplicationStorageDirectiveArgs creates a slice of
-	// [application.CreateApplicationStorageDirectiveArg] from a set of overrides
+	// [domainstorage.DirectiveArg] from a set of overrides
 	// and the charm storage information. The resultant directives are a merging of
 	// all the data sources to form an approximation of what the storage directives
 	// for an application should be.
@@ -84,7 +84,7 @@ type StorageService interface {
 		ctx context.Context,
 		directiveOverrides map[string]storage.StorageDirectiveOverride,
 		charmMetaStorage map[string]internalcharm.Storage,
-	) ([]internal.CreateApplicationStorageDirectiveArg, error)
+	) ([]domainstorage.DirectiveArg, error)
 
 	// MakeUnitStorageArgs creates the storage arguments required for a unit in
 	// the model. This func looks at the set of directives for the unit and the
@@ -170,8 +170,8 @@ type StorageService interface {
 		existingStorageDirectives []internal.StorageDirective,
 		newCharmStorages map[string]internalcharm.Storage,
 	) (
-		toCreate []internal.CreateApplicationStorageDirectiveArg,
-		toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+		toCreate []domainstorage.DirectiveArg,
+		toUpdate []domainstorage.DirectiveArg,
 		err error,
 	)
 }

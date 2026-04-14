@@ -873,7 +873,7 @@ func (st *InsertIAASUnitState) insertUnitStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID, charmUUID string,
-	args []domainstorage.CreateUnitStorageDirectiveArg,
+	args []domainstorage.DirectiveArg,
 ) error {
 	if len(args) == 0 {
 		return nil

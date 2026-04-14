@@ -328,7 +328,7 @@ type IAASUnitAddStorageArg struct {
 type CreateUnitStorageArg struct {
 	// StorageDirectives defines the storage directives that should be created
 	// for the unit.
-	StorageDirectives []CreateUnitStorageDirectiveArg
+	StorageDirectives []DirectiveArg
 
 	// StorageInstances defines the new storage instances that must be created
 	// for the unit.
@@ -357,9 +357,8 @@ type CreateIAASUnitStorageArg struct {
 	VolumesToOwn []VolumeUUID
 }
 
-// CreateUnitStorageDirectiveArg describes the arguments required for making
-// storage directives on a unit.
-type CreateUnitStorageDirectiveArg struct {
+// DirectiveArg describes the arguments required for a storage directive.
+type DirectiveArg struct {
 	// Count represents the number of storage instances that should be made for
 	// this directive.
 	Count uint32

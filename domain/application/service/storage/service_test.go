@@ -126,7 +126,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.IsNil)
 
-	expectStorageDirectives := []domainstorage.CreateUnitStorageDirectiveArg{
+	expectStorageDirectives := []domainstorage.DirectiveArg{
 		{
 			Count:    3,
 			Name:     "st1",

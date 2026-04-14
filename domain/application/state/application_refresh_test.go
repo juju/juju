@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -971,7 +970,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesUnitStorageDirec
 	})
 
 	params := application.SetCharmStateParams{
-		StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+		StorageDirectivesToCreate: []domainstorage.DirectiveArg{{
 			Name:     domainstorage.Name("data"),
 			PoolUUID: poolUUID,
 			Count:    1,
@@ -1026,7 +1025,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmNoUnitsStorageDirective
 	err = s.state.SetApplicationCharm(
 		c.Context(), appUUID, charmUUID,
 		application.SetCharmStateParams{
-			StorageDirectivesToCreate: []internal.CreateApplicationStorageDirectiveArg{{
+			StorageDirectivesToCreate: []domainstorage.DirectiveArg{{
 				Name:     domainstorage.Name("data"),
 				PoolUUID: poolUUID,
 				Count:    1,

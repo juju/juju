@@ -107,7 +107,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 	)
 	c.Check(err, tc.IsNil)
 
-	expectedStorageDirectives := []domainstorage.CreateUnitStorageDirectiveArg{
+	expectedStorageDirectives := []domainstorage.DirectiveArg{
 		{
 			Count:    1,
 			Name:     "st1",
@@ -251,7 +251,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 	)
 	c.Check(err, tc.IsNil)
 
-	expectedStorageDirectives := []domainstorage.CreateUnitStorageDirectiveArg{
+	expectedStorageDirectives := []domainstorage.DirectiveArg{
 		{
 			Count:    1,
 			Name:     "st1",
@@ -401,7 +401,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 	)
 	c.Check(err, tc.IsNil)
 
-	expectedStorageDirectives := []domainstorage.CreateUnitStorageDirectiveArg{
+	expectedStorageDirectives := []domainstorage.DirectiveArg{
 		{
 			Count:    1,
 			Name:     "st1",
@@ -548,7 +548,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 	)
 	c.Check(err, tc.IsNil)
 
-	expectedStorageDirectives := []domainstorage.CreateUnitStorageDirectiveArg{
+	expectedStorageDirectives := []domainstorage.DirectiveArg{
 		{
 			Count:    1,
 			Name:     "st1",
