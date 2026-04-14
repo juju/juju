@@ -84,8 +84,8 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("666"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -120,8 +120,8 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -165,8 +165,8 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	expectedMachineUUID := tc.Must(c, machine.NewUUID)
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -229,8 +229,8 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	expectedMachineUUID := tc.Must(c, machine.NewUUID)
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -294,8 +294,8 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("666"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -308,9 +308,9 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 
 	s.service.EXPECT().CreateSubordinateMachine(
 		gomock.Any(),
-		"host-name-container-456",
 		machine.Name("666/lxd/0"),
 		expectedMachineUUID,
+		"host-name-container-456",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -327,9 +327,9 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 
 	s.service.EXPECT().CreateSubordinateMachine(
 		gomock.Any(),
-		"host-name-container-789",
 		machine.Name("666/lxd/1"),
 		expectedMachineUUID,
+		"host-name-container-789",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -388,8 +388,8 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
-		"host-name-123",
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -421,9 +421,9 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 
 	s.service.EXPECT().CreateSubordinateMachine(
 		gomock.Any(),
-		"host-name-container-456",
 		machine.Name("0/lxd/0"),
 		expectedMachineUUID,
+		"host-name-container-456",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,

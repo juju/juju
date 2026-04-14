@@ -53,8 +53,8 @@ type ImportService interface {
 	// CreateMachine creates the specified machine.
 	CreateMachine(
 		ctx context.Context,
-		hostname string,
 		machineName machine.Name,
+		hostname string,
 		nonce *string,
 		platform deployment.Platform,
 		placement deployment.Placement,
@@ -64,9 +64,9 @@ type ImportService interface {
 	// CreateSubordinateMachine creates the specified subordinate machine.
 	CreateSubordinateMachine(
 		ctx context.Context,
-		hostname string,
 		machineName machine.Name,
 		parentUUID machine.UUID,
+		hostname string,
 		nonce *string,
 		platform deployment.Platform,
 		placement deployment.Placement,
@@ -131,8 +131,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// We need skeleton machines in dqlite.
 		machineUUID, err := i.service.CreateMachine(
 			ctx,
-			m.Hostname(),
 			machine.Name(m.Id()),
+			m.Hostname(),
 			new(m.Nonce()),
 			machinePlatform,
 			domainPlacement,
@@ -160,9 +160,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 			containerUUID, err := i.service.CreateSubordinateMachine(
 				ctx,
-				c.Hostname(),
 				machine.Name(c.Id()),
 				machineUUID,
+				c.Hostname(),
 				new(c.Nonce()),
 				machinePlatform,
 				domainPlacement,

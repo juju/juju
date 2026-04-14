@@ -27,9 +27,6 @@ type ExportMachine struct {
 
 // CreateMachineArgs contains arguments for creating a machine.
 type CreateMachineArgs struct {
-	// Hostname is the hostname of the machine.
-	Hostname string
-
 	// MachineUUID represents the uuid to use for the new machine being created.
 	MachineUUID machine.UUID
 
@@ -46,6 +43,9 @@ type CreateMachineArgs struct {
 	// NetNodeUUID represents the uuid of the new machines net node that is
 	// created.
 	NetNodeUUID network.NetNodeUUID
+
+	// Hostname is the hostname of the machine.
+	Hostname string
 
 	// Nonce is an optional nonce to associate with the machine being created.
 	Nonce *string

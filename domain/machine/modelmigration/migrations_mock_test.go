@@ -104,7 +104,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateMachine mocks base method.
-func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 string, arg2 machine.Name, arg3 *string, arg4 deployment.Platform, arg5 deployment.Placement, arg6 constraints.Constraints) (machine.UUID, error) {
+func (m *MockImportService) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 *string, arg4 deployment.Platform, arg5 deployment.Placement, arg6 constraints.Constraints) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(machine.UUID)
@@ -131,19 +131,19 @@ func (c *MockImportServiceCreateMachineCall) Return(arg0 machine.UUID, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, string, machine.Name, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) Do(f func(context.Context, machine.Name, string, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, string, machine.Name, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
+func (c *MockImportServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateSubordinateMachine mocks base method.
-func (m *MockImportService) CreateSubordinateMachine(arg0 context.Context, arg1 string, arg2 machine.Name, arg3 machine.UUID, arg4 *string, arg5 deployment.Platform, arg6 deployment.Placement, arg7 constraints.Constraints) (machine.UUID, error) {
+func (m *MockImportService) CreateSubordinateMachine(arg0 context.Context, arg1 machine.Name, arg2 machine.UUID, arg3 string, arg4 *string, arg5 deployment.Platform, arg6 deployment.Placement, arg7 constraints.Constraints) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSubordinateMachine", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(machine.UUID)
@@ -170,13 +170,13 @@ func (c *MockImportServiceCreateSubordinateMachineCall) Return(arg0 machine.UUID
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateSubordinateMachineCall) Do(f func(context.Context, string, machine.Name, machine.UUID, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateSubordinateMachineCall {
+func (c *MockImportServiceCreateSubordinateMachineCall) Do(f func(context.Context, machine.Name, machine.UUID, string, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateSubordinateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateSubordinateMachineCall) DoAndReturn(f func(context.Context, string, machine.Name, machine.UUID, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateSubordinateMachineCall {
+func (c *MockImportServiceCreateSubordinateMachineCall) DoAndReturn(f func(context.Context, machine.Name, machine.UUID, string, *string, deployment.Platform, deployment.Placement, constraints.Constraints) (machine.UUID, error)) *MockImportServiceCreateSubordinateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -72,8 +72,8 @@ func NewMigrationService(
 // already exists.
 func (s *MigrationService) CreateMachine(
 	ctx context.Context,
-	hostname string,
 	machineName coremachine.Name,
+	hostname string,
 	nonce *string,
 	platform deployment.Platform,
 	placement deployment.Placement,
@@ -118,9 +118,9 @@ func (s *MigrationService) CreateMachine(
 // already exists.
 func (s *MigrationService) CreateSubordinateMachine(
 	ctx context.Context,
-	hostname string,
 	machineName coremachine.Name,
 	parentUUID coremachine.UUID,
+	hostname string,
 	nonce *string,
 	platform deployment.Platform,
 	placement deployment.Placement,
