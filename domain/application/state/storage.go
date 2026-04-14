@@ -762,9 +762,7 @@ func (st *State) GetStorageAttachInfoForStorageInstances(
 	requestedUUIDs := make(storageInstanceUUIDs, 0, len(storageUUIDs))
 	requestedUUIDs = slices.AppendSeq(requestedUUIDs, iter.TransformSeq(
 		slices.Values(storageUUIDs),
-		func(uuid domainstorage.StorageInstanceUUID) string {
-			return uuid.String()
-		},
+		domainstorage.StorageInstanceUUID.String,
 	))
 	slices.Sort(requestedUUIDs)
 	requestedUUIDs = slices.Compact(requestedUUIDs)
@@ -1712,9 +1710,7 @@ func (st *State) checkStorageInstancesExistAndAlive(
 	inputUUIDs := make(storageInstanceUUIDs, 0, len(uuids))
 	inputUUIDs = slices.AppendSeq(inputUUIDs, iter.TransformSeq(
 		slices.Values(uuids),
-		func(uuid domainstorage.StorageInstanceUUID) string {
-			return uuid.String()
-		},
+		domainstorage.StorageInstanceUUID.String,
 	))
 
 	slices.Sort(inputUUIDs)
@@ -1824,9 +1820,7 @@ func (st *State) checkStorageInstancesAttachmentExpectations(
 			expectedAttachmentUUIDs,
 			iter.TransformSeq(
 				slices.Values(arg.ExpectedAttachments),
-				func(uuid domainstorage.StorageAttachmentUUID) string {
-					return uuid.String()
-				},
+				domainstorage.StorageAttachmentUUID.String,
 			),
 		)
 	}
