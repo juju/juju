@@ -398,9 +398,16 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), domainstorage.UnitAddStorageArg{
-		StorageInstances: expectedStorageInstances,
-		StorageToAttach:  expectedStorageToAttach,
-		StorageToOwn:     expectedStorageToOwn,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.NewStorageToAttach[_].UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.NewStorageToAttach[_].FilesystemAttachment.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.NewStorageToAttach[_].VolumeAttachment.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].Volume.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].Filesystem.UUID", tc.IsNonZeroUUID)
+	c.Check(arg, mc, internal.AddStorageToUnitArg{
+		StorageInstances:   expectedStorageInstances,
+		NewStorageToAttach: expectedStorageToAttach,
+		StorageToOwn:       expectedStorageToOwn,
 	})
 }

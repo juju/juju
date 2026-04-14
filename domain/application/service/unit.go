@@ -556,7 +556,7 @@ func validateStorageInstanceForUnitAttachment(
 
 // validateStorageInstancesForUnitAttachment validates multiple storage
 // instances, returning the first validation error encountered.
-func (s *ProviderService) validateStorageInstancesForUnitAttachment(
+func validateStorageInstancesForUnitAttachment(
 	ctx context.Context,
 	infos []applicationinternal.StorageInstanceInfoForUnitAttach,
 ) error {
@@ -652,7 +652,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 		alreadyAttachedByStorageName[storageName] += 1
 	}
 
-	return s.validateStorageInstancesForUnitAttachment(ctx, validationInfos)
+	return validateStorageInstancesForUnitAttachment(ctx, validationInfos)
 }
 
 func storageInstanceCompositionsFromAttachInfos(
