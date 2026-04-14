@@ -39,6 +39,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
@@ -1146,7 +1147,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
 	})
-	if errors.Is(err, domainstorage.MaxStorageCountPreconditionFailed) {
+	if errors.Is(err, storageerrors.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
@@ -1183,7 +1184,7 @@ func (s *ProviderService) AddStorageForCAASUnit(
 	}
 
 	added, err := s.st.AddStorageForCAASUnit(ctx, unitUUID, storageName, unitStorageArgs)
-	if errors.Is(err, domainstorage.MaxStorageCountPreconditionFailed) {
+	if errors.Is(err, storageerrors.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,

@@ -280,12 +280,6 @@ type AddUnitStorageOverride struct {
 	SizeMiB *uint64
 }
 
-// MaxStorageCountPreconditionFailed is used to signal a concurrent db
-// operation has occurred so that the storage count precondition is violated.
-const MaxStorageCountPreconditionFailed = errors.ConstError(
-	"max storage count precondition failed",
-)
-
 // UnitAddStorageArg represents the arguments required to add storage to a
 // unit. This will instantiate the instances and attachments for the unit.
 type UnitAddStorageArg struct {
