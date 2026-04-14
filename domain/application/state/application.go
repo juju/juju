@@ -1869,29 +1869,45 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	return nil
 }
 
-func (st *State) upsertApplicationPlatform(ctx context.Context, tx *sqlair.TX, platform deployment.Platform, appID string) error {
-	if platform.Architecture == architecture.Unknown {
-		return errors.Errorf("cannot upsert application platform with an empty architecture")
-	}
-
-	archID, err := encodeArchitecture(platform.Architecture)
-	if err != nil {
-		return errors.Errorf("encoding architecture: %w", err)
+func (st *State) getApplicationPlatformArchitectureID(ctx context.Context, tx *sqlair.TX, appID string) (int, error) {
+	type platformArchitecture struct {
+		ArchitectureID int `db:"architecture_id"`
 	}
 
 	appIDInput := entityUUID{UUID: appID}
-
-	// Need to delete manually as application_uuid doesn't have UNIQUE constraint here.
-	deleteStmt, err := st.Prepare(`
-DELETE FROM application_platform
+	stmt, err := st.Prepare(`
+SELECT architecture_id AS &platformArchitecture.architecture_id
+FROM   application_platform
 WHERE  application_uuid = $entityUUID.uuid
-`, appIDInput)
+LIMIT 1
+`, platformArchitecture{}, appIDInput)
 	if err != nil {
-		return errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, deleteStmt, appIDInput).Run(); err != nil {
-		return errors.Errorf("deleting old application platform: %w", err)
+	var result platformArchitecture
+	if err := tx.Query(ctx, stmt, appIDInput).Get(&result); err != nil {
+		return 0, err
+	}
+	return result.ArchitectureID, nil
+}
+
+func (st *State) upsertApplicationPlatform(ctx context.Context, tx *sqlair.TX, platform deployment.Platform, appID string) error {
+	var (
+		archID int
+		err    error
+	)
+
+	if platform.Architecture == architecture.Unknown {
+		archID, err = st.getApplicationPlatformArchitectureID(ctx, tx, appID)
+		if err != nil {
+			return errors.Errorf("getting existing application platform architecture: %w", err)
+		}
+	} else {
+		archID, err = encodeArchitecture(platform.Architecture)
+		if err != nil {
+			return errors.Errorf("encoding architecture: %w", err)
+		}
 	}
 
 	appPlatform := applicationPlatform{
@@ -1901,15 +1917,19 @@ WHERE  application_uuid = $entityUUID.uuid
 		ArchitectureID: archID,
 	}
 
-	insertStmt, err := st.Prepare(`
-INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)
+	updateStmt, err := st.Prepare(`
+UPDATE application_platform
+SET    os_id = $applicationPlatform.os_id,
+       channel = $applicationPlatform.channel,
+       architecture_id = $applicationPlatform.architecture_id
+WHERE  application_uuid = $applicationPlatform.application_uuid
 `, applicationPlatform{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, insertStmt, appPlatform).Run(); err != nil {
-		return errors.Errorf("inserting new application platform: %w", err)
+	if err := tx.Query(ctx, updateStmt, appPlatform).Run(); err != nil {
+		return errors.Errorf("updating application platform: %w", err)
 	}
 
 	return nil
