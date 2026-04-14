@@ -48,6 +48,15 @@ type State interface {
 		removeable []blockdevice.BlockDeviceUUID,
 	) error
 
+	// CreateProviderBlockDevice inserts a new block device with provider
+	// provenance.
+	CreateProviderBlockDevice(
+		ctx context.Context,
+		machineUUID machine.UUID,
+		uuid blockdevice.BlockDeviceUUID,
+		device coreblockdevice.BlockDevice,
+	) error
+
 	// GetBlockDevicesForAllMachines retrieves block devices for all machines.
 	GetBlockDevicesForAllMachines(
 		ctx context.Context,
@@ -110,7 +119,8 @@ func (s *Service) GetBlockDevicesForMachine(
 }
 
 // UpdateBlockDevicesForMachine updates the block devices for the specified
-// machine.
+// machine. All block devices, both new and existing, are set to machine
+// provenance.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the machine uuid is not valid.
@@ -162,7 +172,8 @@ updated:
 
 // MatchOrCreateBlockDevice matches an existing block device to the provided
 // block device, otherwise it creates one that matches the provided device.
-// It returns the UUID of the block device.
+// It returns the UUID of the block device. New block devices are inserted
+// with provider provenance.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the machine uuid is not valid.
@@ -196,10 +207,7 @@ func (s *Service) MatchOrCreateBlockDevice(
 		return "", nil
 	}
 
-	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
-		devUUID: device,
-	}
-	err = s.st.UpdateBlockDevicesForMachine(ctx, machineUUID, added, nil, nil)
+	err = s.st.CreateProviderBlockDevice(ctx, machineUUID, devUUID, device)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +216,7 @@ func (s *Service) MatchOrCreateBlockDevice(
 }
 
 // SetBlockDevicesForMachineByName overrides all current block devices on the
-// named machine.
+// named machine. New block devices are inserted with machine provenance.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the machine uuid is not valid.

@@ -21,6 +21,15 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	// provenanceProvider indicates a block device discovered by the
+	// storage provider.
+	provenanceProvider = 0
+	// provenanceMachine indicates a block device reported by the
+	// machine agent.
+	provenanceMachine = 1
+)
+
 // State represents database interactions dealing with block devices.
 type State struct {
 	*domain.StateBase
@@ -331,7 +340,9 @@ func (st *State) UpdateBlockDevicesForMachine(
 		}
 
 		if len(added) > 0 {
-			err = st.insertBlockDevices(ctx, tx, machineUUID, added)
+			err = st.insertBlockDevices(
+				ctx, tx, machineUUID, provenanceMachine, added,
+			)
 			if err != nil {
 				return errors.Errorf("adding new block devices: %w", err)
 			}
@@ -443,7 +454,8 @@ SET    name = $blockDevice.name,
        in_use = $blockDevice.in_use,
        filesystem_label = $blockDevice.filesystem_label,
        host_filesystem_uuid = $blockDevice.host_filesystem_uuid,
-       filesystem_type = $blockDevice.filesystem_type
+       filesystem_type = $blockDevice.filesystem_type,
+       provenance = $blockDevice.provenance
 WHERE  uuid = $blockDevice.uuid
 `, blockDevice{})
 	if err != nil {
@@ -490,6 +502,7 @@ WHERE  uuid = $blockDevice.uuid
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
 			MountPoint:         bd.MountPoint,
+			Provenance:         provenanceMachine,
 		}
 		if bd.DeviceName != "" {
 			val.Name = sql.Null[string]{
@@ -506,8 +519,35 @@ WHERE  uuid = $blockDevice.uuid
 	return nil
 }
 
+// CreateProviderBlockDevice inserts a new block device with provider
+// provenance (0) into the database.
+func (st *State) CreateProviderBlockDevice(
+	ctx context.Context,
+	machineUUID machine.UUID,
+	uuid blockdevice.BlockDeviceUUID,
+	device coreblockdevice.BlockDevice,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	devices := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+		uuid: device,
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return st.insertBlockDevices(
+			ctx, tx, machineUUID, provenanceProvider, devices,
+		)
+	})
+}
+
 func (st *State) insertBlockDevices(
-	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
+	ctx context.Context, tx *sqlair.TX,
+	machineUUID machine.UUID, provenance int,
 	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
 	insertQuery := `
@@ -543,6 +583,7 @@ VALUES ($deviceLink.*)
 			SizeMiB:            bd.SizeMiB,
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
+			Provenance:         provenance,
 		}
 		if bd.DeviceName != "" {
 			inputBlockDevice.Name = sql.Null[string]{

@@ -30,6 +30,7 @@ type blockDevice struct {
 	FilesystemType     string `db:"filesystem_type"`
 	InUse              bool   `db:"in_use"`
 	MountPoint         string `db:"mount_point"`
+	Provenance         int    `db:"provenance"`
 }
 
 type deviceLink struct {
