@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,9 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/storage"
+	storageprovider "github.com/juju/juju/storage/provider"
 )
 
 // TestEnsureStorage deletes and reapplies a statefulset because it
@@ -174,6 +177,126 @@ func (s *applicationSuite) TestEnsureStorage(c *gc.C) {
 	sts, err = s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(sts.Spec.VolumeClaimTemplates, gc.DeepEquals, []corev1.PersistentVolumeClaim{*expectedPVCAfterUpdate})
+}
+
+// TestEnsureStorageNonPVC tests that a non-PVC volume is applied when the storage provider is tmpfs or rootfs.
+// In this case, we expect an emptyDir volume with the correct medium and size to be applied.
+func (s *applicationSuite) TestEnsureStorageNonPVC(c *gc.C) {
+	tests := []struct {
+		name           string
+		providerType   storage.ProviderType
+		expectedMedium corev1.StorageMedium
+	}{
+		{
+			name:           "tmpfs",
+			providerType:   storageprovider.TmpfsProviderType,
+			expectedMedium: corev1.StorageMediumMemory,
+		},
+		{
+			name:           "rootfs",
+			providerType:   storageprovider.RootfsProviderType,
+			expectedMedium: corev1.StorageMediumDefault,
+		},
+	}
+
+	for _, test := range tests {
+		app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+		c.Logf("provider: %s", test.providerType)
+
+		appConfig, _, _ := s.createAppConfig(false, constraints.Value{}, false, false, defaultAgentVersion)
+		appConfig.Filesystems = []storage.KubernetesFilesystemParams{{
+			StorageName: "config",
+			Size:        100,
+			Provider:    test.providerType,
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "/config",
+			},
+		}}
+		gitlabContainer := appConfig.Containers["gitlab"]
+		gitlabContainer.Mounts = []caas.MountConfig{{
+			StorageName: "config",
+			Path:        "/config",
+		}}
+		appConfig.Containers["gitlab"] = gitlabContainer
+
+		podSpec := getPodSpec31()
+		volName := "gitlab-config"
+		volMount := corev1.VolumeMount{
+			Name:      volName,
+			MountPath: "/config",
+		}
+
+		for i := range podSpec.Containers {
+			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volMount)
+		}
+
+		_, err := s.client.AppsV1().StatefulSets("test").
+			Create(context.Background(), &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version":  "3.5-beta1",
+						"app.juju.is/uuid": "appuuid",
+					},
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: pointer.Int32Ptr(3),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name": "gitlab",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						},
+						Spec: podSpec,
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         "gitlab-endpoints",
+				},
+			}, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+
+		gomock.InOrder(
+			s.applier.EXPECT().Apply(gomock.Any()).DoAndReturn(func(r resources.Resource) {
+				sts, ok := r.(*resources.StatefulSet)
+				c.Assert(ok, jc.IsTrue)
+
+				found := false
+				for _, vol := range sts.Spec.Template.Spec.Volumes {
+					if vol.Name != volName {
+						continue
+					}
+					found = true
+					c.Check(vol.EmptyDir, gc.NotNil)
+					c.Check(vol.EmptyDir.Medium, gc.Equals, test.expectedMedium)
+					c.Check(vol.EmptyDir.SizeLimit.String(), gc.Equals, "100Mi")
+				}
+				c.Check(found, jc.IsTrue)
+			}),
+			s.applier.EXPECT().Run(gomock.Any(), false).Return(nil),
+		)
+
+		saveReplicaCount := func(appName string, replicaCount int) error {
+			c.Check(appName, gc.Equals, "gitlab")
+			c.Check(replicaCount, gc.Equals, 3)
+			return nil
+		}
+
+		err = app.EnsureStorage(appConfig, saveReplicaCount)
+		c.Check(err, jc.ErrorIsNil)
+
+		ctrl.Finish()
+		err = s.client.AppsV1().StatefulSets("test").Delete(context.Background(), "gitlab", metav1.DeleteOptions{})
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 // TestEnsureStorageMatchesDesiredStorage does not perform a storage update
