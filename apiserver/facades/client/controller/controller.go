@@ -45,6 +45,11 @@ import (
 
 // ControllerAPIV12 implements the controller APIV12.
 type ControllerAPIV12 struct {
+	*ControllerAPIV13
+}
+
+// ControllerAPIV13 implements the controller APIV13.
+type ControllerAPIV13 struct {
 	*ControllerAPI
 }
 
@@ -268,6 +273,76 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 	return result, nil
 }
 
+// CloudSpec is not implemented in version 13.
+func (c *ControllerAPIV13) CloudSpec(ctx context.Context, _, _ struct{}) {}
+
+// CloudSpec returns cloud specifications for the specified models.
+func (c *ControllerAPI) CloudSpec(ctx context.Context, args params.Entities) (params.CloudSpecResults, error) {
+	// We could just compare to the controller model UUID directly, but keeping
+	// this abstraction from 3.6 allows aligns with the fact that we accept
+	// multiple model tags as args to this method.
+	authFunc, err := common.AuthFuncForTag(names.NewModelTag(c.controllerModelUUID.String()))(ctx)
+	if err != nil {
+		return params.CloudSpecResults{}, errors.Trace(err)
+	}
+	// Connected clients which are the controller agent
+	// or model agent can fetch credentials with the cloud spec.
+	// Users must be superusers or model admins.
+	credAllowed := c.authorizer.AuthController() || c.authorizer.AuthModelAgent()
+	if !credAllowed && c.authorizer.AuthClient() {
+		var err error
+		err = c.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return params.CloudSpecResults{}, errors.Trace(err)
+		}
+		credAllowed = err == nil
+	}
+	results := params.CloudSpecResults{
+		Results: make([]params.CloudSpecResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		results.Results[i] = c.getOneCloudSpec(ctx, arg.Tag, credAllowed, authFunc)
+	}
+	return results, nil
+}
+
+func (c *ControllerAPI) getOneCloudSpec(ctx context.Context, tagStr string, credAllowed bool, authFunc common.AuthFunc) params.CloudSpecResult {
+	tag, err := names.ParseModelTag(tagStr)
+	if err != nil {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(errors.Trace(err)),
+		}
+	}
+	if !authFunc(tag) {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
+		}
+	}
+	spec, err := c.getCloudSpec(ctx, coremodel.UUID(tag.Id()))
+	if err != nil {
+		return params.CloudSpecResult{
+			Error: apiservererrors.ServerError(errors.Trace(err)),
+		}
+	}
+	// If not already allowed, only model admins
+	// can see the credentials.
+	if !credAllowed && c.authorizer.AuthClient() {
+		err = c.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return params.CloudSpecResult{
+				Error: apiservererrors.ServerError(errors.Trace(err)),
+			}
+		}
+		credAllowed = err == nil
+	}
+	if !credAllowed {
+		spec.Credential = nil
+	}
+	return params.CloudSpecResult{
+		Result: spec,
+	}
+}
+
 // ListBlockedModels returns a list of all models on the controller
 // which have a block in place.  The resulting slice is sorted by model
 // name, then owner. Callers must be controller administrators to retrieve the
@@ -425,10 +500,10 @@ func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.Summ
 		return params.SummaryWatcherID{}, errors.Trace(err)
 	}
 	// TODO(dqlite) - implement me
-	//w := c.controller.WatchAllModels()
-	//return params.SummaryWatcherID{
+	// w := c.controller.WatchAllModels()
+	// return params.SummaryWatcherID{
 	//	WatcherID: c.resources.Register(w),
-	//}, nil
+	// }, nil
 	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchAllModelSummaries")
 }
 
@@ -437,11 +512,11 @@ func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.Summ
 func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
 	// TODO(dqlite) - implement me
 	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchModelSummaries")
-	//user := c.apiUser.Id()
-	//w := c.controller.WatchModelsAsUser(user)
-	//return params.SummaryWatcherID{
+	// user := c.apiUser.Id()
+	// w := c.controller.WatchModelsAsUser(user)
+	// return params.SummaryWatcherID{
 	//	WatcherID: c.resources.Register(w),
-	//}, nil
+	// }, nil
 }
 
 // GetControllerAccess returns the level of access the specified users

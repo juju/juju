@@ -17,6 +17,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -108,12 +109,13 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	s.leadershipReader = noopLeadershipReader{}
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
-			Auth_:             s.authorizer,
-			DomainServices_:   s.ControllerDomainServices(c),
-			Logger_:           loggertesting.WrapCheckLog(c),
-			LeadershipReader_: s.leadershipReader,
-			ControllerUUID_:   tc.Must0(c, model.NewUUID).String(),
-			ModelUUID_:        tc.Must0(c, model.NewUUID),
+			Auth_:                s.authorizer,
+			DomainServices_:      s.ControllerDomainServices(c),
+			Logger_:              loggertesting.WrapCheckLog(c),
+			LeadershipReader_:    s.leadershipReader,
+			ControllerUUID_:      tc.Must0(c, model.NewUUID).String(),
+			ControllerModelUUID_: s.ControllerModelUUID,
+			ModelUUID_:           s.DefaultModelUUID,
 		},
 		DomainServicesForModelFunc_: func(modelUUID model.UUID) internalservices.DomainServices {
 			return s.ModelDomainServices(c, modelUUID)
@@ -248,7 +250,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		removalServiceGetter,
 		domainServices.Proxy(),
 		ctx.ObjectStore(),
-		ctx.ControllerModelUUID(),
+		s.ControllerModelUUID,
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -305,6 +307,82 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *tc.
 	c.Assert(one.Qualifier, tc.Equals, "prod")
 	c.Assert(two.Name, tc.Equals, "second")
 	c.Assert(two.Qualifier, tc.Equals, "staging")
+}
+
+func (s *controllerSuite) TestCloudSpec(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelTag := names.NewModelTag(s.ControllerModelUUID.String())
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+
+	modelProvider := s.ModelDomainServices(c, s.ControllerModelUUID).ModelProvider()
+	expected, err := modelProvider.GetCloudSpec(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
+}
+
+func (s *controllerSuite) TestCloudSpecInvalidTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewMachineTag("0").String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, `"machine-0" is not a valid model tag`)
+}
+
+func (s *controllerSuite) TestCloudSpecUnauthorisedModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	otherModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: otherModelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, "permission denied")
+}
+
+func (s *controllerSuite) TestCloudSpecNoCredentialsAllowed(c *tc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("read-" + names.NewModelTag(s.ControllerModelUUID.String()).String()),
+	}
+	s.context.Auth_ = s.authorizer
+	defer s.setupMocks(c).Finish()
+
+	modelTag := names.NewModelTag(s.ControllerModelUUID.String())
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+
+	modelProvider := s.ModelDomainServices(c, s.ControllerModelUUID).ModelProvider()
+	expected, err := modelProvider.GetCloudSpec(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	expected.Credential = nil
+	c.Assert(result.Results[0].Result, tc.DeepEquals, common.CloudSpecToParams(expected))
+}
+
+func (s *controllerSuite) TestCloudSpecServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unknownModelTag := names.NewModelTag(tc.Must(c, model.NewUUID).String())
+	result, err := s.controller.CloudSpec(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: unknownModelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.NotNil)
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *tc.C) {
@@ -529,7 +607,16 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	modelTag := names.NewModelTag(s.context.ControllerModelUUID().String()).String()
+
+	s.mockModelService.EXPECT().Model(gomock.Any(), s.ControllerModelUUID).Return(
+		model.Model{
+			UUID:      s.ControllerModelUUID,
+			Name:      "controller",
+			Qualifier: "prod",
+		}, nil,
+	).Times(3)
+
+	modelTag := names.NewModelTag(s.ControllerModelUUID.String()).String()
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
@@ -539,6 +626,8 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[0].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results.Results[1].Error, tc.IsNil)
+	c.Assert(results.Results[1].ModelTag, tc.Equals, modelTag)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
 	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
@@ -549,6 +638,8 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 2)
 	c.Assert(results.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].ModelTag, tc.Equals, modelTag)
 
 	// Check that we return successfully if no errors.
 	results, err = s.controller.ModelStatus(c.Context(), params.Entities{Entities: []params.Entity{{
@@ -556,6 +647,8 @@ func (s *controllerSuite) TestModelStatus(c *tc.C) {
 	}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].ModelTag, tc.Equals, modelTag)
 }
 
 func (s *controllerSuite) TestConfigSet(c *tc.C) {
