@@ -58,7 +58,6 @@ type Services struct {
 	RelationService            RelationService
 	RemovalService             RemovalService
 	SecretService              SecretService
-	StoragePoolService         StoragePoolService
 	StorageProvisioningService StorageProvisioningService
 	UnitStateService           UnitStateService
 	TracingService             TracingService
@@ -188,7 +187,6 @@ type ApplicationService interface {
 		storageName corestorage.Name,
 		unitUUID coreunit.UUID,
 		count uint32,
-		arg domainstorage.AddUnitStorageOverride,
 	) (domainstorage.UnitAddStorageArg, error)
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
@@ -240,13 +238,6 @@ type ApplicationService interface {
 	// GetCAASUnitContext returns the unit context for a unit running on an CAAS
 	// provider.
 	GetCAASUnitContext(context.Context, coreunit.Name) (applicationservice.CAASUnitContext, error)
-}
-
-// StoragePoolService looks up storage pools by name.
-type StoragePoolService interface {
-	// GetStoragePoolUUID returns the UUID of the storage pool for the
-	// specified name.
-	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
 }
 
 // NetworkService is the interface that is used to interact with the

@@ -50,8 +50,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
-	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -95,7 +93,6 @@ type UniterAPI struct {
 	relationService           RelationService
 	removalService            RemovalService
 	secretService             SecretService
-	storagePoolService        StoragePoolService
 	unitStateService          UnitStateService
 	tracingService            TracingService
 
@@ -2933,7 +2930,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 
 	preparedStorageAdds, err := u.prepareCommitHookStorageAdds(ctx, unitName, changes)
 	if err != nil {
-		return errors.Errorf("preparing storage additions: %w", err)
+		return internalerrors.Errorf("preparing storage additions: %w", err)
 	}
 	arg.AddStorage = preparedStorageAdds
 
@@ -3382,13 +3379,13 @@ func (u *UniterAPI) prepareCommitHookStorageAdds(
 			return nil, apiservererrors.ErrPerm
 		}
 
-		override, count, err := u.makeCommitHookStorageAddOverride(ctx, addParams)
+		count, err := u.getCommitHookStorageAddCount(addParams)
 		if err != nil {
 			return nil, err
 		}
 
 		prepared, err := u.applicationService.PrepareUnitAddStorage(
-			ctx, corestorage.Name(addParams.StorageName), unitUUID, count, override)
+			ctx, corestorage.Name(addParams.StorageName), unitUUID, count)
 		if err != nil {
 			return nil, internalerrors.Errorf(
 				"preparing storage add %q for unit %q: %w", addParams.StorageName, unitName, err)
@@ -3403,37 +3400,28 @@ func (u *UniterAPI) prepareCommitHookStorageAdds(
 	return result, nil
 }
 
-func (u *UniterAPI) makeCommitHookStorageAddOverride(
-	ctx context.Context,
+func (u *UniterAPI) getCommitHookStorageAddCount(
 	addParams params.StorageAddParams,
-) (domainstorage.AddUnitStorageOverride, uint32, error) {
-	var storagePoolUUID *domainstorage.StoragePoolUUID
+) (uint32, error) {
 	if addParams.Directives.Pool != "" {
-		if u.storagePoolService == nil {
-			return domainstorage.AddUnitStorageOverride{}, 0,
-				internalerrors.Errorf("storage pool service not configured")
-		}
-
-		poolUUID, err := u.storagePoolService.GetStoragePoolUUID(ctx, addParams.Directives.Pool)
-		switch {
-		case errors.Is(err, storageerrors.StoragePoolNameInvalid):
-			return domainstorage.AddUnitStorageOverride{}, 0,
-				apiservererrors.ParamsErrorf(params.CodeNotValid, "invalid storage pool name")
-		case errors.Is(err, storageerrors.StoragePoolNotFound):
-			return domainstorage.AddUnitStorageOverride{}, 0,
-				apiservererrors.ParamsErrorf(
-					params.CodeNotFound, "storage pool %q does not exist", addParams.Directives.Pool)
-		case err != nil:
-			return domainstorage.AddUnitStorageOverride{}, 0,
-				internalerrors.Errorf("getting storage pool uuid for %q: %w", addParams.Directives.Pool, err)
-		}
-		storagePoolUUID = &poolUUID
+		return 0, apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"storage directive %s pool override not supported",
+			addParams.StorageName,
+		)
+	}
+	if addParams.Directives.SizeMiB != nil {
+		return 0, apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"storage directive %s size override not supported",
+			addParams.StorageName,
+		)
 	}
 
 	storageCount := uint32(1)
 	if addParams.Directives.Count != nil {
 		if *addParams.Directives.Count > math.MaxUint32 {
-			return domainstorage.AddUnitStorageOverride{}, 0,
+			return 0,
 				apiservererrors.ParamsErrorf(
 					params.CodeNotValid,
 					"storage directive %s count %d too large",
@@ -3444,10 +3432,7 @@ func (u *UniterAPI) makeCommitHookStorageAddOverride(
 		storageCount = uint32(*addParams.Directives.Count)
 	}
 
-	return domainstorage.AddUnitStorageOverride{
-		StoragePoolUUID: storagePoolUUID,
-		SizeMiB:         addParams.Directives.SizeMiB,
-	}, storageCount, nil
+	return storageCount, nil
 }
 
 func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges) map[string]map[string][]params.PortRange {

@@ -616,9 +616,14 @@ func (s *ProviderService) PrepareUnitAddStorage(
 	storageName corestorage.Name,
 	unitUUID coreunit.UUID,
 	addCount uint32,
-	arg domainstorage.AddUnitStorageOverride,
 ) (domainstorage.UnitAddStorageArg, error) {
-	return s.populateAddStorageArgs(ctx, storageName, unitUUID, addCount, arg)
+	return s.populateAddStorageArgs(
+		ctx,
+		storageName,
+		unitUUID,
+		addCount,
+		domainstorage.AddUnitStorageOverride{},
+	)
 }
 
 func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,

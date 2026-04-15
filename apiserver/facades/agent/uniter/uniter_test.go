@@ -3342,7 +3342,6 @@ type commitHookChangesSuite struct {
 	applicationService *MockApplicationService
 	networkService     *MockNetworkService
 	relationService    *MockRelationService
-	storagePoolService *MockStoragePoolService
 	unitStateService   *MockUnitStateService
 
 	uniter *UniterAPI
@@ -3416,28 +3415,19 @@ func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.
 	unitName, _ := coreunit.NewName("wordpress/0")
 	unitTag := names.NewUnitTag(unitName.String())
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	poolUUID := domainstorage.StoragePoolUUID("pool-uuid")
 
 	count := uint64(2)
-	sizeMiB := uint64(4096)
 	prepared := domainstorage.UnitAddStorageArg{
 		CountLessThanEqual: 3,
 	}
 
 	s.expectGetUnitUUID(unitName, unitUUID, nil)
-	s.storagePoolService.EXPECT().
-		GetStoragePoolUUID(gomock.Any(), "fast").
-		Return(poolUUID, nil)
 	s.applicationService.EXPECT().
 		PrepareUnitAddStorage(
 			gomock.Any(),
 			corestorage.Name("data"),
 			unitUUID,
 			uint32(2),
-			domainstorage.AddUnitStorageOverride{
-				StoragePoolUUID: &poolUUID,
-				SizeMiB:         &sizeMiB,
-			},
 		).
 		Return(prepared, nil)
 	s.unitStateService.EXPECT().
@@ -3458,15 +3448,68 @@ func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.
 				UnitTag:     unitTag.String(),
 				StorageName: "data",
 				Directives: params.StorageDirectives{
-					Pool:    "fast",
-					SizeMiB: &sizeMiB,
-					Count:   &count,
+					Count: &count,
 				},
 			}},
 		},
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesStoragePoolOverrideUnsupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					Pool: "fast",
+				},
+			}},
+		},
+	)
+
+	c.Assert(err, tc.NotNil)
+	c.Check(params.IsCodeNotSupported(err), tc.IsTrue)
+	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data pool override not supported`)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesStorageSizeOverrideUnsupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	sizeMiB := uint64(4096)
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					SizeMiB: &sizeMiB,
+				},
+			}},
+		},
+	)
+
+	c.Assert(err, tc.NotNil)
+	c.Check(params.IsCodeNotSupported(err), tc.IsTrue)
+	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data size override not supported`)
 }
 
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
@@ -3682,7 +3725,6 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
-	s.storagePoolService = NewMockStoragePoolService(ctrl)
 	s.unitStateService = NewMockUnitStateService(ctrl)
 
 	s.uniter = &UniterAPI{
@@ -3691,7 +3733,6 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		networkService:     s.networkService,
 		relationService:    s.relationService,
-		storagePoolService: s.storagePoolService,
 		unitStateService:   s.unitStateService,
 	}
 
@@ -3699,7 +3740,6 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.applicationService = nil
 		s.networkService = nil
 		s.relationService = nil
-		s.storagePoolService = nil
 		s.uniter = nil
 		s.unitStateService = nil
 	})
