@@ -123,6 +123,7 @@ func (i *importOperation) getMachineBlockDevices(
 				FilesystemType:  bd.FilesystemType(),
 				InUse:           bd.InUse(),
 				MountPoint:      bd.MountPoint(),
+				Provenance:      blockdevice.MachineProvenance,
 			}
 		}
 
@@ -191,6 +192,7 @@ func transformPlanToBlockDeviceStruct(bd description.BlockDevice) blockdevice.Bl
 		SerialId:        bd.SerialID(),
 		WWN:             bd.WWN(),
 		BusAddress:      bd.BusAddress(),
+		Provenance:      blockdevice.MachineProvenance,
 	}
 }
 
@@ -205,5 +207,6 @@ func transformAttachmentToBlockDevice(attach description.VolumeAttachment) block
 		DeviceName:  attach.DeviceName(),
 		DeviceLinks: links,
 		BusAddress:  attach.BusAddress(),
+		Provenance:  blockdevice.ProviderProvenance,
 	}
 }
