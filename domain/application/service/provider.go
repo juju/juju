@@ -622,7 +622,7 @@ func (s *ProviderService) PrepareUnitAddStorage(
 		storageName,
 		unitUUID,
 		addCount,
-		domainstorage.AddUnitStorageOverride{},
+		application.AddUnitStorageOverride{},
 	)
 }
 
@@ -1058,7 +1058,7 @@ func (s *ProviderService) populateAddStorageArgs(
 	ctx context.Context,
 	storageName corestorage.Name,
 	unitUUID coreunit.UUID, addCount uint32,
-	arg domainstorage.AddUnitStorageOverride,
+	arg application.AddUnitStorageOverride,
 ) (domainstorage.UnitAddStorageArg, error) {
 	unitStorageDirective, err := s.storageService.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
 	if err != nil {
@@ -1142,7 +1142,7 @@ func (s *ProviderService) populateAddStorageArgs(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg domainstorage.AddUnitStorageOverride,
+	count uint32, arg application.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1189,7 +1189,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg domainstorage.AddUnitStorageOverride,
+	count uint32, arg application.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

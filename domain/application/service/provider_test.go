@@ -3129,7 +3129,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageDirective{}, applicationerrors.UnitNotFound)
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -3140,7 +3140,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidUUID(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
 		Return(internal.StorageDirective{}, coreerrors.NotValid)
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", "!!!", 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", "!!!", 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -3152,7 +3152,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitInvalidName(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("!!!")).
 		Return(internal.StorageDirective{}, corestorage.InvalidStorageName)
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "!!!", unitUUID, 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "!!!", unitUUID, 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
 }
 
@@ -3193,7 +3193,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 		},
 	}).Return(applicationerrors.StorageCountLimitExceeded{})
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 10, domainstorage.AddUnitStorageOverride{
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 10, application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
 		StoragePoolUUID: new(poolUUID),
 	})
@@ -3267,7 +3267,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		VolumesToOwn:      volToOwn,
 	})
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), domainstorage.AddUnitStorageOverride{
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
 		StoragePoolUUID: new(poolUUID),
 	})
@@ -3283,7 +3283,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitNotFound(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageDirective{}, applicationerrors.UnitNotFound)
 
-	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -3294,7 +3294,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidUUID(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), coreunit.UUID("!!!"), corestorage.Name("pgdata")).
 		Return(internal.StorageDirective{}, coreerrors.NotValid)
 
-	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", "!!!", 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", "!!!", 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -3306,7 +3306,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitInvalidName(c *tc.C) {
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("!!!")).
 		Return(internal.StorageDirective{}, corestorage.InvalidStorageName)
 
-	_, err := s.service.AddStorageForCAASUnit(c.Context(), "!!!", unitUUID, 1, domainstorage.AddUnitStorageOverride{})
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "!!!", unitUUID, 1, application.AddUnitStorageOverride{})
 	c.Assert(err, tc.ErrorIs, corestorage.InvalidStorageName)
 }
 
@@ -3347,7 +3347,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 		},
 	}).Return(applicationerrors.StorageCountLimitExceeded{})
 
-	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, domainstorage.AddUnitStorageOverride{
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
 		StoragePoolUUID: new(poolUUID),
 	})
@@ -3409,7 +3409,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 
 	s.state.EXPECT().AddStorageForCAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), unitStorageArgs)
 
-	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, domainstorage.AddUnitStorageOverride{
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
 		StoragePoolUUID: new(poolUUID),
 	})
