@@ -166,17 +166,23 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 		return nil, errors.Annotate(err, "refreshing volume block devices")
 	}
 	for i, result := range results {
-		if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
-			// Either the volume (attachment) isn't provisioned,
-			// or the corresponding block device is not yet known.
-			//
-			// Neither of these errors is fatal; we just wait for
-			// the block device watcher to notify us again.
+		if result.Error != nil && params.IsCodeNotProvisioned(result.Error) {
+			// The volume (attachment) isn't provisioned, just wait for the
+			// block device watcher to notify us again.
+			continue
+		} else if result.Error != nil && params.IsCodeNotFound(result.Error) {
+			// The volume or attachment or block device is not found yet, just
+			// wait for the block device watcher to notify us again.
 		} else if result.Error != nil {
 			return nil, errors.Annotatef(
-				err, "getting block device info for volume attachment %v",
+				result.Error, "getting block device info for volume attachment %v",
 				ids[i],
 			)
+		}
+		if result.Result.Provenance != params.BlockDeviceProvenanceMachine {
+			// The provenance of the block device information has not yet been
+			// confirmed by the disk manager. Wait until that has happened.
+			continue
 		}
 		existing, ok := deps.volumeBlockDevices[volumeTags[i]]
 		if ok && existing.FilesystemUUID == "" && result.Result.UUID != "" {
