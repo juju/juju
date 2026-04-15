@@ -65,9 +65,9 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
-	s.testParseError(c, "p,0,100M", `cannot parse count: count must be greater than zero, got "0"`)
-	s.testParseError(c, "p,00,100M", `cannot parse count: count must be greater than zero, got "00"`)
-	s.testParseError(c, "p,-1,100M", `cannot parse count: count must be greater than zero, got "-1"`)
+	s.testParseError(c, "p,0,100M", `parsing storage count: count must be greater than zero, got "0"`)
+	s.testParseError(c, "p,00,100M", `parsing storage count: count must be greater than zero, got "00"`)
+	s.testParseError(c, "p,-1,100M", `parsing storage count: count must be greater than zero, got "-1"`)
 	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
 	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
 }

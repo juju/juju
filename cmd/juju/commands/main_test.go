@@ -321,6 +321,7 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
+	"application-storage",
 	"attach-resource",
 	"attach-storage",
 	"autoload-credentials",

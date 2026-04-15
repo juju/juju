@@ -14,6 +14,7 @@ var allowedEmbeddedCommands = []string{
 	"add-unit",
 	"add-user",
 	"agreements",
+	"application-storage",
 	"attach",
 	"attach-resource",
 	"attach-storage",

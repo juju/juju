@@ -35,7 +35,7 @@ func Register(registry facade.FacadeRegistry) {
 		return newFacadeV21(ctx) // Added ScaleApplication attach storage support
 	}, reflect.TypeOf((*APIv21)(nil)))
 	registry.MustRegister("Application", 22, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV22(ctx) // Added GetApplicationStorage and UpdateApplicationStorage storage constraints support
+		return newFacadeV22(ctx) // Added GetApplicationStorageDirectives and UpdateApplicationStorageDirectives storage constraints support
 	}, reflect.TypeOf((*APIv22)(nil)))
 }
 
