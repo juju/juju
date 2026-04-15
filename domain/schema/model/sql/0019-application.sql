@@ -296,9 +296,12 @@ SELECT
     c.allocate_public_ip,
     c.image_id,
     ctag.tag,
+    ctag.rowid AS tag_order,
     cspace.space AS space_name,
     cspace."exclude" AS space_exclude,
-    czone.zone
+    cspace.rowid AS space_order,
+    czone.zone,
+    czone.rowid AS zone_order
 FROM application_constraint AS ac
 JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid
 LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
