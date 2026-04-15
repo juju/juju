@@ -860,6 +860,7 @@ func (s *importSuite) createIAASApplication(
 					Type: deployment.PlacementTypeUnset,
 				},
 				NetNodeUUID: netNodeUUID,
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			},
 			Platform:           deployment.Platform{Channel: "24.04", OSType: deployment.Ubuntu},
 			MachineUUID:        machineUUID,

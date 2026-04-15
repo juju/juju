@@ -74,15 +74,16 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.unitName = unittesting.GenNewName(c, "app/0").String()
-	unitArgs := []application.AddIAASUnitArg{{}}
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.unitUUID = unitUUID.String()
+	unitArgs := []application.AddIAASUnitArg{{
+		AddUnitArg: application.AddUnitArg{
+			UnitUUID: unitUUID,
+		},
+	}}
 
 	ctx := c.Context()
 	_, _, err := appState.CreateIAASApplication(ctx, "app", appArg, unitArgs)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&s.unitUUID)
-	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Cleanup(func() {
