@@ -12,4 +12,5 @@ test_bootstrap() {
 
   test_bootstrap_simplestream
   test_bootstrap_controller_snap_path
+  test_bootstrap_controller_snap_path_without_assert
 }
