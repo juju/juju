@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
+//disabled go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision_expire,secret_revision_obsolete,secret_deleted_value_ref

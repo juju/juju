@@ -10,7 +10,8 @@ INSERT INTO block_device_provenance VALUES
 DROP TRIGGER trg_log_block_device_update;
 
 -- TODO(merge): when merging this patch into main, add the provenance
--- column, but make it not null without a default.
+-- column, but make it not null without a default. Additionally, re-enable the
+-- trigger gen for block_device.
 ALTER TABLE block_device ADD COLUMN provenance INT NOT NULL DEFAULT 0
 REFERENCES block_device_provenance (id);
 
