@@ -9,6 +9,15 @@ import (
 	"github.com/juju/juju/core/life"
 )
 
+// BlockDeviceProvenance is the origin of the block device information.
+type BlockDeviceProvenance string
+
+const (
+	BlockDeviceProvenanceUnknown  BlockDeviceProvenance = ""
+	BlockDeviceProvenanceProvider BlockDeviceProvenance = "provider"
+	BlockDeviceProvenanceMachine  BlockDeviceProvenance = "machine"
+)
+
 // BlockDevice is a block device present on a machine.
 // NB: the json labels are camel case not lower case because
 // originally a mistake was made and we need to retain on the
@@ -26,6 +35,9 @@ type BlockDevice struct {
 	InUse          bool     `json:"InUse"`
 	MountPoint     string   `json:"MountPoint"`
 	SerialId       string   `json:"SerialId"`
+
+	// Provenance is the origin of the block device information.
+	Provenance BlockDeviceProvenance `json:"provenance,omitempty"`
 }
 
 // MachineBlockDevices holds a machine tag and the block devices present
