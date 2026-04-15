@@ -16,6 +16,10 @@ A user with controller {ref}`user-access-controller-superuser` access can manage
 (bootstrap-a-controller)=
 ## Bootstrap a controller
 
+```{ibnote}
+See first: {ref}`add-a-cloud`, {ref}`add-a-credential`
+```
+
 Given a cloud you've already added to Juju, to bootstrap a Juju controller in that, use the `bootstrap` command followed by the name of the cloud and the name you want to assign to your new controller. For example:
 
 ```text
@@ -85,6 +89,61 @@ Bootstrap on Kubernetes includes creating a Kubernetes pod called `controller-0`
 kubectl exec controller-0 -itc api-server -n <namespace> -- bash
 ```
 ````
+
+````{dropdown} Configure external authentication (during bootstrap)
+
+(configure-a-controller-for-external-authentication)=
+
+By default, Juju controllers manage users locally (via `juju add-user`) and authenticate them with passwords. To enable external authentication via an identity provider (e.g., OAuth/OIDC), configure the controller at bootstrap time with the identity manager's URL.
+
+**Enable external authentication.** Bootstrap with the `identity-url` configuration key set to your identity manager's URL:
+
+```text
+juju bootstrap aws my-controller --config identity-url=https://identity.example.com
+```
+
+When external authentication is enabled:
+- Users authenticate via the external provider (e.g., Ubuntu SSO) instead of controller-local passwords.
+- Users register using the controller's DNS hostname (`juju register controller.example.com`) instead of registration tokens.
+- The login process opens a browser for OAuth/OIDC authentication.
+
+```{ibnote}
+See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identity-public-key`
+```
+
+**For HTTP identity managers:** If your identity manager URL uses HTTP instead of HTTPS, you must also provide the identity manager's public key:
+
+```text
+juju bootstrap aws my-controller \
+  --config identity-url=http://identity.example.com \
+  --config identity-public-key=<base64-encoded-key>
+```
+
+**For DNS-based controller access:** To enable users to register using a DNS hostname, also set the controller's DNS address (`public-dns-address`) and optionally enable automatic TLS certificates:
+
+```text
+juju bootstrap aws my-controller \
+  --config identity-url=https://identity.example.com \
+  --config autocert-dns-name=controller.example.com \
+  --config public-dns-address=controller.example.com:443
+```
+
+```{ibnote}
+See more: {ref}`controller-config-autocert-dns-name`, {ref}`controller-config-public-dns-address`
+```
+
+```{note}
+External authentication and network accessibility are independent. A controller can:
+- use local authentication and be network-accessible (most common).
+- use external authentication and be on a private network (enterprise environments).
+- use external authentication and be internet-accessible (e.g., JAAS).
+```
+
+````
+
+```{ibnote}
+See next: {ref}`add-a-model`, {ref}`add-a-user`
+```
 
 ## View all the known controllers
 
@@ -192,29 +251,34 @@ If you want to set both types of constraints at the same time, and they are diff
 See more: {ref}`manage-constraints-for-a-model`, {ref}`manage-constraints-for-an-application`
 ```
 
-## Share a controller with other users
+(manage-access-to-a-controller)=
+## Manage access to a controller
 
 ```{ibnote}
-See also: {ref}`user`
+See first: {ref}`add-a-user`
 ```
 
-The procedure for how to share a controller with other users depends on whether your controller is private or public.
+**Grant access.** To grant a user a certain access level to a controller, run the `grant` command, specifying the user, the access level, and the controller. For example:
 
-**Share a private controller.** To share a private controller with other users:
-
-1. Create the users.
+```text
+juju grant jim superuser
+```
 
 ```{ibnote}
-See more: {ref}`add-a-user`
+See more: {ref}`command-juju-grant`, {ref}`list-of-user-access-levels-for-controllers`
 ```
 
-2. Send the users the information they need to register your controller with their client and to set up their login information for the controller.
+**Revoke access.** To revoke a user's access level to a controller, run the `revoke` command, specifying the user, the access level, and the controller. For example:
+
+```text
+juju revoke joe superuser
+```
 
 ```{ibnote}
-See more: {ref}`register-a-controller`
-```
+See more: {ref}`command-juju-revoke`, {ref}`list-of-user-access-levels-for-controllers`
 
-**Share a public controller.** [TBA]
+See next: {ref}`register-a-controller`
+```
 
 ## Manage a controller's connection to the client
 
@@ -223,16 +287,23 @@ To add / remove details of a controller to / from your Juju client, you need to 
 (register-a-controller)=
 ### Register a controller
 
-The procedure for how to make an external controller known to your local client varies slightly depending on whether the controller is private or public.
+```{ibnote}
+See first: {ref}`add-a-user` (for token-based registration), {ref}`configure-a-controller-for-external-authentication` (for DNS-based registration)
+```
 
-**Register a private controller.** To register a private controller, use the `register` command followed by your unique registration key -- that is, copy-paste and run the line of code provided to you by the person who has added you to the controller via the `juju add-user` command. For example:
+To make an external controller known to your local client, use the `register` command. The registration method depends on how the controller is configured for authentication.
+
+```{note}
+**Network requirements:** Your client must be able to connect to the controller's API endpoint. Controllers listen on port `17070` by default (or port `443` if configured with `autocert-dns-name`). Juju takes care of this automatically in most cases: for all clouds except OpenStack, Juju defaults to provisioning the controller with a network-accessible address, and even for OpenStack you can request a floating IP by bootstrapping with the `allocate-public-ip=true` constraint.
+```
+
+**Register with a token.** If a controller administrator has added you via `juju add-user`, use the `register` command with the registration token they provided. For example:
 
 ```text
 juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
-
 ```
 
-This will start an interactive session prompting you to supply a local name for the controller as well as a username and a password for you as a new `juju` user on the controller.
+This starts an interactive session where you'll set a local name for the controller and create your password.
 
 ````{dropdown} Example session
 
@@ -266,25 +337,19 @@ of a model to grant access to that model with "juju grant".
 ```
 ````
 
-The command also has a flag that allows you to overwrite existing information, for cases where you need to reregister a controller.
-
 ```{ibnote}
 See more: {ref}`command-juju-register`, {ref}`add-a-user`
 ```
 
-**Register a public controller.**
-
-First, check that your public controller meets the prerequisites: Your client must be able to connect to the controller API over port `17070`. Note: Juju takes care of everything else, and in most cases it takes care of this requirement too: for all clouds except for OpenStack Juju defaults to provisioning the controller with a public IP, and even for OpenStack you can choose to bootstrap with a floating IP as well.
-
-Then, to register the public controller, use the  `register` command followed by the DNS host name of the public controller. For example:
+**Register with a DNS hostname.** For controllers configured with external authentication (see {ref}`configure-a-controller-for-external-authentication`), use the `register` command with the controller's DNS hostname. For example:
 
 ```text
-juju register public-controller.example.com
+juju register jimm.jujucharms.com
 ```
 
-This will open a login window in your browser.
+This opens a browser window for authentication via the external identity provider (e.g., Ubuntu SSO).
 
-By specifying various flags you can also use this to reregister a controller or to type in your login information in your terminal rather than the browser.
+The `register` command supports various flags, including `--replace` to overwrite existing controller details (useful when reregistering a replaced controller).
 
 ```{ibnote}
 See more: {ref}`command-juju-register`

@@ -19,7 +19,7 @@ Logs a user in to a controller.
 
 ## Examples
 
-    juju login somepubliccontroller
+    juju login controller.example.com
     juju login jimm.jujucharms.com
     juju login -u bob
 
@@ -27,7 +27,7 @@ Logs a user in to a controller.
 ## Details
 
 By default, the `juju login` command logs the user into a controller.
-The argument to the command can be a public controller
+The argument to the command can be a controller
 host name or alias (see Aliases below).
 
 If no argument is provided, the controller specified with
@@ -49,7 +49,7 @@ and the user will be prompted to log in again.
 
 ### Aliases
 
-Public controller aliases are provided by a directory service
+Controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
 by setting the environment variable `JUJU_DIRECTORY`.
