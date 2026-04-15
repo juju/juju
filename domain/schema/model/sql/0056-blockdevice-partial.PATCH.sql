@@ -7,7 +7,32 @@ INSERT INTO block_device_provenance VALUES
 (0, 'provider'),
 (1, 'machine');
 
+DROP TRIGGER trg_log_block_device_update;
+
 -- TODO(merge): when merging this patch into main, add the provenance
 -- column, but make it not null without a default.
 ALTER TABLE block_device ADD COLUMN provenance INT NOT NULL DEFAULT 0
-    REFERENCES block_device_provenance (id);
+REFERENCES block_device_provenance (id);
+
+-- noqa: disable=all
+CREATE TRIGGER trg_log_block_device_update
+AFTER UPDATE ON block_device FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.machine_uuid != OLD.machine_uuid OR
+	(NEW.name != OLD.name OR (NEW.name IS NOT NULL AND OLD.name IS NULL) OR (NEW.name IS NULL AND OLD.name IS NOT NULL)) OR
+	(NEW.hardware_id != OLD.hardware_id OR (NEW.hardware_id IS NOT NULL AND OLD.hardware_id IS NULL) OR (NEW.hardware_id IS NULL AND OLD.hardware_id IS NOT NULL)) OR
+	(NEW.wwn != OLD.wwn OR (NEW.wwn IS NOT NULL AND OLD.wwn IS NULL) OR (NEW.wwn IS NULL AND OLD.wwn IS NOT NULL)) OR
+	(NEW.serial_id != OLD.serial_id OR (NEW.serial_id IS NOT NULL AND OLD.serial_id IS NULL) OR (NEW.serial_id IS NULL AND OLD.serial_id IS NOT NULL)) OR
+	(NEW.bus_address != OLD.bus_address OR (NEW.bus_address IS NOT NULL AND OLD.bus_address IS NULL) OR (NEW.bus_address IS NULL AND OLD.bus_address IS NOT NULL)) OR
+	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
+	(NEW.mount_point != OLD.mount_point OR (NEW.mount_point IS NOT NULL AND OLD.mount_point IS NULL) OR (NEW.mount_point IS NULL AND OLD.mount_point IS NOT NULL)) OR
+	(NEW.in_use != OLD.in_use OR (NEW.in_use IS NOT NULL AND OLD.in_use IS NULL) OR (NEW.in_use IS NULL AND OLD.in_use IS NOT NULL)) OR
+	(NEW.filesystem_label != OLD.filesystem_label OR (NEW.filesystem_label IS NOT NULL AND OLD.filesystem_label IS NULL) OR (NEW.filesystem_label IS NULL AND OLD.filesystem_label IS NOT NULL)) OR
+	(NEW.host_filesystem_uuid != OLD.host_filesystem_uuid OR (NEW.host_filesystem_uuid IS NOT NULL AND OLD.host_filesystem_uuid IS NULL) OR (NEW.host_filesystem_uuid IS NULL AND OLD.host_filesystem_uuid IS NOT NULL)) OR
+	(NEW.filesystem_type != OLD.filesystem_type OR (NEW.filesystem_type IS NOT NULL AND OLD.filesystem_type IS NULL) OR (NEW.filesystem_type IS NULL AND OLD.filesystem_type IS NOT NULL)) OR
+	(NEW.provenance != OLD.provenance OR (NEW.provenance IS NOT NULL AND OLD.provenance IS NULL) OR (NEW.provenance IS NULL AND OLD.provenance IS NOT NULL)) 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10002, OLD.machine_uuid, DATETIME('now', 'utc'));
+END;
