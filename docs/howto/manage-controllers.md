@@ -32,33 +32,268 @@ You can also add many different options, to specify the cloud credentials to be 
 See more: {ref}`command-juju-bootstrap`, {ref}`cloud-specific reference docs <list-of-supported-clouds>`, {ref}`list-of-constraints`, {ref}`list-of-controller-configuration-keys`
 ```
 
-````{dropdown} Recommended configuration - Kubernetes
-The Juju controller needs two container images (one for the controller agent container and one for the database container). These are by default downloaded from Docker Hub, but can also be downloaded from `public.ecr.aws/juju` or `https://ghcr.io/juju` if you pass them to the {ref}`controller-config-caas-image-repo` bootstrap configuration key. We currently recommend you get them from `public.ecr.aws/juju`, as below:
+`````{dropdown} Common bootstrap settings
+
+````{dropdown} Enable external authentication
+
+To enable external authentication via an identity provider (OAuth/OIDC), bootstrap with the `identity-url` configuration key:
+
+```text
+juju bootstrap aws my-controller --config identity-url=https://identity.example.com
+```
+
+This changes how users authenticate:
+- Users authenticate via the external provider (e.g., Ubuntu SSO, Google OAuth) instead of controller-local passwords.
+- The login process opens a browser for OAuth/OIDC authentication.
+- Users can still register with tokens from `juju add-user`.
+
+For HTTP identity managers, you must also provide the identity manager's public key:
+
+```text
+juju bootstrap aws my-controller \
+  --config identity-url=http://identity.example.com \
+  --config identity-public-key=<base64-encoded-key>
+```
+
+```{ibnote}
+See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identity-public-key`
+```
+
+````
+
+````{dropdown} Use JWT-based authentication
+
+For JWT-based authentication (alternative to OAuth/OIDC or local passwords), configure the JWT token refresh URL:
+
+```text
+juju bootstrap aws my-controller --config login-token-refresh-url=https://auth.example.com/.well-known/jwks.json
+```
+
+```{ibnote}
+See more: {ref}`controller-config-login-token-refresh-url`
+```
+
+````
+
+````{dropdown} Enable DNS-based registration
+
+To allow users to register using a DNS hostname (`juju register controller.example.com`) instead of tokens, configure the controller's DNS address:
+
+```text
+juju bootstrap aws my-controller --config public-dns-address=controller.example.com:443
+```
+
+This is typically used with external authentication:
+
+```text
+juju bootstrap aws my-controller \
+  --config identity-url=https://identity.example.com \
+  --config public-dns-address=controller.example.com:443
+```
+
+```{ibnote}
+See more: {ref}`controller-config-public-dns-address`
+```
+
+````
+
+````{dropdown} Enable automatic TLS certificates
+
+To automatically obtain TLS certificates from Let's Encrypt, configure the DNS name:
+
+```text
+juju bootstrap aws my-controller --config autocert-dns-name=controller.example.com
+```
+
+This is typically used with DNS addressing:
+
+```text
+juju bootstrap aws my-controller \
+  --config autocert-dns-name=controller.example.com \
+  --config public-dns-address=controller.example.com:443
+```
+
+```{ibnote}
+See more: {ref}`controller-config-autocert-dns-name`, {ref}`controller-config-public-dns-address`
+```
+
+````
+
+````{dropdown} Use a specific container image repository (Kubernetes)
+
+The Juju controller needs two container images (one for the controller agent container and one for the database container). These are by default downloaded from Docker Hub, but can also be downloaded from `public.ecr.aws/juju` or `https://ghcr.io/juju`. We currently recommend `public.ecr.aws/juju`:
 
 ```text
 juju bootstrap mycloud --config caas-image-repo="public.ecr.aws/juju"
 ```
 
-Note: While the {ref}`controller-config-caas-image-repo` *can* technically be changed after bootstrap, that is only for a very specific use case (adjusting credentials used for a custom registry). For most cases it is safe to assume you can only set it during bootstrap.
+```{note}
+While `caas-image-repo` can technically be changed after bootstrap, that is only for a very specific use case (adjusting credentials for a custom registry). For most cases it can only be set during bootstrap.
+```
+
+```{ibnote}
+See more: {ref}`controller-config-caas-image-repo`
+```
 
 ````
 
-````{dropdown} Tips for production - machines
-Make sure to bootstrap with no less than 50 GB disk, 2 CPUs, and 4 GB RAM (e.g., `juju bootstrap aws/us-east-1 mymachinecontroller --bootstrap-constraints "root-disk=50G cores=2  mem=4G"`). Bootstrapping a controller like this allows you to manage a few hundred units. However, if your needs go beyond this, consider making the controller highly available.
+````{dropdown} Set recommended controller sizing
+
+To manage hundreds of units effectively, bootstrap with minimum 50 GB disk, 2 CPUs, and 4 GB RAM:
+
+```text
+juju bootstrap aws/us-east-1 my-controller --bootstrap-constraints "root-disk=50G cores=2 mem=4G"
+```
+
+For larger deployments, consider making the controller highly available.
 
 ```{ibnote}
 See more: {ref}`manage-constraints-for-a-controller`, {ref}`make-a-controller-highly-available`
 ```
+
 ````
-````{dropdown} Tips for production - Kubernetes
-Juju does not currently support high-availability and backup and restore for Kubernetes controllers. Consider bootstrapping your controller on a machine cloud and then adding your Kubernetes cloud(s) to it, in a multi-cloud controller setup (`juju add-k8s myk8scloud --controller mymachinecontroller`).
+
+````{dropdown} Work around Kubernetes controller limitations
+
+Kubernetes controllers currently don't support high-availability or backup/restore. For production deployments, bootstrap your controller on a machine cloud, then add your Kubernetes cloud(s) to it:
+
+```text
+juju bootstrap aws my-controller
+juju add-k8s my-k8s-cloud --controller my-controller
+```
 
 ```{ibnote}
 See more: {ref}`add-a-cloud`
 ```
 ````
 
-````{dropdown} Tips for troubleshooting - machines
+````{dropdown} Customize network ports
+
+To customize the ports used by the controller, set them during bootstrap. These cannot be changed afterward.
+
+**API port** (`api-port`, default: 17070):
+
+```text
+juju bootstrap aws my-controller --config api-port=17080
+```
+
+**SSH server port** (`ssh-server-port`, default: 17022):
+
+```text
+juju bootstrap aws my-controller --config ssh-server-port=17023
+```
+
+**MongoDB port** (`state-port`, default: 37017):
+
+```text
+juju bootstrap aws my-controller --config state-port=37018
+```
+
+```{ibnote}
+See more: {ref}`controller-config-api-port`, {ref}`controller-config-ssh-server-port`, {ref}`controller-config-state-port`
+```
+
+````
+
+````{dropdown} Use a different TLS certificate provider
+
+By default, when using automatic TLS certificates (`autocert-dns-name`), certificates are obtained from Let's Encrypt. To use a different ACME server (e.g., for testing), set `autocert-url` during bootstrap:
+
+```text
+juju bootstrap aws my-controller \
+  --config autocert-dns-name=controller.example.com \
+  --config autocert-url=https://acme-staging-v02.api.letsencrypt.org/directory
+```
+
+```{ibnote}
+See more: {ref}`controller-config-autocert-url`, {ref}`controller-config-autocert-dns-name`
+```
+
+````
+
+````{dropdown} Allow model access without controller access
+
+By default, users must have controller access to connect to models. To allow users to access models they're authorized for without controller access, enable `allow-model-access` during bootstrap:
+
+```text
+juju bootstrap aws my-controller --config allow-model-access=true
+```
+
+```{ibnote}
+See more: {ref}`controller-config-allow-model-access`
+```
+
+````
+
+````{dropdown} Use custom installation sources
+
+**MongoDB snap channel** (for Ubuntu Focal or later, default: 4.4.30/stable):
+
+```text
+juju bootstrap aws my-controller --config juju-db-snap-channel=5.0/stable
+```
+
+**Controller snap source** (default: legacy):
+
+```text
+juju bootstrap aws my-controller --config jujud-controller-snap-source=snapstore
+```
+
+Options: `legacy`, `snapstore`, `local`, `local-dangerous`
+
+```{ibnote}
+See more: {ref}`controller-config-juju-db-snap-channel`, {ref}`controller-config-jujud-controller-snap-source`
+```
+
+````
+
+````{dropdown} Configure connection timeouts
+
+To set the idle connection timeout (default: 30s):
+
+```text
+juju bootstrap aws my-controller --config idle-connection-timeout=60s
+```
+
+```{ibnote}
+See more: {ref}`controller-config-idle-connection-timeout`
+```
+
+````
+
+````{dropdown} Configure database transaction log size
+
+To set the maximum size of the MongoDB transaction log (default: 10M):
+
+```text
+juju bootstrap aws my-controller --config max-txn-log-size=20M
+```
+
+```{ibnote}
+See more: {ref}`controller-config-max-txn-log-size`
+```
+
+````
+
+````{dropdown} Configure a custom metrics endpoint
+
+To set a custom metrics URL (default: https://api.jujucharms.com/omnibus/v3):
+
+```text
+juju bootstrap aws my-controller --config metering-url=https://metrics.example.com/v3
+```
+
+```{ibnote}
+See more: {ref}`controller-config-metering-url`
+```
+
+````
+
+`````
+
+`````{dropdown} Troubleshoot bootstrap failures
+
+````{dropdown} Debug bootstrap failures (machines)
 Bootstrap on machines consists of the following steps:
 
 1. Provision resources/a machine M from the relevant cloud, via cloud-init write a nonce file to verify we’ve found the machine we’ve provisioned.
@@ -82,7 +317,8 @@ See more: {ref}`view-the-log-files`, {ref}`troubleshoot-your-deployment`
 ```
 
 ````
-````{dropdown} Tips for troubleshooting - Kubernetes
+
+````{dropdown} Debug bootstrap failures (Kubernetes)
 Bootstrap on Kubernetes includes creating a Kubernetes pod called `controller-0` containing a container called `api-server`. Matching this, the output of the `juju bootstrap` command includes `Creating k8s resources for controller <namespace>`, where `<namespace>` is something like `controller-foobar`. To troubleshoot, inspect this `api-server` container with `kubectl`:
 
 ```text
@@ -90,56 +326,7 @@ kubectl exec controller-0 -itc api-server -n <namespace> -- bash
 ```
 ````
 
-````{dropdown} Configure external authentication (during bootstrap)
-
-(configure-a-controller-for-external-authentication)=
-
-By default, Juju controllers manage users locally (via `juju add-user`) and authenticate them with passwords. To enable external authentication via an identity provider (e.g., OAuth/OIDC), configure the controller at bootstrap time with the identity manager's URL.
-
-**Enable external authentication.** Bootstrap with the `identity-url` configuration key set to your identity manager's URL:
-
-```text
-juju bootstrap aws my-controller --config identity-url=https://identity.example.com
-```
-
-When external authentication is enabled:
-- Users authenticate via the external provider (e.g., Ubuntu SSO) instead of controller-local passwords.
-- Users register using the controller's DNS hostname (`juju register controller.example.com`) instead of registration tokens.
-- The login process opens a browser for OAuth/OIDC authentication.
-
-```{ibnote}
-See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identity-public-key`
-```
-
-**For HTTP identity managers:** If your identity manager URL uses HTTP instead of HTTPS, you must also provide the identity manager's public key:
-
-```text
-juju bootstrap aws my-controller \
-  --config identity-url=http://identity.example.com \
-  --config identity-public-key=<base64-encoded-key>
-```
-
-**For DNS-based controller access:** To enable users to register using a DNS hostname, also set the controller's DNS address (`public-dns-address`) and optionally enable automatic TLS certificates:
-
-```text
-juju bootstrap aws my-controller \
-  --config identity-url=https://identity.example.com \
-  --config autocert-dns-name=controller.example.com \
-  --config public-dns-address=controller.example.com:443
-```
-
-```{ibnote}
-See more: {ref}`controller-config-autocert-dns-name`, {ref}`controller-config-public-dns-address`
-```
-
-```{note}
-External authentication and network accessibility are independent. A controller can:
-- use local authentication and be network-accessible (most common).
-- use external authentication and be on a private network (enterprise environments).
-- use external authentication and be internet-accessible (e.g., JAAS).
-```
-
-````
+`````
 
 ```{ibnote}
 See next: {ref}`add-a-model`, {ref}`add-a-user`
@@ -288,7 +475,7 @@ To add / remove details of a controller to / from your Juju client, you need to 
 ### Register a controller
 
 ```{ibnote}
-See first: {ref}`add-a-user` (for token-based registration), {ref}`configure-a-controller-for-external-authentication` (for DNS-based registration)
+See first: {ref}`add-a-user`
 ```
 
 To make an external controller known to your local client, use the `register` command. The registration method depends on how the controller is configured for authentication.
@@ -341,13 +528,13 @@ of a model to grant access to that model with "juju grant".
 See more: {ref}`command-juju-register`, {ref}`add-a-user`
 ```
 
-**Register with a DNS hostname.** For controllers configured with external authentication (see {ref}`configure-a-controller-for-external-authentication`), use the `register` command with the controller's DNS hostname. For example:
+**Register with a DNS hostname.** For controllers configured with DNS-based registration (`public-dns-address`), use the `register` command with the controller's DNS hostname. For example:
 
 ```text
 juju register jimm.jujucharms.com
 ```
 
-This opens a browser window for authentication via the external identity provider (e.g., Ubuntu SSO).
+If the controller also uses external authentication, this opens a browser window for authentication via the external identity provider (e.g., Ubuntu SSO). Otherwise, you'll be prompted to set a password interactively.
 
 The `register` command supports various flags, including `--replace` to overwrite existing controller details (useful when reregistering a replaced controller).
 
