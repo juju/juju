@@ -207,6 +207,29 @@ See more: {ref}`command-juju-default-region`
 
 See {ref}`manage-credentials`.
 
+(manage-access-to-a-cloud)=
+## Manage access to a cloud
+
+**Grant access.** To grant a user a certain access level to a cloud, run the `grant-cloud` command, specifying the user, the access level, and the cloud. For example:
+
+```text
+juju grant-cloud joe add-model fluffy
+```
+
+```{ibnote}
+See more: {ref}`command-juju-grant-cloud`, {ref}`list-of-user-access-levels-for-clouds`
+```
+
+**Revoke access.** To revoke a user's access level to a cloud, run the `revoke-cloud` command, specifying the user, the access level, and the cloud. For example:
+
+```text
+juju revoke-cloud joe add-model fluffy
+```
+
+```{ibnote}
+See more: {ref}`command-juju-revoke-cloud`, {ref}`list-of-user-access-levels-for-clouds`
+```
+
 ## Update a cloud
 
 The procedure for how to update a cloud on Juju depends on whether the cloud is public or private.

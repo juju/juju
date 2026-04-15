@@ -20,7 +20,7 @@ Registers a controller.
 
     juju register --replace MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcwBCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
 
-    juju register public-controller.example.com
+    juju register controller.example.com
 
 
 ## Details
@@ -28,7 +28,7 @@ Registers a controller.
 The register command adds details of a controller to the local system.
 This is done either by completing the user registration process that
 began with the `juju add-user` command, or by providing the DNS host
-name of a public controller.
+name of a controller configured with external authentication.
 
 To complete the user registration process, you should have been provided
 with a `base64`-encoded blob of data (the output of `juju add-user`)
@@ -44,6 +44,6 @@ to start using that replacement controller instead of the original one,
 use the `--replace` option to overwrite any existing controller details based
 on either a name or UUID match.
 
-When adding a controller at a public address, authentication via some
-external third party (for example Ubuntu SSO) will be required, usually
-by using a web browser.
+When registering with a controller hostname (rather than a registration token),
+authentication via an external identity provider (for example Ubuntu SSO) will
+be required, usually by using a web browser.
