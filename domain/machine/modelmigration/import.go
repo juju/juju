@@ -54,6 +54,7 @@ type ImportService interface {
 	CreateMachine(
 		ctx context.Context,
 		machineName machine.Name,
+		hostname string,
 		nonce *string,
 		platform deployment.Platform,
 		placement deployment.Placement,
@@ -65,6 +66,7 @@ type ImportService interface {
 		ctx context.Context,
 		machineName machine.Name,
 		parentUUID machine.UUID,
+		hostname string,
 		nonce *string,
 		platform deployment.Platform,
 		placement deployment.Placement,
@@ -130,6 +132,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		machineUUID, err := i.service.CreateMachine(
 			ctx,
 			machine.Name(m.Id()),
+			m.Hostname(),
 			new(m.Nonce()),
 			machinePlatform,
 			domainPlacement,
@@ -159,6 +162,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				ctx,
 				machine.Name(c.Id()),
 				machineUUID,
+				c.Hostname(),
 				new(c.Nonce()),
 				machinePlatform,
 				domainPlacement,

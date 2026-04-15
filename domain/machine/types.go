@@ -44,6 +44,9 @@ type CreateMachineArgs struct {
 	// created.
 	NetNodeUUID network.NetNodeUUID
 
+	// Hostname is the hostname of the machine.
+	Hostname string
+
 	// Nonce is an optional nonce to associate with the machine being created.
 	Nonce *string
 }

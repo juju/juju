@@ -73,6 +73,7 @@ func NewMigrationService(
 func (s *MigrationService) CreateMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
+	hostname string,
 	nonce *string,
 	platform deployment.Platform,
 	placement deployment.Placement,
@@ -93,6 +94,7 @@ func (s *MigrationService) CreateMachine(
 		return "", errors.Errorf("creating net node UUID for machine %q: %w", machineName, err)
 	}
 	err = s.st.InsertMigratingMachine(ctx, machineName.String(), machine.CreateMachineArgs{
+		Hostname:    hostname,
 		MachineUUID: machineUUID,
 		NetNodeUUID: netNodeUUID,
 		Nonce:       nonce,
@@ -118,6 +120,7 @@ func (s *MigrationService) CreateSubordinateMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
 	parentUUID coremachine.UUID,
+	hostname string,
 	nonce *string,
 	platform deployment.Platform,
 	placement deployment.Placement,
@@ -138,6 +141,7 @@ func (s *MigrationService) CreateSubordinateMachine(
 		return "", errors.Errorf("creating net node UUID for machine %q: %w", machineName, err)
 	}
 	err = s.st.InsertMigratingSubordinateMachine(ctx, machineName.String(), parentUUID.String(), machine.CreateMachineArgs{
+		Hostname:    hostname,
 		MachineUUID: machineUUID,
 		NetNodeUUID: netNodeUUID,
 		Nonce:       nonce,

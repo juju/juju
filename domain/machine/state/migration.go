@@ -122,6 +122,7 @@ func (st *State) InsertMigratingMachine(ctx context.Context, machineName string,
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
 			Constraints: args.Constraints,
+			Hostname:    args.Hostname,
 			Nonce:       args.Nonce,
 		})
 	})
@@ -177,6 +178,7 @@ VALUES ($machineParent.*);
 			NetNodeUUID: args.NetNodeUUID.String(),
 			Platform:    args.Platform,
 			Constraints: args.Constraints,
+			Hostname:    args.Hostname,
 			Nonce:       args.Nonce,
 		})
 		if err != nil {
