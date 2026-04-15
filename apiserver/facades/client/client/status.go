@@ -308,6 +308,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
 	context.branches = fetchBranches(c.modelCache)
+	context.state = c.state()
 
 	if args.IncludeStorage {
 		context.storageInstances, err = c.storageAccessor.AllStorageInstances()
@@ -679,6 +680,7 @@ type statusContext struct {
 	providerType string
 	model        *state.Model
 	status       *state.ModelStatus
+	state        *state.State
 	presence     common.ModelPresenceContext
 
 	// machines: top-level machine id -> list of machines nested in
@@ -1840,7 +1842,7 @@ func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, 
 func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]params.StorageDetails, error) {
 	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
 	for _, storageInstance := range c.storageInstances {
-		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance)
+		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance, c.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
 		}
@@ -1856,7 +1858,8 @@ func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		filesystemDetail, err := storagecommon.FilesystemDetails(storageAccessor, c.unitToMachine, filesystem, attachments)
+		filesystemDetail, err := storagecommon.FilesystemDetails(storageAccessor, c.unitToMachine,
+			filesystem, attachments, c.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
 		}
@@ -1872,13 +1875,17 @@ func (c *statusContext) processVolumes(storageAccessor StorageInterface) ([]para
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		volumeDetail, err := storagecommon.VolumeDetails(storageAccessor, c.unitToMachine, volume, attachments)
+		volumeDetail, err := storagecommon.VolumeDetails(storageAccessor, c.unitToMachine, volume, attachments, c.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
 		}
 		volumeDetails = append(volumeDetails, *volumeDetail)
 	}
 	return volumeDetails, nil
+}
+
+func (c *statusContext) getUnit(name string) (storagecommon.Unit, error) {
+	return c.state.Unit(name)
 }
 
 type lifer interface {

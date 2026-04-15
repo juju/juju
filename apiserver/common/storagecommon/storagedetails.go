@@ -23,27 +23,35 @@ type DetailsBackend interface {
 	VolumeAccess
 	FilesystemAccess
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
-	Unit(tag names.UnitTag) (*state.Unit, error)
 }
 
+// Unit represents a minimal interface for a Juju unit, exposing only the
+// methods needed to determine machine assignment status for storage
+// provisioning decisions.
+type Unit interface {
+	AssignedMachineId() (string, error)
+	ShouldBeAssigned() bool
+}
+
+// UnitAssignedMachineFunc is a function type that resolves a unit tag to the
+// machine tag of the machine the unit is assigned to.
 type UnitAssignedMachineFunc func(names.UnitTag) (names.MachineTag, error)
+
+// GetUnitFunc is a function type that retrieves a Unit by its name
+type GetUnitFunc func(name string) (Unit, error)
 
 // StorageDetails returns the storage instance as a params StorageDetails.
 func StorageDetails(
 	sb DetailsBackend,
 	unitToMachine UnitAssignedMachineFunc,
 	si state.StorageInstance,
+	getUnit GetUnitFunc,
 ) (*params.StorageDetails, error) {
 	// Get information from underlying volume or filesystem.
 	var persistent bool
 	var statusEntity status.StatusGetter
 	var aStatus status.StatusInfo
 	since := time.Now()
-	storageAttachments, err := sb.StorageAttachments(si.StorageTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if si.Kind() == state.StorageKindFilesystem {
 		// TODO(axw) when we support persistent filesystems,
 		// e.g. CephFS, we'll need to do set "persistent"
@@ -52,7 +60,7 @@ func StorageDetails(
 		if errors.Is(fsErr, errors.NotFound) {
 			var err error
 			aStatus, err = missingBackingStorageStatus(
-				sb, si, fsErr,
+				si, getUnit, fsErr,
 				"waiting for filesystem to be provisioned", since,
 			)
 			if err != nil {
@@ -68,7 +76,7 @@ func StorageDetails(
 		if errors.Is(volErr, errors.NotFound) {
 			var err error
 			aStatus, err = missingBackingStorageStatus(
-				sb, si, volErr,
+				si, getUnit, volErr,
 				"waiting for volume to be provisioned", since,
 			)
 			if err != nil {
@@ -93,6 +101,10 @@ func StorageDetails(
 	}
 
 	// Get unit storage attachments.
+	storageAttachments, err := sb.StorageAttachments(si.StorageTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
 	if len(storageAttachments) > 0 {
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
@@ -154,8 +166,8 @@ func storageAttachmentInfo(
 // missingBackingStorageStatus classifies storage status when the backing
 // volume/filesystem record is missing.
 func missingBackingStorageStatus(
-	sb DetailsBackend,
 	si state.StorageInstance,
+	getUnit GetUnitFunc,
 	notFoundErr error,
 	message string,
 	since time.Time,
@@ -173,7 +185,7 @@ func missingBackingStorageStatus(
 		return status.StatusInfo{}, err
 	}
 
-	unit, err := sb.Unit(unitTag)
+	unit, err := getUnit(unitTag.Id())
 	if err != nil {
 		return status.StatusInfo{}, err
 	}

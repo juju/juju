@@ -115,6 +115,7 @@ type backend interface {
 
 type Unit interface {
 	AssignedMachineId() (string, error)
+	ShouldBeAssigned() bool
 }
 
 type stateShim struct {
