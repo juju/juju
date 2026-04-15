@@ -166,37 +166,36 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 		return nil, errors.Annotate(err, "refreshing volume block devices")
 	}
 	for i, result := range results {
-		if result.Error == nil {
-			existing, ok := deps.volumeBlockDevices[volumeTags[i]]
-			if ok && existing.FilesystemUUID == "" && result.Result.UUID != "" {
-				volumesWithUpdatedUUID = append(volumesWithUpdatedUUID, volumeTags[i])
-			}
-			deps.volumeBlockDevices[volumeTags[i]] = blockDeviceFromParams(result.Result)
-			for _, params := range deps.incompleteFilesystemParams {
-				if params.Volume == volumeTags[i] {
-					updatePendingFilesystem(ctx, deps, params)
-				}
-			}
-			for id, params := range deps.incompleteFilesystemAttachmentParams {
-				filesystem, ok := deps.filesystems[params.Filesystem]
-				if !ok {
-					continue
-				}
-				if filesystem.Volume == volumeTags[i] {
-					updatePendingFilesystemAttachment(ctx, deps, id, params)
-				}
-			}
-		} else if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
+		if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
 			// Either the volume (attachment) isn't provisioned,
 			// or the corresponding block device is not yet known.
 			//
 			// Neither of these errors is fatal; we just wait for
 			// the block device watcher to notify us again.
-		} else {
+		} else if result.Error != nil {
 			return nil, errors.Annotatef(
 				err, "getting block device info for volume attachment %v",
 				ids[i],
 			)
+		}
+		existing, ok := deps.volumeBlockDevices[volumeTags[i]]
+		if ok && existing.FilesystemUUID == "" && result.Result.UUID != "" {
+			volumesWithUpdatedUUID = append(volumesWithUpdatedUUID, volumeTags[i])
+		}
+		deps.volumeBlockDevices[volumeTags[i]] = blockDeviceFromParams(result.Result)
+		for _, params := range deps.incompleteFilesystemParams {
+			if params.Volume == volumeTags[i] {
+				updatePendingFilesystem(ctx, deps, params)
+			}
+		}
+		for id, params := range deps.incompleteFilesystemAttachmentParams {
+			filesystem, ok := deps.filesystems[params.Filesystem]
+			if !ok {
+				continue
+			}
+			if filesystem.Volume == volumeTags[i] {
+				updatePendingFilesystemAttachment(ctx, deps, id, params)
+			}
 		}
 	}
 	return volumesWithUpdatedUUID, nil
