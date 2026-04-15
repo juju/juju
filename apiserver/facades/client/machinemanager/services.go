@@ -79,7 +79,7 @@ type Authorizer interface {
 	// write is not possible.
 	CanWrite(context.Context) error
 
-	// AuthClient returns true if the entity is an external user.
+	// AuthClient returns true if the entity is a user.
 	AuthClient() bool
 }
 

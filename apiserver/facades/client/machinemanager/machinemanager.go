@@ -512,7 +512,7 @@ func (a ModelAuthorizer) CanWrite(ctx context.Context) error {
 	return a.checkAccess(ctx, permission.WriteAccess)
 }
 
-// AuthClient returns true if the entity is an external user.
+// AuthClient returns true if the entity is a user.
 func (a ModelAuthorizer) AuthClient() bool {
 	return a.Authorizer.AuthClient()
 }

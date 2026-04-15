@@ -258,7 +258,7 @@ type Authorizer interface {
 	// AuthOwner returns true if tag == .GetAuthTag().
 	AuthOwner(tag names.Tag) bool
 
-	// AuthClient returns true if the entity is an external user.
+	// AuthClient returns true if the entity is a user.
 	AuthClient() bool
 
 	// HasPermission reports whether the given access is allowed for the given
