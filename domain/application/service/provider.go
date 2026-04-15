@@ -609,6 +609,23 @@ func (s *ProviderService) ResolveApplicationConstraints(
 	return s.resolveApplicationConstraints(ctx, appCons)
 }
 
+// PrepareUnitAddStorage validates and prepares the storage add arguments for a
+// unit without performing any writes.
+func (s *ProviderService) PrepareUnitAddStorage(
+	ctx context.Context,
+	storageName corestorage.Name,
+	unitUUID coreunit.UUID,
+	addCount uint32,
+) (domainstorage.UnitAddStorageArg, error) {
+	return s.populateAddStorageArgs(
+		ctx,
+		storageName,
+		unitUUID,
+		addCount,
+		application.AddUnitStorageOverride{},
+	)
+}
+
 func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	name string,
 	charm internalcharm.Charm,
@@ -1041,7 +1058,7 @@ func (s *ProviderService) populateAddStorageArgs(
 	ctx context.Context,
 	storageName corestorage.Name,
 	unitUUID coreunit.UUID, addCount uint32,
-	arg domainstorage.AddUnitStorageOverride,
+	arg application.AddUnitStorageOverride,
 ) (domainstorage.UnitAddStorageArg, error) {
 	unitStorageDirective, err := s.storageService.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
 	if err != nil {
@@ -1125,7 +1142,7 @@ func (s *ProviderService) populateAddStorageArgs(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg domainstorage.AddUnitStorageOverride,
+	count uint32, arg application.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1172,7 +1189,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 // when the requested storage falls outside of the bounds defined by the charm.
 func (s *ProviderService) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
-	count uint32, arg domainstorage.AddUnitStorageOverride,
+	count uint32, arg application.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

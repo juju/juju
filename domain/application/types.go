@@ -527,3 +527,13 @@ type ApplicationStorageDirectiveOverride struct {
 	// then this value.
 	Size *uint64
 }
+
+// AddUnitStorageOverride represents override instructions in the application
+// domain for adding storage to a unit.
+type AddUnitStorageOverride struct {
+	// StoragePoolUUID is the storage pool UUID.
+	StoragePoolUUID *domainstorage.StoragePoolUUID
+
+	// SizeMiB is the size of the storage instance, in MiB.
+	SizeMiB *uint64
+}

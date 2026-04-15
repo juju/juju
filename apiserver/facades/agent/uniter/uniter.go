@@ -6,6 +6,7 @@ package uniter
 import (
 	"context"
 	"maps"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -2926,20 +2928,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		arg.CharmState = changes.SetUnitState.CharmState
 	}
 
+	preparedStorageAdds, err := u.prepareCommitHookStorageAdds(ctx, unitName, changes)
+	if err != nil {
+		return internalerrors.Errorf("preparing storage additions: %w", err)
+	}
+	arg.AddStorage = preparedStorageAdds
+
 	// Note: the call to CommitHookChanges will eventually move to the end
 	// of the method. During the change over to running in a single txn,
 	// make it here to preserve the order.
 	if err := u.unitStateService.CommitHookChanges(ctx, arg); err != nil {
 		return apiservererrors.ServerError(err)
-	}
-
-	for _, addParams := range changes.AddStorage {
-		// Ensure the tag in the request matches the root unit name.
-		if addParams.UnitTag != changes.Tag {
-			return apiservererrors.ErrPerm
-		}
-
-		// TODO(storage): Add storage to the unit.
 	}
 
 	// TODO - do in txn once we have support for that
@@ -3353,6 +3352,87 @@ func encodeProxySettings(settings proxy.Settings) params.ProxySettings {
 		FTPProxy:   settings.Ftp,
 		NoProxy:    settings.NoProxy,
 	}
+}
+
+func (u *UniterAPI) prepareCommitHookStorageAdds(
+	ctx context.Context,
+	unitName coreunit.Name,
+	changes params.CommitHookChangesArg,
+) ([]unitstate.PreparedStorageAdd, error) {
+	if len(changes.AddStorage) == 0 {
+		return nil, nil
+	}
+
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotValid, "invalid unit name %q", unitName)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q does not exist", unitName)
+	case err != nil:
+		return nil, internalerrors.Errorf("getting unit uuid for unit name %q: %w", unitName, err)
+	}
+
+	result := make([]unitstate.PreparedStorageAdd, 0, len(changes.AddStorage))
+	for _, addParams := range changes.AddStorage {
+		if addParams.UnitTag != changes.Tag {
+			return nil, apiservererrors.ErrPerm
+		}
+
+		count, err := u.getCommitHookStorageAddCount(addParams)
+		if err != nil {
+			return nil, err
+		}
+
+		prepared, err := u.applicationService.PrepareUnitAddStorage(
+			ctx, corestorage.Name(addParams.StorageName), unitUUID, count)
+		if err != nil {
+			return nil, internalerrors.Errorf(
+				"preparing storage add %q for unit %q: %w", addParams.StorageName, unitName, err)
+		}
+
+		result = append(result, unitstate.PreparedStorageAdd{
+			StorageName: corestorage.Name(addParams.StorageName),
+			Storage:     prepared,
+		})
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPI) getCommitHookStorageAddCount(
+	addParams params.StorageAddParams,
+) (uint32, error) {
+	if addParams.Directives.Pool != "" {
+		return 0, apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"storage directive %s pool override not supported",
+			addParams.StorageName,
+		)
+	}
+	if addParams.Directives.SizeMiB != nil {
+		return 0, apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"storage directive %s size override not supported",
+			addParams.StorageName,
+		)
+	}
+
+	storageCount := uint32(1)
+	if addParams.Directives.Count != nil {
+		if *addParams.Directives.Count > math.MaxUint32 {
+			return 0,
+				apiservererrors.ParamsErrorf(
+					params.CodeNotValid,
+					"storage directive %s count %d too large",
+					addParams.StorageName,
+					*addParams.Directives.Count,
+				)
+		}
+		storageCount = uint32(*addParams.Directives.Count)
+	}
+
+	return storageCount, nil
 }
 
 func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges) map[string]map[string][]params.PortRange {

@@ -270,16 +270,6 @@ const (
 	ProvisionScopeMachine
 )
 
-// AddUnitStorageOverride defines user overrides to change storage defaults
-// used when adding new storage to a unit.
-type AddUnitStorageOverride struct {
-	// StoragePoolUUID is the storage pool UUID.
-	StoragePoolUUID *StoragePoolUUID
-
-	// SizeMiB is the size of the storage instance, in MiB.
-	SizeMiB *uint64
-}
-
 // UnitAddStorageArg represents the arguments required to add storage to a
 // unit. This will instantiate the instances and attachments for the unit.
 type UnitAddStorageArg struct {

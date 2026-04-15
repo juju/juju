@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -178,6 +179,15 @@ type ApplicationService interface {
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(context.Context, coreunit.Name) (domainapplication.UnitAttributes, error)
+
+	// PrepareUnitAddStorage validates and prepares unit storage add arguments
+	// without performing any writes.
+	PrepareUnitAddStorage(
+		ctx context.Context,
+		storageName corestorage.Name,
+		unitUUID coreunit.UUID,
+		count uint32,
+	) (domainstorage.UnitAddStorageArg, error)
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error

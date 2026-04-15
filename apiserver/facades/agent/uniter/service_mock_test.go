@@ -23,6 +23,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
+	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	application0 "github.com/juju/juju/domain/application"
@@ -36,7 +37,7 @@ import (
 	relation0 "github.com/juju/juju/domain/relation"
 	removal "github.com/juju/juju/domain/removal"
 	resolve "github.com/juju/juju/domain/resolve"
-	storage "github.com/juju/juju/domain/storage"
+	storage0 "github.com/juju/juju/domain/storage"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	service0 "github.com/juju/juju/domain/tracing/service"
 	unitstate "github.com/juju/juju/domain/unitstate"
@@ -804,6 +805,45 @@ func (c *MockApplicationServiceGetUnitWorkloadVersionCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name) (string, error)) *MockApplicationServiceGetUnitWorkloadVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PrepareUnitAddStorage mocks base method.
+func (m *MockApplicationService) PrepareUnitAddStorage(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32) (storage0.UnitAddStorageArg, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareUnitAddStorage", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(storage0.UnitAddStorageArg)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareUnitAddStorage indicates an expected call of PrepareUnitAddStorage.
+func (mr *MockApplicationServiceMockRecorder) PrepareUnitAddStorage(arg0, arg1, arg2, arg3 any) *MockApplicationServicePrepareUnitAddStorageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareUnitAddStorage", reflect.TypeOf((*MockApplicationService)(nil).PrepareUnitAddStorage), arg0, arg1, arg2, arg3)
+	return &MockApplicationServicePrepareUnitAddStorageCall{Call: call}
+}
+
+// MockApplicationServicePrepareUnitAddStorageCall wrap *gomock.Call
+type MockApplicationServicePrepareUnitAddStorageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServicePrepareUnitAddStorageCall) Return(arg0 storage0.UnitAddStorageArg, arg1 error) *MockApplicationServicePrepareUnitAddStorageCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServicePrepareUnitAddStorageCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.UnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServicePrepareUnitAddStorageCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.UnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3225,7 +3265,7 @@ func (c *MockRemovalServiceLeaveScopeCall) DoAndReturn(f func(context.Context, r
 }
 
 // MarkStorageAttachmentAsDead mocks base method.
-func (m *MockRemovalService) MarkStorageAttachmentAsDead(arg0 context.Context, arg1 storage.StorageAttachmentUUID) error {
+func (m *MockRemovalService) MarkStorageAttachmentAsDead(arg0 context.Context, arg1 storage0.StorageAttachmentUUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MarkStorageAttachmentAsDead", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -3251,13 +3291,13 @@ func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) Return(arg0 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) Do(f func(context.Context, storage.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) Do(f func(context.Context, storage0.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) DoAndReturn(f func(context.Context, storage.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
+func (c *MockRemovalServiceMarkStorageAttachmentAsDeadCall) DoAndReturn(f func(context.Context, storage0.StorageAttachmentUUID) error) *MockRemovalServiceMarkStorageAttachmentAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3441,10 +3481,10 @@ func (c *MockStorageProvisioningServiceGetStorageAttachmentLifeCall) DoAndReturn
 }
 
 // GetStorageAttachmentUUIDForUnit mocks base method.
-func (m *MockStorageProvisioningService) GetStorageAttachmentUUIDForUnit(arg0 context.Context, arg1 string, arg2 unit.UUID) (storage.StorageAttachmentUUID, error) {
+func (m *MockStorageProvisioningService) GetStorageAttachmentUUIDForUnit(arg0 context.Context, arg1 string, arg2 unit.UUID) (storage0.StorageAttachmentUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageAttachmentUUIDForUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(storage.StorageAttachmentUUID)
+	ret0, _ := ret[0].(storage0.StorageAttachmentUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3462,25 +3502,25 @@ type MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) Return(arg0 storage.StorageAttachmentUUID, arg1 error) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) Return(arg0 storage0.StorageAttachmentUUID, arg1 error) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) Do(f func(context.Context, string, unit.UUID) (storage.StorageAttachmentUUID, error)) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) Do(f func(context.Context, string, unit.UUID) (storage0.StorageAttachmentUUID, error)) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) DoAndReturn(f func(context.Context, string, unit.UUID) (storage.StorageAttachmentUUID, error)) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall) DoAndReturn(f func(context.Context, string, unit.UUID) (storage0.StorageAttachmentUUID, error)) *MockStorageProvisioningServiceGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitStorageAttachmentInfo mocks base method.
-func (m *MockStorageProvisioningService) GetUnitStorageAttachmentInfo(arg0 context.Context, arg1 storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error) {
+func (m *MockStorageProvisioningService) GetUnitStorageAttachmentInfo(arg0 context.Context, arg1 storage0.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitStorageAttachmentInfo", arg0, arg1)
 	ret0, _ := ret[0].(storageprovisioning.StorageAttachmentInfo)
@@ -3507,19 +3547,19 @@ func (c *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall) Return(
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall) Do(f func(context.Context, storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall {
+func (c *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall) Do(f func(context.Context, storage0.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall {
+func (c *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, storage0.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStorageProvisioningServiceGetUnitStorageAttachmentInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchStorageAttachment mocks base method.
-func (m *MockStorageProvisioningService) WatchStorageAttachment(arg0 context.Context, arg1 storage.StorageAttachmentUUID) (watcher.Watcher[struct{}], error) {
+func (m *MockStorageProvisioningService) WatchStorageAttachment(arg0 context.Context, arg1 storage0.StorageAttachmentUUID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchStorageAttachment", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
@@ -3546,13 +3586,13 @@ func (c *MockStorageProvisioningServiceWatchStorageAttachmentCall) Return(arg0 w
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceWatchStorageAttachmentCall) Do(f func(context.Context, storage.StorageAttachmentUUID) (watcher.Watcher[struct{}], error)) *MockStorageProvisioningServiceWatchStorageAttachmentCall {
+func (c *MockStorageProvisioningServiceWatchStorageAttachmentCall) Do(f func(context.Context, storage0.StorageAttachmentUUID) (watcher.Watcher[struct{}], error)) *MockStorageProvisioningServiceWatchStorageAttachmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceWatchStorageAttachmentCall) DoAndReturn(f func(context.Context, storage.StorageAttachmentUUID) (watcher.Watcher[struct{}], error)) *MockStorageProvisioningServiceWatchStorageAttachmentCall {
+func (c *MockStorageProvisioningServiceWatchStorageAttachmentCall) DoAndReturn(f func(context.Context, storage0.StorageAttachmentUUID) (watcher.Watcher[struct{}], error)) *MockStorageProvisioningServiceWatchStorageAttachmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

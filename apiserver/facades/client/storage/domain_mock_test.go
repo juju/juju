@@ -17,6 +17,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
+	application "github.com/juju/juju/domain/application"
 	removal "github.com/juju/juju/domain/removal"
 	service "github.com/juju/juju/domain/status/service"
 	storage0 "github.com/juju/juju/domain/storage"
@@ -47,7 +48,7 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // AddStorageForCAASUnit mocks base method.
-func (m *MockApplicationService) AddStorageForCAASUnit(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32, arg4 storage0.AddUnitStorageOverride) ([]storage.ID, error) {
+func (m *MockApplicationService) AddStorageForCAASUnit(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32, arg4 application.AddUnitStorageOverride) ([]storage.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddStorageForCAASUnit", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]storage.ID)
@@ -74,19 +75,19 @@ func (c *MockApplicationServiceAddStorageForCAASUnitCall) Return(arg0 []storage.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceAddStorageForCAASUnitCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32, storage0.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForCAASUnitCall {
+func (c *MockApplicationServiceAddStorageForCAASUnitCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32, application.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceAddStorageForCAASUnitCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32, storage0.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForCAASUnitCall {
+func (c *MockApplicationServiceAddStorageForCAASUnitCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32, application.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddStorageForIAASUnit mocks base method.
-func (m *MockApplicationService) AddStorageForIAASUnit(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32, arg4 storage0.AddUnitStorageOverride) ([]storage.ID, error) {
+func (m *MockApplicationService) AddStorageForIAASUnit(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32, arg4 application.AddUnitStorageOverride) ([]storage.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddStorageForIAASUnit", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]storage.ID)
@@ -113,13 +114,13 @@ func (c *MockApplicationServiceAddStorageForIAASUnitCall) Return(arg0 []storage.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceAddStorageForIAASUnitCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32, storage0.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForIAASUnitCall {
+func (c *MockApplicationServiceAddStorageForIAASUnitCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32, application.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForIAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceAddStorageForIAASUnitCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32, storage0.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForIAASUnitCall {
+func (c *MockApplicationServiceAddStorageForIAASUnitCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32, application.AddUnitStorageOverride) ([]storage.ID, error)) *MockApplicationServiceAddStorageForIAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

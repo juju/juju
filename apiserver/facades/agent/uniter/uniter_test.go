@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -45,6 +46,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -3405,6 +3407,109 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	count := uint64(2)
+	prepared := domainstorage.UnitAddStorageArg{
+		CountLessThanEqual: 3,
+	}
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+	s.applicationService.EXPECT().
+		PrepareUnitAddStorage(
+			gomock.Any(),
+			corestorage.Name("data"),
+			unitUUID,
+			uint32(2),
+		).
+		Return(prepared, nil)
+	s.unitStateService.EXPECT().
+		CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Check(arg.AddStorage, tc.DeepEquals, []unitstate.PreparedStorageAdd{{
+				StorageName: corestorage.Name("data"),
+				Storage:     prepared,
+			}})
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					Count: &count,
+				},
+			}},
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesStoragePoolOverrideUnsupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					Pool: "fast",
+				},
+			}},
+		},
+	)
+
+	c.Assert(err, tc.NotNil)
+	c.Check(params.IsCodeNotSupported(err), tc.IsTrue)
+	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data pool override not supported`)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesStorageSizeOverrideUnsupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	sizeMiB := uint64(4096)
+
+	s.expectGetUnitUUID(unitName, unitUUID, nil)
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			AddStorage: []params.StorageAddParams{{
+				UnitTag:     unitTag.String(),
+				StorageName: "data",
+				Directives: params.StorageDirectives{
+					SizeMiB: &sizeMiB,
+				},
+			}},
+		},
+	)
+
+	c.Assert(err, tc.NotNil)
+	c.Check(params.IsCodeNotSupported(err), tc.IsTrue)
+	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data size override not supported`)
 }
 
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {

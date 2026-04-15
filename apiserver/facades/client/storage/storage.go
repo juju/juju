@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainremoval "github.com/juju/juju/domain/removal"
@@ -207,7 +208,7 @@ type ApplicationService interface {
 		corestorage.Name,
 		coreunit.UUID,
 		uint32,
-		domainstorage.AddUnitStorageOverride,
+		domainapplication.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForCAASUnit adds storage instances to the given unit.
@@ -216,7 +217,7 @@ type ApplicationService interface {
 		corestorage.Name,
 		coreunit.UUID,
 		uint32,
-		domainstorage.AddUnitStorageOverride,
+		domainapplication.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
@@ -1144,7 +1145,7 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storageCount = uint32(*one.Directives.Count)
 	}
 
-	args := domainstorage.AddUnitStorageOverride{
+	args := domainapplication.AddUnitStorageOverride{
 		StoragePoolUUID: storagePoolUUID,
 		SizeMiB:         one.Directives.SizeMiB,
 	}
