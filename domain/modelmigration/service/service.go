@@ -234,9 +234,14 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 }
 
 // InitiateMigration kicks off migrating this model to the target controller.
-func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string) (string, error) {
+func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string, dryRun bool) (string, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if dryRun {
+		return "", nil
+	}
+
 	// TODO(modelmigration): implement migration info reporting.
 	return "", errors.ConstError("migration is not implemented")
 }

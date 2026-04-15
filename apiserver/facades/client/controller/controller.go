@@ -563,8 +563,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		return "", errors.Trace(err)
 	}
 
-	// TODO - wire up the dryRun parameter
-	migrationID, err := modelMigrationService.InitiateMigration(ctx, targetInfo, c.apiUser.Id())
+	migrationID, err := modelMigrationService.InitiateMigration(ctx, targetInfo, c.apiUser.Id(), dryRun)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

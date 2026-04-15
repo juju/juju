@@ -22,10 +22,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
@@ -65,7 +67,6 @@ func (s *controllerSuite) TestStub(c *tc.C) {
 - Watch model summaries by non admin.
 - Watch all model summaries by admin.
 - Identity provider with and without URL in config.
-- Test InitiateMigration with dry run.
 `)
 }
 
@@ -425,6 +426,52 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "not supported")
 }
 
+func (s *controllerSuite) TestInitiateMigrationDryRun(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	targetServer := apiservertesting.NewAPIServer(func(string) (any, error) {
+		return &fakeMigrationTargetRoot{}, nil
+	})
+	defer targetServer.Close()
+
+	modelUUID := s.DefaultModelUUID
+	args := params.InitiateMigrationArgs{
+		DryRun: true,
+		Specs: []params.MigrationSpec{
+			{
+				ModelTag: names.NewModelTag(modelUUID.String()).String(),
+				TargetInfo: params.MigrationTargetInfo{
+					ControllerTag:  randomControllerTag(),
+					Addrs:          targetServer.Addrs,
+					CACert:         testing.CACert,
+					AuthTag:        names.NewUserTag("admin").String(),
+					Password:       "secret",
+					SkipUserChecks: true,
+				},
+			},
+		},
+	}
+	s.mockModelService.EXPECT().Model(gomock.Any(), modelUUID).Return(
+		model.Model{
+			UUID:      modelUUID,
+			Name:      "test",
+			Qualifier: "prod",
+			Life:      life.Alive,
+			ModelType: model.IAAS,
+		}, nil,
+	).AnyTimes()
+	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), modelUUID).Return(nil, nil)
+	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{}, nil)
+
+	out, err := s.controller.InitiateMigration(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out.Results, tc.HasLen, 1)
+	result := out.Results[0]
+	c.Check(result.ModelTag, tc.Equals, args.Specs[0].ModelTag)
+	c.Check(result.Error, tc.IsNil)
+	c.Check(result.MigrationId, tc.Equals, "")
+}
+
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -461,6 +508,37 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *tc.C) {
 func randomControllerTag() string {
 	uuid := uuid.MustNewUUID().String()
 	return names.NewControllerTag(uuid).String()
+}
+
+const fakeMigrationTargetUUID = "f47ac10b-58cc-dead-beef-0e02b2c3d479"
+
+type fakeMigrationTargetRoot struct{}
+
+type fakeMigrationAdminFacade struct{}
+
+type fakeMigrationTargetFacade struct{}
+
+func (*fakeMigrationTargetRoot) Admin(string) (fakeMigrationAdminFacade, error) {
+	return fakeMigrationAdminFacade{}, nil
+}
+
+func (*fakeMigrationTargetRoot) MigrationTarget(string) (fakeMigrationTargetFacade, error) {
+	return fakeMigrationTargetFacade{}, nil
+}
+
+func (fakeMigrationAdminFacade) Login(params.LoginRequest) (params.LoginResult, error) {
+	return params.LoginResult{
+		ControllerTag: names.NewControllerTag(fakeMigrationTargetUUID).String(),
+		UserInfo: &params.AuthUserInfo{
+			DisplayName: "admin",
+			Identity:    "user-admin",
+		},
+		ServerVersion: jujuversion.Current.String(),
+	}, nil
+}
+
+func (fakeMigrationTargetFacade) Prechecks(params.MigrationModelInfoLegacy) error {
+	return nil
 }
 
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *tc.C) {

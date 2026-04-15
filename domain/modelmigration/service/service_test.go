@@ -13,6 +13,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -30,6 +31,20 @@ type serviceSuite struct {
 
 func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
+}
+
+func (s *serviceSuite) TestInitiateMigrationDryRun(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migrationID, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).InitiateMigration(c.Context(), migration.TargetInfo{}, "admin", true)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(migrationID, tc.Equals, "")
 }
 
 // TestAdoptResources is testing the happy path of adopting a models cloud
