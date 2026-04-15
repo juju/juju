@@ -1198,6 +1198,35 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeButPlanBlock
 	c.Check(lifeID, tc.Equals, 1)
 }
 
+func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeDeadPlanNotBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+	s.setVolumeAttachmentPlanLife(c, vapUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentAsDead(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment should be Dead.
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?",
+		vaUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too; the plan is already dead and
+	// does not block advancement.
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+}
+
 func (s *storageSuite) TestDeleteVolumeAttachment(c *tc.C) {
 	ctx := c.Context()
 
@@ -1305,6 +1334,35 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeButVolum
 	)
 	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeDeadAttachmentNotBlocking(c *tc.C) {
+	ctx := c.Context()
+
+	volUUID, vaUUID, vapUUID := s.addAttachedVolumeWithPlan(c)
+	s.setVolumeLife(c, volUUID, 1)
+	s.setVolumeAttachmentLife(c, vaUUID, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkVolumeAttachmentPlanAsDead(ctx, vapUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Volume Attachment plan should be Dead.
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?",
+		vapUUID,
+	)
+	var lifeID int
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+
+	// Volume should be Dead too; the attachment is already dead and
+	// does not block advancement.
+	row = s.DB().QueryRowContext(ctx,
+		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
+	)
+	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
