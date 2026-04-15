@@ -52,7 +52,7 @@ var facadeVersions = facades.FacadeVersions{
 	"CrossModelRelations":          {3},
 	"CrossModelSecrets":            {1, 2},
 	"Deployer":                     {1},
-	"DiskManager":                  {2},
+	"DiskManager":                  {2, 3},
 	"EntityWatcher":                {2},
 	"ExternalControllerUpdater":    {1},
 	"FilesystemAttachmentsWatcher": {2},
