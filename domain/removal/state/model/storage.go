@@ -1410,7 +1410,8 @@ SELECT COUNT(sfaB.uuid) AS &count.count
 FROM   storage_filesystem_attachment sfaA
 JOIN   storage_filesystem_attachment sfaB ON sfaB.storage_filesystem_uuid = sfaA.storage_filesystem_uuid
 WHERE  sfaA.uuid = $entityUUID.uuid AND
-       sfaB.uuid != $entityUUID.uuid
+       sfaB.uuid != $entityUUID.uuid AND
+       sfaB.life_id != 2
 `, fsaUUID, count{})
 	if err != nil {
 		return errors.Errorf(
