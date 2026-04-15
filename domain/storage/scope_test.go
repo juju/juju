@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storageprovisioning
+package storage
 
 import (
 	"testing"
@@ -28,7 +28,6 @@ func TestScopeSuite(t *testing.T) {
 // schema and a new enum needs to be created or a value has been modified or
 // removed that will result in a breaking change.
 func (s *scopeSuite) TestProvisionScopeValuesAligned(c *tc.C) {
-
 	rows, err := s.DB().QueryContext(
 		c.Context(),
 		"SELECT id, scope FROM storage_provision_scope",

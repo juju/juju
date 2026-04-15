@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -148,7 +148,7 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 func (s *baseSuite) addIAASApplicationArgForStorage(c *tc.C,
 	name string,
 	charmStorage []charm.Storage,
-	directives []internal.CreateApplicationStorageDirectiveArg,
+	directives []domainstorage.DirectiveArg,
 ) application.AddIAASApplicationArg {
 	platform := deployment.Platform{
 		Channel:      "666",

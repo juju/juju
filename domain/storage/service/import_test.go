@@ -21,7 +21,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -371,20 +370,20 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		SizeInMiB:           2048,
 		ProviderID:          "provider-test-2/1",
 		StorageInstanceUUID: "storageinstance-uuid-2",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}, {
 		ID:                  "test-1/0",
 		Life:                life.Alive,
 		SizeInMiB:           1024,
 		ProviderID:          "provider-test-1/0",
 		StorageInstanceUUID: "storageinstance-uuid-1",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}, {
 		ID:         "test-3/2",
 		Life:       life.Alive,
 		SizeInMiB:  4096,
 		ProviderID: "provider-test-3/2",
-		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:      domainstorage.ProvisionScopeMachine,
 	}}
 
 	mc := tc.NewMultiChecker()
@@ -466,34 +465,34 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		SizeInMiB:           1024,
 		ProviderID:          "provider-test-1/0",
 		StorageInstanceUUID: "storageinstance-uuid-1",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}, {
 		ID:                  "test-2/1",
 		Life:                life.Alive,
 		SizeInMiB:           2048,
 		ProviderID:          "provider-test-2/1",
 		StorageInstanceUUID: "storageinstance-uuid-2",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}}
 	expectedAttachments := []internal.ImportFilesystemAttachmentArgs{{
 		MountPoint:  "/mnt/test1-0",
 		ReadOnly:    false,
 		NetNodeUUID: "netnode-uuid-unit-0",
 		Life:        life.Alive,
-		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:       domainstorage.ProvisionScopeMachine,
 	}, {
 		MountPoint:  "/mnt/test1-0-ro",
 		ReadOnly:    true,
 		NetNodeUUID: "netnode-uuid-unit-1",
 		Life:        life.Alive,
-		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:       domainstorage.ProvisionScopeMachine,
 	}, {
 		MountPoint:  "/mnt/test2-1",
 		ReadOnly:    false,
 		NetNodeUUID: "netnode-uuid-0",
 		ProviderID:  "provider-id",
 		Life:        life.Alive,
-		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:       domainstorage.ProvisionScopeMachine,
 	}}
 
 	mc := tc.NewMultiChecker()
@@ -828,14 +827,14 @@ func (s *importSuite) TestImportFilesystemsCAAS(c *tc.C) {
 		SizeInMiB:           1024,
 		ProviderID:          "pvc-753fff9e-6d0d-4d2c-b1e5-e2b3c02284f9",
 		StorageInstanceUUID: "storageinstance-uuid-1",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}, {
 		ID:                  "test-2/1",
 		Life:                life.Alive,
 		SizeInMiB:           2048,
 		ProviderID:          "pvc-deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
 		StorageInstanceUUID: "storageinstance-uuid-2",
-		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:               domainstorage.ProvisionScopeMachine,
 	}}
 	expectedAttachments := []internal.ImportFilesystemAttachmentArgs{{
 		MountPoint:  "/mnt/test1-0",
@@ -843,14 +842,14 @@ func (s *importSuite) TestImportFilesystemsCAAS(c *tc.C) {
 		NetNodeUUID: "netnode-uuid-unit-0",
 		ProviderID:  "postgresql-k8s-pgdata-a6c8f4e1-postgresql-k8s-0",
 		Life:        life.Alive,
-		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:       domainstorage.ProvisionScopeMachine,
 	}, {
 		MountPoint:  "/mnt/test2-1",
 		ReadOnly:    false,
 		NetNodeUUID: "netnode-uuid-unit-1",
 		ProviderID:  "mysql-k8s-data-a6c8f4e1-mysql-k8s-0",
 		Life:        life.Alive,
-		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+		Scope:       domainstorage.ProvisionScopeMachine,
 	}}
 
 	mc := tc.NewMultiChecker()
@@ -1059,7 +1058,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 			LifeID:              life.Alive,
 			Provisioned:         true,
 			Persistent:          true,
-			ProvisionScopeID:    domainstorageprovisioning.ProvisionScopeModel,
+			ProvisionScopeID:    domainstorage.ProvisionScopeModel,
 			StorageInstanceUUID: storageInstanceUUIDOne,
 			SizeMiB:             4048,
 			ProviderID:          "vol-0f2829d7e5c4c0140",
@@ -1079,7 +1078,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 					},
 					LifeID:           life.Alive,
 					NetNodeUUID:      netNodeUUIDOne,
-					ProvisionScopeID: domainstorageprovisioning.ProvisionScopeModel,
+					ProvisionScopeID: domainstorage.ProvisionScopeModel,
 				},
 			},
 		}, {
@@ -1088,7 +1087,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 			LifeID:              life.Alive,
 			Persistent:          true,
 			Provisioned:         true,
-			ProvisionScopeID:    domainstorageprovisioning.ProvisionScopeModel,
+			ProvisionScopeID:    domainstorage.ProvisionScopeModel,
 			StorageInstanceUUID: storageInstanceUUIDTwo,
 			SizeMiB:             4048,
 			HardwareID:          "hardware",
@@ -1106,7 +1105,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 					DeviceTypeID:     new(domainstorage.VolumeDeviceTypeISCSI),
 					LifeID:           life.Alive,
 					NetNodeUUID:      netNodeUUIDTwo,
-					ProvisionScopeID: domainstorageprovisioning.ProvisionScopeModel,
+					ProvisionScopeID: domainstorage.ProvisionScopeModel,
 				},
 			},
 		},

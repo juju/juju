@@ -348,8 +348,8 @@ func (s *StorageImportService) importFilesystems(ctx context.Context, params []d
 // pool based on the provided storage kind.
 func (s *StorageImportService) retrieveProviderScopesForPools(
 	ctx context.Context, kind domainstorage.StorageKind, poolNames []string,
-) (map[string]domainstorageprovisioning.ProvisionScope, error) {
-	providerScopes := make(map[string]domainstorageprovisioning.ProvisionScope)
+) (map[string]domainstorage.ProvisionScope, error) {
+	providerScopes := make(map[string]domainstorage.ProvisionScope)
 
 	providerMap, err := s.st.GetStoragePoolProvidersByNames(ctx, poolNames)
 	if err != nil {

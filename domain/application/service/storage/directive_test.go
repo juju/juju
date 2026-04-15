@@ -60,13 +60,13 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 		CharmMetaStorage  map[string]internalcharm.Storage
 		Overrides         map[string]StorageDirectiveOverride
 
-		Expected []internal.CreateApplicationStorageDirectiveArg
+		Expected []domainstorage.DirectiveArg
 	}{
 		{
 			Name:             "no overrides, no charm meta storage, no default provisioners",
 			CharmMetaStorage: map[string]internalcharm.Storage{},
 			Overrides:        map[string]StorageDirectiveOverride{},
-			Expected:         []internal.CreateApplicationStorageDirectiveArg{},
+			Expected:         []domainstorage.DirectiveArg{},
 		},
 		{
 			// Check to see that the correct provisioner is chosen (filesystem)
@@ -82,7 +82,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				},
 			},
 			ModelStoragePools: modelStoragePools,
-			Expected: []internal.CreateApplicationStorageDirectiveArg{
+			Expected: []domainstorage.DirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -108,7 +108,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				BlockDevicePoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 
-			Expected: []internal.CreateApplicationStorageDirectiveArg{
+			Expected: []domainstorage.DirectiveArg{
 				{
 					Count: 2,
 					Name:  domainstorage.Name("foo"),
@@ -134,7 +134,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 				BlockDevicePoolUUID: modelStoragePools.BlockDevicePoolUUID,
 			},
 
-			Expected: []internal.CreateApplicationStorageDirectiveArg{
+			Expected: []domainstorage.DirectiveArg{
 				{
 					Count:    2,
 					Name:     domainstorage.Name("foo"),
@@ -158,7 +158,7 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 			},
 			ModelStoragePools: internal.ModelStoragePools{},
 
-			Expected: []internal.CreateApplicationStorageDirectiveArg{
+			Expected: []domainstorage.DirectiveArg{
 				{
 					Count: 2,
 					Name:  domainstorage.Name("foo"),
@@ -305,7 +305,7 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 
 	poolUUID1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	poolUUID2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
-	createArgs := []internal.CreateApplicationStorageDirectiveArg{
+	createArgs := []domainstorage.DirectiveArg{
 		{
 			Count:    3,
 			Name:     domainstorage.Name("data1"),
@@ -382,7 +382,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoChang
 	c.Assert(toCreate, tc.HasLen, 0)
 
 	// There should be an update to refresh the charmID even no directive value has changed.
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:  "data",
 			Size:  1024,
@@ -424,7 +424,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreas
 
 	c.Assert(err, tc.IsNil)
 	c.Assert(toCreate, tc.HasLen, 0)
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:  "data",
 			Size:  2048,
@@ -469,7 +469,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoSizeC
 	c.Assert(toCreate, tc.HasLen, 0)
 
 	// There should be an update to refresh the charmID even no directive value has changed.
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:  "data",
 			Size:  4096,
@@ -511,7 +511,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreas
 
 	c.Assert(err, tc.IsNil)
 	c.Assert(toCreate, tc.HasLen, 0)
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:  "data",
 			Size:  1024,
@@ -553,7 +553,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageDecreas
 
 	c.Assert(err, tc.IsNil)
 	c.Assert(toCreate, tc.HasLen, 0)
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:  "data",
 			Size:  1024,
@@ -600,7 +600,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageAddNewS
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toCreate, tc.SameContents, []internal.CreateApplicationStorageDirectiveArg{
+	c.Assert(toCreate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:     domainstorage.Name("logs"),
 			Count:    2,
@@ -654,7 +654,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageComplex
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toCreate, tc.SameContents, []internal.CreateApplicationStorageDirectiveArg{
+	c.Assert(toCreate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:     domainstorage.Name("logs"),
 			Count:    1,
@@ -662,7 +662,7 @@ func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageComplex
 			PoolUUID: *modelStoragePools.FilesystemPoolUUID,
 		},
 	})
-	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+	c.Assert(toUpdate, tc.SameContents, []domainstorage.DirectiveArg{
 		{
 			Name:     "data",
 			Count:    2,

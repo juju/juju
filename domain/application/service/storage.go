@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // StorageDirectiveOverrides represents override instructions for application
@@ -57,7 +58,7 @@ type StorageService interface {
 		unitUUID coreunit.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
-	) (internal.RegisterUnitStorageArg, error)
+	) (domainstorage.RegisterUnitStorageArg, error)
 
 	// MakeRegisterNewCAASUnitStorageArg is responsible for constructing the storage
 	// arguments for registering a new caas unit in the model.
@@ -70,10 +71,10 @@ type StorageService interface {
 		appUUID coreapplication.UUID,
 		attachmentNetNodeUUID domainnetwork.NetNodeUUID,
 		providerFilesystemInfo []caas.FilesystemInfo,
-	) (internal.RegisterUnitStorageArg, error)
+	) (domainstorage.RegisterUnitStorageArg, error)
 
 	// MakeApplicationStorageDirectiveArgs creates a slice of
-	// [application.CreateApplicationStorageDirectiveArg] from a set of overrides
+	// [domainstorage.DirectiveArg] from a set of overrides
 	// and the charm storage information. The resultant directives are a merging of
 	// all the data sources to form an approximation of what the storage directives
 	// for an application should be.
@@ -83,7 +84,7 @@ type StorageService interface {
 		ctx context.Context,
 		directiveOverrides map[string]storage.StorageDirectiveOverride,
 		charmMetaStorage map[string]internalcharm.Storage,
-	) ([]internal.CreateApplicationStorageDirectiveArg, error)
+	) ([]domainstorage.DirectiveArg, error)
 
 	// MakeUnitStorageArgs creates the storage arguments required for a unit in
 	// the model. This func looks at the set of directives for the unit and the
@@ -108,14 +109,15 @@ type StorageService interface {
 		storageDirectives []internal.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
 		existingStorageAttachments []internal.StorageAttachmentComposition,
-	) (internal.CreateUnitStorageArg, error)
+	) (domainstorage.CreateUnitStorageArg, error)
 
-	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
+	// MakeIAASUnitStorageArgs returns [domainstorage.CreateIAASUnitStorageArg]
+	// that
 	// complement the unit storage arguments provided for IAAS units.
 	MakeIAASUnitStorageArgs(
 		ctx context.Context,
-		storageInst []internal.CreateUnitStorageInstanceArg,
-	) (internal.CreateIAASUnitStorageArg, error)
+		storageInst []domainstorage.CreateUnitStorageInstanceArg,
+	) (domainstorage.CreateIAASUnitStorageArg, error)
 
 	// MakeUnitAddStorageArgs creates the storage arguments required to
 	// add storage to a unit. This is similar to [MakeUnitStorageArgs]
@@ -127,7 +129,7 @@ type StorageService interface {
 		unitUUID coreunit.UUID,
 		addCount uint32,
 		storageDirectives internal.StorageDirective,
-	) (internal.UnitAddStorageArg, error)
+	) (domainstorage.UnitAddStorageArg, error)
 
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
 	// directive overrides to make sure they are valid with respect to the charms
@@ -168,8 +170,8 @@ type StorageService interface {
 		existingStorageDirectives []internal.StorageDirective,
 		newCharmStorages map[string]internalcharm.Storage,
 	) (
-		toCreate []internal.CreateApplicationStorageDirectiveArg,
-		toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+		toCreate []domainstorage.DirectiveArg,
+		toUpdate []domainstorage.DirectiveArg,
 		err error,
 	)
 }

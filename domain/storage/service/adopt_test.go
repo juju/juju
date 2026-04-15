@@ -222,7 +222,7 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 		FilesystemSize:           1024,
 		FilesystemProviderID:     providerID,
 		RequestedSizeMiB:         1024,
-		FilesystemProvisionScope: domainstorageprovisioning.ProvisionScopeModel,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeModel,
 		FilesystemStatusID:       5,
 		FilesystemStatusMessage:  "filesystem imported",
 	}
@@ -298,14 +298,14 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 		StoragePoolUUID:          poolUUID,
 		FilesystemSize:           2048,
 		RequestedSizeMiB:         2048,
-		FilesystemProvisionScope: domainstorageprovisioning.ProvisionScopeMachine,
+		FilesystemProvisionScope: domainstorage.ProvisionScopeMachine,
 		FilesystemStatusID:       5,
 		FilesystemStatusMessage:  "filesystem imported",
 	}
 	args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
 		CreateStorageInstanceWithExistingFilesystem: fsArgs,
 
-		VolumeProvisionScope: domainstorageprovisioning.ProvisionScopeModel,
+		VolumeProvisionScope: domainstorage.ProvisionScopeModel,
 		VolumeProviderID:     providerID,
 		VolumeSize:           2048,
 		VolumeHardwareID:     "hw-id",
