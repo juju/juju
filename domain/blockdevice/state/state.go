@@ -21,15 +21,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-const (
-	// provenanceProvider indicates a block device discovered by the
-	// storage provider.
-	provenanceProvider = 0
-	// provenanceMachine indicates a block device reported by the
-	// machine agent.
-	provenanceMachine = 1
-)
-
 // State represents database interactions dealing with block devices.
 type State struct {
 	*domain.StateBase
@@ -109,6 +100,7 @@ WHERE  block_device_uuid = $entityUUID.uuid
 		InUse:           blockDevice.InUse,
 		MountPoint:      blockDevice.MountPoint,
 		SerialId:        blockDevice.SerialId,
+		Provenance:      coreblockdevice.Provenance(blockDevice.Provenance),
 	}
 	for _, v := range devLinks {
 		retVal.DeviceLinks = append(retVal.DeviceLinks, v.Name)
@@ -205,6 +197,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 			InUse:           bd.InUse,
 			MountPoint:      bd.MountPoint,
 			SerialId:        bd.SerialId,
+			Provenance:      coreblockdevice.Provenance(bd.Provenance),
 		}
 	}
 	for _, dl := range devLinks {
@@ -341,7 +334,7 @@ func (st *State) UpdateBlockDevicesForMachine(
 
 		if len(added) > 0 {
 			err = st.insertBlockDevices(
-				ctx, tx, machineUUID, provenanceMachine, added,
+				ctx, tx, machineUUID, added,
 			)
 			if err != nil {
 				return errors.Errorf("adding new block devices: %w", err)
@@ -502,7 +495,7 @@ WHERE  uuid = $blockDevice.uuid
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
 			MountPoint:         bd.MountPoint,
-			Provenance:         provenanceMachine,
+			Provenance:         int(bd.Provenance),
 		}
 		if bd.DeviceName != "" {
 			val.Name = sql.Null[string]{
@@ -519,9 +512,12 @@ WHERE  uuid = $blockDevice.uuid
 	return nil
 }
 
-// CreateProviderBlockDevice inserts a new block device with provider
-// provenance (0) into the database.
-func (st *State) CreateProviderBlockDevice(
+// CreateBlockDevice inserts a new block device.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] when the machine is not found.
+// - [machineerrors.MachineIsDead] when the machine is dead.
+func (st *State) CreateBlockDevice(
 	ctx context.Context,
 	machineUUID machine.UUID,
 	uuid blockdevice.BlockDeviceUUID,
@@ -539,15 +535,13 @@ func (st *State) CreateProviderBlockDevice(
 		if err != nil {
 			return errors.Capture(err)
 		}
-		return st.insertBlockDevices(
-			ctx, tx, machineUUID, provenanceProvider, devices,
-		)
+		return st.insertBlockDevices(ctx, tx, machineUUID, devices)
 	})
 }
 
 func (st *State) insertBlockDevices(
 	ctx context.Context, tx *sqlair.TX,
-	machineUUID machine.UUID, provenance int,
+	machineUUID machine.UUID,
 	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
 	insertQuery := `
@@ -583,7 +577,7 @@ VALUES ($deviceLink.*)
 			SizeMiB:            bd.SizeMiB,
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
-			Provenance:         provenance,
+			Provenance:         int(bd.Provenance),
 		}
 		if bd.DeviceName != "" {
 			inputBlockDevice.Name = sql.Null[string]{
@@ -709,6 +703,7 @@ FROM   machine
 			InUse:           bd.InUse,
 			MountPoint:      bd.MountPoint,
 			SerialId:        bd.SerialId,
+			Provenance:      coreblockdevice.Provenance(bd.Provenance),
 		})
 	}
 

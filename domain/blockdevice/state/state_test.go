@@ -66,11 +66,12 @@ func (s *stateSuite) insertBlockDevice(
 INSERT INTO block_device (
 	uuid, machine_uuid, name, filesystem_label,
 	host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id,
-	mount_point, filesystem_type, size_mib, in_use)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	mount_point, filesystem_type, size_mib, in_use, provenance)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, blockDeviceUUID, machineUUID, bd.DeviceName, bd.FilesystemLabel,
 		bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId,
-		bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse)
+		bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse,
+		int(bd.Provenance))
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {
@@ -464,4 +465,117 @@ func (s *stateSuite) TestGetMachineUUIDByNameDead(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
+
+func (s *stateSuite) TestCreateBlockDevice(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := s.createMachine(c, "666")
+	bd := coreblockdevice.BlockDevice{
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
+	}
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	err := st.CreateBlockDevice(c.Context(), machineUUID, devUUID, bd)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := st.GetBlockDevice(c.Context(), devUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, bd)
+}
+
+func (s *stateSuite) TestCreateBlockDeviceWithLinks(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := s.createMachine(c, "666")
+	bd := coreblockdevice.BlockDevice{
+		DeviceName:  "name-666",
+		DeviceLinks: []string{"dev_link1", "dev_link2"},
+		SizeMiB:     666,
+	}
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	err := st.CreateBlockDevice(c.Context(), machineUUID, devUUID, bd)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := st.GetBlockDevice(c.Context(), devUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, bd)
+}
+
+func (s *stateSuite) TestCreateBlockDevicePreservesProvenance(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := s.createMachine(c, "666")
+	bd := coreblockdevice.BlockDevice{
+		DeviceName: "name-666",
+		SizeMiB:    666,
+		Provenance: coreblockdevice.MachineProvenance,
+	}
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	err := st.CreateBlockDevice(c.Context(), machineUUID, devUUID, bd)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := st.GetBlockDevice(c.Context(), devUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Provenance, tc.Equals, coreblockdevice.MachineProvenance)
+}
+
+func (s *stateSuite) TestCreateBlockDeviceDeadMachine(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := s.createMachineWithLife(c, "666", life.Dead)
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	err := st.CreateBlockDevice(
+		c.Context(), machineUUID, devUUID,
+		coreblockdevice.BlockDevice{DeviceName: "name-666"},
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
+
+func (s *stateSuite) TestCreateBlockDeviceMachineNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := tc.Must(c, machine.NewUUID)
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	err := st.CreateBlockDevice(
+		c.Context(), machineUUID, devUUID,
+		coreblockdevice.BlockDevice{DeviceName: "name-666"},
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestUpdateBlockDevicesUpdatesProvenance(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID := s.createMachine(c, "666")
+	bd := coreblockdevice.BlockDevice{
+		DeviceName: "name-666",
+		SizeMiB:    666,
+		Provenance: coreblockdevice.ProviderProvenance,
+	}
+	devUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	s.insertBlockDevice(c, bd, devUUID, machineUUID)
+
+	bd.Provenance = coreblockdevice.MachineProvenance
+	err := st.UpdateBlockDevicesForMachine(
+		c.Context(), machineUUID,
+		nil,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			devUUID: bd,
+		},
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := st.GetBlockDevice(c.Context(), devUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Provenance, tc.Equals, coreblockdevice.MachineProvenance)
 }
