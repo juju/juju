@@ -65,6 +65,7 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 		Base:                "ubuntu@24.04",
 		ContainerType:       "lxd",
 		SupportedContainers: &[]string{"lxd"},
+		Hostname:            "host-name-123",
 	})
 	m0.SetAddresses([]description.AddressArgs{{
 		Value:   "192.168.0.1",

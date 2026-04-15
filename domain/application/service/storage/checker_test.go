@@ -6,7 +6,7 @@ package storage
 import (
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/application/internal"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // createUnitStorageArgChecker returns a new [tc.MultiChecker] capable of
@@ -26,14 +26,14 @@ func createUnitStorageArgChecker() *tc.MultiChecker {
 	mc.AddExpr("_.StorageDirectives", tc.SameContents, tc.ExpectedValue)
 	mc.AddExpr(
 		"_.StorageInstances",
-		tc.UnorderedMatch[[]internal.CreateUnitStorageInstanceArg](
+		tc.UnorderedMatch[[]domainstorage.CreateUnitStorageInstanceArg](
 			expectedStorageInstanceChecker,
 		),
 		tc.ExpectedValue,
 	)
 	mc.AddExpr(
 		"_.StorageToAttach",
-		tc.UnorderedMatch[[]internal.CreateUnitStorageAttachmentArg](
+		tc.UnorderedMatch[[]domainstorage.CreateUnitStorageAttachmentArg](
 			expectedStorageAttachmentChecker,
 		),
 		tc.ExpectedValue,

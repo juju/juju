@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // ImportStorageInstanceArgs represents data to import a storage instance
@@ -42,7 +41,7 @@ type ImportFilesystemArgs struct {
 	SizeInMiB           uint64
 	ProviderID          string
 	StorageInstanceUUID string
-	Scope               storageprovisioning.ProvisionScope
+	Scope               domainstorage.ProvisionScope
 }
 
 // ImportFilesystemAttachmentArgs represents data to import filesystem attachments.
@@ -50,7 +49,7 @@ type ImportFilesystemAttachmentArgs struct {
 	UUID           string
 	FilesystemUUID string
 	NetNodeUUID    string
-	Scope          storageprovisioning.ProvisionScope
+	Scope          domainstorage.ProvisionScope
 	Life           life.Life
 	MountPoint     string
 	ProviderID     string
@@ -66,7 +65,7 @@ type ImportVolumeArgs struct {
 	StorageInstanceID   string
 	StorageInstanceUUID domainstorage.StorageInstanceUUID
 	Provisioned         bool
-	ProvisionScopeID    storageprovisioning.ProvisionScope
+	ProvisionScopeID    domainstorage.ProvisionScope
 	SizeMiB             uint64
 	HardwareID          string
 	WWN                 string
@@ -95,7 +94,7 @@ type ImportVolumeAttachmentPlanArgs struct {
 	DeviceTypeID     *domainstorage.VolumeDeviceType
 	LifeID           life.Life
 	NetNodeUUID      network.NetNodeUUID
-	ProvisionScopeID storageprovisioning.ProvisionScope
+	ProvisionScopeID domainstorage.ProvisionScope
 }
 
 // BlockDevice adds the UUID to a core BlockDevice.

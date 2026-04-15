@@ -19,13 +19,16 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
@@ -38,6 +41,9 @@ const (
 	// This user CANNOT be a local user (it must have a domain), otherwise the
 	// model addUser code will complain about the user not existing.
 	userCreator = "juju-metrics"
+
+	// maxPayloadBytes is the maximum size of any payload.
+	maxPayloadBytes = 1 << 20 // 1MiB
 )
 
 // AccessService is the interface for the access service.
@@ -92,10 +98,18 @@ type PermissionService interface {
 	AddUserPermission(ctx context.Context, username user.Name, access permission.Access) error
 }
 
+// TracingService is the interface for the tracing service.
+type TracingService interface {
+	// SetCharmTracingConfig sets the charm tracing configuration to the provided values.
+	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
+}
+
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// AccessService is the user access service for the model.
 	AccessService AccessService
+	// TracingService is the tracing service for the model.
+	TracingService TracingService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -109,19 +123,19 @@ type Config struct {
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
 	if config.AccessService == nil {
-		return errors.NotValidf("nil AccessService")
+		return internalerrors.New("nil AccessService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
-		return errors.NotValidf("empty ControllerModelUUID")
+		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
 	}
 	if config.SocketName == "" {
-		return errors.NotValidf("empty SocketName")
+		return internalerrors.New("empty SocketName").Add(coreerrors.NotValid)
 	}
 	if config.NewSocketListener == nil {
-		return errors.NotValidf("nil NewSocketListener func")
+		return internalerrors.New("nil NewSocketListener func").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
-		return errors.NotValidf("nil Logger")
+		return internalerrors.New("nil Logger").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -130,30 +144,35 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService AccessService
-	logger        logger.Logger
+	accessService  AccessService
+	tracingService TracingService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
+
+	logger logger.Logger
 }
 
 // NewWorker returns a controlsocket worker with the given config.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	userCreatorName, err := user.NewName(userCreator)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Errorf("invalid user creator name %q: %w", userCreator, err)
 	}
 
 	w := &Worker{
 		accessService:       config.AccessService,
-		logger:              config.Logger,
+		tracingService:      config.TracingService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
+
+		logger: config.Logger,
 	}
+
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
 		SocketName:       config.SocketName,
@@ -161,7 +180,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ShutdownTimeout:  500 * time.Millisecond,
 	})
 	if err != nil {
-		return nil, errors.Annotate(err, "control socket listener:")
+		return nil, internalerrors.Errorf("control socket listener: %w", err)
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -171,31 +190,64 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Init: []worker.Worker{sl},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return w, nil
 }
 
+// Kill stops the worker.
 func (w *Worker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait waits for the worker to stop and returns any error that caused it to
+// stop.
 func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
 func (w *Worker) loop() error {
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 func (w *Worker) registerHandlers(r *mux.Router) {
-	r.HandleFunc("/metrics-users", w.handleAddMetricsUser).
+	// metrics-users endpoint for managing users that can access metrics. This
+	// is a POST endpoint that accepts a JSON body with the following format:
+	//
+	// {
+	//   "username": <string>,
+	//   "password": <string>,
+	// }
+	//
+	// The username must have the prefix "juju-metrics-", and the worker will
+	// create a user with read access to the controller model. If a user with
+	// the given name already exists, it will be reused if it has the expected
+	// permissions and was created by this worker, and otherwise an error will
+	// be returned.
+	//
+	// A user created by this endpoint can be removed by sending a DELETE
+	// request to the /metrics-users/{username} endpoint.
+	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
 		Methods(http.MethodPost)
 	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
 		Methods(http.MethodDelete)
+
+	// charm-tracing-config endpoint for managing charm tracing configuration.
+	// This is a POST endpoint that accepts a JSON body with the following
+	// format:
+	//
+	// {
+	//   "http_endpoint": <string>,
+	//   "grpc_endpoint": <string>,
+	//   "ca_cert": <string>,
+	// }
+	//
+	// The worker will update the charm tracing configuration with the provided
+	// values. Any field that are omitted or empty will be removed from the
+	// charm tracing configuration.
+	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+		Methods(http.MethodPost)
 }
 
 type addMetricsUserBody struct {
@@ -204,24 +256,32 @@ type addMetricsUserBody struct {
 }
 
 func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	var parsedBody addMetricsUserBody
-	defer req.Body.Close()
-	err := json.NewDecoder(req.Body).Decode(&parsedBody)
-	if errors.Is(err, io.EOF) {
-		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("missing request body"))
-		return
-	} else if err != nil {
-		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %v", err))
+		}
 		return
 	}
 
-	code, err := w.addMetricsUser(req.Context(), parsedBody.Username, auth.NewPassword(parsedBody.Password))
+	code, err := w.addMetricsUser(ctx, parsedBody.Username, auth.NewPassword(parsedBody.Password))
 	if err != nil {
-		w.writeResponse(req.Context(), resp, code, errorf("%v", err))
+		w.writeErrorResponse(ctx, resp, code, err)
 		return
 	}
 
-	w.writeResponse(req.Context(), resp, code, infof("created user %q", parsedBody.Username))
+	w.writeResponse(ctx, resp, code, infof("created user %q", parsedBody.Username))
 }
 
 func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
@@ -232,7 +292,8 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 
 	creatorUser, err := w.accessService.GetUserByName(ctx, w.userCreatorName)
 	if err != nil {
-		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
+		return http.StatusInternalServerError,
+			internalerrors.Errorf("retrieving creator user %q: %w", userCreator, err)
 	}
 
 	controllerModelID := permission.ID{
@@ -250,7 +311,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 			Access: permission.ReadAccess,
 		},
 	})
-	if errors.Is(err, usererrors.UserAlreadyExists) {
+	if internalerrors.Is(err, usererrors.UserAlreadyExists) {
 		// Retrieve existing user
 		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
@@ -263,10 +324,12 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		// So ensure the user is identical to what we would have created, and
 		// otherwise error.
 		if user.Disabled {
-			return http.StatusForbidden, errors.Forbiddenf("user %q is disabled", user.Name)
+			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
+				Add(coreerrors.Forbidden)
 		}
 		if user.CreatorName != w.userCreatorName {
-			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name, user.CreatorName)
+			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
+				Add(coreerrors.AlreadyExists)
 		}
 
 		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
@@ -280,7 +343,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 			)
 		}
 	} else if err != nil {
-		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
+		return http.StatusInternalServerError, internalerrors.Errorf("creating user %q: %w", username, err)
 	}
 	return http.StatusOK, nil
 }
@@ -304,14 +367,15 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 
 	// We shouldn't mess with users that weren't created by us.
 	user, err := w.accessService.GetUserByName(ctx, validatedName)
-	if errors.Is(err, usererrors.UserNotFound) {
+	if internalerrors.Is(err, usererrors.UserNotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
 	} else if err != nil {
 		return http.StatusInternalServerError, err
 	}
 	if user.CreatorName != w.userCreatorName {
-		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name, user.CreatorName)
+		return http.StatusForbidden, internalerrors.Errorf("cannot remove user %q created by %q", user.Name, user.CreatorName).
+			Add(coreerrors.Forbidden)
 	}
 
 	err = w.accessService.RemoveUser(ctx, validatedName)
@@ -323,25 +387,66 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 	return http.StatusOK, nil
 }
 
-func validateMetricsUsername(username string) (user.Name, error) {
-	if username == "" {
-		return user.Name{}, errors.BadRequestf("missing username")
+type setCharmTracingConfig struct {
+	HTTPEndpoint string `json:"http_endpoint"`
+	GRPCEndpoint string `json:"grpc_endpoint"`
+	CACert       string `json:"ca_cert"`
+}
+
+func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody setCharmTracingConfig
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %v", err))
+		}
+		return
 	}
 
-	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
-		return user.Name{}, errors.BadRequestf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix)
-	}
-
-	name, err := user.NewName(username)
+	err := w.tracingService.SetCharmTracingConfig(ctx, tracingservice.CharmTracingConfig{
+		HTTPEndpoint:  parsedBody.HTTPEndpoint,
+		GRPCEndpoint:  parsedBody.GRPCEndpoint,
+		CACertificate: parsedBody.CACert,
+	})
 	if err != nil {
-		return user.Name{}, errors.Wrap(err, errors.BadRequest)
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, err)
+		return
 	}
 
-	return name, nil
+	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
+}
+
+func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
+	errorWriter := errorResponseWriter(w.writeErrorResponse)
+
+	return closeRequestBodyMiddleware(
+		contentTypeMiddleware(
+			contentLengthMiddleware(
+				http.HandlerFunc(fn),
+				errorWriter,
+			),
+			errorWriter,
+		),
+	)
+}
+
+func (w *Worker) writeErrorResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, err error) {
+	w.logger.Errorf(ctx, "failed to handle request: %v", err)
+
+	w.writeResponse(ctx, resp, statusCode, errorf("%s", err.Error()))
 }
 
 func (w *Worker) writeResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, body any) {
-	w.logger.Debugf(ctx, "operation finished with HTTP status %v", statusCode)
 	resp.Header().Set("Content-Type", "application/json")
 
 	message, err := json.Marshal(body)
@@ -385,4 +490,22 @@ func errorf(format string, args ...any) any {
 	}{
 		Error: fmt.Sprintf(format, args...),
 	}
+}
+
+func validateMetricsUsername(username string) (user.Name, error) {
+	if username == "" {
+		return user.Name{}, internalerrors.Errorf("missing username").Add(coreerrors.BadRequest)
+	}
+
+	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
+		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).
+			Add(coreerrors.BadRequest)
+	}
+
+	name, err := user.NewName(username)
+	if err != nil {
+		return user.Name{}, errors.Wrap(err, errors.BadRequest)
+	}
+
+	return name, nil
 }

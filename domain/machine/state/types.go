@@ -24,6 +24,7 @@ type CreateMachineArgs struct {
 	MachineUUID string
 	NetNodeUUID string
 	Platform    deployment.Platform
+	Hostname    string
 	Nonce       *string
 
 	// InstanceID is the provider instance ID for the machine being created.
@@ -202,6 +203,7 @@ type insertMachine struct {
 	UUID        string           `db:"uuid"`
 	Nonce       sql.Null[string] `db:"nonce"`
 	LifeID      int64            `db:"life_id"`
+	Hostname    string           `db:"hostname"`
 }
 
 type machinePlatformUUID struct {

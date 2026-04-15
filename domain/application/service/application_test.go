@@ -1665,13 +1665,13 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameAdded(c 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		[]internal.CreateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "logs",
 			PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
 			Count:    1,
 			Size:     512,
 		}},
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    1,
@@ -1866,7 +1866,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmStorageSizeMinimumDecre
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    1,
@@ -1971,7 +1971,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMinimum
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    5,
@@ -2034,7 +2034,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    5,
@@ -2184,7 +2184,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    5,
@@ -2245,7 +2245,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    5,
@@ -2378,7 +2378,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSingletonWit
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: existingStorageDirectives[0].PoolUUID,
 			Count:    1,
@@ -2676,13 +2676,13 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesCh
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		[]internal.CreateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "logs",
 			PoolUUID: *modelStoragePools.FilesystemPoolUUID,
 			Count:    1,
 			Size:     512,
 		}},
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    2,
@@ -2760,7 +2760,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -2828,7 +2828,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    2,
@@ -2911,7 +2911,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    2,
@@ -2981,7 +2981,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3043,7 +3043,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3121,7 +3121,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3196,7 +3196,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3270,7 +3270,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3347,7 +3347,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,
@@ -3420,7 +3420,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
-		[]internal.UpdateApplicationStorageDirectiveArg{{
+		[]domainstorage.DirectiveArg{{
 			Name:     "data",
 			PoolUUID: *modelStoragePools.BlockDevicePoolUUID,
 			Count:    1,

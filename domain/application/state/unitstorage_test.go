@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -140,14 +139,14 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	expected := []internal.StorageInstanceComposition{
 		{
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				UUID:           fs1UUID,
 			},
 			UUID: st1UUID,
 		},
 		{
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				UUID:           fs2UUID,
 			},
 			UUID: st2UUID,
@@ -486,7 +485,7 @@ func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUIDNotSuppo
 
 func (u *unitStorageSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 	uuid := tc.Must(c, coreunit.NewUUID)
-	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
+	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", domainstorage.IAASUnitAddStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -499,7 +498,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnitNotAlive(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
+	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", domainstorage.IAASUnitAddStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -512,9 +511,9 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	si1UUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	fs2UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	si2UUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	unitStorageToCreate := []internal.CreateUnitStorageInstanceArg{
+	unitStorageToCreate := []domainstorage.CreateUnitStorageInstanceArg{
 		{
-			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+			Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
 				UUID: fs1UUID,
 			},
 			Name:            "st1",
@@ -524,7 +523,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			RequestSizeMiB:  1024,
 		},
 		{
-			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+			Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
 				UUID: fs2UUID,
 			},
 			Name:            "st2",
@@ -539,30 +538,30 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	fsa1UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	sa2UUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsa2UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	unitStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
 		{
 			UUID: sa1UUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fs1UUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+				ProvisionScope: domainstorage.ProvisionScopeMachine,
 				UUID:           fsa1UUID,
 			},
 			StorageInstanceUUID: si1UUID,
 		}, {
 			UUID: sa2UUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fs2UUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				UUID:           fsa2UUID,
 			},
 			StorageInstanceUUID: si2UUID,
 		},
 	}
 
-	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", internal.IAASUnitAddStorageArg{
-		UnitAddStorageArg: internal.UnitAddStorageArg{
+	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", domainstorage.IAASUnitAddStorageArg{
+		UnitAddStorageArg: domainstorage.UnitAddStorageArg{
 			StorageInstances: unitStorageToCreate,
 			StorageToAttach:  unitStorageToAttach,
 			StorageToOwn:     []domainstorage.StorageInstanceUUID{si1UUID, si2UUID},

@@ -166,6 +166,7 @@ func CreateMachineWithName(
 		UUID:        args.MachineUUID,
 		NetNodeUUID: args.NetNodeUUID,
 		Name:        machineName,
+		Hostname:    args.Hostname,
 		LifeID:      lifeID,
 	}
 	if args.Nonce != nil && *args.Nonce != "" {
@@ -173,7 +174,7 @@ func CreateMachineWithName(
 	}
 
 	insertMachineQuery := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id, nonce)
+INSERT INTO machine (uuid, net_node_uuid, name, hostname, life_id, nonce)
 VALUES ($insertMachine.*);
 `
 	insertMachineStmt, err := preparer.Prepare(insertMachineQuery, m)

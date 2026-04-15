@@ -75,6 +75,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Nonce:     "nonce",
 		Base:      base.MakeDefaultBase("ubuntu", "24.04").String(),
 		Placement: "0",
+		Hostname:  "host-name-123",
 	})
 	m0.SetConstraints(description.ConstraintsArgs{
 		CpuCores: 8,
@@ -84,6 +85,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("666"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -110,14 +112,16 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddMachine(description.MachineArgs{
-		Id:    "0",
-		Nonce: "nonce",
-		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Id:       "0",
+		Nonce:    "nonce",
+		Base:     base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname: "host-name-123",
 	})
 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -138,9 +142,10 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id:    "0",
-		Nonce: "nonce",
-		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Id:       "0",
+		Nonce:    "nonce",
+		Base:     base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname: "host-name-123",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -161,6 +166,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -200,9 +206,10 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id:    "0",
-		Nonce: "nonce",
-		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Id:       "0",
+		Nonce:    "nonce",
+		Base:     base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname: "host-name-123",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -223,6 +230,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -262,21 +270,24 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id:    "666",
-		Nonce: "nonce",
-		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Id:       "666",
+		Nonce:    "nonce",
+		Base:     base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname: "host-name-123",
 	})
 	machine0.AddContainer(description.MachineArgs{
 		Id:        "666/lxd/0",
 		Nonce:     "nonce",
 		Placement: "lxd:666",
 		Base:      base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname:  "host-name-container-456",
 	})
 	machine0.AddContainer(description.MachineArgs{
 		Id:        "666/lxd/1",
 		Nonce:     "nonce",
 		Placement: "lxd:666",
 		Base:      base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname:  "host-name-container-789",
 	})
 
 	expectedMachineUUID := tc.Must(c, machine.NewUUID)
@@ -284,6 +295,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("666"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -298,6 +310,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 		gomock.Any(),
 		machine.Name("666/lxd/0"),
 		expectedMachineUUID,
+		"host-name-container-456",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -316,6 +329,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 		gomock.Any(),
 		machine.Name("666/lxd/1"),
 		expectedMachineUUID,
+		"host-name-container-789",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -340,15 +354,17 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id:    "0",
-		Nonce: "nonce",
-		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Id:       "0",
+		Nonce:    "nonce",
+		Base:     base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname: "host-name-123",
 	})
 	container0 := machine0.AddContainer(description.MachineArgs{
 		Id:        "0/lxd/0",
 		Nonce:     "nonce",
 		Placement: "lxd:0",
 		Base:      base.MakeDefaultBase("ubuntu", "24.04").String(),
+		Hostname:  "host-name-container-456",
 	})
 
 	cloudInstanceArgs := description.CloudInstanceArgs{
@@ -373,6 +389,7 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
+		"host-name-123",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
@@ -406,6 +423,7 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 		gomock.Any(),
 		machine.Name("0/lxd/0"),
 		expectedMachineUUID,
+		"host-name-container-456",
 		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,

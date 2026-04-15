@@ -116,7 +116,7 @@ func (s *applicationStateSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C)
 		Type: "block",
 	}}
 
-	directives := []internal.CreateApplicationStorageDirectiveArg{
+	directives := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: ebsPoolUUID,
@@ -201,7 +201,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *tc.C) {
 		Name: "cache",
 		Type: "block",
 	}}
-	directives := []internal.CreateApplicationStorageDirectiveArg{
+	directives := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: ebsPoolUUID,
@@ -236,7 +236,7 @@ WHERE name=?`, "666").Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	var (
 		foundCharmStorage []charm.Storage
-		foundAppStorage   []internal.CreateApplicationStorageDirectiveArg
+		foundAppStorage   []domainstorage.DirectiveArg
 	)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -270,7 +270,7 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		}
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
-			stor := internal.CreateApplicationStorageDirectiveArg{}
+			stor := domainstorage.DirectiveArg{}
 			if err := rows.Scan(&stor.Name, &stor.PoolUUID, &stor.Size, &stor.Count); err != nil {
 				return errors.Capture(err)
 			}
@@ -305,7 +305,7 @@ func (s *applicationStateSuite) TestUpdateApplicationStorageDirectives(c *tc.C) 
 	}}
 
 	// Setup application with 2 storage directives.
-	directives := []internal.CreateApplicationStorageDirectiveArg{
+	directives := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: poolUUID1,
@@ -339,7 +339,7 @@ func (s *applicationStateSuite) TestUpdateApplicationStorageDirectives(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Update storage directives for the application.
-	overrides := []internal.UpdateApplicationStorageDirectiveArg{
+	overrides := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: poolUUID2,
@@ -411,7 +411,7 @@ func (s *applicationStateSuite) TestUpdateApplicationStorageDirectivesMissingSto
 	}}
 
 	// Setup application with 2 storage directives.
-	directives := []internal.CreateApplicationStorageDirectiveArg{
+	directives := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: poolUUID1,
@@ -446,7 +446,7 @@ func (s *applicationStateSuite) TestUpdateApplicationStorageDirectivesMissingSto
 
 	// Attempt to update 3 storage directives for the application, even though the application currently only has 2.
 	// This provides the situation where a storage directive is manually removed.
-	overrides := []internal.UpdateApplicationStorageDirectiveArg{
+	overrides := []domainstorage.DirectiveArg{
 		{
 			Name:     "database",
 			PoolUUID: poolUUID2,

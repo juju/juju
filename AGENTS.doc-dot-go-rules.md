@@ -81,6 +81,52 @@ Point readers to related packages (zoom-out) and sections below (zoom-in). Use g
 ### Additional Sections (Optional)
 Add sections only for package-level patterns. In doc.go files, use ASCII diagrams for state machines or workflows.
 
+### Provider Package doc.go (internal/provider/*)
+For provider packages, keep the same 3-paragraph opening, then add explicit
+provider sections that document package-wide behavior boundaries.
+
+Keep provider explanations concise:
+
+- Prefer short, factual statements over long narrative paragraphs.
+- Document behavior boundaries and invariants, not step-by-step walkthroughs.
+- Keep each bullet focused on one provider-wide concern.
+- Omit repeated context when a section heading already scopes the topic.
+- Do NOT document provider version numbers or model-config version details.
+  Version specifics belong on the types or upgrade steps that manage them,
+  not in the package-level doc.
+
+Use `internal/provider/oci/doc.go` as a concrete pattern:
+
+- Include registry and interface context in paragraph 3 (for example links to
+  `internal/provider/common`, `internal/provider`, and `environs`).
+- Add a section describing how the provider differs from other providers.
+  Keep these differences as observable, provider-wide facts.
+- Add focused sections for domain-wide behavior that spans multiple files,
+  such as configuration, networking, instances/images, storage, and
+  regions/availability zones.
+- In `# Configuration`, document provider-specific config as a bullet list of
+  keys with concise descriptions (for example `compartment-id: ...`). When
+  known, include REQUIRED/OPTIONAL, defaults, and key validation constraints.
+  Include an `Auth types supported:` line where applicable (as in
+  `internal/provider/openstack/doc.go`). Follow `internal/provider/oci/doc.go`
+  as the formatting pattern.
+- Add maintainer invariants for changes that can have broad provider impact.
+
+Recommended heading outline:
+
+```
+// # How the <provider> provider differs from other providers
+// # Configuration
+// # Networking
+// # Instances and images
+// # Storage
+// # Regions and Availability Zones
+// # Maintainer notes
+```
+
+When documenting provider networking, describe provider-owned resource creation
+when it is package-wide behavior (for example Juju creating a VCN in OCI).
+
 ## Writing Guidelines
 
 1. **Maintain the red thread**: Explicitly repeat the main topic (e.g., "agent configuration") rather than using pronouns like "it" or "this".

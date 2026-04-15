@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -54,7 +53,7 @@ type BaseAddApplicationArg struct {
 	PendingResources []resource.UUID
 	// StorageDirectives defines the list of storage directives to add to an
 	// application. The Name values must match the storage defined in the Charm.
-	StorageDirectives []internal.CreateApplicationStorageDirectiveArg
+	StorageDirectives []domainstorage.DirectiveArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]AddApplicationConfig
@@ -198,7 +197,7 @@ type AddCAASUnitArg struct {
 
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
-	internal.CreateUnitStorageArg
+	domainstorage.CreateUnitStorageArg
 	UnitStatusArg
 	Constraints constraints.Constraints
 	Placement   deployment.Placement
@@ -209,7 +208,7 @@ type AddUnitArg struct {
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
-	internal.CreateIAASUnitStorageArg
+	domainstorage.CreateIAASUnitStorageArg
 	AddUnitArg
 	Platform deployment.Platform
 
@@ -249,7 +248,7 @@ type RegisterCAASUnitArg struct {
 	// attaching existing storage to the unit. Described as well is the set of
 	// storage directives the unit should use if it is being created for the
 	// first time.
-	internal.RegisterUnitStorageArg
+	domainstorage.RegisterUnitStorageArg
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.
@@ -259,7 +258,7 @@ type UnitStatusArg struct {
 }
 
 type SubordinateUnitArg struct {
-	internal.CreateUnitStorageArg
+	domainstorage.CreateUnitStorageArg
 	UnitStatusArg
 	SubordinateAppID application.UUID
 	// NetNodeUUID describes the network node uuid for this subordinate unit.
@@ -272,7 +271,7 @@ type SubordinateUnitArg struct {
 
 type SubordinateIAASUnitArg struct {
 	SubordinateUnitArg
-	internal.CreateIAASUnitStorageArg
+	domainstorage.CreateIAASUnitStorageArg
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
@@ -495,11 +494,11 @@ type SetCharmStateParams struct {
 
 	// StorageDirectivesToCreate contains storage directives that need to be
 	// created based on the new charm's storage requirements.
-	StorageDirectivesToCreate []internal.CreateApplicationStorageDirectiveArg
+	StorageDirectivesToCreate []domainstorage.DirectiveArg
 
 	// StorageDirectivesToUpdate contains storage directives that need to be
 	// applied based on the new charm's storage requirements.
-	StorageDirectivesToUpdate []internal.UpdateApplicationStorageDirectiveArg
+	StorageDirectivesToUpdate []domainstorage.DirectiveArg
 }
 
 // ApplicationDetails contains details about an application.

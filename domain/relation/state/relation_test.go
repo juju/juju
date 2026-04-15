@@ -2766,6 +2766,10 @@ func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 		Life:         corelife.Alive,
 		UnitsSettings: []domainrelation.UnitSettings{
 			{
+				UnitID:   0,
+				Settings: map[string]string{},
+			},
+			{
 				UnitID:   3,
 				Settings: map[string]string{"foo": "bar"},
 			},
@@ -2782,6 +2786,7 @@ func (s *relationSuite) TestGetRelationUnitsChanges(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.AllUnits", tc.SameContents, []int{1, 0, 3})
 	mc.AddExpr("_.InScopeUnits", tc.SameContents, []int{0, 3})
+	mc.AddExpr("_.UnitsSettings", tc.SameContents, expected.UnitsSettings)
 	c.Assert(obtained, mc, expected)
 }
 
@@ -2792,6 +2797,35 @@ func (s *relationSuite) TestGetRelationUnitsChangesRelationNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetRelationUnitsChangesInScopeWithoutSettings(c *tc.C) {
+	// When a unit enters scope but has no relation unit settings
+	// rows (e.g. network addresses not yet available), it must still be
+	// returned in UnitsSettings with an empty settings map. This ensures
+	// consumers of the change always see in-scope units regardless of
+	// whether settings have been written.
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	appUUID := s.addApplication(c, charmUUID, "myapp")
+	appEndpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	unitUUID := s.addUnit(c, "myapp/0", appUUID, charmUUID)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, appEndpointUUID)
+	// Enter scope but do NOT add any relation_unit_setting rows.
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID)
+
+	// Act
+	obtained, err := s.state.GetRelationUnitsChanges(c.Context(),
+		relationUUID, appUUID)
+
+	// Assert: the unit must still be present in UnitsSettings with empty
+	// settings.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained.InScopeUnits, tc.SameContents, []int{0})
+	c.Assert(obtained.UnitsSettings, tc.HasLen, 1)
+	c.Check(obtained.UnitsSettings[0].UnitID, tc.Equals, 0)
+	c.Check(obtained.UnitsSettings[0].Settings, tc.HasLen, 0)
 }
 
 func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
@@ -2820,6 +2854,10 @@ func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
 			Life:         corelife.Alive,
 			UnitsSettings: []domainrelation.UnitSettings{
 				{
+					UnitID:   0,
+					Settings: map[string]string{},
+				},
+				{
 					UnitID:   3,
 					Settings: map[string]string{"foo": "bar"},
 				},
@@ -2839,6 +2877,7 @@ func (s *relationSuite) TestGetFullRelationUnitsChange(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.RelationUnitChange.AllUnits", tc.SameContents, []int{1, 0, 3})
 	mc.AddExpr("_.RelationUnitChange.InScopeUnits", tc.SameContents, []int{0, 3})
+	mc.AddExpr("_.RelationUnitChange.UnitsSettings", tc.SameContents, expected.RelationUnitChange.UnitsSettings)
 	mc.AddExpr("_.Macaroons", tc.Ignore)
 	c.Check(obtained, mc, expected)
 }

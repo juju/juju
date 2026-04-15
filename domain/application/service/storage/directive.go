@@ -84,7 +84,7 @@ func (s *Service) GetApplicationStorageDirectivesInfo(
 }
 
 // MakeApplicationStorageDirectiveArgs creates a slice of
-// [application.CreateApplicationStorageDirectiveArg] from a set of overrides
+// [domainstorage.DirectiveArg] from a set of overrides
 // and the charm storage information. The resultant directives are a merging of
 // all the data sources to form an approximation of what the storage directives
 // for an application should be.
@@ -94,7 +94,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 	ctx context.Context,
 	directiveOverrides map[string]StorageDirectiveOverride,
 	charmMetaStorage map[string]internalcharm.Storage,
-) ([]internal.CreateApplicationStorageDirectiveArg, error) {
+) ([]domainstorage.DirectiveArg, error) {
 	if len(charmMetaStorage) == 0 {
 		return nil, nil
 	}
@@ -106,7 +106,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 		)
 	}
 
-	rval := make([]internal.CreateApplicationStorageDirectiveArg, 0, len(charmMetaStorage))
+	rval := make([]domainstorage.DirectiveArg, 0, len(charmMetaStorage))
 	for charmStorageName, charmStorageDef := range charmMetaStorage {
 		// We don't support shared storage. If the charm has a shared storage
 		// definition we ignore it.
@@ -126,7 +126,7 @@ func (s *Service) MakeApplicationStorageDirectiveArgs(
 }
 
 // makeApplicationStorageDirectiveArg creates a
-// [application.ApplicationStorageDirectiveArgs] based on the overrides supplied
+// [domainstorage.DirectiveArg] based on the overrides supplied
 // by the caller, the information contained within the charm and the default
 // provisioners supplied.
 //
@@ -138,8 +138,8 @@ func makeApplicationStorageDirectiveArg(
 	directiveOverride StorageDirectiveOverride,
 	charmStorageDef internalcharm.Storage,
 	modelStoragePools internal.ModelStoragePools,
-) internal.CreateApplicationStorageDirectiveArg {
-	rval := internal.CreateApplicationStorageDirectiveArg{
+) domainstorage.DirectiveArg {
+	rval := domainstorage.DirectiveArg{
 		Name: name,
 	}
 
@@ -186,7 +186,7 @@ func makeApplicationStorageDirectiveArg(
 func MakeStorageDirectiveFromApplicationArg(
 	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,
-	applicationArgs []internal.CreateApplicationStorageDirectiveArg,
+	applicationArgs []domainstorage.DirectiveArg,
 ) []internal.StorageDirective {
 	rval := make([]internal.StorageDirective, 0, len(applicationArgs))
 	for _, arg := range applicationArgs {
@@ -326,8 +326,8 @@ func (s *Service) ReconcileStorageDirectivesAgainstCharmStorage(
 	existingStorageDirectives []internal.StorageDirective,
 	newCharmStorages map[string]internalcharm.Storage,
 ) (
-	toCreate []internal.CreateApplicationStorageDirectiveArg,
-	toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+	toCreate []domainstorage.DirectiveArg,
+	toUpdate []domainstorage.DirectiveArg,
 	err error,
 ) {
 	// To check later on which new storage should be created.
@@ -378,8 +378,8 @@ func (s *Service) ReconcileStorageDirectivesAgainstCharmStorage(
 func ReconcileStorageDirective(
 	existingStorageDirective internal.StorageDirective,
 	newCharmStorage internalcharm.Storage,
-) internal.UpdateApplicationStorageDirectiveArg {
-	arg := internal.UpdateApplicationStorageDirectiveArg{
+) domainstorage.DirectiveArg {
+	arg := domainstorage.DirectiveArg{
 		Name: existingStorageDirective.Name,
 	}
 
@@ -416,9 +416,9 @@ func createApplyApplicationStorageDirectiveArg(
 	storageName string,
 	charmStorage internalcharm.Storage,
 	modelStoragePools internal.ModelStoragePools,
-) internal.CreateApplicationStorageDirectiveArg {
+) domainstorage.DirectiveArg {
 
-	arg := internal.CreateApplicationStorageDirectiveArg{
+	arg := domainstorage.DirectiveArg{
 		Name: domainstorage.Name(storageName),
 	}
 	// Set count.
@@ -450,7 +450,7 @@ func createApplyApplicationStorageDirectiveArg(
 // directives are missing that are required by the charm.
 func ValidateApplicationStorageDirectives(
 	charmStorageDefs map[string]internalcharm.Storage,
-	directives []internal.CreateApplicationStorageDirectiveArg,
+	directives []domainstorage.DirectiveArg,
 ) error {
 	// seenDirectives acts as a sanity check to see if a directive by a name has
 	// been witnessed.
@@ -501,7 +501,7 @@ func ValidateApplicationStorageDirectives(
 // expectations of the charm storage definition.
 func validateApplicationStorageDirective(
 	charmStorageDef internalcharm.Storage,
-	directive internal.CreateApplicationStorageDirectiveArg,
+	directive domainstorage.DirectiveArg,
 ) error {
 	minCount := uint32(0)
 	if charmStorageDef.CountMin > 0 {

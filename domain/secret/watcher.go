@@ -57,12 +57,21 @@ func (w *secretWatcher[T]) scopedContext() (context.Context, context.CancelFunc)
 func (w *secretWatcher[T]) loop() error {
 	defer close(w.out)
 
+	// Secret watchers must always emit an initial event before any deltas.
+	// Send that empty initial state deterministically before reading from the
+	// source watcher, otherwise a buffered source event can win the select and
+	// be emitted first.
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case w.out <- nil:
+	}
+
 	var (
 		historyIDs set.Strings
 		changes    []T
 	)
-	// To allow the initial event to be sent.
-	out := w.out
+	var out chan []T
 	addChanges := func(events set.Strings) error {
 		if len(events) == 0 {
 			return nil

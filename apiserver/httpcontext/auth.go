@@ -32,8 +32,7 @@ type AuthHandler struct {
 	// the HTTP requests handled by this handler.
 	Authenticator authentication.HTTPAuthenticator
 
-	// Authorizer, if non-nil, will be called with the auth info
-	// returned by the Authenticator, to validate it for the route.
+	// Authorizer is mandatory for authentication.
 	Authorizer authentication.Authorizer
 }
 
@@ -58,19 +57,16 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if h.Authorizer != nil {
-		if err := h.Authorizer.Authorize(req.Context(), authInfo); err != nil {
-			http.Error(w,
-				fmt.Sprintf("authorization failed: %s", err),
-				http.StatusForbidden,
-			)
-			return
-		}
+	if err := h.Authorizer.Authorize(req.Context(), authInfo); err != nil {
+		http.Error(w,
+			fmt.Sprintf("authorization failed: %s", err),
+			http.StatusForbidden,
+		)
+		return
 	}
 
 	ctx := context.WithValue(req.Context(), authInfoKey{}, authInfo)
-	req = req.WithContext(ctx)
-	h.NextHandler.ServeHTTP(w, req)
+	h.NextHandler.ServeHTTP(w, req.WithContext(ctx))
 }
 
 type authInfoKey struct{}
@@ -99,9 +95,27 @@ func (c CompositeAuthorizer) Authorize(ctx context.Context, authInfo authenticat
 }
 
 // AuthorizerFunc is a function type implementing Authorizer.
-type AuthorizerFunc func(authentication.AuthInfo) error
+type AuthorizerFunc func(context.Context, authentication.AuthInfo) error
 
 // Authorize is part of the Authorizer interface.
-func (f AuthorizerFunc) Authorize(info authentication.AuthInfo) error {
-	return f(info)
+func (f AuthorizerFunc) Authorize(ctx context.Context, info authentication.AuthInfo) error {
+	return f(ctx, info)
+}
+
+// ControllerAuthorizer is an Authorizer that authorizes any request with a
+// controller credential.
+var ControllerAuthorizer AuthorizerFunc = func(_ context.Context, info authentication.AuthInfo) error {
+	if info.Controller {
+		return nil
+	}
+	return apiservererrors.ErrPerm
+}
+
+// TODOAuthorizer is a placeholder Authorizer that always returns success. This
+// should be used until an appropriate Authorizer is implemented.
+//
+// Deprecated: TODOAuthorizer should be replaced with an appropriate Authorizer
+// and removed.
+var TODOAuthorizer AuthorizerFunc = func(context.Context, authentication.AuthInfo) error {
+	return nil
 }

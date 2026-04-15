@@ -13,9 +13,9 @@ import (
 // StorageInstanceComposition describes the composition of how a storage
 // instance should be realised in the model.
 type StorageInstanceComposition struct {
-	FilesystemProvisionScope ProvisionScope
+	FilesystemProvisionScope domainstorage.ProvisionScope
 	FilesystemRequired       bool
-	VolumeProvisionScope     ProvisionScope
+	VolumeProvisionScope     domainstorage.ProvisionScope
 	VolumeRequired           bool
 }
 
@@ -87,12 +87,12 @@ func CalculateStorageInstanceComposition(
 	// achieve a storage kind.
 	var rval StorageInstanceComposition
 
-	var pScope ProvisionScope
+	var pScope domainstorage.ProvisionScope
 	switch s := provider.Scope(); s {
 	case internalstorage.ScopeEnviron:
-		pScope = ProvisionScopeModel
+		pScope = domainstorage.ProvisionScopeModel
 	case internalstorage.ScopeMachine:
-		pScope = ProvisionScopeMachine
+		pScope = domainstorage.ProvisionScopeMachine
 	default:
 		return StorageInstanceComposition{}, errors.Errorf(
 			"unrecognised scope %v from provider",
@@ -124,7 +124,7 @@ func CalculateStorageInstanceComposition(
 		// the provision scope of the filesystem is machine as it has to be made
 		// on the machine.
 		rval.FilesystemRequired = true
-		rval.FilesystemProvisionScope = ProvisionScopeMachine
+		rval.FilesystemProvisionScope = domainstorage.ProvisionScopeMachine
 		rval.VolumeRequired = true
 		rval.VolumeProvisionScope = pScope
 
@@ -147,7 +147,7 @@ func CalculateStorageInstanceComposition(
 func CalculateStorageInstanceOwnershipScope(
 	composition StorageInstanceComposition,
 ) (OwnershipScope, error) {
-	var provisionScope ProvisionScope
+	var provisionScope domainstorage.ProvisionScope
 	if composition.VolumeRequired {
 		// Even if the a filesystem is required, if there is a volume, it backs
 		// the filesystem, so we use the volumes provisioning scope to calculate
@@ -161,9 +161,9 @@ func CalculateStorageInstanceOwnershipScope(
 		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
 	}
 	switch provisionScope {
-	case ProvisionScopeMachine:
+	case domainstorage.ProvisionScopeMachine:
 		return OwnershipScopeMachine, nil
-	case ProvisionScopeModel:
+	case domainstorage.ProvisionScopeModel:
 		return OwnershipScopeModel, nil
 	default:
 		return -1, storageprovisioningerrors.OwnershipScopeIncalculable
