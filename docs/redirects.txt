@@ -399,6 +399,10 @@ user/reference/user reference/user
 user/reference/worker reference/worker
 user/reference/zone reference/zone
 user/tutorial tutorial
+# redirect after moving upgrade doc to top level
+howto/manage-your-juju-deployment/upgrade-your-juju-deployment-from-36-to-40 howto/upgrade-your-juju-deployment-from-36-to-40
+# redirect worker to contributor docs
+reference/worker contributor/reference/worker
 
 
 

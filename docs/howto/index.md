@@ -13,6 +13,7 @@ myst:
 :maxdepth: 2
 :hidden:
 
+Upgrade your deployment from 3.6 to 4.0 <upgrade-your-juju-deployment-from-36-to-40>
 Manage your deployment <manage-your-deployment>
 Manage juju <manage-juju>
 Manage clouds <manage-clouds>
@@ -20,11 +21,11 @@ Manage credentials <manage-credentials>
 Manage metadata <manage-metadata>
 Manage controllers <manage-controllers>
 Manage the Juju dashboard <manage-the-juju-dashboard>
-Manage models <manage-models>
 Manage secret backends <manage-secret-backends>
 Manage logs <manage-logs>
 Manage SSH keys <manage-ssh-keys>
 Manage users <manage-users>
+Manage models <manage-models>
 Manage charms or bundles <manage-charms>
 Manage applications <manage-applications>
 Manage resources <manage-charm-resources>
@@ -43,24 +44,27 @@ Fan container networking <fan-container-networking>
 
 ```
 
+```{tip}
+{ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
+```
+
 (your-juju-deployment-the-birds-eye-view)=
 ## Your Juju deployment: the bird's eye view
 
 Get a quick sense of how to do things in Juju, from preparing your deployment environment and setting up a basic deployment through hardening and upgrading your deployment all the way to troubleshooting procedures and steps to take your deployment offline.
 
 - {ref}`Manage your deployment <manage-your-deployment>`
-- {ref}`Set up your deployment <set-up-your-deployment>`
-- {ref}`Set up your deployment -- local testing and development <set-things-up>`
-- {ref}`Set up your deployment -- offline <take-your-deployment-offline>`
-- {ref}`Harden your deployment <harden-your-deployment>`
-- {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
-- {ref}`Upgrade your deployment <upgrade-your-deployment>`
-- {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
-- {ref}`Tear down your deployment -- local testing and development <tear-things-down>`
+    - {ref}`Set up your deployment <set-up-your-deployment>`
+    - {ref}`Set up your deployment -- local testing and development <set-things-up>`
+    - {ref}`Set up your deployment -- offline <take-your-deployment-offline>`
+    - {ref}`Harden your deployment <harden-your-deployment>`
+    - {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
+    - {ref}`Upgrade your deployment <upgrade-your-deployment>`
+    - {ref}`Tear down your deployment -- local testing and development <tear-things-down>`
 
 ## Set up Juju
 
-Install the `juju` client, add a cloud to the client, bootstrap a Juju controller, connect further clouds to the client or an existing controller, set up the Juju dashboard, add models, configure secret backends, configure logs.
+Install the `juju` client, add a cloud to the client, bootstrap a Juju controller, connect further clouds to the client or an existing controller, set up the Juju dashboard, configure secret backends, configure logs.
 
 - {ref}`Manage the juju CLI <manage-juju>`
 - {ref}`Manage clouds <manage-clouds>`
@@ -68,7 +72,6 @@ Install the `juju` client, add a cloud to the client, bootstrap a Juju controlle
 - {ref}`Manage metadata <manage-metadata>`
 - {ref}`Manage controllers <manage-controllers>`
 - {ref}`Manage the Juju dashboard <manage-the-juju-dashboard>`
-- {ref}`Manage models <manage-models>`
 - {ref}`Manage secret backends <manage-secret-backends>`
 - {ref}`Manage logs <manage-logs>`
 
