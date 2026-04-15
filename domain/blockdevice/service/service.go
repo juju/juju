@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/iter"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -48,9 +49,8 @@ type State interface {
 		removeable []blockdevice.BlockDeviceUUID,
 	) error
 
-	// CreateProviderBlockDevice inserts a new block device with provider
-	// provenance.
-	CreateProviderBlockDevice(
+	// CreateBlockDevice inserts a new block device.
+	CreateBlockDevice(
 		ctx context.Context,
 		machineUUID machine.UUID,
 		uuid blockdevice.BlockDeviceUUID,
@@ -143,7 +143,15 @@ func (s *Service) UpdateBlockDevicesForMachine(
 		return err
 	}
 
-	devices = slices.Clone(devices)
+	// Clone devices, then ensure they are all marked as from the machine.
+	devices = slices.Collect(iter.TransformSeq(
+		slices.Values(devices),
+		func(v coreblockdevice.BlockDevice) coreblockdevice.BlockDevice {
+			v.Provenance = coreblockdevice.MachineProvenance
+			return v
+		},
+	))
+
 	added := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{}
 	updated := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{}
 	removed := []blockdevice.BlockDeviceUUID{}
@@ -172,8 +180,7 @@ updated:
 
 // MatchOrCreateBlockDevice matches an existing block device to the provided
 // block device, otherwise it creates one that matches the provided device.
-// It returns the UUID of the block device. New block devices are inserted
-// with provider provenance.
+// It returns the UUID of the block device.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the machine uuid is not valid.
@@ -207,7 +214,7 @@ func (s *Service) MatchOrCreateBlockDevice(
 		return "", nil
 	}
 
-	err = s.st.CreateProviderBlockDevice(ctx, machineUUID, devUUID, device)
+	err = s.st.CreateBlockDevice(ctx, machineUUID, devUUID, device)
 	if err != nil {
 		return "", err
 	}
@@ -216,7 +223,8 @@ func (s *Service) MatchOrCreateBlockDevice(
 }
 
 // SetBlockDevicesForMachineByName overrides all current block devices on the
-// named machine. New block devices are inserted with machine provenance.
+// named machine. All block devices, both new and existing, are set to machine
+// provenance.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the machine uuid is not valid.
@@ -248,6 +256,7 @@ func (s *Service) SetBlockDevicesForMachineByName(
 		if err != nil {
 			return errors.Capture(err)
 		}
+		dev.Provenance = coreblockdevice.MachineProvenance
 		added[devUUID] = dev
 	}
 

@@ -202,6 +202,7 @@ func (s *serviceSuite) TestUpdateDevicesNoExisting(c *tc.C) {
 		InUse:           true,
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}}
 	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(nil, nil)
@@ -248,6 +249,7 @@ func (s *serviceSuite) TestUpdateDevicesExistingUpdated(c *tc.C) {
 		InUse:           true,
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}}
 	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
@@ -306,6 +308,7 @@ func (s *serviceSuite) TestUpdateDevicesExistingUpdatedAzureLun(c *tc.C) {
 		InUse:           false,
 		MountPoint:      "",
 		SerialId:        "3600224806c69b2ca5053c8ff73260abd",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}}
 	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
@@ -355,6 +358,7 @@ func (s *serviceSuite) TestUpdateDevicesExistingRemoved(c *tc.C) {
 		InUse:           true,
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}}
 	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
@@ -402,6 +406,7 @@ func (s *serviceSuite) TestSetBlockDevices(c *tc.C) {
 		InUse:           true,
 		MountPoint:      "/path",
 		SerialId:        "coco-pops",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}}
 	s.state.EXPECT().GetBlockDevicesForMachine(
 		gomock.Any(), machineUUID).Return(existingBd, nil)
