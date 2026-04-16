@@ -35,7 +35,6 @@ func (s *commitHookSuite) TestCommitHookChanges(c *tc.C) {
 	// Arrange
 	arg := internal.CommitHookChangesArg{
 		UnitUUID:           coreunit.UUID(s.unitUUID),
-		UpdateNetworkInfo:  true,
 		RelationSettings:   nil,
 		OpenPorts:          nil,
 		ClosePorts:         nil,
@@ -130,7 +129,7 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 
 	// Arrange: Add a unit to the relation.
 	unitName := coreunittesting.GenNewName(c, "app/7")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Arrange: setup the method input
@@ -168,9 +167,9 @@ func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 	spaceUUID := s.addSpace(c)
 
 	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, "testname", spaceUUID)
+	appUUID := s.addApplicationWithName(c, charmUUID, "testname", spaceUUID)
 	unitName := coreunit.Name("testname/0")
-	expectedUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+	expectedUUID := s.addUnitAndNetNode(c, unitName, appUUID, charmUUID)
 
 	// Act
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), unitName)
@@ -201,9 +200,9 @@ func (s *commitHookSuite) TestEnsureCommitHookChangesUUIDsUnitNotFound(c *tc.C) 
 func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) {
 	// Arrange: add a unit
 	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, "testname", network.AlphaSpaceId.String())
+	appUUID := s.addApplicationWithName(c, charmUUID, "testname", network.AlphaSpaceId.String())
 	unitName := coreunit.Name("testname/0")
-	unitUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+	unitUUID := s.addUnitAndNetNode(c, unitName, appUUID, charmUUID)
 
 	// Arrange: setup the method input with a non-existent relation uuid
 	arg := internal.CommitHookChangesArg{
@@ -223,7 +222,7 @@ func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) 
 }
 
 func (s *commitHookSuite) addSpace(c *tc.C) string {
-	spaceUUID := uuid.MustNewUUID().String()
+	spaceUUID := tc.Must(c, uuid.NewUUID).String()
 	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
 		spaceUUID, spaceUUID)
 	return spaceUUID

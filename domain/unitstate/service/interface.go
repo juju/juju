@@ -10,6 +10,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
+	"github.com/juju/juju/environs"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -65,4 +66,10 @@ type UnitStateState interface {
 	// SetUnitState persists the input unit state selectively,
 	// based on its populated values.
 	SetUnitState(context.Context, unitstate.UnitState) error
+}
+
+// ProviderWithNetworking describes the interface needed from providers that
+// support networking capabilities.
+type ProviderWithNetworking interface {
+	environs.Networking
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -19,6 +20,8 @@ import (
 )
 
 type commitHookSuite struct {
+	svc *LeadershipService
+
 	st                *MockState
 	leadershipEnsurer *MockEnsurer
 }
@@ -29,14 +32,14 @@ func TestCommitHookSuite(t *testing.T) {
 
 func (s *commitHookSuite) TestCommitHookChangesNoChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+
 	// Arrange: args which no changes are needed
 	arg := unitstate.CommitHookChangesArg{
 		UnitName: unittesting.GenNewName(c, "test/0"),
 	}
 
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	err := svc.CommitHookChanges(c.Context(), arg)
+	err := s.svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -48,20 +51,14 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 	// Arrange: args which indicate leadership is not required
 	key := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 	eids := key.EndpointIdentifiers()
-	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelationUUID := tc.Must(c, corerelation.NewUUID)
 	s.st.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
 		gomock.Any(), eids[0], eids[1],
 	).Return(expectedRelationUUID, nil)
 
-	arg := unitstate.CommitHookChangesArg{
-		UnitName: unittesting.GenNewName(c, "test/0"),
-		RelationSettings: []unitstate.RelationSettings{{
-			RelationKey: key,
-			Settings:    map[string]string{"key": "value"},
-		}},
-	}
+	unitName := unittesting.GenNewName(c, "test/0")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	s.st.EXPECT().GetUnitUUIDByName(c.Context(), arg.UnitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetUnitUUIDByName(c.Context(), unitName).Return(unitUUID, nil)
 
 	expected := internal.CommitHookChangesArg{
 		UnitUUID: unitUUID,
@@ -73,9 +70,16 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 	}
 	s.st.EXPECT().CommitHookChanges(c.Context(), expected).Return(nil)
 
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		RelationSettings: []unitstate.RelationSettings{{
+			RelationKey: key,
+			Settings:    map[string]string{"key": "value"},
+		}},
+	}
+
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	err := svc.CommitHookChanges(c.Context(), arg)
+	err := s.svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -86,7 +90,7 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 	// Arrange: args which indicate leadership is required
 	key := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
 	eids := key.EndpointIdentifiers()
-	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	expectedRelationUUID := tc.Must(c, corerelation.NewUUID)
 	s.st.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
 		gomock.Any(), eids[0], eids[1],
 	).Return(expectedRelationUUID, nil)
@@ -104,8 +108,74 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 	s.leadershipEnsurer.EXPECT().WithLeader(c.Context(), "test", "test/0", gomock.Any()).Return(nil)
 
 	// Act
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	err := svc.CommitHookChanges(c.Context(), arg)
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesUpdateNetworkInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Unit
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.st.EXPECT().GetUnitUUIDByName(c.Context(), unitName).Return(unitUUID, nil)
+
+	// Arrange: relations
+	relation1UUID := tc.Must(c, corerelation.NewUUID)
+	relation2UUID := tc.Must(c, corerelation.NewUUID)
+	key := corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
+	eids := key.EndpointIdentifiers()
+	s.st.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
+		gomock.Any(), eids[0], eids[1],
+	).Return(relation1UUID, nil)
+
+	// Arrange: CommitHookChanges state call
+	expected := internal.CommitHookChangesArg{
+		UnitUUID: unitUUID,
+		RelationSettings: []internal.RelationSettings{
+			{
+				RelationUUID: relation1UUID,
+				UnitSet: map[string]string{
+					"key":                       "value",
+					unitstate.IngressAddressKey: "10.0.0.6",
+					unitstate.EgressSubnetsKey:  "192.0.2.0/24, 192.51.100.0/24",
+				},
+			}, {
+				RelationUUID: relation2UUID,
+				UnitSet: map[string]string{
+					unitstate.IngressAddressKey: "10.0.1.23",
+					unitstate.EgressSubnetsKey:  "203.0.113.0/24",
+				},
+			},
+		},
+	}
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.RelationSettings`, tc.SameContents, expected.RelationSettings)
+	s.st.EXPECT().CommitHookChanges(c.Context(), tc.Bind(mc, expected)).Return(nil)
+
+	// Arrange args for call
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		RelationSettings: []unitstate.RelationSettings{{
+			RelationKey: key,
+			Settings:    map[string]string{"key": "value"},
+		}},
+		UpdatedRelationNetworkInfo: map[corerelation.UUID]unitstate.Settings{
+			relation1UUID: map[string]string{
+				unitstate.IngressAddressKey: "10.0.0.6",
+				unitstate.EgressSubnetsKey:  "192.0.2.0/24, 192.51.100.0/24",
+			},
+			relation2UUID: map[string]string{
+				unitstate.IngressAddressKey: "10.0.1.23",
+				unitstate.EgressSubnetsKey:  "203.0.113.0/24",
+			},
+		},
+	}
+
+	// Act
+	err := s.svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -124,8 +194,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyPeer(c *tc.C) {
 	).Return(expectedRelationUUID, nil)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	uuid, err := svc.getRelationUUIDByKey(c.Context(), key)
+	uuid, err := s.svc.getRelationUUIDByKey(c.Context(), key)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,8 +214,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRegular(c *tc.C) {
 	).Return(expectedRelationUUID, nil)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	uuid, err := svc.getRelationUUIDByKey(c.Context(), key)
+	uuid, err := s.svc.getRelationUUIDByKey(c.Context(), key)
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -162,8 +230,7 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C) {
 	).Return("", relationerrors.RelationNotFound)
 
 	// Act:
-	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
-	_, err := svc.getRelationUUIDByKey(
+	_, err := s.svc.getRelationUUIDByKey(
 		c.Context(),
 		corerelationtesting.GenNewKey(c, "app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2"),
 	)
@@ -222,7 +289,14 @@ func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.st = NewMockState(ctrl)
 	s.leadershipEnsurer = NewMockEnsurer(ctrl)
 
+	s.svc = NewLeadershipService(
+		s.st,
+		s.leadershipEnsurer,
+		loggertesting.WrapCheckLog(c),
+	)
+
 	c.Cleanup(func() {
+		s.svc = nil
 		s.st = nil
 		s.leadershipEnsurer = nil
 	})

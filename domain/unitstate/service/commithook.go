@@ -6,10 +6,11 @@ package service
 import (
 	"context"
 	"maps"
+	"slices"
 
 	"github.com/juju/collections/transform"
 
-	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
@@ -35,7 +36,7 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 
-	relationSettings, err := s.transformRelationSettings(ctx, arg.RelationSettings)
+	relationSettings, err := s.transformRelationSettings(ctx, arg.UpdatedRelationNetworkInfo, arg.RelationSettings)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -71,15 +72,21 @@ func (s *LeadershipService) getManagementCaveat(
 }
 
 func (s *Service) transformRelationSettings(
-	ctx context.Context, in []unitstate.RelationSettings,
+	ctx context.Context, networkUpdate map[relation.UUID]unitstate.Settings, in []unitstate.RelationSettings,
 ) ([]internal.RelationSettings, error) {
-	return transform.SliceOrErr(in, func(in unitstate.RelationSettings) (internal.RelationSettings, error) {
+	// If networkUpdates and relationSettings are empty, return early.
+	if len(networkUpdate) == 0 && len(in) == 0 {
+		return nil, nil
+	}
+
+	relationSettings, err := transform.SliceOrErr(in, func(in unitstate.RelationSettings) (internal.RelationSettings, error) {
 		relationUUID, err := s.getRelationUUIDByKey(ctx, in.RelationKey)
 		if err != nil {
 			return internal.RelationSettings{}, errors.Capture(err)
 		}
 		settings := make(map[string]string, len(in.Settings))
 		maps.Copy(settings, in.Settings)
+		// The ingress address and egress subnets should be written only by juju.
 		delete(settings, unitstate.IngressAddressKey)
 		delete(settings, unitstate.EgressSubnetsKey)
 		unitSet, unitUnset := parseForSetAndUnsetSettings(settings)
@@ -92,6 +99,62 @@ func (s *Service) transformRelationSettings(
 			ApplicationUnset: appUnset,
 		}, nil
 	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(networkUpdate) == 0 {
+		return relationSettings, nil
+	}
+
+	// Build map for deduplication and merging.
+	merged := make(map[relation.UUID]internal.RelationSettings)
+	for _, rs := range relationSettings {
+		merged[rs.RelationUUID] = rs
+	}
+
+	networkSettings := transform.MapToSlice(networkUpdate, func(key relation.UUID, value unitstate.Settings) []internal.RelationSettings {
+		unitSet, unitUnset := parseForSetAndUnsetSettings(value)
+		return []internal.RelationSettings{{
+			RelationUUID: key,
+			UnitSet:      unitSet,
+			UnitUnset:    unitUnset,
+		}}
+	})
+	for _, ns := range networkSettings {
+		rs, exists := merged[ns.RelationUUID]
+		if exists {
+			// Merge UnitSet: networkSettings take precedence.
+			if rs.UnitSet == nil {
+				rs.UnitSet = make(unitstate.Settings)
+			}
+			maps.Copy(rs.UnitSet, ns.UnitSet)
+			// Merge UnitUnset: union of both.
+			unsetMap := make(map[string]struct{})
+			for _, u := range rs.UnitUnset {
+				unsetMap[u] = struct{}{}
+			}
+			for _, u := range ns.UnitUnset {
+				unsetMap[u] = struct{}{}
+			}
+			unitUnset := make([]string, 0, len(unsetMap))
+			for u := range unsetMap {
+				unitUnset = append(unitUnset, u)
+			}
+			if len(unitUnset) == 0 {
+				rs.UnitUnset = nil
+			} else {
+				rs.UnitUnset = unitUnset
+			}
+			merged[ns.RelationUUID] = rs
+		} else {
+			if len(ns.UnitUnset) == 0 {
+				ns.UnitUnset = nil
+			}
+			merged[ns.RelationUUID] = ns
+		}
+	}
+
+	return slices.Collect(maps.Values(merged)), nil
 }
 
 func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []string) {
@@ -114,12 +177,12 @@ func parseForSetAndUnsetSettings(in unitstate.Settings) (unitstate.Settings, []s
 }
 
 // getRelationUUIDByKey returns a relation UUID for the given Key.
-func (s *Service) getRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
+func (s *Service) getRelationUUIDByKey(ctx context.Context, relationKey relation.Key) (relation.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	eids := relationKey.EndpointIdentifiers()
-	var uuid corerelation.UUID
+	var uuid relation.UUID
 	var err error
 	switch len(eids) {
 	case 1:

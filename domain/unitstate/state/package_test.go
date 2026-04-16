@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -97,14 +96,7 @@ func (s *baseSuite) addUnitStateCharm(c *tc.C, key any, value string) {
 	s.query(c, q, s.unitUUID, key, value)
 }
 
-func (s *baseSuite) addCharm(c *tc.C) string {
-	charmUUID := tc.Must(c, corecharm.NewID).String()
-	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
-		charmUUID, charmUUID, time.Now())
-	return charmUUID
-}
-
-func (s *baseSuite) addApplication(c *tc.C, charmUUID, appName, spaceUUID string) string {
+func (s *baseSuite) addApplicationWithName(c *tc.C, charmUUID, appName, spaceUUID string) string {
 	appUUID := tc.Must(c, coreapplication.NewUUID).String()
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
 		appUUID, appName, life.Alive, charmUUID, spaceUUID)
@@ -167,8 +159,8 @@ func (s *commitHookBaseSuite) SetUpTest(c *tc.C) {
 	s.fakeCharmUUID1 = s.addCharm(c)
 	s.fakeCharmUUID2 = s.addCharm(c)
 	s.fakeCharmRelationProvidesUUID = s.addCharmRelationWithDefaults(c, s.fakeCharmUUID1)
-	s.fakeApplicationUUID1 = s.addApplication(c, s.fakeCharmUUID1, s.fakeApplicationName1, network.AlphaSpaceId.String())
-	s.fakeApplicationUUID2 = s.addApplication(c, s.fakeCharmUUID2, s.fakeApplicationName2, network.AlphaSpaceId.String())
+	s.fakeApplicationUUID1 = s.addApplicationWithName(c, s.fakeCharmUUID1, s.fakeApplicationName1, network.AlphaSpaceId.String())
+	s.fakeApplicationUUID2 = s.addApplicationWithName(c, s.fakeCharmUUID2, s.fakeApplicationName2, network.AlphaSpaceId.String())
 
 	c.Cleanup(func() {
 		s.fakeCharmUUID1 = ""
@@ -182,45 +174,18 @@ func (s *commitHookBaseSuite) SetUpTest(c *tc.C) {
 	})
 }
 
-// addUnit adds a new unit to the specified application in the database with
-// the given UUID and name. Returns the unit uuid.
-func (s *commitHookBaseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID, charmUUID string) coreunit.UUID {
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-	netNodeUUID := tc.Must(c, uuid.NewUUID).String()
-	s.query(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)
-ON CONFLICT DO NOTHING
-`, netNodeUUID)
-	s.query(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
-VALUES (?, ?, ?, ?, ?, ?)
-`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, netNodeUUID)
-	return unitUUID
-}
-
 // addCharmRelation inserts a new charm relation into the database with the
 // given UUID and attributes. Returns the relation UUID.
 func (s *commitHookBaseSuite) addCharmRelation(c *tc.C, charmUUID string, r deploymentcharm.Relation) string {
 	charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
+VALUES (?, ?, ?,
+       (SELECT id FROM charm_relation_role WHERE name = ?),
+       ?, ?, ?,
+       (SELECT id FROM charm_relation_scope WHERE name = ?))
+`, charmRelationUUID, charmUUID, r.Name, r.Role, r.Interface, r.Optional, r.Limit, r.Scope)
 	return charmRelationUUID
-}
-
-// addApplicationEndpoint inserts a new application endpoint into the database
-// with the specified UUIDs. Returns the endpoint uuid.
-func (s *commitHookBaseSuite) addApplicationEndpoint(
-	c *tc.C, applicationUUID string, charmRelationUUID string,
-) string {
-	applicationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
-	return applicationEndpointUUID
 }
 
 // addRelation inserts a new relation into the database with default relation
@@ -257,6 +222,20 @@ INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?,?,?)
 `, relationEndpointUUID, relationUUID, applicationEndpointUUID)
 	return relationEndpointUUID
+}
+
+// addApplicationEndpoint inserts a new application endpoint into the
+// database with the specified UUIDs. Returns the endpoint uuid.
+func (s *commitHookBaseSuite) addApplicationEndpoint(
+	c *tc.C, applicationUUID, charmRelationUUID string,
+) string {
+	applicationEndpointUUID := tc.Must(c, uuid.NewUUID).String()
+	var spacePtr *string
+	s.query(c, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
+VALUES (?, ?, ?, ?)
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, spacePtr)
+	return applicationEndpointUUID
 }
 
 // addCharmRelationWithDefaults inserts a new charm relation into the database
@@ -346,21 +325,27 @@ WHERE relation_endpoint_uuid = ?
 	return settings
 }
 
-// encodeRoleID returns the ID used in the database for the given charm role. This
-// reflects the contents of the charm_relation_role table.
-func (s *commitHookBaseSuite) encodeRoleID(role deploymentcharm.RelationRole) int {
-	return map[deploymentcharm.RelationRole]int{
-		deploymentcharm.RoleProvider: 0,
-		deploymentcharm.RoleRequirer: 1,
-		deploymentcharm.RolePeer:     2,
-	}[role]
+func (s *commitHookBaseSuite) addCharm(c *tc.C) string {
+	charmUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
 }
 
-// encodeScopeID returns the ID used in the database for the given charm scope. This
-// reflects the contents of the charm_relation_scope table.
-func (s *commitHookBaseSuite) encodeScopeID(role deploymentcharm.RelationScope) int {
-	return map[deploymentcharm.RelationScope]int{
-		deploymentcharm.ScopeGlobal:    0,
-		deploymentcharm.ScopeContainer: 1,
-	}[role]
+// addUnitAndNetNode adds a new unit to the specified application in the
+// database with the given UUID and name. A netnode is created for the unit.
+// Returns the unit uuid.
+func (s *commitHookBaseSuite) addUnitAndNetNode(c *tc.C, unitName coreunit.Name, appUUID, charmUUID string) coreunit.UUID {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netNodeUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO net_node (uuid)
+VALUES (?)
+ON CONFLICT DO NOTHING
+`, netNodeUUID)
+	s.query(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, ?, ?, ?, ?)
+`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, netNodeUUID)
+	return unitUUID
 }

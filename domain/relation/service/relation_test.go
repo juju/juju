@@ -1473,6 +1473,40 @@ func (s *relationServiceSuite) TestSetRelationErrorStatusStateError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_Success(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	unitName := coreunit.Name("foo/0")
+	fakeUUIDs := []string{"rel-uuid-1", "rel-uuid-2"}
+
+	s.state.EXPECT().GetRelationUUIDsByUnitName(ctx, unitName.String()).Return(fakeUUIDs, nil)
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relUUIDs, tc.DeepEquals, []corerelation.UUID{"rel-uuid-1", "rel-uuid-2"})
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_Error(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	unitName := coreunit.Name("foo/0")
+	s.state.EXPECT().GetRelationUUIDsByUnitName(ctx, unitName.String()).Return(nil, errors.New("fail"))
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, unitName)
+	c.Assert(err, tc.ErrorMatches, "fail")
+	c.Check(relUUIDs, tc.IsNil)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_InvalidUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	invalidUnitName := coreunit.Name("")
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, invalidUnitName)
+	c.Assert(err, tc.NotNil)
+	c.Check(relUUIDs, tc.IsNil)
+}
+
 type relationLeadershipServiceSuite struct {
 	baseServiceSuite
 
