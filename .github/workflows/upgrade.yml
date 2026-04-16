@@ -185,16 +185,27 @@ jobs:
           juju set-model-constraints arch=$(go env GOARCH)
           juju status
 
+      - name: Publish binaries on simplestreams
+        if: matrix.cloud == 'microk8s'
+        run: |
+          set -euxo pipefail
+
+          make simplestreams
+
       - name: Bootstrap Juju - microk8s
         if: matrix.cloud == 'microk8s'
         run: |
           set -euxo pipefail
+          
+          JUJU_SIMPLESTREAMS_SOURCE=$PWD/_build/simplestreams/tools make serve-simplestreams &
+          LOCAL_HOST_IP=$(hostname -I | awk '{print $1}')
 
           juju version
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
-              --config caas-image-repo="${OCI_REGISTRY}/test-repo"
+              --config caas-image-repo="${OCI_REGISTRY}/test-repo" \
+              --config agent-metadata-url="http://${LOCAL_HOST_IP}:8666"
           EOF
 
           juju add-model m
@@ -261,28 +272,6 @@ jobs:
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"
-
-      - name: Publish binaries on simplestreams
-        if: matrix.cloud == 'microk8s'
-        run: |
-          set -euxo pipefail
-
-          make simplestreams
-
-      - name: Sync local simplestreams to controller
-        if: matrix.cloud == 'microk8s'
-        env:
-          TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
-        run: |
-          set -euxo pipefail
-
-          # Sync the local simplestreams to the controller. It will make it aware of the new jujud-operator image,
-          # even if the binary itself will not be used as is. upgrade will simply fetch the new image from the registry.
-          # However, without this step, upgrade will fail as it will not be able to find the new jujud-operator image.
-          juju --debug sync-agent-binary -m controller \
-            --source="$PWD/_build/simplestreams" \
-            --stream=${JUJU_PUBLISH_STREAM} \
-            --agent-version ${TARGET_JUJU_VERSION}
 
       - name: Preflight
         shell: bash
