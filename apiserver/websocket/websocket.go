@@ -82,7 +82,7 @@ func (conn *Conn) SendInitialErrorV0(err error) error {
 
 	if wrapped.Error != nil {
 		// Tell the other end we are closing.
-		_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, ""))
 	}
 
 	return errors.Trace(err)

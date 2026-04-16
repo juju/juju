@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -70,6 +71,44 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *gc.C) {
 	c.Assert(conn.written, gc.HasLen, 0)
 }
 
+func (s *LogSenderSuite) testCleanCloseReturnsEOF(c *gc.C, code int) {
+	conn := &mockConnector{
+		c:          c,
+		closed:     make(chan bool),
+		readError:  &gorillaws.CloseError{Code: code},
+		writeError: errors.New("use of closed network connection"),
+	}
+	a := logsender.NewAPI(conn)
+	w, err := a.LogWriter()
+	c.Assert(err, gc.IsNil)
+
+	select {
+	case <-conn.closed:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for connection to close")
+	}
+
+	err = w.WriteLog(new(params.LogRecord))
+	c.Assert(err, jc.ErrorIs, io.EOF)
+	c.Assert(conn.written, gc.HasLen, 0)
+}
+
+func (s *LogSenderSuite) TestWriteLogReturnsEOFOnCloseNoStatusReceived(c *gc.C) {
+	s.testCleanCloseReturnsEOF(c, gorillaws.CloseNoStatusReceived)
+}
+
+func (s *LogSenderSuite) TestWriteLogReturnsEOFOnNormalClose(c *gc.C) {
+	s.testCleanCloseReturnsEOF(c, gorillaws.CloseNormalClosure)
+}
+
+func (s *LogSenderSuite) TestWriteLogReturnsEOFOnGoingAway(c *gc.C) {
+	s.testCleanCloseReturnsEOF(c, gorillaws.CloseGoingAway)
+}
+
+func (s *LogSenderSuite) TestWriteLogReturnsEOFOnAbnormalClosure(c *gc.C) {
+	s.testCleanCloseReturnsEOF(c, gorillaws.CloseAbnormalClosure)
+}
+
 func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 	conn := &mockConnector{
 		c:          c,
@@ -87,7 +126,7 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 	}
 
 	err = w.WriteLog(new(params.LogRecord))
-	c.Assert(err, gc.ErrorMatches, "sending log message: read foo: closed yo")
+	c.Assert(err, gc.ErrorMatches, `sending log message: closed yo\nread foo`)
 	c.Assert(conn.written, gc.HasLen, 0)
 }
 
