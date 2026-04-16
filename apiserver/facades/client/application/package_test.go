@@ -137,7 +137,7 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		logger:             loggertesting.WrapCheckLog(c),
 		modelType:          modelType,
 
-		storageService:     s.storageService,
+		storageService: s.storageService,
 	}
 	s.modelType = modelType
 	var err error
