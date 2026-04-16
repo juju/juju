@@ -355,6 +355,9 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		if !ok {
 			return nil, errors.Errorf("externally authenticated entity %q is not a user", authInfo.Tag)
 		}
+		if userTag.IsLocal() {
+			return nil, errors.Forbiddenf("external user masquerading as local user")
+		}
 		userName := coreuser.NameFromTag(userTag)
 		if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
 			logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
