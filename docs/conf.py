@@ -295,6 +295,7 @@ extensions = [
     "sphinx_config_options",
     "sphinx_contributor_listing",
     "sphinx_filtered_toctree",
+    "sphinx_llm.txt",
     "sphinx_related_links",
     "sphinx_roles",
     "sphinx_terminal",
@@ -309,6 +310,18 @@ extensions = [
     'sphinxcontrib.lightbox2',
     'ibnote',
 ]
+
+# Customize sphinx_llm.txt
+## Add project summary:
+llms_txt_description = (
+    "Juju is an open source orchestration engine for deploying, integrating, "
+    "and managing applications across Kubernetes, VMs, and bare metal using "
+    "software operators called charms."
+)
+## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
+llms_txt_suffix_mode = "url-suffix"
+markdown_http_base = "https://documentation.ubuntu.com/juju/4.0"
+
 
 # Excludes files or directories from processing
 
