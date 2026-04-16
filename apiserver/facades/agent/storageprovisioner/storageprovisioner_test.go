@@ -604,7 +604,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BlockDeviceResults{
+	c.Check(result, tc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
 			{
 				Result: params.BlockDevice{
@@ -680,7 +680,7 @@ func (s *provisionerSuite) TestVolumeBlockDevicesV6(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BlockDeviceResults{
+	c.Check(result, tc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
 			{
 				Result: params.BlockDevice{

@@ -224,7 +224,7 @@ func (s *DiskManagerV2Suite) TestV2SetMachineBlockDevicesSetsProvenanceMachine(
 			MachineBlockDevices: []params.MachineBlockDevices{{
 				Machine: "machine-0",
 				// Devices arrive with ProviderProvenance; V2 must
-				// replace it with MachineProv before forwarding.
+				// replace it with MachineProvenance before forwarding.
 				BlockDevices: []params.BlockDevice{{
 					DeviceName: "sda",
 				}, {
