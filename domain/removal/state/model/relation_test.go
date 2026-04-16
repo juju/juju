@@ -74,7 +74,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
@@ -90,7 +90,7 @@ func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *tc.C) {
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *tc.C) {

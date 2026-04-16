@@ -89,7 +89,12 @@ func HumaniseInterval(interval time.Duration) string {
 // FormatTime returns a string with the local time formatted
 // in an arbitrary format used for status or and localized tz
 // or in UTC timezone and format RFC3339 if u is specified.
+//
+// If [t] is nil, the unix epoch is returned.
 func FormatTime(t *time.Time, formatISO bool) string {
+	if t == nil {
+		t = new(time.Unix(0, 0))
+	}
 	if formatISO {
 		// If requested, use ISO time format.
 		// The format we use is RFC3339 without the "T". From the spec:

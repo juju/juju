@@ -1410,7 +1410,8 @@ SELECT COUNT(sfaB.uuid) AS &count.count
 FROM   storage_filesystem_attachment sfaA
 JOIN   storage_filesystem_attachment sfaB ON sfaB.storage_filesystem_uuid = sfaA.storage_filesystem_uuid
 WHERE  sfaA.uuid = $entityUUID.uuid AND
-       sfaB.uuid != $entityUUID.uuid
+       sfaB.uuid != $entityUUID.uuid AND
+       sfaB.life_id != 2
 `, fsaUUID, count{})
 	if err != nil {
 		return errors.Errorf(
@@ -1637,12 +1638,14 @@ SELECT SUM(count) AS &count.count FROM (
     FROM   storage_volume_attachment svaA
     JOIN   storage_volume_attachment svaB ON svaB.storage_volume_uuid = svaA.storage_volume_uuid
     WHERE  svaA.uuid = $entityUUID.uuid AND
-           svaB.uuid != $entityUUID.uuid
+           svaB.uuid != $entityUUID.uuid AND
+           svaB.life_id != 2
     UNION
     SELECT COUNT(svap.uuid) AS count
     FROM   storage_volume_attachment sva
     JOIN   storage_volume_attachment_plan svap ON sva.storage_volume_uuid = svap.storage_volume_uuid
-    WHERE  sva.uuid = $entityUUID.uuid
+    WHERE  sva.uuid = $entityUUID.uuid AND
+           svap.life_id != 2
 )
 `, vaUUID, count{})
 	if err != nil {
@@ -1867,12 +1870,14 @@ SELECT SUM(count) AS &count.count FROM (
     FROM   storage_volume_attachment_plan svapA
     JOIN   storage_volume_attachment_plan svapB ON svapB.storage_volume_uuid = svapA.storage_volume_uuid
     WHERE  svapA.uuid = $entityUUID.uuid AND
-           svapB.uuid != $entityUUID.uuid
+           svapB.uuid != $entityUUID.uuid AND
+           svapB.life_id != 2
     UNION
     SELECT COUNT(sva.uuid) AS count
     FROM   storage_volume_attachment_plan svap
     JOIN   storage_volume_attachment sva ON svap.storage_volume_uuid = sva.storage_volume_uuid
-    WHERE  svap.uuid = $entityUUID.uuid
+    WHERE  svap.uuid = $entityUUID.uuid AND
+           sva.life_id != 2
 )
 `, vapUUID, count{})
 	if err != nil {
