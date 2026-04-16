@@ -946,6 +946,49 @@ func (s *provisionerSuite) TestVolumeBlockDevicesMachineNotFound(c *tc.C) {
 	c.Assert(r.Error.Code, tc.Equals, params.CodeNotFound)
 }
 
+func (s *provisionerSuite) TestVolumeBlockDevicesUnknownProvenance(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	tag := names.NewVolumeTag("123")
+	machineUUID := tc.Must(c, machine.NewUUID)
+	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
+	bdUUID := tc.Must(c, domainblockdevice.NewBlockDeviceUUID)
+
+	s.storageProvisioningService.EXPECT().CheckVolumeForIDExists(
+		gomock.Any(), tag.Id()).Return(true, nil)
+	s.machineService.EXPECT().
+		GetMachineUUID(gomock.Any(), s.machineName).
+		Return(machineUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetVolumeAttachmentUUIDForVolumeIDMachine(
+			gomock.Any(), tag.Id(), machineUUID,
+		).Return(vaUUID, nil)
+	s.storageProvisioningService.EXPECT().
+		GetBlockDeviceForVolumeAttachment(gomock.Any(), vaUUID).
+		Return(bdUUID, nil)
+	s.blockDeviceService.EXPECT().GetBlockDevice(
+		gomock.Any(), bdUUID,
+	).Return(blockdevice.BlockDevice{
+		DeviceName:  "sdb",
+		DeviceLinks: []string{"/dev/sdb"},
+		Provenance:  blockdevice.Provenance(99),
+	}, nil)
+
+	result, err := s.api.VolumeBlockDevices(c.Context(), params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{
+				MachineTag:    names.NewMachineTag(s.machineName.String()).String(),
+				AttachmentTag: tag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	r := result.Results[0]
+	c.Check(r.Error.Code, tc.Equals, params.CodeNotImplemented)
+}
+
 func (s *provisionerSuite) TestFilesystems(c *tc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
