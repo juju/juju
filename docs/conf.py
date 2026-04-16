@@ -317,10 +317,9 @@ llms_txt_description = (
     "and managing applications across Kubernetes, VMs, and bare metal using "
     "software operators called charms."
 )
-## Disable concatenated file generation (because file counterproductively large):
-llms_txt_full_build = False
 ## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
 llms_txt_suffix_mode = "url-suffix"
+markdown_http_base = "https://documentation.ubuntu.com/juju/3.6"
 
 
 # Excludes files or directories from processing
