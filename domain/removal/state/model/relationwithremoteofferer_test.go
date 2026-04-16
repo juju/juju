@@ -66,13 +66,13 @@ func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveC
 	row := s.DB().QueryRowContext(c.Context(), "SELECT life_id FROM relation where uuid = ?", relUUID.String())
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 
 	// The synth app should still be alive
 	row = s.DB().QueryRowContext(c.Context(), "SELECT life_id FROM application where uuid = ?", synthAppUUID.String())
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	c.Check(lifeID, tc.Equals, int(life.Alive))
 
 	// But the synth units should all be dead
 	rows, err := s.DB().QueryContext(c.Context(), "SELECT life_id FROM unit where application_uuid = ?", synthAppUUID.String())
@@ -82,7 +82,7 @@ func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveC
 		var lifeID int
 		err := rows.Scan(&lifeID)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(lifeID, tc.Equals, 2)
+		c.Check(lifeID, tc.Equals, int(life.Dead))
 	}
 
 	// Check the returned synth rel units

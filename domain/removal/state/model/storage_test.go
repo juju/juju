@@ -83,7 +83,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveSuccess(c *tc.C) {
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 
 	// Idempotent. A "dying" attachment is a no-op. Life is unchanged.
 	cascaded, err = st.EnsureStorageAttachmentNotAlive(ctx, saUUID)
@@ -97,7 +97,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveSuccess(c *tc.C) {
 	row = s.DB().QueryRow("SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 func (s *storageSuite) TestScheduleStorageAttachmentRemovalSuccess(c *tc.C) {
@@ -180,7 +180,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentDeadCascade(c *tc.C) {
 		"SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID)
 	var lifeId int
 	c.Assert(res.Scan(&lifeId), tc.ErrorIsNil)
-	c.Check(lifeId, tc.Equals, 2)
+	c.Check(lifeId, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestDeleteStorageAttachmentSuccess(c *tc.C) {
@@ -1027,15 +1027,15 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 		fsaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Filesystem should still be Alive
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Alive))
 }
 
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadWithDyingFilesystem(c *tc.C) {
@@ -1054,15 +1054,15 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadWithDyingFilesystem(c *
 		fsaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Filesystem should be Dead too
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestDeleteFilesystemAttachment(c *tc.C) {
@@ -1135,15 +1135,15 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDead(c *tc.C) {
 		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Alive still
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Alive))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolume(c *tc.C) {
@@ -1161,15 +1161,15 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolume(c *tc.C) {
 		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dead too
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeButPlanBlocking(c *tc.C) {
@@ -1187,15 +1187,15 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeButPlanBlock
 		"SELECT life_id FROM storage_volume_attachment WHERE uuid = ?", vaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dying still
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeDeadPlanNotBlocking(c *tc.C) {
@@ -1215,16 +1215,16 @@ func (s *storageSuite) TestMarkVolumeAttachmentAsDeadWithDyingVolumeDeadPlanNotB
 		vaUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dead too; the plan is already dead and
 	// does not block advancement.
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestDeleteVolumeAttachment(c *tc.C) {
@@ -1299,15 +1299,15 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolume(c *tc.C
 		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dead too
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeButVolumeAttachmentBlocking(c *tc.C) {
@@ -1325,15 +1325,15 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeButVolum
 		"SELECT life_id FROM storage_volume_attachment_plan WHERE uuid = ?", vapUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dying still
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeDeadAttachmentNotBlocking(c *tc.C) {
@@ -1353,16 +1353,16 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDeadWithDyingVolumeDeadAtta
 		vapUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 
 	// Volume should be Dead too; the attachment is already dead and
 	// does not block advancement.
 	row = s.DB().QueryRowContext(ctx,
 		"SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID,
 	)
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
@@ -1380,8 +1380,8 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
 		vapUUID,
 	)
 	var lifeID int
-	c.Check(row.Scan(&lifeID), tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 2)
+	c.Assert(row.Scan(&lifeID), tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 }
 
 func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNotFound(c *tc.C) {
@@ -1494,7 +1494,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilment(c *tc.C
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 // TestEnsureStorageAttachmentNotAliveWithFulfilmentNotMet tests the scenario
@@ -1522,7 +1522,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotMet(c
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 0)
+	c.Check(lifeID, tc.Equals, int(life.Alive))
 }
 
 // TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAlive tests that when
@@ -1558,7 +1558,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAliv
 	var lifeID int
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(lifeID, tc.Equals, 1)
+	c.Check(lifeID, tc.Equals, int(life.Dying))
 }
 
 // TestEnsureStorageAttachmentNotAliveWithFulfilmentNotFound tests that when the
