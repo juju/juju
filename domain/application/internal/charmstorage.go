@@ -12,10 +12,10 @@ import (
 // Charm's Storage Definition for the purpose of validating storage actions
 // against the definition.
 //
-// This type exist as there are many places where storage related operations
-// need to be validated against the Charm's Storage Definition for correctness.
-// The types representing the Charm's Storage Definition vary so this type acts
-// a common representation for the purposes of validation.
+// This type exist becuase there are many places where storage related
+// operations need to be validated against the Charm's Storage Definition for
+// correctness. The types representing the Charm's Storage Definition vary so
+// this type acts a common representation for the purposes of validation.
 type CharmStorageDefinitionForValidation struct {
 	// Name is the name of the storage definition defined by the Charm.
 	Name string
