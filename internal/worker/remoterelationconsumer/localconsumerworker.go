@@ -271,6 +271,7 @@ func (w *localConsumerWorker) PublishModelDying(ctx context.Context) error {
 		type RelationMacaroonGetter interface {
 			RelationUUID() corerelation.UUID
 			Macaroon() *macaroon.Macaroon
+			ConsumerApplicationUUID() application.UUID
 		}
 
 		relationWorker, ok := rw.(RelationMacaroonGetter)
@@ -279,6 +280,7 @@ func (w *localConsumerWorker) PublishModelDying(ctx context.Context) error {
 		}
 
 		w.publishRelationDyingChange(
+			relationWorker.ConsumerApplicationUUID(),
 			relationWorker.RelationUUID(),
 			relationWorker.Macaroon(),
 			"model is dying",
@@ -562,6 +564,7 @@ func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relatio
 // but not propagated. Uses a fresh context since the catacomb context may be
 // cancelled.
 func (w *localConsumerWorker) publishRelationDyingChange(
+	applicationUUID application.UUID,
 	relationUUID corerelation.UUID,
 	mac *macaroon.Macaroon,
 	debugMsg string,
@@ -579,7 +582,7 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 	change := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
 		Life:                    life.Dying,
-		ApplicationOrOfferToken: w.offerUUID,
+		ApplicationOrOfferToken: applicationUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
 		BakeryVersion:           defaultBakeryVersion,
 		ForceCleanup:            new(true),
@@ -592,7 +595,7 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 }
 
 func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context.Context, relationUUID corerelation.UUID) error {
-	offererUnitRelationWorker, err := w.runner.Worker(offererUnitRelationWorkerName(relationUUID), ctx.Done())
+	offererUnitWorker, err := w.runner.Worker(offererUnitRelationWorkerName(relationUUID), ctx.Done())
 	if errors.Is(err, errors.NotFound) {
 		// If the worker doesn't exist, then it either hasn't been created yet,
 		// or has already been removed, in either case, we can skip sending the
@@ -602,15 +605,17 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context
 		return errors.Annotatef(err, "stopping offerer unit relation worker for %q", relationUUID)
 	}
 
-	type MacaroonGetter interface {
+	type offererWorkerDetails interface {
 		Macaroon() *macaroon.Macaroon
+		ConsumerApplicationUUID() application.UUID
 	}
 
-	mac := offererUnitRelationWorker.(MacaroonGetter).Macaroon()
+	rw := offererUnitWorker.(offererWorkerDetails)
 
 	w.publishRelationDyingChange(
+		rw.ConsumerApplicationUUID(),
 		relationUUID,
-		mac,
+		rw.Macaroon(),
 		"relation %q removed locally, notifying offering model",
 		"removal",
 	)
@@ -625,8 +630,13 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context
 // the removal worker. Uses a fresh context since the catacomb context may be
 // cancelled. This is a best-effort notification: errors are logged but not
 // propagated.
-func (w *localConsumerWorker) publishRelationDyingWithMacaroon(relationUUID corerelation.UUID, mac *macaroon.Macaroon) {
+func (w *localConsumerWorker) publishRelationDyingWithMacaroon(
+	consumerAppUUID application.UUID,
+	relationUUID corerelation.UUID,
+	mac *macaroon.Macaroon,
+) {
 	w.publishRelationDyingChange(
+		consumerAppUUID,
 		relationUUID,
 		mac,
 		"relation %q removed locally during registration, notifying offering model",
@@ -749,7 +759,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 	// Handle the case where the relation is dying, and ensure we have no
 	// workers still running for it.
 	if life.IsNotAlive(details.Life) {
-		if err := w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown); err != nil {
+		if err := w.handleRelationDying(ctx, details.UUID, result.macaroon, consumingApplicationUUID, !relationKnown); err != nil {
 			return err
 		}
 		return nil
@@ -790,6 +800,7 @@ func (w *localConsumerWorker) handleRelationDying(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	mac *macaroon.Macaroon,
+	consumerAppUUID application.UUID,
 	forceCleanup bool,
 ) error {
 	w.logger.Debugf(ctx, "relation %q is dying", relationUUID)
@@ -797,7 +808,7 @@ func (w *localConsumerWorker) handleRelationDying(
 	change := params.RemoteRelationChangeEvent{
 		RelationToken:           relationUUID.String(),
 		Life:                    life.Dying,
-		ApplicationOrOfferToken: w.offerUUID,
+		ApplicationOrOfferToken: consumerAppUUID.String(),
 		Macaroons:               macaroon.Slice{mac},
 		BakeryVersion:           defaultBakeryVersion,
 	}
@@ -882,13 +893,14 @@ func (w *localConsumerWorker) ensureUnitRelationWorkers(
 
 	if err := w.runner.StartWorker(ctx, offererUnitRelationWorkerName(details.UUID), func(ctx context.Context) (worker.Worker, error) {
 		return w.newOffererUnitRelationsWorker(offererunitrelations.Config{
-			Client:                 w.remoteModelClient,
-			ConsumerRelationUUID:   details.UUID,
-			OffererApplicationUUID: offerApplicationUUID,
-			Macaroon:               mac,
-			Changes:                w.offererRelationUnitChanges,
-			Clock:                  w.clock,
-			Logger:                 w.logger.Child("offerer-unit"),
+			Client:                  w.remoteModelClient,
+			ConsumerRelationUUID:    details.UUID,
+			ConsumerApplicationUUID: consumingApplicationUUID,
+			OffererApplicationUUID:  offerApplicationUUID,
+			Macaroon:                mac,
+			Changes:                 w.offererRelationUnitChanges,
+			Clock:                   w.clock,
+			Logger:                  w.logger.Child("offerer-unit"),
 		})
 	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "starting offerer unit relation worker for %q", details.UUID)
@@ -964,7 +976,7 @@ func (w *localConsumerWorker) registerConsumerRelation(
 		// already created on the offering side by RegisterRemoteRelations
 		// above. Immediately notify the offering model to clean it up,
 		// using the macaroon we just received.
-		w.publishRelationDyingWithMacaroon(relationUUID, registerResult.Macaroon)
+		w.publishRelationDyingWithMacaroon(consumingApplicationUUID, relationUUID, registerResult.Macaroon)
 		return consumerRelationResult{}, errors.Annotatef(err, "saving macaroon for %q", relationUUID)
 	}
 
@@ -982,7 +994,7 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 	// Create the event to send to the offering model.
 	event := params.RemoteRelationChangeEvent{
 		RelationToken:           change.RelationUUID.String(),
-		ApplicationOrOfferToken: w.offerUUID,
+		ApplicationOrOfferToken: change.ConsumerApplicationUUID.String(),
 		ApplicationSettings:     convertSettingsMap(change.ApplicationSettings),
 
 		ChangedUnits: transform.Slice(change.UnitsSettings, func(v relation.UnitSettings) params.RemoteRelationUnitChange {
