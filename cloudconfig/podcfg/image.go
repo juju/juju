@@ -17,10 +17,17 @@ import (
 )
 
 const (
-	JujudOCINamespace = "jujusolutions"
-	JujudOCIName      = "jujud-operator"
-	JujudbOCIName     = "juju-db"
+	JujudOCIName  = "jujud-operator"
+	JujudbOCIName = "juju-db"
+	CharmBaseName = "charm-base"
 )
+
+// JujudOCINamespace is the default container registry namespace for the jujud
+// operator and charm base images.
+//
+// NOTE: This is injected by the build system. In Makefile, we override
+// this value with the value of the OCI_REGISTRY_USERNAME environment variable.
+var JujudOCINamespace string
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
