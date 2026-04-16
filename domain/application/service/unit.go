@@ -354,18 +354,21 @@ type UnitState interface {
 // - [applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition]
 // when the storage size is below the charm minimum.
 // - [applicationerrors.StorageCountLimitExceeded] when attaching would exceed
-// the charm storage maximum.
+// the charm storage maximum count, including when a concurrent attachment has
+// caused the count to be exceeded since validation.
 // - [applicationerrors.StorageInstanceAlreadyAttachedToUnit] when the storage
 // instance is already attached to the unit.
-// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the charm
-// storage definition is not shared and existing attachments are present.
-// - [applicationerrors.UnitAttachmentCountExceedsLimit] when the unit already
-// has too many attachments for the storage name.
-// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed.
-// - [applicationerrors.UnitMachineChanged] when the unit's machine has
-// changed.
+// - [applicationerrors.StorageInstanceAttachSharedAccessNotSupported] when the
+// storage instance has existing attachments but the unit's charm storage
+// definition does not support shared access.
+// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the storage
+// instance attachments changed concurrently during the attach operation.
 // - [applicationerrors.StorageInstanceAttachMachineOwnerMismatch] when the
 // storage instance owning machine does not match the unit's machine.
+// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed
+// concurrently during the attach operation.
+// - [applicationerrors.UnitMachineChanged] when the unit's machine has changed
+// concurrently during the attach operation.
 func (s *ProviderService) AttachStorageToUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {

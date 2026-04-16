@@ -220,9 +220,46 @@ type ApplicationService interface {
 		domainapplication.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
-	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
-	// If the attachment already exists, the result is a no op.
-	AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
+	// AttachStorageToUnit ensures the specified storage instance can be
+	// attached to the specified unit and then attaches it.
+	//
+	// The following errors can be expected:
+	// - [storageerrors.StorageInstanceNotFound] when the storage instance does
+	// not exist.
+	// - [storageerrors.StorageInstanceNotAlive] when the storage instance is
+	// not alive.
+	// - [applicationerrors.UnitNotFound] when the unit does not exist.
+	// - [applicationerrors.UnitNotAlive] when the unit is not alive.
+	// - [applicationerrors.StorageNameNotSupported] when the unit's charm does
+	// not define the storage name.
+	// - [applicationerrors.StorageInstanceCharmNameMismatch] when the storage
+	// instance charm name does not match the unit charm.
+	// - [applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition]
+	// when the storage kind does not match the charm storage definition.
+	// - [applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition]
+	// when the storage size is below the charm minimum.
+	// - [applicationerrors.StorageCountLimitExceeded] when attaching would
+	// exceed the charm storage maximum count, including when a concurrent
+	// attachment has caused the count to be exceeded since validation.
+	// - [applicationerrors.StorageInstanceAlreadyAttachedToUnit] when the
+	// storage instance is already attached to the unit.
+	// - [applicationerrors.StorageInstanceAttachSharedAccessNotSupported] when
+	// the storage instance has existing attachments but the unit's charm
+	// storage definition does not support shared access.
+	// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the
+	// storage instance attachments changed concurrently during the attach
+	// operation.
+	// - [applicationerrors.StorageInstanceAttachMachineOwnerMismatch] when the
+	// storage instance owning machine does not match the unit's machine.
+	// - [applicationerrors.UnitCharmChanged] when the unit's charm has changed
+	// concurrently during the attach operation.
+	// - [applicationerrors.UnitMachineChanged] when the unit's machine has
+	// changed concurrently during the attach operation.
+	AttachStorageToUnit(
+		ctx context.Context,
+		storageUUID domainstorage.StorageInstanceUUID,
+		unitUUID coreunit.UUID,
+	) error
 }
 
 // MachineService defines the service methods required by the Storage facade for
@@ -1292,168 +1329,3 @@ func (a *StorageAPI) removeStorageInstance(
 
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	if err := a.checkCanWrite(ctx); err != nil {
-		return params.ErrorResults{}, errors.Capture(err)
-	}
-
-	// Check if changes are allowed and the operation may proceed.
-	if err := a.blockChecker.ChangeAllowed(ctx); err != nil {
-		return params.ErrorResults{}, errors.Capture(err)
-	}
-
-	result := make([]params.ErrorResult, len(args.Ids))
-	for i, one := range args.Ids {
-		err := a.attachOneStorage(ctx, one)
-		result[i].Error = apiservererrors.ServerError(err)
-	}
-	return params.ErrorResults{Results: result}, nil
-}
-
-func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAttachmentId) error {
-	u, err := names.ParseUnitTag(one.UnitTag)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	unitName := coreunit.Name(u.Id())
-	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
-	switch {
-	case errors.Is(err, coreunit.InvalidUnitName):
-		return apiservererrors.ParamsErrorf(params.CodeNotValid,
-			"invalid unit name %q", unitName)
-	case errors.Is(err, applicationerrors.UnitNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeNotFound,
-			"unit %q does not exist", unitName)
-	case err != nil:
-		return errors.Errorf(
-			"getting unit uuid for unit name %q: %w", unitName, err,
-		)
-	}
-
-	storageTag, err := names.ParseStorageTag(one.StorageTag)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	storageUUID, err := a.storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
-	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
-	} else if err != nil {
-		return errors.Errorf(
-			"getting storage instance uuid for storage id %q: %w",
-			storageTag.Id(), err,
-		)
-	}
-
-	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
-	err = handleAttachStorageInstanceToUnitError(err, unitName, storageTag.Id())
-	return err
-}
-
-// handleAttachStorageInstanceToUnitError maps domain errors from AttachStorageToUnit
-// into appropriate API errors. If no specific handler exists the original error
-// is returned.
-func handleAttachStorageInstanceToUnitError(
-	err error, unitName coreunit.Name, storageID string,
-) error {
-	switch {
-	case err == nil:
-		return nil
-	case errors.Is(err, applicationerrors.UnitNotFound):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotFound,
-			"unit %q does not exist", unitName,
-		)
-	case errors.Is(err, applicationerrors.UnitNotAlive):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"unit %q is not alive", unitName,
-		)
-	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotFound,
-			"storage %q not found", storageID,
-		)
-	case errors.Is(err, storageerrors.StorageInstanceNotAlive):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q is not alive", storageID,
-		)
-	case errors.Is(err, applicationerrors.StorageNameNotSupported):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotSupported,
-			"storage %q not supported by the charm of unit %q",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceCharmNameMismatch):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q was created for a different charm than unit %q",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q kind is not compatible with the charm storage definition of unit %q",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q size does not meet the charm storage minimum size requirement of unit %q",
-			storageID, unitName,
-		)
-	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
-		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
-		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
-			return apiservererrors.ParamsErrorf(
-				params.CodeNotValid,
-				"attaching storage %q would exceed the maximum count of %d"+
-					" for storage definition %q of unit %q",
-				storageID, *limitErr.Maximum, limitErr.StorageName, unitName,
-			)
-		}
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"attaching storage %q to unit %q: %v",
-			storageID, unitName, limitErr,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceAlreadyAttachedToUnit):
-		return apiservererrors.ParamsErrorf(
-			params.CodeAlreadyExists,
-			"storage %q is already attached to unit %q",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceAttachSharedAccessNotSupported):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q already has attachments but the charm storage definition of unit %q does not support shared access",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceUnexpectedAttachments):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q attachments changed while attaching to unit %q, please retry",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.StorageInstanceAttachMachineOwnerMismatch):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"storage %q is bound to a different machine than unit %q",
-			storageID, unitName,
-		)
-	case errors.Is(err, applicationerrors.UnitCharmChanged):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"unit %q charm changed during storage attachment, please retry",
-			unitName,
-		)
-	case errors.Is(err, applicationerrors.UnitMachineChanged):
-		return apiservererrors.ParamsErrorf(
-			params.CodeNotValid,
-			"unit %q machine changed during storage attachment, please retry",
-			unitName,
-		)
-	}
-	return err
-}
