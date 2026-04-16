@@ -160,7 +160,7 @@ jobs:
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
 
-          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
+          PUSH_OCI_REGISTRY=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
