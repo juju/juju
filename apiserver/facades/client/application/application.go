@@ -554,7 +554,6 @@ func (api *APIBase) deployApplication(
 		Resources:         args.Resources,
 		Force:             args.Force,
 	}
-	// TODO: replace model with model info/config services
 	err = api.deployApplicationLocalRepo.Deploy(ctx, appParams)
 	return errors.Trace(err)
 }
