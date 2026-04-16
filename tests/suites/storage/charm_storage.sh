@@ -101,7 +101,8 @@ run_charm_storage() {
 	wait_for "{}" ".applications"
 
 	# Assessing storage with a named storage pool
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-fs=tempy,1,10M
+	juju deploy -m "${model_name}" juju-qa-dummy-storage dummy-storage \
+		--storage single-fs=tempy,1,10M
 	wait_for "dummy-storage" ".applications"
 
 	# Verify tmpfs storage details

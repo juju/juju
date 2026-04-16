@@ -32,7 +32,8 @@ test_default_filesystem_storage() {
 	juju model-config -m "${model_name}" storage-default-filesystem-source=${test_fs}
 
 	# Deploy application with filesystem storage without specifying storage type.
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-fs=100M
+	juju deploy -m "${model_name}" juju-qa-dummy-storage dummy-storage \
+		--storage single-fs=100M
 
 	# Wait for the application to be active.
 	wait_for "dummy-storage" "$(active_condition "dummy-storage" 0)"
