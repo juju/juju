@@ -237,3 +237,17 @@ func (v *fakeFilesystemAttachment) Info() (state.FilesystemAttachmentInfo, error
 	}
 	return *v.info, nil
 }
+
+type fakeUnit struct {
+	machineId        string
+	shouldBeAssigned bool
+	err              error
+}
+
+func (f fakeUnit) AssignedMachineId() (string, error) {
+	return f.machineId, f.err
+}
+
+func (f fakeUnit) ShouldBeAssigned() bool {
+	return f.shouldBeAssigned
+}

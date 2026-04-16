@@ -57,8 +57,11 @@ func (s *StorageDetailsSuite) TestVolumeWithBackingEntityUsesStatusAndPersistent
 			}, nil
 		},
 	}
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
 
-	details, err := storagecommon.StorageDetails(st, nil, s.instance)
+	details, err := storagecommon.StorageDetails(st, nil, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Attached)
 	c.Assert(details.Status.Info, gc.Equals, "volume attached")
@@ -82,49 +85,15 @@ func (s *StorageDetailsSuite) TestFilesystemWithBackingEntityUsesStatus(c *gc.C)
 			}, nil
 		},
 	}
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
 
-	details, err := storagecommon.StorageDetails(st, nil, s.instance)
+	details, err := storagecommon.StorageDetails(st, nil, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Attached)
 	c.Assert(details.Status.Info, gc.Equals, "filesystem attached")
 	c.Assert(details.Attachments, gc.IsNil)
-}
-
-// TestVolumeNotFoundWithNoAttachmentsReportsDetached verifies status is surfaced
-// as detached when the volume is missing and has no attachments.
-func (s *StorageDetailsSuite) TestVolumeNotFoundWithNoAttachmentsReportsDetached(c *gc.C) {
-	st := &fakeStorage{
-		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
-			return nil, errors.NotFoundf("volume for storage %s", tag.Id())
-		},
-	}
-	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
-		return names.MachineTag{}, nil
-	}
-
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.Status.Status, gc.Equals, corestatus.Detached)
-	c.Assert(details.Status.Since, gc.NotNil)
-	c.Assert(details.Attachments, gc.IsNil)
-}
-
-// TestFilesystemNotFoundWithNoAttachmentsReportsDetached verifies status is surfaced
-// as detached when the backing filesystem is missing and has no attachments.
-func (s *StorageDetailsSuite) TestFilesystemNotFoundWithNoAttachmentsReportsDetached(c *gc.C) {
-	s.instance.kind = state.StorageKindFilesystem
-	st := &fakeStorage{
-		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
-			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
-		},
-	}
-	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
-		return names.MachineTag{}, nil
-	}
-
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.Status.Status, gc.Equals, corestatus.Detached)
 }
 
 // TestVolumeNotFoundWithAssignedUnitsReturnsError verifies error is surfaced when
@@ -144,8 +113,13 @@ func (s *StorageDetailsSuite) TestVolumeNotFoundWithAssignedUnitsReturnsError(c 
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.NewMachineTag("0"), nil
 	}
-
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.machineId = "0"
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
 	c.Assert(details.Status.Info, gc.Matches, "volume for storage data/0 not found")
@@ -170,8 +144,14 @@ func (s *StorageDetailsSuite) TestFilesystemNotFoundWithAssignedUnitsReturnsErro
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.NewMachineTag("0"), nil
 	}
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.machineId = "0"
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
+	}
 
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
 	c.Assert(details.Status.Info, gc.Matches, "filesystem for storage data/0 not found")
@@ -192,8 +172,14 @@ func (s *StorageDetailsSuite) TestVolumeNotFoundWithNotAssignedUnitsReturnsPendi
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.MachineTag{}, errors.NewNotAssigned(nil, "unit not assigned")
 	}
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.err = errors.NewNotAssigned(nil, "unit not assigned")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
+	}
 
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Pending)
 	c.Assert(details.Status.Info, gc.Equals, "waiting for volume to be provisioned")
@@ -217,8 +203,14 @@ func (s *StorageDetailsSuite) TestFilesystemNotFoundWithNotAssignedUnitsReturnsP
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.MachineTag{}, errors.NewNotAssigned(nil, "unit not assigned")
 	}
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.err = errors.NewNotAssigned(nil, "unit not assigned")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
+	}
 
-	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Status.Status, gc.Equals, corestatus.Pending)
 	c.Assert(details.Status.Info, gc.Equals, "waiting for filesystem to be provisioned")
@@ -227,22 +219,25 @@ func (s *StorageDetailsSuite) TestFilesystemNotFoundWithNotAssignedUnitsReturnsP
 	c.Assert(details.Attachments[s.unitTag.String()].MachineTag, gc.Equals, "")
 }
 
-// TestVolumeNotFoundPropagatesUnitAssignmentError verifies that unexpected unitToMachine errors
+// TestVolumeNotFoundPropagatesUnitAssignmentError verifies that unexpected getUnit errors
 // are propagated to the caller.
 func (s *StorageDetailsSuite) TestVolumeNotFoundPropagatesUnitAssignmentError(c *gc.C) {
 	st := &fakeStorage{
 		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
 			return nil, errors.NotFoundf("volume for storage %s", tag.Id())
 		},
-		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-			return []state.StorageAttachment{s.attachment}, nil
-		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
-		return names.MachineTag{}, errors.New("cannot determine unit machine")
+		return names.MachineTag{}, nil
+	}
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.err = errors.New("cannot determine unit machine")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
 	}
 
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, gc.ErrorMatches, ".*cannot determine unit machine.*")
 }
 
@@ -254,53 +249,152 @@ func (s *StorageDetailsSuite) TestFilesystemNotFoundPropagatesUnitAssignmentErro
 		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
 			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
 		},
-		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-			return []state.StorageAttachment{s.attachment}, nil
-		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
-		return names.MachineTag{}, errors.New("cannot determine unit machine")
+		return names.MachineTag{}, nil
+	}
+	unit := fakeUnit{}
+	unit.shouldBeAssigned = true
+	unit.err = errors.New("cannot determine unit machine")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return unit, nil
 	}
 
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
+	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
 	c.Assert(err, gc.ErrorMatches, ".*cannot determine unit machine.*")
 }
 
-// TestVolumeNotFoundPropagatesAttachmentLookupError verifies attachment lookup
-// errors are propagated to the caller.
-func (s *StorageDetailsSuite) TestVolumeNotFoundPropagatesAttachmentLookupError(c *gc.C) {
+// TestVolumeNotFoundPropagatesErrorWhenMissingOwner verifies error is returned
+// when a storage instance does not have an owner.
+func (s *StorageDetailsSuite) TestVolumeNotFoundPropagatesErrorWhenMissingOwner(c *gc.C) {
 	st := &fakeStorage{
 		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
 			return nil, errors.NotFoundf("volume for storage %s", tag.Id())
-		},
-		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-			return nil, errors.New("cannot list attachments")
 		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.MachineTag{}, nil
 	}
-
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, gc.ErrorMatches, ".*cannot list attachments.*")
+	// Set owner to nil to simulate missing owner.
+	s.instance.owner = nil
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "volume for storage data/0 not found")
 }
 
-// TestFilesystemNotFoundPropagatesAttachmentLookupError verifies attachment
-// lookup errors are propagated to the caller.
-func (s *StorageDetailsSuite) TestFilesystemNotFoundPropagatesAttachmentLookupError(c *gc.C) {
+// TestVolumeNotFoundPropagatesErrorWhenOwnerIsNonUnit verifies error is returned
+// when a storage instance owner is not a UnitTagKind.
+func (s *StorageDetailsSuite) TestVolumeNotFoundPropagatesErrorWhenOwnerIsNonUnit(c *gc.C) {
+	st := &fakeStorage{
+		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
+			return nil, errors.NotFoundf("volume for storage %s", tag.Id())
+		},
+	}
+	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
+		return names.MachineTag{}, nil
+	}
+	// Set owner to a non-unit tag.
+	s.instance.owner = names.NewApplicationTag("someapp")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "volume for storage data/0 not found")
+}
+
+// TestFilesystemNotFoundPropagatesErrorWhenMissingOwner verifies error is returned
+// when a storage instance does not have an owner.
+func (s *StorageDetailsSuite) TestFilesystemNotFoundPropagatesErrorWhenMissingOwner(c *gc.C) {
 	s.instance.kind = state.StorageKindFilesystem
 	st := &fakeStorage{
 		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
 			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
 		},
-		storageAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-			return nil, errors.New("cannot list attachments")
+	}
+	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
+		return names.MachineTag{}, nil
+	}
+	// Set owner to nil to simulate missing owner.
+	s.instance.owner = nil
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "filesystem for storage data/0 not found")
+}
+
+// TestFilesystemNotFoundPropagatesErrorWhenOwnerIsNonUnit verifies error is returned
+// when a storage instance owner is not a UnitTagKind.
+func (s *StorageDetailsSuite) TestFilesystemNotFoundPropagatesErrorWhenOwnerIsNonUnit(c *gc.C) {
+	s.instance.kind = state.StorageKindFilesystem
+	st := &fakeStorage{
+		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
+			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
 		},
 	}
 	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
 		return names.MachineTag{}, nil
 	}
+	// Set owner to a non-unit tag.
+	s.instance.owner = names.NewApplicationTag("someapp")
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "filesystem for storage data/0 not found")
+}
 
-	_, err := storagecommon.StorageDetails(st, unitToMachine, s.instance)
-	c.Assert(err, gc.ErrorMatches, ".*cannot list attachments.*")
+// TestVolumeNotFoundPropagatesErrorWhenUnitShouldNotBeAssigned verifies error is returned
+// when a volume storage backing is missing and the unit should not be assigned,
+// which means it's a CAAS deployment.
+func (s *StorageDetailsSuite) TestVolumeNotFoundPropagatesErrorWhenUnitShouldNotBeAssigned(c *gc.C) {
+	st := &fakeStorage{
+		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
+			return nil, errors.NotFoundf("volume for storage %s", tag.Id())
+		},
+	}
+	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
+		return names.MachineTag{}, nil
+	}
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		// fakeUnit has shouldBeAssigned=false to simulate a CAAS unit.
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "volume for storage data/0 not found")
+}
+
+// TestFilesystemNotFoundPropagatesErrorWhenUnitShouldNotBeAssigned verifies error is returned
+// when a filesystem storage backing is missing and the unit should not be assigned,
+// which means it's a CAAS deployment.
+func (s *StorageDetailsSuite) TestFilesystemNotFoundPropagatesErrorWhenUnitShouldNotBeAssigned(c *gc.C) {
+	s.instance.kind = state.StorageKindFilesystem
+	st := &fakeStorage{
+		storageInstanceFilesystem: func(tag names.StorageTag) (state.Filesystem, error) {
+			return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
+		},
+	}
+	unitToMachine := func(names.UnitTag) (names.MachineTag, error) {
+		return names.MachineTag{}, nil
+	}
+	getUnit := func(name string) (storagecommon.Unit, error) {
+		// fakeUnit has shouldBeAssigned=false to simulate a CAAS unit.
+		return fakeUnit{}, nil
+	}
+	details, err := storagecommon.StorageDetails(st, unitToMachine, s.instance, getUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Status.Status, gc.Equals, corestatus.Error)
+	c.Assert(details.Status.Info, gc.Equals, "filesystem for storage data/0 not found")
 }

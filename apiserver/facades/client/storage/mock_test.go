@@ -428,7 +428,12 @@ func (b mockBlock) Message() string {
 }
 
 type mockUnit struct {
-	assignedMachine string
+	assignedMachine  string
+	shouldBeAssigned bool
+}
+
+func (u *mockUnit) ShouldBeAssigned() bool {
+	return u.shouldBeAssigned
 }
 
 func (u *mockUnit) AssignedMachineId() (string, error) {
