@@ -95,6 +95,14 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 		return authentication.AuthInfo{}, fmt.Errorf("parsing jwt: %w", err)
 	}
 
+	user, ok := userTag.(names.UserTag)
+	if !ok {
+		return authentication.AuthInfo{}, fmt.Errorf("invalid user tag %q in jwt token", userTag)
+	}
+	if user.IsLocal() {
+		return authentication.AuthInfo{}, errors.Unauthorizedf("external identity provider has provided JWT with a local user")
+	}
+
 	return authentication.AuthInfo{
 		Tag:                       userTag,
 		Delegator:                 &PermissionDelegator{Token: token},

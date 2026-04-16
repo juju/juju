@@ -340,6 +340,16 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
+	// Ensure externally authenticate users are not able to masquerade as local users.
+	if authInfo.IsExternallyAuthenticated {
+		userTag, ok := authInfo.Tag.(names.UserTag)
+		if !ok {
+			return nil, errors.Errorf("externally authenticated entity %q is not a user", authInfo.Tag)
+		}
+		if userTag.IsLocal() {
+			return nil, errors.Unauthorizedf("external user masquerading as local user")
+		}
+	}
 	if result.userLogin {
 		var err error
 		result.userInfo, err = a.checkUserPermissions(ctx, authInfo, result.controllerOnlyLogin)
