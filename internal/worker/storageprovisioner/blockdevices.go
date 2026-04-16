@@ -173,6 +173,7 @@ func refreshVolumeBlockDevices(ctx context.Context, deps *dependencies, volumeTa
 		} else if result.Error != nil && params.IsCodeNotFound(result.Error) {
 			// The volume or attachment or block device is not found yet, just
 			// wait for the block device watcher to notify us again.
+			continue
 		} else if result.Error != nil {
 			return nil, errors.Annotatef(
 				result.Error, "getting block device info for volume attachment %v",
