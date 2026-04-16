@@ -26,7 +26,7 @@ func (s *commitHookChangesArgSuite) TestValidateAndHasChangesNoChanges(c *tc.C) 
 		UnitName: unittesting.GenNewName(c, "testing/0"),
 	}.ValidateAndHasChanges()
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hasChanges, tc.Equals, false)
 }
 
@@ -36,7 +36,7 @@ func (s *commitHookChangesArgSuite) TestValidateAndHasChangesCreateSecret(c *tc.
 		SecretCreates: []CreateSecretArg{{CreateCharmSecretParams: secret.CreateCharmSecretParams{}}},
 	}.ValidateAndHasChanges()
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hasChanges, tc.Equals, true)
 }
 
@@ -51,7 +51,7 @@ func (s *commitHookChangesArgSuite) TestValidateAndHasChangesAddStorage(c *tc.C)
 		}},
 	}.ValidateAndHasChanges()
 
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hasChanges, tc.Equals, true)
 }
 
