@@ -102,3 +102,10 @@ type BlockDevice struct {
 	UUID blockdevice.BlockDeviceUUID
 	coreblockdevice.BlockDevice
 }
+
+// RecommendedStoragePoolArg represents a recommended storage pool assignment
+// for the state layer to accept.
+type RecommendedStoragePoolArg struct {
+	StoragePoolUUID domainstorage.StoragePoolUUID
+	StorageKind     domainstorage.StorageKind
+}

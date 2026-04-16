@@ -1565,7 +1565,7 @@ func (c *MockStorageImportStateImportVolumesCall) DoAndReturn(f func(context.Con
 }
 
 // SetModelStoragePools mocks base method.
-func (m *MockStorageImportState) SetModelStoragePools(arg0 context.Context, arg1 []storage.RecommendedStoragePoolArg) error {
+func (m *MockStorageImportState) SetModelStoragePools(arg0 context.Context, arg1 []internal.RecommendedStoragePoolArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelStoragePools", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1591,13 +1591,13 @@ func (c *MockStorageImportStateSetModelStoragePoolsCall) Return(arg0 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageImportStateSetModelStoragePoolsCall) Do(f func(context.Context, []storage.RecommendedStoragePoolArg) error) *MockStorageImportStateSetModelStoragePoolsCall {
+func (c *MockStorageImportStateSetModelStoragePoolsCall) Do(f func(context.Context, []internal.RecommendedStoragePoolArg) error) *MockStorageImportStateSetModelStoragePoolsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageImportStateSetModelStoragePoolsCall) DoAndReturn(f func(context.Context, []storage.RecommendedStoragePoolArg) error) *MockStorageImportStateSetModelStoragePoolsCall {
+func (c *MockStorageImportStateSetModelStoragePoolsCall) DoAndReturn(f func(context.Context, []internal.RecommendedStoragePoolArg) error) *MockStorageImportStateSetModelStoragePoolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

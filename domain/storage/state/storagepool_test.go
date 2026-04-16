@@ -268,7 +268,7 @@ func (s *storagePoolStateSuite) TestSetModelStoragePools(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	args := []domainstorage.RecommendedStoragePoolArg{
+	args := []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
 			StoragePoolUUID: uuid1,
@@ -316,7 +316,7 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsReplacesExisting(c *tc.C
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	err := st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+	err := st.SetModelStoragePools(ctx, []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
 			StoragePoolUUID: uuid1,
@@ -324,7 +324,7 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsReplacesExisting(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+	err = st.SetModelStoragePools(ctx, []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindBlock,
 			StoragePoolUUID: uuid2,
@@ -351,7 +351,7 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsPoolNotFound(c *tc.C) {
 
 	missingUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
-	err := st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+	err := st.SetModelStoragePools(ctx, []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
 			StoragePoolUUID: missingUUID,
@@ -376,7 +376,7 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsDeduplicatesUUIDs(c *tc.
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+	err = st.SetModelStoragePools(ctx, []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
 			StoragePoolUUID: uuid,
