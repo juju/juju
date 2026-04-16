@@ -47,7 +47,7 @@ func attachOneStorageArgs() params.StorageAttachmentIds {
 
 // expectAttachPrereqs sets up the standard mock expectations for the block
 // checker, GetUnitUUID, and GetStorageInstanceUUIDForID calls that precede
-// AttachStorageToUnit, returning the UUIDs for use in further expectations.
+// AttachStorageInstanceToUnit, returning the UUIDs for use in further expectations.
 func (s *attachSuite) expectAttachPrereqs(c *tc.C) (coreunit.UUID, domainstorage.StorageInstanceUUID) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
@@ -74,7 +74,7 @@ func (s *attachSuite) expectAttachSuccess(
 	s.storageService.EXPECT().GetStorageInstanceUUIDForID(
 		gomock.Any(), "data/0",
 	).Return(storageUUID, nil)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(nil)
 }
@@ -323,14 +323,14 @@ func (s *attachSuite) TestAttachStorageInstanceNotFound(c *tc.C) {
 	})
 }
 
-// TestAttachUnitNotFound asserts that if AttachStorageToUnit reports the unit
+// TestAttachUnitNotFound asserts that if AttachStorageInstanceToUnit reports the unit
 // does not exist the caller gets back a per-result error with
 // [params.CodeNotFound].
 func (s *attachSuite) TestAttachUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.UnitNotFound)
 
@@ -347,14 +347,14 @@ func (s *attachSuite) TestAttachUnitNotFound(c *tc.C) {
 	})
 }
 
-// TestAttachUnitNotAlive asserts that if AttachStorageToUnit reports the unit
+// TestAttachUnitNotAlive asserts that if AttachStorageInstanceToUnit reports the unit
 // is not alive the caller gets back a per-result error with
 // [params.CodeNotValid].
 func (s *attachSuite) TestAttachUnitNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.UnitNotAlive)
 
@@ -372,13 +372,13 @@ func (s *attachSuite) TestAttachUnitNotAlive(c *tc.C) {
 }
 
 // TestAttachStorageInstanceNotFoundFromService asserts that if
-// AttachStorageToUnit reports the storage instance does not exist the caller
+// AttachStorageInstanceToUnit reports the storage instance does not exist the caller
 // gets back a per-result error with [params.CodeNotFound].
 func (s *attachSuite) TestAttachStorageInstanceNotFoundFromService(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(storageerrors.StorageInstanceNotFound)
 
@@ -395,14 +395,14 @@ func (s *attachSuite) TestAttachStorageInstanceNotFoundFromService(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceNotAlive asserts that if AttachStorageToUnit reports
+// TestAttachStorageInstanceNotAlive asserts that if AttachStorageInstanceToUnit reports
 // the storage instance is not alive the caller gets back a per-result error
 // with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageInstanceNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(storageerrors.StorageInstanceNotAlive)
 
@@ -419,14 +419,14 @@ func (s *attachSuite) TestAttachStorageInstanceNotAlive(c *tc.C) {
 	})
 }
 
-// TestAttachStorageNameNotSupported asserts that if AttachStorageToUnit reports
+// TestAttachStorageNameNotSupported asserts that if AttachStorageInstanceToUnit reports
 // the storage name is not supported by the unit's charm the caller gets back a
 // per-result error with [params.CodeNotSupported].
 func (s *attachSuite) TestAttachStorageNameNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageNameNotSupported)
 
@@ -443,14 +443,14 @@ func (s *attachSuite) TestAttachStorageNameNotSupported(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceCharmNameMismatch asserts that if AttachStorageToUnit
+// TestAttachStorageInstanceCharmNameMismatch asserts that if AttachStorageInstanceToUnit
 // reports the storage instance was created for a different charm the caller gets
 // back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageInstanceCharmNameMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceCharmNameMismatch)
 
@@ -467,14 +467,14 @@ func (s *attachSuite) TestAttachStorageInstanceCharmNameMismatch(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceKindNotValid asserts that if AttachStorageToUnit
+// TestAttachStorageInstanceKindNotValid asserts that if AttachStorageInstanceToUnit
 // reports the storage instance kind is not compatible with the charm storage
 // definition the caller gets back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageInstanceKindNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition)
 
@@ -491,14 +491,14 @@ func (s *attachSuite) TestAttachStorageInstanceKindNotValid(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceSizeNotValid asserts that if AttachStorageToUnit
+// TestAttachStorageInstanceSizeNotValid asserts that if AttachStorageInstanceToUnit
 // reports the storage instance size does not meet the charm minimum the caller
 // gets back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageInstanceSizeNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition)
 
@@ -515,7 +515,7 @@ func (s *attachSuite) TestAttachStorageInstanceSizeNotValid(c *tc.C) {
 	})
 }
 
-// TestAttachStorageCountLimitExceeded asserts that if AttachStorageToUnit
+// TestAttachStorageCountLimitExceeded asserts that if AttachStorageInstanceToUnit
 // reports the charm storage maximum count would be exceeded the caller gets
 // back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageCountLimitExceeded(c *tc.C) {
@@ -523,7 +523,7 @@ func (s *attachSuite) TestAttachStorageCountLimitExceeded(c *tc.C) {
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
 	max := 3
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageCountLimitExceeded{
 		Maximum:     &max,
@@ -546,14 +546,14 @@ func (s *attachSuite) TestAttachStorageCountLimitExceeded(c *tc.C) {
 }
 
 // TestAttachStorageCountLimitExceededFallback asserts that if
-// AttachStorageToUnit reports a [applicationerrors.StorageCountLimitExceeded]
+// AttachStorageInstanceToUnit reports a [applicationerrors.StorageCountLimitExceeded]
 // without a maximum set the caller gets back a per-result error with
 // [params.CodeNotValid] containing the error's own description.
 func (s *attachSuite) TestAttachStorageCountLimitExceededFallback(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageCountLimitExceeded{
 		Minimum:     3,
@@ -574,14 +574,14 @@ func (s *attachSuite) TestAttachStorageCountLimitExceededFallback(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceAlreadyAttached asserts that if AttachStorageToUnit
+// TestAttachStorageInstanceAlreadyAttached asserts that if AttachStorageInstanceToUnit
 // reports the storage instance is already attached to the unit the caller gets
 // back a per-result error with [params.CodeAlreadyExists].
 func (s *attachSuite) TestAttachStorageInstanceAlreadyAttached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceAlreadyAttachedToUnit)
 
@@ -598,7 +598,7 @@ func (s *attachSuite) TestAttachStorageInstanceAlreadyAttached(c *tc.C) {
 	})
 }
 
-// TestAttachStorageSharedAccessNotSupported asserts that if AttachStorageToUnit
+// TestAttachStorageSharedAccessNotSupported asserts that if AttachStorageInstanceToUnit
 // reports the storage instance has existing attachments but the charm storage
 // definition does not support shared access the caller gets back a per-result
 // error with [params.CodeNotValid].
@@ -606,7 +606,7 @@ func (s *attachSuite) TestAttachStorageSharedAccessNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceAttachSharedAccessNotSupported)
 
@@ -623,14 +623,14 @@ func (s *attachSuite) TestAttachStorageSharedAccessNotSupported(c *tc.C) {
 	})
 }
 
-// TestAttachStorageUnexpectedAttachments asserts that if AttachStorageToUnit
+// TestAttachStorageUnexpectedAttachments asserts that if AttachStorageInstanceToUnit
 // reports the storage instance attachments changed concurrently the caller gets
 // back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceUnexpectedAttachments)
 
@@ -647,14 +647,14 @@ func (s *attachSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 	})
 }
 
-// TestAttachStorageInstanceMachineMismatch asserts that if AttachStorageToUnit
+// TestAttachStorageInstanceMachineMismatch asserts that if AttachStorageInstanceToUnit
 // reports the storage instance is bound to a different machine than the unit
 // the caller gets back a per-result error with [params.CodeNotValid].
 func (s *attachSuite) TestAttachStorageInstanceMachineMismatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
 
@@ -671,14 +671,14 @@ func (s *attachSuite) TestAttachStorageInstanceMachineMismatch(c *tc.C) {
 	})
 }
 
-// TestAttachUnitCharmChanged asserts that if AttachStorageToUnit reports the
+// TestAttachUnitCharmChanged asserts that if AttachStorageInstanceToUnit reports the
 // unit's charm changed concurrently the caller gets back a per-result error
 // with [params.CodeNotValid].
 func (s *attachSuite) TestAttachUnitCharmChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.UnitCharmChanged)
 
@@ -695,14 +695,14 @@ func (s *attachSuite) TestAttachUnitCharmChanged(c *tc.C) {
 	})
 }
 
-// TestAttachUnitMachineChanged asserts that if AttachStorageToUnit reports the
+// TestAttachUnitMachineChanged asserts that if AttachStorageInstanceToUnit reports the
 // unit's machine changed concurrently the caller gets back a per-result error
 // with [params.CodeNotValid].
 func (s *attachSuite) TestAttachUnitMachineChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID, storageUUID := s.expectAttachPrereqs(c)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID, unitUUID,
 	).Return(applicationerrors.UnitMachineChanged)
 
@@ -753,7 +753,7 @@ func (s *attachSuite) TestAttachMultipleSuccess(c *tc.C) {
 	s.storageService.EXPECT().GetStorageInstanceUUIDForID(
 		gomock.Any(), "data/0",
 	).Return(storageUUID0, nil)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID0, unitUUID0,
 	).Return(nil)
 	s.applicationService.EXPECT().GetUnitUUID(
@@ -762,7 +762,7 @@ func (s *attachSuite) TestAttachMultipleSuccess(c *tc.C) {
 	s.storageService.EXPECT().GetStorageInstanceUUIDForID(
 		gomock.Any(), "data/1",
 	).Return(storageUUID1, nil)
-	s.applicationService.EXPECT().AttachStorageToUnit(
+	s.applicationService.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), storageUUID1, unitUUID1,
 	).Return(nil)
 

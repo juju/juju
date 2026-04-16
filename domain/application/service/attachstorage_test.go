@@ -79,7 +79,7 @@ func makeValidAttachInfo(
 	}
 }
 
-// assertAttachStorageStateError ensures AttachStorageToUnit surfaces the error
+// assertAttachStorageStateError ensures AttachStorageInstanceToUnit surfaces the error
 // returned by state after validation succeeds.
 func (s *attachStorageSuite) assertAttachStorageStateError(
 	c *tc.C,
@@ -107,13 +107,13 @@ func (s *attachStorageSuite) assertAttachStorageStateError(
 		attachArg,
 		nil,
 	)
-	s.state.EXPECT().AttachStorageToUnit(
+	s.state.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), unitUUID, attachArg,
 	).Return(
 		stateErr,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, stateErr)
 }
 
@@ -125,7 +125,7 @@ func (s *attachStorageSuite) TestAttachStorageInvalidStorageUUID(c *tc.C) {
 	storageUUID := domainstorage.StorageInstanceUUID("not-a-uuid")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -137,7 +137,7 @@ func (s *attachStorageSuite) TestAttachStorageInvalidUnitUUID(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := coreunit.UUID("not-a-uuid")
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -156,7 +156,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageInstanceNotFound(c *tc.C) {
 		storageerrors.StorageInstanceNotFound,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
 }
 
@@ -175,7 +175,7 @@ func (s *attachStorageSuite) TestAttachStorageUnitNotFound(c *tc.C) {
 		applicationerrors.UnitNotFound,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -194,7 +194,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageNameNotSupported(c *tc.C) {
 		applicationerrors.StorageNameNotSupported,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
 }
 
@@ -215,7 +215,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageInstanceNotAlive(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, storageerrors.StorageInstanceNotAlive)
 }
 
@@ -236,7 +236,7 @@ func (s *attachStorageSuite) TestAttachStorageUnitNotAlive(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -257,7 +257,7 @@ func (s *attachStorageSuite) TestAttachStorageCharmNameMismatch(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceCharmNameMismatch)
 }
 
@@ -279,7 +279,7 @@ func (s *attachStorageSuite) TestAttachStorageKindMismatch(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition)
 }
 
@@ -302,7 +302,7 @@ func (s *attachStorageSuite) TestAttachStorageSizeBelowMinimum(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition)
 }
 
@@ -326,7 +326,7 @@ func (s *attachStorageSuite) TestAttachStorageSizeFallbackToRequested(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition)
 }
 
@@ -348,7 +348,7 @@ func (s *attachStorageSuite) TestAttachStorageCountLimitExceeded(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
@@ -382,7 +382,7 @@ func (s *attachStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAlreadyAttachedToUnit)
 }
 
@@ -411,7 +411,7 @@ func (s *attachStorageSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
 }
 
@@ -433,7 +433,7 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerMismatch(c *tc.C) {
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
 }
 
@@ -457,7 +457,7 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerDifferentUnitMachine(c
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
 }
 
@@ -481,7 +481,7 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerWithUnsetUnitMachine(c
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
 }
 
@@ -633,13 +633,13 @@ func (s *attachStorageSuite) TestAttachStorageSuccess(c *tc.C) {
 		attachArg,
 		nil,
 	)
-	s.state.EXPECT().AttachStorageToUnit(
+	s.state.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), unitUUID, attachArg,
 	).Return(
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -674,12 +674,12 @@ func (s *attachStorageSuite) TestAttachStorageSuccessUnitMachineOnly(c *tc.C) {
 		attachArg,
 		nil,
 	)
-	s.state.EXPECT().AttachStorageToUnit(
+	s.state.EXPECT().AttachStorageInstanceToUnit(
 		gomock.Any(), unitUUID, attachArg,
 	).Return(
 		nil,
 	)
 
-	err := s.service.AttachStorageToUnit(c.Context(), storageUUID, unitUUID)
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }

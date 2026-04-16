@@ -70,13 +70,13 @@ func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAtt
 		)
 	}
 
-	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
+	err = a.applicationService.AttachStorageInstanceToUnit(ctx, storageUUID, unitUUID)
 	err = handleAttachStorageInstanceToUnitError(err, unitName, storageTag.Id())
 	return err
 }
 
 // handleAttachStorageInstanceToUnitError maps domain errors from
-// AttachStorageToUnit into appropriate API errors. If no specific handler
+// AttachStorageInstanceToUnit into appropriate API errors. If no specific handler
 // exists the original error is returned.
 func handleAttachStorageInstanceToUnitError(
 	err error, unitName coreunit.Name, storageID string,

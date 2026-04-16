@@ -220,7 +220,7 @@ type ApplicationService interface {
 		domainapplication.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
-	// AttachStorageToUnit ensures the specified storage instance can be
+	// AttachStorageInstanceToUnit ensures the specified storage instance can be
 	// attached to the specified unit and then attaches it.
 	//
 	// The following errors can be expected:
@@ -255,7 +255,7 @@ type ApplicationService interface {
 	// concurrently during the attach operation.
 	// - [applicationerrors.UnitMachineChanged] when the unit's machine has
 	// changed concurrently during the attach operation.
-	AttachStorageToUnit(
+	AttachStorageInstanceToUnit(
 		ctx context.Context,
 		storageUUID domainstorage.StorageInstanceUUID,
 		unitUUID coreunit.UUID,

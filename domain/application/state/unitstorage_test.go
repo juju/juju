@@ -682,10 +682,10 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	})
 }
 
-// TestAttachStorageToUnitStorageInstanceNotFound verifies that attaching
+// TestAttachStorageInstanceToUnitStorageInstanceNotFound verifies that attaching
 // storage to a unitfor a missing Storage Instance returns an error satisfying
 // [domainstorageerrors.StorageInstanceNotFound].
-func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotFound(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitStorageInstanceNotFound(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -703,7 +703,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotFound(c *tc.
 
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
-	err := u.state.AttachStorageToUnit(
+	err := u.state.AttachStorageInstanceToUnit(
 		c.Context(),
 		unitUUID,
 		internal.AttachStorageInstanceToUnitArg{
@@ -715,10 +715,10 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotFound(c *tc.
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
 
-// TestAttachStorageToUnitStorageInstanceNotAlive verifies that attaching
+// TestAttachStorageInstanceToUnitStorageInstanceNotAlive verifies that attaching
 // storage for a dying Storage Instance returns an error satisfying
 // [domainstorageerrors.StorageInstanceNotAlive].
-func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotAlive(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitStorageInstanceNotAlive(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -736,7 +736,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotAlive(c *tc.
 
 	storageInstUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 
-	err := u.state.AttachStorageToUnit(
+	err := u.state.AttachStorageInstanceToUnit(
 		c.Context(),
 		unitUUID,
 		internal.AttachStorageInstanceToUnitArg{
@@ -748,13 +748,13 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNotAlive(c *tc.
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotAlive)
 }
 
-// TestAttachStorageToUnitUnitNotFound verifies that attaching storage for a
+// TestAttachStorageInstanceToUnitUnitNotFound verifies that attaching storage for a
 // missing unit returns an error satisfying [applicationerrors.UnitNotFound].
-func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotFound(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitUnitNotFound(c *tc.C) {
 	storageInstUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
-	err := u.state.AttachStorageToUnit(
+	err := u.state.AttachStorageInstanceToUnit(
 		c.Context(),
 		unitUUID,
 		internal.AttachStorageInstanceToUnitArg{
@@ -766,9 +766,9 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-// TestAttachStorageToUnitUnitNotAlive verifies that attaching storage for a
+// TestAttachStorageInstanceToUnitUnitNotAlive verifies that attaching storage for a
 // dying unit returns an error satisfying [applicationerrors.UnitNotAlive].
-func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotAlive(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitUnitNotAlive(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -787,7 +787,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotAlive(c *tc.C) {
 
 	storageInstUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
 
-	err := u.state.AttachStorageToUnit(
+	err := u.state.AttachStorageInstanceToUnit(
 		c.Context(),
 		unitUUID,
 		internal.AttachStorageInstanceToUnitArg{
@@ -799,11 +799,11 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitNotAlive(c *tc.C) {
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
-// TestAttachStorageToUnitStorageInstanceAlreadyAttached verifies that
+// TestAttachStorageInstanceToUnitStorageInstanceAlreadyAttached verifies that
 // attaching storage when the storage instance is already attached to the unit
 // returns an error satisfying
 // [applicationerrors.StorageInstanceAlreadyAttachedToUnit].
-func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceAlreadyAttached(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitStorageInstanceAlreadyAttached(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -837,14 +837,14 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceAlreadyAttached
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAlreadyAttachedToUnit)
 }
 
-// TestAttachStorageToUnitAttachmentCountExceedsLimit verifies that attaching
+// TestAttachStorageInstanceToUnitAttachmentCountExceedsLimit verifies that attaching
 // storage when the unit already has too many attachments returns an error
 // satisfying [applicationerrors.UnitAttachmentCountExceedsLimit].
-func (u *unitStorageSuite) TestAttachStorageToUnitAttachmentCountExceedsLimit(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitAttachmentCountExceedsLimit(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    2,
@@ -882,14 +882,14 @@ func (u *unitStorageSuite) TestAttachStorageToUnitAttachmentCountExceedsLimit(c 
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitAttachmentCountExceedsLimit)
 }
 
-// TestAttachStorageToUnitUnitCharmChanged verifies that attaching storage with
+// TestAttachStorageInstanceToUnitUnitCharmChanged verifies that attaching storage with
 // a mismatched charm returns an error satisfying
 // [applicationerrors.UnitCharmChanged].
-func (u *unitStorageSuite) TestAttachStorageToUnitUnitCharmChanged(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitUnitCharmChanged(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -920,14 +920,14 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitCharmChanged(c *tc.C) {
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitCharmChanged)
 }
 
-// TestAttachStorageToUnitUnitMachineChanged verifies that attaching storage
+// TestAttachStorageInstanceToUnitUnitMachineChanged verifies that attaching storage
 // with a mismatched machine returns an error satisfying
 // [applicationerrors.UnitMachineChanged].
-func (u *unitStorageSuite) TestAttachStorageToUnitUnitMachineChanged(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitUnitMachineChanged(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -958,17 +958,17 @@ func (u *unitStorageSuite) TestAttachStorageToUnitUnitMachineChanged(c *tc.C) {
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineChanged)
 }
 
-// TestAttachStorageToUnitStorageInstanceUnexpectedAttachments verifies that
+// TestAttachStorageInstanceToUnitStorageInstanceUnexpectedAttachments verifies that
 // attaching storage with unexpected existing attachments returns an error
 // satisfying [applicationerrors.StorageInstanceUnexpectedAttachments].
 //
 // This test checks that the Storage Instance is attached to one unit but in
 // reality two attachments exists violating the pre-calculated expectations.
-func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceUnexpectedAttachments(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitStorageInstanceUnexpectedAttachments(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -1007,14 +1007,14 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceUnexpectedAttac
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID1, attachArgs)
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
 }
 
-// TestAttachStorageToUnitStorageInstanceNoExpectedAttachments verifies that
+// TestAttachStorageInstanceToUnitStorageInstanceNoExpectedAttachments verifies that
 // attaching storage without listing existing attachments returns an error
 // satisfying [applicationerrors.StorageInstanceUnexpectedAttachments].
-func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNoExpectedAttachments(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitStorageInstanceNoExpectedAttachments(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -1050,13 +1050,13 @@ func (u *unitStorageSuite) TestAttachStorageToUnitStorageInstanceNoExpectedAttac
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID1, attachArgs)
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
 }
 
-// TestAttachStorageToUnitNoExistingAttachments verifies that attaching a
+// TestAttachStorageInstanceToUnitNoExistingAttachments verifies that attaching a
 // Storage Instance with no existing attachments succeeds.
-func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitNoExistingAttachments(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -1100,7 +1100,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	u.assertStorageInstanceAttachmentExists(
@@ -1112,9 +1112,9 @@ func (u *unitStorageSuite) TestAttachStorageToUnitNoExistingAttachments(c *tc.C)
 	u.assertFilesystemAttachmentExists(c, filesystemAttachUUID)
 }
 
-// TestAttachStorageToUnitSetsCharmName verifies that attaching storage with a
+// TestAttachStorageInstanceToUnitSetsCharmName verifies that attaching storage with a
 // charm name set argument updates the storage instance charm name.
-func (u *unitStorageSuite) TestAttachStorageToUnitSetsCharmName(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitSetsCharmName(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -1154,17 +1154,17 @@ func (u *unitStorageSuite) TestAttachStorageToUnitSetsCharmName(c *tc.C) {
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	charmName := u.getStorageInstanceCharmName(c, storageInstUUID)
 	c.Check(charmName, tc.Equals, "custom-charm-name")
 }
 
-// TestAttachStorageToUnitWithExistingAttachments verifies that attaching a
+// TestAttachStorageInstanceToUnitWithExistingAttachments verifies that attaching a
 // storage instance with existing attachments and a unit with existing storage
 // attachments succeeds.
-func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageInstanceToUnitWithExistingAttachments(c *tc.C) {
 	storage := map[string]charm.Storage{
 		"st1": {
 			CountMax:    10,
@@ -1224,7 +1224,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnitWithExistingAttachments(c *tc.
 		},
 	}
 
-	err := u.state.AttachStorageToUnit(c.Context(), unitUUID1, attachArgs)
+	err := u.state.AttachStorageInstanceToUnit(c.Context(), unitUUID1, attachArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	u.assertStorageInstanceAttachmentExists(

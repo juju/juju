@@ -1547,8 +1547,8 @@ WHERE  uuid = $setStorageInstanceCharmName.uuid
 	return nil
 }
 
-// AttachStorageToUnit attaches an existing storage instance to a unit after
-// validating the Storage Instance and Unit preconditions.
+// AttachStorageInstanceToUnit attaches an existing storage instance to a unit
+// after validating the Storage Instance and Unit preconditions.
 //
 // The following errors can be expected:
 // - [storageerrors.StorageInstanceNotFound] when the storage instance does
@@ -1565,7 +1565,7 @@ WHERE  uuid = $setStorageInstanceCharmName.uuid
 // - [applicationerrors.UnitMachineChanged] when the unit's machine has changed.
 // - [applicationerrors.StorageInstanceUnexpectedAttachments] when the Storage
 // Instance has attachments outside the expected set.
-func (st *State) AttachStorageToUnit(
+func (st *State) AttachStorageInstanceToUnit(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageArg internal.AttachStorageInstanceToUnitArg,

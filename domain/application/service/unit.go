@@ -310,7 +310,7 @@ type UnitState interface {
 	// construction of a context factory for a unit.
 	GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error)
 
-	// AttachStorageToUnit attaches an existing storage instance to a unit.
+	// AttachStorageInstanceToUnit attaches an existing storage instance to a unit.
 	// The following error types can be expected:
 	// - [storageerrors.StorageInstanceNotFound] when the storage instance does
 	// not exist.
@@ -327,15 +327,15 @@ type UnitState interface {
 	// changed.
 	// - [applicationerrors.StorageInstanceUnexpectedAttachments] when the
 	// storage instance has attachments outside the expected set.
-	AttachStorageToUnit(
+	AttachStorageInstanceToUnit(
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		storageArg applicationinternal.AttachStorageInstanceToUnitArg,
 	) error
 }
 
-// AttachStorageToUnit ensures the specified storage instance can be attached
-// to the specified unit and then attaches it.
+// AttachStorageInstanceToUnit ensures the specified storage instance can be
+// attached to the specified unit and then attaches it.
 //
 // The following error types can be expected:
 // - [coreerrors.NotValid] when the storage or unit UUID is not valid.
@@ -369,7 +369,7 @@ type UnitState interface {
 // concurrently during the attach operation.
 // - [applicationerrors.UnitMachineChanged] when the unit's machine has changed
 // concurrently during the attach operation.
-func (s *ProviderService) AttachStorageToUnit(
+func (s *ProviderService) AttachStorageInstanceToUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -411,7 +411,7 @@ func (s *ProviderService) AttachStorageToUnit(
 		)
 	}
 
-	err = s.st.AttachStorageToUnit(ctx, unitUUID, unitAttachStorageArg)
+	err = s.st.AttachStorageInstanceToUnit(ctx, unitUUID, unitAttachStorageArg)
 	if errors.Is(err, applicationerrors.UnitAttachmentCountExceedsLimit) {
 		charmStorageDef := storageAttachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation
 		countExceededErr := applicationerrors.StorageCountLimitExceeded{
