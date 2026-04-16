@@ -257,10 +257,10 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *tc.C) {
 func (s *Suite) TestCloudSpec(c *tc.C) {
 	modelTag := names.NewModelTag(randomUUID())
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: func(objType string, version int, id, request string, arg, result any) error {
-		c.Assert(objType, tc.Equals, "Controller")
-		c.Assert(version, tc.Equals, 14)
-		c.Assert(request, tc.Equals, "CloudSpec")
-		c.Assert(arg, tc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, "Controller")
+		c.Check(version, tc.Equals, 14)
+		c.Check(request, tc.Equals, "CloudSpec")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: modelTag.String()}},
 		})
 		out := result.(*params.CloudSpecResults)
