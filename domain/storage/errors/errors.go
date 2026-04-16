@@ -48,6 +48,13 @@ const (
 	// do not support being adopted.
 	AdoptionNotSupported = errors.ConstError("storage entity adoption is not supported")
 
+	// MaxStorageCountPreconditionFailed is used to signal a concurrent db
+	// operation has occurred so that the storage count precondition is
+	// violated.
+	MaxStorageCountPreconditionFailed = errors.ConstError(
+		"max storage count precondition failed",
+	)
+
 	// StorageAttachmentNotFound is used when a storage attachment cannot be found.
 	StorageAttachmentNotFound = errors.ConstError("storage attachment not found")
 

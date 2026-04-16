@@ -7,6 +7,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/application/internal"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // setAddUnitNoopStorageExpects sets on the storage service mock a set of noop
@@ -22,10 +23,10 @@ func setAddUnitNoopStorageExpects(
 	).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
+	).Return(domainstorage.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), gomock.Any(),
-	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
+	).Return(domainstorage.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 }
 
 // setCreateApplicationNoopStorageExpects sets on the storage service mock a set
@@ -44,10 +45,10 @@ func setCreateApplicationNoopStorageExpects(
 	).Return(nil, nil).AnyTimes()
 	storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
+	).Return(domainstorage.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), gomock.Any(),
-	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
+	).Return(domainstorage.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().ValidateCharmStorage(
 		gomock.Any(), gomock.Any(),
 	).Return(nil).AnyTimes()

@@ -11,6 +11,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -253,6 +254,264 @@ func (i ImportVolumeParams) Validate() error {
 type StoragePoolNameUUID struct {
 	Name string `db:"name"`
 	UUID string `db:"uuid"`
+}
+
+// ProvisionScope declares to the model in what context a storage entity needs
+// to be provisioned.
+type ProvisionScope int
+
+const (
+	// ProvisionScopeModel indicates that the provisioner for the storage is to
+	// be run within the context of the model.
+	ProvisionScopeModel ProvisionScope = iota
+
+	// ProvisionScopeMachine indicates that the provisioner for the storage is
+	// to be run within the context of the machine.
+	ProvisionScopeMachine
+)
+
+// AddUnitStorageOverride defines user overrides to change storage defaults
+// used when adding new storage to a unit.
+type AddUnitStorageOverride struct {
+	// StoragePoolUUID is the storage pool UUID.
+	StoragePoolUUID *StoragePoolUUID
+
+	// SizeMiB is the size of the storage instance, in MiB.
+	SizeMiB *uint64
+}
+
+// UnitAddStorageArg represents the arguments required to add storage to a
+// unit. This will instantiate the instances and attachments for the unit.
+type UnitAddStorageArg struct {
+	// StorageInstances defines the new storage instances that must be created
+	// for the unit.
+	StorageInstances []CreateUnitStorageInstanceArg
+
+	// StorageToAttach defines the storage instances that should be attached to
+	// the unit. New storage instances defined in
+	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
+	// the unit and should be included in this list.
+	StorageToAttach []CreateUnitStorageAttachmentArg
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []StorageInstanceUUID
+
+	// CountLessThanEqual is the maximum storage count allowed at the time the
+	// add is performed in order for the add operation to be successful.
+	CountLessThanEqual uint32
+}
+
+// IAASUnitAddStorageArg represents the arguments required for making storage
+// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
+// IAAS unit to augment storage that is destined for a machine.
+type IAASUnitAddStorageArg struct {
+	UnitAddStorageArg
+
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []VolumeUUID
+}
+
+// CreateUnitStorageArg represents the arguments required for making storage
+// for a unit. This will create and set the unit's storage directives and then
+// instantiate the instances and attachments for the unit.
+type CreateUnitStorageArg struct {
+	// StorageDirectives defines the storage directives that should be created
+	// for the unit.
+	StorageDirectives []DirectiveArg
+
+	// StorageInstances defines the new storage instances that must be created
+	// for the unit.
+	StorageInstances []CreateUnitStorageInstanceArg
+
+	// StorageToAttach defines the storage instances that should be attached to
+	// the unit. New storage instances defined in
+	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
+	// the unit and should be included in this list.
+	StorageToAttach []CreateUnitStorageAttachmentArg
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []StorageInstanceUUID
+}
+
+// CreateIAASUnitStorageArg represents the arguments required for making
+// storage for an IAAS unit. This complements [CreateUnitStorageArg], allowing
+// for an IAAS unit to augment storage that is destined for a machine.
+type CreateIAASUnitStorageArg struct {
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []VolumeUUID
+}
+
+// DirectiveArg describes the arguments required for a storage directive.
+type DirectiveArg struct {
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint32
+
+	// Name relates to the charm storage name definition and must match up.
+	Name Name
+
+	// PoolUUID defines the storage pool UUID to use for the directive.
+	PoolUUID StoragePoolUUID
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
+}
+
+// CreateUnitStorageAttachmentArg describes the arguments required for creating
+// a storage attachment.
+type CreateUnitStorageAttachmentArg struct {
+	// UUID is the unique identifier to associate with the storage attachment.
+	UUID StorageAttachmentUUID
+
+	// FilesystemAttachment describes a filesystem to attach for the storage
+	// instance attachment.
+	FilesystemAttachment *CreateUnitStorageFilesystemAttachmentArg
+
+	// StorageInstanceUUID is the unique identifier of the storage instance to
+	// attach to the unit.
+	StorageInstanceUUID StorageInstanceUUID
+
+	// VolumeAttachment describes a volume to attach for the storage instance
+	// attachment.
+	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
+}
+
+// CreateUnitStorageFilesystemArg describes a filesystem that should be
+// created as part of a unit's storage.
+type CreateUnitStorageFilesystemArg struct {
+	// UUID describes the unique identifier of the filesystem to create
+	// alongside the storage instance.
+	UUID FilesystemUUID
+
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created filesystem.
+	ProvisionScope ProvisionScope
+}
+
+// CreateUnitStorageFilesystemAttachmentArg describes a filesystem attachment
+// that should be created alongside a unit's storage in the model.
+type CreateUnitStorageFilesystemAttachmentArg struct {
+	// FilesystemUUID is the unique identifier of the filesystem to be
+	// attached.
+	FilesystemUUID FilesystemUUID
+
+	// NetNodeUUID is the net node of the model entity that filesystem will be
+	// attached to.
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created filesystem attachment.
+	ProvisionScope ProvisionScope
+
+	// UUID is the unique identifier to give the filesystem attachment in the
+	// model.
+	UUID FilesystemAttachmentUUID
+}
+
+// CreateUnitStorageInstanceArg describes a set of arguments that create a new
+// storage instance on behalf of a unit.
+type CreateUnitStorageInstanceArg struct {
+	// CharmName is the name of the charm that this storage instance is being
+	// provisioned for. This value helps Juju later identify what charm this
+	// storage can be re-attached back to.
+	CharmName string
+
+	// Filesystem describes the properties of a new filesystem to be created
+	// alongside the storage instance. If this value is not nil a new
+	// filesystem will be created with the storage instance.
+	Filesystem *CreateUnitStorageFilesystemArg
+
+	// Kind defines the type of storage that is being created.
+	Kind StorageKind
+
+	// Name is the name of the storage and must correspond to the storage name
+	// defined in the charm the unit is running.
+	Name Name
+
+	// RequestSizeMiB defines the requested size of this storage instance in
+	// MiB. What ends up being allocated for the storage instance will be at
+	// least this value.
+	RequestSizeMiB uint64
+
+	// StoragePoolUUID is the pool from which this storage instance is
+	// provisioned.
+	StoragePoolUUID StoragePoolUUID
+
+	// Volume describes the properties of a new volume to be created alongside
+	// the storage instance. If this value is not nil a new volume will be
+	// created with the storage instance.
+	Volume *CreateUnitStorageVolumeArg
+
+	// UUID is the unique identifier to associate with the storage instance.
+	UUID StorageInstanceUUID
+}
+
+// CreateUnitStorageVolumeArg describes a volume that should be created as
+// part of a unit's storage.
+type CreateUnitStorageVolumeArg struct {
+	// UUID describes the unique identifier of the volume to create alongside
+	// the storage instance.
+	UUID VolumeUUID
+
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created volume.
+	ProvisionScope ProvisionScope
+}
+
+// CreateUnitStorageVolumeAttachmentArg describes a volume attachment that
+// should be created alongside a unit's storage in the model.
+type CreateUnitStorageVolumeAttachmentArg struct {
+	// NetNodeUUID is the net node of the model entity that volume will be
+	// attached to.
+	NetNodeUUID domainnetwork.NetNodeUUID
+
+	// ProvisionScope describes the provision scope to assign to the newly
+	// created volume attachment.
+	ProvisionScope ProvisionScope
+
+	// VolumeUUID is the unique identifier of the volume to be attached.
+	VolumeUUID VolumeUUID
+
+	// UUID is the unique identifier to give the volume attachment in the
+	// model.
+	UUID VolumeAttachmentUUID
+
+	// ProviderID, if set, forms the pre-determined volume attachment provider
+	// ID.
+	ProviderID *string
+}
+
+// RegisterUnitStorageArg represents the arguments required for registering a
+// unit's storage that has appeared in the model. This allows re-using
+// previously created storage for the unit and provisioning new storage as
+// needed.
+type RegisterUnitStorageArg struct {
+	CreateUnitStorageArg
+
+	// FilesystemProviderIDs defines the provider ID value to set for each
+	// filesystem.
+	FilesystemProviderIDs map[FilesystemUUID]string
+
+	// VolumeProviderIDs defines the provider ID value to set for each volume.
+	VolumeProviderIDs map[VolumeUUID]string
+
+	// FilesystemAttachmentProviderIDs defines the provider ID value to set for
+	// each filesystem attachment.
+	FilesystemAttachmentProviderIDs map[FilesystemAttachmentUUID]string
+
+	// VolumeAttachmentProviderIDs defines the provider ID value to set for
+	// each volume attachment.
+	VolumeAttachmentProviderIDs map[VolumeAttachmentUUID]string
 }
 
 // ImportVolumeAttachmentParams represents a volume attachment used when

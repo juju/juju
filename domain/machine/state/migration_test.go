@@ -17,6 +17,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/network"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -110,6 +111,7 @@ func (s *migrationStateSuite) TestInsertMigratingMachine(c *tc.C) {
 	err := s.state.InsertMigratingMachine(c.Context(), "777", machine.CreateMachineArgs{
 		MachineUUID: machineUUID,
 		NetNodeUUID: netNodeUUID,
+		Hostname:    "host-name-123",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -121,6 +123,7 @@ func (s *migrationStateSuite) TestInsertMigratingMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(retrievedNetNodeUUID, tc.Equals, netNodeUUID.String())
+	s.checkHostnameForMachine(c, "777", "host-name-123")
 }
 
 func (s *migrationStateSuite) TestInsertMigratingSubordinateMachineAlreadyExists(c *tc.C) {
@@ -143,6 +146,7 @@ func (s *migrationStateSuite) TestInsertMigratingSubordinateMachine(c *tc.C) {
 	err := s.state.InsertMigratingSubordinateMachine(c.Context(), "0/lxd/888", parentUUID.String(), machine.CreateMachineArgs{
 		MachineUUID: containerUUID,
 		NetNodeUUID: netNodeUUID,
+		Hostname:    "host-name-123",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -158,6 +162,7 @@ func (s *migrationStateSuite) TestInsertMigratingSubordinateMachine(c *tc.C) {
 	retrievedParentUUID, err := s.state.GetMachineParentUUID(c.Context(), containerUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(retrievedParentUUID, tc.Equals, parentUUID)
+	s.checkHostnameForMachine(c, "0/lxd/888", "host-name-123")
 }
 
 func (s *migrationStateSuite) addMachine(c *tc.C) (coremachine.UUID, coremachine.Name) {
@@ -193,4 +198,21 @@ func (s *migrationStateSuite) addSubordinateMachine(c *tc.C, parentName coremach
 	machineUUID, err := s.state.GetMachineUUID(c.Context(), mNames[0])
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID, mNames[0]
+}
+
+func (s *migrationStateSuite) checkHostnameForMachine(c *tc.C, name string, expected string) {
+	var hostname string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT hostname
+FROM machine
+WHERE name = ?
+`, name).Scan(&hostname)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostname, tc.Equals, expected)
 }

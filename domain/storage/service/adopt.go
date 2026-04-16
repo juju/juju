@@ -147,17 +147,17 @@ func (s *StorageService) AdoptFilesystem(
 			"calculated storage instance composition is paradoxical",
 		)
 	} else if !ic.VolumeRequired &&
-		ic.FilesystemProvisionScope == domainstorageprovisioning.ProvisionScopeMachine {
+		ic.FilesystemProvisionScope == domainstorage.ProvisionScopeMachine {
 		return "", errors.New(
 			"adopting machine scoped filesystem without model scoped volume is not possible",
 		).Add(domainstorageerrors.AdoptionNotSupported)
 	} else if ic.VolumeRequired &&
-		ic.VolumeProvisionScope == domainstorageprovisioning.ProvisionScopeMachine {
+		ic.VolumeProvisionScope == domainstorage.ProvisionScopeMachine {
 		return "", errors.New(
 			"adopting filesystem on machine scoped volume is not possible",
 		).Add(domainstorageerrors.AdoptionNotSupported)
 	} else if ic.VolumeRequired &&
-		ic.FilesystemProvisionScope == domainstorageprovisioning.ProvisionScopeModel {
+		ic.FilesystemProvisionScope == domainstorage.ProvisionScopeModel {
 		// This is not possible, since a model scoped provisioning of a
 		// filesystem by its nature does not need a volume.
 		return "", errors.New(

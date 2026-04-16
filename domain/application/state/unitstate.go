@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
@@ -812,7 +811,7 @@ func (st *InsertIAASUnitState) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
-	storageToAttach []internal.CreateUnitStorageAttachmentArg,
+	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		ctx, unitUUID, storageToAttach,
@@ -892,7 +891,7 @@ func (st *InsertIAASUnitState) insertUnitStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID, charmUUID string,
-	args []internal.CreateUnitStorageDirectiveArg,
+	args []domainstorage.DirectiveArg,
 ) error {
 	if len(args) == 0 {
 		return nil
@@ -934,7 +933,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 func (st *InsertIAASUnitState) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
-	stArgs []internal.CreateUnitStorageInstanceArg,
+	stArgs []domainstorage.CreateUnitStorageInstanceArg,
 ) ([]string, error) {
 	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
 		ctx, tx, stArgs,
@@ -1199,7 +1198,7 @@ INSERT INTO machine_filesystem (*) VALUES ($insertFilesystemMachineOwner.*)
 func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []internal.CreateUnitStorageInstanceArg,
+	args []domainstorage.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageFilesystem,
 	[]insertStorageFilesystemInstance,
@@ -1270,7 +1269,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
 // [insertStorageFilesystemAttachment] for each filesystem attachment defined in
 // args.
 func (st *InsertIAASUnitState) makeInsertUnitFilesystemAttachmentArgs(
-	args []internal.CreateUnitStorageAttachmentArg,
+	args []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageFilesystemAttachment {
 	rval := []insertStorageFilesystemAttachment{}
 	for _, arg := range args {
@@ -1298,7 +1297,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemAttachmentArgs(
 func (st *InsertIAASUnitState) makeInsertUnitStorageInstanceArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []internal.CreateUnitStorageInstanceArg,
+	args []domainstorage.CreateUnitStorageInstanceArg,
 ) ([]insertStorageInstance, error) {
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
 
@@ -1335,7 +1334,7 @@ func (st *InsertIAASUnitState) makeInsertUnitStorageInstanceArgs(
 func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []internal.CreateUnitStorageInstanceArg,
+	args []domainstorage.CreateUnitStorageInstanceArg,
 ) (
 	[]insertStorageVolume,
 	[]insertStorageVolumeInstance,
@@ -1406,7 +1405,7 @@ func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
 // [insertStorageVolumeAttachment] values for each volume attachment argument
 // supplied.
 func (st *InsertIAASUnitState) makeInsertUnitVolumeAttachmentArgs(
-	args []internal.CreateUnitStorageAttachmentArg,
+	args []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageVolumeAttachment {
 	rval := []insertStorageVolumeAttachment{}
 	for _, arg := range args {

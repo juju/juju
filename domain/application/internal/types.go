@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // ProxySettings contains the proxy settings for a unit context.
@@ -59,7 +60,7 @@ type UpdateUnitCharmArg struct {
 
 	// UnitStorage are the arguments required to create new storage for this
 	// unit once it has changed charms.
-	UnitStorage CreateUnitStorageArg
+	UnitStorage domainstorage.CreateUnitStorageArg
 
 	// MachineUUID is set when this unit is an IAAS unit on a machine.
 	MachineUUID *machine.UUID
@@ -67,5 +68,5 @@ type UpdateUnitCharmArg struct {
 	// IAASUnitStorage is set when this is an IAAS unit on a machine, they are
 	// the arguments required to create new storage for this unit once it has
 	// changed charms.
-	IAASUnitStorage *CreateIAASUnitStorageArg
+	IAASUnitStorage *domainstorage.CreateIAASUnitStorageArg
 }

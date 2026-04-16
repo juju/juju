@@ -10,14 +10,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -2831,6 +2829,7 @@ WHERE  application_uuid = $entityUUID.uuid;
 // specified application UUID.
 // Empty constraints are returned if no constraints exist for the given
 // application UUID.
+// Spaces, tags and zones are returned in the insertion order.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.UUID) (constraints.Constraints, error) {
@@ -2844,7 +2843,8 @@ func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplic
 	query := `
 SELECT &applicationConstraint.*
 FROM   v_application_constraint
-WHERE  application_uuid = $entityUUID.uuid;
+WHERE  application_uuid = $entityUUID.uuid
+ORDER BY tag_order, space_order, zone_order;
 `
 
 	stmt, err := st.Prepare(query, applicationConstraint{}, ident)
@@ -3255,6 +3255,7 @@ func (*State) NamespaceForWatchNetNodeAddress() string {
 // spaces, tags and zones constraints which are slices. We can safely assume
 // that the non-slice values are repeated on every row so we can safely
 // overwrite the previous value on each iteration.
+// Spaces, tags and zones are returned in the order they appear in the input.
 func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 	var res constraints.Constraints
 
@@ -3264,10 +3265,13 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 		return res
 	}
 
-	// Unique spaces, tags and zones:
-	spaces := make(map[string]constraints.SpaceConstraint)
-	tags := set.NewStrings()
-	zones := set.NewStrings()
+	// Unique spaces, tags and zones, preserving insertion order:
+	var spaces []constraints.SpaceConstraint
+	seenSpaces := make(map[string]struct{})
+	var tagsList []string
+	seenTags := make(map[string]struct{})
+	var zonesList []string
+	seenZones := make(map[string]struct{})
 
 	for _, row := range cons {
 		if row.Arch.Valid {
@@ -3312,34 +3316,37 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 			res.ImageID = &row.ImageID.String
 		}
 		if row.SpaceName.Valid {
-			var exclude bool
-			if row.SpaceExclude.Valid {
-				exclude = row.SpaceExclude.Bool
-			}
-			spaces[row.SpaceName.String] = constraints.SpaceConstraint{
-				SpaceName: row.SpaceName.String,
-				Exclude:   exclude,
+			if _, ok := seenSpaces[row.SpaceName.String]; !ok {
+				seenSpaces[row.SpaceName.String] = struct{}{}
+				spaces = append(spaces, constraints.SpaceConstraint{
+					SpaceName: row.SpaceName.String,
+					Exclude:   row.SpaceExclude.Bool,
+				})
 			}
 		}
 		if row.Tag.Valid {
-			tags.Add(row.Tag.String)
+			if _, ok := seenTags[row.Tag.String]; !ok {
+				seenTags[row.Tag.String] = struct{}{}
+				tagsList = append(tagsList, row.Tag.String)
+			}
 		}
 		if row.Zone.Valid {
-			zones.Add(row.Zone.String)
+			if _, ok := seenZones[row.Zone.String]; !ok {
+				seenZones[row.Zone.String] = struct{}{}
+				zonesList = append(zonesList, row.Zone.String)
+			}
 		}
 	}
 
 	// Add the unique spaces, tags and zones to the result:
 	if len(spaces) > 0 {
-		res.Spaces = new(slices.Collect(maps.Values(spaces)))
+		res.Spaces = &spaces
 	}
-	if len(tags) > 0 {
-		tagsSlice := tags.SortedValues()
-		res.Tags = &tagsSlice
+	if len(tagsList) > 0 {
+		res.Tags = &tagsList
 	}
-	if len(zones) > 0 {
-		zonesSlice := zones.SortedValues()
-		res.Zones = &zonesSlice
+	if len(zonesList) > 0 {
+		res.Zones = &zonesList
 	}
 
 	return res

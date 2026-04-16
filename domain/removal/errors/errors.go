@@ -60,10 +60,6 @@ const (
 	// still has relations
 	OfferHasRelations = errors.ConstError("offer has relations")
 
-	// ApplicationHasOfferConnections indicates that an application cannot be
-	// deleted because it still has offer connections
-	ApplicationHasOfferConnections = errors.ConstError("application has offer connections")
-
 	// ApplicationIsRemoteOfferer indicates that an application cannot be deleted
 	// because it is a remote application offerer
 	ApplicationIsRemoteOfferer = errors.ConstError("application is remote")

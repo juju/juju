@@ -120,15 +120,6 @@ func (s *BasicAuthHandlerSuite) TestAuthorizationFailure(c *tc.C) {
 	s.stub.CheckCallNames(c, "Authenticate", "Authorize")
 }
 
-func (s *BasicAuthHandlerSuite) TestAuthorizationOptional(c *tc.C) {
-	s.handler.Authorizer = nil
-
-	resp, err := s.server.Client().Get(s.server.URL)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
-	defer resp.Body.Close()
-}
-
 type CompositeAuthSuite struct {
 	testhelpers.IsolationSuite
 }
@@ -178,4 +169,44 @@ func (s *CompositeAuthSuite) TestAuthorizeFail(c *tc.C) {
 	}
 	err := auth.Authorize(context.Background(), authInfo)
 	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+type ControllerAuthorizerSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestControllerAuthorizerSuite(t *testing.T) {
+	tc.Run(t, &ControllerAuthorizerSuite{})
+}
+
+func (s *ControllerAuthorizerSuite) TestAuthorizeController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	err := ControllerAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ControllerAuthorizerSuite) TestAuthorizeNonController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: false}
+	err := ControllerAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+type TODOAuthorizerSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestTODOAuthorizerSuite(t *testing.T) {
+	tc.Run(t, &TODOAuthorizerSuite{})
+}
+
+func (s *TODOAuthorizerSuite) TestAuthorizeController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: true}
+	err := TODOAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *TODOAuthorizerSuite) TestAuthorizeNonController(c *tc.C) {
+	authInfo := authentication.AuthInfo{Controller: false}
+	err := TODOAuthorizer.Authorize(c.Context(), authInfo)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -36,6 +36,7 @@ type RemoteConnection interface {
 // responsible modeling the remote API server.
 type RemoteServer interface {
 	worker.Worker
+	worker.Reporter
 	RemoteConnection
 	UpdateAddresses(addresses []string)
 }
@@ -177,6 +178,7 @@ func (w *remoteServer) Report(ctx context.Context) map[string]any {
 
 type request struct {
 	ctx       context.Context
+	cancel    context.CancelCauseFunc
 	addresses []string
 }
 
@@ -194,7 +196,7 @@ func (w *remoteServer) loop() error {
 
 	w.logger.Tracef(ctx, "starting remote API caller for controller %q", w.controllerID)
 
-	requests := make(chan request)
+	requests := make(chan request, 1)
 	w.tomb.Go(func() error {
 		// When we receive a new change, we want to be able to cancel the current
 		// connection attempt. The current setup is that it will dial indefinitely
@@ -230,21 +232,27 @@ func (w *remoteServer) loop() error {
 				}
 
 				// Create a new context for the next connection attempt.
-				var requestCtx context.Context
-				requestCtx, canceler = context.WithCancelCause(ctx)
-
-				// We might want to consider only sending a change after a
-				// period of time, to avoid sending too many changes at once.
-				select {
-				case <-w.tomb.Dying():
-					// We'll always have a canceler if we're dying, so we can
-					// safely call it here.
-					canceler(context.Canceled)
-					return tomb.ErrDying
-				case requests <- request{
+				requestCtx, requestCancel := context.WithCancelCause(ctx)
+				canceler = requestCancel
+				req := request{
 					ctx:       requestCtx,
+					cancel:    requestCancel,
 					addresses: addresses,
-				}:
+				}
+
+				// Keep request handoff to the main loop non-blocking and
+				// latest-wins. If the queue is full, replace the stale request.
+			enqueue:
+				for {
+					select {
+					case <-w.tomb.Dying():
+						requestCancel(context.Canceled)
+						return tomb.ErrDying
+					case requests <- req:
+						break enqueue
+					case stale := <-requests:
+						stale.cancel(newChangeRequestError)
+					}
 				}
 			}
 		}

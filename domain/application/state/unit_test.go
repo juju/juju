@@ -834,7 +834,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        missingUnitUUID,
 		CharmUUID:   "bar",
-		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -846,7 +846,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmUnitIsDead(c *tc.C) {
 	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
 		CharmUUID:   "bar",
-		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
@@ -857,7 +857,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
 	err := s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
 		CharmUUID:   "bar",
-		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
@@ -891,7 +891,7 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
 		CharmUUID:   id,
-		UnitStorage: applicationinternal.CreateUnitStorageArg{},
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -999,8 +999,8 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	createArgs := applicationinternal.CreateUnitStorageArg{
-		StorageInstances: []applicationinternal.CreateUnitStorageInstanceArg{{
+	createArgs := domainstorage.CreateUnitStorageArg{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
 			UUID:            storageInstanceUUID,
 			CharmName:       "foo",
 			Kind:            domainstorage.StorageKindFilesystem,
@@ -1008,7 +1008,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 			RequestSizeMiB:  8192,
 			StoragePoolUUID: newPoolID,
 		}},
-		StorageToAttach: []applicationinternal.CreateUnitStorageAttachmentArg{{
+		StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{{
 			UUID:                tc.Must(c, domainstorage.NewStorageAttachmentUUID),
 			StorageInstanceUUID: storageInstanceUUID,
 		}},

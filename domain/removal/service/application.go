@@ -36,7 +36,7 @@ type ApplicationState interface {
 	// the last ones on their machines, it will cascade and the machines are
 	// also set to dying. The affected machine UUIDs are returned.
 	EnsureApplicationNotAliveCascade(
-		ctx context.Context, appUUID string, destroyStorage, force bool,
+		ctx context.Context, appUUID string, destroyStorage bool,
 	) (internal.CascadedApplicationLives, error)
 
 	// ApplicationScheduleRemoval schedules a removal job for the application
@@ -104,7 +104,7 @@ func (s *Service) RemoveApplication(
 		return "", errors.Errorf("application %q does not exist", appUUID).Add(applicationerrors.ApplicationNotFound)
 	}
 
-	cascaded, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), destroyStorage, force)
+	cascaded, err := s.modelState.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("application %q: %w", appUUID, err)
 	}
