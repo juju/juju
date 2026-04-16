@@ -1376,6 +1376,10 @@ func (s *StorageProvisionerAPI) VolumeBlockDevices(ctx context.Context, args par
 			result.Provenance = params.BlockDeviceProvenanceProvider
 		case blockdevice.MachineProvenance:
 			result.Provenance = params.BlockDeviceProvenanceMachine
+		default:
+			return params.BlockDevice{}, errors.Errorf(
+				"unexpected provenance value: %v", bd.Provenance,
+			).Add(coreerrors.NotImplemented)
 		}
 		return result, nil
 	}
