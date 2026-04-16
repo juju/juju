@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
+// TODO(merge): re-enable blockdevice trigger generation when 4.0 is merged to
+// main. This must correspond with resolving 0056-blockdevice-partial.PATCH.sql.
 //disabled go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
