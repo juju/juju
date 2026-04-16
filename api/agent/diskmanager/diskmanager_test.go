@@ -47,9 +47,11 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *tc.C) {
 				BlockDevices: []params.BlockDevice{{
 					DeviceName: "sda",
 					SizeMiB:    123,
+					Provenance: params.BlockDeviceProvenanceProvider,
 				}, {
 					DeviceName: "sdb",
 					UUID:       "asdadasdasdas",
+					Provenance: params.BlockDeviceProvenanceProvider,
 				}},
 			}},
 		})
@@ -113,6 +115,46 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesServerError(c *tc.C) {
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(c.Context(), nil)
 	c.Check(err, tc.ErrorMatches, "MSG")
+}
+
+func (s *DiskManagerSuite) TestSetMachineBlockDevicesProvenance(c *tc.C) {
+	devices := []blockdevice.BlockDevice{{
+		DeviceName: "sda",
+		Provenance: blockdevice.ProviderProvenance,
+	}, {
+		DeviceName: "sdb",
+		Provenance: blockdevice.MachineProvenance,
+	}, {
+		DeviceName: "sdc",
+		Provenance: blockdevice.Provenance(99),
+	}}
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		c.Check(arg, tc.DeepEquals, params.SetMachineBlockDevices{
+			MachineBlockDevices: []params.MachineBlockDevices{{
+				Machine: "machine-123",
+				BlockDevices: []params.BlockDevice{{
+					DeviceName: "sda",
+					Provenance: params.BlockDeviceProvenanceProvider,
+				}, {
+					DeviceName: "sdb",
+					Provenance: params.BlockDeviceProvenanceMachine,
+				}, {
+					DeviceName: "sdc",
+					Provenance: params.BlockDeviceProvenanceUnknown,
+				}},
+			}},
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: nil}},
+		}
+		return nil
+	})
+
+	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
+	err := st.SetMachineBlockDevices(c.Context(), devices)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *tc.C) {
