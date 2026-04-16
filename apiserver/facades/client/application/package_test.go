@@ -42,7 +42,6 @@ type baseSuite struct {
 	machineService            *MockMachineService
 	modelConfigService        *MockModelConfigService
 	networkService            *MockNetworkService
-	objectStore               *MockObjectStore
 	portService               *MockPortService
 	relationService           *MockRelationService
 	removalService            *MockRemovalService
@@ -132,7 +131,14 @@ func (s *baseSuite) newCAASAPI(c *tc.C) {
 }
 
 func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
-	s.deployApplicationLocalRepo = deployApplicationLocalRepo{}
+	s.deployApplicationLocalRepo = deployApplicationLocalRepo{
+		applicationService: s.applicationService,
+		clock:              clock.WallClock,
+		logger:             loggertesting.WrapCheckLog(c),
+		modelType:          modelType,
+
+		storageService:     s.storageService,
+	}
 	s.modelType = modelType
 	var err error
 	s.api, err = NewAPIBase(
@@ -160,7 +166,6 @@ func (s *baseSuite) newAPI(c *tc.C, modelType model.ModelType) {
 		s.deployFromRepo,
 		s.deployApplicationLocalRepo,
 		s.caasBroker,
-		s.objectStore,
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)

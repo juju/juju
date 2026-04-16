@@ -41,21 +41,19 @@ import (
 // DeployApplicationLocalRepo describes an interface for deploying applications where the
 // charm does not need to come from a repository.
 type DeployApplicationLocalRepo interface {
-	Deploy(
-		context.Context,
-		coremodel.ModelType,
-		ApplicationService,
-		StorageService,
-		objectstore.ObjectStore,
-		DeployApplicationParams,
-		corelogger.Logger,
-		clock.Clock,
-	) error
+	Deploy(context.Context, DeployApplicationParams) error
 }
 
 // deployApplicationLocalRepo is an internal implementation of
 // [DeployApplicationLocalRepo]
-type deployApplicationLocalRepo struct{}
+type deployApplicationLocalRepo struct {
+	applicationService ApplicationService
+	clock              clock.Clock
+	logger             corelogger.Logger
+	modelType          coremodel.ModelType
+	store              objectstore.ObjectStore
+	storageService     StorageService
+}
 
 // ModelService provides access to the model state.
 type ModelService interface {
@@ -90,16 +88,7 @@ type DeployApplicationParams struct {
 }
 
 // Deploy takes a charm and various parameters and deploys it.
-func (d deployApplicationLocalRepo) Deploy(
-	ctx context.Context,
-	modelType coremodel.ModelType,
-	applicationService ApplicationService,
-	storageService StorageService,
-	store objectstore.ObjectStore,
-	args DeployApplicationParams,
-	logger corelogger.Logger,
-	clock clock.Clock,
-) error {
+func (d deployApplicationLocalRepo) Deploy(ctx context.Context, args DeployApplicationParams) error {
 	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
 		return errors.New("manual deploy of the controller charm not supported").
 			Add(coreerrors.NotSupported)
@@ -114,15 +103,15 @@ func (d deployApplicationLocalRepo) Deploy(
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(ctx, applicationService, args.Charm.Meta().Assumes); err != nil {
+	if err := assertCharmAssumptions(ctx, d.applicationService, args.Charm.Meta().Assumes); err != nil {
 		if !errors.Is(err, coreerrors.NotSupported) || !args.Force {
 			return errors.Capture(err)
 		}
 
-		logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
+		d.logger.Warningf(ctx, "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
-	if modelType == coremodel.CAAS {
+	if d.modelType == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
 			return errors.Errorf(
 				"deploying format v1 charm %q not supported",
@@ -162,7 +151,7 @@ func (d deployApplicationLocalRepo) Deploy(
 		len(storageTagsToAttach),
 	)
 	for _, storageTag := range storageTagsToAttach {
-		storageUUID, err := storageService.GetStorageInstanceUUIDForID(
+		storageUUID, err := d.storageService.GetStorageInstanceUUIDForID(
 			ctx, storageTag.Id(),
 		)
 
@@ -174,7 +163,7 @@ func (d deployApplicationLocalRepo) Deploy(
 			)
 		} else if err != nil {
 			// Log the error instead of reporting verbatim to client
-			logger.Warningf(
+			d.logger.Warningf(
 				ctx,
 				"getting storage instance uuid for id %q during deploying application %q from local: %s",
 				args.ApplicationName,
@@ -191,7 +180,7 @@ func (d deployApplicationLocalRepo) Deploy(
 	var downloadInfo *applicationcharm.DownloadInfo
 	if args.CharmOrigin.Source == corecharm.CharmHub {
 		var err error
-		downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, args.Charm.locator)
+		downloadInfo, err = d.applicationService.GetCharmDownloadInfo(ctx, args.Charm.locator)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -202,7 +191,7 @@ func (d deployApplicationLocalRepo) Deploy(
 		return errors.Capture(err)
 	}
 
-	sdo, err := storageDirectives(ctx, storageService, args.Storage)
+	sdo, err := storageDirectives(ctx, d.storageService, args.Storage)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -215,7 +204,7 @@ func (d deployApplicationLocalRepo) Deploy(
 		Devices:          args.Devices,
 		ApplicationStatus: &status.StatusInfo{
 			Status: status.Unset,
-			Since:  new(clock.Now()),
+			Since:  new(d.clock.Now()),
 		},
 		ApplicationConfig: args.ApplicationConfig,
 		ApplicationSettings: application.ApplicationSettings{
@@ -224,9 +213,9 @@ func (d deployApplicationLocalRepo) Deploy(
 		Constraints:               args.Constraints,
 		StorageDirectiveOverrides: sdo,
 	}
-	if modelType == coremodel.CAAS {
+	if d.modelType == coremodel.CAAS {
 		unitArgs := d.makeCAASUnitArgs(args, storageUUIDsToAttach)
-		_, err = applicationService.CreateCAASApplication(
+		_, err = d.applicationService.CreateCAASApplication(
 			ctx,
 			args.ApplicationName,
 			args.Charm,
@@ -241,7 +230,7 @@ func (d deployApplicationLocalRepo) Deploy(
 	}
 
 	unitArgs := d.makeIAASUnitArgs(args, storageUUIDsToAttach)
-	_, err = applicationService.CreateIAASApplication(
+	_, err = d.applicationService.CreateIAASApplication(
 		ctx,
 		args.ApplicationName,
 		args.Charm,
