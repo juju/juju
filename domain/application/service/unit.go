@@ -409,6 +409,18 @@ func (s *ProviderService) AttachStorageToUnit(
 	}
 
 	err = s.st.AttachStorageToUnit(ctx, unitUUID, unitAttachStorageArg)
+	if errors.Is(err, applicationerrors.UnitAttachmentCountExceedsLimit) {
+		charmStorageDef := storageAttachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation
+		countExceededErr := applicationerrors.StorageCountLimitExceeded{
+			Minimum:     charmStorageDef.CountMin,
+			Requested:   int(storageAttachInfo.UnitNamedStorageInfo.AlreadyAttachedCount) + 1,
+			StorageName: charmStorageDef.Name,
+		}
+		if charmStorageDef.CountMax >= 0 {
+			countExceededErr.Maximum = &charmStorageDef.CountMax
+		}
+		return countExceededErr
+	}
 	return errors.Capture(err)
 }
 
@@ -540,7 +552,7 @@ func validateStorageInstanceForUnitAttachment(
 			"storage instance %q has existing attachments but charm storage definition %q is not shared",
 			info.StorageInstanceInfo.UUID,
 			charmStorageDef.Name,
-		).Add(applicationerrors.StorageInstanceUnexpectedAttachments)
+		).Add(applicationerrors.StorageInstanceAttachSharedAccessNotSupported)
 	}
 
 	// Validate that the storage instance owning machines if any are compatible

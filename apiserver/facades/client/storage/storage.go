@@ -1346,53 +1346,113 @@ func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAtt
 	}
 
 	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
-	err = handleAttachStorageToUnitError(err, unitName, storageTag.Id())
+	err = handleAttachStorageInstanceToUnitError(err, unitName, storageTag.Id())
 	return err
 }
 
-// handleAttachStorageToUnitError is a first low pass effort to start handling
-// some of the errors that will occur when attaching unit storage.
-// If a handler does not exist then the original error will be returned.
-func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID string) error {
+// handleAttachStorageInstanceToUnitError maps domain errors from AttachStorageToUnit
+// into appropriate API errors. If no specific handler exists the original error
+// is returned.
+func handleAttachStorageInstanceToUnitError(
+	err error, unitName coreunit.Name, storageID string,
+) error {
 	switch {
+	case err == nil:
+		return nil
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeNotFound,
-			"unit %q does not exist", unitName)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound,
+			"unit %q does not exist", unitName,
+		)
+	case errors.Is(err, applicationerrors.UnitNotAlive):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"unit %q is not alive", unitName,
+		)
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeNotFound,
-			"storage %q not found", storageID)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound,
+			"storage %q not found", storageID,
+		)
+	case errors.Is(err, storageerrors.StorageInstanceNotAlive):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q is not alive", storageID,
+		)
 	case errors.Is(err, applicationerrors.StorageNameNotSupported):
-		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
-			"storage %q not supported by the unit's charm", storageID)
-	case errors.Is(err, applicationerrors.UnitNotAssigned):
-		return apiservererrors.ParamsErrorf(params.CodeNotAssigned,
-			"cannot attach storage when the unit is not assigned to a machine")
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"storage %q not supported by the charm of unit %q",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceCharmNameMismatch):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q was created for a different charm than unit %q",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q kind is not compatible with the charm storage definition of unit %q",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceSizeNotValidForCharmStorageDefinition):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q size does not meet the charm storage minimum size requirement of unit %q",
+			storageID, unitName,
+		)
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
-			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"storage attachment %q count %d would exceed the charm's maximum count of %d",
-				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			return apiservererrors.ParamsErrorf(
+				params.CodeNotValid,
+				"attaching storage %q would exceed the maximum count of %d"+
+					" for storage definition %q of unit %q",
+				storageID, *limitErr.Maximum, limitErr.StorageName, unitName,
 			)
 		}
-	case errors.HasType[applicationerrors.StorageAttachmentNotAllowed](err):
-		attachErr, _ := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
-		if len(attachErr.AttachedToUnits) > 0 {
-			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"%v is already attached to other unit(s): %v",
-				storageID,
-				attachErr.AttachedToUnits,
-			)
-		}
-		if attachErr.ExistingStorageMachineOwner != nil {
-			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"%v is bound to machine %v but the unit is assigned to a different machine",
-				storageID,
-				*attachErr.ExistingStorageMachineOwner,
-			)
-		}
-		return apiservererrors.ParamsErrorf(params.CodeNotValid,
-			"storage attachment not allowed",
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"attaching storage %q to unit %q: %v",
+			storageID, unitName, limitErr,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceAlreadyAttachedToUnit):
+		return apiservererrors.ParamsErrorf(
+			params.CodeAlreadyExists,
+			"storage %q is already attached to unit %q",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceAttachSharedAccessNotSupported):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q already has attachments but the charm storage definition of unit %q does not support shared access",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceUnexpectedAttachments):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q attachments changed while attaching to unit %q, please retry",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.StorageInstanceAttachMachineOwnerMismatch):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"storage %q is bound to a different machine than unit %q",
+			storageID, unitName,
+		)
+	case errors.Is(err, applicationerrors.UnitCharmChanged):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"unit %q charm changed during storage attachment, please retry",
+			unitName,
+		)
+	case errors.Is(err, applicationerrors.UnitMachineChanged):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"unit %q machine changed during storage attachment, please retry",
+			unitName,
 		)
 	}
 	return err

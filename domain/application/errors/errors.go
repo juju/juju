@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 
 	"github.com/juju/juju/internal/errors"
 )
@@ -307,6 +306,13 @@ const (
 		"storage instance has unexpected attachments",
 	)
 
+	// StorageInstanceAttachSharedAccessNotSupported is returned when attempting
+	// to attach a storage instance that already has attachments to other units,
+	// but the unit's charm storage definition does not support shared access.
+	StorageInstanceAttachSharedAccessNotSupported = errors.ConstError(
+		"storage instance attach shared access not supported",
+	)
+
 	// EndpointNotFound descries an error that occurs when the endpoint being
 	// operated on does not exist.
 	EndpointNotFound = errors.ConstError("endpoint not found")
@@ -435,27 +441,6 @@ func (s StorageCountLimitExceeded) Error() string {
 		maxStr,
 		s.Requested,
 	)
-}
-
-// StorageAttachmentNotAllowed describes an error that occurs when attempting to
-// attach storage to a unit and the unit is not in the allow list.
-type StorageAttachmentNotAllowed struct {
-	// AttachedToUnits is the unexpected units to which
-	// the storage is already attached.
-	AttachedToUnits []string
-	// ExistingStorageMachineOwner is the machine that owns the
-	// storage that is being attached.
-	ExistingStorageMachineOwner *string
-}
-
-// Error implements error.
-func (e StorageAttachmentNotAllowed) Error() string {
-	if len(e.AttachedToUnits) > 0 {
-		return "storage is already attached to units: " + strings.Join(e.AttachedToUnits, ", ")
-	} else if e.ExistingStorageMachineOwner != nil {
-		return "storage is already attached to machine: " + *e.ExistingStorageMachineOwner
-	}
-	return "storage attachment not allowed"
 }
 
 // Error returns a string representation of the [UnitStorageMinViolation] error
