@@ -308,7 +308,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
 	context.branches = fetchBranches(c.modelCache)
-	context.state = c.state()
 
 	if args.IncludeStorage {
 		context.storageInstances, err = c.storageAccessor.AllStorageInstances()
@@ -680,7 +679,6 @@ type statusContext struct {
 	providerType string
 	model        *state.Model
 	status       *state.ModelStatus
-	state        *state.State
 	presence     common.ModelPresenceContext
 
 	// machines: top-level machine id -> list of machines nested in
@@ -1842,7 +1840,8 @@ func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, 
 func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]params.StorageDetails, error) {
 	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
 	for _, storageInstance := range c.storageInstances {
-		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance, c.getUnit)
+		storageDetail, err := storagecommon.StorageDetails(storageAccessor,
+			storageInstance, c.unitToMachine, c.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
 		}
@@ -1885,7 +1884,7 @@ func (c *statusContext) processVolumes(storageAccessor StorageInterface) ([]para
 }
 
 func (c *statusContext) getUnit(name string) (storagecommon.Unit, error) {
-	return c.state.Unit(name)
+	return c.model.State().Unit(name)
 }
 
 type lifer interface {

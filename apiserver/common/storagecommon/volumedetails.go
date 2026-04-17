@@ -61,7 +61,7 @@ func VolumeDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storageDetails, err := StorageDetails(sb, unitToMachine, storageInstance, getUnit)
+		storageDetails, err := StorageDetails(sb, storageInstance, unitToMachine, getUnit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

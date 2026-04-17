@@ -96,7 +96,7 @@ func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDet
 			continue
 		}
 		details, err := storagecommon.StorageDetails(a.storageAccess,
-			a.unitAssignedMachine, storageInstance, a.getUnit)
+			storageInstance, a.unitAssignedMachine, a.getUnit)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -139,7 +139,7 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
 		details, err := storagecommon.StorageDetails(a.storageAccess,
-			a.unitAssignedMachine, stateInstance, a.getUnit)
+			stateInstance, a.unitAssignedMachine, a.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",

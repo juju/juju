@@ -43,8 +43,8 @@ type GetUnitFunc func(name string) (Unit, error)
 // StorageDetails returns the storage instance as a params StorageDetails.
 func StorageDetails(
 	sb DetailsBackend,
-	unitToMachine UnitAssignedMachineFunc,
 	si state.StorageInstance,
+	unitToMachine UnitAssignedMachineFunc,
 	getUnit GetUnitFunc,
 ) (*params.StorageDetails, error) {
 	// Get information from underlying volume or filesystem.
@@ -101,11 +101,11 @@ func StorageDetails(
 	}
 
 	// Get unit storage attachments.
+	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
 	storageAttachments, err := sb.StorageAttachments(si.StorageTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
 	if len(storageAttachments) > 0 {
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
 		for _, a := range storageAttachments {
@@ -168,7 +168,7 @@ func storageAttachmentInfo(
 func missingBackingStorageStatus(
 	si state.StorageInstance,
 	getUnit GetUnitFunc,
-	notFoundErr error,
+	originalErr error,
 	message string,
 	since time.Time,
 ) (status.StatusInfo, error) {
@@ -176,7 +176,7 @@ func missingBackingStorageStatus(
 	if !hasOwner || owner.Kind() != names.UnitTagKind {
 		return status.StatusInfo{
 			Status:  status.Error,
-			Message: notFoundErr.Error(),
+			Message: originalErr.Error(),
 			Since:   &since,
 		}, nil
 	}
@@ -196,7 +196,7 @@ func missingBackingStorageStatus(
 	if !unit.ShouldBeAssigned() {
 		return status.StatusInfo{
 			Status:  status.Error,
-			Message: notFoundErr.Error(),
+			Message: originalErr.Error(),
 			Since:   &since,
 		}, nil
 	}
@@ -223,7 +223,7 @@ func missingBackingStorageStatus(
 		// part of StatusInfo to keep status command from error-ing.
 		return status.StatusInfo{
 			Status:  status.Error,
-			Message: notFoundErr.Error(),
+			Message: originalErr.Error(),
 			Since:   &since,
 		}, nil
 	}
