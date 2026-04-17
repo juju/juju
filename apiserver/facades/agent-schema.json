@@ -1982,7 +1982,7 @@
     {
         "Name": "DiskManager",
         "Description": "",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -2039,6 +2039,9 @@
                             "type": "string"
                         },
                         "WWN": {
+                            "type": "string"
+                        },
+                        "provenance": {
                             "type": "string"
                         }
                     },
@@ -8389,7 +8392,7 @@
     {
         "Name": "StorageProvisioner",
         "Description": "",
-        "Version": 6,
+        "Version": 7,
         "Schema": {
             "type": "object",
             "properties": {
@@ -8798,6 +8801,9 @@
                             "type": "string"
                         },
                         "WWN": {
+                            "type": "string"
+                        },
+                        "provenance": {
                             "type": "string"
                         }
                     },

@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -121,6 +122,7 @@ func (w *mockAttachmentPlansWatcher) Changes() watcher.MachineStorageIDsChannel 
 }
 
 type mockVolumeAccessor struct {
+	mu                     sync.RWMutex
 	volumesWatcher         *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
 	attachmentPlansWatcher *mockAttachmentPlansWatcher
@@ -190,7 +192,20 @@ func (v *mockVolumeAccessor) VolumeAttachments(_ context.Context, ids []params.M
 	return result, nil
 }
 
+// setBlockDevice safely sets a block device entry on the mock.
+// Use this instead of direct map access to avoid data races with
+// the worker goroutine reading via VolumeBlockDevices.
+func (v *mockVolumeAccessor) setBlockDevice(
+	id params.MachineStorageId, dev params.BlockDevice,
+) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.blockDevices[id] = dev
+}
+
 func (v *mockVolumeAccessor) VolumeBlockDevices(_ context.Context, ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	var result []params.BlockDeviceResult
 	for _, id := range ids {
 		if dev, ok := v.blockDevices[id]; ok {

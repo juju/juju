@@ -283,6 +283,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Block device
 		"block_device_link_device",
 		"block_device",
+		"block_device_provenance",
 
 		// Storage
 		"application_storage_directive",

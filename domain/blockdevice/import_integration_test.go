@@ -109,6 +109,7 @@ func (s *importSuite) TestImportBlockDevices(c *tc.C) {
 		FilesystemType:  "ext4",
 		InUse:           true,
 		MountPoint:      "/path/to/here",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}, {
 		DeviceName:      "bar",
 		DeviceLinks:     []string{"another-link"},
@@ -122,6 +123,7 @@ func (s *importSuite) TestImportBlockDevices(c *tc.C) {
 		FilesystemType:  "xfs",
 		InUse:           false,
 		MountPoint:      "/another/path",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}})
 
 	m1BlockDevices, err := svc.GetBlockDevicesForMachine(c.Context(), m1UUID)
@@ -139,6 +141,7 @@ func (s *importSuite) TestImportBlockDevices(c *tc.C) {
 		FilesystemType:  "btrfs",
 		InUse:           true,
 		MountPoint:      "/baz/path",
+		Provenance:      coreblockdevice.MachineProvenance,
 	}})
 }
 

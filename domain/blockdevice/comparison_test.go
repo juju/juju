@@ -5,6 +5,7 @@ package blockdevice
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/juju/tc"
@@ -251,11 +252,15 @@ func (s *comparisonSuite) TestIsEmpty(c *tc.C) {
 		"MountPoint":      {MountPoint: "a"},
 		"SerialId":        {SerialId: "a"},
 	}
+	ignore := []string{"Provenance"}
 	t := reflect.TypeFor[blockdevice.BlockDevice]()
-	c.Assert(examples, tc.HasLen, t.NumField(),
+	c.Assert(examples, tc.HasLen, t.NumField()-len(ignore),
 		tc.Commentf("all fields must have an example"))
 	for i := range t.NumField() {
 		fname := t.Field(i).Name
+		if slices.Contains(ignore, fname) {
+			continue
+		}
 		example, ok := examples[fname]
 		c.Assert(ok, tc.IsTrue,
 			tc.Commentf("field %s missing example", fname))

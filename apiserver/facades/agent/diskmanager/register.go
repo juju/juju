@@ -12,13 +12,28 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("DiskManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newDiskManagerAPIV2(ctx)
+	}, reflect.TypeFor[*DiskManagerAPIV2]())
+	registry.MustRegister("DiskManager", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newDiskManagerAPI(ctx)
 	}, reflect.TypeFor[*DiskManagerAPI]())
+}
+
+// newDiskManagerAPIV2 creates a new server-side DiskManager API V2 facade.
+func newDiskManagerAPIV2(ctx facade.ModelContext) (*DiskManagerAPIV2, error) {
+	dm, err := newDiskManagerAPI(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &DiskManagerAPIV2{
+		DiskManagerAPI: dm,
+	}, nil
 }
 
 // newDiskManagerAPI creates a new server-side DiskManager API facade.

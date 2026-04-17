@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
+// TODO(merge): re-enable blockdevice trigger generation when 4.0 is merged to
+// main. This must correspond with resolving 0056-blockdevice-partial.PATCH.sql.
+//disabled go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision_expire,secret_revision_obsolete,secret_deleted_value_ref
@@ -164,6 +166,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0053-network.PATCH.sql",
 		"0054-application-k8s-resources.PATCH.sql",
 		"0055-constraint-view.PATCH.sql",
+		"0056-blockdevice-partial.PATCH.sql",
 	},
 }}
 

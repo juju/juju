@@ -100,6 +100,7 @@ WHERE  block_device_uuid = $entityUUID.uuid
 		InUse:           blockDevice.InUse,
 		MountPoint:      blockDevice.MountPoint,
 		SerialId:        blockDevice.SerialId,
+		Provenance:      coreblockdevice.Provenance(blockDevice.Provenance),
 	}
 	for _, v := range devLinks {
 		retVal.DeviceLinks = append(retVal.DeviceLinks, v.Name)
@@ -196,6 +197,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 			InUse:           bd.InUse,
 			MountPoint:      bd.MountPoint,
 			SerialId:        bd.SerialId,
+			Provenance:      coreblockdevice.Provenance(bd.Provenance),
 		}
 	}
 	for _, dl := range devLinks {
@@ -331,7 +333,9 @@ func (st *State) UpdateBlockDevicesForMachine(
 		}
 
 		if len(added) > 0 {
-			err = st.insertBlockDevices(ctx, tx, machineUUID, added)
+			err = st.insertBlockDevices(
+				ctx, tx, machineUUID, added,
+			)
 			if err != nil {
 				return errors.Errorf("adding new block devices: %w", err)
 			}
@@ -443,7 +447,8 @@ SET    name = $blockDevice.name,
        in_use = $blockDevice.in_use,
        filesystem_label = $blockDevice.filesystem_label,
        host_filesystem_uuid = $blockDevice.host_filesystem_uuid,
-       filesystem_type = $blockDevice.filesystem_type
+       filesystem_type = $blockDevice.filesystem_type,
+       provenance = $blockDevice.provenance
 WHERE  uuid = $blockDevice.uuid
 `, blockDevice{})
 	if err != nil {
@@ -490,6 +495,7 @@ WHERE  uuid = $blockDevice.uuid
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
 			MountPoint:         bd.MountPoint,
+			Provenance:         int(bd.Provenance),
 		}
 		if bd.DeviceName != "" {
 			val.Name = sql.Null[string]{
@@ -506,8 +512,36 @@ WHERE  uuid = $blockDevice.uuid
 	return nil
 }
 
+// CreateBlockDevice inserts a new block device.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] when the machine is not found.
+// - [machineerrors.MachineIsDead] when the machine is dead.
+func (st *State) CreateBlockDevice(
+	ctx context.Context,
+	machineUUID machine.UUID,
+	uuid blockdevice.BlockDeviceUUID,
+	device coreblockdevice.BlockDevice,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	devices := map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+		uuid: device,
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return st.insertBlockDevices(ctx, tx, machineUUID, devices)
+	})
+}
+
 func (st *State) insertBlockDevices(
-	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
+	ctx context.Context, tx *sqlair.TX,
+	machineUUID machine.UUID,
 	devices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) error {
 	insertQuery := `
@@ -543,6 +577,7 @@ VALUES ($deviceLink.*)
 			SizeMiB:            bd.SizeMiB,
 			FilesystemType:     bd.FilesystemType,
 			InUse:              bd.InUse,
+			Provenance:         int(bd.Provenance),
 		}
 		if bd.DeviceName != "" {
 			inputBlockDevice.Name = sql.Null[string]{
@@ -668,6 +703,7 @@ FROM   machine
 			InUse:           bd.InUse,
 			MountPoint:      bd.MountPoint,
 			SerialId:        bd.SerialId,
+			Provenance:      coreblockdevice.Provenance(bd.Provenance),
 		})
 	}
 

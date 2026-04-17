@@ -1177,17 +1177,38 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
 	defer worker.Kill()
 
-	args.volumes.blockDevices[params.MachineStorageId{
-		MachineTag:    "machine-0",
-		AttachmentTag: "volume-0-0",
-	}] = params.BlockDevice{
-		DeviceName: "xvdf1",
-		SizeMiB:    123,
-	}
+	// Block device exists but provenance is Provider — not yet confirmed
+	// by the machine agent, so no filesystem should be created.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf1",
+			SizeMiB:    123,
+			Provenance: params.BlockDeviceProvenanceProvider,
+		},
+	)
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
+	assertNoEvent(
+		c, filesystemInfoSet,
+		"filesystem info set with provider provenance",
+	)
 
-	// Only the block device for volume 0/0 is attached at the moment,
-	// so only the corresponding filesystem will be created.
+	// Update provenance to Machine — now filesystem 0/0 should be created.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf1",
+			SizeMiB:    123,
+			Provenance: params.BlockDeviceProvenanceMachine,
+		},
+	)
+	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	filesystemInfo := waitChannel(
 		c, filesystemInfoSet,
 		"waiting for filesystem info to be set",
@@ -1200,16 +1221,37 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *tc.C) {
 		},
 	}})
 
-	// If we now attach the block device for volume 0/1 and trigger the
-	// notification, then the storage provisioner will wake up and create
-	// the filesystem.
-	args.volumes.blockDevices[params.MachineStorageId{
-		MachineTag:    "machine-0",
-		AttachmentTag: "volume-0-1",
-	}] = params.BlockDevice{
-		DeviceName: "xvdf2",
-		SizeMiB:    246,
-	}
+	// Block device for volume 0/1 arrives with Provider provenance first;
+	// no filesystem should be created yet.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-1",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf2",
+			SizeMiB:    246,
+			Provenance: params.BlockDeviceProvenanceProvider,
+		},
+	)
+	args.volumes.blockDevicesWatcher.changes <- struct{}{}
+	assertNoEvent(
+		c, filesystemInfoSet,
+		"filesystem info set with provider provenance",
+	)
+
+	// Once provenance transitions to Machine, filesystem 0/1 is created.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-1",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf2",
+			SizeMiB:    246,
+			Provenance: params.BlockDeviceProvenanceMachine,
+		},
+	)
 	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	filesystemInfo = waitChannel(
 		c, filesystemInfoSet,
@@ -1251,19 +1293,42 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 	}
 	filesystemAccessor.provisionedMachines["machine-0"] = "already-provisioned-0"
 
-	args.volumes.blockDevices[params.MachineStorageId{
-		MachineTag:    "machine-0",
-		AttachmentTag: "volume-0-0",
-	}] = params.BlockDevice{
-		DeviceName: "xvdf1",
-		SizeMiB:    123,
-	}
+	// Block device exists but provenance is Provider — not yet confirmed
+	// by the machine agent, so no attachment should be created.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf1",
+			SizeMiB:    123,
+			Provenance: params.BlockDeviceProvenanceProvider,
+		},
+	)
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag:    "machine-0",
 		AttachmentTag: "filesystem-0-0",
 	}}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0"}
+	assertNoEvent(
+		c, infoSet,
+		"attachment info set with provider provenance",
+	)
 
+	// Update provenance to Machine — now the attachment should be created.
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf1",
+			SizeMiB:    123,
+			Provenance: params.BlockDeviceProvenanceMachine,
+		},
+	)
+	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	info := waitChannel(
 		c, infoSet, "waiting for filesystem attachment info to be set",
 	).([]params.FilesystemAttachment)
@@ -1277,14 +1342,18 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *tc.C) {
 	}})
 
 	// Update the UUID of the block device and check attachment update.
-	args.volumes.blockDevices[params.MachineStorageId{
-		MachineTag:    "machine-0",
-		AttachmentTag: "volume-0-0",
-	}] = params.BlockDevice{
-		DeviceName: "xvdf1",
-		SizeMiB:    123,
-		UUID:       "deadbeaf",
-	}
+	args.volumes.setBlockDevice(
+		params.MachineStorageId{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		},
+		params.BlockDevice{
+			DeviceName: "xvdf1",
+			SizeMiB:    123,
+			UUID:       "deadbeaf",
+			Provenance: params.BlockDeviceProvenanceMachine,
+		},
+	)
 	s.managedFilesystemSource.attachedFilesystems = make(chan any, 1)
 	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	attachInfo := waitChannel(

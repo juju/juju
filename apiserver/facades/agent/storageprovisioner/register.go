@@ -32,6 +32,13 @@ func Register(registry facade.FacadeRegistry) {
 		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV6(stdCtx, ctx)
 		},
+		reflect.TypeFor[*StorageProvisionerAPIv6](),
+	)
+	registry.MustRegister(
+		"StorageProvisioner", 7,
+		func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+			return newFacadeV7(stdCtx, ctx)
+		},
 		reflect.TypeFor[*StorageProvisionerAPI](),
 	)
 
@@ -49,8 +56,8 @@ func Register(registry facade.FacadeRegistry) {
 	)
 }
 
-// newFacadeV6 provides the signature required for facade registration.
-func newFacadeV6(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPI, error) {
+// newFacadeV7 uses
+func newFacadeV7(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPI, error) {
 	domainServices := ctx.DomainServices()
 
 	return NewStorageProvisionerAPI(
@@ -70,26 +77,26 @@ func newFacadeV6(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	)
 }
 
+// newFacadeV6 provides the signature required for facade registration.
+func newFacadeV6(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv6, error) {
+	v7, err := newFacadeV7(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &StorageProvisionerAPIv6{
+		StorageProvisionerAPI: v7,
+	}, nil
+}
+
 // newFacadeV5 provides the signature required for facade registration.
 func newFacadeV5(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvisionerAPIv5, error) {
-	domainServices := ctx.DomainServices()
-
-	storageProvisionerAPI, err := NewStorageProvisionerAPI(
-		stdCtx,
-		ctx.WatcherRegistry(),
-		ctx.Clock(),
-		domainServices.BlockDevice(),
-		domainServices.Machine(),
-		domainServices.Application(),
-		domainServices.Removal(),
-		ctx.Auth(),
-		domainServices.Status(),
-		domainServices.StorageProvisioning(),
-		ctx.Logger().Child("storageprovisioner"),
-		ctx.ModelUUID(),
-		ctx.ControllerUUID(),
-	)
-	return &StorageProvisionerAPIv5{storageProvisionerAPI}, err
+	v6, err := newFacadeV6(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return &StorageProvisionerAPIv5{
+		StorageProvisionerAPIv6: v6,
+	}, nil
 }
 
 // newFacadeV4 provides the signature required for facade registration.

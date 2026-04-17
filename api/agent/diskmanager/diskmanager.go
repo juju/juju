@@ -59,7 +59,7 @@ func blockDevicesToParams(in []blockdevice.BlockDevice) []params.BlockDevice {
 	}
 	out := make([]params.BlockDevice, len(in))
 	for i, d := range in {
-		out[i] = params.BlockDevice{
+		bd := params.BlockDevice{
 			DeviceName:     d.DeviceName,
 			DeviceLinks:    d.DeviceLinks,
 			Label:          d.FilesystemLabel,
@@ -73,6 +73,13 @@ func blockDevicesToParams(in []blockdevice.BlockDevice) []params.BlockDevice {
 			MountPoint:     d.MountPoint,
 			SerialId:       d.SerialId,
 		}
+		switch d.Provenance {
+		case blockdevice.ProviderProvenance:
+			bd.Provenance = params.BlockDeviceProvenanceProvider
+		case blockdevice.MachineProvenance:
+			bd.Provenance = params.BlockDeviceProvenanceMachine
+		}
+		out[i] = bd
 	}
 	return out
 }

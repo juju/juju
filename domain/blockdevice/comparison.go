@@ -105,7 +105,9 @@ func IsNameOnly(dev blockdevice.BlockDevice) bool {
 	return IsEmpty(dev)
 }
 
-// IsEmpty returns true when the block device is an empty value.
+// IsEmpty returns true when the block device is an empty value. Provenance is
+// not compared here, as it is not a property of a block device, rather its
+// origin.
 func IsEmpty(dev blockdevice.BlockDevice) bool {
 	return dev.BusAddress == "" &&
 		len(dev.DeviceLinks) == 0 &&

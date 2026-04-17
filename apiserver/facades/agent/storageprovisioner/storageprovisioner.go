@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -63,9 +64,14 @@ type StorageProvisionerAPI struct {
 	modelUUID      model.UUID
 }
 
+// StorageProvisionerAPIv6 provides the StorageProvisioner API v6 facade.
+type StorageProvisionerAPIv6 struct {
+	*StorageProvisionerAPI
+}
+
 // StorageProvisionerAPIv5 provides the StorageProvisioner API v5 facade.
 type StorageProvisionerAPIv5 struct {
-	*StorageProvisionerAPI
+	*StorageProvisionerAPIv6
 }
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
@@ -1365,6 +1371,16 @@ func (s *StorageProvisionerAPI) VolumeBlockDevices(ctx context.Context, args par
 			MountPoint:     bd.MountPoint,
 			SerialId:       bd.SerialId,
 		}
+		switch bd.Provenance {
+		case blockdevice.ProviderProvenance:
+			result.Provenance = params.BlockDeviceProvenanceProvider
+		case blockdevice.MachineProvenance:
+			result.Provenance = params.BlockDeviceProvenanceMachine
+		default:
+			return params.BlockDevice{}, errors.Errorf(
+				"unexpected provenance value: %v", bd.Provenance,
+			).Add(coreerrors.NotImplemented)
+		}
 		return result, nil
 	}
 
@@ -1382,6 +1398,23 @@ func (s *StorageProvisionerAPI) VolumeBlockDevices(ctx context.Context, args par
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// VolumeBlockDevices returns details of the block devices corresponding to the
+// volume attachments with the specified IDs. In v6 it does not have a
+// provenance field.
+func (s *StorageProvisionerAPIv6) VolumeBlockDevices(
+	ctx context.Context, args params.MachineStorageIds,
+) (params.BlockDeviceResults, error) {
+	res, err := s.StorageProvisionerAPI.VolumeBlockDevices(ctx, args)
+	res.Results = transform.Slice(
+		res.Results,
+		func(b params.BlockDeviceResult) params.BlockDeviceResult {
+			b.Result.Provenance = params.BlockDeviceProvenanceUnknown
+			return b
+		},
+	)
+	return res, err
 }
 
 // FilesystemAttachments returns details of filesystem attachments with the specified IDs.

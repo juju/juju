@@ -6,6 +6,7 @@ package diskmanager
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,6 +34,29 @@ type BlockDeviceService interface {
 		ctx context.Context, machineUUID machine.UUID,
 		devices []blockdevice.BlockDevice,
 	) error
+}
+
+// DiskManagerAPIV2 did not have the provenance field on block devices.
+type DiskManagerAPIV2 struct {
+	*DiskManagerAPI
+}
+
+// SetMachineBlockDevices for V2 facade does not provide provenance. This will
+// ensure the machine value is set for provenance.
+func (d *DiskManagerAPIV2) SetMachineBlockDevices(
+	ctx context.Context, args params.SetMachineBlockDevices,
+) (params.ErrorResults, error) {
+	for i, v := range args.MachineBlockDevices {
+		v.BlockDevices = transform.Slice(
+			v.BlockDevices,
+			func(bd params.BlockDevice) params.BlockDevice {
+				bd.Provenance = params.BlockDeviceProvenanceMachine
+				return bd
+			},
+		)
+		args.MachineBlockDevices[i] = v
+	}
+	return d.DiskManagerAPI.SetMachineBlockDevices(ctx, args)
 }
 
 // DiskManagerAPI provides access to the DiskManager API facade.
@@ -72,7 +96,11 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(
 			return err
 		}
 
-		blockdevices := blockDevicesFromParams(arg.BlockDevices)
+		blockdevices, err := blockDevicesFromParams(arg.BlockDevices)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		err = d.blockDeviceService.UpdateBlockDevicesForMachine(
 			ctx, machineUUID, blockdevices)
 		if errors.Is(err, machineerrors.MachineNotFound) {
@@ -92,13 +120,13 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(
 	return result, nil
 }
 
-func blockDevicesFromParams(in []params.BlockDevice) []blockdevice.BlockDevice {
+func blockDevicesFromParams(in []params.BlockDevice) ([]blockdevice.BlockDevice, error) {
 	if len(in) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make([]blockdevice.BlockDevice, len(in))
 	for i, d := range in {
-		out[i] = blockdevice.BlockDevice{
+		bd := blockdevice.BlockDevice{
 			DeviceName:      d.DeviceName,
 			DeviceLinks:     d.DeviceLinks,
 			FilesystemLabel: d.Label,
@@ -112,6 +140,18 @@ func blockDevicesFromParams(in []params.BlockDevice) []blockdevice.BlockDevice {
 			MountPoint:      d.MountPoint,
 			SerialId:        d.SerialId,
 		}
+
+		switch d.Provenance {
+		case params.BlockDeviceProvenanceProvider:
+			bd.Provenance = blockdevice.ProviderProvenance
+		case params.BlockDeviceProvenanceMachine:
+			bd.Provenance = blockdevice.MachineProvenance
+		default:
+			return nil, errors.Errorf(
+				"invalid block device provenance",
+			).Add(coreerrors.NotValid)
+		}
+		out[i] = bd
 	}
-	return out
+	return out, nil
 }
