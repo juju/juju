@@ -715,6 +715,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
 		CharmOrigin:               charmOrigin,
 		CharmUpgradeOnError:       args.Force,
+		ForceBase:                 args.ForceBase,
 		EndpointBindings:          transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
 		StorageDirectiveOverrides: storageDirectiveOverrides,
 	})
@@ -774,6 +775,11 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return apiservererrors.ParamsErrorf(
 			params.CodeNotSupported,
 			"cannot set charm %q because %s", args.CharmURL, locationErr.Error(),
+		)
+	case errors.Is(err, applicationerrors.IncompatibleBase):
+		return apiservererrors.ParamsErrorf(
+			params.CodeIncompatibleBase,
+			"cannot set charm %q because %s", args.CharmURL, err.Error(),
 		)
 	case errors.HasType[applicationerrors.CharmStorageTypeChanged](err):
 		typeErr, _ := errors.AsType[applicationerrors.CharmStorageTypeChanged](err)

@@ -977,6 +977,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			},
 		},
 		CharmUpgradeOnError: true,
+		ForceBase:           true,
 		EndpointBindings: map[string]network.SpaceName{
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
@@ -998,7 +999,8 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			Track:        new("1.0"),
 			Risk:         "stable",
 		},
-		Force: true,
+		Force:     true,
+		ForceBase: true,
 		EndpointBindings: map[string]string{
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",

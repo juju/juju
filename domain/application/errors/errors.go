@@ -79,6 +79,10 @@ const (
 	// application scale value.
 	ScaleChangeInvalid = errors.ConstError("scale change invalid")
 
+	// IncompatibleBase is returned when a charm refresh attempts to change the
+	// deployed application base incompatibly without explicit override.
+	IncompatibleBase = errors.ConstError("incompatible base for charm")
+
 	// MissingStorageDirective describes an error that occurs when expected
 	// storage directives are missing.
 	MissingStorageDirective = errors.ConstError("no storage directive specified")

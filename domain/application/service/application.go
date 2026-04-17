@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -1667,6 +1668,10 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 		return errors.Errorf("getting charm ID: %w", err)
 	}
 
+	if err := s.validateCharmBaseCompatibility(ctx, appUUID, params); err != nil {
+		return errors.Capture(err)
+	}
+
 	// 1. Validate storage requirements between the existing and new charm.
 	// Prevent refresh if the new charm’s storage configuration is incompatible.
 	// For example, removing previously defined storage names is disallowed,
@@ -1761,6 +1766,50 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}
 	return nil
+}
+
+func (s *ProviderService) validateCharmBaseCompatibility(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+	params application.SetCharmParams,
+) error {
+	if params.ForceBase {
+		return nil
+	}
+
+	requestedPlatform := params.CharmOrigin.Platform
+	if requestedPlatform.OS == "" || requestedPlatform.Channel == "" {
+		return nil
+	}
+
+	currentOrigin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application charm origin: %w", err)
+	}
+
+	currentPlatform := currentOrigin.Platform
+	if currentPlatform.OSType == deployment.Unknown || currentPlatform.Channel == "" {
+		return nil
+	}
+
+	currentBase, err := corebase.ParseBase(currentPlatform.OSType.String(), currentPlatform.Channel)
+	if err != nil {
+		return errors.Errorf("parsing current application base: %w", err)
+	}
+	requestedBase, err := corebase.ParseBase(requestedPlatform.OS, requestedPlatform.Channel)
+	if err != nil {
+		return errors.Errorf("parsing requested charm base: %w", err)
+	}
+
+	if currentBase.Empty() || requestedBase.Empty() || currentBase.IsCompatible(requestedBase) {
+		return nil
+	}
+
+	return errors.Errorf(
+		"cannot refresh application from base %q to %q without --force-base",
+		currentBase.DisplayString(),
+		requestedBase.DisplayString(),
+	).Add(applicationerrors.IncompatibleBase)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {
@@ -1984,8 +2033,18 @@ func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
 	}
 
+	var platform *deployment.Platform
+	if setCharmParams.CharmOrigin.Platform != (corecharm.Platform{}) {
+		encodedPlatform, err := encodePlatform(setCharmParams.CharmOrigin.Platform)
+		if err != nil {
+			return application.SetCharmStateParams{}, errors.Errorf("encoding charm platform: %w", err)
+		}
+		platform = &encodedPlatform
+	}
+
 	return application.SetCharmStateParams{
 		Channel:                   channel,
+		Platform:                  platform,
 		EndpointBindings:          setCharmParams.EndpointBindings,
 		StorageDirectivesToCreate: toCreate,
 		StorageDirectivesToUpdate: toUpdate,

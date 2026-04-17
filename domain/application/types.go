@@ -472,6 +472,10 @@ type SetCharmParams struct {
 	// even when on error.
 	CharmUpgradeOnError bool
 
+	// ForceBase allows a refresh to continue even if the requested base is
+	// incompatible with the currently deployed application base.
+	ForceBase bool
+
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
@@ -487,6 +491,10 @@ type SetCharmStateParams struct {
 	// Channel contains the channel information for the application. The track,
 	// risk and branch of the charm when it was downloaded from the charm store.
 	Channel *deployment.Channel
+
+	// Platform contains the platform information for the application. The
+	// operating system and architecture.
+	Platform *deployment.Platform
 
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
