@@ -19,6 +19,7 @@ func VolumeDetails(
 	unitToMachine UnitAssignedMachineFunc,
 	v state.Volume,
 	attachments []state.VolumeAttachment,
+	getUnit GetUnitFunc,
 ) (*params.VolumeDetails, error) {
 	details := &params.VolumeDetails{
 		VolumeTag: v.VolumeTag().String(),
@@ -60,7 +61,7 @@ func VolumeDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storageDetails, err := StorageDetails(sb, unitToMachine, storageInstance)
+		storageDetails, err := StorageDetails(sb, storageInstance, unitToMachine, getUnit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

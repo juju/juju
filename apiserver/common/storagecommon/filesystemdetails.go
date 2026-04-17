@@ -19,6 +19,7 @@ func FilesystemDetails(
 	unitToMachine UnitAssignedMachineFunc,
 	f state.Filesystem,
 	attachments []state.FilesystemAttachment,
+	getUnit GetUnitFunc,
 ) (*params.FilesystemDetails, error) {
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
@@ -64,7 +65,7 @@ func FilesystemDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storageDetails, err := StorageDetails(sb, unitToMachine, storageInstance)
+		storageDetails, err := StorageDetails(sb, storageInstance, unitToMachine, getUnit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

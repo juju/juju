@@ -95,7 +95,8 @@ func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDet
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, storageInstance)
+		details, err := storagecommon.StorageDetails(a.storageAccess,
+			storageInstance, a.unitAssignedMachine, a.getUnit)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -137,7 +138,8 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 	}
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
-		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, stateInstance)
+		details, err := storagecommon.StorageDetails(a.storageAccess,
+			stateInstance, a.unitAssignedMachine, a.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -208,6 +210,10 @@ func (a *StorageAPI) listPools(filter params.StoragePoolFilter) ([]params.Storag
 		filterProviders(providers, matches)...,
 	)
 	return results, nil
+}
+
+func (a *StorageAPI) getUnit(name string) (storagecommon.Unit, error) {
+	return a.backend.Unit(name)
 }
 
 func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
@@ -404,7 +410,8 @@ func (a *StorageAPI) createVolumeDetailsList(
 	}
 	results := make([]params.VolumeDetails, len(volumes))
 	for i, v := range volumes {
-		details, err := storagecommon.VolumeDetails(a.storageAccess, a.unitAssignedMachine, v, attachments[v.VolumeTag()])
+		details, err := storagecommon.VolumeDetails(a.storageAccess, a.unitAssignedMachine,
+			v, attachments[v.VolumeTag()], a.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -503,7 +510,8 @@ func (a *StorageAPI) createFilesystemDetailsList(
 	}
 	results := make([]params.FilesystemDetails, len(filesystems))
 	for i, f := range filesystems {
-		details, err := storagecommon.FilesystemDetails(a.storageAccess, a.unitAssignedMachine, f, attachments[f.FilesystemTag()])
+		details, err := storagecommon.FilesystemDetails(a.storageAccess,
+			a.unitAssignedMachine, f, attachments[f.FilesystemTag()], a.getUnit)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
