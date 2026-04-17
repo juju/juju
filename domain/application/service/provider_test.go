@@ -35,7 +35,6 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
-	"github.com/juju/juju/domain/application/service/storage"
 	storageservice "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -3236,7 +3235,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		}, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.CharmStorageDefinitionForValidation{
 		"pgdata": charmStorageDef,
-	}, map[string]storage.StorageDirectiveOverride{
+	}, map[string]storageservice.StorageDirectiveOverride{
 		"pgdata": {
 			Count:    new(uint32(76)),
 			PoolUUID: new(poolUUID),
