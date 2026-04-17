@@ -14,6 +14,10 @@ See also: {ref}`user`
 (add-a-user)=
 ## Add a user
 
+```{ibnote}
+See first: {ref}`bootstrap-a-controller`
+```
+
 ```{tip}
 **If you're the controller creator:** <br> Juju has already set up a user for you. Your username is `admin` and your access level is that of controller `superuser`. Run `juju logout` to be prompted to set up a password. Use `juju change-user-password` to set the password.
 ```
@@ -27,7 +31,7 @@ juju add-user alex
 This will create a user with username 'alex' and a controller `login` access level.
 
 ```{ibnote}
-See more: {ref}`user-access-levels`
+See more: {ref}`list-of-user-access-levels`
 ```
 
 It will also print a line of code that you must give this user to run using their Juju client -- this will register the controller with their client and also prompt them to set up a password for the user.
@@ -65,12 +69,10 @@ of a model to grant access to that model with "juju grant".
 
 ````
 
-```{note}
-Controller registration (and any other Juju operations that involves communication between a client and a controller) requires that the client be able to contact the controller over the network on TCP port 17070. In particular, if using a LXD-based cloud, network routes need to be in place (i.e. to contact the controller LXD container the client traffic must be routed through the LXD host).
-```
-
 ```{ibnote}
-See more: {ref}`command-juju-add-user`, {ref}`register-a-controller`
+See more: {ref}`command-juju-add-user`
+
+See next: {ref}`manage-a-users-access-to-a-resource`, {ref}`register-a-controller`
 ```
 
 ## View all the known users
@@ -139,65 +141,15 @@ User:        admin
 See more: {ref}`command-juju-whoami`
 ```
 
-## Manage a user's access level
+(manage-a-users-access-to-a-resource)=
+## Manage a user's access to a resource
 
-```{ibnote}
-See also: {ref}`user-access-levels`
-```
+To grant or revoke user access to a resource, see the relevant resource-specific how-tos:
 
-The procedure for how to control a user's access level depends on whether you want to grant access at the level of the controller, model, application, or application offer or rather at the level of a cloud.
-
-```{important}
-This division doesn't currently align perfectly with the scope hierarchy, which is rather controller > cloud > model > application > offer (because the cloud scope is designed as a restriction on the controller scope for cases where multiple clouds are managed via the same controller).
-```
-
-### Manage access at the controller, model, application, or offer level
-
-**Grant access.** To grant a user access at the controller, model, application, or offer level, run the `grant` command, specifying the user, applicable desired access level, and the target controller, model, application, or offer. For example:
-
-```text
-juju grant jim write mymodel
-```
-
-The command also has a flag that allows you to specify a different controller to operate in.
-
-```{ibnote}
-See more: {ref}`command-juju-grant`
-```
-
-**Revoke access.** To revoke a user's access at the controller, model, application, or offer level, run the `revoke` command, specifying the user, access level to be revoked, and the controller, model, application, or offer to be revoked from. For example:
-
-```text
-juju revoke joe read mymodel
-```
-
-The command also has a flag that allows you to specify a different controller to operate in.
-
-```{ibnote}
-See more: {ref}`command-juju-revoke`
-```
-
-### Manage access at the cloud level
-
-**Grant access.** To grant a user's access at the cloud level, run the `grant-cloud` command followed by the name of the user, the access level, and the name of the cloud. For example:
-
-```text
-juju grant-cloud joe add-model fluffy
-```
-
-```{ibnote}
-See more: {ref}`command-juju-grant-cloud`
-```
-
-**Revoke access.** To revoke a user's access at the cloud level, run the `revoke-cloud` command followed by the name of the user, the access level to be revoked, and the name of the cloud. For example:
-
-```text
-juju revoke-cloud joe add-model fluffy
-```
-
-```{ibnote}
-See more: {ref}`command-juju-revoke-cloud`
-```
+- {ref}`manage-access-to-a-controller`
+- {ref}`manage-access-to-a-cloud`
+- {ref}`manage-access-to-a-model`
+- {ref}`manage-access-to-an-offer`
 
 (manage-a-users-login-details)=
 ## Manage a user's login details

@@ -126,47 +126,31 @@ A non-admin user with read/consume access can also view an offer's details, but 
 See more: {ref}`command-juju-show-offer`
 ```
 
-## Control access to an offer
-> Who: User with {ref}`offer admin access <user-access-offer-admin>`.
+(manage-access-to-an-offer)=
+## Manage access to an offer
 
-Offers can have one of three access levels:
-
--   read (a user can see the offer when searching)
--   consume (a user can relate an application to the offer)
--   admin (a user can manage the offer)
-
-These are applied similarly to how standard model access is applied, via the `juju grant` and `juju revoke` commands:
-
-```text
-juju grant <user> <access-level> <offer-url>
-```
-
-```text
-juju revoke <user> <access-level> <offer-url>
-```
-
-Revoking a user's consume access will result in all relations for that user to that offer to be suspended. If the consume access is granted anew, each relation will need to be individually resumed. Suspending and resuming relations are explained in more detail later.
-
-To grant bob consume access to an offer:
+**Grant access.** To grant a user a certain access level to an offer, run the `grant` command, specifying the user, the access level, and the offer URL. For example:
 
 ```text
 juju grant bob consume admin/default.hosted-mysql
 ```
 
-To revoke bob's consume access (he will be left with read access):
+```{ibnote}
+See more: {ref}`command-juju-grant`, {ref}`list-of-user-access-levels-for-offers`
+```
+
+**Revoke access.** To revoke a user's access level to an offer, run the `revoke` command, specifying the user, the access level, and the offer URL. For example:
 
 ```text
 juju revoke bob consume admin/default.hosted-mysql
 ```
 
-To revoke all of bob's access:
-
-```text
-juju revoke bob read admin/default.hosted-mysql
+```{note}
+Revoking a user's consume access will result in all relations for that user to that offer to be suspended. If the consume access is granted anew, each relation will need to be individually resumed.
 ```
 
 ```{ibnote}
-See more: {ref}`command-juju-grant`, {ref}`command-juju-revoke`
+See more: {ref}`command-juju-revoke`, {ref}`list-of-user-access-levels-for-offers`
 ```
 
 ## Find an offer to use

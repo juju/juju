@@ -325,6 +325,29 @@ By using various flags, you can specify a model (e.g., `-m controller`, to view 
 See more: {ref}`command-juju-model-constraints`
 ```
 
+(manage-access-to-a-model)=
+## Manage access to a model
+
+**Grant access.** To grant a user a certain access level to a model, run the `grant` command, specifying the user, the access level, and the model. For example:
+
+```text
+juju grant jim write mymodel
+```
+
+```{ibnote}
+See more: {ref}`command-juju-grant`, {ref}`list-of-user-access-levels-for-models`
+```
+
+**Revoke access.** To revoke a user's access level to a model, run the `revoke` command, specifying the user, the access level, and the model. For example:
+
+```text
+juju revoke joe read mymodel
+```
+
+```{ibnote}
+See more: {ref}`command-juju-revoke`, {ref}`list-of-user-access-levels-for-models`
+```
+
 (restrict-commands-on-a-model)=
 ## Restrict commands on a model
 
