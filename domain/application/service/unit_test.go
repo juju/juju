@@ -236,7 +236,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{

@@ -3442,30 +3442,28 @@ func (s *providerServiceSuite) TestPrepareUnitAddStorage(c *tc.C) {
 		PoolUUID:         poolUUID,
 		Size:             1024,
 	}
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
+		Name:        "pgdata",
+		Type:        applicationcharm.StorageFilesystem,
+		MinimumSize: 512,
+		CountMin:    1,
+		CountMax:    10,
+	}
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(
 		gomock.Any(), unitUUID, corestorage.Name("pgdata"),
 	).Return(directive, nil)
-	s.state.EXPECT().GetCharmStorageAndInstanceCountByUnitUUID(
+	s.state.EXPECT().GetStorageAddInfoByUnitUUID(
 		gomock.Any(), unitUUID, corestorage.Name("pgdata"),
-	).Return(internalcharm.Storage{
-		Name:        "pgdata",
-		Type:        internalcharm.StorageFilesystem,
-		MinimumSize: 512,
-		CountMin:    1,
-		CountMax:    10,
-	}, 2, nil)
+	).Return(internal.StorageInfoForAdd{
+		CharmStorageDefinitionForValidation: charmStorageDef,
+		AlreadyAttachedCount:                2,
+	}, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
 		gomock.Any(),
-		map[string]internalcharm.Storage{
-			"pgdata": {
-				Name:        "pgdata",
-				Type:        internalcharm.StorageFilesystem,
-				CountMin:    1,
-				CountMax:    10,
-				MinimumSize: 512,
-			},
+		map[string]internal.CharmStorageDefinitionForValidation{
+			"pgdata": charmStorageDef,
 		},
 		map[string]storageservice.StorageDirectiveOverride{
 			"pgdata": {
