@@ -1636,6 +1636,13 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithPlatformChange(c *t
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]internal.StorageDirective{}, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.AMD64,
+			Channel:      "22.04",
+		},
+	}, nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -1653,8 +1660,75 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithPlatformChange(c *t
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestSetApplicationCharmWithStorageNameAdded tests that adding a new
-// storage name in the new charm is allowed.
+// TestSetApplicationCharmRejectsIncompatibleBaseWithoutForceBase tests that
+// an incompatible base change is rejected unless force-base is set.
+func (s *applicationServiceSuite) TestSetApplicationCharmRejectsIncompatibleBaseWithoutForceBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+	params := application.SetCharmParams{
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+			ID:     "charm-id",
+			Platform: corecharm.Platform{
+				OS:           "ubuntu",
+				Architecture: arch.AMD64,
+				Channel:      "24.04",
+			},
+		},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.AMD64,
+			Channel:      "22.04",
+		},
+	}, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	c.Assert(err, tc.ErrorIs, applicationerrors.IncompatibleBase)
+}
+
+// TestSetApplicationCharmAllowsIncompatibleBaseWithForceBase tests that an
+// incompatible base change is allowed when force-base is set.
+func (s *applicationServiceSuite) TestSetApplicationCharmAllowsIncompatibleBaseWithForceBase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+	params := application.SetCharmParams{
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+			ID:     "charm-id",
+			Platform: corecharm.Platform{
+				OS:           "ubuntu",
+				Architecture: arch.AMD64,
+				Channel:      "24.04",
+			},
+		},
+		ForceBase: true,
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]internal.StorageDirective{}, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
+	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameAdded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
