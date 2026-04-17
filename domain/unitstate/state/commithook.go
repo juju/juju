@@ -33,7 +33,7 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("checking unit alive: %w", err)
 		}
 		if unitLife != int(arg.UnitLife) {
-			return unitstateerrors.UnitLifePredicateFailed
+			return unitstateerrors.UnitLifePreconditionFailed
 		}
 
 		if err := st.checkRelationsExist(ctx, tx, arg.RelationSettings); err != nil {

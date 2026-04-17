@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// UnitLifePredicateFailed indicates that a comparison of unit life did not
-	// match the expected life.
-	UnitLifePredicateFailed = errors.ConstError("unit life predicate failed")
+	// UnitLifePreconditionFailed indicates that a comparison of unit life did
+	// not match the expected life.
+	UnitLifePreconditionFailed = errors.ConstError("unit life predicate failed")
 )
