@@ -4,13 +4,21 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/juju/core/network"
 )
 
-// entityUUID identifies a unit.
+// entityUUID identifies an entity.
 type entityUUID struct {
-	// UUID is the universally unique identifier for a unit.
+	// UUID is the universally unique identifier for an entity.
 	UUID string `db:"uuid"`
+}
+
+// entityLife identifies a unit.
+type entityLife struct {
+	// Life is the life of an entity.
+	Life int `db:"life_id"`
 }
 
 type uuids []string
@@ -163,6 +171,17 @@ type unitState struct {
 	StorageState string `db:"storage_state"`
 	// SecretState is the units secret state YAML string.
 	SecretState string `db:"secret_state"`
+}
+
+// commitHookUnitInfo is data needed for a unit that does not change,
+// allowing us to fetch it up front, outside the write transaction.
+type commitHookUnitInfo struct {
+	// UnitUUID identifies a unit
+	UnitUUID string `db:"unit_uuid"`
+	// UnitLife is the life of a unit.
+	UnitLife int `db:"unit_life_id"`
+	// MachineUUID identifies the unit's machine if it is assigned to one.
+	MachineUUID sql.NullString `db:"machine_uuid"`
 }
 
 // unitStateVal is a type for holding a key/value pair that is

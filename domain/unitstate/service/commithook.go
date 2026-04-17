@@ -11,6 +11,8 @@ import (
 
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -30,9 +32,18 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return nil
 	}
 
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, arg.UnitName)
+	unitInfo, err := s.st.GetCommitHookUnitInfo(ctx, arg.UnitName.String())
 	if err != nil {
 		return errors.Capture(err)
+	} else if unitInfo.UnitLife == life.Dead {
+		return errors.Errorf(
+			"unit %q is dead", arg.UnitName.String(),
+		).Add(applicationerrors.UnitIsDead)
+	}
+
+	if unitInfo.UnitLife == life.Dying {
+		// A dying unit cannot use new storage, so ignore storage add args.
+		arg.AddStorage = nil
 	}
 
 	relationSettings, err := s.transformRelationSettings(ctx, arg.RelationSettings)
@@ -40,7 +51,7 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 
-	newArgs := internal.TransformCommitHookChangesArg(arg, unitUUID)
+	newArgs := internal.TransformCommitHookChangesArg(arg, unitInfo)
 	newArgs.RelationSettings = relationSettings
 
 	withCaveat, err := s.getManagementCaveat(arg)

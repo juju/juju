@@ -810,10 +810,10 @@ func (c *MockApplicationServiceGetUnitWorkloadVersionCall) DoAndReturn(f func(co
 }
 
 // PrepareUnitAddStorage mocks base method.
-func (m *MockApplicationService) PrepareUnitAddStorage(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32) (storage0.UnitAddStorageArg, error) {
+func (m *MockApplicationService) PrepareUnitAddStorage(arg0 context.Context, arg1 storage.Name, arg2 unit.UUID, arg3 uint32) (storage0.IAASUnitAddStorageArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareUnitAddStorage", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(storage0.UnitAddStorageArg)
+	ret0, _ := ret[0].(storage0.IAASUnitAddStorageArg)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -831,19 +831,19 @@ type MockApplicationServicePrepareUnitAddStorageCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServicePrepareUnitAddStorageCall) Return(arg0 storage0.UnitAddStorageArg, arg1 error) *MockApplicationServicePrepareUnitAddStorageCall {
+func (c *MockApplicationServicePrepareUnitAddStorageCall) Return(arg0 storage0.IAASUnitAddStorageArg, arg1 error) *MockApplicationServicePrepareUnitAddStorageCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServicePrepareUnitAddStorageCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.UnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
+func (c *MockApplicationServicePrepareUnitAddStorageCall) Do(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.IAASUnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServicePrepareUnitAddStorageCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.UnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
+func (c *MockApplicationServicePrepareUnitAddStorageCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, uint32) (storage0.IAASUnitAddStorageArg, error)) *MockApplicationServicePrepareUnitAddStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

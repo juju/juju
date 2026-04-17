@@ -45,8 +45,10 @@ func (s *commitHookChangesArgSuite) TestValidateAndHasChangesAddStorage(c *tc.C)
 		UnitName: unittesting.GenNewName(c, "testing/0"),
 		AddStorage: []PreparedStorageAdd{{
 			StorageName: corestorage.Name("data"),
-			Storage: domainstorage.UnitAddStorageArg{
-				CountLessThanEqual: 1,
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					CountLessThanEqual: 1,
+				},
 			},
 		}},
 	}.ValidateAndHasChanges()

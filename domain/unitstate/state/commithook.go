@@ -9,10 +9,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/unitstate"
+	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,14 +25,19 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 	if err != nil {
 		return errors.Capture(err)
 	}
-	unitUUID := arg.UnitUUID.String()
+	unitUUID := arg.UnitUUID
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO (hml) 2-Apr-2026
-		// For every UUID added to arg, add check that it exists in the model.
-		// Remove todo when this method is complete.
-		if err := st.ensureCommitHookChangesUUIDs(ctx, tx, arg); err != nil {
-			return errors.Errorf("unit data has changed since beginning:%w", err)
+		unitLife, err := st.getUnitLife(ctx, tx, arg.UnitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit alive: %w", err)
+		}
+		if unitLife != int(arg.UnitLife) {
+			return unitstateerrors.UnitLifePredicateFailed
+		}
+
+		if err := st.checkRelationsExist(ctx, tx, arg.RelationSettings); err != nil {
+			return errors.Errorf("relations: %w", err)
 		}
 
 		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
@@ -74,8 +80,10 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("track latest secrets:%w", err)
 		}
 
-		// TODO: (hml) 10-Dec-2025
-		// Implement storage
+		if err := st.addStorage(ctx, tx, arg); err != nil {
+			return errors.Errorf("add storage:%w", err)
+		}
+
 		return nil
 	})
 }
@@ -129,64 +137,79 @@ func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, secrets []stri
 	return nil
 }
 
-// GetUnitUUIDByName returns the UUID for the named unit, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-// exist.
-func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+// GetCommitHookUnitInfo returns the unit UUID and machine UUID if assigned,
+// returning an error satisfying
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *State) GetCommitHookUnitInfo(ctx context.Context, name string) (internal.CommitHookUnitInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
+		return internal.CommitHookUnitInfo{}, errors.Capture(err)
 	}
 
-	var result entityUUID
+	unitNameArg := unitName{Name: name}
+
+	stmt, err := st.Prepare(`
+SELECT u.uuid AS &commitHookUnitInfo.unit_uuid,
+       u.life_id AS &commitHookUnitInfo.unit_life_id,
+       m.uuid AS &commitHookUnitInfo.machine_uuid
+FROM   unit u
+LEFT JOIN machine m ON m.net_node_uuid = u.net_node_uuid
+WHERE  u.name = $unitName.name
+`, unitNameArg, commitHookUnitInfo{})
+	if err != nil {
+		return internal.CommitHookUnitInfo{}, errors.Capture(err)
+	}
+
+	var result commitHookUnitInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getUnitUUIDForName(ctx, tx, string(name))
-		return err
+		err := tx.Query(ctx, stmt, unitNameArg).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		}
+		return errors.Capture(err)
 	})
-
 	if err != nil {
-		return "", errors.Capture(err)
+		return internal.CommitHookUnitInfo{}, errors.Capture(err)
 	}
 
-	return coreunit.UUID(result.UUID), nil
+	retVal := internal.CommitHookUnitInfo{
+		UnitUUID: result.UnitUUID,
+		UnitLife: life.Life(result.UnitLife),
+	}
+	if result.MachineUUID.Valid {
+		retVal.MachineUUID = &result.MachineUUID.String
+	}
+
+	return retVal, nil
 }
 
-// ensureCommitHookChangesUUIDs verifies that all UUIDs in arg still exist.
-// Do not check life, as hooks still run when various entities are dying,
-// e.g. relations.
-func (st *State) ensureCommitHookChangesUUIDs(ctx context.Context, tx *sqlair.TX, arg internal.CommitHookChangesArg) error {
-	if err := st.checkUnitExists(ctx, tx, arg.UnitUUID.String()); err != nil {
-		return err
-	}
+func (st *State) getUnitLife(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID string,
+) (int, error) {
+	arg := entityUUID{UUID: unitUUID}
 
-	if err := st.checkRelationsExist(ctx, tx, arg.RelationSettings); err != nil {
-		return errors.Errorf("relations: %w", err)
-	}
-	return nil
-}
-
-// checkUnitExists checks if a unit with the given UUID exists in the model.
-func (st *State) checkUnitExists(
-	ctx context.Context, tx *sqlair.TX, uuid string,
-) error {
-
-	entityUUIDInput := entityUUID{UUID: uuid}
-	stmt, err := st.Prepare(
-		"SELECT &entityUUID.* FROM unit WHERE  uuid = $entityUUID.uuid",
-		entityUUIDInput,
-	)
+	stmt, err := st.Prepare(`
+SELECT &entityLife.*
+FROM   unit
+WHERE  uuid = $entityUUID.uuid
+`, arg, entityLife{})
 	if err != nil {
-		return errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, entityUUIDInput).Get(&entityUUIDInput)
+	var result entityLife
+	err = tx.Query(ctx, stmt, arg).Get(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return applicationerrors.UnitNotFound
+		return 0, applicationerrors.UnitNotFound
 	} else if err != nil {
-		return errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
 
-	return nil
+	return result.Life, nil
 }
 
 // checkRelationsExist checks if all relations in settings exist in the model.
@@ -200,7 +223,7 @@ func (st *State) checkRelationsExist(ctx context.Context, tx *sqlair.TX, setting
 
 	stmt, err := st.Prepare(`
 SELECT COUNT(*) AS &countResult.count
-FROM   relation 
+FROM   relation
 WHERE  uuid IN ($uuids[:])
 `, countResult{}, uuids{})
 	if err != nil {
@@ -213,8 +236,10 @@ WHERE  uuid IN ($uuids[:])
 		return errors.Capture(err)
 	}
 	if result.Count != len(relationUUIDs) {
-		return errors.Errorf("expected %d, found %d", len(relationUUIDs),
-			result.Count).Add(relationerrors.RelationNotFound)
+		return errors.Errorf(
+			"expected %d relations but found %d",
+			len(relationUUIDs), result.Count,
+		).Add(relationerrors.RelationNotFound)
 	}
 	return nil
 }

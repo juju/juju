@@ -6,7 +6,7 @@ package internal
 import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitstate"
 )
 
@@ -30,11 +30,31 @@ type RelationSettings struct {
 	ApplicationUnset []string
 }
 
+// CommitHookUnitInfo contains the unit data loaded before commit-hook writes.
+type CommitHookUnitInfo struct {
+	// UnitUUID is the UUID of the unit these changes pertain to.
+	UnitUUID string
+
+	// UnitLife is the life of the unit.
+	UnitLife life.Life
+
+	// MachineUUID is the UUID of the unit's machine, if the unit is
+	// machine-backed.
+	MachineUUID *string
+}
+
 // CommitHookChangesArg contains data needed to commit a hook change
 // represented by scalar types.
 type CommitHookChangesArg struct {
 	// UnitUUID is the uuid of the unit these changes pertain to.
-	UnitUUID unit.UUID
+	UnitUUID string
+
+	// UnitLife is the expected life of the unit.
+	UnitLife life.Life
+
+	// MachineUUID is the UUID of the unit's machine, if the unit is
+	// machine-backed.
+	MachineUUID *string
 
 	// UpdateNetworkInfo indicates that the relation network settings
 	// should be updated for this unit.
@@ -55,6 +75,10 @@ type CommitHookChangesArg struct {
 	// CharmState is key/value pairs for charm attributes.
 	CharmState *map[string]string
 
+	// AddStorage contains prepared unit storage adds to apply in the commit
+	// hook transaction.
+	AddStorage []unitstate.PreparedStorageAdd
+
 	// SecretCreates contains charm secrets to create.
 	SecretCreates []unitstate.CreateSecretArg
 
@@ -73,18 +97,18 @@ type CommitHookChangesArg struct {
 
 	// SecretDeletes contains charm secrets to delete.
 	SecretDeletes []unitstate.DeleteSecretArg
-
-	// AddStorage contains prepared unit storage adds to apply in the commit
-	// hook transaction.
-	AddStorage []unitstate.PreparedStorageAdd
 }
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct. Does not
 // include RelationSettings
-func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID unit.UUID) CommitHookChangesArg {
+func TransformCommitHookChangesArg(
+	in unitstate.CommitHookChangesArg, unitInfo CommitHookUnitInfo,
+) CommitHookChangesArg {
 	return CommitHookChangesArg{
-		UnitUUID:           unitUUID,
+		UnitUUID:           unitInfo.UnitUUID,
+		UnitLife:           unitInfo.UnitLife,
+		MachineUUID:        unitInfo.MachineUUID,
 		UpdateNetworkInfo:  in.UpdateNetworkInfo,
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,

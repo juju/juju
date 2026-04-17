@@ -17,10 +17,13 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
@@ -34,7 +37,7 @@ func TestCommitHookSuite(t *testing.T) {
 func (s *commitHookSuite) TestCommitHookChanges(c *tc.C) {
 	// Arrange
 	arg := internal.CommitHookChangesArg{
-		UnitUUID:           coreunit.UUID(s.unitUUID),
+		UnitUUID:           s.unitUUID,
 		UpdateNetworkInfo:  true,
 		RelationSettings:   nil,
 		OpenPorts:          nil,
@@ -143,7 +146,7 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 		"key3": "value3",
 	}
 	arg := internal.CommitHookChangesArg{
-		UnitUUID: unitUUID,
+		UnitUUID: unitUUID.String(),
 		RelationSettings: []internal.RelationSettings{{
 			RelationUUID:   relationUUID,
 			ApplicationSet: appSettings,
@@ -163,42 +166,399 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 	c.Check(foundUnitSettings, tc.DeepEquals, unitSettings)
 }
 
-func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
-	// Arrange
-	spaceUUID := s.addSpace(c)
+func (s *commitHookSuite) TestCommitHookAddStorage(c *tc.C) {
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+	unitUUID := s.unitUUID
+	netNodeUUID := s.getUnitNetNodeUUID(c, s.unitUUID)
+	machineUUID := s.getUnitMachineUUID(c, s.unitUUID)
 
-	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, "testname", spaceUUID)
-	unitName := coreunit.Name("testname/0")
-	expectedUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	volumeAttachmentUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID:    unitUUID,
+		MachineUUID: &machineUUID,
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+						UUID:            storageInstanceUUID,
+						CharmName:       "app",
+						Kind:            domainstorage.StorageKindBlock,
+						Name:            "data",
+						RequestSizeMiB:  1024,
+						StoragePoolUUID: poolUUID,
+						Volume: &domainstorage.CreateUnitStorageVolumeArg{
+							UUID:           volumeUUID,
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+						},
+					}},
+					StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{{
+						UUID:                storageAttachmentUUID,
+						StorageInstanceUUID: storageInstanceUUID,
+						VolumeAttachment: &domainstorage.CreateUnitStorageVolumeAttachmentArg{
+							UUID:           volumeAttachmentUUID,
+							NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+							VolumeUUID:     volumeUUID,
+						},
+					}},
+					StorageToOwn:       []domainstorage.StorageInstanceUUID{storageInstanceUUID},
+					CountLessThanEqual: 0,
+				},
+				VolumesToOwn: []domainstorage.VolumeUUID{
+					volumeUUID,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_instance WHERE uuid = ?", storageInstanceUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_attachment WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			s.unitUUID,
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			s.unitUUID,
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_volume WHERE uuid = ?", volumeUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM machine_volume WHERE machine_uuid = ? AND volume_uuid = ?",
+			machineUUID,
+			volumeUUID.String(),
+		),
+		tc.Equals,
+		1,
+	)
+}
+
+func (s *commitHookSuite) TestCommitHookAddStorageVolumeBackedFilesystem(c *tc.C) {
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+	unitUUID := s.unitUUID
+	netNodeUUID := s.getUnitNetNodeUUID(c, s.unitUUID)
+	machineUUID := s.getUnitMachineUUID(c, s.unitUUID)
+
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	volumeAttachmentUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
+	fsAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID:    unitUUID,
+		MachineUUID: &machineUUID,
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+						UUID:            storageInstanceUUID,
+						CharmName:       "app",
+						Kind:            domainstorage.StorageKindFilesystem,
+						Name:            "data",
+						RequestSizeMiB:  1024,
+						StoragePoolUUID: poolUUID,
+						Volume: &domainstorage.CreateUnitStorageVolumeArg{
+							UUID:           volumeUUID,
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+						},
+						Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
+							UUID:           filesystemUUID,
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+						},
+					}},
+					StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{{
+						UUID:                storageAttachmentUUID,
+						StorageInstanceUUID: storageInstanceUUID,
+						VolumeAttachment: &domainstorage.CreateUnitStorageVolumeAttachmentArg{
+							UUID:           volumeAttachmentUUID,
+							NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+							VolumeUUID:     volumeUUID,
+						},
+						FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
+							UUID:           fsAttachmentUUID,
+							NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+							ProvisionScope: domainstorage.ProvisionScopeMachine,
+							FilesystemUUID: filesystemUUID,
+						},
+					}},
+					StorageToOwn:       []domainstorage.StorageInstanceUUID{storageInstanceUUID},
+					CountLessThanEqual: 0,
+				},
+				VolumesToOwn: []domainstorage.VolumeUUID{
+					volumeUUID,
+				},
+				FilesystemsToOwn: []domainstorage.FilesystemUUID{
+					filesystemUUID,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_instance WHERE uuid = ?", storageInstanceUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_attachment WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			s.unitUUID,
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			s.unitUUID,
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_volume WHERE uuid = ?", volumeUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM machine_volume WHERE machine_uuid = ? AND volume_uuid = ?",
+			machineUUID,
+			volumeUUID.String(),
+		),
+		tc.Equals,
+		1,
+	)
+}
+
+func (s *commitHookSuite) TestCommitHookAddStorageWithoutMachineOwnership(c *tc.C) {
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+	unitName := coreunittesting.GenNewName(c, "app/8")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	netNodeUUID := s.getUnitNetNodeUUID(c, unitUUID.String())
+
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: unitUUID.String(),
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+						UUID:            storageInstanceUUID,
+						CharmName:       "app",
+						Kind:            domainstorage.StorageKindFilesystem,
+						Name:            "data",
+						RequestSizeMiB:  1024,
+						StoragePoolUUID: poolUUID,
+						Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
+							UUID:           filesystemUUID,
+							ProvisionScope: domainstorage.ProvisionScopeModel,
+						},
+					}},
+					StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{{
+						UUID:                storageAttachmentUUID,
+						StorageInstanceUUID: storageInstanceUUID,
+						FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
+							UUID:           filesystemAttachmentUUID,
+							NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+							ProvisionScope: domainstorage.ProvisionScopeModel,
+							FilesystemUUID: filesystemUUID,
+						},
+					}},
+					StorageToOwn:       []domainstorage.StorageInstanceUUID{storageInstanceUUID},
+					CountLessThanEqual: 0,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_instance WHERE uuid = ?", storageInstanceUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_filesystem WHERE uuid = ?", filesystemUUID.String()),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_attachment WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			unitUUID.String(),
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c,
+			"SELECT count(*) FROM storage_filesystem_attachment WHERE storage_filesystem_uuid = ? AND net_node_uuid = ?",
+			filesystemUUID.String(),
+			netNodeUUID,
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(
+			c, "SELECT count(*) FROM storage_unit_owner WHERE storage_instance_uuid = ? AND unit_uuid = ?",
+			storageInstanceUUID.String(),
+			unitUUID.String(),
+		),
+		tc.Equals,
+		1,
+	)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM machine_filesystem WHERE filesystem_uuid = ?", filesystemUUID.String()),
+		tc.Equals,
+		0,
+	)
+}
+
+func (s *commitHookSuite) TestCommitHookAddStorageCountPreconditionFailed(c *tc.C) {
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+	existingStorageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	s.query(c, `
+INSERT INTO storage_instance
+    (uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id,
+     storage_pool_uuid, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, existingStorageUUID.String(), "app", "data",
+		int(domainstorage.StorageKindBlock), "data/0", 0,
+		poolUUID.String(), 1024)
+	s.query(c, `
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid)
+VALUES (?, ?)
+`, existingStorageUUID.String(), s.unitUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					CountLessThanEqual: 0,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIs, storageerrors.MaxStorageCountPreconditionFailed)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_instance WHERE storage_name = ?", "data"), tc.Equals, 1)
+}
+
+func (s *commitHookSuite) TestCommitHookAddStorageRollsBackEarlierChanges(c *tc.C) {
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+	existingStorageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	s.query(c, `
+INSERT INTO storage_instance
+    (uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id,
+     storage_pool_uuid, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, existingStorageUUID.String(), "app", "data",
+		int(domainstorage.StorageKindBlock), "data/0", 0,
+		poolUUID.String(), 1024)
+	s.query(c, `
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid)
+VALUES (?, ?)
+`, existingStorageUUID.String(), s.unitUUID)
+
+	charmState := map[string]string{"foo": "bar"}
+	arg := internal.CommitHookChangesArg{
+		UnitUUID:   s.unitUUID,
+		CharmState: &charmState,
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					CountLessThanEqual: 0,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIs, storageerrors.MaxStorageCountPreconditionFailed)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM unit_state_charm WHERE unit_uuid = ? AND key = ?", s.unitUUID, "foo"),
+		tc.Equals,
+		0,
+	)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM storage_instance WHERE storage_name = ?", "data"),
+		tc.Equals,
+		1,
+	)
+}
+
+func (s *commitHookSuite) TestGetCommitHookUnitInfo(c *tc.C) {
+	unitName := s.unitName
+	expectedUUID := s.unitUUID
+	expectedMachineUUID := s.getUnitMachineUUID(c, s.unitUUID)
 
 	// Act
-	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), unitName)
+	unitInfo, err := s.state.GetCommitHookUnitInfo(c.Context(), unitName)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(unitUUID, tc.Equals, expectedUUID)
+	c.Check(unitInfo.UnitUUID, tc.Equals, expectedUUID)
+	c.Check(unitInfo.MachineUUID, tc.Deref(tc.Equals), expectedMachineUUID)
 }
 
-func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
-	_, err := s.state.GetUnitUUIDByName(c.Context(), "foo")
+func (s *commitHookSuite) TestGetCommitHookUnitInfoNotFound(c *tc.C) {
+	_, err := s.state.GetCommitHookUnitInfo(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *commitHookSuite) TestEnsureCommitHookChangesUUIDsUnitNotFound(c *tc.C) {
-	// Arrange
-	arg := internal.CommitHookChangesArg{}
-
-	// Act
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.ensureCommitHookChangesUUIDs(ctx, tx, arg)
-	})
-
-	// Assert
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) {
+func (s *commitHookSuite) TestEnsureCheckRelationExistsNotFound(c *tc.C) {
 	// Arrange: add a unit
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, "testname", network.AlphaSpaceId.String())
@@ -207,7 +567,7 @@ func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) 
 
 	// Arrange: setup the method input with a non-existent relation uuid
 	arg := internal.CommitHookChangesArg{
-		UnitUUID: unitUUID,
+		UnitUUID: unitUUID.String(),
 		RelationSettings: []internal.RelationSettings{{
 			RelationUUID: tc.Must(c, corerelation.NewUUID),
 		}},
@@ -215,16 +575,55 @@ func (s *commitHookSuite) TestEnsureCommitHookChangesRelationsNotFound(c *tc.C) 
 
 	// Act
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.ensureCommitHookChangesUUIDs(ctx, tx, arg)
+		return s.state.checkRelationsExist(ctx, tx, arg.RelationSettings)
 	})
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *commitHookSuite) addSpace(c *tc.C) string {
-	spaceUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
-		spaceUUID, spaceUUID)
-	return spaceUUID
+func (s *commitHookSuite) addStoragePool(
+	c *tc.C,
+	name, providerType string,
+) domainstorage.StoragePoolUUID {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	s.query(c, `INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+		poolUUID.String(), name, providerType)
+	return poolUUID
+}
+
+func (s *commitHookSuite) getUnitNetNodeUUID(c *tc.C, unitUUID string) string {
+	var netNodeUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT net_node_uuid FROM unit WHERE uuid = ?",
+			unitUUID,
+		).Scan(&netNodeUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return netNodeUUID
+}
+
+func (s *commitHookSuite) getUnitMachineUUID(c *tc.C, unitUUID string) string {
+	var machineUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT m.uuid
+FROM unit u
+JOIN machine m ON m.net_node_uuid = u.net_node_uuid
+WHERE u.uuid = ?
+`, unitUUID).Scan(&machineUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
+}
+
+func (s *commitHookSuite) countRows(c *tc.C, query string, args ...any) int {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, query, args...).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count
 }
