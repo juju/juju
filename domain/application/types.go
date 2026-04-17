@@ -473,6 +473,10 @@ type SetCharmParams struct {
 	// even when on error.
 	CharmUpgradeOnError bool
 
+	// ForceBase allows a refresh to continue even if the requested base is
+	// incompatible with the currently deployed application base.
+	ForceBase bool
+
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
