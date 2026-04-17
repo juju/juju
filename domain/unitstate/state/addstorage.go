@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -192,42 +191,6 @@ AND    si.storage_name = $storageCount.storage_name
 		return 0, errors.Capture(err)
 	}
 	return result.Count, nil
-}
-
-func machineStorageOwnership(
-	storageInst []domainstorage.CreateUnitStorageInstanceArg,
-) ([]domainstorage.FilesystemUUID, []domainstorage.VolumeUUID, error) {
-	var filesystemsToOwn []domainstorage.FilesystemUUID
-	var volumesToOwn []domainstorage.VolumeUUID
-
-	for _, inst := range storageInst {
-		var comp domainstorageprovisioning.StorageInstanceComposition
-		if inst.Filesystem != nil {
-			comp.FilesystemRequired = true
-			comp.FilesystemProvisionScope = inst.Filesystem.ProvisionScope
-		}
-		if inst.Volume != nil {
-			comp.VolumeRequired = true
-			comp.VolumeProvisionScope = inst.Volume.ProvisionScope
-		}
-
-		scope, err := domainstorageprovisioning.CalculateStorageInstanceOwnershipScope(comp)
-		if err != nil {
-			return nil, nil, errors.Capture(err)
-		}
-		if scope != domainstorageprovisioning.OwnershipScopeMachine {
-			continue
-		}
-
-		if inst.Filesystem != nil {
-			filesystemsToOwn = append(filesystemsToOwn, inst.Filesystem.UUID)
-		}
-		if inst.Volume != nil {
-			volumesToOwn = append(volumesToOwn, inst.Volume.UUID)
-		}
-	}
-
-	return filesystemsToOwn, volumesToOwn, nil
 }
 
 func (st *State) insertUnitStorageAttachments(
