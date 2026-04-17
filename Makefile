@@ -169,7 +169,8 @@ define link_flags_version
 -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
 -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
 -X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
--X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
+-X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)\
+-X $(PROJECT)/cloudconfig/podcfg.JujudOCINamespace=$(DEFAULT_OCI_REGISTRY)
 endef
 
 # Enable coverage collection.
@@ -505,13 +506,17 @@ check-deps:
 
 
 # CAAS related targets
-export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
-OCI_REGISTRY_USERNAME      ?= ghcr.io/juju
-DOCKER_BUILDX_CONTEXT      ?= juju-make
-DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
-JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
-JUJUD_BIN_DIR              ?= ${BIN_DIR}
-OPERATOR_IMAGE_BUILD_SRC   ?= true
+export OCI_BUILDER           ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
+export OCI_REGISTRY_USERNAME ?= ghcr.io/juju
+
+# DEFAULT_OCI_REGISTRY is the registry Juju will pull it's operator OCI images
+# from by default.
+DEFAULT_OCI_REGISTRY         ?= docker.io/jujusolutions
+DOCKER_BUILDX_CONTEXT        ?= juju-make
+DOCKER_STAGING_DIR           ?= ${BUILD_DIR}/docker-staging
+JUJUD_STAGING_DIR            ?= ${DOCKER_STAGING_DIR}/jujud-operator
+JUJUD_BIN_DIR                ?= ${BIN_DIR}
+OPERATOR_IMAGE_BUILD_SRC     ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
