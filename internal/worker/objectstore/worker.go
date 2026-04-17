@@ -92,6 +92,9 @@ func (c *WorkerConfig) Validate() error {
 	if c.ModelMetadataServiceGetter == nil {
 		return errors.NotValidf("nil ModelMetadataServiceGetter")
 	}
+	if c.ModelServiceGetter == nil {
+		return errors.NotValidf("nil ModelServiceGetter")
+	}
 	if c.ModelClaimGetter == nil {
 		return errors.NotValidf("nil ModelClaimGetter")
 	}
