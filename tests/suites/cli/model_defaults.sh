@@ -53,6 +53,8 @@ test_model_defaults() {
 
 		cd .. || exit
 
+    juju switch test-cli
+
 		# save model-defaults
 		SAVED_DEFAULTS_FILE=$(mktemp)
 		juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=yaml >"${SAVED_DEFAULTS_FILE}"

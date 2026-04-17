@@ -1,0 +1,90 @@
+name: "Bash tests"
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
+
+jobs:
+  cli-localhost:
+    name: "CLI (localhost/LXD)"
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          attempts=0
+          while [ $attempts -lt 3 ]; do
+              if ! which charmcraft >/dev/null 2>&1; then
+                  sudo snap install charmcraft --classic || true
+              fi
+              if ! which jq >/dev/null 2>&1; then
+                  sudo snap install jq || true
+              fi
+              if ! which yq >/dev/null 2>&1; then
+                  sudo snap install yq || true
+              fi
+              if ! which shellcheck >/dev/null 2>&1; then
+                  sudo snap install shellcheck || true
+              fi
+              if ! which expect >/dev/null 2>&1; then
+                  sudo apt-get -y install expect || true
+              fi
+              if ! which petname >/dev/null 2>&1; then
+                  sudo snap install petname || true
+              fi
+              if ! which microceph >/dev/null 2>&1; then
+                  sudo snap install microceph || true
+              fi
+              if ! which gcloud >/dev/null 2>&1; then
+                  sudo snap install google-cloud-cli --classic || true
+              fi
+              attempts=$((attempts + 1))
+          done
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
+
+      - name: Wait for LXD
+        shell: bash
+        run: |
+          while ! ip link show lxdbr0; do
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install local Juju
+        shell: bash
+        run: |
+          make go-install
+
+      - name: Run CLI suite
+        shell: bash
+        run: |
+          cd tests
+          mkdir -p artifacts
+          export MODEL_ARCH=$(go env GOARCH)
+          export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
+          ./main.sh -v -a artifacts/output.tar.gz -x output.txt cli
+
+      - name: Upload CLI artifacts
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v2
+        with:
+          name: cli-localhost-artifacts
+          path: |
+            tests/artifacts/output.tar.gz
+            tests/output.txt
+            tests/*.log
