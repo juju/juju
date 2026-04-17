@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -185,7 +186,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},
 		ControllerMetadataService:  s.controllerMetadataService,
-		ControllerConfigService:    s.controllerConfigService,
+		ObjectStoreService:         s.objectStoreService,
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
 		ModelServiceGetter:         s.modelServiceGetter,
 		ModelClaimGetter:           s.modelClaimGetter,
@@ -227,6 +228,10 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelClaimGetter = NewMockModelClaimGetter(ctrl)
 	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
+		Type: objectstore.FileBackend,
+	}, nil).AnyTimes()
 
 	c.Cleanup(func() {
 		s.trackedObjectStore = nil

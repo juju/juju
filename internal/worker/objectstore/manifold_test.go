@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testing"
@@ -75,6 +76,18 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.NewObjectStoreWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetControllerConfigService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetMetadataService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -92,6 +105,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetObjectStoreService: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
+			return s.objectStoreService, nil
 		},
 		GetMetadataService: func(getter dependency.Getter, name string) (MetadataService, error) {
 			return s.metadataService, nil
@@ -125,6 +141,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.expectAgentConfig(c)
 	s.expectControllerConfig()
+	s.expectBackendInfo()
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
@@ -135,6 +152,12 @@ func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
 	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
+}
+
+func (s *manifoldSuite) expectBackendInfo() {
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
+		Type: objectstore.FileBackend,
+	}, nil)
 }
 
 func (s *manifoldSuite) expectControllerConfig() {

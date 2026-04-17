@@ -481,6 +481,39 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 	return objectstore.Phase(info.Phase), nil
 }
 
+// BackendInfo represents the information about an object store backend,
+// including the uuid and the type of the object store.
+type BackendInfo struct {
+	// UUID is the uuid for the backend.
+	UUID objectstore.UUID
+
+	// Type is the type of the object store.
+	Type objectstore.BackendType
+
+	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Endpoint *string
+
+	// AccessKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	AccessKey *string
+	// SecretKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SecretKey *string
+}
+
+// GetActiveObjectStoreBackend returns the active object store backend
+// information.
+func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return BackendInfo{
+		Type: objectstore.FileBackend,
+	}, nil
+}
+
 // TransitionBackendToS3 sets the object store to use S3 with the provided
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
