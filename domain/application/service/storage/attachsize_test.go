@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
@@ -24,10 +23,10 @@ func TestAttachSizeSuite(t *testing.T) {
 // TestCalculateSizeFilesystemUsesProvisioned verifies provisioned filesystem
 // size takes precedence over requested size.
 func (s *attachSizeSuite) TestCalculateSizeFilesystemUsesProvisioned(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindFilesystem,
 		RequestedSizeMIB: 10,
-		Filesystem: &internal.StorageInstanceFilesystemInfo{
+		Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 			SizeMib: 20,
 		},
 	}
@@ -39,10 +38,10 @@ func (s *attachSizeSuite) TestCalculateSizeFilesystemUsesProvisioned(c *tc.C) {
 // TestCalculateSizeFilesystemFallsBackToRequested verifies requested size is
 // used when filesystem size is unset.
 func (s *attachSizeSuite) TestCalculateSizeFilesystemFallsBackToRequested(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindFilesystem,
 		RequestedSizeMIB: 15,
-		Filesystem: &internal.StorageInstanceFilesystemInfo{
+		Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 			SizeMib: 0,
 		},
 	}
@@ -54,7 +53,7 @@ func (s *attachSizeSuite) TestCalculateSizeFilesystemFallsBackToRequested(c *tc.
 // TestCalculateSizeFilesystemWithNoFilesystemInfo verifies nil filesystem info
 // still falls back to requested size.
 func (s *attachSizeSuite) TestCalculateSizeFilesystemWithNoFilesystemInfo(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindFilesystem,
 		RequestedSizeMIB: 12,
 	}
@@ -66,10 +65,10 @@ func (s *attachSizeSuite) TestCalculateSizeFilesystemWithNoFilesystemInfo(c *tc.
 // TestCalculateSizeBlockUsesProvisioned verifies provisioned volume size takes
 // precedence over requested size.
 func (s *attachSizeSuite) TestCalculateSizeBlockUsesProvisioned(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindBlock,
 		RequestedSizeMIB: 8,
-		Volume: &internal.StorageInstanceVolumeInfo{
+		Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 			SizeMiB: 25,
 		},
 	}
@@ -81,10 +80,10 @@ func (s *attachSizeSuite) TestCalculateSizeBlockUsesProvisioned(c *tc.C) {
 // TestCalculateSizeBlockFallsBackToRequested verifies requested size is used
 // when volume size is unset.
 func (s *attachSizeSuite) TestCalculateSizeBlockFallsBackToRequested(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindBlock,
 		RequestedSizeMIB: 9,
-		Volume: &internal.StorageInstanceVolumeInfo{
+		Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 			SizeMiB: 0,
 		},
 	}
@@ -96,7 +95,7 @@ func (s *attachSizeSuite) TestCalculateSizeBlockFallsBackToRequested(c *tc.C) {
 // TestCalculateSizeBlockWithNoVolumeInfo verifies nil volume info still falls
 // back to requested size.
 func (s *attachSizeSuite) TestCalculateSizeBlockWithNoVolumeInfo(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKindBlock,
 		RequestedSizeMIB: 11,
 	}
@@ -108,7 +107,7 @@ func (s *attachSizeSuite) TestCalculateSizeBlockWithNoVolumeInfo(c *tc.C) {
 // TestCalculateSizeUnknownKindUsesRequested verifies unknown kinds default to
 // requested size for safety.
 func (s *attachSizeSuite) TestCalculateSizeUnknownKindUsesRequested(c *tc.C) {
-	info := internal.StorageInstanceInfo{
+	info := domainstorage.StorageInstanceAttachInfo{
 		Kind:             domainstorage.StorageKind(99),
 		RequestedSizeMIB: 7,
 	}

@@ -35,6 +35,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/domain/application/service/storage"
 	storageservice "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -3182,21 +3183,23 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 			CharmStorageDefinitionForValidation: charmStorageDef,
 			AlreadyAttachedCount:                66,
 		}, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
-		"pgdata": {
-			Name:        "pgdata",
-			Type:        internalcharm.StorageFilesystem,
-			CountMin:    1,
-			CountMax:    666,
-			MinimumSize: 10,
-		},
-	}, map[string]storageservice.StorageDirectiveOverride{
-		"pgdata": {
-			Count:    new(uint32(76)),
-			PoolUUID: new(poolUUID),
-			Size:     new(uint64(6)),
-		},
-	}).Return(applicationerrors.StorageCountLimitExceeded{})
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
+		gomock.Any(),
+		map[string]internal.CharmStorageDefinitionForValidation{
+			"pgdata": {
+				Name:        "pgdata",
+				Type:        applicationcharm.StorageFilesystem,
+				CountMin:    1,
+				CountMax:    666,
+				MinimumSize: 10,
+			},
+		}, map[string]storageservice.StorageDirectiveOverride{
+			"pgdata": {
+				Count:    new(uint32(76)),
+				PoolUUID: new(poolUUID),
+				Size:     new(uint64(6)),
+			},
+		}).Return(applicationerrors.StorageCountLimitExceeded{})
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 10, application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
@@ -3339,21 +3342,23 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 			CharmStorageDefinitionForValidation: charmStorageDef,
 			AlreadyAttachedCount:                66,
 		}, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
-		"pgdata": {
-			Name:        "pgdata",
-			Type:        internalcharm.StorageFilesystem,
-			CountMin:    1,
-			CountMax:    666,
-			MinimumSize: 10,
-		},
-	}, map[string]storageservice.StorageDirectiveOverride{
-		"pgdata": {
-			Count:    new(uint32(76)),
-			PoolUUID: new(poolUUID),
-			Size:     new(uint64(6)),
-		},
-	}).Return(applicationerrors.StorageCountLimitExceeded{})
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
+		gomock.Any(),
+		map[string]internal.CharmStorageDefinitionForValidation{
+			"pgdata": {
+				Name:        "pgdata",
+				Type:        applicationcharm.StorageFilesystem,
+				CountMin:    1,
+				CountMax:    666,
+				MinimumSize: 10,
+			},
+		}, map[string]storageservice.StorageDirectiveOverride{
+			"pgdata": {
+				Count:    new(uint32(76)),
+				PoolUUID: new(poolUUID),
+				Size:     new(uint64(6)),
+			},
+		}).Return(applicationerrors.StorageCountLimitExceeded{})
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, application.AddUnitStorageOverride{
 		SizeMiB:         new(uint64(6)),
@@ -3393,13 +3398,13 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		map[string]internal.CharmStorageDefinitionForValidation{
 			"pgdata": charmStorageDef,
 		},
-	}, map[string]storageservice.StorageDirectiveOverride{
-		"pgdata": {
-			Count:    new(uint32(76)),
-			PoolUUID: new(poolUUID),
-			Size:     new(uint64(6)),
-		},
-	})
+		map[string]storageservice.StorageDirectiveOverride{
+			"pgdata": {
+				Count:    new(uint32(76)),
+				PoolUUID: new(poolUUID),
+				Size:     new(uint64(6)),
+			},
+		})
 	unitStorageArgs := domainstorage.UnitAddStorageArg{
 		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",

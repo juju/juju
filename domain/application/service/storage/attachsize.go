@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"github.com/juju/juju/domain/application/internal"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
@@ -13,7 +12,7 @@ import (
 // provisioned sizes are used when set; otherwise the requested size is used.
 // If the kind is unknown, the requested size is used.
 func CalculateStorageInstanceSizeForAttachment(
-	info internal.StorageInstanceInfo,
+	info domainstorage.StorageInstanceAttachInfo,
 ) uint64 {
 	fallback := max(info.RequestedSizeMIB, 0)
 

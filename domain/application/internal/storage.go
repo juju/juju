@@ -44,74 +44,6 @@ type StorageDirective struct {
 	Size uint64
 }
 
-<<<<<<< HEAD
-=======
-// CreateApplicationStorageDirectiveArg defines an individual storage directive to be
-// associated with an application.
-type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
-
-// UpdateApplicationStorageDirectiveArg defines the arguments required to
-// update an existing storage directive associated with an application.
-type UpdateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
-
-// CreateStorageDirectiveArg defines the arguments required to add a storage
-// directive to the model.
-type CreateStorageDirectiveArg struct {
-	// Count represents the number of storage instances that should be made for
-	// this directive.
-	Count uint32
-
-	// Name relates to the charm storage name definition and must match up.
-	Name domainstorage.Name
-
-	// PoolUUID defines the storage pool uuid to use for the directive. This is
-	// an optional value and if not set it is expected that
-	// [ApplicationStorageDirectiveArg.ProviderType] is set.
-	PoolUUID domainstorage.StoragePoolUUID
-
-	// Size defines the size of the storage directive in MiB.
-	Size uint64
-}
-
-// MaxStorageCountPreconditonFailed is used to signal a concurrent db operation
-// has occurred so that any pre-conditions for completing a storage add/attach are violated.
-const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
-
-// AddStorageToUnitArg represents the arguments required for adding storage
-// to a unit. This will instantiate the instances and attachments for the unit.
-type AddStorageToUnitArg struct {
-	// StorageInstances defines the new storage instances that must be created
-	// for the unit.
-	StorageInstances []CreateUnitStorageInstanceArg
-
-	// NewStorageToAttach defines the storage instances that should be attached to
-	// the unit. New storage instances defined in
-	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
-	// the unit and should be included in this list.
-	NewStorageToAttach []CreateStorageInstanceAttachmentArg
-
-	// StorageToOwn defines the storage instances that should be owned by the
-	// unit.
-	StorageToOwn []domainstorage.StorageInstanceUUID
-
-	// CountLessThanEqual is the maximum storage count allowed at the time
-	// the add is performed in order for the add operation to be considered successful.
-	CountLessThanEqual uint32
-}
-
-// AddStorageToIAASUnitArg represents the arguments required for making storage
-// for an IAAS unit. This complements [AddStorageToUnitArg], allowing for an
-// IAAS unit to augment storage that is destined for a machine.
-type AddStorageToIAASUnitArg struct {
-	AddStorageToUnitArg
-	// FilesystemsToOwn defines filesystems that will be owned by the unit's
-	// machine.
-	FilesystemsToOwn []domainstorage.FilesystemUUID
-
-	// VolumesToOwn defines volumes that will be owned by the unit's machine.
-	VolumesToOwn []domainstorage.VolumeUUID
-}
-
 // StorageInfoForAdd represents the arguments required to
 // add storage to a unit.
 type StorageInfoForAdd struct {
@@ -122,14 +54,6 @@ type StorageInfoForAdd struct {
 	// AlreadyAttachedCount is the count of attached Storage Instances this Unit
 	// already has for the Charm storage definition.
 	AlreadyAttachedCount uint32
-}
-
-// MachineIdentifier describes the identifying information for a machine.
-type MachineIdentifier struct {
-	// UUID is the machine uuid.
-	UUID string
-	// Name is the machine name.
-	Name string
 }
 
 // StorageInstanceUnitAttachment identifies an attachment of a storage instance
@@ -213,7 +137,7 @@ type StorageInstanceFilesystemInfo struct {
 	UUID domainstorage.FilesystemUUID
 
 	// ProvisionScope is the provision scope of the backing Filesystem.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 
 	// SizeMib is the provisioned size of the backing Filesystem in MiB. When
 	// the Filesystem has not yet been provisioned this value will be 0.
@@ -267,7 +191,7 @@ type StorageInstanceVolumeInfo struct {
 	UUID domainstorage.VolumeUUID
 
 	// ProvisionScope is the provision scope of the backing Volume.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 
 	// SizeMiB is the provisioned size of the backing Volume in MiB. When the
 	// volume has not yet been provisioned this value will be 0.
@@ -277,69 +201,6 @@ type StorageInstanceVolumeInfo struct {
 	// Volume when owned by a machine can only be attached to units on the
 	// same machine.
 	OwningMachineUUID *coremachine.UUID
-}
-
-// CreateUnitStorageArg represents the arguments required for making storage
-// for a unit. This will create and set the unit's storage directives and then
-// instantiate the instances and attachments for the units.
-//
-// All checks for [CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
-// and [CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs] will be
-// performed before any further storage operations are performed.
-type CreateUnitStorageArg struct {
-	// ExistingStorageInstanceUUIDsToCheck defines a set of
-	// [domainstorage.StorageInstanceUUID]s that MUST already exist in the model
-	// and be alive.
-	//
-	// This is used when a existing Storage Instance is being attached to a
-	// unit.
-	ExistingStorageInstanceUUIDsToCheck []domainstorage.StorageInstanceUUID
-
-	// StorageDirectives defines the storage directives that should be created
-	// for the unit.
-	StorageDirectives []CreateUnitStorageDirectiveArg
-
-	// StorageInstances defines the new storage instances that must be created
-	// for the unit.
-	StorageInstances []CreateUnitStorageInstanceArg
-
-	// StorageInstancesToAttach defines the storage instances that should be
-	// attached to the unit. New storage instances defined in
-	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
-	// the unit and should be included in this list.
-	//
-	// Any existing storage instances in the model that need to be attached to
-	// the unit should be included in this list.
-	StorageInstancesToAttach []CreateStorageInstanceAttachmentArg
-
-	// StorageInstanceAttachmentCheckArgs defines a set of Storage Instance
-	// attachment checks to perform before creating storage for a unit. This
-	// arg allows the caller to assert that an existing Storage Instance
-	// being attached to the unit has the expected attachments.
-	StorageInstanceAttachmentCheckArgs []StorageInstanceAttachmentCheckArgs
-
-	// StorageInstanceCharmNameSetArgs describes a set of existing Storage
-	// Instances to set the Charm Name for. This would typically be used
-	// when an existing Storage Instance is being attached to a unit for the
-	// first time and does not have it's charm name set.
-	StorageInstanceCharmNameSetArgs []StorageInstanceCharmNameSetArg
-
-	// StorageToOwn defines the storage instances that should be owned by the
-	// unit.
-	StorageToOwn []domainstorage.StorageInstanceUUID
-}
-
-// CreateIAASUnitStorageArg represents the arguments required to describe storage
-// for an IAAS unit. This complements base args [CreateUnitStorageArg],
-// [AddStorageToUnitArg], or [CreateStorageInstanceAttachmentArg] allowing for an
-// IAAS unit to augment storage that is destined for a machine.
-type CreateIAASUnitStorageArg struct {
-	// FilesystemsToOwn defines filesystems that will be owned by the unit's
-	// machine.
-	FilesystemsToOwn []domainstorage.FilesystemUUID
-
-	// VolumesToOwn defines volumes that will be owned by the unit's machine.
-	VolumesToOwn []domainstorage.VolumeUUID
 }
 
 // CreateStorageInstanceAttachmentArg describes the arguments required for
@@ -359,28 +220,6 @@ type CreateStorageInstanceAttachmentArg struct {
 	// VolumeAttachment describes a volume to attach for the storage
 	// instance attachment.
 	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
-}
-
-// AttachStorageInstanceToUnitArg describes the arguments required for attaching
-// an existing Storage Instance to a Unit in the model.
-type AttachStorageInstanceToUnitArg struct {
-	// CreateStorageInstanceAttachmentArg holds identifiers and attachment
-	// details for the Storage Instance attachment to create.
-	CreateStorageInstanceAttachmentArg
-
-	// StorageInstanceAttachmentCheckArgs describes the expected attachments for
-	// the Storage Instance at the time of attach. It is expected that this arg
-	// is always provided.
-	StorageInstanceAttachmentCheckArgs
-
-	// StorageInstanceCharmNameSetArg describes the Charm Name to associate
-	// with the storage instance when attaching. When nil no operation will be
-	// performed.
-	*StorageInstanceCharmNameSetArg
-
-	// UnitStorageInstanceAttachmentCheckArgs describes the expected unit state
-	// when attaching the Storage Instance.
-	UnitStorageInstanceAttachmentCheckArgs
 }
 
 // UnitStorageInstanceAttachmentCheckArgs describes the expected state of a
@@ -419,10 +258,6 @@ type StorageInstanceAttachmentCheckArgs struct {
 	UUID domainstorage.StorageInstanceUUID
 }
 
-// CreateUnitStorageDirectiveArg describes the arguments required for making storage
-// directives on a unit.
-type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
-
 // CreateUnitStorageFilesystemArg describes a set of arguments for a filesystem
 // that should be created as part of a unit's storage.
 type CreateUnitStorageFilesystemArg struct {
@@ -432,7 +267,7 @@ type CreateUnitStorageFilesystemArg struct {
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 }
 
 // CreateUnitStorageFilesystemAttachmentArg describes a set of arguments for a
@@ -448,7 +283,7 @@ type CreateUnitStorageFilesystemAttachmentArg struct {
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem attachment.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 
 	// UUID is the unique identifier to give the filesystem attachment in the
 	// model.
@@ -502,7 +337,7 @@ type CreateUnitStorageVolumeArg struct {
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created volume.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 }
 
 // CreateUnitStorageVolumeAttachmentArg describes a set of arguments for a
@@ -515,7 +350,7 @@ type CreateUnitStorageVolumeAttachmentArg struct {
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem attachment.
-	ProvisionScope domainstorageprov.ProvisionScope
+	ProvisionScope domainstorage.ProvisionScope
 
 	// VolumeUUID is the unique identifier of the volume to be attached.
 	VolumeUUID domainstorage.VolumeUUID
@@ -550,7 +385,6 @@ type AddStorageInstanceArg struct {
 // to attach a unit storage instance.
 type AttachStorageInstanceArg AddStorageInstanceArg
 
->>>>>>> bc9d22f578 (refactor: update storage instance attach info request size)
 // ModelStoragePools provides the default storage pools that have been set
 // within the model. If a value is nil then no default exists.
 type ModelStoragePools struct {

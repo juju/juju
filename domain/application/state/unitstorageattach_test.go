@@ -9,11 +9,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -136,13 +134,13 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesFile
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 1)
-	c.Check(result[0], tc.DeepEquals, internal.StorageInstanceInfoForAttach{
-		StorageInstanceInfo: internal.StorageInstanceInfo{
+	c.Check(result[0], tc.DeepEquals, domainstorage.StorageInstanceInfoForAttach{
+		StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 			UUID:      storageUUID,
 			CharmName: &charmName,
-			Filesystem: &internal.StorageInstanceFilesystemInfo{
+			Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 				UUID:           filesystemUUID,
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				SizeMib:        1024,
 			},
 			Kind:             domainstorage.StorageKindFilesystem,
@@ -165,13 +163,13 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesVolu
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 1)
-	c.Check(result[0], tc.DeepEquals, internal.StorageInstanceInfoForAttach{
-		StorageInstanceInfo: internal.StorageInstanceInfo{
+	c.Check(result[0], tc.DeepEquals, domainstorage.StorageInstanceInfoForAttach{
+		StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 			UUID:      storageUUID,
 			CharmName: &charmName,
-			Volume: &internal.StorageInstanceVolumeInfo{
+			Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 				UUID:           volumeUUID,
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				SizeMiB:        2048,
 			},
 			Kind:             domainstorage.StorageKindBlock,
@@ -206,7 +204,7 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesAtta
 	c.Check(result, tc.HasLen, 2)
 
 	gotByStorageUUID := make(
-		map[domainstorage.StorageInstanceUUID]internal.StorageInstanceInfoForAttach, 2,
+		map[domainstorage.StorageInstanceUUID]domainstorage.StorageInstanceInfoForAttach, 2,
 	)
 	for _, item := range result {
 		gotByStorageUUID[item.UUID] = item
@@ -217,7 +215,7 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesAtta
 	got2, ok2 := gotByStorageUUID[storageUUID2]
 	c.Assert(ok2, tc.IsTrue)
 
-	c.Check(got1.StorageInstanceAttachments, tc.SameContents, []internal.StorageInstanceUnitAttachment{
+	c.Check(got1.StorageInstanceAttachments, tc.SameContents, []domainstorage.StorageInstanceUnitAttachmentID{
 		{
 			UnitUUID: unitUUID1,
 			UUID:     attach1,
@@ -227,7 +225,7 @@ func (u *unitStorageAttachSuite) TestGetStorageAttachInfoForStorageInstancesAtta
 			UUID:     attach2,
 		},
 	})
-	c.Check(got2.StorageInstanceAttachments, tc.SameContents, []internal.StorageInstanceUnitAttachment{
+	c.Check(got2.StorageInstanceAttachments, tc.SameContents, []domainstorage.StorageInstanceUnitAttachmentID{
 		{
 			UnitUUID: unitUUID3,
 			UUID:     attach3,

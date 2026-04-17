@@ -23,10 +23,12 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -102,14 +104,14 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	}
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceInfoForAttach{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
 		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
@@ -171,14 +173,16 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceInfoForAttach{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
-		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
-		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		gomock.Any(),
+		storageRefreshArgs.NetNodeUUID,
+		storageRefreshArgs.RefreshStorageDirectives,
+		[]internal.StorageInstanceComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
@@ -280,14 +284,14 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceInfoForAttach{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
 		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), storageArgs.StorageInstances,

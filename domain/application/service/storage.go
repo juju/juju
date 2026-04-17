@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // StorageDirectiveOverrides represents override instructions for application
@@ -107,7 +108,7 @@ type StorageService interface {
 		attachNetNodeUUID domainnetwork.NetNodeUUID,
 		storageDirectives []internal.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
-		existingStorageAttachments []internal.StorageAttachmentComposition,
+		existingStorageAttachments []domainstorage.StorageAttachmentComposition,
 	) (domainstorage.CreateUnitStorageArg, error)
 
 	// MakeIAASUnitStorageArgs returns [domainstorage.CreateIAASUnitStorageArg]
@@ -181,7 +182,7 @@ type StorageService interface {
 	// This function does not perform validation; callers must validate inputs
 	// before invoking it.
 	MakeAttachStorageInstanceToUnitArg(
-		ctx context.Context,
-		storageAttachInfo internal.StorageInstanceInfoForUnitAttach,
-	) (internal.AttachStorageInstanceToUnitArg, error)
+		context.Context,
+		domainstorage.StorageInstanceInfoForUnitAttach,
+	) (domainstorage.AttachStorageInstanceToUnitArg, error)
 }

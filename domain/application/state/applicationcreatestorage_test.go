@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -81,7 +80,7 @@ func (s *applicationCreateStorageSuite) TestCreateIAASApplicationStorageInstance
 	units := []application.AddIAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						existingSIUUID,
 						notFoundSIUUID,
@@ -149,7 +148,7 @@ func (s *applicationCreateStorageSuite) TestCreateIAASApplicationStorageInstance
 	units := []application.AddIAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						existingSIUUID,
 						notAliveSIUUID,
@@ -222,11 +221,11 @@ func (s *applicationCreateStorageSuite) TestCreateIAASApplicationStorageInstance
 	units := []application.AddIAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						storageInstUUID,
 					},
-					StorageInstanceAttachmentCheckArgs: []internal.StorageInstanceAttachmentCheckArgs{
+					StorageInstanceAttachmentCheckArgs: []domainstorage.StorageInstanceAttachmentCheckArgs{
 						{
 							UUID: storageInstUUID,
 						},
@@ -301,11 +300,11 @@ func (s *applicationCreateStorageSuite) TestCreateIAASApplicationStorageInstance
 	units := []application.AddIAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						storageInstUUID,
 					},
-					StorageInstanceAttachmentCheckArgs: []internal.StorageInstanceAttachmentCheckArgs{
+					StorageInstanceAttachmentCheckArgs: []domainstorage.StorageInstanceAttachmentCheckArgs{
 						{
 							ExpectedAttachments: []domainstorage.StorageAttachmentUUID{
 								expectedAttachUUID,
@@ -378,16 +377,16 @@ func (s *applicationCreateStorageSuite) TestCreateIAASApplicationWithExistingSto
 	units := []application.AddIAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						storageInst1UUID,
 						storageInst2UUID,
 					},
-					StorageInstanceAttachmentCheckArgs: []internal.StorageInstanceAttachmentCheckArgs{
+					StorageInstanceAttachmentCheckArgs: []domainstorage.StorageInstanceAttachmentCheckArgs{
 						{UUID: storageInst1UUID},
 						{UUID: storageInst2UUID},
 					},
-					StorageInstancesToAttach: []internal.CreateStorageInstanceAttachmentArg{
+					StorageToAttach: []domainstorage.CreateUnitStorageAttachmentArg{
 						{
 							StorageInstanceUUID: storageInst1UUID,
 							UUID:                attach1UUID,
@@ -477,11 +476,11 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 	units := []application.AddCAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						storageInstUUID,
 					},
-					StorageInstanceAttachmentCheckArgs: []internal.StorageInstanceAttachmentCheckArgs{
+					StorageInstanceAttachmentCheckArgs: []domainstorage.StorageInstanceAttachmentCheckArgs{
 						{
 							UUID: storageInstUUID,
 						},
@@ -553,11 +552,11 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 	units := []application.AddCAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						storageInstUUID,
 					},
-					StorageInstanceAttachmentCheckArgs: []internal.StorageInstanceAttachmentCheckArgs{
+					StorageInstanceAttachmentCheckArgs: []domainstorage.StorageInstanceAttachmentCheckArgs{
 						{
 							ExpectedAttachments: []domainstorage.StorageAttachmentUUID{
 								expectedAttachUUID,
@@ -624,7 +623,7 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 	units := []application.AddCAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						existingSIUUID,
 						notFoundSIUUID,
@@ -689,7 +688,7 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 	units := []application.AddCAASUnitArg{
 		{
 			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: internal.CreateUnitStorageArg{
+				CreateUnitStorageArg: domainstorage.CreateUnitStorageArg{
 					ExistingStorageInstanceUUIDsToCheck: []domainstorage.StorageInstanceUUID{
 						existingSIUUID,
 						notAliveSIUUID,

@@ -15,12 +15,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/internal"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -42,24 +40,29 @@ func makeValidAttachInfo(
 	c *tc.C,
 	unitUUID coreunit.UUID,
 	storageUUID domainstorage.StorageInstanceUUID,
-) internal.StorageInstanceInfoForUnitAttach {
+) domainstorage.StorageInstanceInfoForUnitAttach {
 	charmName := "example"
 	charmUUID := tc.Must(c, corecharm.NewID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
-	return internal.StorageInstanceInfoForUnitAttach{
-		StorageInstanceInfo: internal.StorageInstanceInfo{
-			UUID:             storageUUID,
-			CharmName:        &charmName,
-			Filesystem:       &internal.StorageInstanceFilesystemInfo{UUID: filesystemUUID, SizeMib: 1024},
-			Kind:             domainstorage.StorageKindFilesystem,
-			Life:             domainlife.Alive,
-			RequestedSizeMIB: 1024,
-			StorageName:      "data",
+	return domainstorage.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfoForAttach: domainstorage.StorageInstanceInfoForAttach{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:      storageUUID,
+				CharmName: &charmName,
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					SizeMib: 1024,
+					UUID:    filesystemUUID,
+				},
+				Kind:             domainstorage.StorageKindFilesystem,
+				Life:             domainlife.Alive,
+				RequestedSizeMIB: 1024,
+				StorageName:      "data",
+			},
 		},
-		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
-			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+		UnitAttachNamedStorageInfo: domainstorage.UnitAttachNamedStorageInfo{
+			CharmStorageDefinition: domainstorage.CharmStorageDefinition{
 				Name:        "data",
 				Type:        applicationcharm.StorageFilesystem,
 				CountMin:    0,
@@ -75,7 +78,6 @@ func makeValidAttachInfo(
 			Name:                 "app/0",
 			NetNodeUUID:          netNodeUUID,
 		},
-		StorageInstanceAttachments: []internal.StorageInstanceUnitAttachment{},
 	}
 }
 
@@ -88,8 +90,8 @@ func (s *attachStorageSuite) assertAttachStorageStateError(
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachArg := internal.AttachStorageInstanceToUnitArg{
-		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+	attachArg := domainstorage.AttachStorageInstanceToUnitArg{
+		CreateUnitStorageAttachmentArg: domainstorage.CreateUnitStorageAttachmentArg{
 			StorageInstanceUUID: storageUUID,
 		},
 	}
@@ -152,7 +154,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageInstanceNotFound(c *tc.C) {
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
 	).Return(
-		internal.StorageInstanceInfoForUnitAttach{},
+		domainstorage.StorageInstanceInfoForUnitAttach{},
 		storageerrors.StorageInstanceNotFound,
 	)
 
@@ -171,7 +173,7 @@ func (s *attachStorageSuite) TestAttachStorageUnitNotFound(c *tc.C) {
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
 	).Return(
-		internal.StorageInstanceInfoForUnitAttach{},
+		domainstorage.StorageInstanceInfoForUnitAttach{},
 		applicationerrors.UnitNotFound,
 	)
 
@@ -190,7 +192,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageNameNotSupported(c *tc.C) {
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
 	).Return(
-		internal.StorageInstanceInfoForUnitAttach{},
+		domainstorage.StorageInstanceInfoForUnitAttach{},
 		applicationerrors.StorageNameNotSupported,
 	)
 
@@ -206,7 +208,7 @@ func (s *attachStorageSuite) TestAttachStorageStorageInstanceNotAlive(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Life = domainlife.Dying
+	attachInfo.StorageInstanceAttachInfo.Life = domainlife.Dying
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -227,7 +229,7 @@ func (s *attachStorageSuite) TestAttachStorageUnitNotAlive(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.Life = domainlife.Dying
+	attachInfo.UnitAttachNamedStorageInfo.Life = domainlife.Dying
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -248,7 +250,7 @@ func (s *attachStorageSuite) TestAttachStorageCharmNameMismatch(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.CharmName = new("other")
+	attachInfo.StorageInstanceAttachInfo.CharmName = new("other")
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -269,7 +271,7 @@ func (s *attachStorageSuite) TestAttachStorageKindMismatch(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.Type =
+	attachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition.Type =
 		applicationcharm.StorageBlock
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
@@ -291,9 +293,9 @@ func (s *attachStorageSuite) TestAttachStorageSizeBelowMinimum(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Filesystem.SizeMib = 1
-	attachInfo.StorageInstanceInfo.RequestedSizeMIB = 1
-	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.MinimumSize = 2
+	attachInfo.StorageInstanceAttachInfo.Filesystem.SizeMib = 1
+	attachInfo.StorageInstanceAttachInfo.RequestedSizeMIB = 1
+	attachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition.MinimumSize = 2
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -315,9 +317,9 @@ func (s *attachStorageSuite) TestAttachStorageSizeFallbackToRequested(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Filesystem.SizeMib = 0
-	attachInfo.StorageInstanceInfo.RequestedSizeMIB = 1
-	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.MinimumSize = 2
+	attachInfo.StorageInstanceAttachInfo.Filesystem.SizeMib = 0
+	attachInfo.StorageInstanceAttachInfo.RequestedSizeMIB = 1
+	attachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition.MinimumSize = 2
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -338,8 +340,8 @@ func (s *attachStorageSuite) TestAttachStorageCountLimitExceeded(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.CountMax = 0
-	attachInfo.UnitNamedStorageInfo.AlreadyAttachedCount = 0
+	attachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition.CountMax = 0
+	attachInfo.UnitAttachNamedStorageInfo.AlreadyAttachedCount = 0
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -368,7 +370,7 @@ func (s *attachStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceAttachments = []internal.StorageInstanceUnitAttachment{
+	attachInfo.StorageInstanceAttachments = []domainstorage.StorageInstanceUnitAttachmentID{
 		{
 			UnitUUID: unitUUID,
 			UUID:     attachmentUUID,
@@ -387,7 +389,7 @@ func (s *attachStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 }
 
 // TestAttachStorageUnexpectedAttachments ensures non-shared attachments return
-// [applicationerrors.StorageInstanceUnexpectedAttachments].
+// [applicationerrors.StorageInstanceAttachSharedAccessNotSupported].
 func (s *attachStorageSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -396,8 +398,8 @@ func (s *attachStorageSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 	otherUnitUUID := tc.Must(c, coreunit.NewUUID)
 	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation.Shared = false
-	attachInfo.StorageInstanceAttachments = []internal.StorageInstanceUnitAttachment{
+	attachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition.Shared = false
+	attachInfo.StorageInstanceAttachments = []domainstorage.StorageInstanceUnitAttachmentID{
 		{
 			UnitUUID: otherUnitUUID,
 			UUID:     attachmentUUID,
@@ -412,7 +414,7 @@ func (s *attachStorageSuite) TestAttachStorageUnexpectedAttachments(c *tc.C) {
 	)
 
 	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
-	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceUnexpectedAttachments)
+	c.Check(err, tc.ErrorIs, applicationerrors.StorageInstanceAttachSharedAccessNotSupported)
 }
 
 // TestAttachStorageMachineOwnerMismatch ensures owning machine mismatch returns
@@ -424,7 +426,7 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerMismatch(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	owningMachineUUID := tc.Must(c, coremachine.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
+	attachInfo.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -447,8 +449,8 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerDifferentUnitMachine(c
 	unitMachineUUID := tc.Must(c, coremachine.NewUUID)
 	owningMachineUUID := tc.Must(c, coremachine.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.MachineUUID = &unitMachineUUID
-	attachInfo.StorageInstanceInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
+	attachInfo.UnitAttachNamedStorageInfo.MachineUUID = &unitMachineUUID
+	attachInfo.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -471,8 +473,8 @@ func (s *attachStorageSuite) TestAttachStorageMachineOwnerWithUnsetUnitMachine(c
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	owningMachineUUID := tc.Must(c, coremachine.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.MachineUUID = nil
-	attachInfo.StorageInstanceInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
+	attachInfo.UnitAttachNamedStorageInfo.MachineUUID = nil
+	attachInfo.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID = &owningMachineUUID
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		gomock.Any(), unitUUID, storageUUID,
@@ -525,12 +527,40 @@ func (s *attachStorageSuite) TestAttachStorageStateAlreadyAttached(c *tc.C) {
 	s.assertAttachStorageStateError(c, applicationerrors.StorageInstanceAlreadyAttachedToUnit)
 }
 
-// TestAttachStorageStateAttachmentCountExceeded ensures state-level validation
-// failures return [applicationerrors.UnitAttachmentCountExceedsLimit].
+// TestAttachStorageStateAttachmentCountExceeded ensures that when state returns
+// [applicationerrors.UnitAttachmentCountExceedsLimit], the service transforms it
+// into a [applicationerrors.StorageCountLimitExceeded] with contextual details.
 func (s *attachStorageSuite) TestAttachStorageStateAttachmentCountExceeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.assertAttachStorageStateError(c, applicationerrors.UnitAttachmentCountExceedsLimit)
+	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
+	attachArg := domainstorage.AttachStorageInstanceToUnitArg{
+		CreateUnitStorageAttachmentArg: domainstorage.CreateUnitStorageAttachmentArg{
+			StorageInstanceUUID: storageUUID,
+		},
+	}
+
+	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		gomock.Any(), unitUUID, storageUUID,
+	).Return(attachInfo, nil)
+	s.storageService.EXPECT().MakeAttachStorageInstanceToUnitArg(
+		gomock.Any(), attachInfo,
+	).Return(attachArg, nil)
+	s.state.EXPECT().AttachStorageInstanceToUnit(
+		gomock.Any(), unitUUID, attachArg,
+	).Return(applicationerrors.UnitAttachmentCountExceedsLimit)
+
+	err := s.service.AttachStorageInstanceToUnit(c.Context(), storageUUID, unitUUID)
+	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	c.Check(is, tc.IsTrue)
+	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
+		Maximum:     nil,
+		Minimum:     0,
+		Requested:   1,
+		StorageName: "data",
+	})
 }
 
 // TestAttachStorageStateCharmChanged ensures state-level validation failures
@@ -572,50 +602,51 @@ func (s *attachStorageSuite) TestAttachStorageSuccess(c *tc.C) {
 	volumeAttachmentUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
 	unitMachineUUID := tc.Must(c, coremachine.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.StorageInstanceInfo.CharmName = nil
-	attachInfo.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
-		UUID:    volumeUUID,
-		SizeMiB: 1024,
-	}
-	attachInfo.StorageInstanceAttachments = []internal.StorageInstanceUnitAttachment{
+	attachInfo.StorageInstanceAttachInfo.CharmName = nil
+	attachInfo.StorageInstanceAttachInfo.Volume =
+		&domainstorage.StorageInstanceAttachVolumeInfo{
+			UUID:    volumeUUID,
+			SizeMiB: 1024,
+		}
+	attachInfo.StorageInstanceAttachments = []domainstorage.StorageInstanceUnitAttachmentID{
 		{
 			UnitUUID: otherUnitUUID,
 			UUID:     existingAttachmentUUID,
 		},
 	}
-	attachInfo.UnitNamedStorageInfo.MachineUUID = &unitMachineUUID
+	attachInfo.UnitAttachNamedStorageInfo.MachineUUID = &unitMachineUUID
 	providerID := "volume-attachment-provider-id"
-	attachArg := internal.AttachStorageInstanceToUnitArg{
-		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+	attachArg := domainstorage.AttachStorageInstanceToUnitArg{
+		CreateUnitStorageAttachmentArg: domainstorage.CreateUnitStorageAttachmentArg{
 			UUID: attachmentUUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-				FilesystemUUID: attachInfo.StorageInstanceInfo.Filesystem.UUID,
-				NetNodeUUID:    attachInfo.UnitNamedStorageInfo.NetNodeUUID,
-				ProvisionScope: storageprovisioning.ProvisionScopeMachine,
+			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: attachInfo.StorageInstanceAttachInfo.Filesystem.UUID,
+				NetNodeUUID:    attachInfo.UnitAttachNamedStorageInfo.NetNodeUUID,
+				ProvisionScope: domainstorage.ProvisionScopeMachine,
 				UUID:           filesystemAttachmentUUID,
 			},
 			StorageInstanceUUID: storageUUID,
-			VolumeAttachment: &internal.CreateUnitStorageVolumeAttachmentArg{
-				NetNodeUUID:    attachInfo.UnitNamedStorageInfo.NetNodeUUID,
-				ProvisionScope: storageprovisioning.ProvisionScopeModel,
+			VolumeAttachment: &domainstorage.CreateUnitStorageVolumeAttachmentArg{
+				NetNodeUUID:    attachInfo.UnitAttachNamedStorageInfo.NetNodeUUID,
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 				VolumeUUID:     volumeUUID,
 				UUID:           volumeAttachmentUUID,
 				ProviderID:     &providerID,
 			},
 		},
-		StorageInstanceAttachmentCheckArgs: internal.StorageInstanceAttachmentCheckArgs{
+		StorageInstanceAttachmentCheckArgs: domainstorage.StorageInstanceAttachmentCheckArgs{
 			ExpectedAttachments: []domainstorage.StorageAttachmentUUID{
 				existingAttachmentUUID,
 			},
 			UUID: storageUUID,
 		},
-		StorageInstanceCharmNameSetArg: &internal.StorageInstanceCharmNameSetArg{
-			CharmMetadataName: attachInfo.UnitNamedStorageInfo.CharmMetadataName,
+		StorageInstanceCharmNameSetArg: &domainstorage.StorageInstanceCharmNameSetArg{
+			CharmMetadataName: attachInfo.UnitAttachNamedStorageInfo.CharmMetadataName,
 			UUID:              storageUUID,
 		},
-		UnitStorageInstanceAttachmentCheckArgs: internal.UnitStorageInstanceAttachmentCheckArgs{
-			CountLessThanEqual: attachInfo.UnitNamedStorageInfo.AlreadyAttachedCount,
-			CharmUUID:          attachInfo.UnitNamedStorageInfo.CharmUUID,
+		UnitStorageInstanceAttachmentCheckArgs: domainstorage.UnitStorageInstanceAttachmentCheckArgs{
+			CountLessThanEqual: attachInfo.UnitAttachNamedStorageInfo.AlreadyAttachedCount,
+			CharmUUID:          attachInfo.UnitAttachNamedStorageInfo.CharmUUID,
 			MachineUUID:        &unitMachineUUID,
 		},
 	}
@@ -652,11 +683,11 @@ func (s *attachStorageSuite) TestAttachStorageSuccessUnitMachineOnly(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitMachineUUID := tc.Must(c, coremachine.NewUUID)
 	attachInfo := makeValidAttachInfo(c, unitUUID, storageUUID)
-	attachInfo.UnitNamedStorageInfo.MachineUUID = &unitMachineUUID
-	attachInfo.StorageInstanceInfo.Filesystem.OwningMachineUUID = nil
+	attachInfo.UnitAttachNamedStorageInfo.MachineUUID = &unitMachineUUID
+	attachInfo.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID = nil
 
-	attachArg := internal.AttachStorageInstanceToUnitArg{
-		CreateStorageInstanceAttachmentArg: internal.CreateStorageInstanceAttachmentArg{
+	attachArg := domainstorage.AttachStorageInstanceToUnitArg{
+		CreateUnitStorageAttachmentArg: domainstorage.CreateUnitStorageAttachmentArg{
 			StorageInstanceUUID: storageUUID,
 		},
 	}

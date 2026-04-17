@@ -737,16 +737,16 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotUsingProviderIDs(
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceInfoForAttach](mc),
-		[]internal.StorageInstanceInfoForAttach{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID,
 					},
-					Volume: &internal.StorageInstanceVolumeInfo{
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 						UUID: vUUID,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -793,13 +793,13 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceInfoForAttach](mc),
-		[]internal.StorageInstanceInfoForAttach{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID1,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID1,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -809,10 +809,10 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				},
 			},
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID3,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID3,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -822,10 +822,10 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				},
 			},
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID2,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID2,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -835,10 +835,10 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 				},
 			},
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID4,
 					CharmName: new("charm"),
-					Volume: &internal.StorageInstanceVolumeInfo{
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 						UUID: vUUID1,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -890,12 +890,12 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDSomeStorageOwned(c *t
 	mc.AddExpr("_[_].Volume.ProvisionScope", tc.Ignore)
 	mc.AddExpr("_[_].Volume.Size", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, []internal.StorageInstanceInfoForAttach{
+	c.Check(res, mc, []domainstorage.StorageInstanceInfoForAttach{
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 				UUID:      instUUID3,
 				CharmName: new("charm"),
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 					UUID: fsUUID3,
 				},
 				Kind:             domainstorage.StorageKindFilesystem,
@@ -905,10 +905,10 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDSomeStorageOwned(c *t
 			},
 		},
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 				UUID:      instUUID2,
 				CharmName: new("charm"),
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 					UUID: fsUUID2,
 				},
 				Kind:             domainstorage.StorageKindFilesystem,
@@ -918,10 +918,10 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDSomeStorageOwned(c *t
 			},
 		},
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 				UUID:      instUUID4,
 				CharmName: new("charm"),
-				Volume: &internal.StorageInstanceVolumeInfo{
+				Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 					UUID: vUUID1,
 				},
 				Kind:             domainstorage.StorageKindFilesystem,
@@ -971,16 +971,16 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceInfoForAttach](mc),
-		[]internal.StorageInstanceInfoForAttach{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID1,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID1,
 					},
-					Volume: &internal.StorageInstanceVolumeInfo{
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 						UUID: vUUID1,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,
@@ -990,13 +990,13 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 				},
 			},
 			{
-				StorageInstanceInfo: internal.StorageInstanceInfo{
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 					UUID:      instUUID2,
 					CharmName: new("charm"),
-					Filesystem: &internal.StorageInstanceFilesystemInfo{
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
 						UUID: fsUUID2,
 					},
-					Volume: &internal.StorageInstanceVolumeInfo{
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
 						UUID: vUUID2,
 					},
 					Kind:             domainstorage.StorageKindFilesystem,

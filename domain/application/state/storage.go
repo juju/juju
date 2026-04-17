@@ -22,7 +22,6 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/iter"
@@ -244,11 +243,11 @@ FROM (
 func (st *State) GetStorageInstancesForProviderIDs(
 	ctx context.Context,
 	ids []string,
-) ([]internal.StorageInstanceInfoForAttach, error) {
+) ([]domainstorage.StorageInstanceInfoForAttach, error) {
 	// Early exit if no ids are supplied. We cannot have empty values with an
 	// IN expression.
 	if len(ids) == 0 {
-		return []internal.StorageInstanceInfoForAttach{}, nil
+		return []domainstorage.StorageInstanceInfoForAttach{}, nil
 	}
 
 	db, err := st.DB(ctx)
@@ -439,14 +438,14 @@ func makeStorageInstanceComposition(dbVal storageInstanceComposition) internal.S
 
 	if dbVal.FilesystemUUID.Valid {
 		v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+			ProvisionScope: domainstorage.ProvisionScope(dbVal.FilesystemProvisionScope.V),
 			UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
 		}
 	}
 
 	if dbVal.VolumeUUID.Valid {
 		v.Volume = &internal.StorageInstanceCompositionVolume{
-			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+			ProvisionScope: domainstorage.ProvisionScope(dbVal.VolumeProvisionScope.V),
 			UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
 		}
 	}
@@ -463,8 +462,8 @@ func (st *State) GetUnitOwnedStorageInstances(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 ) (
-	[]internal.StorageInstanceInfoForAttach,
-	[]internal.StorageAttachmentComposition,
+	[]domainstorage.StorageInstanceInfoForAttach,
+	[]domainstorage.StorageAttachmentComposition,
 	error,
 ) {
 	db, err := st.DB(ctx)
@@ -551,10 +550,10 @@ FROM (
 	}
 
 	retAttachmentComp := make(
-		[]internal.StorageAttachmentComposition, 0, len(dbAttachmentVals),
+		[]domainstorage.StorageAttachmentComposition, 0, len(dbAttachmentVals),
 	)
 	for _, dbAttachmentVal := range dbAttachmentVals {
-		v := internal.StorageAttachmentComposition{
+		v := domainstorage.StorageAttachmentComposition{
 			UUID: domainstorage.StorageAttachmentUUID(dbAttachmentVal.UUID),
 			StorageInstanceUUID: domainstorage.StorageInstanceUUID(
 				dbAttachmentVal.StorageInstanceUUID,
@@ -562,7 +561,7 @@ FROM (
 		}
 		if dbAttachmentVal.FilesystemAttachmentUUID.Valid &&
 			dbAttachmentVal.FilesystemUUID.Valid {
-			r := internal.StorageInstanceCompositionFilesystemAttachment{
+			r := domainstorage.StorageInstanceCompositionFilesystemAttachment{
 				ProvisionScope: domainstorage.ProvisionScope(
 					dbAttachmentVal.FilesystemAttachmentProvisionScope.V,
 				),
@@ -577,7 +576,7 @@ FROM (
 		}
 		if dbAttachmentVal.VolumeAttachmentUUID.Valid &&
 			dbAttachmentVal.VolumeUUID.Valid {
-			r := internal.StorageInstanceCompositionVolumeAttachment{
+			r := domainstorage.StorageInstanceCompositionVolumeAttachment{
 				ProvisionScope: domainstorage.ProvisionScope(
 					dbAttachmentVal.VolumeAttachmentProvisionScope.V,
 				),
@@ -754,9 +753,9 @@ FROM (
 func (st *State) GetStorageAttachInfoForStorageInstances(
 	ctx context.Context,
 	storageUUIDs []domainstorage.StorageInstanceUUID,
-) ([]internal.StorageInstanceInfoForAttach, error) {
+) ([]domainstorage.StorageInstanceInfoForAttach, error) {
 	if len(storageUUIDs) == 0 {
-		return []internal.StorageInstanceInfoForAttach{}, nil
+		return []domainstorage.StorageInstanceInfoForAttach{}, nil
 	}
 
 	requestedUUIDs := make(storageInstanceUUIDs, 0, len(storageUUIDs))
@@ -822,22 +821,22 @@ func (st *State) GetStorageAttachInfoForStorageInstances(
 func makeStorageInstanceInfosForAttach(
 	storageInstInfos []storageInstanceInfoForAttach,
 	storageInstAttachments []storageInstanceUnitAttachmentByStorageUUID,
-) []internal.StorageInstanceInfoForAttach {
+) []domainstorage.StorageInstanceInfoForAttach {
 	if len(storageInstInfos) == 0 {
-		return []internal.StorageInstanceInfoForAttach{}
+		return []domainstorage.StorageInstanceInfoForAttach{}
 	}
 
 	partitioner := iter.NewPartitioner(storageInstAttachments)
 	defer partitioner.Close()
 
 	retVals := make(
-		[]internal.StorageInstanceInfoForAttach,
+		[]domainstorage.StorageInstanceInfoForAttach,
 		0,
 		len(storageInstInfos),
 	)
 	for _, storageInstInfo := range storageInstInfos {
-		retVal := internal.StorageInstanceInfoForAttach{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
+		retVal := domainstorage.StorageInstanceInfoForAttach{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
 				UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
 				Life:             domainlife.Life(storageInstInfo.Life),
 				Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
@@ -847,46 +846,46 @@ func makeStorageInstanceInfosForAttach(
 		}
 
 		if storageInstInfo.CharmName.Valid {
-			retVal.StorageInstanceInfo.CharmName = new(storageInstInfo.CharmName.V)
+			retVal.StorageInstanceAttachInfo.CharmName = new(storageInstInfo.CharmName.V)
 		}
 
 		if storageInstInfo.FilesystemUUID.Valid {
-			retVal.StorageInstanceInfo.Filesystem =
-				&internal.StorageInstanceFilesystemInfo{
+			retVal.StorageInstanceAttachInfo.Filesystem =
+				&domainstorage.StorageInstanceAttachFilesystemInfo{
 					UUID: domainstorage.FilesystemUUID(
 						storageInstInfo.FilesystemUUID.V,
 					),
-					ProvisionScope: domainstorageprov.ProvisionScope(
+					ProvisionScope: domainstorage.ProvisionScope(
 						storageInstInfo.FilesystemProvisionScopeID.V,
 					),
 					SizeMib: storageInstInfo.FilesystemSizeMIB.V,
 				}
 		}
 		if storageInstInfo.FilesystemOwnedMachineUUID.Valid &&
-			retVal.StorageInstanceInfo.Filesystem != nil {
-			retVal.StorageInstanceInfo.Filesystem.OwningMachineUUID =
+			retVal.StorageInstanceAttachInfo.Filesystem != nil {
+			retVal.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID =
 				new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
 		}
 
 		if storageInstInfo.VolumeUUID.Valid {
-			retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
+			retVal.StorageInstanceAttachInfo.Volume = &domainstorage.StorageInstanceAttachVolumeInfo{
 				UUID: domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
-				ProvisionScope: domainstorageprov.ProvisionScope(
+				ProvisionScope: domainstorage.ProvisionScope(
 					storageInstInfo.VolumeProvisionScopeID.V,
 				),
 				SizeMiB: storageInstInfo.VolumeSizeMIB.V,
 			}
 		}
 		if storageInstInfo.VolumeOwnedMachineUUID.Valid &&
-			retVal.StorageInstanceInfo.Volume != nil {
-			retVal.StorageInstanceInfo.Volume.OwningMachineUUID =
+			retVal.StorageInstanceAttachInfo.Volume != nil {
+			retVal.StorageInstanceAttachInfo.Volume.OwningMachineUUID =
 				new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
 		}
 
 		for row := range partitioner.NextPart(storageInstInfo.UUID) {
 			retVal.StorageInstanceAttachments = append(
 				retVal.StorageInstanceAttachments,
-				internal.StorageInstanceUnitAttachment{
+				domainstorage.StorageInstanceUnitAttachmentID{
 					UnitUUID: coreunit.UUID(row.UnitUUID),
 					UUID:     domainstorage.StorageAttachmentUUID(row.UUID),
 				},
@@ -1404,7 +1403,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 // storage instance attachment arguments that correspond to the storage uuids.
 func makeInsertUnitStorageAttachmentArgs(
 	unitUUID string,
-	storageToAttach []internal.CreateStorageInstanceAttachmentArg,
+	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
@@ -1511,7 +1510,7 @@ WHERE  storage_id = $storageInstance.storage_id
 func (st *State) setStorageInstancesCharmName(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []internal.StorageInstanceCharmNameSetArg,
+	args []domainstorage.StorageInstanceCharmNameSetArg,
 ) error {
 	if len(args) == 0 {
 		// Early exit oppurtunity.
@@ -1568,14 +1567,14 @@ WHERE  uuid = $setStorageInstanceCharmName.uuid
 func (st *State) AttachStorageInstanceToUnit(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
-	storageArg internal.AttachStorageInstanceToUnitArg,
+	storageArg domainstorage.AttachStorageInstanceToUnitArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	var charmNameSetArgs []internal.StorageInstanceCharmNameSetArg
+	var charmNameSetArgs []domainstorage.StorageInstanceCharmNameSetArg
 	if storageArg.StorageInstanceCharmNameSetArg != nil {
 		charmNameSetArgs = append(
 			charmNameSetArgs, *storageArg.StorageInstanceCharmNameSetArg,
@@ -1604,7 +1603,7 @@ func (st *State) AttachStorageInstanceToUnit(
 		err = st.checkStorageInstancesAttachmentExpectations(
 			ctx,
 			tx,
-			[]internal.StorageInstanceAttachmentCheckArgs{
+			[]domainstorage.StorageInstanceAttachmentCheckArgs{
 				storageArg.StorageInstanceAttachmentCheckArgs,
 			},
 		)
@@ -1616,8 +1615,8 @@ func (st *State) AttachStorageInstanceToUnit(
 			ctx,
 			tx,
 			unitUUID.String(),
-			[]internal.CreateStorageInstanceAttachmentArg{
-				storageArg.CreateStorageInstanceAttachmentArg,
+			[]domainstorage.CreateUnitStorageAttachmentArg{
+				storageArg.CreateUnitStorageAttachmentArg,
 			},
 		)
 		if err != nil {
@@ -1780,7 +1779,7 @@ ORDER BY uuid
 func (st *State) checkStorageInstancesAttachmentExpectations(
 	ctx context.Context,
 	tx *sqlair.TX,
-	args []internal.StorageInstanceAttachmentCheckArgs,
+	args []domainstorage.StorageInstanceAttachmentCheckArgs,
 ) error {
 	if len(args) == 0 {
 		// Nothing to do.
@@ -1789,7 +1788,7 @@ func (st *State) checkStorageInstancesAttachmentExpectations(
 
 	// Sort args based on StorageInstance UUID so that the the db results match
 	// the order of the args.
-	slices.SortFunc(args, func(a, b internal.StorageInstanceAttachmentCheckArgs) int {
+	slices.SortFunc(args, func(a, b domainstorage.StorageInstanceAttachmentCheckArgs) int {
 		return strings.Compare(a.UUID.String(), b.UUID.String())
 	})
 
@@ -1970,7 +1969,7 @@ func (st *State) checkUnitForStorageInstanceAttach(
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
 	siUUID domainstorage.StorageInstanceUUID,
-	args internal.UnitStorageInstanceAttachmentCheckArgs,
+	args domainstorage.UnitStorageInstanceAttachmentCheckArgs,
 ) error {
 	var (
 		checkResult              unitAttachStorageInstanceCheckInfo
@@ -2105,7 +2104,7 @@ func (st *State) addStorageForUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		storageArg.NewStorageToAttach,
+		storageArg.StorageToAttach,
 	)
 	if err != nil {
 		return nil, errors.Errorf(
@@ -2165,7 +2164,9 @@ func (st *State) AddStorageForIAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.AddStorageToUnitArg)
+		storageIDs, err = st.addStorageForUnit(
+			ctx, tx, unitUUID, storageName, storageArg.UnitAddStorageArg,
+		)
 		if err != nil {
 			return errors.Capture(err)
 		}

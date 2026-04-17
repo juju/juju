@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1088,7 +1087,7 @@ func (st *State) insertCAASUnitWithName(
 		ctx,
 		tx,
 		unitUUID,
-		args.StorageInstancesToAttach,
+		args.StorageToAttach,
 	)
 	if err != nil {
 		return "", errors.Errorf(
@@ -1378,7 +1377,7 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			return errors.Capture(err)
 		}
 		err = st.insertUnitStorageAttachments(
-			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageInstancesToAttach)
+			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToAttach)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -2472,10 +2471,10 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageUUID domainstorage.StorageInstanceUUID,
-) (applicationinternal.StorageInstanceInfoForUnitAttach, error) {
+) (domainstorage.StorageInstanceInfoForUnitAttach, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return applicationinternal.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
+		return domainstorage.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
 	}
 
 	var (
@@ -2524,21 +2523,23 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return nil
 	})
 	if err != nil {
-		return applicationinternal.StorageInstanceInfoForUnitAttach{}, err
+		return domainstorage.StorageInstanceInfoForUnitAttach{}, err
 	}
 
-	retVal := applicationinternal.StorageInstanceInfoForUnitAttach{
-		StorageInstanceInfo: applicationinternal.StorageInstanceInfo{
-			UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
-			Life:             domainlife.Life(storageInstInfo.Life),
-			Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
-			RequestedSizeMIB: storageInstInfo.RequestedSizeMIB,
-			StorageName:      storageInstInfo.StorageName,
+	retVal := domainstorage.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfoForAttach: domainstorage.StorageInstanceInfoForAttach{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
+				Life:             domainlife.Life(storageInstInfo.Life),
+				Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
+				RequestedSizeMIB: storageInstInfo.RequestedSizeMIB,
+				StorageName:      storageInstInfo.StorageName,
+			},
 		},
 
-		UnitNamedStorageInfo: applicationinternal.UnitNamedStorageInfo{
+		UnitAttachNamedStorageInfo: domainstorage.UnitAttachNamedStorageInfo{
 			AlreadyAttachedCount: unitStorageNameInfo.AlreadyAttachedCount,
-			CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
+			CharmStorageDefinition: domainstorage.CharmStorageDefinition{
 				CountMin:    unitStorageNameInfo.StorageDefinitionCountMin,
 				CountMax:    unitStorageNameInfo.StorageDefinitionCountMax,
 				MinimumSize: unitStorageNameInfo.StorageDefinitionMinimumSize,
@@ -2556,34 +2557,34 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}
 
 	if unitStorageNameInfo.MachineUUID.Valid {
-		retVal.UnitNamedStorageInfo.MachineUUID = new(
+		retVal.UnitAttachNamedStorageInfo.MachineUUID = new(
 			coremachine.UUID(unitStorageNameInfo.MachineUUID.V))
 	}
 
 	if storageInstInfo.CharmName.Valid {
-		retVal.StorageInstanceInfo.CharmName = new(storageInstInfo.CharmName.V)
+		retVal.StorageInstanceAttachInfo.CharmName = new(storageInstInfo.CharmName.V)
 	}
 
 	if storageInstInfo.FilesystemUUID.Valid {
-		retVal.StorageInstanceInfo.Filesystem = &applicationinternal.StorageInstanceFilesystemInfo{
+		retVal.StorageInstanceAttachInfo.Filesystem = &domainstorage.StorageInstanceAttachFilesystemInfo{
 			UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
-			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
+			ProvisionScope: domainstorage.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
 			SizeMib:        storageInstInfo.FilesystemSizeMIB.V,
 		}
 	}
 	if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
-		retVal.StorageInstanceInfo.Filesystem.OwningMachineUUID =
+		retVal.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID =
 			new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
 	}
 	if storageInstInfo.VolumeUUID.Valid {
-		retVal.StorageInstanceInfo.Volume = &applicationinternal.StorageInstanceVolumeInfo{
+		retVal.StorageInstanceAttachInfo.Volume = &domainstorage.StorageInstanceAttachVolumeInfo{
 			UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
-			ProvisionScope: domainstorageprov.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
+			ProvisionScope: domainstorage.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
 			SizeMiB:        storageInstInfo.VolumeSizeMIB.V,
 		}
 	}
 	if storageInstInfo.VolumeOwnedMachineUUID.Valid {
-		retVal.StorageInstanceInfo.Volume.OwningMachineUUID =
+		retVal.StorageInstanceAttachInfo.Volume.OwningMachineUUID =
 			new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
 	}
 
@@ -2592,7 +2593,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	for _, unitAttachment := range storageInstAttachments {
 		retVal.StorageInstanceAttachments = append(
 			retVal.StorageInstanceAttachments,
-			applicationinternal.StorageInstanceUnitAttachment{
+			domainstorage.StorageInstanceUnitAttachmentID{
 				UnitUUID: coreunit.UUID(unitAttachment.UnitUUID),
 				UUID:     domainstorage.StorageAttachmentUUID(unitAttachment.UUID),
 			},

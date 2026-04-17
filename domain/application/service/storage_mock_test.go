@@ -21,6 +21,7 @@ import (
 	internal "github.com/juju/juju/domain/application/internal"
 	charm "github.com/juju/juju/domain/deployment/charm"
 	network "github.com/juju/juju/domain/network"
+	storage0 "github.com/juju/juju/domain/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -204,10 +205,10 @@ func (c *MockStorageServiceMakeApplicationStorageDirectiveArgsCall) DoAndReturn(
 }
 
 // MakeAttachStorageInstanceToUnitArg mocks base method.
-func (m *MockStorageService) MakeAttachStorageInstanceToUnitArg(arg0 context.Context, arg1 internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error) {
+func (m *MockStorageService) MakeAttachStorageInstanceToUnitArg(arg0 context.Context, arg1 storage0.StorageInstanceInfoForUnitAttach) (storage0.AttachStorageInstanceToUnitArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeAttachStorageInstanceToUnitArg", arg0, arg1)
-	ret0, _ := ret[0].(internal.AttachStorageInstanceToUnitArg)
+	ret0, _ := ret[0].(storage0.AttachStorageInstanceToUnitArg)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -225,19 +226,19 @@ type MockStorageServiceMakeAttachStorageInstanceToUnitArgCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Return(arg0 internal.AttachStorageInstanceToUnitArg, arg1 error) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Return(arg0 storage0.AttachStorageInstanceToUnitArg, arg1 error) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Do(f func(context.Context, internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) Do(f func(context.Context, storage0.StorageInstanceInfoForUnitAttach) (storage0.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) DoAndReturn(f func(context.Context, internal.StorageInstanceInfoForUnitAttach) (internal.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
+func (c *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceInfoForUnitAttach) (storage0.AttachStorageInstanceToUnitArg, error)) *MockStorageServiceMakeAttachStorageInstanceToUnitArgCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -252,9 +253,9 @@ func (m *MockStorageService) MakeIAASUnitStorageArgs(arg0 context.Context, arg1 
 }
 
 // MakeIAASUnitStorageArgs indicates an expected call of MakeIAASUnitStorageArgs.
-func (mr *MockStorageServiceMockRecorder) MakeIAASUnitStorageArgs(arg0 any) *MockStorageServiceMakeIAASUnitStorageArgsCall {
+func (mr *MockStorageServiceMockRecorder) MakeIAASUnitStorageArgs(arg0, arg1 any) *MockStorageServiceMakeIAASUnitStorageArgsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIAASUnitStorageArgs", reflect.TypeOf((*MockStorageService)(nil).MakeIAASUnitStorageArgs), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIAASUnitStorageArgs", reflect.TypeOf((*MockStorageService)(nil).MakeIAASUnitStorageArgs), arg0, arg1)
 	return &MockStorageServiceMakeIAASUnitStorageArgsCall{Call: call}
 }
 
@@ -387,16 +388,19 @@ func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Return(arg0 storage0.Unit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Do(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (internal.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
-func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Do(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (internal.AddStorageToUnitArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
+func (c *MockStorageServiceMakeUnitAddStorageArgsCall) Do(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (storage0.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStorageServiceMakeUnitAddStorageArgsCall) DoAndReturn(f func(context.Context, unit.UUID, uint32, internal.StorageDirective) (storage0.UnitAddStorageArg, error)) *MockStorageServiceMakeUnitAddStorageArgsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MakeUnitStorageArgs mocks base method.
-func (m *MockStorageService) MakeUnitStorageArgs(arg0 context.Context, arg1 network.NetNodeUUID, arg2 []internal.StorageDirective, arg3 []internal.StorageInstanceComposition, arg4 []internal.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error) {
+func (m *MockStorageService) MakeUnitStorageArgs(arg0 context.Context, arg1 network.NetNodeUUID, arg2 []internal.StorageDirective, arg3 []internal.StorageInstanceComposition, arg4 []storage0.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MakeUnitStorageArgs", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(storage0.CreateUnitStorageArg)
@@ -423,13 +427,13 @@ func (c *MockStorageServiceMakeUnitStorageArgsCall) Return(arg0 storage0.CreateU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceMakeUnitStorageArgsCall) Do(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
+func (c *MockStorageServiceMakeUnitStorageArgsCall) Do(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []storage0.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceMakeUnitStorageArgsCall) DoAndReturn(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []internal.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
+func (c *MockStorageServiceMakeUnitStorageArgsCall) DoAndReturn(f func(context.Context, network.NetNodeUUID, []internal.StorageDirective, []internal.StorageInstanceComposition, []storage0.StorageAttachmentComposition) (storage0.CreateUnitStorageArg, error)) *MockStorageServiceMakeUnitStorageArgsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

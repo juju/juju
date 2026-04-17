@@ -82,7 +82,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1",
-	}).Return([]internal.StorageInstanceInfoForAttach{}, nil)
+	}).Return([]domainstorage.StorageInstanceInfoForAttach{}, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
 		[]internal.StorageDirective{
 			{
@@ -129,7 +129,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 		},
 	}
 
-	expectedStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
+	expectedStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: arg.StorageInstances[0].Filesystem.UUID,
@@ -187,11 +187,11 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 
 	// unitOwnedStorage represents the storage instances that are already owned
 	// by the unit in the model.
-	unitOwnedStorage := []internal.StorageInstanceInfoForAttach{
+	unitOwnedStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st1",
@@ -199,9 +199,9 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 			},
 		},
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st2",
@@ -215,7 +215,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 	// unit in the model.
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
-	}).Return([]internal.StorageInstanceInfoForAttach{}, nil).AnyTimes()
+	}).Return([]domainstorage.StorageInstanceInfoForAttach{}, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
 		[]internal.StorageDirective{
 			{
@@ -273,7 +273,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
+	expectedStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
@@ -341,11 +341,11 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 
 	// unitOwnedStorage represents the storage instances that are already owned
 	// by the unit in the model.
-	unitOwnedStorage := []internal.StorageInstanceInfoForAttach{
+	unitOwnedStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st1",
@@ -353,11 +353,11 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 			},
 		},
 	}
-	existingProviderStorage := []internal.StorageInstanceInfoForAttach{
+	existingProviderStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st2",
@@ -429,7 +429,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
+	expectedStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
@@ -500,39 +500,25 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 		},
 	}
 
-	existingProviderStorage := []internal.StorageInstanceInfoForAttach{
+	existingProviderStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-<<<<<<< HEAD
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-1",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
-=======
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st1",
 				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
->>>>>>> f7336083b4 (refactor: register caas unit to use storage attach info)
 			},
 		},
 		{
-<<<<<<< HEAD
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-2",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
-=======
-			StorageInstanceInfo: internal.StorageInstanceInfo{
-				Filesystem: &internal.StorageInstanceFilesystemInfo{
-					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
 					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 				},
 				StorageName: "st2",
 				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
->>>>>>> f7336083b4 (refactor: register caas unit to use storage attach info)
 			},
 		},
 	}
@@ -595,7 +581,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateStorageInstanceAttachmentArg{
+	expectedStorageToAttach := []domainstorage.CreateUnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingProviderStorage[0].Filesystem.UUID,

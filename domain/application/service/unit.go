@@ -101,8 +101,8 @@ type UnitState interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 	) (
-		[]applicationinternal.StorageInstanceInfoForAttach,
-		[]applicationinternal.StorageAttachmentComposition,
+		[]domainstorage.StorageInstanceInfoForAttach,
+		[]domainstorage.StorageAttachmentComposition,
 		error,
 	)
 
@@ -253,7 +253,7 @@ type UnitState interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		storageUUID domainstorage.StorageInstanceUUID,
-	) (applicationinternal.StorageInstanceInfoForUnitAttach, error)
+	) (domainstorage.StorageInstanceInfoForUnitAttach, error)
 
 	// GetStorageAttachInfoForStorageInstances returns attachment metadata for
 	// the specified storage instances.
@@ -264,7 +264,7 @@ type UnitState interface {
 	GetStorageAttachInfoForStorageInstances(
 		ctx context.Context,
 		storageInstanceUUIDs []domainstorage.StorageInstanceUUID,
-	) ([]applicationinternal.StorageInstanceInfoForAttach, error)
+	) ([]domainstorage.StorageInstanceInfoForAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -281,7 +281,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg applicationinternal.AddStorageToUnitArg,
+		storageArg domainstorage.UnitAddStorageArg,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
@@ -299,7 +299,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg applicationinternal.AddStorageToIAASUnitArg,
+		storageArg domainstorage.IAASUnitAddStorageArg,
 	) ([]corestorage.ID, error)
 
 	// GetIAASUnitContext returns the IAAS context information required for the
@@ -330,7 +330,7 @@ type UnitState interface {
 	AttachStorageInstanceToUnit(
 		ctx context.Context,
 		unitUUID coreunit.UUID,
-		storageArg applicationinternal.AttachStorageInstanceToUnitArg,
+		storageArg domainstorage.AttachStorageInstanceToUnitArg,
 	) error
 }
 
@@ -413,10 +413,10 @@ func (s *ProviderService) AttachStorageInstanceToUnit(
 
 	err = s.st.AttachStorageInstanceToUnit(ctx, unitUUID, unitAttachStorageArg)
 	if errors.Is(err, applicationerrors.UnitAttachmentCountExceedsLimit) {
-		charmStorageDef := storageAttachInfo.UnitNamedStorageInfo.CharmStorageDefinitionForValidation
+		charmStorageDef := storageAttachInfo.UnitAttachNamedStorageInfo.CharmStorageDefinition
 		countExceededErr := applicationerrors.StorageCountLimitExceeded{
 			Minimum:     charmStorageDef.CountMin,
-			Requested:   int(storageAttachInfo.UnitNamedStorageInfo.AlreadyAttachedCount) + 1,
+			Requested:   int(storageAttachInfo.UnitAttachNamedStorageInfo.AlreadyAttachedCount) + 1,
 			StorageName: charmStorageDef.Name,
 		}
 		if charmStorageDef.CountMax >= 0 {
@@ -451,21 +451,21 @@ func (s *ProviderService) AttachStorageInstanceToUnit(
 // storage instance owning machine does not match the unit's machine.
 func validateStorageInstanceForUnitAttachment(
 	ctx context.Context,
-	info applicationinternal.StorageInstanceInfoForUnitAttach,
+	info domainstorage.StorageInstanceInfoForUnitAttach,
 ) error {
 	// Validate that the storage instance is alive.
-	if info.StorageInstanceInfo.Life != life.Alive {
+	if info.StorageInstanceAttachInfo.Life != life.Alive {
 		return errors.Errorf(
 			"storage instance %q is not alive",
-			info.StorageInstanceInfo.UUID,
+			info.StorageInstanceAttachInfo.UUID,
 		).Add(storageerrors.StorageInstanceNotAlive)
 	}
 
 	// Validate that the unit is alive.
-	if info.UnitNamedStorageInfo.Life != life.Alive {
+	if info.UnitAttachNamedStorageInfo.Life != life.Alive {
 		return errors.Errorf(
 			"unit %q is not alive",
-			info.UnitNamedStorageInfo.Name,
+			info.UnitAttachNamedStorageInfo.Name,
 		).Add(applicationerrors.UnitNotAlive)
 	}
 
@@ -473,17 +473,17 @@ func validateStorageInstanceForUnitAttachment(
 	// Unit's charm metadata name. Should these values not match then it
 	// indicates that the Storage Instance was not supposed to be used with the
 	// Unit's charm.
-	if info.StorageInstanceInfo.CharmName != nil &&
-		*info.StorageInstanceInfo.CharmName != info.UnitNamedStorageInfo.CharmMetadataName {
+	if info.StorageInstanceAttachInfo.CharmName != nil &&
+		*info.StorageInstanceAttachInfo.CharmName != info.UnitAttachNamedStorageInfo.CharmMetadataName {
 		return errors.Errorf(
 			"storage instance %q charm name %q does not match unit charm %q",
-			info.StorageInstanceInfo.UUID,
-			*info.StorageInstanceInfo.CharmName,
-			info.UnitNamedStorageInfo.CharmMetadataName,
+			info.StorageInstanceAttachInfo.UUID,
+			*info.StorageInstanceInfoForAttach.CharmName,
+			info.UnitAttachNamedStorageInfo.CharmMetadataName,
 		).Add(applicationerrors.StorageInstanceCharmNameMismatch)
 	}
 
-	charmStorageDef := info.UnitNamedStorageInfo.CharmStorageDefinitionForValidation
+	charmStorageDef := info.UnitAttachNamedStorageInfo.CharmStorageDefinition
 	expectedKind, err := storage.StorageKindFromCharmStorageType(charmStorageDef.Type)
 	if err != nil {
 		return errors.Errorf(
@@ -494,11 +494,11 @@ func validateStorageInstanceForUnitAttachment(
 
 	// The Storage Instance kind must be of the same type the Charm is
 	// expecting. i.e we can not attach a block device to a filesystem.
-	if info.StorageInstanceInfo.Kind != expectedKind {
+	if info.StorageInstanceAttachInfo.Kind != expectedKind {
 		return errors.Errorf(
 			"storage instance %q kind %q is not valid for charm storage definition %q of kind %q",
-			info.StorageInstanceInfo.UUID,
-			info.StorageInstanceInfo.Kind,
+			info.StorageInstanceAttachInfo.UUID,
+			info.StorageInstanceAttachInfo.Kind,
 			charmStorageDef.Name,
 			charmStorageDef.Type,
 		).Add(applicationerrors.StorageInstanceKindNotValidForCharmStorageDefinition)
@@ -506,11 +506,11 @@ func validateStorageInstanceForUnitAttachment(
 
 	// Validate that the size of the storage instance doesn't exceed the minimum
 	// supported by the charm.
-	sizeMIB := storage.CalculateStorageInstanceSizeForAttachment(info.StorageInstanceInfo)
+	sizeMIB := storage.CalculateStorageInstanceSizeForAttachment(info.StorageInstanceAttachInfo)
 	if sizeMIB < charmStorageDef.MinimumSize {
 		return errors.Errorf(
 			"storage instance %q size %d MiB is below charm storage definition %q minimum size of %d MiB",
-			info.StorageInstanceInfo.UUID,
+			info.StorageInstanceAttachInfo.UUID,
 			sizeMIB,
 			charmStorageDef.Name,
 			charmStorageDef.MinimumSize,
@@ -520,7 +520,7 @@ func validateStorageInstanceForUnitAttachment(
 	// Validating that attaching this storage instance to the unit doesn't
 	// violate the max count of the charm's storage definition.
 	if charmStorageDef.CountMax >= 0 {
-		wantCount := int(info.UnitNamedStorageInfo.AlreadyAttachedCount) + 1
+		wantCount := int(info.UnitAttachNamedStorageInfo.AlreadyAttachedCount) + 1
 		if wantCount > charmStorageDef.CountMax {
 			return applicationerrors.StorageCountLimitExceeded{
 				Maximum:     &charmStorageDef.CountMax,
@@ -539,11 +539,11 @@ func validateStorageInstanceForUnitAttachment(
 	// be the callers discretion if this is a case they are concerned with.
 	// Our job is to report that the operation as requested cannot be performed.
 	for _, attachment := range info.StorageInstanceAttachments {
-		if attachment.UnitUUID == info.UnitNamedStorageInfo.UUID {
+		if attachment.UnitUUID == info.UnitAttachNamedStorageInfo.UUID {
 			return errors.Errorf(
 				"storage instance %q already attached to unit %q",
-				info.StorageInstanceInfo.UUID,
-				info.UnitNamedStorageInfo.Name,
+				info.StorageInstanceAttachInfo.UUID,
+				info.UnitAttachNamedStorageInfo.Name,
 			).Add(applicationerrors.StorageInstanceAlreadyAttachedToUnit)
 		}
 	}
@@ -553,7 +553,7 @@ func validateStorageInstanceForUnitAttachment(
 	if !charmStorageDef.Shared && len(info.StorageInstanceAttachments) > 0 {
 		return errors.Errorf(
 			"storage instance %q has existing attachments but charm storage definition %q is not shared",
-			info.StorageInstanceInfo.UUID,
+			info.StorageInstanceAttachInfo.UUID,
 			charmStorageDef.Name,
 		).Add(applicationerrors.StorageInstanceAttachSharedAccessNotSupported)
 	}
@@ -572,10 +572,11 @@ func validateStorageInstanceForUnitAttachment(
 // instances, returning the first validation error encountered.
 func validateStorageInstancesForUnitAttachment(
 	ctx context.Context,
-	infos []applicationinternal.StorageInstanceInfoForUnitAttach,
+	infos []domainstorage.StorageInstanceInfoForUnitAttach,
 ) error {
 	for _, info := range infos {
-		if err := validateStorageInstanceForUnitAttachment(ctx, info); err != nil {
+		err := validateStorageInstanceForUnitAttachment(ctx, info)
+		if err != nil {
 			return err
 		}
 	}
@@ -612,7 +613,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 	unitMachineUUID *coremachine.UUID,
 	unitNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []applicationinternal.StorageDirective,
-	attachInfos []applicationinternal.StorageInstanceInfoForAttach,
+	attachInfos []domainstorage.StorageInstanceInfoForAttach,
 ) error {
 	if len(attachInfos) == 0 {
 		return nil
@@ -628,7 +629,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 
 	alreadyAttachedByStorageName := make(map[domainstorage.Name]uint32)
 	validationInfos := make(
-		[]applicationinternal.StorageInstanceInfoForUnitAttach,
+		[]domainstorage.StorageInstanceInfoForUnitAttach,
 		0, len(attachInfos),
 	)
 	for _, info := range attachInfos {
@@ -641,11 +642,10 @@ func validateStorageInstanceAttachmentForNewUnit(
 		}
 
 		alreadyAttached := alreadyAttachedByStorageName[storageName]
-		validationInfos = append(validationInfos, applicationinternal.StorageInstanceInfoForUnitAttach{
-			StorageInstanceInfo:        info.StorageInstanceInfo,
-			StorageInstanceAttachments: info.StorageInstanceAttachments,
-			UnitNamedStorageInfo: applicationinternal.UnitNamedStorageInfo{
-				CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
+		validationInfos = append(validationInfos, domainstorage.StorageInstanceInfoForUnitAttach{
+			StorageInstanceInfoForAttach: info,
+			UnitAttachNamedStorageInfo: domainstorage.UnitAttachNamedStorageInfo{
+				CharmStorageDefinition: domainstorage.CharmStorageDefinition{
 					Name:        string(directive.Name),
 					Type:        directive.CharmStorageType,
 					CountMin:    0,
@@ -670,7 +670,7 @@ func validateStorageInstanceAttachmentForNewUnit(
 }
 
 func storageInstanceCompositionsFromAttachInfos(
-	attachInfos []applicationinternal.StorageInstanceInfoForAttach,
+	attachInfos []domainstorage.StorageInstanceInfoForAttach,
 ) []applicationinternal.StorageInstanceComposition {
 	compositions := make([]applicationinternal.StorageInstanceComposition, 0, len(attachInfos))
 	for _, info := range attachInfos {
@@ -711,34 +711,34 @@ func storageInstanceCompositionsFromAttachInfos(
 // owning machine UUID does not match the unit's machine UUID or the unit has
 // no machine assigned but the storage instance does.
 func validateStorageInstanceOwningMachine(
-	info applicationinternal.StorageInstanceInfoForUnitAttach,
+	info domainstorage.StorageInstanceInfoForUnitAttach,
 ) error {
-	unitMachineUUID := info.UnitNamedStorageInfo.MachineUUID
+	unitMachineUUID := info.UnitAttachNamedStorageInfo.MachineUUID
 	unitMachineName := "unset"
 	if unitMachineUUID != nil {
 		unitMachineName = unitMachineUUID.String()
 	}
 
-	if info.StorageInstanceInfo.Filesystem != nil &&
-		info.StorageInstanceInfo.Filesystem.OwningMachineUUID != nil {
-		owningMachineUUID := info.StorageInstanceInfo.Filesystem.OwningMachineUUID
+	if info.StorageInstanceAttachInfo.Filesystem != nil &&
+		info.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID != nil {
+		owningMachineUUID := info.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID
 		if unitMachineUUID == nil || *unitMachineUUID != *owningMachineUUID {
 			return errors.Errorf(
 				"storage instance %q filesystem owning machine %q does not match unit machine %q",
-				info.StorageInstanceInfo.UUID,
+				info.StorageInstanceAttachInfo.UUID,
 				owningMachineUUID.String(),
 				unitMachineName,
 			).Add(applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
 		}
 	}
 
-	if info.StorageInstanceInfo.Volume != nil &&
-		info.StorageInstanceInfo.Volume.OwningMachineUUID != nil {
-		owningMachineUUID := info.StorageInstanceInfo.Volume.OwningMachineUUID
+	if info.StorageInstanceAttachInfo.Volume != nil &&
+		info.StorageInstanceAttachInfo.Volume.OwningMachineUUID != nil {
+		owningMachineUUID := info.StorageInstanceAttachInfo.Volume.OwningMachineUUID
 		if unitMachineUUID == nil || *unitMachineUUID != *owningMachineUUID {
 			return errors.Errorf(
 				"storage instance %q volume owning machine %q does not match unit machine %q",
-				info.StorageInstanceInfo.UUID,
+				info.StorageInstanceAttachInfo.UUID,
 				owningMachineUUID.String(),
 				unitMachineName,
 			).Add(applicationerrors.StorageInstanceAttachMachineOwnerMismatch)
@@ -853,7 +853,8 @@ func (s *ProviderService) makeIAASUnitArgs(
 		}
 
 		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			unitStorageArgs.StorageInstances)
+			ctx, unitStorageArgs.StorageInstances,
+		)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
@@ -1105,7 +1106,8 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 
 	if args.MachineUUID != nil {
 		iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			unitStorageArgs.StorageInstances)
+			ctx, unitStorageArgs.StorageInstances,
+		)
 		if err != nil {
 			return errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
