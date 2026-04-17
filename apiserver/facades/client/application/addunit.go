@@ -5,8 +5,6 @@ package application
 
 import (
 	"context"
-	"maps"
-	"slices"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
@@ -77,12 +75,24 @@ func (api *APIBase) addApplicationUnits(
 	}
 
 	attachStorageIDs := make([]string, 0, len(args.AttachStorage))
+	seenAttachStorageIDs := make(map[string]struct{}, len(args.AttachStorage))
 	for _, tagString := range args.AttachStorage {
 		tag, err := names.ParseStorageTag(tagString)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		if _, exists := seenAttachStorageIDs[tag.Id()]; exists {
+			continue
+		}
+		seenAttachStorageIDs[tag.Id()] = struct{}{}
 		attachStorageIDs = append(attachStorageIDs, tag.Id())
+	}
+
+	// TODO(storage): allow attaching storage to more than one new unit.
+	if len(attachStorageIDs) > 0 && args.NumUnits != 1 {
+		return nil, errors.Errorf(
+			"AttachStorage is non-empty, but NumUnits is %d", args.NumUnits,
+		).Add(coreerrors.NotValid)
 	}
 
 	storageInstanceUUIDs, err := api.storageService.GetStorageInstanceUUIDsByIDs(
@@ -91,15 +101,20 @@ func (api *APIBase) addApplicationUnits(
 		return nil, errors.Errorf("getting storage instance UUIDs: %w", err)
 	}
 
-	// TODO(storage): allow attaching storage to more than one new unit.
-	if len(storageInstanceUUIDs) > 0 && args.NumUnits != 1 {
-		return nil, errors.Errorf(
-			"AttachStorage is non-empty, but NumUnits is %d", args.NumUnits,
-		).Add(coreerrors.NotValid)
+	storageUUIDsToAttach := make([]domainstorage.StorageInstanceUUID, 0,
+		len(attachStorageIDs))
+	for _, storageID := range attachStorageIDs {
+		storageUUID, ok := storageInstanceUUIDs[storageID]
+		if !ok {
+			return nil, errors.Errorf(
+				"storage instance %q does not exist", storageID,
+			).Add(coreerrors.NotFound)
+		}
+		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
 	}
 
 	storageInstancesToAttach := [][]domainstorage.StorageInstanceUUID{
-		slices.Collect(maps.Values(storageInstanceUUIDs)),
+		storageUUIDsToAttach,
 	}
 
 	var unitNames []coreunit.Name

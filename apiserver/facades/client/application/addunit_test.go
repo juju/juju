@@ -222,16 +222,54 @@ func (s *addUnitSuite) TestAddUnitsStorageAttachWithMultipleUnits(c *tc.C) {
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.newIAASAPI(c)
 
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
+		NumUnits:        2,
+		AttachStorage:   []string{"storage-data-0"},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestAddUnitsAttachStorageNotFound verifies that add-unit fails when any
+// requested storage instance cannot be resolved.
+func (s *addUnitSuite) TestAddUnitsAttachStorageNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
 	s.storageService.EXPECT().GetStorageInstanceUUIDsByIDs(
-		gomock.Any(), []string{"data/0"},
+		gomock.Any(), []string{"data/0", "cache/0"},
 	).Return(map[string]domainstorage.StorageInstanceUUID{
 		"data/0": "storage-uuid-1",
 	}, nil)
 
 	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
 		ApplicationName: "foo",
+		NumUnits:        1,
+		AttachStorage:   []string{"storage-data-0", "storage-cache-0"},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, tc.ErrorMatches, `storage instance "cache/0" does not exist`)
+}
+
+// TestAddUnitsStorageAttachWithMultipleUnitsMissingStorage verifies that the
+// single-unit restriction is enforced from the request, even if resolution
+// would otherwise return no storage instances.
+func (s *addUnitSuite) TestAddUnitsStorageAttachWithMultipleUnitsMissingStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.newIAASAPI(c)
+
+	_, err := s.api.AddUnits(c.Context(), params.AddApplicationUnits{
+		ApplicationName: "foo",
 		NumUnits:        2,
-		AttachStorage:   []string{"storage-data-0"},
+		AttachStorage:   []string{"storage-missing-0"},
 	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
