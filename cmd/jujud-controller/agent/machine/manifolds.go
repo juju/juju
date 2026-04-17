@@ -730,11 +730,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifDatabaseUpgradeComplete(controlsocket.Manifold(controlsocket.ManifoldConfig{
-			DomainServicesName: domainServicesName,
-			Logger:             internallogger.GetLogger("juju.worker.controlsocket"),
-			NewWorker:          controlsocket.NewWorker,
-			NewSocketListener:  controlsocket.NewSocketListener,
-			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
+			DomainServicesName:              domainServicesName,
+			ObjectStoreServicesName:         objectStoreServicesName,
+			Logger:                          internallogger.GetLogger("juju.worker.controlsocket"),
+			NewWorker:                       controlsocket.NewWorker,
+			NewSocketListener:               controlsocket.NewSocketListener,
+			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
+			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
+			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
 		})),
 
 		// The ssh server worker runs on the controller machine.
