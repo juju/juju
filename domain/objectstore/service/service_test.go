@@ -545,6 +545,18 @@ func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Type, tc.Equals, objectstore.FileBackend)
+	c.Check(info.UUID, tc.Equals, objectstore.UUID(""))
+	c.Check(info.Endpoint, tc.IsNil)
+	c.Check(info.AccessKey, tc.IsNil)
+	c.Check(info.SecretKey, tc.IsNil)
+}
+
 func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
