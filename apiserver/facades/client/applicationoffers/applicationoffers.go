@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -179,6 +180,8 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		// We don't support updating offers via this API, so return an
 		// appropriate error.
 		err = errors.Errorf("offer %q already exists, updating offers is not supported", applicationOfferArgs.OfferName).Add(coreerrors.BadRequest)
+	} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		err = errors.Errorf("application %q not found in model %q", applicationOfferArgs.ApplicationName, offerModelUUID.String()).Add(coreerrors.NotFound)
 	}
 	return handleErr(err), nil
 }
