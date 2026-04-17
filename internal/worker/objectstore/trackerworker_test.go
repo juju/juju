@@ -49,8 +49,7 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 		}, nil
 	})
 
-	w, err := s.newWorker()
-	c.Assert(err, tc.ErrorIsNil)
+	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -79,8 +78,7 @@ func (s *trackerWorkerSuite) TestWorkerNotFound(c *tc.C) {
 		return nil
 	})
 
-	w, err := s.newWorker()
-	c.Assert(err, tc.ErrorIsNil)
+	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -89,7 +87,7 @@ func (s *trackerWorkerSuite) TestWorkerNotFound(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	err = workertest.CheckKilled(c, w)
+	err := workertest.CheckKilled(c, w)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -112,8 +110,7 @@ func (s *trackerWorkerSuite) TestWorkerDead(c *tc.C) {
 		return nil
 	})
 
-	w, err := s.newWorker()
-	c.Assert(err, tc.ErrorIsNil)
+	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -122,18 +119,20 @@ func (s *trackerWorkerSuite) TestWorkerDead(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	err = workertest.CheckKilled(c, w)
+	err := workertest.CheckKilled(c, w)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *trackerWorkerSuite) newWorker() (*trackerWorker, error) {
-	return newTrackerWorker(
+func (s *trackerWorkerSuite) newWorker(c *tc.C) *trackerWorker {
+	w, err := NewTrackerWorker(
 		model.UUID("test-model-uuid"),
 		s.modelService,
 		newStubTrackedObjectStore(s.trackedObjectStore),
 		trace.NoopTracer{},
 		s.logger,
 	)
+	c.Assert(err, tc.ErrorIsNil)
+	return w.(*trackerWorker)
 }
 
 type stubTrackedObjectStore struct {

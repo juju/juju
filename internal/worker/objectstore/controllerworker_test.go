@@ -28,16 +28,17 @@ func TestControllerWorkerSuite(t *stdtesting.T) {
 func (s *controllerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w, err := s.newWorker()
-	c.Assert(err, tc.ErrorIsNil)
+	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *controllerWorkerSuite) newWorker() (*controllerWorker, error) {
-	return newControllerWorker(
+func (s *controllerWorkerSuite) newWorker(c *tc.C) *controllerWorker {
+	w, err := NewControllerWorker(
 		newStubTrackedObjectStore(s.trackedObjectStore),
 		trace.NoopTracer{},
 	)
+	c.Assert(err, tc.ErrorIsNil)
+	return w.(*controllerWorker)
 }

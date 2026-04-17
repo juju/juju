@@ -42,13 +42,16 @@ type trackerWorker struct {
 	logger logger.Logger
 }
 
-func newTrackerWorker(
+// NewTrackerWorker creates a new trackerWorker for the given model UUID. The
+// worker will watch the model state and automatically remove all objects from
+// the object store if the model is removed or becomes dead.
+func NewTrackerWorker(
 	modelUUID model.UUID,
 	modelService ModelService,
 	objectStore TrackedObjectStore,
 	tracer coretrace.Tracer,
 	logger logger.Logger,
-) (*trackerWorker, error) {
+) (worker.Worker, error) {
 	w := &trackerWorker{
 		modelUUID:    modelUUID,
 		objectStore:  objectStore,

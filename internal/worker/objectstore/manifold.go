@@ -239,6 +239,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                     config.Clock,
 				Logger:                    config.Logger,
 				NewObjectStoreWorker:      config.NewObjectStoreWorker,
+				NewTrackerWorker:          NewTrackerWorker,
+				NewControllerWorker:       NewControllerWorker,
 				S3Client:                  s3Client,
 				APIRemoteCaller:           apiRemoteCaller,
 				ControllerMetadataService: metadataService,
