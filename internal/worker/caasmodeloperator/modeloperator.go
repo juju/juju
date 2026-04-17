@@ -35,12 +35,13 @@ type ModelOperatorBroker interface {
 // ModelOperatorManager defines the worker used for managing model operators in
 // caas
 type ModelOperatorManager struct {
-	agentConfig agent.Config
-	api         ModelOperatorAPI
-	broker      ModelOperatorBroker
-	catacomb    catacomb.Catacomb
-	logger      Logger
-	modelUUID   string
+	agentConfig  agent.Config
+	api          ModelOperatorAPI
+	broker       ModelOperatorBroker
+	catacomb     catacomb.Catacomb
+	logger       Logger
+	modelUUID    string
+	shortModelId string
 }
 
 const (
@@ -62,7 +63,7 @@ func (m *ModelOperatorManager) Wait() error {
 func (m *ModelOperatorManager) loop() error {
 	watcher, err := m.api.WatchModelOperatorProvisioningInfo()
 	if err != nil {
-		return errors.Annotate(err, "cannot watch model operator provisioning info")
+		return errors.Annotatef(err, "cannot watch model operator [%s] provisioning info", m.shortModelId)
 	}
 	err = m.catacomb.Add(watcher)
 	if err != nil {
@@ -76,7 +77,7 @@ func (m *ModelOperatorManager) loop() error {
 		case <-watcher.Changes():
 			err := m.update()
 			if err != nil {
-				return errors.Annotate(err, "failed to update model operator")
+				return errors.Annotatef(err, "failed to update model operator [%s]", m.shortModelId)
 			}
 		}
 	}
@@ -177,12 +178,17 @@ func NewModelOperatorManager(
 	modelUUID string,
 	agentConfig agent.Config,
 ) (*ModelOperatorManager, error) {
+	shortModelId := modelUUID
+	if names.IsValidModel(modelUUID) {
+		shortModelId = names.NewModelTag(modelUUID).ShortId()
+	}
 	m := &ModelOperatorManager{
-		agentConfig: agentConfig,
-		api:         api,
-		broker:      broker,
-		logger:      logger,
-		modelUUID:   modelUUID,
+		agentConfig:  agentConfig,
+		api:          api,
+		broker:       broker,
+		logger:       logger,
+		modelUUID:    modelUUID,
+		shortModelId: shortModelId,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -220,7 +226,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 		},
 	)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating new agent config")
+		return nil, errors.Annotatef(err, "creating new agent config for model [%s]", m.shortModelId)
 	}
 
 	return conf, nil
