@@ -217,11 +217,16 @@ func (w *objectStoreWorker) FlushWorkers(ctx context.Context) error {
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
+	case <-ctx.Done():
+		return ctx.Err()
 	case w.flushWorkers <- struct{}{}:
 	}
 	return nil
 }
 
+// stopAndRemoveAllWorkers stops and removes all child workers managed by
+// the runner. This is only called from the main loop goroutine, so no
+// concurrent worker additions can occur during iteration.
 func (w *objectStoreWorker) stopAndRemoveAllWorkers(ctx context.Context) error {
 	for _, namespace := range w.runner.WorkerNames() {
 		err := w.runner.StopAndRemoveWorker(namespace, ctx.Done())

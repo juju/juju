@@ -37,9 +37,16 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan struct{})
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
 	s.modelService.EXPECT().WatchModel(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	})
+	s.modelService.EXPECT().Model(gomock.Any()).DoAndReturn(func(ctx context.Context) (model.ModelInfo, error) {
 		defer close(done)
-		return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
+		return model.ModelInfo{
+			Life: life.Alive,
+		}, nil
 	})
 
 	w, err := s.newWorker()
