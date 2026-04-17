@@ -25,6 +25,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -253,6 +254,47 @@ func (s *offerSuite) TestOfferError(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
 		{Error: &params.Error{Message: "boom"}},
 	}})
+}
+
+// TestOfferApplicationNotFound tests that an ApplicationNotFound error from
+// CreateOffer is returned as a not-found error to the caller.
+func (s *offerSuite) TestOfferApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	userTag := names.NewUserTag("fred")
+	s.authorizer.EXPECT().GetAuthTag().Return(userTag)
+	offerAPI := s.offerAPI(c)
+	modelTag := names.NewModelTag(offerAPI.modelUUID.String())
+	s.setupCheckAPIUserAdmin(offerAPI.controllerUUID, modelTag)
+
+	applicationName := "test-application"
+	offerName := "test-offer"
+	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
+		ApplicationName: applicationName,
+		OfferName:       offerName,
+		Endpoints:       map[string]string{"db": "db"},
+		OwnerName:       user.NameFromTag(userTag),
+	}
+	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(applicationerrors.ApplicationNotFound)
+
+	one := params.AddApplicationOffer{
+		ModelTag:        modelTag.String(),
+		OfferName:       offerName,
+		ApplicationName: applicationName,
+		Endpoints:       map[string]string{"db": "db"},
+	}
+	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
+
+	// Act
+	results, err := offerAPI.Offer(c.Context(), all)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Matches,
+		fmt.Sprintf(`application %q not found in model %q`, applicationName, offerAPI.modelUUID.String()))
 }
 
 // TestOfferOnlyOne tests that called Offer with more than one AddApplicationOffer
