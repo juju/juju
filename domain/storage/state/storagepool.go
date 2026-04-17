@@ -846,9 +846,6 @@ WHERE  sp.name IN ($storagePoolNames[:])
 	if err != nil {
 		return nil, errors.Errorf("getting storage pool UUIDs by name: %w", err)
 	}
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 	result := make([]domainstorage.StoragePoolNameUUID, 0, len(dbRows))
 	for _, row := range dbRows {
 		result = append(result, domainstorage.StoragePoolNameUUID{

@@ -505,3 +505,87 @@ func (s *instanceSuite) TestGetStorageInstanceInfoBlockVolume(c *tc.C) {
 		},
 	})
 }
+
+// TestGetStorageInstanceUUIDsByIDsNotFound tests that when calling
+// [Service.GetStorageInstanceUUIDsByIDs] with storage IDs that do not exist,
+// the caller gets back an empty map.
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), []string{"id1", "id2"},
+	).Return(
+		map[string]domainstorage.StorageInstanceUUID{}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock,
+		s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageInstanceUUIDsByIDs(
+		c.Context(), []string{"id1", "id2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{})
+}
+
+// TestGetStorageInstanceUUIDsByIDs tests the happy path for
+// [Service.GetStorageInstanceUUIDsByIDs] where multiple storage IDs are
+// successfully resolved to their UUIDs.
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid1 := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	uuid2 := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), []string{"id1", "id2"},
+	).Return(
+		map[string]domainstorage.StorageInstanceUUID{
+			"id1": uuid1,
+			"id2": uuid2,
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock,
+		s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageInstanceUUIDsByIDs(
+		c.Context(), []string{"id1", "id2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
+		"id1": uuid1,
+		"id2": uuid2,
+	})
+}
+
+// TestGetStorageInstanceUUIDsByIDsPartial tests that when calling
+// [Service.GetStorageInstanceUUIDsByIDs] with a mix of existing and non-existing
+// storage IDs, only the existing ones are returned in the map.
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsPartial(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid1 := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceUUIDsByIDs(
+		gomock.Any(), []string{"id1", "id2"},
+	).Return(
+		map[string]domainstorage.StorageInstanceUUID{
+			"id1": uuid1,
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock,
+		s.storageRegistryGetter,
+	)
+	result, err := svc.GetStorageInstanceUUIDsByIDs(
+		c.Context(), []string{"id1", "id2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
+		"id1": uuid1,
+	})
+}

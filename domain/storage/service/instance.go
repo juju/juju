@@ -116,6 +116,23 @@ func (s *Service) GetStorageInstanceUUIDForID(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// We don't have any validation that we run over storage ID's at the moment.
+	// We don't have any validation that we run over storage IDs at the moment.
 	return s.st.GetStorageInstanceUUIDByID(ctx, storageID)
+}
+
+// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
+// their IDs.
+func (s *Service) GetStorageInstanceUUIDsByIDs(
+	ctx context.Context,
+	storageIDs []string,
+) (map[string]domainstorage.StorageInstanceUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(storageIDs) == 0 {
+		return nil, nil
+	}
+
+	// We don't have any validation that we run over storage IDs at the moment.
+	return s.st.GetStorageInstanceUUIDsByIDs(ctx, storageIDs)
 }

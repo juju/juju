@@ -62,6 +62,8 @@ type Config struct {
 }
 
 type request struct {
+	// Ctx is the context from the *caller*, not from the catacomb.
+	Ctx       context.Context
 	ModelName model.UUID
 	Response  chan response
 }
@@ -142,7 +144,7 @@ func (w *remoteWorker) GetConnectionForModel(ctx context.Context, modelName mode
 		return nil, errors.Capture(ErrAPIRemoteRelationCallerDead)
 	case <-ctx.Done():
 		return nil, errors.Capture(ctx.Err())
-	case w.requests <- request{ModelName: modelName, Response: response}:
+	case w.requests <- request{Ctx: ctx, ModelName: modelName, Response: response}:
 	}
 
 	select {
@@ -156,15 +158,22 @@ func (w *remoteWorker) GetConnectionForModel(ctx context.Context, modelName mode
 }
 
 func (w *remoteWorker) loop() error {
-	ctx := w.catacomb.Context(context.Background())
-
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
 		case req := <-w.requests:
-			conn, err := w.getConnectionForModel(ctx, req.ModelName)
+			ctx := w.catacomb.Context(req.Ctx)
+
+			var (
+				conn api.Connection
+				err  error
+			)
+
+			if err = ctx.Err(); err == nil {
+				conn, err = w.getConnectionForModel(ctx, req.ModelName)
+			}
 
 			select {
 			case <-w.catacomb.Dying():

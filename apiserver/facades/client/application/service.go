@@ -435,9 +435,17 @@ type StorageService interface {
 	// GetStoragePoolUUIDsByName returns pool UUIDs keyed by pool name for
 	// the supplied names. Unknown names are omitted.
 	GetStoragePoolUUIDsByName(ctx context.Context, names []string) (map[string]domainstorage.StoragePoolUUID, error)
+
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.
 	GetStorageInstanceUUIDForID(context.Context, string) (domainstorage.StorageInstanceUUID, error)
+
+	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
+	// their IDs.
+	GetStorageInstanceUUIDsByIDs(
+		ctx context.Context,
+		storageIDs []string,
+	) (map[string]domainstorage.StorageInstanceUUID, error)
 }
 
 // StatusService provides access to the status service.
