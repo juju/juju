@@ -161,10 +161,49 @@ func (s *applyConstraintsSuite) TestArch(c *tc.C) {
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
-	pod := &corev1.PodSpec{}
-	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("arch=arm64"), configureConstraint)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(pod.NodeSelector, tc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
+	testCases := []struct {
+		name     string
+		arch     string
+		expected map[string]string
+	}{
+		{
+			name:     "amd64",
+			arch:     "amd64",
+			expected: map[string]string{"kubernetes.io/arch": "amd64"},
+		},
+		{
+			name:     "arm64",
+			arch:     "arm64",
+			expected: map[string]string{"kubernetes.io/arch": "arm64"},
+		},
+		{
+			name:     "ppc64el",
+			arch:     "ppc64el",
+			expected: map[string]string{"kubernetes.io/arch": "ppc64le"},
+		},
+		{
+			name:     "riscv64",
+			arch:     "riscv64",
+			expected: map[string]string{"kubernetes.io/arch": "riscv64"},
+		},
+		{
+			name:     "s390x",
+			arch:     "s390x",
+			expected: map[string]string{"kubernetes.io/arch": "s390x"},
+		},
+	}
+
+	for _, test := range testCases {
+		c.Run(test.name, func(t *stdtesting.T) {
+			pod := &corev1.PodSpec{}
+			err := application.ApplyWorkloadConstraints(
+				pod, "foo", constraints.MustParse("arch="+test.arch),
+				configureConstraint,
+			)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(pod.NodeSelector, tc.DeepEquals, test.expected)
+		})
+	}
 }
 
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *tc.C) {
