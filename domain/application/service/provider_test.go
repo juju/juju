@@ -3431,6 +3431,7 @@ func (s *providerServiceSuite) TestPrepareUnitAddStorage(c *tc.C) {
 		Size:             1024,
 	}
 
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetUnitStorageDirectiveByName(
 		gomock.Any(), unitUUID, corestorage.Name("pgdata"),
 	).Return(directive, nil)
@@ -3492,4 +3493,18 @@ func (s *providerServiceSuite) TestPrepareUnitAddStorage(c *tc.C) {
 		FilesystemsToOwn:  fsToOwn,
 		VolumesToOwn:      volToOwn,
 	})
+}
+
+func (s *providerServiceSuite) TestPrepareUnitAddStorageCAASNotSupported(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	_, err := s.service.PrepareUnitAddStorage(
+		c.Context(), "pgdata", unitUUID, 3,
+	)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }

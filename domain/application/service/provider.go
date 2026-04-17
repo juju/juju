@@ -611,12 +611,28 @@ func (s *ProviderService) ResolveApplicationConstraints(
 
 // PrepareUnitAddStorage validates and prepares the storage add arguments for a
 // unit without performing any writes.
+//
+// The following errors can be expected:
+// - [coreerrors.NotSupported] with k8s models.
 func (s *ProviderService) PrepareUnitAddStorage(
 	ctx context.Context,
 	storageName corestorage.Name,
 	unitUUID coreunit.UUID,
 	addCount uint32,
 ) (domainstorage.IAASUnitAddStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return domainstorage.IAASUnitAddStorageArg{}, errors.Capture(err)
+	}
+	if modelType == model.CAAS {
+		return domainstorage.IAASUnitAddStorageArg{}, errors.New(
+			"adding storage to a unit is not supported on k8s",
+		).Add(coreerrors.NotSupported)
+	}
+
 	unitStorageArgs, err := s.populateAddStorageArgs(
 		ctx,
 		storageName,
