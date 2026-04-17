@@ -519,6 +519,12 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 		).Add(err)
 	}
 
+	if args.CurrentCharmUUID == args.RefreshCharmUUID {
+		// The charm is already at the correct version. This happens when the
+		// uniter starts.
+		return nil
+	}
+
 	sic, sac, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
 	if err != nil {
 		return errors.Errorf(

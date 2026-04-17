@@ -7,7 +7,6 @@ import (
 	"context"
 
 	corerelation "github.com/juju/juju/core/relation"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 )
@@ -46,10 +45,10 @@ type CommitHookState interface {
 		endpoint1, endpoint2 corerelation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
-	// GetUnitUUIDByName returns the UUID for the named unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-	// exist.
-	GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
+	// GetCommitHookUnitInfo returns the unit UUID and machine UUID if assigned,
+	// returning an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetCommitHookUnitInfo(ctx context.Context, unitName string) (internal.CommitHookUnitInfo, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving

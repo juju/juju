@@ -61,10 +61,13 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 		}},
 	}
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	s.st.EXPECT().GetUnitUUIDByName(c.Context(), arg.UnitName).Return(unitUUID, nil)
+	unitInfo := internal.CommitHookUnitInfo{
+		UnitUUID: unitUUID.String(),
+	}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), arg.UnitName.String()).Return(unitInfo, nil)
 
 	expected := internal.CommitHookChangesArg{
-		UnitUUID: unitUUID,
+		UnitUUID: unitUUID.String(),
 		RelationSettings: []internal.RelationSettings{{
 			RelationUUID: expectedRelationUUID,
 			UnitSet:      map[string]string{"key": "value"},
@@ -100,8 +103,11 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 	}
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	s.st.EXPECT().GetUnitUUIDByName(c.Context(), arg.UnitName).Return(unitUUID, nil)
-	s.leadershipEnsurer.EXPECT().WithLeader(c.Context(), "test", "test/0", gomock.Any()).Return(nil)
+	unitInfo := internal.CommitHookUnitInfo{
+		UnitUUID: unitUUID.String(),
+	}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), arg.UnitName.String()).Return(unitInfo, nil)
+	s.leadershipEnsurer.EXPECT().WithLeader(gomock.Any(), "test", "test/0", gomock.Any()).Return(nil)
 
 	// Act
 	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))

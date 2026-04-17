@@ -123,7 +123,7 @@ type PreparedStorageAdd struct {
 	StorageName corestorage.Name
 
 	// Storage contains the prepared storage add writes.
-	Storage domainstorage.UnitAddStorageArg
+	Storage domainstorage.IAASUnitAddStorageArg
 }
 
 // CommitHookChangesArg contains data needed to commit a hook change.

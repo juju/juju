@@ -3417,8 +3417,10 @@ func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
 	count := uint64(2)
-	prepared := domainstorage.UnitAddStorageArg{
-		CountLessThanEqual: 3,
+	prepared := domainstorage.IAASUnitAddStorageArg{
+		UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+			CountLessThanEqual: 3,
+		},
 	}
 
 	s.expectGetUnitUUID(unitName, unitUUID, nil)

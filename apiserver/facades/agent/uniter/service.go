@@ -187,7 +187,7 @@ type ApplicationService interface {
 		storageName corestorage.Name,
 		unitUUID coreunit.UUID,
 		count uint32,
-	) (domainstorage.UnitAddStorageArg, error)
+	) (domainstorage.IAASUnitAddStorageArg, error)
 
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error

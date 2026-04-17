@@ -3415,3 +3415,96 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIs, nil)
 }
+
+func (s *providerServiceSuite) TestPrepareUnitAddStorage(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	directive := internal.StorageDirective{
+		Name:             "pgdata",
+		CharmStorageType: applicationcharm.StorageFilesystem,
+		Count:            1,
+		MaxCount:         10,
+		PoolUUID:         poolUUID,
+		Size:             1024,
+	}
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
+	s.storageService.EXPECT().GetUnitStorageDirectiveByName(
+		gomock.Any(), unitUUID, corestorage.Name("pgdata"),
+	).Return(directive, nil)
+	s.state.EXPECT().GetCharmStorageAndInstanceCountByUnitUUID(
+		gomock.Any(), unitUUID, corestorage.Name("pgdata"),
+	).Return(internalcharm.Storage{
+		Name:        "pgdata",
+		Type:        internalcharm.StorageFilesystem,
+		MinimumSize: 512,
+		CountMin:    1,
+		CountMax:    10,
+	}, 2, nil)
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
+		gomock.Any(),
+		map[string]internalcharm.Storage{
+			"pgdata": {
+				Name:        "pgdata",
+				Type:        internalcharm.StorageFilesystem,
+				CountMin:    1,
+				CountMax:    10,
+				MinimumSize: 512,
+			},
+		},
+		map[string]storageservice.StorageDirectiveOverride{
+			"pgdata": {
+				Count:    new(uint32(5)),
+				PoolUUID: new(poolUUID),
+				Size:     new(uint64(1024)),
+			},
+		},
+	).Return(nil)
+
+	unitStorageArgs := domainstorage.UnitAddStorageArg{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+			Name: "pgdata",
+		}},
+		// CountLessThanEqual is set to CountMax-addCount.
+		CountLessThanEqual: 7,
+	}
+	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
+	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
+
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(
+		gomock.Any(), unitUUID, uint32(3), directive,
+	).Return(unitStorageArgs, nil)
+	s.storageService.EXPECT().MakeIAASUnitStorageArgs(
+		gomock.Any(), unitStorageArgs.StorageInstances,
+	).Return(domainstorage.CreateIAASUnitStorageArg{
+		FilesystemsToOwn: fsToOwn,
+		VolumesToOwn:     volToOwn,
+	}, nil)
+
+	got, err := s.service.PrepareUnitAddStorage(
+		c.Context(), "pgdata", unitUUID, 3,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, domainstorage.IAASUnitAddStorageArg{
+		UnitAddStorageArg: unitStorageArgs,
+		FilesystemsToOwn:  fsToOwn,
+		VolumesToOwn:      volToOwn,
+	})
+}
+
+func (s *providerServiceSuite) TestPrepareUnitAddStorageCAASNotSupported(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	_, err := s.service.PrepareUnitAddStorage(
+		c.Context(), "pgdata", unitUUID, 3,
+	)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
