@@ -25,10 +25,13 @@ type controllerWorker struct {
 	tracer      coretrace.Tracer
 }
 
-func newControllerWorker(
+// NewControllerWorker creates a new controllerWorker. The worker does not track
+// the model state, and is expected to be used for agents in the controller
+// namespace, where there is no model.
+func NewControllerWorker(
 	objectStore TrackedObjectStore,
 	tracer coretrace.Tracer,
-) (*controllerWorker, error) {
+) (worker.Worker, error) {
 	w := &controllerWorker{
 		objectStore: objectStore,
 		tracer:      tracer,

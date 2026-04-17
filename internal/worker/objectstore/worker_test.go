@@ -9,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -18,9 +17,13 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/trace"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -55,8 +58,7 @@ func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *tc.C) {
 
 	w.Kill()
 
-	worker := w.(*objectStoreWorker)
-	_, err := worker.GetObjectStore(c.Context(), "foo")
+	_, err := w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreDying)
 }
 
@@ -70,8 +72,7 @@ func (s *workerSuite) TestGetObjectStore(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*objectStoreWorker)
-	objectStore, err := worker.GetObjectStore(c.Context(), "foo")
+	objectStore, err := w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objectStore, tc.NotNil)
 
@@ -88,8 +89,7 @@ func (s *workerSuite) TestGetObjectStoreNotFound(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*objectStoreWorker)
-	_, err := worker.GetObjectStore(c.Context(), "denied")
+	_, err := w.GetObjectStore(c.Context(), "denied")
 	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreNotFound)
 
 	workertest.CleanKill(c, w)
@@ -105,9 +105,8 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	worker := w.(*objectStoreWorker)
 	for range 10 {
-		_, err := worker.GetObjectStore(c.Context(), "foo")
+		_, err := w.GetObjectStore(c.Context(), "foo")
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -126,11 +125,10 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.
 
 	s.ensureStartup(c)
 
-	worker := w.(*objectStoreWorker)
 	for i := range 10 {
 		name := fmt.Sprintf("anything-%d", i)
 
-		_, err := worker.GetObjectStore(c.Context(), name)
+		_, err := w.GetObjectStore(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -152,14 +150,13 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 	var wg sync.WaitGroup
 	wg.Add(10)
 
-	worker := w.(*objectStoreWorker)
 	for i := range 10 {
 		go func(i int) {
 			defer wg.Done()
 
 			name := fmt.Sprintf("anything-%d", i)
 
-			_, err := worker.GetObjectStore(c.Context(), name)
+			_, err := w.GetObjectStore(c.Context(), name)
 			c.Assert(err, tc.ErrorIsNil)
 		}(i)
 	}
@@ -170,7 +167,85 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
+func (s *workerSuite) TestFlushWorkersNoWorkers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	err := w.FlushWorkers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestFlushWorkersRemovesCachedWorkers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Create a worker by requesting an object store.
+	_, err := w.GetObjectStore(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+
+	// Flush should remove all workers.
+	err = w.FlushWorkers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Getting the same namespace again should create a new worker,
+	// proving the cache was cleared.
+	_, err = w.GetObjectStore(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(2))
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestFlushWorkersErrDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	w.Kill()
+
+	err := w.FlushWorkers(c.Context())
+	c.Assert(err, tc.ErrorIs, objectstore.ErrObjectStoreDying)
+}
+
+func (s *workerSuite) TestFlushWorkersCancelledContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Cancel the context before calling FlushWorkers. The worker loop
+	// is blocked processing the startup state, and the send on the
+	// flushWorkers channel will race with the cancelled context.
+	// To guarantee the context branch wins, we don't use ensureStartup's
+	// guarantee of the loop being ready — instead we cancel first.
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+
+	err := w.FlushWorkers(ctx)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) newWorker(c *tc.C) *objectStoreWorker {
 	w, err := newWorker(WorkerConfig{
 		Clock:           s.clock,
 		Logger:          s.logger,
@@ -184,8 +259,14 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			atomic.AddInt64(&s.called, 1)
 			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},
+		NewTrackerWorker: func(modelUUID model.UUID, modelService ModelService, objectStore TrackedObjectStore, tracer trace.Tracer, logger logger.Logger) (worker.Worker, error) {
+			return objectStore, nil
+		},
+		NewControllerWorker: func(objectStore TrackedObjectStore, tracer trace.Tracer) (worker.Worker, error) {
+			panic("should not be called")
+		},
 		ControllerMetadataService:  s.controllerMetadataService,
-		ControllerConfigService:    s.controllerConfigService,
+		ObjectStoreService:         s.objectStoreService,
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
 		ModelServiceGetter:         s.modelServiceGetter,
 		ModelClaimGetter:           s.modelClaimGetter,
@@ -228,6 +309,10 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelClaimGetter = NewMockModelClaimGetter(ctrl)
 	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
 
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
+		Type: objectstore.FileBackend,
+	}, nil).AnyTimes()
+
 	c.Cleanup(func() {
 		s.trackedObjectStore = nil
 		s.controllerMetadataService = nil
@@ -245,7 +330,7 @@ func (s *workerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -260,7 +345,7 @@ func assertWait(c *tc.C, wait func()) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting")
 	}
 }

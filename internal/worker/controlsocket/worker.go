@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -110,6 +111,8 @@ type Config struct {
 	AccessService AccessService
 	// TracingService is the tracing service for the model.
 	TracingService TracingService
+	// ObjectStoreService is the object store service for the controller.
+	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -124,6 +127,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.AccessService == nil {
 		return internalerrors.New("nil AccessService").Add(coreerrors.NotValid)
+	}
+	if config.ObjectStoreService == nil {
+		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -144,8 +150,9 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService  AccessService
-	tracingService TracingService
+	accessService      AccessService
+	tracingService     TracingService
+	objectStoreService ControllerObjectStoreService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -167,6 +174,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		accessService:       config.AccessService,
 		tracingService:      config.TracingService,
+		objectStoreService:  config.ObjectStoreService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
@@ -248,6 +256,23 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// charm tracing configuration.
 	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
 		Methods(http.MethodPost)
+
+	// s3-credentials endpoint for managing object store credentials when S3 is
+	// used as the backend. This is a POST endpoint that accepts a JSON body
+	// with the following format:
+	//
+	// {
+	//   "endpoint": <string>,
+	//   "access_key": <string>,
+	//   "secret_key": <string>,
+	// }
+	//
+	// The worker will update the object store configuration with the provided
+	// S3 credentials.
+	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
+		Methods(http.MethodPost)
+	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+		Methods(http.MethodDelete)
 }
 
 type addMetricsUserBody struct {
@@ -424,6 +449,58 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 	}
 
 	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
+}
+
+type s3CredentialsRequest struct {
+	Endpoint  string `json:"endpoint"`
+	AccessKey string `json:"access_key"`
+	SecretKey string `json:"secret_key"`
+}
+
+func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody s3CredentialsRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %v", err))
+		}
+		return
+	}
+
+	if err := w.objectStoreService.TransitionBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Endpoint:  parsedBody.Endpoint,
+		AccessKey: parsedBody.AccessKey,
+		SecretKey: parsedBody.SecretKey,
+	}); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 credentials: %v", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 credentials: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 credentials"))
+}
+
+func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	// We currently don't allow you to move to another s3 provider. This will
+	// be fixed in future requests.
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(http.StatusNotImplemented)
+	_, err := resp.Write([]byte(`{"error": "removing s3 credentials is not supported at this time"}`))
+	if err != nil {
+		w.logger.Warningf(req.Context(), "error writing HTTP response: %v", err)
+	}
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
