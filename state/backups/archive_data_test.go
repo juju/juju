@@ -172,6 +172,23 @@ const (
 		`"ControllerMachineID":"10",` +
 		`"ControllerMachineInstanceID":"inst-10101010"` +
 		`}` + "\n"
+
+	testMetadataV2 = `{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"FormatVersion":2,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"ModelUUID":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3",` +
+		`"ControllerUUID":"controller-uuid",` +
+		`"HANodes":3,` +
+		`"ControllerMachineID":"10",` +
+		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`}` + "\n"
 )
 
 func (s *baseArchiveDataSuite) setupMetadata(c *gc.C, metadata string) {
@@ -197,5 +214,5 @@ type archiveDataSuite struct {
 
 func (s *archiveDataSuite) SetUpTest(c *gc.C) {
 	s.archiveDataSuiteV0.SetUpTest(c)
-	s.setupMetadata(c, testMetadataV1)
+	s.setupMetadata(c, testMetadataV2)
 }
