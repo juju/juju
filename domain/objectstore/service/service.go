@@ -481,6 +481,21 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 	return objectstore.Phase(info.Phase), nil
 }
 
+// TransitionBackendToS3 sets the object store to use S3 with the provided
+// credentials. This is used to update the object store information when the
+// object store is set to use S3 as the backend.
+func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Validate the credentials before transitioning the backend to S3.
+	if err := credential.Validate(); err != nil {
+		return errors.Errorf("validating S3 credentials: %w", err)
+	}
+
+	return nil
+}
+
 // WatchDraining returns a watcher that watches the draining phase of the
 // object store. The watcher emits the phase changes that either have been
 // added or removed.

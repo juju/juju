@@ -19,12 +19,14 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -33,8 +35,9 @@ import (
 )
 
 type workerSuite struct {
-	accessService  *MockAccessService
-	tracingService *MockTracingService
+	accessService      *MockAccessService
+	tracingService     *MockTracingService
+	objectStoreService *MockControllerObjectStoreService
 
 	controllerModelID permission.ID
 	metricsUserName   coreuser.Name
@@ -51,6 +54,75 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 		ObjectType: permission.Model,
 		Key:        jujujujutesting.ModelTag.Id(),
 	}
+}
+
+func (s *workerSuite) TestConfigValidateSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestConfigValidateNilAccessService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.AccessService = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil AccessService.*")
+}
+
+func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.ObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil ObjectStoreService.*")
+}
+
+func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.ControllerModelUUID = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty ControllerModelUUID.*")
+}
+
+func (s *workerSuite) TestConfigValidateEmptySocketName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.SocketName = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty SocketName.*")
+}
+
+func (s *workerSuite) TestConfigValidateNilNewSocketListener(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.NewSocketListener = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil NewSocketListener.*")
+}
+
+func (s *workerSuite) TestConfigValidateNilLogger(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.Logger = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil Logger.*")
+}
+
+func (s *workerSuite) TestNewWorkerInvalidConfig(c *tc.C) {
+	_, err := NewWorker(Config{})
+	c.Assert(err, tc.ErrorMatches, ".*nil AccessService.*")
+}
+
+func (s *workerSuite) TestWorkerKillAndWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
@@ -310,6 +382,98 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestMetricsUsersAddGetCreatorUserError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{}, errors.New("boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*retrieving creator user.*`,
+	})
+}
+
+func (s *workerSuite) TestMetricsUsersAddUserServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.accessService.EXPECT().AddUser(gomock.Any(), gomock.Any()).Return(coreuser.UUID(""), nil, errors.New("boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*creating user.*boom.*`,
+	})
+}
+
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsGetByAuthError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.accessService.EXPECT().AddUser(gomock.Any(), gomock.Any()).Return(coreuser.UUID(""), nil, usererrors.UserAlreadyExists)
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{}, errors.New("auth boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*retrieving existing user.*auth boom.*`,
+	})
+}
+
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsReadAccessLevelError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.accessService.EXPECT().AddUser(gomock.Any(), gomock.Any()).Return(coreuser.UUID(""), nil, usererrors.UserAlreadyExists)
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: usertesting.GenNewName(c, userCreator),
+	}, nil)
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), s.metricsUserName, s.controllerModelID).Return(
+		permission.NoAccess, errors.New("access boom"),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*retrieving existing user.*access boom.*`,
+	})
+}
+
 func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -405,6 +569,46 @@ func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *tc.C) {
 		endpoint:   "/metrics-users/juju-metrics-r0",
 		statusCode: http.StatusOK, // succeed as a no-op
 		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
+	})
+}
+
+func (s *workerSuite) TestMetricsUsersRemoveGetUserByNameError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{}, errors.New("boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodDelete,
+		endpoint:   "/metrics-users/juju-metrics-r0",
+		statusCode: http.StatusInternalServerError,
+		response:   `.*boom.*`,
+	})
+}
+
+func (s *workerSuite) TestMetricsUsersRemoveServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), s.metricsUserName).Return(coreuser.User{
+		UUID:        coreuser.UUID("deadbeef"),
+		CreatorName: usertesting.GenNewName(c, userCreator),
+	}, nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), s.metricsUserName).Return(errors.New("remove boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodDelete,
+		endpoint:   "/metrics-users/juju-metrics-r0",
+		statusCode: http.StatusInternalServerError,
+		response:   `.*remove boom.*`,
 	})
 }
 
@@ -552,14 +756,179 @@ func (s *workerSuite) TestCharmTracingConfigServiceError(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestAddS3CredentialsInvalidMethod(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodGet,
+		endpoint:   "/s3-credentials",
+		statusCode: http.StatusMethodNotAllowed,
+		ignoreBody: true,
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		statusCode: http.StatusBadRequest,
+		response:   ".*missing request body.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsPayloadTooLarge(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       strings.Repeat("a", maxPayloadBytes+1),
+		statusCode: http.StatusRequestEntityTooLarge,
+		response:   ".*must not exceed.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"Endpoint":`,
+		statusCode: http.StatusBadRequest,
+		response:   ".*request body is not valid JSON.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*saving S3 credentials.*boom.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), domainobjectstore.S3Credentials{
+		Endpoint:  "https://example.com",
+		AccessKey: "foo",
+		SecretKey: "bar",
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated S3 credentials.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(
+		coreerrors.NotValid,
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusBadRequest,
+		response:   ".*invalid S3 credentials.*",
+	})
+}
+
+func (s *workerSuite) TestRemoveS3CredentialsNotImplemented(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodDelete,
+		endpoint:   "/s3-credentials",
+		statusCode: http.StatusNotImplemented,
+		response:   ".*removing s3 credentials is not supported.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:      http.MethodPost,
+		endpoint:    "/s3-credentials",
+		body:        `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		contentType: "text/plain",
+		statusCode:  http.StatusUnsupportedMediaType,
+		response:    ".*request Content-Type must be application/json.*",
+	})
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	s.tracingService = NewMockTracingService(ctrl)
+	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.tracingService = nil
+		s.objectStoreService = nil
 	})
 
 	return ctrl
@@ -579,6 +948,18 @@ type handlerTest struct {
 	ignoreBody bool   // if true, test will not read the request body
 }
 
+func (s *workerSuite) newValidConfig(c *tc.C) Config {
+	return Config{
+		AccessService:       s.accessService,
+		TracingService:      s.tracingService,
+		ObjectStoreService:  s.objectStoreService,
+		Logger:              loggertesting.WrapCheckLog(c),
+		SocketName:          "/tmp/test.socket",
+		NewSocketListener:   NewSocketListener,
+		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
+	}
+}
+
 func (s *workerSuite) newSocket(c *tc.C) string {
 	// We don't need to clean up the socket file because it's created in a
 	// temporary directory that will be removed after the test.
@@ -590,6 +971,7 @@ func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 	w, err := NewWorker(Config{
 		AccessService:       s.accessService,
 		TracingService:      s.tracingService,
+		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
 		SocketName:          socket,
 		NewSocketListener:   NewSocketListener,
