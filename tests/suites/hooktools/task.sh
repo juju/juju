@@ -14,6 +14,7 @@ test_hooktools() {
 	bootstrap "test-hooktools" "${file}"
 
 	test_state_hook_tools
+	test_storage_hook_tools
 
 	destroy_controller "test-hooktools"
 }
