@@ -204,6 +204,8 @@ type AddUnitArg struct {
 
 	// NetNodeUUID is the new network node uuid to assign to this unit.
 	NetNodeUUID domainnetwork.NetNodeUUID
+	// UnitUUID is the new unit uuid to assign to this unit.
+	UnitUUID coreunit.UUID
 }
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
@@ -240,6 +242,7 @@ type RegisterCAASUnitArg struct {
 	ProviderID   string
 	Address      *string
 	Ports        *[]string
+	UnitUUID     coreunit.UUID
 	NetNodeUUID  domainnetwork.NetNodeUUID
 	OrderedScale bool
 	OrderedId    int

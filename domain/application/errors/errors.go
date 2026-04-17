@@ -294,6 +294,25 @@ const (
 	// SpaceNotFound is returned when the specified space cannot be found.
 	SpaceNotFound = errors.ConstError("space not found")
 
+	// StorageInstanceAlreadyAttachedToUnit is returned when an attach operation
+	// targets a Unit that already has an attachment for the Storage Instance.
+	StorageInstanceAlreadyAttachedToUnit = errors.ConstError(
+		"storage instance already attached to unit",
+	)
+
+	// StorageInstanceUnexpectedAttachments is returned when a storage instance
+	// has attachments that do not match the expected set.
+	StorageInstanceUnexpectedAttachments = errors.ConstError(
+		"storage instance has unexpected attachments",
+	)
+
+	// StorageInstanceAttachSharedAccessNotSupported is returned when attempting
+	// to attach a storage instance that already has attachments to other units,
+	// but the unit's charm storage definition does not support shared access.
+	StorageInstanceAttachSharedAccessNotSupported = errors.ConstError(
+		"storage instance attach shared access not supported",
+	)
+
 	// EndpointNotFound descries an error that occurs when the endpoint being
 	// operated on does not exist.
 	EndpointNotFound = errors.ConstError("endpoint not found")
@@ -313,20 +332,56 @@ const (
 	// UnitsUpgrading describes an error where units are currently in the process
 	// of upgrading. This is relevant for model migration.
 	UnitsUpgrading = errors.ConstError("units upgrading")
+
+	// UnitAttachmentCountExceedsLimit describes an error that occurs where a
+	// unit's Storage Instance attachment count exceeds a pre-established max
+	// limit.
+	UnitAttachmentCountExceedsLimit = errors.ConstError(
+		"unit attachment count exceeds limit",
+	)
+
+	// UnitCharmChanged describes an error that occure when a Unit's charm
+	// has changed and no longer mataches a pre-existing assumption about what
+	// Charm the Unit was running.
+	UnitCharmChanged = errors.ConstError("unit charm has changed")
+
+	// UnitMachineChanged describes an error that occurs when a Unit's machine
+	// has changed and no longer matches a pre-existing assumption about the
+	// Unit's Machine.
+	UnitMachineChanged = errors.ConstError("unit machine has changed")
 )
 
 const (
-	// StorageNotAlive describes an error that occurs when
-	// a storage is not alive.
-	StorageNotAlive = errors.ConstError("storage not alive")
-
 	// StorageNameNotSupported describes an error that occurs when
 	// a storage name is not supported by the charm.
 	StorageNameNotSupported = errors.ConstError("storage name not supported")
 
-	// InvalidStorageCount describes an error that occurs when
-	// a storage attachment would violate charm expectations for cardinality.
-	InvalidStorageCount = errors.ConstError("invalid storage count")
+	// StorageInstanceKindNotValidForCharmStorageDefinition describes an error
+	// that occurs when a storage instance's kind is not compatible with the
+	// kind required by the charm's storage definition.
+	StorageInstanceKindNotValidForCharmStorageDefinition = errors.ConstError(
+		"storage instance kind not valid for charm storage definition",
+	)
+
+	// StorageInstanceCharmNameMismatch describes an error that occurs when a
+	// storage instance is associated with a different charm name than the unit.
+	StorageInstanceCharmNameMismatch = errors.ConstError(
+		"storage instance charm name mismatch",
+	)
+
+	// StorageInstanceSizeNotValidForCharmStorageDefinition describes an error
+	// that occurs when a storage instance's size does not meet the minimum
+	// required by the charm's storage definition.
+	StorageInstanceSizeNotValidForCharmStorageDefinition = errors.ConstError(
+		"storage instance size not valid for charm storage definition",
+	)
+
+	// StorageInstanceAttachMachineOwnerMismatch describes an error that occurs
+	// when a storage instance's owning machine does not match the unit's
+	// machine.
+	StorageInstanceAttachMachineOwnerMismatch = errors.ConstError(
+		"storage instance owning machine does not match unit machine",
+	)
 )
 
 // StorageCountLimitExceeded describes an error that occurs when an operation

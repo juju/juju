@@ -364,10 +364,13 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := make([]domainstorage.CreateUnitStorageAttachmentArg, 0, len(arg.StorageInstances))
+	expectedStorageToAttach := make(
+		[]domainstorage.CreateUnitStorageAttachmentArg,
+		0,
+		len(arg.StorageInstances),
+	)
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
-	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
 		attachArg := domainstorage.CreateUnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
@@ -392,12 +395,20 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		expectedStorageToAttach = append(expectedStorageToAttach, attachArg)
 	}
 
-	expectedStorageToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(arg.StorageInstances))
+	expectedStorageToOwn := make(
+		[]domainstorage.StorageInstanceUUID, 0, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), domainstorage.UnitAddStorageArg{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.StorageToAttach[_].UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageToAttach[_].FilesystemAttachment.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageToAttach[_].VolumeAttachment.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].Volume.UUID", tc.IsNonZeroUUID)
+	mc.AddExpr("_.StorageInstances[_].Filesystem.UUID", tc.IsNonZeroUUID)
+	c.Check(arg, mc, domainstorage.UnitAddStorageArg{
 		StorageInstances: expectedStorageInstances,
 		StorageToAttach:  expectedStorageToAttach,
 		StorageToOwn:     expectedStorageToOwn,

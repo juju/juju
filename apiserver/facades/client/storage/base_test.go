@@ -62,6 +62,7 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelUUID = tc.Must0(c, coremodel.NewUUID)
 
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.blockChecker = NewMockBlockChecker(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
@@ -70,6 +71,7 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.authorizer = apiservertesting.FakeAuthorizer{}
 		s.applicationService = nil
+		s.blockChecker = nil
 		s.controllerUUID = ""
 		s.machineService = nil
 		s.modelUUID = ""

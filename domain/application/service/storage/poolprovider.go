@@ -113,7 +113,7 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 		return false, errors.Capture(err)
 	}
 
-	storageKind, err := encodeStorageKindFromCharmStorageType(storageType)
+	storageKind, err := StorageKindFromCharmStorageType(storageType)
 	if err != nil {
 		return false, err
 	}

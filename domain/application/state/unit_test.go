@@ -242,6 +242,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "bar/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
@@ -363,6 +364,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
 	unitName, _ := s.createNamedCAASUnit(c)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
@@ -405,6 +407,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 	s.setUnitLife(c, unitUUID, life.Dead)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
@@ -420,6 +423,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotAlive(c *tc.C) {
 	s.createCAASApplication(c, "foo", life.Dying)
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
@@ -446,6 +450,7 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
@@ -472,6 +477,7 @@ WHERE application_uuid = ?`, true, 1, 3, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
@@ -498,6 +504,7 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
@@ -1399,6 +1406,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 			MachineUUID:        machineUUID,
 			MachineNetNodeUUID: netNodeUUID,
 			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
 				NetNodeUUID: netNodeUUID,
 				Placement: deployment.Placement{
 					Directive: "0",
@@ -1409,6 +1417,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 			MachineUUID:        machineUUID,
 			MachineNetNodeUUID: netNodeUUID,
 			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
 				NetNodeUUID: netNodeUUID,
 				Placement: deployment.Placement{
 					Type:      deployment.PlacementTypeMachine,
@@ -1420,6 +1429,7 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 			MachineUUID:        machinetesting.GenUUID(c),
 			MachineNetNodeUUID: altNetNodeUUID,
 			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
 				NetNodeUUID: altNetNodeUUID,
 				Placement: deployment.Placement{
 					Directive: "1",
@@ -1573,6 +1583,7 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 	// Arrange: 2 applications with 1 unit each, and a third application with a dead unit.
 	app1UUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
 		CloudContainer: &application.CloudContainer{
@@ -1589,6 +1600,7 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 
 	app2UUID := s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
 		CloudContainer: &application.CloudContainer{
@@ -1606,6 +1618,7 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 
 	app3UUID := s.createCAASApplication(c, "zoo", life.Alive, application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
 		CloudContainer: &application.CloudContainer{

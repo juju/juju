@@ -35,18 +35,20 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// InsertIAASUnitState represents the minium state required to insert
-// an IAAS unit. Splitting this out, allows for sharing with the
-// relation domain to facilitate subordinate unit creation.
-type InsertIAASUnitState struct {
-	*domain.StateBase
-	clock  clock.Clock
-	logger logger.Logger
+// InsertIAASUnitState represents the application domain method which
+// inserts an IAAS unit.
+type InsertIAASUnitState interface {
+	InsertIAASUnit(
+		ctx context.Context,
+		tx *sqlair.TX,
+		appUUID, charmUUID string,
+		args application.AddIAASUnitArg,
+	) (coreunit.Name, []coremachine.Name, error)
 }
 
 // NewInsertIAASUnitState returns a new insert IAAS unit state reference.
-func NewInsertIAASUnitState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *InsertIAASUnitState {
-	return &InsertIAASUnitState{
+func NewInsertIAASUnitState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) InsertIAASUnitState {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 		clock:     clock,
 		logger:    logger,
@@ -56,26 +58,22 @@ func NewInsertIAASUnitState(factory database.TxnRunnerFactory, clock clock.Clock
 // InsertIAASUnit inserts an IAAS unit into state, handling the IAAS
 // specific details. It's a public method to share with the relation
 // domain for subordinate applications.
-func (st *InsertIAASUnitState) InsertIAASUnit(
+func (st *State) InsertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID, charmUUID string,
 	args application.AddIAASUnitArg,
-) (coreunit.Name, coreunit.UUID, []coremachine.Name, error) {
+) (coreunit.Name, []coremachine.Name, error) {
 	unitName, err := st.newUnitName(ctx, tx, appUUID)
 	if err != nil {
-		return "", "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
+		return "", nil, errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
 
-	unit, err := coreunit.NewUUID()
-	if err != nil {
-		return "", "", nil, errors.Capture(err)
-	}
-	unitUUID := unit.String()
+	unitUUID := args.UnitUUID.String()
 
 	machineNames, err := st.placeIAASUnitMachine(ctx, tx, args)
 	if err != nil {
-		return "", "", nil, errors.Capture(err)
+		return "", nil, errors.Capture(err)
 	}
 
 	err = st.insertUnit(
@@ -87,21 +85,47 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 		},
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+		return "", nil, errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit exist and are alive.
+	err = st.checkStorageInstancesExistAndAlive(
+		ctx, tx, args.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"checking existing Storage Instances exist and are alive: %w", err,
+		)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit have the expected attachments on which the
+	// information was calculated.
+	err = st.checkStorageInstancesAttachmentExpectations(
+		ctx,
+		tx,
+		args.AddUnitArg.CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"checking pre condition for existing storage instance attachments: %w",
+			err,
+		)
 	}
 
 	err = st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage directives for unit %q: %w", unitName, err,
 		)
 	}
 
 	_, err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,
 		)
 	}
@@ -113,14 +137,14 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 		args.StorageToAttach,
 	)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"creating storage attachments for unit %q: %w", unitName, err,
 		)
 	}
 
 	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
 		)
 	}
@@ -128,7 +152,7 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 	err = st.insertMachineVolumeOwnership(ctx, tx, args.MachineUUID,
 		args.VolumesToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting volume ownership for machine %q: %w",
 			args.MachineUUID, err,
 		)
@@ -137,13 +161,25 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 	err = st.insertMachineFilesystemOwnership(ctx, tx, args.MachineUUID,
 		args.FilesystemsToOwn)
 	if err != nil {
-		return "", "", nil, errors.Errorf(
+		return "", nil, errors.Errorf(
 			"inserting volume ownership for machine %q: %w",
 			args.MachineUUID, err,
 		)
 	}
 
-	return coreunit.Name(unitName), coreunit.UUID(unitUUID), machineNames, nil
+	// If we are using any existing Storage Instances we need to ensure that the
+	// charm name column has been updated.
+	err = st.setStorageInstancesCharmName(
+		ctx, tx, args.StorageInstanceCharmNameSetArgs,
+	)
+	if err != nil {
+		return "", nil, errors.Errorf(
+			"updating storage instance charm name for new unit %q: %w",
+			unitName, err,
+		)
+	}
+
+	return coreunit.Name(unitName), machineNames, nil
 }
 
 type insertUnitArg struct {
@@ -158,7 +194,7 @@ type insertUnitArg struct {
 
 // insertUnit inserts a unit into state. IAAS or CAAS specific details
 // are handled by the callers, modulo CloudContainer functionality.
-func (st *InsertIAASUnitState) insertUnit(
+func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID, unitUUID, netNodeUUID string,
 	args insertUnitArg,
@@ -229,7 +265,7 @@ func (st *InsertIAASUnitState) insertUnit(
 
 // getApplicationName returns the application name. If no application is found,
 // an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-func (st *InsertIAASUnitState) getApplicationName(
+func (st *State) getApplicationName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id string,
@@ -258,7 +294,7 @@ WHERE  a.uuid = $applicationUUIDAndName.uuid AND c.source_id < 2;
 }
 
 // checkApplicationAlive checks if the application exists and it is alive.
-func (st *InsertIAASUnitState) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID string) error {
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID string) error {
 	type life struct {
 		LifeID corelife.Value `db:"value"`
 	}
@@ -295,7 +331,7 @@ WHERE  a.uuid = $entityUUID.uuid
 
 // newUnitName returns a new name for the unit. It increments the unit counter
 // on the application.
-func (st *InsertIAASUnitState) newUnitName(
+func (st *State) newUnitName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID string,
@@ -316,7 +352,7 @@ func (st *InsertIAASUnitState) newUnitName(
 	return unitName.String(), errors.Capture(err)
 }
 
-func (st *InsertIAASUnitState) upsertUnitCloudContainer(
+func (st *State) upsertUnitCloudContainer(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitName, unitUUID, netNodeUUID string,
@@ -386,7 +422,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 	return nil
 }
 
-func (st *InsertIAASUnitState) upsertCloudContainerAddress(
+func (st *State) upsertCloudContainerAddress(
 	ctx context.Context, tx *sqlair.TX, unitName, netNodeUUID string, address application.ContainerAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
@@ -504,7 +540,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 	return nil
 }
 
-func (st *InsertIAASUnitState) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID string, portValues []string) error {
+func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID string, portValues []string) error {
 	type ports []string
 
 	ccPort := unitK8sPodPort{
@@ -543,7 +579,7 @@ DO NOTHING
 	return nil
 }
 
-func (st *InsertIAASUnitState) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
+func (st *State) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
 	result := make(map[network.AddressType]string)
 	subnetStmt, err := st.Prepare(`SELECT &subnet.* FROM subnet`, subnet{})
 	if err != nil {
@@ -572,7 +608,7 @@ func (st *InsertIAASUnitState) k8sSubnetUUIDsByAddressType(ctx context.Context, 
 // be used for a machine exists. We do this because the business logic around if
 // netnode uuid for a unit is shared or already exists is outside the scope of
 // state.
-func (st *InsertIAASUnitState) ensureFutureUnitNetNode(
+func (st *State) ensureFutureUnitNetNode(
 	ctx context.Context, tx *sqlair.TX, uuid string,
 ) error {
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
@@ -593,7 +629,7 @@ func (st *InsertIAASUnitState) ensureFutureUnitNetNode(
 	return nil
 }
 
-func (st *InsertIAASUnitState) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid string) (string, error) {
+func (st *State) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid string) (string, error) {
 	unitUUID := unitUUID{UnitUUID: uuid}
 
 	query, err := st.Prepare(`
@@ -619,7 +655,7 @@ WHERE u.uuid = $unitUUID.uuid
 
 // placeIAASUnitMachine is responsible for making sure that the machine required
 // by the unit being added has been placed.
-func (st *InsertIAASUnitState) placeIAASUnitMachine(
+func (st *State) placeIAASUnitMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
 	args application.AddIAASUnitArg,
@@ -650,7 +686,7 @@ func (st *InsertIAASUnitState) placeIAASUnitMachine(
 // so we need to do two separate queries. This prevents the workload version
 // from trigging a cascade of unwanted updates to the application and or unit
 // tables.
-func (st *InsertIAASUnitState) setUnitWorkloadVersion(
+func (st *State) setUnitWorkloadVersion(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
@@ -699,7 +735,7 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
-func (st *InsertIAASUnitState) setUnitAgentStatus(
+func (st *State) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
@@ -744,7 +780,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *InsertIAASUnitState) setUnitWorkloadStatus(
+func (st *State) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
@@ -789,14 +825,14 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // insertUnitStorageAttachments is responsible for creating all of the unit
 // storage attachments for the supplied storage instance uuids. This func will
 // also create storage attachments for each filesystem and volume
-func (st *InsertIAASUnitState) insertUnitStorageAttachments(
+func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
 	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
-		ctx, unitUUID, storageToAttach,
+		unitUUID, storageToAttach,
 	)
 
 	fsAttachmentArgs := st.makeInsertUnitFilesystemAttachmentArgs(
@@ -869,7 +905,7 @@ VALUES ($insertStorageVolumeAttachment.*)
 //
 // The storage directives supply must match the storage defined by the charm.
 // It is expected that the caller is satisfied this check has been performed.
-func (st *InsertIAASUnitState) insertUnitStorageDirectives(
+func (st *State) insertUnitStorageDirectives(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID, charmUUID string,
@@ -912,7 +948,7 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 // insertUnitStorageInstances is responsible for creating all of the needed
 // storage instances to satisfy the storage instance arguments supplied.
 // The IDs of the new storage instances are returned.
-func (st *InsertIAASUnitState) insertUnitStorageInstances(
+func (st *State) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
 	stArgs []domainstorage.CreateUnitStorageInstanceArg,
@@ -1085,7 +1121,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 
 // insertUnitStorageOwnership is responsible setting unit ownership records for
 // the supplied storage instance uuids.
-func (st *InsertIAASUnitState) insertUnitStorageOwnership(
+func (st *State) insertUnitStorageOwnership(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
@@ -1116,7 +1152,7 @@ INSERT INTO storage_unit_owner (*) VALUES ($insertStorageUnitOwner.*)
 
 // insertMachineVolumeOwnership is responsible setting machine ownership records
 // for the supplied volume uuids.
-func (st *InsertIAASUnitState) insertMachineVolumeOwnership(
+func (st *State) insertMachineVolumeOwnership(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID coremachine.UUID,
@@ -1146,7 +1182,7 @@ INSERT INTO machine_volume (*) VALUES ($insertVolumeMachineOwner.*)
 
 // insertMachineFilesystemOwnership is responsible setting machine ownership
 // records for the supplied filesystem uuids.
-func (st *InsertIAASUnitState) insertMachineFilesystemOwnership(
+func (st *State) insertMachineFilesystemOwnership(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID coremachine.UUID,
@@ -1177,7 +1213,7 @@ INSERT INTO machine_filesystem (*) VALUES ($insertFilesystemMachineOwner.*)
 
 // makeInsertUnitFilesystemArgs is responsible for making the insert args to
 // establish new filesystems linked to a storage instance in the model.
-func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
+func (st *State) makeInsertUnitFilesystemArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
 	args []domainstorage.CreateUnitStorageInstanceArg,
@@ -1250,7 +1286,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
 // makeInsertUnitFilesystemAttachmentArgs will make a slice of
 // [insertStorageFilesystemAttachment] for each filesystem attachment defined in
 // args.
-func (st *InsertIAASUnitState) makeInsertUnitFilesystemAttachmentArgs(
+func (st *State) makeInsertUnitFilesystemAttachmentArgs(
 	args []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageFilesystemAttachment {
 	rval := []insertStorageFilesystemAttachment{}
@@ -1276,7 +1312,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemAttachmentArgs(
 // directive Included in the return is the set of insert values required for
 // making the unit the owner of the new storage instance(s). Attachment records
 // are also returned for each of the storage instances.
-func (st *InsertIAASUnitState) makeInsertUnitStorageInstanceArgs(
+func (st *State) makeInsertUnitStorageInstanceArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
 	args []domainstorage.CreateUnitStorageInstanceArg,
@@ -1313,7 +1349,7 @@ func (st *InsertIAASUnitState) makeInsertUnitStorageInstanceArgs(
 
 // makeInsertUnitVolumeArgs is responsible for making the insert args to
 // establish new volumes linked to a storage instance in the model.
-func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
+func (st *State) makeInsertUnitVolumeArgs(
 	ctx context.Context,
 	tx *sqlair.TX,
 	args []domainstorage.CreateUnitStorageInstanceArg,
@@ -1386,7 +1422,7 @@ func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
 // makeInsertUnitVolumeAttachmentArgs will make a slice of
 // [insertStorageVolumeAttachment] values for each volume attachment argument
 // supplied.
-func (st *InsertIAASUnitState) makeInsertUnitVolumeAttachmentArgs(
+func (st *State) makeInsertUnitVolumeAttachmentArgs(
 	args []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageVolumeAttachment {
 	rval := []insertStorageVolumeAttachment{}

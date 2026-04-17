@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	caas "github.com/juju/juju/caas"
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
@@ -82,7 +82,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1",
-	}).Return([]internal.StorageInstanceComposition{}, nil)
+	}).Return([]domainstorage.StorageInstanceInfoForAttach{}, nil)
 	s.state.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(
 		[]internal.StorageDirective{
 			{
@@ -187,24 +187,26 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 
 	// unitOwnedStorage represents the storage instances that are already owned
 	// by the unit in the model.
-	unitOwnedStorage := []internal.StorageInstanceComposition{
+	unitOwnedStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-1",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st1",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st1",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-2",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st2",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st2",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 	}
 
@@ -213,7 +215,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 	// unit in the model.
 	s.state.EXPECT().GetStorageInstancesForProviderIDs(gomock.Any(), []string{
 		"fs-1", "fs-2",
-	}).Return([]internal.StorageInstanceComposition{}, nil).AnyTimes()
+	}).Return([]domainstorage.StorageInstanceInfoForAttach{}, nil).AnyTimes()
 	s.state.EXPECT().GetUnitStorageDirectives(gomock.Any(), unitUUID).Return(
 		[]internal.StorageDirective{
 			{
@@ -299,6 +301,10 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 			StorageToAttach:   expectedStorageToAttach,
 			StorageToOwn:      expectedStorageToOwn,
 		},
+		FilesystemProviderIDs: map[domainstorage.FilesystemUUID]string{
+			unitOwnedStorage[0].Filesystem.UUID: "fs-1",
+			unitOwnedStorage[1].Filesystem.UUID: "fs-2",
+		},
 	})
 }
 
@@ -335,26 +341,28 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 
 	// unitOwnedStorage represents the storage instances that are already owned
 	// by the unit in the model.
-	unitOwnedStorage := []internal.StorageInstanceComposition{
+	unitOwnedStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-1",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st1",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st1",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 	}
-	existingProviderStorage := []internal.StorageInstanceComposition{
+	existingProviderStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-2",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st2",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st2",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 	}
 
@@ -451,6 +459,9 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 			StorageToAttach:   expectedStorageToAttach,
 			StorageToOwn:      expectedStorageToOwn,
 		},
+		FilesystemProviderIDs: map[domainstorage.FilesystemUUID]string{
+			unitOwnedStorage[0].Filesystem.UUID: "fs-1",
+		},
 	})
 }
 
@@ -489,24 +500,26 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 		},
 	}
 
-	existingProviderStorage := []internal.StorageInstanceComposition{
+	existingProviderStorage := []domainstorage.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-1",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st1",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st1",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProviderID:     "fs-2",
-				ProvisionScope: domainstorage.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					ProvisionScope: domainstorage.ProvisionScopeModel,
+					UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				},
+				StorageName: "st2",
+				UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 			},
-			StorageName: "st2",
-			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		},
 	}
 

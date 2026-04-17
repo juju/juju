@@ -182,7 +182,7 @@ func makeApplicationStorageDirectiveArg(
 
 // MakeStorageDirectiveFromApplicationArg is responsible for takeing the storage
 // directive create params for an application and converting them into
-// [application.StorageDirective] types.
+// [internal.StorageDirective] types.
 func MakeStorageDirectiveFromApplicationArg(
 	charmMetadataName string,
 	charmStorage map[string]internalcharm.Storage,
@@ -213,7 +213,7 @@ func MakeStorageDirectiveFromApplicationArg(
 // falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
-	charmStorageDefs map[string]internalcharm.Storage,
+	charmStorageDefs map[string]internal.CharmStorageDefinitionForValidation,
 	overrides map[string]StorageDirectiveOverride,
 ) error {
 	for name, override := range overrides {
@@ -244,7 +244,7 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 // falls outside of the bounds defined by the charm.
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
-	charmStorageDef internalcharm.Storage,
+	charmStorageDef internal.CharmStorageDefinitionForValidation,
 	override StorageDirectiveOverride,
 	poolProvider StoragePoolProvider,
 ) error {
@@ -297,9 +297,8 @@ func validateApplicationStorageDirectiveOverride(
 	}
 
 	if override.PoolUUID != nil {
-		charmStorageType := charm.StorageType(charmStorageDef.Type)
 		supports, err := poolProvider.CheckPoolSupportsCharmStorage(
-			ctx, *override.PoolUUID, charmStorageType,
+			ctx, *override.PoolUUID, charmStorageDef.Type,
 		)
 		if err != nil {
 			return errors.Errorf(

@@ -731,20 +731,28 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsNotUsingProviderIDs(
 	c.Check(err, tc.ErrorIsNil)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Filesystem.Size", tc.Ignore)
 	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.Size", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
-		[]internal.StorageInstanceComposition{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID,
-				},
-				StorageName: "st1",
-				UUID:        instUUID,
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID,
+					},
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
+						UUID: vUUID,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st1",
 				},
 			},
 		},
@@ -779,39 +787,65 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDs(c *tc.C) {
 	)
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Filesystem.Size", tc.Ignore)
 	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.Size", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
-		[]internal.StorageInstanceComposition{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID1,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID1,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID1,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st1",
 				},
-				StorageName: "st1",
-				UUID:        instUUID1,
 			},
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID3,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID3,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID3,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st1",
 				},
-				StorageName: "st1",
-				UUID:        instUUID3,
 			},
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID2,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID2,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID2,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st2",
 				},
-				StorageName: "st2",
-				UUID:        instUUID2,
 			},
 			{
-				StorageName: "st3",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID1,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID4,
+					CharmName: new("charm"),
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
+						UUID: vUUID1,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st3",
 				},
-				UUID: instUUID4,
 			},
 		},
 	)
@@ -852,29 +886,49 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDSomeStorageOwned(c *t
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_", tc.SameContents, tc.ExpectedValue)
 	mc.AddExpr("_[_].Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_[_].Filesystem.Size", tc.Ignore)
 	mc.AddExpr("_[_].Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_[_].Volume.Size", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(res, mc, []internal.StorageInstanceComposition{
+	c.Check(res, mc, []domainstorage.StorageInstanceInfoForAttach{
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID3,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:      instUUID3,
+				CharmName: new("charm"),
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					UUID: fsUUID3,
+				},
+				Kind:             domainstorage.StorageKindFilesystem,
+				Life:             life.Alive,
+				RequestedSizeMIB: 1024,
+				StorageName:      "st1",
 			},
-			StorageName: "st1",
-			UUID:        instUUID3,
 		},
 		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID: fsUUID2,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:      instUUID2,
+				CharmName: new("charm"),
+				Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+					UUID: fsUUID2,
+				},
+				Kind:             domainstorage.StorageKindFilesystem,
+				Life:             life.Alive,
+				RequestedSizeMIB: 1024,
+				StorageName:      "st2",
 			},
-			StorageName: "st2",
-			UUID:        instUUID2,
 		},
 		{
-			StorageName: "st3",
-			Volume: &internal.StorageInstanceCompositionVolume{
-				UUID: vUUID1,
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:      instUUID4,
+				CharmName: new("charm"),
+				Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
+					UUID: vUUID1,
+				},
+				Kind:             domainstorage.StorageKindFilesystem,
+				Life:             life.Alive,
+				RequestedSizeMIB: 1024,
+				StorageName:      "st3",
 			},
-			UUID: instUUID4,
 		},
 	})
 }
@@ -911,31 +965,45 @@ func (s *storageSuite) TestGetStorageInstancesForProviderIDsVolumeBackedFilesyst
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.Filesystem.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Filesystem.Size", tc.Ignore)
 	mc.AddExpr("_.Volume.ProvisionScope", tc.Ignore)
+	mc.AddExpr("_.Volume.Size", tc.Ignore)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		res,
-		tc.UnorderedMatch[[]internal.StorageInstanceComposition](mc),
-		[]internal.StorageInstanceComposition{
+		tc.UnorderedMatch[[]domainstorage.StorageInstanceInfoForAttach](mc),
+		[]domainstorage.StorageInstanceInfoForAttach{
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID1,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID1,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID1,
+					},
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
+						UUID: vUUID1,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st1",
 				},
-				StorageName: "st1",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID1,
-				},
-				UUID: instUUID1,
 			},
 			{
-				Filesystem: &internal.StorageInstanceCompositionFilesystem{
-					UUID: fsUUID2,
+				StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+					UUID:      instUUID2,
+					CharmName: new("charm"),
+					Filesystem: &domainstorage.StorageInstanceAttachFilesystemInfo{
+						UUID: fsUUID2,
+					},
+					Volume: &domainstorage.StorageInstanceAttachVolumeInfo{
+						UUID: vUUID2,
+					},
+					Kind:             domainstorage.StorageKindFilesystem,
+					Life:             life.Alive,
+					RequestedSizeMIB: 1024,
+					StorageName:      "st2",
 				},
-				StorageName: "st2",
-				Volume: &internal.StorageInstanceCompositionVolume{
-					UUID: vUUID2,
-				},
-				UUID: instUUID2,
 			},
 		})
 }

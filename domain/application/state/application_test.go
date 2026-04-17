@@ -375,6 +375,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *tc.C) {
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		MachineNetNodeUUID: machineNetNodeUUID,
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, unit.NewUUID),
 			NetNodeUUID: machineNetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{

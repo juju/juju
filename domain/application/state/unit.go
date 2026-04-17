@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -24,13 +25,12 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/charm"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
-	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -70,7 +70,7 @@ WHERE  uuid = $entityUUID.uuid
 	return true, nil
 }
 
-func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, uuid string) (life.Life, string, error) {
+func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, uuid string) (domainlife.Life, string, error) {
 	unitUUID := unitUUID{UnitUUID: uuid}
 	queryUnit := `
 SELECT &unitLifeAndNetNode.*
@@ -90,7 +90,7 @@ WHERE uuid = $unitUUID.uuid
 		return 0, "", errors.Errorf("querying unit %q life: %w", unitUUID, err)
 	}
 
-	return life.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
+	return domainlife.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
 }
 
 // GetCAASUnitRegistered checks if a caas unit by the provided name is already
@@ -448,7 +448,7 @@ WHERE  name = $nameWithNetNodeAndLife.name
 	}
 
 	switch val.LifeID {
-	case life.Dead:
+	case domainlife.Dead:
 		return "", applicationerrors.UnitIsDead
 	default:
 		return val.NetNodeUUID, nil
@@ -484,7 +484,7 @@ func (st *State) AddIAASUnits(
 		machineNames []coremachine.Name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
+		if err := st.checkApplicationAlive(ctx, tx, appUUID.String()); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -494,7 +494,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, _, mNames, err := st.unitState.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
+			uName, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -854,6 +854,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.CreateUnitStorageArg,
+			UnitUUID:             arg.UnitUUID,
 			NetNodeUUID:          arg.NetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -874,7 +875,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
 			return errors.Errorf("querying life for application %q: %w", appName, err)
-		} else if appDetails.LifeID != life.Alive {
+		} else if appDetails.LifeID != domainlife.Alive {
 			return errors.Errorf("registering application %q: %w", appName, applicationerrors.ApplicationNotAlive)
 		} else if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("registering unit for synthetic application %q", appName)
@@ -915,7 +916,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
 		}
-		if unitLife == life.Dead {
+		if unitLife == domainlife.Dead {
 			return errors.Errorf("dead unit %q already exists", arg.UnitName).Add(applicationerrors.UnitAlreadyExists)
 		}
 
@@ -925,7 +926,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Capture(err)
 		}
 
-		err = st.unitState.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 		if err != nil {
 			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
 		}
@@ -992,7 +993,7 @@ func (st *State) insertCAASUnit(
 	appUUID, charmUUID string,
 	args application.AddCAASUnitArg,
 ) (string, error) {
-	unitName, err := st.unitState.newUnitName(ctx, tx, appUUID)
+	unitName, err := st.newUnitName(ctx, tx, appUUID)
 	if err != nil {
 		return "", errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
@@ -1007,29 +1008,64 @@ func (st *State) insertCAASUnit(
 
 // insertCAASUnitWithName inserts a new CAAS unit into the model using the
 // supplied unit name. Returned is the uuid for the new unit.
+//
+// The following errors can be expected:
+//   - [storageerrors.StorageInstanceNotFound] when any storage instance
+//     in [application.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     does not exist.
+//   - [storageerrors.StorageInstanceNotAlive] when any storage instance
+//     in [application.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     is not alive.
+//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when a storage
+//     instance has attachments outside
+//     [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] or is
+//     missing expected attachments.
 func (st *State) insertCAASUnitWithName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID, charmUUID, unitName string,
 	args application.AddCAASUnitArg,
 ) (string, error) {
-	u, err := coreunit.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	unitUUID := u.String()
+	unitUUID := args.UnitUUID.String()
 
-	if err := st.unitState.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
+	err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
 		Constraints:    args.Constraints,
 		UnitStatusArg:  args.UnitStatusArg,
-	}); err != nil {
+	})
+	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	err = st.unitState.insertUnitStorageDirectives(
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit exist and are alive.
+	err = st.checkStorageInstancesExistAndAlive(
+		ctx, tx, args.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"checking existing Storage Instances exist and are alive: %w", err,
+		)
+	}
+
+	// This checks that any existing Storage Instances being used as part of
+	// creating this new unit have the expected attachments on which the
+	// information was calculated.
+	err = st.checkStorageInstancesAttachmentExpectations(
+		ctx,
+		tx,
+		args.AddUnitArg.CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"checking pre condition for existing storage instance attachments: %w",
+			err,
+		)
+	}
+
+	err = st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
@@ -1038,7 +1074,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	_, err = st.unitState.insertUnitStorageInstances(
+	_, err = st.insertUnitStorageInstances(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
@@ -1047,7 +1083,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageAttachments(
+	err = st.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID,
@@ -1059,10 +1095,22 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
 		return "", errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
+		)
+	}
+
+	// If we are using any existing Storage Instances we need to ensure that the
+	// charm name column has been updated.
+	err = st.setStorageInstancesCharmName(
+		ctx, tx, args.StorageInstanceCharmNameSetArgs,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"updating storage instance charm name for new unit %q: %w",
+			unitName, err,
 		)
 	}
 
@@ -1100,17 +1148,17 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		}
 
 		if cloudContainer != nil {
-			err = st.unitState.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+			err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 			if err != nil {
 				return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 			}
 		}
 
-		if err := st.unitState.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
+		if err := st.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
 			return errors.Errorf("saving unit %q agent status: %w", unitName, err)
 		}
 
-		if err := st.unitState.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
+		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
 			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
 		if err := st.setK8sPodStatus(ctx, tx, toUpdate.UnitUUID, params.K8sPodStatus); err != nil {
@@ -1225,7 +1273,7 @@ SELECT &storageDirective.* FROM (
 	for _, v := range sdVals {
 		sd := applicationinternal.StorageDirective{
 			CharmMetadataName: v.CharmMetadataName,
-			CharmStorageType:  charm.StorageType(v.CharmStorageKind),
+			CharmStorageType:  domainapplicationcharm.StorageType(v.CharmStorageKind),
 			Count:             v.Count,
 			MaxCount:          v.CountMax,
 			Name:              domainstorage.Name(v.StorageName),
@@ -1297,7 +1345,7 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			)
 		}
 		// Ensure unit is alive for update.
-		if unitLifeCharm.LifeID == int(life.Dead) {
+		if unitLifeCharm.LifeID == int(domainlife.Dead) {
 			return errors.Errorf(
 				"unit %q is dead", arg.UUID,
 			).Add(applicationerrors.UnitIsDead)
@@ -1318,28 +1366,28 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 		}
 
 		// Insert new storage instances.
-		_, err = st.unitState.insertUnitStorageInstances(
+		_, err = st.insertUnitStorageInstances(
 			ctx, tx, arg.UnitStorage.StorageInstances)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = st.unitState.insertUnitStorageOwnership(
+		err = st.insertUnitStorageOwnership(
 			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToOwn)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = st.unitState.insertUnitStorageAttachments(
+		err = st.insertUnitStorageAttachments(
 			ctx, tx, arg.UUID.String(), arg.UnitStorage.StorageToAttach)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		if arg.MachineUUID != nil && arg.IAASUnitStorage != nil {
-			err = st.unitState.insertMachineFilesystemOwnership(
+			err = st.insertMachineFilesystemOwnership(
 				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.FilesystemsToOwn)
 			if err != nil {
 				return errors.Capture(err)
 			}
-			err = st.unitState.insertMachineVolumeOwnership(
+			err = st.insertMachineVolumeOwnership(
 				ctx, tx, *arg.MachineUUID, arg.IAASUnitStorage.VolumesToOwn)
 			if err != nil {
 				return errors.Capture(err)
@@ -1722,7 +1770,7 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 		if err != nil {
 			return errors.Errorf("getting uuid for unit %q: %w", unitName, err)
 		}
-		return st.unitState.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
+		return st.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -1826,8 +1874,8 @@ func (st *State) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]appl
 		return nil, errors.Capture(err)
 	}
 
-	infoQuerydb := infoQuerydb{
-		LifeID: int(life.Dead),
+	deadLife := entityLife{
+		LifeID: int(domainlife.Dead),
 	}
 
 	infoQuery := `
@@ -1846,11 +1894,11 @@ LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
 LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
 LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
 WHERE
-	u.life_id != $infoQuerydb.life_id
+	u.life_id != $entityLife.life_id
 GROUP BY
 	u.name
 `
-	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, infoQuerydb)
+	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, deadLife)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1858,7 +1906,7 @@ GROUP BY
 	var infos []unitK8sPodInfoWithName
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, infoQuerydb).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, deadLife).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
@@ -2028,26 +2076,25 @@ WHERE  u.uuid = $unitUUID.uuid
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+// GetStorageAddInfoByUnitUUID returns the deploy metadata and how many
 // storage instances exist for the named storage on the specified unit.
 //
 // The following error types can be expected:
-//   - [applicationerrors.StorageNameNotSupported]: when storage name is not
-//     defined in charm metadata.
-func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
+// - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+func (st *State) GetStorageAddInfoByUnitUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-) (internalcharm.Storage, uint32, error) {
+) (applicationinternal.StorageInfoForAdd, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internalcharm.Storage{}, 0, errors.Capture(err)
+		return applicationinternal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 
 	var (
-		chStorage charmStorage
-		count     uint32
+		addInfo storageInfoForAdd
+		count   uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, storageName)
+		addInfo, err = st.getStorageInstanceInfoForAdd(ctx, tx, unitUUID, storageName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("storage %q is not found", storageName).Add(applicationerrors.StorageNameNotSupported)
 		}
@@ -2060,19 +2107,18 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 		}
 		return nil
 	}); err != nil {
-		return internalcharm.Storage{}, 0, errors.Capture(err)
+		return applicationinternal.StorageInfoForAdd{}, errors.Capture(err)
 	}
-	return internalcharm.Storage{
-		Name:        chStorage.Name,
-		Description: chStorage.Description,
-		Type:        internalcharm.StorageType(chStorage.Kind),
-		Shared:      chStorage.Shared,
-		ReadOnly:    chStorage.ReadOnly,
-		CountMin:    chStorage.CountMin,
-		CountMax:    chStorage.CountMax,
-		MinimumSize: chStorage.MinimumSize,
-		Location:    chStorage.Location,
-	}, count, nil
+	return applicationinternal.StorageInfoForAdd{
+		CharmStorageDefinitionForValidation: applicationinternal.CharmStorageDefinitionForValidation{
+			Name:        addInfo.Name,
+			Type:        domainapplicationcharm.StorageType(addInfo.Kind),
+			CountMin:    addInfo.CountMin,
+			CountMax:    addInfo.CountMax,
+			MinimumSize: addInfo.MinimumSize,
+		},
+		AlreadyAttachedCount: count,
+	}, nil
 }
 
 // GetIAASUnitContext returns IAAS context information required for the
@@ -2407,6 +2453,154 @@ LIMIT 1;
 		return nil, errors.Errorf("querying unit private address: %w", err)
 	}
 	return new(address.Value), nil
+}
+
+// GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID returns the metadata
+// GetStorageAttachInfoByUnitUUIDAndStorageUUID returns the metadata
+// and select details for the storage instance on the specified unit.
+// The details include how many existing instances of the same named storage
+// already exist, the requested size, and the instance's storage pool.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [storageerrors.StorageInstanceNotFound] when the storage instance does not
+// exist.
+// - [applicationerrors.StorageNameNotSupported] when the unit's charm does not
+// define the storage name in use by the storage instance.
+func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
+) (domainstorage.StorageInstanceInfoForUnitAttach, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainstorage.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
+	}
+
+	var (
+		storageInstInfo        storageInstanceInfoForAttach
+		storageInstAttachments []storageInstanceUnitAttachment
+		unitStorageNameInfo    unitStorageNameInfo
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitExists, err := st.checkUnitExists(ctx, tx, unitUUID.String())
+		if err != nil {
+			return errors.Errorf("check if unit exists: %w", err)
+		}
+		if !unitExists {
+			return errors.Errorf(
+				"unit %q does not exist", unitUUID,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		storageInstInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance information for attachment: %w", err,
+			)
+		}
+
+		storageInstAttachments, err = st.getStorageInstanceUnitAttachments(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance unit attachments: %w", err,
+			)
+		}
+
+		// We use the name of the Storage Instance to lookup and find the
+		// storage definition information for the unit.
+		unitStorageNameInfo, err = st.getUnitStorageNameInfo(
+			ctx, tx, unitUUID, storageInstInfo.StorageName,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting unit storage name %q info: %w",
+				storageInstInfo.StorageName,
+				err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return domainstorage.StorageInstanceInfoForUnitAttach{}, err
+	}
+
+	retVal := domainstorage.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfoForAttach: domainstorage.StorageInstanceInfoForAttach{
+			StorageInstanceAttachInfo: domainstorage.StorageInstanceAttachInfo{
+				UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
+				Life:             domainlife.Life(storageInstInfo.Life),
+				Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
+				RequestedSizeMIB: storageInstInfo.RequestedSizeMIB,
+				StorageName:      storageInstInfo.StorageName,
+			},
+		},
+
+		UnitAttachNamedStorageInfo: domainstorage.UnitAttachNamedStorageInfo{
+			AlreadyAttachedCount: unitStorageNameInfo.AlreadyAttachedCount,
+			CharmStorageDefinition: domainstorage.CharmStorageDefinition{
+				CountMin:    unitStorageNameInfo.StorageDefinitionCountMin,
+				CountMax:    unitStorageNameInfo.StorageDefinitionCountMax,
+				MinimumSize: unitStorageNameInfo.StorageDefinitionMinimumSize,
+				Name:        unitStorageNameInfo.StorageDefinitionName,
+				Shared:      unitStorageNameInfo.StorageDefinitionShared,
+				Type:        domainapplicationcharm.StorageType(unitStorageNameInfo.StorageDefinitionKind),
+			},
+			CharmMetadataName: unitStorageNameInfo.CharmMetadataName,
+			CharmUUID:         corecharm.ID(unitStorageNameInfo.UnitCharmUUID),
+			Life:              domainlife.Life(unitStorageNameInfo.UnitLifeID),
+			Name:              coreunit.Name(unitStorageNameInfo.UnitName),
+			NetNodeUUID:       domainnetwork.NetNodeUUID(unitStorageNameInfo.UnitNetNodeUUID),
+			UUID:              coreunit.UUID(unitStorageNameInfo.UnitUUID),
+		},
+	}
+
+	if unitStorageNameInfo.MachineUUID.Valid {
+		retVal.UnitAttachNamedStorageInfo.MachineUUID = new(
+			coremachine.UUID(unitStorageNameInfo.MachineUUID.V))
+	}
+
+	if storageInstInfo.CharmName.Valid {
+		retVal.StorageInstanceAttachInfo.CharmName = new(storageInstInfo.CharmName.V)
+	}
+
+	if storageInstInfo.FilesystemUUID.Valid {
+		retVal.StorageInstanceAttachInfo.Filesystem = &domainstorage.StorageInstanceAttachFilesystemInfo{
+			UUID:           domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
+			ProvisionScope: domainstorage.ProvisionScope(storageInstInfo.FilesystemProvisionScopeID.V),
+			SizeMib:        storageInstInfo.FilesystemSizeMIB.V,
+		}
+	}
+	if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
+		retVal.StorageInstanceAttachInfo.Filesystem.OwningMachineUUID =
+			new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
+	}
+	if storageInstInfo.VolumeUUID.Valid {
+		retVal.StorageInstanceAttachInfo.Volume = &domainstorage.StorageInstanceAttachVolumeInfo{
+			UUID:           domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
+			ProvisionScope: domainstorage.ProvisionScope(storageInstInfo.VolumeProvisionScopeID.V),
+			SizeMiB:        storageInstInfo.VolumeSizeMIB.V,
+		}
+	}
+	if storageInstInfo.VolumeOwnedMachineUUID.Valid {
+		retVal.StorageInstanceAttachInfo.Volume.OwningMachineUUID =
+			new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
+	}
+
+	retVal.StorageInstanceAttachments = slices.Grow(
+		retVal.StorageInstanceAttachments, len(storageInstAttachments))
+	for _, unitAttachment := range storageInstAttachments {
+		retVal.StorageInstanceAttachments = append(
+			retVal.StorageInstanceAttachments,
+			domainstorage.StorageInstanceUnitAttachmentID{
+				UnitUUID: coreunit.UUID(unitAttachment.UnitUUID),
+				UUID:     domainstorage.StorageAttachmentUUID(unitAttachment.UUID),
+			},
+		)
+	}
+
+	return retVal, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

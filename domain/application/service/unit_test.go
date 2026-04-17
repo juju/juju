@@ -26,7 +26,7 @@ import (
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -86,7 +86,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	unitName := coreunit.Name("bar/0")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
-	storageArgs := storage.CreateUnitStorageArg{}
+	storageArgs := domainstorage.CreateUnitStorageArg{}
 
 	locator := charm.CharmLocator{
 		Name:     "foo",
@@ -102,14 +102,14 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 	}
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
 		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
@@ -132,7 +132,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{
@@ -141,24 +141,24 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 		RefreshCharmUUID:         targetID,
 		RefreshStorageDirectives: []applicationinternal.StorageDirective{sd},
 	}
-	storageArgs := storage.CreateUnitStorageArg{
-		StorageDirectives: []storage.DirectiveArg{{
+	storageArgs := domainstorage.CreateUnitStorageArg{
+		StorageDirectives: []domainstorage.DirectiveArg{{
 			Count:    sd.Count,
 			Name:     sd.Name,
 			PoolUUID: sd.PoolUUID,
 			Size:     sd.Size,
 		}},
-		StorageInstances: []storage.CreateUnitStorageInstanceArg{{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
 			CharmName: "foo",
-			Kind:      storage.StorageKindFilesystem,
-			Filesystem: &storage.CreateUnitStorageFilesystemArg{
-				UUID:           tc.Must(c, storage.NewFilesystemUUID),
-				ProvisionScope: storage.ProvisionScopeModel,
+			Kind:      domainstorage.StorageKindFilesystem,
+			Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+				ProvisionScope: domainstorage.ProvisionScopeModel,
 			},
 			Name:            sd.Name,
 			RequestSizeMiB:  sd.Size,
 			StoragePoolUUID: sd.PoolUUID,
-			UUID:            tc.Must(c, storage.NewStorageInstanceUUID),
+			UUID:            tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		}},
 	}
 
@@ -171,14 +171,16 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
-		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
+		gomock.Any(),
+		storageRefreshArgs.NetNodeUUID,
+		storageRefreshArgs.RefreshStorageDirectives,
 		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
@@ -200,7 +202,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmSameCharm(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{
@@ -234,7 +236,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	sd := applicationinternal.StorageDirective{
 		Count:    1,
 		Name:     "foo",
-		PoolUUID: tc.Must(c, storage.NewStoragePoolUUID),
+		PoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
 		Size:     1024,
 	}
 	storageRefreshArgs := applicationinternal.UnitStorageRefreshArgs{
@@ -244,30 +246,30 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 		RefreshStorageDirectives: []applicationinternal.StorageDirective{sd},
 		MachineUUID:              new(tc.Must(c, coremachine.NewUUID)),
 	}
-	fs := tc.Must(c, storage.NewFilesystemUUID)
-	vol := tc.Must(c, storage.NewVolumeUUID)
-	storageArgs := storage.CreateUnitStorageArg{
-		StorageDirectives: []storage.DirectiveArg{{
+	fs := tc.Must(c, domainstorage.NewFilesystemUUID)
+	vol := tc.Must(c, domainstorage.NewVolumeUUID)
+	storageArgs := domainstorage.CreateUnitStorageArg{
+		StorageDirectives: []domainstorage.DirectiveArg{{
 			Count:    sd.Count,
 			Name:     sd.Name,
 			PoolUUID: sd.PoolUUID,
 			Size:     sd.Size,
 		}},
-		StorageInstances: []storage.CreateUnitStorageInstanceArg{{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
 			CharmName: "foo",
-			Kind:      storage.StorageKindFilesystem,
-			Filesystem: &storage.CreateUnitStorageFilesystemArg{
+			Kind:      domainstorage.StorageKindFilesystem,
+			Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
 				UUID:           fs,
-				ProvisionScope: storage.ProvisionScopeMachine,
+				ProvisionScope: domainstorage.ProvisionScopeMachine,
 			},
-			Volume: &storage.CreateUnitStorageVolumeArg{
+			Volume: &domainstorage.CreateUnitStorageVolumeArg{
 				UUID:           vol,
-				ProvisionScope: storage.ProvisionScopeMachine,
+				ProvisionScope: domainstorage.ProvisionScopeMachine,
 			},
 			Name:            sd.Name,
 			RequestSizeMiB:  sd.Size,
 			StoragePoolUUID: sd.PoolUUID,
-			UUID:            tc.Must(c, storage.NewStorageInstanceUUID),
+			UUID:            tc.Must(c, domainstorage.NewStorageInstanceUUID),
 		}},
 	}
 
@@ -280,29 +282,29 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(targetID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, targetID).Return(storageRefreshArgs, nil)
 	s.state.EXPECT().GetUnitOwnedStorageInstances(gomock.Any(), unitUUID).Return(
-		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageInstanceInfoForAttach{},
+		[]domainstorage.StorageAttachmentComposition{},
 		nil,
 	)
 	s.storageService.EXPECT().MakeUnitStorageArgs(
 		gomock.Any(), storageRefreshArgs.NetNodeUUID, storageRefreshArgs.RefreshStorageDirectives,
 		[]applicationinternal.StorageInstanceComposition{},
-		[]applicationinternal.StorageAttachmentComposition{},
+		[]domainstorage.StorageAttachmentComposition{},
 	).Return(storageArgs, nil)
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(), storageArgs.StorageInstances,
-	).Return(storage.CreateIAASUnitStorageArg{
-		FilesystemsToOwn: []storage.FilesystemUUID{fs},
-		VolumesToOwn:     []storage.VolumeUUID{vol},
+	).Return(domainstorage.CreateIAASUnitStorageArg{
+		FilesystemsToOwn: []domainstorage.FilesystemUUID{fs},
+		VolumesToOwn:     []domainstorage.VolumeUUID{vol},
 	}, nil)
 	s.state.EXPECT().UpdateUnitCharm(gomock.Any(), applicationinternal.UpdateUnitCharmArg{
 		UUID:        unitUUID,
 		CharmUUID:   targetID,
 		UnitStorage: storageArgs,
 		MachineUUID: storageRefreshArgs.MachineUUID,
-		IAASUnitStorage: &storage.CreateIAASUnitStorageArg{
-			FilesystemsToOwn: []storage.FilesystemUUID{fs},
-			VolumesToOwn:     []storage.VolumeUUID{vol},
+		IAASUnitStorage: &domainstorage.CreateIAASUnitStorageArg{
+			FilesystemsToOwn: []domainstorage.FilesystemUUID{fs},
+			VolumesToOwn:     []domainstorage.VolumeUUID{vol},
 		},
 	}).Return(nil)
 

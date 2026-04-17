@@ -69,7 +69,7 @@ func (s *storageDetailsSuite) TestWithReadPermission(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -162,7 +162,7 @@ func (s *storageDetailsSuite) TestWithWritePermission(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -255,7 +255,7 @@ func (s *storageDetailsSuite) TestWithModelAdminPermission(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -386,7 +386,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -421,7 +421,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -570,7 +570,7 @@ func (s *storageDetailsSuite) TestStorageDetailsFilesystemNoStatusSet(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -656,7 +656,7 @@ func (s *storageDetailsSuite) TestStorageDetailsVolumeNoStatusSet(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindBlock,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -876,7 +876,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",
@@ -911,7 +911,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/foo",

@@ -108,7 +108,7 @@ type StorageService interface {
 		attachNetNodeUUID domainnetwork.NetNodeUUID,
 		storageDirectives []internal.StorageDirective,
 		existingStorage []internal.StorageInstanceComposition,
-		existingStorageAttachments []internal.StorageAttachmentComposition,
+		existingStorageAttachments []domainstorage.StorageAttachmentComposition,
 	) (domainstorage.CreateUnitStorageArg, error)
 
 	// MakeIAASUnitStorageArgs returns [domainstorage.CreateIAASUnitStorageArg]
@@ -136,7 +136,7 @@ type StorageService interface {
 	// storage definitions.
 	ValidateApplicationStorageDirectiveOverrides(
 		ctx context.Context,
-		charmStorageDefs map[string]internalcharm.Storage,
+		charmStorageDefs map[string]internal.CharmStorageDefinitionForValidation,
 		overrides map[string]storage.StorageDirectiveOverride,
 	) error
 
@@ -174,4 +174,15 @@ type StorageService interface {
 		toUpdate []domainstorage.DirectiveArg,
 		err error,
 	)
+
+	// MakeAttachStorageInstanceToUnitArg builds the arguments required to attach
+	// an existing storage instance to a unit. It constructs the attachment
+	// details, expected attachment checks, and unit precondition checks.
+	//
+	// This function does not perform validation; callers must validate inputs
+	// before invoking it.
+	MakeAttachStorageInstanceToUnitArg(
+		context.Context,
+		domainstorage.StorageInstanceInfoForUnitAttach,
+	) (domainstorage.AttachStorageInstanceToUnitArg, error)
 }

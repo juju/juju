@@ -60,7 +60,7 @@ type StorageInstanceInfo struct {
 
 	// UnitAttachments describes all of the attachments the StorageInstance has
 	// onto Units in the model.
-	UnitAttachments []StorageInstanceUnitAttachment
+	UnitAttachments []StorageInstanceUnitAttachmentInfo
 
 	// UnitOwner when set represents the Unit within the model that owns the
 	// StorageInstance.
@@ -94,9 +94,9 @@ type StorageInstanceMachineAttachment struct {
 type StorageInstanceStatus struct {
 }
 
-// StorageInstanceUnitAttachment describes a single attachment of a
+// StorageInstanceUnitAttachmentInfo describes a single attachment of a
 // StorageInstance onto a Unit.
-type StorageInstanceUnitAttachment struct {
+type StorageInstanceUnitAttachmentInfo struct {
 	// Life describes the current lifecycle of the StorageInstanceAttachment on
 	// to the Unit.
 	Life domainlife.Life

@@ -183,7 +183,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystem(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/fs1",
@@ -283,7 +283,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystemVolumeBacked(c *tc.C
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/fs1",
@@ -390,7 +390,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystemMultipleUnits(c *tc.
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindFilesystem,
 		Persistent: false,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/mnt/fs-mount-1",
@@ -479,7 +479,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoBlockVolume(c *tc.C) {
 		Life:       domainlife.Alive,
 		Kind:       domainstorage.StorageKindBlock,
 		Persistent: true,
-		UnitAttachments: []domainstorage.StorageInstanceUnitAttachment{
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
 			{
 				Life:     domainlife.Alive,
 				Location: "/dev/disk/by-id/scsi-123",

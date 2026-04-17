@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/domain/application/internal"
@@ -16,8 +17,13 @@ import (
 // other then storage which is tested in its own right. Having these expects and
 // junk data pollute the tests encourages poor effort in testing.
 func setAddUnitNoopStorageExpects(
+	c *tc.C,
+	st *MockState,
 	storageService *MockStorageService,
 ) {
+	st.EXPECT().GetStorageAttachInfoForStorageInstances(
+		gomock.Any(), tc.Bind(tc.HasLen, 0),
+	).AnyTimes()
 	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
 		[]internal.StorageDirective{}, nil,
 	).AnyTimes()
@@ -35,8 +41,13 @@ func setAddUnitNoopStorageExpects(
 // other then storage which is tested in its own right. Having these expects and
 // junk data pollute the tests encourages poor effort in testing.
 func setCreateApplicationNoopStorageExpects(
+	c *tc.C,
+	st *MockState,
 	storageService *MockStorageService,
 ) {
+	st.EXPECT().GetStorageAttachInfoForStorageInstances(
+		gomock.Any(), tc.Bind(tc.HasLen, 0),
+	).AnyTimes()
 	storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), gomock.Any()).Return(
 		[]internal.StorageDirective{}, nil,
 	).AnyTimes()

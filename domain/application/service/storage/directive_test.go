@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -194,14 +194,13 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLimit(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internalcharm.Storage{
+	charmStorageDefs := map[string]internal.CharmStorageDefinitionForValidation{
 		"st1": {
 			CountMin:    0,
 			CountMax:    -1, // -1 indicates no max limit
-			Description: "",
 			Name:        "st1",
 			MinimumSize: 1024,
-			Type:        internalcharm.StorageBlock,
+			Type:        domainapplicationcharm.StorageBlock,
 		},
 	}
 
@@ -252,14 +251,13 @@ func (s *directiveSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedMax(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internalcharm.Storage{
+	charmStorageDefs := map[string]internal.CharmStorageDefinitionForValidation{
 		"st1": {
 			CountMin:    0,
 			CountMax:    2,
-			Description: "",
 			Name:        "st1",
 			MinimumSize: 1024,
-			Type:        internalcharm.StorageBlock,
+			Type:        domainapplicationcharm.StorageBlock,
 		},
 	}
 
@@ -286,7 +284,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 
 // TestMakeStorageDirectiveFromApplicationArg tests the happy path of
 // transferring set of application create storage directive args to
-// [domainapplication.StorageDirective] args.
+// [internal.StorageDirective] args.
 func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 

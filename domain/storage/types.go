@@ -310,9 +310,29 @@ type IAASUnitAddStorageArg struct {
 // for a unit. This will create and set the unit's storage directives and then
 // instantiate the instances and attachments for the unit.
 type CreateUnitStorageArg struct {
+	// ExistingStorageInstanceUUIDsToCheck defines a set of
+	// [domainstorage.StorageInstanceUUID]s that MUST already exist in the model
+	// and be alive.
+	//
+	// This is used when a existing Storage Instance is being attached to a
+	// unit.
+	ExistingStorageInstanceUUIDsToCheck []StorageInstanceUUID
+
 	// StorageDirectives defines the storage directives that should be created
 	// for the unit.
 	StorageDirectives []DirectiveArg
+
+	// StorageInstanceAttachmentCheckArgs defines a set of Storage Instance
+	// attachment checks to perform before creating storage for a unit. This
+	// arg allows the caller to assert that an existing Storage Instance
+	// being attached to the unit has the expected attachments.
+	StorageInstanceAttachmentCheckArgs []StorageInstanceAttachmentCheckArgs
+
+	// StorageInstanceCharmNameSetArgs describes a set of existing Storage
+	// Instances to set the Charm Name for. This would typically be used
+	// when an existing Storage Instance is being attached to a unit for the
+	// first time and does not have it's charm name set.
+	StorageInstanceCharmNameSetArgs []StorageInstanceCharmNameSetArg
 
 	// StorageInstances defines the new storage instances that must be created
 	// for the unit.
@@ -571,4 +591,30 @@ func (i ImportVolumeAttachmentPlanParams) Validate() error {
 	}
 
 	return err
+}
+
+// StorageInstanceAttachmentCheckArgs describes the expected storage attachment
+// uuids for a Storage Instance. This set of args as a check to assert that
+// pre-condition about the state of a Storage Instance remains the same.
+type StorageInstanceAttachmentCheckArgs struct {
+	// ExpectedAttachments is the set of storage attachment UUIDs expected to
+	// exist for the storage instance. These values must be ensured to be unique
+	// by the caller.
+	ExpectedAttachments []StorageAttachmentUUID
+
+	// UUID is the unique identifier of the Storage Instance to check
+	// attachments against.
+	UUID StorageInstanceUUID
+}
+
+// StorageInstanceCharmNameSetArg describes the arguments required for
+// updating a Storage Instance charm name. This is done when a Storage Instance
+// is imported to a model and being attached to a unit to fulfill a Charm's
+// storage definition for the first time.
+type StorageInstanceCharmNameSetArg struct {
+	// CharmMetadataName is the charm name to associate with the storage instance.
+	CharmMetadataName string
+
+	// UUID is the unique identifier of the Storage Instance to update.
+	UUID StorageInstanceUUID
 }

@@ -71,7 +71,7 @@ func (s *Service) GetStorageInstanceInfo(
 	}
 
 	for _, internalAttachment := range internalInfo.Attachments {
-		attachment := domainstorage.StorageInstanceUnitAttachment{
+		attachment := domainstorage.StorageInstanceUnitAttachmentInfo{
 			Life:     internalAttachment.Life,
 			UnitName: internalAttachment.UnitName,
 			UnitUUID: internalAttachment.UnitUUID,

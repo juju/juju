@@ -42,6 +42,18 @@ type StorageDirective struct {
 	Size uint64
 }
 
+// StorageInfoForAdd represents the arguments required to
+// add storage to a unit.
+type StorageInfoForAdd struct {
+	// CharmStorageDefinitionForValidation holds the storage definition
+	// information from the Unit's charm for the purpose of validating against.
+	CharmStorageDefinitionForValidation
+
+	// AlreadyAttachedCount is the count of attached Storage Instances this Unit
+	// already has for the Charm storage definition.
+	AlreadyAttachedCount uint32
+}
+
 // ModelStoragePools provides the default storage pools that have been set
 // within the model. If a value is nil then no default exists.
 type ModelStoragePools struct {
@@ -73,26 +85,6 @@ type StorageInstanceComposition struct {
 	// Volume when non nil describes the volume information that is part of the
 	// storage composition.
 	Volume *StorageInstanceCompositionVolume
-}
-
-// StorageAttachmentComposition describes the composition of a storage
-// attachment with in the model. This information is required for (re-)attaching
-// existing storage in the model to a unit. To be able to properly generate
-// attachments this information is required.
-type StorageAttachmentComposition struct {
-	// UUID is the unique id of the storage attachment.
-	UUID domainstorage.StorageAttachmentUUID
-
-	// StorageInstanceUUID is the unique id of the storage instance.
-	StorageInstanceUUID domainstorage.StorageInstanceUUID
-
-	// FilesystemAttachments is the filesystem attachment information that
-	// is part of the storage attachment composition.
-	FilesystemAttachment *StorageInstanceCompositionFilesystemAttachment
-
-	// VolumeAttachments is the volume attachment information that is part
-	// of the storage attachment composition.
-	VolumeAttachment *StorageInstanceCompositionVolumeAttachment
 }
 
 // StorageInstanceCompositionFilesystem describes the filesystem information
@@ -127,46 +119,6 @@ type StorageInstanceCompositionVolume struct {
 	// UUID is the unique id of the volume that is associated with this
 	// storage instance. If the value is nil then no volume exists.
 	UUID domainstorage.VolumeUUID
-}
-
-// StorageInstanceCompositionFilesystemAttachment describes the filesystem
-// attachment information that is part of a [StorageInstanceComposition].
-type StorageInstanceCompositionFilesystemAttachment struct {
-	// ProviderID is the unique id assigned by the storage pool provider for
-	// this filesystem attachment.
-	ProviderID string
-
-	// ProvisionScope is the provision scope of the filesystem attachment that
-	// is attached to this storage instance.
-	ProvisionScope domainstorage.ProvisionScope
-
-	// UUID is the unique id of the filesystem attachment that is associated
-	// with this storage instance.
-	UUID domainstorage.FilesystemAttachmentUUID
-
-	// FilesystemUUID is the unique id of the filesystem that is associated
-	// with this filesystem attachment.
-	FilesystemUUID domainstorage.FilesystemUUID
-}
-
-// StorageInstanceCompositionVolumeAttachment describes the volume information
-// that is part of a [StorageInstanceComposition].
-type StorageInstanceCompositionVolumeAttachment struct {
-	// ProviderID is the unique id assigned by the storage pool provider for
-	// this volume attachment.
-	ProviderID string
-
-	// ProvisionScope is the provision scope of the volume attachment that is
-	// attached to this storage instance.
-	ProvisionScope domainstorage.ProvisionScope
-
-	// UUID is the unique id of the volume attachment that is associated with
-	// this storage instance.
-	UUID domainstorage.VolumeAttachmentUUID
-
-	// VolumeUUID is the unique id of the volume that is associated with this
-	// volume attachment.
-	VolumeUUID domainstorage.VolumeUUID
 }
 
 // UnitStorageRefreshArgs describes the required arguments to refresh a unit

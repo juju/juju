@@ -57,6 +57,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: netNodeUUID1,
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 		},
 	}
 	u2 := application.AddIAASUnitArg{
@@ -64,6 +65,7 @@ func (s *watcherSuite) TestWatchUnitResoloveMode(c *tc.C) {
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: netNodeUUID2,
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 		},
 	}
 	s.createApplication(c, "foo", u1, u2)

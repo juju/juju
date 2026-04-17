@@ -79,9 +79,21 @@ WHERE  uuid = $entityUUID.uuid
 
 // CreateIAASApplication creates an IAAS application, returning an error
 // satisfying [applicationerrors.ApplicationAlreadyExists] if the application
-// already exists. It returns as error satisfying
-// [applicationerrors.CharmNotFound] if the charm for the application is not
-// found.
+// already exists.
+//
+// The following errors can be expected:
+//   - [applicationerrors.CharmNotFound] if the charm for the application is not
+//     found.
+//   - [storageerrors.StorageInstanceNotFound] when any storage instance
+//     in [internal.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     does not exist.
+//   - [storageerrors.StorageInstanceNotAlive] when any storage instance
+//     in [internal.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     is not alive.
+//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when a storage
+//     instance has attachments outside
+//     [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] or is
+//     missing expected attachments.
 func (st *State) CreateIAASApplication(
 	ctx context.Context,
 	name string,
@@ -132,9 +144,21 @@ func (st *State) CreateIAASApplication(
 
 // CreateCAASApplication creates an CAAS application, returning an error
 // satisfying [applicationerrors.ApplicationAlreadyExists] if the application
-// already exists. It returns as error satisfying
-// [applicationerrors.CharmNotFound] if the charm for the application is not
-// found.
+// already exists.
+//
+// The following errors can be expected:
+//   - [applicationerrors.CharmNotFound] if the charm for the application is not
+//     found.
+//   - [storageerrors.StorageInstanceNotFound] when any storage instance
+//     in [internal.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     does not exist.
+//   - [storageerrors.StorageInstanceNotAlive] when any storage instance
+//     in [internal.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck]
+//     is not alive.
+//   - [applicationerrors.StorageInstanceUnexpectedAttachments] when a storage
+//     instance has attachments outside
+//     [internal.StorageInstanceAttachmentCheckArgs.ExpectedAttachments] or is
+//     missing expected attachments.
 func (st *State) CreateCAASApplication(
 	ctx context.Context,
 	name string,
@@ -429,7 +453,7 @@ func (st *State) insertIAASApplicationUnits(
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, _, mNames, err := st.unitState.InsertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
+		_, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -1272,7 +1296,7 @@ func (st *State) insertCloudServiceAddresses(
 		return nil
 	}
 
-	subnetUUIDs, err := st.unitState.k8sSubnetUUIDsByAddressType(ctx, tx)
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2618,7 +2642,7 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.U
 	var name string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		name, err = st.unitState.getApplicationName(ctx, tx, appID.String())
+		name, err = st.getApplicationName(ctx, tx, appID.String())
 		return err
 	})
 	if err != nil {

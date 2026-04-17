@@ -1669,21 +1669,17 @@ func (s *modelStateSuite) createTestingUnitForApplication(
 	appID, err := appState.GetApplicationUUIDByName(c.Context(), appName)
 	c.Assert(err, tc.ErrorIsNil)
 
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	unitNames, _, err := appState.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
+	_, _, err = appState.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, machine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID,
 			NetNodeUUID: netNodeUUID,
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unitNames, tc.HasLen, 1)
-	unitName := unitNames[0]
-
-	unitUUID, err := appState.GetUnitUUIDByName(c.Context(), unitName)
-	c.Assert(err, tc.ErrorIsNil)
-
 	return unitUUID
 }
 

@@ -44,14 +44,13 @@ func (m *MockInsertIAASUnitState) EXPECT() *MockInsertIAASUnitStateMockRecorder 
 }
 
 // InsertIAASUnit mocks base method.
-func (m *MockInsertIAASUnitState) InsertIAASUnit(arg0 context.Context, arg1 *sqlair.TX, arg2, arg3 string, arg4 application.AddIAASUnitArg) (unit.Name, unit.UUID, []machine.Name, error) {
+func (m *MockInsertIAASUnitState) InsertIAASUnit(arg0 context.Context, arg1 *sqlair.TX, arg2, arg3 string, arg4 application.AddIAASUnitArg) (unit.Name, []machine.Name, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertIAASUnit", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(unit.Name)
-	ret1, _ := ret[1].(unit.UUID)
-	ret2, _ := ret[2].([]machine.Name)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret1, _ := ret[1].([]machine.Name)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // InsertIAASUnit indicates an expected call of InsertIAASUnit.
@@ -67,19 +66,19 @@ type MockInsertIAASUnitStateInsertIAASUnitCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockInsertIAASUnitStateInsertIAASUnitCall) Return(arg0 unit.Name, arg1 unit.UUID, arg2 []machine.Name, arg3 error) *MockInsertIAASUnitStateInsertIAASUnitCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+func (c *MockInsertIAASUnitStateInsertIAASUnitCall) Return(arg0 unit.Name, arg1 []machine.Name, arg2 error) *MockInsertIAASUnitStateInsertIAASUnitCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInsertIAASUnitStateInsertIAASUnitCall) Do(f func(context.Context, *sqlair.TX, string, string, application.AddIAASUnitArg) (unit.Name, unit.UUID, []machine.Name, error)) *MockInsertIAASUnitStateInsertIAASUnitCall {
+func (c *MockInsertIAASUnitStateInsertIAASUnitCall) Do(f func(context.Context, *sqlair.TX, string, string, application.AddIAASUnitArg) (unit.Name, []machine.Name, error)) *MockInsertIAASUnitStateInsertIAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInsertIAASUnitStateInsertIAASUnitCall) DoAndReturn(f func(context.Context, *sqlair.TX, string, string, application.AddIAASUnitArg) (unit.Name, unit.UUID, []machine.Name, error)) *MockInsertIAASUnitStateInsertIAASUnitCall {
+func (c *MockInsertIAASUnitStateInsertIAASUnitCall) DoAndReturn(f func(context.Context, *sqlair.TX, string, string, application.AddIAASUnitArg) (unit.Name, []machine.Name, error)) *MockInsertIAASUnitStateInsertIAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

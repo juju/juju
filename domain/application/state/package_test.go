@@ -85,6 +85,161 @@ func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
 	}
 }
 
+// getCharmMetadataName returns the charm metadata name for the supplied charm
+// UUID.
+func (s *baseSuite) getCharmMetadataName(c *tc.C, charmUUID corecharm.ID) string {
+	var name string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+			charmUUID.String(),
+		).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return name
+}
+
+// newCharmWithStorage inserts a charm and a single filesystem storage
+// definition directly into the model tables and returns the charm UUID.
+func (s *baseSuite) newCharmWithStorage(
+	c *tc.C,
+	storageName string,
+	countMax int,
+) corecharm.ID {
+	charmUUID := tc.Must(c, corecharm.NewID)
+	charmName := "charm-" + charmUUID.String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm (uuid, reference_name, architecture_id, revision)
+VALUES (?, ?, 0, ?)
+`,
+			charmUUID.String(),
+			charmName,
+			1,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, ?)
+`,
+			charmUUID.String(),
+			charmName,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		_, err = tx.ExecContext(
+			ctx,
+			`
+INSERT INTO charm_storage (
+	charm_uuid,
+	name,
+	description,
+	storage_kind_id,
+	shared,
+	read_only,
+	count_min,
+	count_max,
+	minimum_size_mib,
+	location
+)
+VALUES (?, ?, ?, 1, false, false, 1, ?, 1024, '/')
+`,
+			charmUUID.String(),
+			storageName,
+			storageName,
+			countMax,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
+}
+
+// getUnitName returns the unit name for the supplied unit UUID.
+func (s *baseSuite) getUnitName(c *tc.C, unitUUID coreunit.UUID) string {
+	var name string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT name FROM unit WHERE uuid = ?",
+			unitUUID.String(),
+		).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return name
+}
+
+// getUnitNetNodeUUID returns the net node UUID for the supplied unit UUID.
+func (s *baseSuite) getUnitNetNodeUUID(
+	c *tc.C, unitUUID coreunit.UUID,
+) domainnetwork.NetNodeUUID {
+	var uuid string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT net_node_uuid FROM unit WHERE uuid = ?",
+			unitUUID.String(),
+		).Scan(&uuid)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	netNodeUUID := domainnetwork.NetNodeUUID(uuid)
+	c.Assert(netNodeUUID.Validate(), tc.ErrorIsNil)
+	return netNodeUUID
+}
+
+// getUnitMachineUUID returns the machine UUID for the supplied unit UUID.
+func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID coreunit.UUID) coremachine.UUID {
+	var uuid string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			`SELECT m.uuid FROM machine m
+JOIN unit u ON m.net_node_uuid = u.net_node_uuid
+WHERE u.uuid = ?`,
+			unitUUID.String(),
+		).Scan(&uuid)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID, err := coremachine.ParseUUID(uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
+}
+
+// getMachineNetNodeUUID returns the net node UUID for the supplied machine
+// UUID.
+func (s *baseSuite) getMachineNetNodeUUID(
+	c *tc.C, machineUUID coremachine.UUID,
+) domainnetwork.NetNodeUUID {
+	var uuid string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT net_node_uuid FROM machine WHERE uuid = ?",
+		machineUUID.String(),
+	).Scan(&uuid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	netNodeUUID := domainnetwork.NetNodeUUID(uuid)
+	c.Assert(netNodeUUID.Validate(), tc.ErrorIsNil)
+	return netNodeUUID
+}
+
 func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 	name string,
 	charmResources map[string]charm.Resource,
@@ -249,11 +404,15 @@ func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
 
 	ctx := c.Context()
 	units := make([]application.AddIAASUnitArg, unitCount)
-	for i := range units {
+	unitUUIDs := make([]coreunit.UUID, unitCount)
+	for i := range unitCount {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
+		unitUUIDs[i] = unitUUID
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-		units[i].MachineUUID = coremachinetesting.GenUUID(c)
+		units[i].MachineUUID = tc.Must(c, coremachine.NewUUID)
 		units[i].MachineNetNodeUUID = netNodeUUID
 		units[i].NetNodeUUID = netNodeUUID
+		units[i].UnitUUID = unitUUID
 	}
 
 	appUUID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
@@ -325,7 +484,6 @@ func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUIDs := s.getApplicationUnits(c, appUUID)
 	return appUUID, unitUUIDs
 }
 
@@ -535,18 +693,21 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 func (s *baseSuite) createCAASApplicationWithNUnits(
 	c *tc.C, name string, l life.Life, unitCount int,
 ) (coreapplication.UUID, []coreunit.UUID) {
-	units := make([]application.AddCAASUnitArg, 0, unitCount)
-	for range unitCount {
-		units = append(units, application.AddCAASUnitArg{
+	units := make([]application.AddCAASUnitArg, unitCount)
+	unitUUIDs := make([]coreunit.UUID, unitCount)
+	for i := range unitCount {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
+		unitUUIDs[i] = unitUUID
+		units[i] = application.AddCAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    unitUUID,
 				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			},
-		})
+		}
 	}
 	appUUID := s.createCAASApplication(
 		c, name, l, units...,
 	)
-	unitUUIDs := s.getApplicationUnits(c, appUUID)
 	return appUUID, unitUUIDs
 }
 

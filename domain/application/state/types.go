@@ -19,8 +19,20 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
+// entityLife is used to get and describe the the current life value of an
+// entity.
+type entityLife struct {
+	LifeID int `db:"life_id"`
+}
+
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// entityUUIDLife represents a UUID and life ID pair.
+type entityUUIDLife struct {
+	UUID   string `db:"uuid"`
+	LifeID int    `db:"life_id"`
 }
 
 type entityName struct {
@@ -492,6 +504,12 @@ type charmStorage struct {
 	Property    string `db:"property"`
 }
 
+// charmStorageName is used for lookup queries that only require the
+// charm_storage name column.
+type charmStorageName struct {
+	Name string `db:"name"`
+}
+
 // setCharmStorage is used to set the storage of a charm.
 type setCharmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
@@ -912,6 +930,75 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
+// storageInstanceUnitAttachment holds the unit identity and attachment UUID
+// for a storage instance attachment row.
+type storageInstanceUnitAttachment struct {
+	UnitName string `db:"unit_name"`
+	UnitUUID string `db:"unit_uuid"`
+	UUID     string `db:"uuid"`
+}
+
+// storageInstanceUnitAttachmentByStorageUUID holds storage attachment rows for
+// bulk queries where attachments are grouped by storage instance UUID.
+type storageInstanceUnitAttachmentByStorageUUID struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+	UUID                string `db:"uuid"`
+}
+
+// Partition returns the storage instance UUID this attachment belongs to.
+func (s storageInstanceUnitAttachmentByStorageUUID) Partition() string {
+	return s.StorageInstanceUUID
+}
+
+type storageInfoForAdd struct {
+	Name        string `db:"name"`
+	Kind        string `db:"kind"`
+	CountMin    int    `db:"count_min"`
+	CountMax    int    `db:"count_max"`
+	MinimumSize uint64 `db:"minimum_size_mib"`
+}
+
+// unitStorageNameInfo is used to hold charm storage definition details for a
+// unit storage name lookup, including the number of existing attachments.
+type unitStorageNameInfo struct {
+	StorageDefinitionCountMax    int    `db:"storage_definition_count_max"`
+	StorageDefinitionCountMin    int    `db:"storage_definition_count_min"`
+	StorageDefinitionKind        string `db:"storage_definition_kind"`
+	StorageDefinitionMinimumSize uint64 `db:"storage_definition_minimum_size_mib"`
+	StorageDefinitionName        string `db:"storage_definition_name"`
+	StorageDefinitionReadOnly    bool   `db:"storage_definition_read_only"`
+	StorageDefinitionShared      bool   `db:"storage_definition_shared"`
+
+	CharmMetadataName    string           `db:"charm_metadata_name"`
+	MachineUUID          sql.Null[string] `db:"machine_uuid"`
+	UnitCharmUUID        string           `db:"unit_charm_uuid"`
+	UnitLifeID           int              `db:"unit_life_id"`
+	UnitName             string           `db:"unit_name"`
+	UnitNetNodeUUID      string           `db:"unit_net_node_uuid"`
+	UnitUUID             string           `db:"unit_uuid"`
+	AlreadyAttachedCount uint32           `db:"already_attached_count"`
+}
+
+// storageInstanceInfoForAttach holds storage instance metadata and backing
+// filesystem or volume details used to validate attaching an existing instance.
+type storageInstanceInfoForAttach struct {
+	UUID                       string           `db:"uuid"`
+	CharmName                  sql.Null[string] `db:"charm_name"`
+	StorageName                string           `db:"storage_name"`
+	Life                       int              `db:"life_id"`
+	StorageKindID              int              `db:"storage_kind_id"`
+	RequestedSizeMIB           uint64           `db:"requested_size_mib"`
+	FilesystemOwnedMachineUUID sql.Null[string] `db:"filesystem_owned_machine_uuid"`
+	FilesystemProvisionScopeID sql.Null[int]    `db:"filesystem_provision_scope_id"`
+	FilesystemSizeMIB          sql.Null[uint64] `db:"filesystem_size_mib"`
+	FilesystemUUID             sql.Null[string] `db:"filesystem_uuid"`
+	VolumeOwnedMachineUUID     sql.Null[string] `db:"volume_owned_machine_uuid"`
+	VolumeProvisionScopeID     sql.Null[int]    `db:"volume_provision_scope_id"`
+	VolumeSizeMIB              sql.Null[uint64] `db:"volume_size_mib"`
+	VolumeUUID                 sql.Null[string] `db:"volume_uuid"`
+}
+
 type unitCharmStorage struct {
 	UnitUUID    coreunit.UUID    `db:"uuid"`
 	StorageName corestorage.Name `db:"name"`
@@ -1271,10 +1358,6 @@ type bindingToTable struct {
 	Name        string       `db:"name"`
 	UUID        string       `db:"uuid"`
 	BindingType bindingTable `db:"binding_type"`
-}
-
-type infoQuerydb struct {
-	LifeID int `db:"life_id"`
 }
 
 type unitK8sPodInfoWithName struct {

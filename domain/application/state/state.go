@@ -30,7 +30,6 @@ type State struct {
 	modelUUID model.UUID
 	clock     clock.Clock
 	logger    logger.Logger
-	unitState *InsertIAASUnitState
 }
 
 // NewState returns a new state reference.
@@ -41,11 +40,6 @@ func NewState(factory database.TxnRunnerFactory, modelUUID model.UUID, clock clo
 		modelUUID: modelUUID,
 		clock:     clock,
 		logger:    logger,
-		unitState: &InsertIAASUnitState{
-			StateBase: base,
-			clock:     clock,
-			logger:    logger,
-		},
 	}
 }
 
@@ -1401,14 +1395,6 @@ WHERE name = $applicationDetails.name
 		return applicationerrors.ApplicationAlreadyExists
 	}
 	return nil
-}
-
-// checkApplicationAlive checks if the application exists and is alive.
-//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
-//   - If the application is not found, [applicationerrors.ApplicationNotFound]
-//     is returned.
-func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
-	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Alive)
 }
 
 // checkApplicationNotDead checks if the application exists and is not dead. It's

@@ -32,7 +32,7 @@ type InsertIAASUnitState interface {
 		tx *sqlair.TX,
 		appUUID, charmUUID string,
 		args application.AddIAASUnitArg,
-	) (unit.Name, unit.UUID, []machine.Name, error)
+	) (unit.Name, []machine.Name, error)
 }
 
 func (st *State) addSubordinateUnit(
@@ -70,6 +70,10 @@ func (st *State) addSubordinateUnit(
 	if err != nil {
 		return empty, errors.Errorf("getting principal unit net node uuid: %w", err)
 	}
+	unitUUID, err := unit.NewUUID()
+	if err != nil {
+		return empty, errors.Errorf("generating subordinate unit uuid: %w", err)
+	}
 
 	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, subAppUUID)
 	if err != nil {
@@ -92,6 +96,7 @@ func (st *State) addSubordinateUnit(
 		MachineNetNodeUUID: network.NetNodeUUID(machineIdentifiers.NetNodeUUID),
 		MachineUUID:        machine.UUID(machineIdentifiers.UUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID: unitUUID,
 			// TODO: storage for subordinate units.
 			NetNodeUUID: principalNetNodeUUID,
 			Placement: deployment.Placement{
@@ -102,7 +107,7 @@ func (st *State) addSubordinateUnit(
 		},
 	}
 
-	unitName, unitUUID, _, err := st.unitState.InsertIAASUnit(
+	unitName, _, err := st.unitState.InsertIAASUnit(
 		ctx, tx, subAppUUID, charmUUID, addUnitArg,
 	)
 	if err != nil {
