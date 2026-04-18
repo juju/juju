@@ -303,7 +303,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 		return errors.Trace(err)
 	}
 
-	var validationError config.ValidationError
+	var validationError *config.ValidationError
 	err := c.modelConfigService.UpdateModelConfig(ctx, nil, args.Keys)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("removing config key %q %w: %s",
