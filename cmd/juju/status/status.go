@@ -77,7 +77,13 @@ var usageSummary = `
 Report the status of the model, its machines, applications and units.`[1:]
 
 var usageDetails = `
-Report the model's status including its machines, applications and units.
+Report the model's status, optionally filtered by exact machine,
+application, or unit names.
+
+    juju status [<selector> [...]]
+
+When selectors are present, filter the report to exclude entities that do not
+match.
 
 
 ### Altering the output format
@@ -99,6 +105,18 @@ Provides information in a ` + "`JSON`" + ` or ` + "`YAML`" + ` format for progra
 `
 
 const usageExamples = `
+Report the status of units hosted on machine ` + "`0`" + `:
+
+    juju status 0
+
+Report the status of the ` + "`mysql`" + ` application:
+
+    juju status mysql
+
+Report the status of the ` + "`mysql/0`" + ` unit:
+
+    juju status mysql/0
+
 Include information about storage and relations in output:
 
     juju status --storage --relations
@@ -111,7 +129,7 @@ Provide output as valid ` + "`JSON`" + `:
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "status",
-		Args:     "",
+		Args:     "[<selector> [...]]",
 		Purpose:  usageSummary,
 		Doc:      usageDetails,
 		Examples: usageExamples,
