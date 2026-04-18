@@ -167,3 +167,44 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 
 	c.Assert(iteration, gc.Equals, n)
 }
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerWatchErrorContainsShortModelUUID(c *gc.C) {
+	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+
+	api := &dummyAPI{
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return nil, errors.New("watch failed")
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(loggo.Logger{},
+		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, `cannot watch model operator \[deadbe\] provisioning info: watch failed`)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsShortModelUUID(c *gc.C) {
+	modelUUID := "deadbee0-0bad-400d-8000-4b1d0d06f00d"
+
+	changed := make(chan struct{}, 1)
+	api := &dummyAPI{
+		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+			return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
+		},
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(changed), nil
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(loggo.Logger{},
+		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Trigger one update cycle which will return an error.
+	changed <- struct{}{}
+
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, `failed to update model operator \[deadbe\]: provisioning info failed`)
+}
