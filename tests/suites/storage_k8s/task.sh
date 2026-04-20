@@ -23,6 +23,7 @@ test_storage_k8s() {
 
 		# Tests involving storage resize.
 		test_scale_and_update_storage
+    test_scale_down_and_back_up_retains_storage_sizes
 		test_scale_and_update_storage_successive
 		test_scale_app_with_updated_storage_self_healing
 		test_scale_after_storage_update_crash

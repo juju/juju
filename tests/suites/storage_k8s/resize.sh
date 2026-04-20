@@ -145,6 +145,87 @@ test_scale_and_update_storage() {
 	destroy_model "${model_name}"
 }
 
+# Scenario: resize storage, scale up, scale down to 0, scale back up.
+# Expected outcome: existing units retain their original storage sizes after scaling back up.
+test_scale_down_and_back_up_retains_storage_sizes() {
+	if [ "$(skip 'test_scale_down_and_back_up_retains_storage_sizes')" ]; then
+		echo "==> TEST SKIPPED: test_scale_down_and_back_up_retains_storage_sizes"
+		return
+	fi
+
+	echo
+
+	model_name="scale-down-and-back-up-retains-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	juju deploy postgresql-k8s --channel 14/stable --trust
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
+
+	# Update storage to 2GB.
+	juju application-storage postgresql-k8s pgdata=2G
+	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+
+	# Scale up to 3 units.
+	juju scale-application postgresql-k8s 3
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
+
+	# Verify no pod restarts on unit 0.
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
+	# Verify unit 0 has 1GB, units 1 and 2 have 2GB.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
+		check 1024
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
+		check 2048
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
+		check 2048
+
+	# Scale down to 0.
+	juju scale-application postgresql-k8s 0
+	wait_for 0 '.applications["postgresql-k8s"]."units" // {} | keys | length'
+
+	# Scale back up to 3.
+	juju scale-application postgresql-k8s 3
+	wait_for_active_units "postgresql-k8s" 3
+
+	# Units are recreated but PVCs are reused. We verify storage IDs are the same.
+	postgresql_k8s_0_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id_after\"][\"status\"].current"
+	postgresql_k8s_1_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id_after\"][\"status\"].current"
+	postgresql_k8s_2_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id_after\"][\"status\"].current"
+
+	# Assert storage IDs are unchanged after scale down and back up.
+	echo "${postgresql_k8s_0_storage_id_after}" | check "${postgresql_k8s_0_storage_id}"
+	echo "${postgresql_k8s_1_storage_id_after}" | check "${postgresql_k8s_1_storage_id}"
+	echo "${postgresql_k8s_2_storage_id_after}" | check "${postgresql_k8s_2_storage_id}"
+
+	# Verify storage sizes are preserved: unit 0 still 1GB, units 1 and 2 still 2GB.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id_after\") | .value.size" |
+		check 1024
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id_after\") | .value.size" |
+		check 2048
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id_after\") | .value.size" |
+		check 2048
+
+	destroy_model "${model_name}"
+}
+
 # Scenario: issue storage and scale operations in quick succession in both orders.
 # Expected outcome: app converges and new units are attached. The immediate new unit
 # can validly have either old or new storage size (1GiB or 3GiB, then 3GiB or 4GiB)
