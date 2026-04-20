@@ -511,6 +511,20 @@ type BackendInfo struct {
 	SecretKey *string
 }
 
+// S3Credentials returns the S3 credentials if the object store type is S3, and
+// returns false otherwise.
+func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
+	if s.Type != objectstore.S3Backend {
+		return domainobjectstore.S3Credentials{}, false
+	}
+
+	return domainobjectstore.S3Credentials{
+		Endpoint:  deref(s.Endpoint),
+		AccessKey: deref(s.AccessKey),
+		SecretKey: deref(s.SecretKey),
+	}, true
+}
+
 // GetActiveObjectStoreBackend returns the active object store backend
 // information.
 func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
@@ -575,4 +589,12 @@ func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.N
 		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+func deref[T any](ptr *T) T {
+	if ptr == nil {
+		var t T
+		return t
+	}
+	return *ptr
 }
