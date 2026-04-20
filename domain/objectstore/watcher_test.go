@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/domain/objectstore/state"
@@ -166,4 +167,56 @@ VALUES ('foo', 0, 1, CURRENT_TIMESTAMP)
 	})
 
 	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchObjectStoreBackend(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
+
+	svc := service.NewWatchableDrainingService(
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) {
+			return factory(ctx)
+		}, clock.WallClock),
+		domain.NewWatcherFactory(factory,
+			loggertesting.WrapCheckLog(c),
+		),
+	)
+
+	s.AssertChangeStreamIdle(c)
+
+	watcher, err := svc.WatchObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	currentBackend := getActiveBackend(c, factory)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	var nextBackend string
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+			Endpoint:  "https://s3.example.invalid",
+			AccessKey: "access-key",
+			SecretKey: "secret-key",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
+		nextBackend = getActiveBackend(c, factory)
+		c.Assert(nextBackend, tc.Not(tc.Equals), currentBackend)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(currentBackend, nextBackend))
+	})
+
+	harness.Run(c, []string{currentBackend})
+}
+
+func getActiveBackend(c *tc.C, factory changestream.WatchableDBFactory) string {
+	db, err := factory(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var backend string
+	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM object_store_backend WHERE life_id = 0`).Scan(&backend)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return backend
 }

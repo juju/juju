@@ -560,12 +560,31 @@ func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
 func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+	creds := domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
-	})
+	}
+
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3StateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorMatches, ".*boom.*")
 }
 
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingEndpoint(c *tc.C) {

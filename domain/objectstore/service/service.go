@@ -94,6 +94,14 @@ type DrainingState interface {
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
 
+	// TransitionBackendToS3 sets the object store to use S3 with the provided
+	// credentials. This is used to update the object store information when the
+	// object store is set to use S3 as the backend.
+	TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
+
+	// InitialWatchBackendTable returns the table for the object store backend.
+	InitialWatchBackendTable() (string, string)
+
 	// InitialWatchDrainingTable returns the table for the draining phase.
 	InitialWatchDrainingTable() string
 }
@@ -526,10 +534,32 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 		return errors.Errorf("validating S3 credentials: %w", err)
 	}
 
-	// TODO (stickupkid): Subsequent changes will store the S3 credentials. For
-	// now do nothing.
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new uuid: %w", err)
+	}
+
+	if err := s.st.TransitionBackendToS3(ctx, uuid.String(), credential); err != nil {
+		return errors.Errorf("transitioning backend to S3: %w", err)
+	}
 
 	return nil
+}
+
+// WatchObjectStoreBackend returns a watcher that watches the object store
+// backend. The watcher emits the backend changes that either have been added or
+// removed.
+func (s *WatchableDrainingService) WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchBackendTable()
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"objectstore backend watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchDraining returns a watcher that watches the draining phase of the
