@@ -8,6 +8,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/json"
+	"encoding/pem"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -850,7 +851,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
+	// TODO(bogdanteleaga): Fix once we get authentication worker up on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
 	}
@@ -1085,7 +1086,22 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Check the mongo certificate file too.
 	pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
+	cert := leafCertificatePEM(stateInfo.Cert)
+	c.Check(string(pemContent), gc.Equals, cert+"\n"+stateInfo.PrivateKey)
+}
+
+func leafCertificatePEM(cert string) string {
+	rest := []byte(cert)
+	for {
+		block, remainder := pem.Decode(rest)
+		if block == nil {
+			return cert
+		}
+		rest = remainder
+		if block.Type == "CERTIFICATE" {
+			return string(pem.EncodeToMemory(block))
+		}
+	}
 }
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {

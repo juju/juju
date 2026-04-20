@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v2"
 	"github.com/juju/replicaset/v2"
@@ -32,6 +34,8 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 	return result, nil
 }
 
+const dataPathForJujuDbSnap = "/var/snap/juju-db/common"
+
 func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	backupsMethods := newBackups(a.paths)
 
@@ -57,7 +61,12 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session}, mongoVersion)
+
+	dataDir := a.paths.DataDir
+	if _, err := os.Stat(dataPathForJujuDbSnap); err == nil {
+		dataDir = dataPathForJujuDbSnap
+	}
+	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session}, mongoVersion, dataDir)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
