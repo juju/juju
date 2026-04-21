@@ -1670,7 +1670,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	infos, err := u.networkService.GetUnitRelationNetwork(ctx, unitName, []corerelation.UUID{relUUID})
+	infos, err := u.networkService.GetUnitRelationNetworks(ctx, unitName, []corerelation.UUID{relUUID})
 	switch {
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return errors.NotFoundf("unit %s", unitTag)
@@ -2355,7 +2355,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		} else if err != nil {
 			return params.NetworkInfoResults{}, internalerrors.Capture(err)
 		}
-		infos, err := u.networkService.GetUnitRelationNetwork(
+		infos, err := u.networkService.GetUnitRelationNetworks(
 			ctx, unitName, []corerelation.UUID{relationUUID},
 		)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
@@ -2853,7 +2853,7 @@ func (u *UniterAPI) updatedNetworkInfo(
 		return nil, nil
 	}
 
-	relationNetworkInfos, err := u.networkService.GetUnitRelationNetwork(ctx, unitName, relationUUIDs)
+	relationNetworkInfos, err := u.networkService.GetUnitRelationNetworks(ctx, unitName, relationUUIDs)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting updated relation network info for unit %q: %w", unitName, err)
 	}
@@ -3084,7 +3084,7 @@ func (u *UniterAPI) setUnitRelationNetworks(ctx context.Context, name coreunit.N
 		if err != nil {
 			return internalerrors.Errorf("getting relation UUID: %w", err)
 		}
-		unitNetworks, err := u.networkService.GetUnitRelationNetwork(
+		unitNetworks, err := u.networkService.GetUnitRelationNetworks(
 			ctx, name, []corerelation.UUID{relationUUID},
 		)
 		if err != nil {

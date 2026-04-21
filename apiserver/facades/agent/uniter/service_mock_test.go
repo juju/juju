@@ -2770,41 +2770,41 @@ func (c *MockNetworkServiceGetUnitPublicAddressCall) DoAndReturn(f func(context.
 	return c
 }
 
-// GetUnitRelationNetwork mocks base method.
-func (m *MockNetworkService) GetUnitRelationNetwork(arg0 context.Context, arg1 unit.Name, arg2 []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error) {
+// GetUnitRelationNetworks mocks base method.
+func (m *MockNetworkService) GetUnitRelationNetworks(arg0 context.Context, arg1 unit.Name, arg2 []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitRelationNetwork", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetUnitRelationNetworks", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[relation.UUID]network0.UnitNetwork)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUnitRelationNetwork indicates an expected call of GetUnitRelationNetwork.
-func (mr *MockNetworkServiceMockRecorder) GetUnitRelationNetwork(arg0, arg1, arg2 any) *MockNetworkServiceGetUnitRelationNetworkCall {
+// GetUnitRelationNetworks indicates an expected call of GetUnitRelationNetworks.
+func (mr *MockNetworkServiceMockRecorder) GetUnitRelationNetworks(arg0, arg1, arg2 any) *MockNetworkServiceGetUnitRelationNetworksCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRelationNetwork", reflect.TypeOf((*MockNetworkService)(nil).GetUnitRelationNetwork), arg0, arg1, arg2)
-	return &MockNetworkServiceGetUnitRelationNetworkCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRelationNetworks", reflect.TypeOf((*MockNetworkService)(nil).GetUnitRelationNetworks), arg0, arg1, arg2)
+	return &MockNetworkServiceGetUnitRelationNetworksCall{Call: call}
 }
 
-// MockNetworkServiceGetUnitRelationNetworkCall wrap *gomock.Call
-type MockNetworkServiceGetUnitRelationNetworkCall struct {
+// MockNetworkServiceGetUnitRelationNetworksCall wrap *gomock.Call
+type MockNetworkServiceGetUnitRelationNetworksCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceGetUnitRelationNetworkCall) Return(arg0 map[relation.UUID]network0.UnitNetwork, arg1 error) *MockNetworkServiceGetUnitRelationNetworkCall {
+func (c *MockNetworkServiceGetUnitRelationNetworksCall) Return(arg0 map[relation.UUID]network0.UnitNetwork, arg1 error) *MockNetworkServiceGetUnitRelationNetworksCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceGetUnitRelationNetworkCall) Do(f func(context.Context, unit.Name, []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error)) *MockNetworkServiceGetUnitRelationNetworkCall {
+func (c *MockNetworkServiceGetUnitRelationNetworksCall) Do(f func(context.Context, unit.Name, []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error)) *MockNetworkServiceGetUnitRelationNetworksCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceGetUnitRelationNetworkCall) DoAndReturn(f func(context.Context, unit.Name, []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error)) *MockNetworkServiceGetUnitRelationNetworkCall {
+func (c *MockNetworkServiceGetUnitRelationNetworksCall) DoAndReturn(f func(context.Context, unit.Name, []relation.UUID) (map[relation.UUID]network0.UnitNetwork, error)) *MockNetworkServiceGetUnitRelationNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

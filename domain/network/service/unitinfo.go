@@ -21,14 +21,14 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// GetUnitRelationNetwork retrieves network relation information for a given
+// GetUnitRelationNetworks retrieves network relation information for a given
 // unit and relation UUIDs.
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitNotFound] if the unit does not exist.
 //   - [relationerrors.RelationNotFound] if the relation doesn't belong to the
 //     unit.
-func (s *ProviderService) GetUnitRelationNetwork(
+func (s *ProviderService) GetUnitRelationNetworks(
 	ctx context.Context, unitName coreunit.Name, relationUUIDs []corerelation.UUID,
 ) (map[corerelation.UUID]domainnetwork.UnitNetwork, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

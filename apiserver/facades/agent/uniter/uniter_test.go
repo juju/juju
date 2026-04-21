@@ -2361,7 +2361,7 @@ func (s *uniterRelationSuite) TestNetworkInfoWithRelationUsesRelationNetwork(c *
 
 	s.expectGetRelationUUIDByID(relID, relUUID, nil)
 	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName, args.Endpoints).Times(0)
-	s.networkService.EXPECT().GetUnitRelationNetwork(
+	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relUUID: {
@@ -2870,7 +2870,7 @@ func (s *uniterRelationSuite) TestEnterScope(c *tc.C) {
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings, nil)
 
-	s.networkService.EXPECT().GetUnitRelationNetwork(
+	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relUUID: {
@@ -2905,7 +2905,7 @@ func (s *uniterRelationSuite) TestEnterScopeWithEgress(c *tc.C) {
 
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	s.expectEnterScope(relUUID, unitName, settings, nil)
-	s.networkService.EXPECT().GetUnitRelationNetwork(
+	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relUUID: {
@@ -2941,7 +2941,7 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	settings := map[string]string{"ingress-address": addr}
 	s.expectEnterScope(relUUID, unitName, settings,
 		relationerrors.PotentialRelationUnitNotValid)
-	s.networkService.EXPECT().GetUnitRelationNetwork(
+	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relUUID: {
@@ -3400,7 +3400,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	s.relationService.EXPECT().GetRelationUUIDsByUnitName(
 		gomock.Any(), unitName,
 	).Return([]corerelation.UUID{relationUUID}, nil)
-	s.networkService.EXPECT().GetUnitRelationNetwork(
+	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relationUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relationUUID: {
@@ -3591,7 +3591,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
 
 	// For relation 1
 	s.expectGetRelationUUIDByKey(relKey1, relUUID1)
-	s.expectGetUnitRelationNetworkWithEgress(unitName, relUUID1, "10.0.0.1", "192.168.0.0/24")
+	s.expectGetUnitRelationNetworksWithEgress(unitName, relUUID1, "10.0.0.1", "192.168.0.0/24")
 	s.expectedSetRelationUnitSettings(unitName, relUUID1, map[string]string{
 		"ingress-address": "10.0.0.1",
 		"egress-subnets":  "192.168.0.0/24",
@@ -3599,7 +3599,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworks(c *tc.C) {
 
 	// For relation 2
 	s.expectGetRelationUUIDByKey(relKey2, relUUID2)
-	s.expectGetUnitRelationNetwork(unitName, relUUID2, "10.0.0.2")
+	s.expectGetUnitRelationNetworks(unitName, relUUID2, "10.0.0.2")
 	s.expectedSetRelationUnitSettings(unitName, relUUID2, map[string]string{
 		"ingress-address": "10.0.0.2",
 	})
@@ -3671,7 +3671,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetRelationUUIDError
 	c.Assert(err.Error(), tc.Matches, `getting relation UUID: relation not found`)
 }
 
-func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetworkError(c *tc.C) {
+func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetworksError(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
 	unitName := coreunit.Name("wordpress/0")
@@ -3686,7 +3686,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksGetUnitRelationNetwo
 		{Key: relKey, InScope: true},
 	}, nil)
 	s.expectGetRelationUUIDByKey(relKey, relUUID)
-	s.expectGetUnitRelationNetworkError(unitName, relUUID, expectedErr)
+	s.expectGetUnitRelationNetworksError(unitName, relUUID, expectedErr)
 
 	// act
 	err := s.uniter.setUnitRelationNetworks(c.Context(), unitName)
@@ -3711,7 +3711,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSetRelationSettingsE
 		{Key: relKey, InScope: true},
 	}, nil)
 	s.expectGetRelationUUIDByKey(relKey, relUUID)
-	s.expectGetUnitRelationNetwork(unitName, relUUID, "10.0.0.1")
+	s.expectGetUnitRelationNetworks(unitName, relUUID, "10.0.0.1")
 	s.relationService.EXPECT().SetRelationUnitSettings(
 		gomock.Any(),
 		unitName,
@@ -3744,7 +3744,7 @@ func (s *commitHookChangesSuite) TestSetUnitRelationNetworksSkipsRelationsNotInS
 	// Only relation 2 should be processed
 	relUUID2 := tc.Must(c, corerelation.NewUUID)
 	s.expectGetRelationUUIDByKey(relKey2, relUUID2)
-	s.expectGetUnitRelationNetwork(unitName, relUUID2, "10.0.0.2")
+	s.expectGetUnitRelationNetworks(unitName, relUUID2, "10.0.0.2")
 	s.expectedSetRelationUnitSettings(unitName, relUUID2, map[string]string{
 		"ingress-address": "10.0.0.2",
 	})
@@ -3792,16 +3792,16 @@ func (s *commitHookChangesSuite) expectedSetRelationUnitSettings(unitName coreun
 	s.relationService.EXPECT().SetRelationUnitSettings(gomock.Any(), unitName, uuid, unitSettings).Return(nil)
 }
 
-func (s *commitHookChangesSuite) expectGetUnitRelationNetwork(unitName coreunit.Name, relationUUID corerelation.UUID,
+func (s *commitHookChangesSuite) expectGetUnitRelationNetworks(unitName coreunit.Name, relationUUID corerelation.UUID,
 	ingress string) {
-	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
+	s.networkService.EXPECT().GetUnitRelationNetworks(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relationUUID: {IngressAddresses: []string{ingress}},
 	}, nil)
 }
 
-func (s *commitHookChangesSuite) expectGetUnitRelationNetworkWithEgress(unitName coreunit.Name, relationUUID corerelation.UUID,
+func (s *commitHookChangesSuite) expectGetUnitRelationNetworksWithEgress(unitName coreunit.Name, relationUUID corerelation.UUID,
 	ingress, egress string) {
-	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
+	s.networkService.EXPECT().GetUnitRelationNetworks(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
 		relationUUID: {
 			IngressAddresses: []string{ingress},
 			EgressSubnets:    []string{egress},
@@ -3809,8 +3809,8 @@ func (s *commitHookChangesSuite) expectGetUnitRelationNetworkWithEgress(unitName
 	}, nil)
 }
 
-func (s *commitHookChangesSuite) expectGetUnitRelationNetworkError(unitName coreunit.Name, relationUUID corerelation.UUID, err error) {
-	s.networkService.EXPECT().GetUnitRelationNetwork(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{}, err)
+func (s *commitHookChangesSuite) expectGetUnitRelationNetworksError(unitName coreunit.Name, relationUUID corerelation.UUID, err error) {
+	s.networkService.EXPECT().GetUnitRelationNetworks(gomock.Any(), unitName, []corerelation.UUID{relationUUID}).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{}, err)
 }
 
 func (s *commitHookChangesSuite) expectGetUnitUUID(unitName coreunit.Name, unitUUID coreunit.UUID, err error) {

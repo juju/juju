@@ -228,7 +228,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksFallsBackToPublicEgressSubnets(c 
 	c.Check(infos[0].EgressSubnets, tc.DeepEquals, []string{"198.51.100.10/32"})
 }
 
-func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
+func (s *infoSuite) TestGetUnitRelationNetworks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -258,7 +258,7 @@ func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	infoMap, err := service.GetUnitRelationNetwork(
+	infoMap, err := service.GetUnitRelationNetworks(
 		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -269,7 +269,7 @@ func (s *infoSuite) TestGetUnitRelationNetwork(c *tc.C) {
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"192.168.1.0/24"})
 }
 
-func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *tc.C) {
+func (s *infoSuite) TestGetUnitRelationNetworksFallsBackToModelEgressSubnets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -300,7 +300,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *t
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	infoMap, err := service.GetUnitRelationNetwork(
+	infoMap, err := service.GetUnitRelationNetworks(
 		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -309,7 +309,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToModelEgressSubnets(c *t
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"203.0.113.0/24"})
 }
 
-func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *tc.C) {
+func (s *infoSuite) TestGetUnitRelationNetworksFallsBackToPublicEgressSubnets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -343,7 +343,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	infoMap, err := service.GetUnitRelationNetwork(
+	infoMap, err := service.GetUnitRelationNetworks(
 		c.Context(), unitName, []corerelation.UUID{relationUUID},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -352,7 +352,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkFallsBackToPublicEgressSubnets(c *
 	c.Check(info.EgressSubnets, tc.DeepEquals, []string{"198.51.100.10/32"})
 }
 
-func (s *infoSuite) TestGetUnitRelationNetworkRelationNotFound(c *tc.C) {
+func (s *infoSuite) TestGetUnitRelationNetworksRelationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -367,11 +367,11 @@ func (s *infoSuite) TestGetUnitRelationNetworkRelationNotFound(c *tc.C) {
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, []corerelation.UUID{relationUUID})
+	_, err := service.GetUnitRelationNetworks(c.Context(), unitName, []corerelation.UUID{relationUUID})
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
-func (s *infoSuite) TestGetUnitRelationNetworkGetRelationEgressSubnetsError(c *tc.C) {
+func (s *infoSuite) TestGetUnitRelationNetworksGetRelationEgressSubnetsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -390,7 +390,7 @@ func (s *infoSuite) TestGetUnitRelationNetworkGetRelationEgressSubnetsError(c *t
 	service := NewProviderService(
 		s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c),
 	)
-	_, err := service.GetUnitRelationNetwork(c.Context(), unitName, []corerelation.UUID{relationUUID})
+	_, err := service.GetUnitRelationNetworks(c.Context(), unitName, []corerelation.UUID{relationUUID})
 	c.Assert(
 		err,
 		tc.ErrorMatches,
