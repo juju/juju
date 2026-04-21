@@ -1809,6 +1809,42 @@ func validateStorageConstraintsAgainstCharm(
 	return nil
 }
 
+func validateUpdateStorageConstraintsCAAS(sb *storageBackend, modelType ModelType, originalCons, newCons StorageConstraints) error {
+	if modelType != ModelTypeCAAS {
+		return nil
+	}
+	oldProviderType, _, _, err := poolStorageProvider(sb, originalCons.Pool)
+	if err != nil {
+		return errors.Annotatef(err, "getting old provider type for pool: %q", originalCons.Pool)
+	}
+	newProviderType, _, _, err := poolStorageProvider(sb, newCons.Pool)
+	if err != nil {
+		return errors.Annotatef(err, "getting new provider type for pool: %q", newCons.Pool)
+	}
+
+	isStaticProviderType := oldProviderType == "tmpfs" || oldProviderType == "rootfs" ||
+		oldProviderType == "kubernetes"
+
+	// Disallow changing provider types as this would mutate the PodSpec which is treated as
+	// immutable by k8s.
+	if isStaticProviderType && oldProviderType != newProviderType {
+		return errors.Errorf("updating current provider type: %q to %q", oldProviderType, newProviderType)
+	}
+
+	// Disallow changing the size and count because this would mutate the PodSpec.Volumes entry.
+	// K8s treat it as immutable.
+	if oldProviderType == "tmpfs" || oldProviderType == "rootfs" {
+		if originalCons.Size != newCons.Size {
+			return errors.Errorf("updating current size: %d to %d", originalCons.Size, newCons.Size)
+		}
+		if originalCons.Count != newCons.Count {
+			return errors.Errorf("updating current count: %d to %d", originalCons.Count, newCons.Count)
+		}
+	}
+
+	return nil
+}
+
 func validateCharmStorageCountChange(charmStorage charm.Storage, current, n int) error {
 	action := "attach"
 	absn := n

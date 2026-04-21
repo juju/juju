@@ -3658,6 +3658,11 @@ func (a *Application) UpdateStorageConstraints(storageDirectivesUpdate map[strin
 		return errors.Trace(err)
 	}
 
+	m, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
@@ -3703,6 +3708,11 @@ func (a *Application) UpdateStorageConstraints(storageDirectivesUpdate map[strin
 			if storageCons.Count != nil {
 				sc.Count = *storageCons.Count
 			}
+
+			if err := validateUpdateStorageConstraintsCAAS(sb, m.Type(), originalStorageCons, sc); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			storageConsToUpdate[storageName] = sc
 		}
 
