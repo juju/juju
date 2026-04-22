@@ -119,6 +119,15 @@ const (
 	tableRelationNetworkEgress
 )
 
+// Namespace IDs for tables that are created in post-patches. Their triggers
+// are appended after the post-patches loop in ModelDDLForVersion and
+// version-gated to the release that introduced the table, so these IDs
+// cannot participate in the main tableNamespaceID iota block above. Keep
+// them numerically after the iota block.
+const (
+	tableModelMigrating tableNamespaceID = 10041
+)
+
 // modelPostPatchFilesByVersion is used to categorise the post patch files
 // to particular versions of Juju. To include a new post patch file, it must be
 // added to the list for the version in which it is first applied.
@@ -439,6 +448,12 @@ END;
 
 	for _, fn := range postPatches {
 		modelSchema.Add(fn())
+	}
+
+	// Triggers for tables that live in post-patches must themselves run after
+	// the post-patches that create them, and must be version-gated to match.
+	if version.Compare(semversion.MustParse("4.0.6")) >= 0 {
+		modelSchema.Add(changeLogTriggersForModelMigrating("model_uuid", int(tableModelMigrating))())
 	}
 
 	return modelSchema

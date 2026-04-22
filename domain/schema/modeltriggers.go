@@ -938,3 +938,32 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
+// changeLogTriggersForModelMigrating emits a change_log entry on insert and
+// delete of a row in the model_migrating table. Only presence/absence changes
+// are interesting: a row signals that this model is undergoing a migration,
+// its absence signals that it isn't. Update is intentionally not covered as
+// the table has no fields whose change would carry semantic meaning.
+func changeLogTriggersForModelMigrating(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelMigrating
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migrating', 'ModelMigrating changes based on %[1]s');
+
+-- insert trigger for ModelMigrating
+CREATE TRIGGER trg_log_model_migrating_insert
+AFTER INSERT ON model_migrating FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- delete trigger for ModelMigrating
+CREATE TRIGGER trg_log_model_migrating_delete
+AFTER DELETE ON model_migrating FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
