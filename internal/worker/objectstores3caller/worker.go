@@ -115,13 +115,14 @@ func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objects
 	defer trace.End()
 
 	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	session := w.session
+	w.mutex.Unlock()
 
-	if w.session == nil {
+	if session == nil {
 		return internalerrors.Errorf("no session available").Add(errors.NotSupported)
 	}
 
-	return fn(ctx, w.session)
+	return fn(ctx, session)
 }
 
 // Kill is part of the worker.Worker interface.

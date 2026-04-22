@@ -243,6 +243,89 @@ func (s *workerSuite) TestSessionBecomesNilOnFileBackendChange(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
+func (s *workerSuite) TestSessionStableWhileFnInFlight(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	changes := make(chan []string)
+
+	s.expectGetActiveBackendS3(c)
+	s.expectWatchObjectStoreBackendWithChanges(changes)
+
+	triggerDone := make(chan struct{})
+	// After the watcher fires, the backend returns file (session becomes nil).
+	s.expectGetActiveBackendFileWithDone(triggerDone)
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	// Capture the session before spawning the goroutine to avoid
+	// racing with the cleanup function that nils out s.session.
+	originalSession := s.session
+
+	// Call Session, and while fn is running, trigger a backend change
+	// that sets the session to nil. The in-flight fn should still see
+	// the original non-nil session.
+	fnStarted := make(chan struct{})
+	fnDone := make(chan struct{})
+
+	go func() {
+		err := worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+			// Signal that fn has started and captured a session.
+			close(fnStarted)
+			c.Check(sess, tc.NotNil)
+
+			// Wait for the backend change to complete before returning.
+			select {
+			case <-fnDone:
+			case <-c.Context().Done():
+			}
+
+			// The session we captured is still valid, even though
+			// the worker's session is now nil.
+			c.Check(sess, tc.Equals, originalSession)
+			return nil
+		})
+		c.Check(err, tc.ErrorIsNil)
+	}()
+
+	// Wait for fn to be in-flight.
+	select {
+	case <-fnStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for fn to start")
+	}
+
+	// Trigger the backend change while fn is running.
+	select {
+	case changes <- []string{"backend-changed"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	// Wait for the loop to process and set session to nil.
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
+
+	s.ensureClientUpdated(c)
+
+	// Now a new Session call should get NotSupported (nil session).
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	// Let the in-flight fn complete.
+	close(fnDone)
+
+	workertest.CleanKill(c, worker)
+}
+
 func (s *workerSuite) TestGetActiveBackendError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
