@@ -337,6 +337,16 @@ test_scale_and_update_storage_successive() {
 		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" |
 		check 4096
 
+	# Check that the containers in existing pods 0-3 should not restart.
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	kubectl get pod postgresql-k8s-1 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	kubectl get pod postgresql-k8s-2 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	kubectl get pod postgresql-k8s-3 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
 	destroy_model "${model_name}"
 }
 
@@ -416,6 +426,10 @@ test_scale_app_with_updated_storage_self_healing() {
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
 
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
 	destroy_model "${model_name}"
 }
 
@@ -476,6 +490,10 @@ test_scale_after_storage_update_crash() {
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	destroy_model "${model_name}"
 }
@@ -554,6 +572,10 @@ test_scale_resumes_after_storage_update_missing_sts() {
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
 
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
 	# Let's try scaling down now. Repeat the steps above.
 	kubectl apply -f "${deny_postgresql_sts_spec}"
 	juju application-storage postgresql-k8s pgdata=3G,kubernetes
@@ -615,6 +637,10 @@ test_storage_update_after_scale_crash() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 	postgresql_k8s_3_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-3" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# All units should use the old size (1GB).
 	juju storage --format json |
