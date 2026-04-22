@@ -14,7 +14,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
@@ -33,9 +32,9 @@ const (
 const (
 	// default retry strategy for when the forbidden error is returned.
 	defaultRetryAttempts    = 10
-	defaultRetryDelay       = time.Second * 1
-	defaultRetryMaxDelay    = time.Second * 20
-	defaultRetryMaxDuration = time.Minute
+	defaultRetryDelay       = time.Microsecond * 1
+	defaultRetryMaxDelay    = time.Microsecond * 20
+	defaultRetryMaxDuration = time.Second
 )
 
 // ObjectStoreService provides access to the object store for changes to
@@ -113,7 +112,7 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 
 	// Now start the catacomb once we have the initial session.
 	if err := catacomb.Invoke(catacomb.Plan{
-		Name: "object-strore-s3",
+		Name: "object-store-s3",
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
@@ -238,20 +237,4 @@ func (w *s3Worker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
-}
-
-var objectStoreKeys = map[string]struct{}{
-	controller.ObjectStoreS3Endpoint:     {},
-	controller.ObjectStoreS3StaticKey:    {},
-	controller.ObjectStoreS3StaticSecret: {},
-}
-
-// containsObjectStoreKey returns true if the key is interesting to the worker.
-func containsObjectStoreKey(keys []string) bool {
-	for _, key := range keys {
-		if _, ok := objectStoreKeys[key]; ok {
-			return true
-		}
-	}
-	return false
 }
