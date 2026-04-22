@@ -222,7 +222,7 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
-	github.com/juju/mgo/v2 v2.0.2 // indirect
+	github.com/juju/mgo/v2 v2.0.3 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -327,3 +327,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
+
+replace github.com/juju/gomaasapi/v2 => github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72

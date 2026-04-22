@@ -408,8 +408,6 @@ github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 h1:huRsqE0iXm
 github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33/go.mod h1:UxUZdlQkjnbl3YoCZT1y5uxmvG2KMwqgffBFccD7qHI=
 github.com/juju/gojsonschema v1.0.0 h1:v0hVxinRWko/SwRYCZ99fBH20Q1JtDqKtplcovXewt0=
 github.com/juju/gojsonschema v1.0.0/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
-github.com/juju/gomaasapi/v2 v2.3.0 h1:97yPBrp/U+JwX/UVrBpkWsZKVREmIlykl8n/a58PYlE=
-github.com/juju/gomaasapi/v2 v2.3.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
 github.com/juju/http/v2 v2.0.1 h1:cTt8RHvdVv9uZFmAb/7zQrRitT1bgywEDOf8nLpYd8M=
 github.com/juju/http/v2 v2.0.1/go.mod h1:V9dcD7DkT4xkwWjXpFr1C0ZNq7gG+eN9f+Mi2c7GnCs=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
@@ -432,8 +430,8 @@ github.com/juju/lumberjack/v2 v2.0.2 h1:FlxrR62Vb7FfN7jwpSBqqereyq5bBQUF0LqOhZ2V
 github.com/juju/lumberjack/v2 v2.0.2/go.mod h1:BChCvBPxdUuWiy/d+Uw7tvbHjp1zXmoaz0atJ1RBYO0=
 github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208/go.mod h1:0OChplkvPTZ174D2FYZXg4IB9hbEwyHkD+zT+/eK+Fg=
 github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090/go.mod h1:N614SE0a4e+ih2rg96Vi2PeC3cTpUOWgCTv3Cgk974c=
-github.com/juju/mgo/v2 v2.0.2 h1:ufYtW2OFNjniTuxOngecP3Mk5sSclo8Zl1mnmyGWUWA=
-github.com/juju/mgo/v2 v2.0.2/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
+github.com/juju/mgo/v2 v2.0.3 h1:srSbVKwJlH5/D1+VUvXKxKrWyamfFjO9/kkSWwnKb2g=
+github.com/juju/mgo/v2 v2.0.3/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
 github.com/juju/mgo/v3 v3.0.9 h1:tqzxZpjpAuVOl7cNBHD/mywGL/a7UMkUVJ0AWU9Vz40=
 github.com/juju/mgo/v3 v3.0.9/go.mod h1:fAvhDCRbUlEbRIae6UQT8RvPUoLwKnJsBgO6OzHKNxw=
 github.com/juju/mgotest v1.0.1/go.mod h1:vTaDufYul+Ps8D7bgseHjq87X8eu0ivlKLp9mVc/Bfc=
@@ -777,6 +775,8 @@ github.com/vishvananda/netns v0.0.5 h1:DfiHV+j8bA32MFM7bfEunvT8IAqQ/NzSJHtcmW5zd
 github.com/vishvananda/netns v0.0.5/go.mod h1:SpkAiCQRtJ6TvvxPnOSyH3BMl6unz3xZlaprSwhNNJM=
 github.com/vmware/govmomi v0.34.1 h1:Hqu2Uke2itC+cNoIcFQBLEZvX9wBRTTOP04J7V1fqRw=
 github.com/vmware/govmomi v0.34.1/go.mod h1:qWWT6n9mdCr/T9vySsoUqcI04sSEj4CqHXxtk/Y+Los=
+github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72 h1:4ASrUvpf4CDjA6QvYJcvYUZQcxITjiDxL6wdh/KW2qM=
+github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72/go.mod h1:BJdYcbOpk1aOjsvgu3qNCty4mMrmtjbSAW4bfxMcf7s=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xdg-go/stringprep v1.0.2/go.mod h1:8F9zXuvzgwmyT5DUm4GUfZGDdT3W+LCvS6+da4O5kxM=

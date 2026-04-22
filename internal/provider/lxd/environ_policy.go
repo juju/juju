@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
@@ -38,7 +39,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.VirtType, []string{"", "container", "virtual-machine"})
+	validator.RegisterVocabulary(constraints.VirtType, []string{"", instance.VirtTypeContainer, instance.VirtTypeMachine})
 
 	// Only consume supported juju architectures for this release. This will
 	// also remove any duplicate architectures.
@@ -53,7 +54,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 // ShouldApplyControllerConstraints returns if bootstrapping logic should use
 // default constraints
 func (env *environ) ShouldApplyControllerConstraints(cons constraints.Value) bool {
-	if cons.HasVirtType() && *cons.VirtType == "virtual-machine" {
+	if cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
 		return true
 	}
 	return false
