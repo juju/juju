@@ -21,6 +21,7 @@ type workspaceSuiteV0 struct {
 
 var _ = gc.Suite(&workspaceSuiteV0{})
 var _ = gc.Suite(&workspaceSuiteV1{})
+var _ = gc.Suite(&workspaceSuiteV2{})
 
 func (s *workspaceSuiteV0) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -93,4 +94,14 @@ type workspaceSuiteV1 struct {
 func (s *workspaceSuiteV1) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
+}
+
+type workspaceSuiteV2 struct {
+	testing.IsolationSuite
+	baseArchiveDataSuite
+}
+
+func (s *workspaceSuiteV2) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV2)
 }

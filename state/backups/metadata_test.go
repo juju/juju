@@ -30,9 +30,6 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
 		`"FormatVersion":0,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -77,9 +74,9 @@ func (s *metadataSuite) assertMetadata(c *gc.C, meta *backups.Metadata, expected
 	c.Check(buf.(*bytes.Buffer).String(), jc.DeepEquals, expected)
 }
 
-func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
+func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *gc.C) {
 	meta := s.createTestMetadata(c)
-	meta.FormatVersion = 1
+	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
 		UUID:              "controller-uuid",
 		MachineInstanceID: "inst-10101010",
@@ -87,10 +84,7 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
 	}
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
-		`"FormatVersion":1,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
+		`"FormatVersion":2,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -107,9 +101,9 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *gc.C) {
 		`}`+"\n")
 }
 
-func (s *metadataSuite) TestAsJSONBufferV1HA(c *gc.C) {
+func (s *metadataSuite) TestAsJSONBufferV2HA(c *gc.C) {
 	meta := s.createTestMetadata(c)
-	meta.FormatVersion = 1
+	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
 		UUID:              "controller-uuid",
 		MachineInstanceID: "inst-10101010",
@@ -119,10 +113,7 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *gc.C) {
 
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
-		`"FormatVersion":1,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
+		`"FormatVersion":2,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -218,10 +209,49 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *gc.C) {
 	c.Check(meta.Controller.MachineID, gc.Equals, "10")
 }
 
-func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *gc.C) {
+func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *gc.C) {
 	file := bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
 		`"FormatVersion":2,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"ModelUUID":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3",` +
+		`"ControllerUUID":"controller-uuid",` +
+		`"HANodes":3,` +
+		`"ControllerMachineID":"10",` +
+		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`}` + "\n")
+	meta, err := backups.NewMetadataJSONReader(file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(meta.ID(), gc.Equals, "20140909-115934.asdf-zxcv-qwe")
+	c.Check(meta.Checksum(), gc.Equals, "")
+	c.Check(meta.ChecksumFormat(), gc.Equals, "")
+	c.Check(meta.Size(), gc.Equals, int64(0))
+	c.Check(meta.Stored(), gc.IsNil)
+	c.Check(meta.Started.Unix(), gc.Equals, int64(1410263974))
+	c.Check(meta.Finished.Unix(), gc.Equals, int64(1410264034))
+	c.Check(meta.Notes, gc.Equals, "")
+	c.Check(meta.Origin.Model, gc.Equals, "asdf-zxcv-qwe")
+	c.Check(meta.Origin.Machine, gc.Equals, "0")
+	c.Check(meta.Origin.Hostname, gc.Equals, "myhost")
+	c.Check(meta.Origin.Version.String(), gc.Equals, "1.21-alpha3")
+	c.Check(meta.FormatVersion, gc.Equals, int64(2))
+	c.Check(meta.Controller.UUID, gc.Equals, "controller-uuid")
+	c.Check(meta.Controller.HANodes, gc.Equals, int64(3))
+	c.Check(meta.Controller.MachineInstanceID, gc.Equals, "inst-10101010")
+	c.Check(meta.Controller.MachineID, gc.Equals, "10")
+}
+
+func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *gc.C) {
+	file := bytes.NewBufferString(`{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"FormatVersion":3,` +
 		`"Checksum":"123af2cef",` +
 		`"ChecksumFormat":"SHA-1, base64 encoded",` +
 		`"Size":10,` +

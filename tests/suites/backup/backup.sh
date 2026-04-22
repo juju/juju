@@ -6,7 +6,7 @@ run_basic_backup_create() {
 	ensure "test-basic-backup-create" "${file}"
 
 	juju switch controller
-	juju create-backup --filename "${TEST_DIR}/basic_backup.tar.gz"
+	checksum=$(juju create-backup --filename "${TEST_DIR}/basic_backup.tar.gz" | tee /dev/tty | awk '/^checksum:/ {print $2}' | base64 -d | xxd -p)
 
 	# Do some basic sanity checks on what's inside the backup
 	tar xf "${TEST_DIR}/basic_backup.tar.gz" -C "${TEST_DIR}"
@@ -16,6 +16,8 @@ run_basic_backup_create() {
 	test -s "${TEST_DIR}/juju-backup/root.tar"
 	echo "checking oplog.bson is present"
 	test -s "${TEST_DIR}/juju-backup/dump/oplog.bson"
+	echo "validating checksum"
+	sha1sum "${TEST_DIR}/basic_backup.tar.gz" | cut -f1 -d' ' | check "${checksum}"
 
 	destroy_model "test-basic-backup-create"
 }

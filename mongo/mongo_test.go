@@ -5,6 +5,7 @@ package mongo_test
 
 import (
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type MongoSuite struct {
@@ -89,6 +91,8 @@ func (s *MongoSuite) makeConfigArgs(dataDir string) mongo.ConfigArgs {
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
 
 	s.mongodVersion = mongo.Mongo24
 
@@ -509,6 +513,21 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MongoSuite) TestUpdateSSLKeyUsesLeafCertificateOnly(c *gc.C) {
+	dataDir := c.MkDir()
+
+	firstCert := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("first-cert")}))
+	secondCert := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("second-cert")}))
+	bundle := firstCert + secondCert
+
+	err := mongo.UpdateSSLKey(dataDir, bundle, testInfo.PrivateKey, "ignored-ca")
+	c.Assert(err, jc.ErrorIsNil)
+
+	contents, err := os.ReadFile(mongo.SSLKeyPath(dataDir))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, mongo.GenerateSSLKey(firstCert, testInfo.PrivateKey))
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {

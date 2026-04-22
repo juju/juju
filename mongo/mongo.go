@@ -6,6 +6,7 @@ package mongo
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -664,12 +665,29 @@ func tweakSysctlForMongo(editables map[string]string) {
 
 // UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
 func UpdateSSLKey(dataDir, cert, privateKey, cacert string) error {
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(cert, privateKey)), 0600)
+	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(leafCertificatePEM(cert), privateKey)), 0600)
 	if err != nil {
 		return errors.Annotate(err, "cannot write SSL key")
 	}
 	err = utils.AtomicWriteFile(caCertKeyPath(dataDir), []byte(cacert), 0600)
 	return errors.Annotate(err, "cannot write CA Cert")
+}
+
+// leafCertificatePEM returns the first certificate block from a PEM bundle.
+// Mongo tooling (eg mongodump) expects server.pem to contain a single cert
+// paired with the private key. CA certificates are provided via ca.crt.
+func leafCertificatePEM(cert string) string {
+	rest := []byte(cert)
+	for {
+		block, remainder := pem.Decode(rest)
+		if block == nil {
+			return cert
+		}
+		rest = remainder
+		if block.Type == "CERTIFICATE" {
+			return string(pem.EncodeToMemory(block))
+		}
+	}
 }
 
 // GenerateSSLKey combines cert and private key to generate the ssl key - server.pem.

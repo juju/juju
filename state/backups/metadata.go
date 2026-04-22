@@ -107,9 +107,8 @@ type ControllerMetadata struct {
 	HANodes int64
 }
 
-// All un-versioned metadata is considered to be version 0,
-// so the versions start with 1.
-const currentFormatVersion = 1
+// currentFormatVersion is the most recent metadata version.
+const currentFormatVersion = 2
 
 // NewMetadata returns a new Metadata for a state backup archive,
 // in the most current format.
@@ -229,11 +228,8 @@ func (flat *flatMetadataV0) inflate() (*Metadata, error) {
 	return meta, nil
 }
 
-// flatMetadata contains the latest format of the backup.
-// NOTE If any changes need to be made here, rename this struct to
-// reflect version 1, for example flatMetadataV1 and construct
-// new flatMetadata with desired modifications.
-type flatMetadata struct {
+// flatMetadataV1 contains format version 1 of backup metadata.
+type flatMetadataV1 struct {
 	ID            string
 	FormatVersion int64
 
@@ -260,12 +256,73 @@ type flatMetadata struct {
 	ControllerMachineInstanceID string
 }
 
+func (flat *flatMetadataV1) inflate() (*Metadata, error) {
+	meta := NewMetadata()
+	meta.SetID(flat.ID)
+	meta.FormatVersion = flat.FormatVersion
+
+	if flat.Size != 0 || flat.Checksum != "" || flat.ChecksumFormat != "" {
+		err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if !flat.Stored.IsZero() {
+		meta.SetStored(&flat.Stored)
+	}
+
+	meta.Started = flat.Started
+	if !flat.Finished.IsZero() {
+		meta.Finished = &flat.Finished
+	}
+	meta.Notes = flat.Notes
+	meta.Origin = Origin{
+		Model:    flat.ModelUUID,
+		Machine:  flat.Machine,
+		Hostname: flat.Hostname,
+		Version:  flat.Version,
+		Series:   flat.Series,
+	}
+
+	meta.Controller = ControllerMetadata{
+		UUID:              flat.ControllerUUID,
+		MachineID:         flat.ControllerMachineID,
+		MachineInstanceID: flat.ControllerMachineInstanceID,
+		HANodes:           flat.HANodes,
+	}
+	return meta, nil
+}
+
+// flatMetadata contains the latest format of backup metadata.
+// File-level details are intentionally omitted from metadata.json.
+type flatMetadata struct {
+	ID            string
+	FormatVersion int64
+
+	// file storage
+
+	Stored time.Time
+
+	// backup
+
+	Started                     time.Time
+	Finished                    time.Time
+	Notes                       string
+	ModelUUID                   string
+	Machine                     string
+	Hostname                    string
+	Version                     version.Number
+	Series                      string
+	ControllerUUID              string
+	HANodes                     int64
+	ControllerMachineID         string
+	ControllerMachineInstanceID string
+}
+
 func (m *Metadata) flat() flatMetadata {
 	flat := flatMetadata{
 		ID:                          m.ID(),
-		Checksum:                    m.Checksum(),
-		ChecksumFormat:              m.ChecksumFormat(),
-		Size:                        m.Size(),
 		Started:                     m.Started,
 		Notes:                       m.Notes,
 		ModelUUID:                   m.Origin.Model,
@@ -294,11 +351,6 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 	meta := NewMetadata()
 	meta.SetID(flat.ID)
 	meta.FormatVersion = flat.FormatVersion
-
-	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	if !flat.Stored.IsZero() {
 		meta.SetStored(&flat.Stored)
@@ -342,14 +394,15 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We always want to decode into the most recent format version.
-	var flat flatMetadata
-	if err := json.Unmarshal(data, &flat); err != nil {
+	var versioned struct {
+		FormatVersion int64
+	}
+	if err := json.Unmarshal(data, &versioned); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Cater for old backup files, taken as version 0 or with no version.
-	switch flat.FormatVersion {
+	switch versioned.FormatVersion {
 	case 0:
 		{
 			var v0 flatMetadataV0
@@ -359,9 +412,19 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 			return v0.inflate()
 		}
 	case 1:
+		var v1 flatMetadataV1
+		if err := json.Unmarshal(data, &v1); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return v1.inflate()
+	case 2:
+		var flat flatMetadata
+		if err := json.Unmarshal(data, &flat); err != nil {
+			return nil, errors.Trace(err)
+		}
 		return flat.inflate()
 	default:
-		return nil, errors.NotSupportedf("backup format %d", flat.FormatVersion)
+		return nil, errors.NotSupportedf("backup format %d", versioned.FormatVersion)
 	}
 }
 

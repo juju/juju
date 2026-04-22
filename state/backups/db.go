@@ -36,6 +36,8 @@ var runCommandFn = runCommand
 // the database. This includes a simplification of the information in
 // authentication.MongoInfo.
 type DBInfo struct {
+	// DataDir is the location of the certificates.
+	DataDir string
 	// Address is the DB system's host address.
 	Address string
 	// Username is used when connecting to the DB system.
@@ -73,7 +75,7 @@ type Database interface {
 
 // NewDBInfo returns the information needed by backups to dump
 // the database.
-func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, version mongo.Version) (*DBInfo, error) {
+func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, version mongo.Version, dataDir string) (*DBInfo, error) {
 	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,6 +100,7 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, version mongo.Versio
 	}
 
 	info := DBInfo{
+		DataDir:      dataDir,
 		Address:      mgoInfo.Addrs[0],
 		Password:     mgoInfo.Password,
 		Targets:      targets,
@@ -207,17 +210,9 @@ func (md *mongoDumper) options(dumpDir string) []string {
 		"--password", md.Password,
 		"--out", dumpDir,
 		"--oplog",
-	}
-	if md.MongoVersion.NewerThan(mongo.Version{
-		Major: 4,
-		Minor: 4,
-		Point: 30,
-	}) >= 0 {
-		options = append(options,
-			"--sslCAFile", "/var/snap/juju-db/common/ca.crt",
-			"--sslPEMKeyFile", "/var/snap/juju-db/common/server.pem",
-			"--sslPEMKeyPassword", "ignore",
-		)
+		"--sslCAFile", fmt.Sprintf("%s/ca.crt", md.DataDir),
+		"--sslPEMKeyFile", fmt.Sprintf("%s/server.pem", md.DataDir),
+		"--sslPEMKeyPassword", "ignore",
 	}
 	return options
 }
