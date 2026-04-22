@@ -27,6 +27,18 @@ cleanup_wrench_scale_application() {
 		'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/scale-application' >/dev/null 2>&1 || true
 }
 
+cleanup_storage_class() {
+	local main_sh_dir
+	local cool_sc
+	local awesome_sc
+
+	main_sh_dir="$(dirname "$(readlink -f "$0")")"
+	cool_sc="${main_sh_dir}/suites/storage_k8s/specs/coolstorageclass-sc.yaml"
+	awesome_sc="${main_sh_dir}/suites/storage_k8s/specs/awesomestorageclass-sc.yaml"
+	kubectl delete -f "${cool_sc}" --ignore-not-found=true >/dev/null 2>&1 || true
+	kubectl delete -f "${awesome_sc}" --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
 storage_id_for_pod() {
 	local model_name pod_name storage_name claim_name_prefix_regex
 	local pod_json pvc_name pvc_json pv_name storage_id
@@ -75,12 +87,13 @@ storage_id_for_pod() {
 }
 
 wait_for_active_units() {
-	local app_name expected_count
+	local app_name expected_count app_index
 
 	app_name=${1}
 	expected_count=${2}
+	app_index=${3:-0}
 
-	wait_for "${app_name}" "$(active_condition "${app_name}" 0)"
+	wait_for "${app_name}" "$(active_condition "${app_name}" "$app_index")"
 	wait_for "${expected_count}" ".applications[\"${app_name}\"].units | map(select(.[\"workload-status\"].current == \"active\")) | length"
 }
 
@@ -667,6 +680,47 @@ test_remove_app_while_storage_update_stuck() {
 	# Remove app while storage update is stuck.
 	juju remove-application postgresql-k8s --no-prompt
 	wait_for "{}" ".applications"
+
+	destroy_model "${model_name}"
+}
+
+# Scenario: updating storage pool that uses different provider type.
+# Expected outcome: update is rejected.
+test_update_storage_constraints_validation_error() {
+	if [ "$(skip 'test_update_storage_constraints_validation_error')" ]; then
+		echo "==> TEST SKIPPED: test_update_storage_constraints_validation_error"
+		return
+	fi
+
+	echo
+	model_name="update-storage-constraints-validation-error"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	juju deploy postgresql-k8s --channel 14/stable db1 --storage=pgdata=kubernetes --trust
+	wait_for_active_units "db1" 1 0
+	OUT=$(juju application-storage db1 pgdata=tmpfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "kubernetes" to "tmpfs"'
+	OUT=$(juju application-storage db1 pgdata=rootfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "kubernetes" to "rootfs"'
+
+	juju deploy postgresql-k8s --channel 14/stable db2 --storage=pgdata=tmpfs --trust
+	wait_for_active_units "db2" 1 1
+	OUT=$(juju application-storage db2 pgdata=kubernetes 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "tmpfs" to "kubernetes"'
+	OUT=$(juju application-storage db2 pgdata=rootfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "tmpfs" to "rootfs"'
+	OUT=$(juju application-storage db2 pgdata=2GB 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current size: 1024 to 2048'
+
+	juju deploy postgresql-k8s --channel 14/stable db3 --storage=pgdata=rootfs --trust
+	wait_for_active_units "db3" 1 2
+	OUT=$(juju application-storage db3 pgdata=kubernetes 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "rootfs" to "kubernetes"'
+	OUT=$(juju application-storage db3 pgdata=tmpfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current provider type: "rootfs" to "tmpfs"'
+	OUT=$(juju application-storage db3 pgdata=2GB 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: updating current size: 1024 to 2048'
 
 	destroy_model "${model_name}"
 }
