@@ -7,7 +7,6 @@ import (
 	"context"
 	stdtesting "testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -53,10 +52,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.GetObjectStoreService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -81,7 +76,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 			return s.session, nil
 		},
 		Logger: s.logger,
-		Clock:  clock.WallClock,
 		GetObjectStoreService: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
 			return s.objectStoreService, nil
 		},

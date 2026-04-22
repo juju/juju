@@ -6,7 +6,6 @@ package objectstores3caller
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -38,8 +37,6 @@ type ManifoldConfig struct {
 	NewClient NewClientFunc
 	// Logger is used to write logging statements for the worker.
 	Logger logger.Logger
-	// Clock is used for the retry mechanism.
-	Clock clock.Clock
 
 	// GetObjectStoreService is used to get a service from the manifold.
 	GetObjectStoreService GetObjectStoreServiceFunc
@@ -58,9 +55,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if cfg.GetObjectStoreService == nil {
 		return errors.NotValidf("nil GetObjectStoreService")
@@ -110,7 +104,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		HTTPClient:         httpClient,
 		NewClient:          config.NewClient,
 		Logger:             config.Logger,
-		Clock:              config.Clock,
 	})
 }
 

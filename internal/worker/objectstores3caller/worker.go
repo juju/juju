@@ -6,11 +6,8 @@ package objectstores3caller
 import (
 	"context"
 	"sync"
-	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
@@ -27,14 +24,6 @@ const (
 	// States which report the state of the worker.
 	stateStarted       = "started"
 	stateClientUpdated = "client-updated"
-)
-
-const (
-	// default retry strategy for when the forbidden error is returned.
-	defaultRetryAttempts    = 10
-	defaultRetryDelay       = time.Microsecond * 1
-	defaultRetryMaxDelay    = time.Microsecond * 20
-	defaultRetryMaxDuration = time.Second
 )
 
 // ObjectStoreService provides access to the object store for changes to
@@ -55,7 +44,6 @@ type workerConfig struct {
 	HTTPClient         s3client.HTTPClient
 	NewClient          NewClientFunc
 	Logger             logger.Logger
-	Clock              clock.Clock
 }
 
 // Validate returns an error if the workerConfig is not valid.
@@ -68,9 +56,6 @@ func (cfg workerConfig) Validate() error {
 	}
 	if cfg.NewClient == nil {
 		return errors.NotValidf("nil NewClient")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -122,37 +107,21 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 	return w, nil
 }
 
-// Session calls the given function with a session.
-// The func maybe called multiple times if the underlying session has
-// invalid credentials. Therefore session might not be the same across
-// calls. The function should be idempotent.
+// Session calls the given function with a session. The session is the
+// current session held by the worker, which is updated by the loop when
+// the backend changes.
 func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objectstore.Session) error) error {
 	ctx, trace := coretrace.Start(ctx, coretrace.NameFromFunc())
 	defer trace.End()
 
-	return retry.Call(retry.CallArgs{
-		Func: func() error {
-			w.mutex.Lock()
-			defer w.mutex.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 
-			if w.session == nil {
-				return internalerrors.Errorf("no session available").Add(errors.NotSupported)
-			}
+	if w.session == nil {
+		return internalerrors.Errorf("no session available").Add(errors.NotSupported)
+	}
 
-			return fn(ctx, w.session)
-		},
-		IsFatalError: func(err error) bool {
-			// If the forbidden error is returned, then it's not fatal, retry
-			// the operation.
-			return !errors.Is(err, errors.Forbidden)
-		},
-		Attempts:    defaultRetryAttempts,
-		Delay:       defaultRetryDelay,
-		MaxDuration: defaultRetryMaxDuration,
-		BackoffFunc: retry.ExpBackoff(defaultRetryDelay, defaultRetryMaxDelay, 1.5, true),
-		Clock:       w.config.Clock,
-		Stop:        ctx.Done(),
-	})
+	return fn(ctx, w.session)
 }
 
 // Kill is part of the worker.Worker interface.

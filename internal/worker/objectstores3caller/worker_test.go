@@ -9,7 +9,6 @@ import (
 	stdtesting "testing"
 	time "time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -104,7 +103,7 @@ func (s *workerSuite) TestSessionNotSupportedForFileBackend(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
+func (s *workerSuite) TestSessionForbiddenIsNotRetried(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGetActiveBackendS3(c)
@@ -115,25 +114,15 @@ func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	var attempt int
-	var session objectstore.Session
-	err := worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
-		session = sess
-
-		attempt++
-		if attempt == 1 {
-			return errors.Forbiddenf("not today")
-		}
-		return nil
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		return errors.Forbiddenf("not today")
 	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(session, tc.Equals, s.session)
-	c.Check(attempt, tc.Equals, 2)
+	c.Assert(err, tc.ErrorIs, errors.Forbidden)
 
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsNotRetried(c *tc.C) {
+func (s *workerSuite) TestSessionErrorPropagated(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGetActiveBackendS3(c)
@@ -144,18 +133,15 @@ func (s *workerSuite) TestSessionIsNotRetried(c *tc.C) {
 
 	s.ensureStartup(c)
 
-	var attempt int
 	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
-		attempt++
 		return errors.Errorf("boom")
 	})
 	c.Assert(err, tc.ErrorMatches, `boom`)
-	c.Check(attempt, tc.Equals, 1)
 
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
+func (s *workerSuite) TestSessionIsChangedByWatcher(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string)
@@ -164,27 +150,7 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 	s.expectWatchObjectStoreBackendWithChanges(changes)
 
 	triggerDone := make(chan struct{})
-	// Now wait for the change to be processed and a new backend
-	// to be fetched.
 	s.expectGetActiveBackendS3WithDone(triggerDone)
-
-	// triggerChange sends a change to the watcher and waits for the
-	// worker to process it.
-	triggerChange := func() {
-		// Send a change to the watcher.
-		go func() {
-			select {
-			case changes <- []string{"backend-changed"}:
-			case <-c.Context().Done():
-				c.Fatalf("timed out sending change")
-			}
-		}()
-
-		select {
-		case <-triggerDone:
-		case <-c.Context().Done():
-		}
-	}
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
@@ -192,27 +158,43 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 	// Wait for the initial startup to complete.
 	s.ensureStartup(c)
 
-	var attempt atomic.Int32
-	err := worker.Session(c.Context(), func(ctx context.Context, session objectstore.Session) error {
-		if attempt.Add(1) == 1 {
-			triggerChange()
-			return errors.Forbiddenf("try again")
-		}
+	// Verify the initial session works.
+	err := worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+		c.Check(sess, tc.Equals, s.session)
 		return nil
 	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Send a change to the watcher.
+	select {
+	case changes <- []string{"backend-changed"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	// Wait for the worker to process the change.
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
 
 	s.ensureClientUpdated(c)
 
+	// Session should still work after the change.
+	err = worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+		c.Check(sess, tc.Equals, s.session)
+		return nil
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(attempt.Load(), tc.Equals, int32(2))
 
-	// Ensure we called new client twice.
+	// Two clients created: initial + watcher refresh.
 	c.Check(atomic.LoadInt64(&s.sessionRefCount), tc.Equals, int64(2))
 
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
+func (s *workerSuite) TestSessionBecomesNilOnFileBackendChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changes := make(chan []string)
@@ -221,62 +203,42 @@ func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
 	s.expectWatchObjectStoreBackendWithChanges(changes)
 
 	triggerDone := make(chan struct{})
-	// The watcher fires, and the worker will re-fetch the backend.
+	// After the watcher fires, the backend returns file (no S3 creds).
 	s.expectGetActiveBackendFileWithDone(triggerDone)
-
-	// triggerChange sends a change to the watcher and waits for the
-	// worker to process it. This sends a generic change that triggers
-	// the worker to re-fetch the backend info.
-	triggerChange := func() {
-		// Send a change to the watcher.
-		go func() {
-			select {
-			case changes <- []string{"something-changed"}:
-			case <-c.Context().Done():
-				c.Fatalf("timed out sending change")
-			}
-		}()
-
-		select {
-		case <-triggerDone:
-		case <-c.Context().Done():
-		}
-	}
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
 
-	// Wait for the initial startup to complete.
 	s.ensureStartup(c)
 
-	// Done is to ensure we actively retry all the scenario before allowing
-	// the test to finish.
-	done := make(chan struct{})
-
-	var attempt atomic.Int32
-	err := worker.Session(c.Context(), func(ctx context.Context, session objectstore.Session) error {
-		if attempt.Add(1) == 1 {
-			triggerChange()
-			return errors.Forbiddenf("try again")
-		}
-
-		// We're done, the test can complete.
-		defer close(done)
-
+	// Initially session exists.
+	err := worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+		c.Check(sess, tc.NotNil)
 		return nil
 	})
+	c.Assert(err, tc.ErrorIsNil)
 
+	// Send a change to the watcher.
 	select {
-	case <-done:
+	case changes <- []string{"backend-changed"}:
 	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for session retry to complete")
+		c.Fatalf("timed out sending change")
 	}
 
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(attempt.Load(), tc.Equals, int32(2))
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
 
-	// The client was refreshed since the watcher fired.
-	c.Check(atomic.LoadInt64(&s.sessionRefCount), tc.Equals, int64(1))
+	s.ensureClientUpdated(c)
+
+	// Now session should be nil (file backend), returning NotSupported.
+	err = worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 
 	workertest.CleanKill(c, worker)
 }
@@ -325,19 +287,21 @@ func (s *workerSuite) getConfig() workerConfig {
 			return s.session, nil
 		},
 		Logger: s.logger,
-		Clock:  clock.WallClock,
 	}
 }
 
 func (s *workerSuite) expectGetActiveBackendS3WithDone(done chan struct{}) {
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
 		DoAndReturn(func(context.Context) (objectstoreservice.BackendInfo, error) {
 			defer close(done)
 			return objectstoreservice.BackendInfo{
 				Type:      "s3",
-				Endpoint:  new("https://s3.example.com"),
-				AccessKey: new("access-key"),
-				SecretKey: new("secret-key"),
+				Endpoint:  &endpoint,
+				AccessKey: &accessKey,
+				SecretKey: &secretKey,
 			}, nil
 		})
 }
