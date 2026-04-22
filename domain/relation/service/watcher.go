@@ -507,6 +507,26 @@ func (w *lifeSuspendedStatusWatcher[T]) GetMapper() eventsource.Mapper {
 // loop rather than error or assume the happy case.
 const continueError = errors.ConstError("continue")
 
+// removedRelationKey builds a final change event for a relation that has been
+// removed. Key-based consumers rely on this to clean up state they hold under
+// the endpoint-derived relation key (e.g. the uniter's remote-state watcher).
+// If the relation was never seen, there is nothing to notify.
+func removedRelationKey(
+	current map[corerelation.UUID]relation.RelationLifeSuspendedData,
+	relUUID corerelation.UUID,
+) (corerelation.Key, error) {
+	previous, seen := current[relUUID]
+	delete(current, relUUID)
+	if !seen {
+		return nil, continueError
+	}
+	key, err := corerelation.NewKey(previous.EndpointIdentifiers)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return key, nil
+}
+
 func (w *lifeSuspendedStatusWatcher[T]) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
@@ -594,8 +614,7 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
-		delete(w.currentRelations, relUUID)
-		return nil, continueError
+		return removedRelationKey(w.currentRelations, relUUID)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -669,8 +688,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) processChange(
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
-		delete(w.currentRelations, relUUID)
-		return nil, continueError
+		return removedRelationKey(w.currentRelations, relUUID)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}

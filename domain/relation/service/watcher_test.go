@@ -246,6 +246,94 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), tc.IsTrue)
 }
 
+// TestSubordinateRelationRemovedKnown verifies that when a known relation is
+// removed (RelationNotFound), filterChangeEvents emits the endpoint key so
+// that key-based consumers (e.g. the uniter remote-state watcher) can clean
+// up their state.
+func (s *watcherSuite) TestSubordinateRelationRemovedKnown(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+
+	existingData := relation.RelationLifeSuspendedData{
+		EndpointIdentifiers: []corerelation.EndpointIdentifier{
+			{ApplicationName: "subordinate", EndpointName: "ep", Role: charm.RoleRequirer},
+			{ApplicationName: "principal", EndpointName: "ep", Role: charm.RoleProvider},
+		},
+		Life:      life.Alive,
+		Suspended: false,
+	}
+
+	// The relation has been removed from the database.
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, subordinateID, relation.RelationLifeSuspendedData{}, relationerrors.RelationNotFound,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
+	watcher.currentRelations = map[corerelation.UUID]relation.RelationLifeSuspendedData{
+		relUUID: existingData,
+	}
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: a single change event is emitted with the endpoint key, so
+	// the consumer can clean up its key-indexed state.
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
+	c.Assert(keyErr, tc.IsNil)
+	c.Check(obtained[0], tc.Equals, expectedKey.String())
+	// The relation must be removed from currentRelations.
+	c.Check(watcher.currentRelations, tc.HasLen, 0)
+	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
+}
+
+// TestSubordinateRelationRemovedUnknown verifies that when a relation the
+// watcher has never seen is removed (RelationNotFound), no change event is
+// emitted.
+func (s *watcherSuite) TestSubordinateRelationRemovedUnknown(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+
+	// The relation has been removed but was never tracked.
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, subordinateID, relation.RelationLifeSuspendedData{}, relationerrors.RelationNotFound,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
+	// currentRelations is empty: this UUID was never seen.
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: nothing to clean up, no event emitted.
+	c.Assert(err, tc.IsNil)
+	c.Check(obtained, tc.HasLen, 0)
+	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
+}
+
 func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplicationApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
