@@ -586,6 +586,10 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 		return nil
 	}
 
+	if w.icfg.Bootstrap.ControllerSnapPath == "" {
+		return w.addControllerSnapStoreInstall()
+	}
+
 	snapPath := w.icfg.Bootstrap.ControllerSnapPath
 	if snapPath == "" {
 		return nil
@@ -603,6 +607,42 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 	} else {
 		w.conf.AddRunCmd(fmt.Sprintf("snap install --dangerous %s", snapFile))
 		logger.Debugf(context.TODO(), "added snap install --dangerous command for %q", snapFile)
+	}
+
+	return nil
+}
+
+func (w *userdataConfig) addControllerSnapStoreInstall() error {
+	packageName := bootstrap.ControllerSnapPackageName
+	channel := w.icfg.Bootstrap.ControllerSnapChannel
+	if channel == "" {
+		agentVersion := w.icfg.AgentVersion().Number
+		channel = fmt.Sprintf("%d.%d/edge", agentVersion.Major, agentVersion.Minor)
+	}
+
+	snapDir := w.icfg.SnapDir()
+	snapFile := path.Join(snapDir, packageName+".snap")
+	assertFile := path.Join(snapDir, packageName+".assert")
+
+	w.conf.AddRunCmd(fmt.Sprintf("mkdir -p %s", shquote(snapDir)))
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd(
+		"Downloading controller snap %q from channel %q", packageName, channel,
+	))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		"(cd %s && snap download %s --channel=%s --basename=%s)",
+		shquote(snapDir), shquote(packageName), shquote(channel), shquote(packageName),
+	))
+	w.conf.AddRunCmd(fmt.Sprintf("snap ack %s", shquote(assertFile)))
+	w.conf.AddRunCmd(fmt.Sprintf("snap install %s", shquote(snapFile)))
+
+	if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd(
+			"Validating installed controller snap version matches %q", expected,
+		))
+		w.conf.AddRunCmd(fmt.Sprintf(
+			`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
+			shquote(packageName), shquote(expected), expected,
+		))
 	}
 
 	return nil
@@ -659,7 +699,7 @@ func (w *userdataConfig) addDownloadToolsCmds() error {
 		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			tools.SHA256, tools.Version),
-		"tar zxf $bin/tools.tar.gz -C $bin",
+		"tar zxf $bin/tools.tar.gz -C $bin --no-same-owner",
 	)
 
 	toolsJson, err := json.Marshal(tools)

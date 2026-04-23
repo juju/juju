@@ -195,6 +195,14 @@ type BootstrapParams struct {
 	// ControllerSnapRevision is used to install an earlier version of the
 	// controller snap.
 	ControllerSnapRevision string
+
+	// ControllerSnapResolvedChannel is the effective channel used for
+	// controller snapstore bootstrap.
+	ControllerSnapResolvedChannel string
+
+	// ControllerSnapExpectedVersion is the exact Juju version expected from
+	// the controller snap.
+	ControllerSnapExpectedVersion string
 }
 
 // Validate validates the bootstrap parameters.
@@ -461,6 +469,24 @@ func bootstrapIAAS(
 		// auto-discover the arch from the provider, we'll fall back
 		// to bootstrapping on the same arch as the CLI client.
 		bootstrapArch = localToolsArch()
+	}
+
+	if featureflag.Enabled(featureflag.ControllerSnap) {
+		if args.ControllerSnapPath == "" && args.ControllerSnapRevision == "" {
+			args.ControllerSnapResolvedChannel = fmt.Sprintf(
+				"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
+			)
+			resolvedVersion, err := resolveSnapChannelVersion(ctx, args.ControllerSnapResolvedChannel)
+			if err != nil {
+				return errors.Annotate(err, "resolving controller snap version")
+			}
+			args.ControllerSnapExpectedVersion = resolvedVersion
+			ctx.Infof(
+				"Resolved controller snap channel %q to version %s",
+				args.ControllerSnapResolvedChannel,
+				args.ControllerSnapExpectedVersion,
+			)
+		}
 	}
 
 	agentVersion := jujuversion.Current
@@ -814,6 +840,8 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+	icfg.Bootstrap.ControllerSnapChannel = args.ControllerSnapResolvedChannel
+	icfg.Bootstrap.ControllerSnapExpectedVersion = args.ControllerSnapExpectedVersion
 	return nil
 }
 
