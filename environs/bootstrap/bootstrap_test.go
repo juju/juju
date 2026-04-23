@@ -1089,6 +1089,32 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapNotPlumbedWithoutFeatureFlag
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
 }
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	resolvedVersion := jujuversion.Current.ToPatch()
+	channel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("%s: %s\n", channel, resolvedVersion.String()), nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapChannel, tc.Equals, channel)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+}
+
 func createImageMetadata(c *tc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
 	return createImageMetadataForArch(c, "amd64")
 }

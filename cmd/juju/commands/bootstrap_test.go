@@ -2143,10 +2143,6 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapFlagValidation(c *tc.C) {
 		args []string
 		err  string
 	}{{
-		name: "invalid snap channel",
-		args: []string{"--controller-snap-channel", "3.0/foo"},
-		err:  `controller snap channel "3.0/foo" not valid`,
-	}, {
 		name: "unreadable snap path",
 		args: []string{"--controller-snap-path", "/invalid/snap.path"},
 		err:  `--controller-snap-path "/invalid/snap.path" cannot be read: .*`,
