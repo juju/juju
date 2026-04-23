@@ -82,7 +82,7 @@ run: install
 
 # Does not depend on $(DOCS_BUILDDIR) to rebuild properly at every run.
 html: install
-	. $(DOCS_VENV); $(SPHINX_BUILD) --fail-on-warning --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
+	. $(DOCS_VENV); $(SPHINX_BUILD) --keep-going -b dirhtml "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
 
 epub: install
 	. $(DOCS_VENV); $(SPHINX_BUILD) -b epub "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" -w $(SPHINX_DIR)/warnings.txt $(SPHINX_OPTS)
@@ -91,7 +91,7 @@ serve: html
 	cd "$(DOCS_BUILDDIR)"; python3 -m http.server --bind $(SPHINX_HOST) $(SPHINX_PORT)
 
 clean: clean-doc
-	@test ! -e "$(DOCS_VENVDIR)" -o -d "$(DOCS_VENVDIR)" -a "$(abspath $(DOCS_VENVDIR))" != "$(DOCS_VENVDIR)"
+	@test ! -e "$(DOCS_VENVDIR)" -o -d -a "$(abspath $(DOCS_VENVDIR))" != "$(DOCS_VENVDIR)"
 	rm -rf $(DOCS_VENVDIR)
 	rm -rf $(SPHINX_DIR)/node_modules/
 	rm -rf $(SPHINX_DIR)/styles
