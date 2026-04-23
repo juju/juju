@@ -158,8 +158,6 @@ html_context = {
     'github_issues': 'enabled',
 }
 
-html_extra_path = ['.sphinx/_extra']
-
 # Allow opt-in build of the OpenAPI "Hello" example so docs stay clean by default.
 # if os.getenv("OPENAPI", ""):
 #     tags.add("openapi")
@@ -333,14 +331,14 @@ exclude_patterns = [
 
 html_css_files = [
     "css/pdf.css",
-    "css/cookie-banner.css",
+    "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
 html_js_files = [
-    "js/bundle.js",
+    "https://assets.ubuntu.com/v1/287a5e8f-bundle.js",
 ]
 
 # Specifies a reST snippet to be appended to each .rst file
