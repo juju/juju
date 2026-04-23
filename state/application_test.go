@@ -6417,6 +6417,212 @@ func (s *ApplicationSuite) TestUpdateStorageConstraintsConcurrentCharmUpdateInco
 	})
 }
 
+// TestUpdateStorageConstraintsWithInitialKubernetesProviderType tests that initial storage with kubernetes provider type
+// cannot be changed to a different type (tmpfs or rootfs). It can only be changed to a pool that is backed
+// by a kubernetes provider type.
+func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialKubernetesProviderType(c *gc.C) {
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{},
+			"tmpfs":      &dummy.StorageProvider{},
+			"rootfs":     &dummy.StorageProvider{},
+		},
+	}
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
+	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
+
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	// Create a new pool backed by kubernetes provider type.
+	_, err := pm.Create("coolpool", "kubernetes", map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "kubernetes",
+			Size:  100,
+			Count: 1,
+		},
+	})
+
+	// Updating from kubernetes to tmpfs is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "tmpfs"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"kubernetes\" to \"tmpfs\"")
+
+	// Updating from kubernetes to rootfs is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "rootfs"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"kubernetes\" to \"rootfs\"")
+
+	// Updating to a different pool backed by kubernetes is allowed.
+	var size uint64 = 500
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Size: &size,
+			Pool: "coolpool",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateStorageConstraintsWithInitialTmpfsProviderType tests that initial storage with tmpfs provider type
+// cannot be changed to a different type (rootfs or kubernetes), size or count.
+func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProviderType(c *gc.C) {
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{},
+			"tmpfs":      &dummy.StorageProvider{},
+			"rootfs":     &dummy.StorageProvider{},
+		},
+	}
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
+	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
+
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	// Create a new pool backed by kubernetes provider type.
+	_, err := pm.Create("coolpool", "kubernetes", map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "tmpfs",
+			Size:  100,
+			Count: 1,
+		},
+	})
+
+	// Updating from tmpfs to kubernetes is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "kubernetes"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"kubernetes\"")
+
+	// Updating from tmpfs to rootfs is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "rootfs"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"rootfs\"")
+
+	// Updating to a different pool backed by a different provider type is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Pool: "coolpool",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"kubernetes\"")
+
+	var size uint64 = 500
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Size: &size,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current size: 100 to 500")
+
+	var count uint64 = 5
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Count: &count,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current count: 1 to 5")
+}
+
+// TestUpdateStorageConstraintsWithInitialRootfsProviderType tests that initial storage with rootfs provider type
+// cannot be changed to a different type (tmpfs or kubernetes), size or count.
+func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProviderType(c *gc.C) {
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{},
+			"tmpfs":      &dummy.StorageProvider{},
+			"rootfs":     &dummy.StorageProvider{},
+		},
+	}
+
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
+		CloudName: "caascloud",
+	})
+	s.AddCleanup(func(_ *gc.C) { _ = st.Close() })
+
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	// Create a new pool backed by kubernetes provider type.
+	_, err := pm.Create("coolpool", "kubernetes", map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+		"database": {
+			Pool:  "rootfs",
+			Size:  100,
+			Count: 1,
+		},
+	})
+
+	// Updating from rootfs to kubernetes is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "kubernetes"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"kubernetes\"")
+
+	// Updating from rootfs to tmpfs is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {Pool: "tmpfs"},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"tmpfs\"")
+
+	// Updating to a different pool backed by a different provider type is not allowed.
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Pool: "coolpool",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"kubernetes\"")
+
+	var size uint64 = 500
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Size: &size,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current size: 100 to 500")
+
+	var count uint64 = 5
+	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
+		"database": {
+			Count: &count,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current count: 1 to 5")
+}
+
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	registry := &storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{
