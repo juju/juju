@@ -346,7 +346,7 @@ echo 'Fetching Juju agent version.*
 .* curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
@@ -381,7 +381,7 @@ echo 'Fetching Juju agent version.*
 curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3\.123-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3\.123-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
@@ -414,7 +414,7 @@ echo 'Fetching Juju agent version.*
 .* curl -sSf --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
@@ -735,6 +735,23 @@ snap ack %[3]s
 snap install %[1]s`,
 		snapFile, base64Snap, assertFile, base64Assert,
 	))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnap(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg.Bootstrap.ControllerSnapChannel = "4.0/stable"
+		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
+	})
+
+	expectedScripts := regexp.QuoteMeta(`
+mkdir -p '/var/lib/juju/snap'
+(cd '/var/lib/juju/snap' && snap download 'juju' --channel='4.0/stable' --basename='juju')
+snap ack '/var/lib/juju/snap/juju.assert'
+snap install '/var/lib/juju/snap/juju.snap'
+installed_version=$(snap list 'juju' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected 4.0.1, got $installed_version"; exit 1)`)
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
