@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -58,7 +57,7 @@ func (s *streamSuite) TestWithNoNamespace(c *tc.C) {
 	select {
 	case <-stream.Terms():
 		c.Fatal("timed out waiting for term")
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 	}
 
 	workertest.CleanKill(c, stream)
@@ -81,7 +80,7 @@ func (s *streamSuite) TestNoData(c *tc.C) {
 	select {
 	case <-stream.Terms():
 		c.Fatal("timed out waiting for term")
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 	}
 
 	workertest.CleanKill(c, stream)
@@ -113,7 +112,7 @@ func (s *streamSuite) TestOneChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -152,7 +151,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -169,7 +168,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -208,7 +207,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *tc.C) {
 		results = term.Changes()
 		term.Done(true, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -247,7 +246,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *tc.C) {
 		close(ch)
 		term.Done(false, ch)
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -284,7 +283,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -323,7 +322,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -368,7 +367,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *tc.C) {
 		// the worker is bounced, so we'll just let the term timeout.
 		<-time.After(witnessChangeShortDuration)
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -411,7 +410,7 @@ func (s *streamSuite) TestMultipleTerms(c *tc.C) {
 			results = term.Changes()
 			term.Done(false, make(chan struct{}))
 
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 
@@ -472,7 +471,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *tc.C) {
 			results = term.Changes()
 			term.Done(true, make(chan struct{}))
 
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 
@@ -626,7 +625,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -672,7 +671,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -737,7 +736,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -810,7 +809,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -852,7 +851,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 		}()
 		select {
 		case <-notified:
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for blocking change")
 		}
 	}
@@ -877,7 +876,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -948,7 +947,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 			c.Check(data["last-recorded-watermark"], tc.Equals, "")
 
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
@@ -962,7 +961,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
 			}
-			<-time.After(testing.LongWait)
+			<-c.Context().Done()
 		}
 		c.Fatalf("timed out waiting for sync point")
 		return nil
@@ -976,13 +975,13 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1040,20 +1039,20 @@ func (s *streamSuite) TestWatermarkWrite(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1104,20 +1103,20 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1169,7 +1168,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
@@ -1180,13 +1179,13 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
