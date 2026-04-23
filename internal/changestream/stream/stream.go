@@ -241,6 +241,7 @@ func (s *Stream) loop() error {
 	s.reportState(stateBegin)
 
 	var attempt int
+OUTER:
 	for {
 		select {
 		case <-s.tomb.Dying():
@@ -312,7 +313,7 @@ func (s *Stream) loop() error {
 				// the db was slow. In any case, continue and let the worker
 				// die if it's dying.
 				if errors.Is(errors.Cause(err), context.Canceled) {
-					continue
+					continue OUTER
 				}
 				// If we get an error attempting to read the changes, the Txn
 				// will have retried multiple times. There just isn't anything
@@ -338,7 +339,7 @@ func (s *Stream) loop() error {
 				attempt++
 
 				if traceEnabled {
-					s.logger.Tracef(ctx, "no changes, with attempt %d", attempt)
+					s.logger.Tracef(ctx, "no changes with attempt %d", attempt)
 				}
 
 				select {
@@ -348,7 +349,7 @@ func (s *Stream) loop() error {
 					if err := s.reportIdleState(ctx, attempt); err != nil {
 						return errors.Trace(err)
 					}
-					continue
+					continue OUTER
 				}
 			}
 
@@ -418,7 +419,7 @@ func (s *Stream) loop() error {
 					// when the worker is dying. We don't want to block the
 					// change stream, so we just continue.
 					s.logger.Infof(ctx, "term has been aborted")
-					continue
+					continue OUTER
 				}
 
 				// Only when the term is completed, do we update the lower
@@ -447,7 +448,7 @@ func (s *Stream) loop() error {
 					case <-s.tomb.Dying():
 						return tomb.ErrDying
 					case <-s.clock.After(backOffStrategy(0, attempt)):
-						continue
+						continue OUTER
 					}
 				}
 
