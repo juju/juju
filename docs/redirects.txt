@@ -1,4 +1,7 @@
 # <old URL> <new URL>
+# redirect old version release notes to main releasenotes page
+releasenotes/juju_3.6.x releasenotes
+releasenotes/juju_2.9.x releasenotes
 reference/juju/juju-roadmap-and-releases releasenotes
 reference/plugin/ reference
 reference/plugin/list-of-known-juju-plugins/#list-of-known-juju-plugins reference

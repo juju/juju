@@ -13,8 +13,6 @@ myst:
 :glob:
 
 Juju 4.0 <juju_4.0.x/index>
-Juju 3.6 (LTS) <juju_3.6.x>
-Juju 2.9 (LTS) <juju_2.9.x>
 Out of support <unsupported/index>
 ```
 
