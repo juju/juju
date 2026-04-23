@@ -334,6 +334,170 @@ func (s *watcherSuite) TestSubordinateRelationRemovedUnknown(c *tc.C) {
 	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
 }
 
+// TestSubordinateAppNotFoundForTrackedRelation verifies that when
+// ApplicationNotFoundForRelation is returned for a relation that was
+// previously tracked, the watcher emits the old key and removes the
+// relation from currentRelations.
+func (s *watcherSuite) TestSubordinateAppNotFoundForTrackedRelation(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+
+	existingData := relation.RelationLifeSuspendedData{
+		EndpointIdentifiers: []corerelation.EndpointIdentifier{
+			{ApplicationName: "subordinate", EndpointName: "ep", Role: charm.RoleRequirer},
+			{ApplicationName: "principal", EndpointName: "ep", Role: charm.RoleProvider},
+		},
+		Life:      life.Alive,
+		Suspended: false,
+	}
+
+	// relation_endpoint rows removed before relation row during teardown.
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, subordinateID, relation.RelationLifeSuspendedData{}, relationerrors.ApplicationNotFoundForRelation,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
+	watcher.currentRelations = map[corerelation.UUID]relation.RelationLifeSuspendedData{
+		relUUID: existingData,
+	}
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: the old key is emitted and the relation is cleaned up.
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
+	c.Assert(keyErr, tc.IsNil)
+	c.Check(obtained[0], tc.Equals, expectedKey.String())
+	c.Check(watcher.currentRelations, tc.HasLen, 0)
+	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
+}
+
+// TestSubordinateAppNotFoundForUntrackedRelation verifies that when
+// ApplicationNotFoundForRelation is returned for a relation that was
+// never tracked, the relation is added to relationsIgnored.
+func (s *watcherSuite) TestSubordinateAppNotFoundForUntrackedRelation(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	principalID := tc.Must(c, coreapplication.NewUUID)
+	subordinateID := tc.Must(c, coreapplication.NewUUID)
+
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, subordinateID, relation.RelationLifeSuspendedData{}, relationerrors.ApplicationNotFoundForRelation,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getSubordinateWatcher(principalID, subordinateID)
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: no event emitted, relation is ignored.
+	c.Assert(err, tc.IsNil)
+	c.Check(obtained, tc.HasLen, 0)
+	c.Check(relationsIgnored.Contains(relUUID.String()), tc.IsTrue)
+}
+
+// TestPrincipalAppNotFoundForTrackedRelation verifies that when
+// ApplicationNotFoundForRelation is returned for a previously tracked
+// relation, the principal watcher emits the old key.
+func (s *watcherSuite) TestPrincipalAppNotFoundForTrackedRelation(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
+
+	existingData := relation.RelationLifeSuspendedData{
+		EndpointIdentifiers: []corerelation.EndpointIdentifier{
+			{ApplicationName: "app", EndpointName: "ep", Role: charm.RoleRequirer},
+			{ApplicationName: "other", EndpointName: "ep", Role: charm.RoleProvider},
+		},
+		Life:      life.Alive,
+		Suspended: false,
+	}
+
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, appID, relation.RelationLifeSuspendedData{}, relationerrors.ApplicationNotFoundForRelation,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getPrincipalWatcher(appID)
+	watcher.currentRelations = map[corerelation.UUID]relation.RelationLifeSuspendedData{
+		relUUID: existingData,
+	}
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: the old key is emitted and the relation is cleaned up.
+	c.Assert(err, tc.IsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
+	c.Assert(keyErr, tc.IsNil)
+	c.Check(obtained[0], tc.Equals, expectedKey.String())
+	c.Check(watcher.currentRelations, tc.HasLen, 0)
+	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
+}
+
+// TestPrincipalAppNotFoundForUntrackedRelation verifies that when
+// ApplicationNotFoundForRelation is returned for a never-tracked
+// relation, the principal watcher adds it to relationsIgnored.
+func (s *watcherSuite) TestPrincipalAppNotFoundForUntrackedRelation(c *tc.C) {
+	// Arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := testing.GenRelationUUID(c)
+	appID := tc.Must(c, coreapplication.NewUUID)
+
+	s.expectGetMapperDataForWatchLifeSuspendedStatus(
+		relUUID, appID, relation.RelationLifeSuspendedData{}, relationerrors.ApplicationNotFoundForRelation,
+	)
+	change := s.expectChanged(ctrl, relUUID)
+
+	watcher := s.getPrincipalWatcher(appID)
+
+	// Act
+	relationsIgnored := set.NewStrings()
+	obtained, err := watcher.filterChangeEvents(
+		c.Context(),
+		[]changestream.ChangeEvent{change},
+		relationsIgnored,
+	)
+
+	// Assert: no event emitted, relation is ignored.
+	c.Assert(err, tc.IsNil)
+	c.Check(obtained, tc.HasLen, 0)
+	c.Check(relationsIgnored.Contains(relUUID.String()), tc.IsTrue)
+}
+
 func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplicationApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -400,6 +564,17 @@ func (s *watcherSuite) getSubordinateWatcher(principalID, subordinateID coreappl
 		s:             s.service,
 		appUUID:       subordinateID,
 		processChange: w.processChange,
+	}
+	return w
+}
+
+func (s *watcherSuite) getPrincipalWatcher(appID coreapplication.UUID) *principalLifeSuspendedStatusWatcher {
+	w := &principalLifeSuspendedStatusWatcher{}
+	w.lifeSuspendedStatusWatcher = lifeSuspendedStatusWatcher[corerelation.Key]{
+		s:                s.service,
+		appUUID:          appID,
+		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
+		processChange:    w.processChange,
 	}
 	return w
 }

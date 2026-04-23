@@ -611,6 +611,11 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 ) (corerelation.Key, error) {
 	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		// If the relation was previously tracked, emit the old key so
+		// the consumer can clean up. Only ignore truly unknown relations.
+		if _, seen := w.currentRelations[relUUID]; seen {
+			return removedRelationKey(w.currentRelations, relUUID)
+		}
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
@@ -685,6 +690,11 @@ func (w *subordinateLifeSuspendedStatusWatcher) processChange(
 ) (corerelation.Key, error) {
 	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		// If the relation was previously tracked, emit the old key so
+		// the consumer can clean up. Only ignore truly unknown relations.
+		if _, seen := w.currentRelations[relUUID]; seen {
+			return removedRelationKey(w.currentRelations, relUUID)
+		}
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
