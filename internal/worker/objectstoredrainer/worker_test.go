@@ -18,7 +18,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -176,7 +175,7 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
+
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
 	draining := make(chan struct{})

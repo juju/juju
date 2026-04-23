@@ -279,22 +279,14 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func makeDefaultConfig(objectType string) (controller.Config, map[string]string) {
 	return controller.Config{
-			controller.AuditingEnabled:           true,
-			controller.AuditLogCaptureArgs:       false,
-			controller.AuditLogMaxBackups:        10,
-			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.ObjectStoreType:           objectType,
-			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
-			controller.ObjectStoreS3StaticKey:    "static-key",
-			controller.ObjectStoreS3StaticSecret: "static-secret",
+			controller.AuditingEnabled:     true,
+			controller.AuditLogCaptureArgs: false,
+			controller.AuditLogMaxBackups:  10,
+			controller.PublicDNSAddress:    "controller.test.com:1234",
 		}, map[string]string{
-			controller.AuditingEnabled:           "true",
-			controller.AuditLogCaptureArgs:       "false",
-			controller.AuditLogMaxBackups:        "10",
-			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.ObjectStoreType:           objectType,
-			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
-			controller.ObjectStoreS3StaticKey:    "static-key",
-			controller.ObjectStoreS3StaticSecret: "static-secret",
+			controller.AuditingEnabled:     "true",
+			controller.AuditLogCaptureArgs: "false",
+			controller.AuditLogMaxBackups:  "10",
+			controller.PublicDNSAddress:    "controller.test.com:1234",
 		}
 }

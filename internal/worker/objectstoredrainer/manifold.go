@@ -214,7 +214,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	)
 	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
 		agentsObjectStoreType = cfg.ObjectStoreType()
-		configObjectStoreType = controllerConfig.ObjectStoreType()
+		configObjectStoreType = coreobjectstore.FileBackend
 		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
 
 		// We've bounced whilst draining, so we need to ensure that we don't

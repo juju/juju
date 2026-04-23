@@ -21,7 +21,6 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/errors"
@@ -152,7 +151,7 @@ func (s *AgentConfigUpdaterSuite) TestControllerAgentInfo(c *tc.C) {
 
 	wc := watchertest.NewMockStringsWatcher(nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.ObjectStoreType: objectstore.FileBackend.String(),
+		controller.DqliteBusyTimeout: "1s",
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 
@@ -179,7 +178,7 @@ func (s *AgentConfigUpdaterSuite) TestControllerAgentInfoNotOverwriteCert(c *tc.
 
 	wc := watchertest.NewMockStringsWatcher(nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.ObjectStoreType: objectstore.FileBackend.String(),
+		controller.DqliteBusyTimeout: "1s",
 	}, nil)
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(wc, nil)
 

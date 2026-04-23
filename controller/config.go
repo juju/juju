@@ -256,25 +256,6 @@ const (
 	// for open telemetry as a duration.
 	OpenTelemetryTailSamplingThreshold = "open-telemetry-tail-sampling-threshold"
 
-	// ObjectStoreType is the type of object store to use for storing blobs.
-	// This isn't currently allowed to be changed dynamically, that will come
-	// when we support multiple object store types (not including state).
-	ObjectStoreType = "object-store-type"
-
-	// ObjectStoreS3Endpoint is the endpoint to use for S3 object stores.
-	ObjectStoreS3Endpoint = "object-store-s3-endpoint"
-
-	// ObjectStoreS3StaticKey is the static key to use for S3 object stores.
-	ObjectStoreS3StaticKey = "object-store-s3-static-key"
-
-	// ObjectStoreS3StaticSecret is the static secret to use for S3 object
-	// stores.
-	ObjectStoreS3StaticSecret = "object-store-s3-static-secret"
-
-	// ObjectStoreS3StaticSession is the static session token to use for S3
-	// object stores.
-	ObjectStoreS3StaticSession = "object-store-s3-static-session"
-
 	// SystemSSHKeys returns the set of ssh keys that should be trusted by
 	// agents of this controller regardless of the model.
 	SystemSSHKeys = "system-ssh-keys"
@@ -531,11 +512,6 @@ var (
 		OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold,
-		ObjectStoreType,
-		ObjectStoreS3Endpoint,
-		ObjectStoreS3StaticKey,
-		ObjectStoreS3StaticSecret,
-		ObjectStoreS3StaticSession,
 		SystemSSHKeys,
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
@@ -593,11 +569,6 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 		DqliteBusyTimeout,
-		ObjectStoreType,
-		ObjectStoreS3Endpoint,
-		ObjectStoreS3StaticKey,
-		ObjectStoreS3StaticSecret,
-		ObjectStoreS3StaticSession,
 		SSHMaxConcurrentConnections,
 	)
 
@@ -1095,33 +1066,6 @@ func (c Config) OpenTelemetryTailSamplingThreshold() time.Duration {
 	return c.durationOrDefault(OpenTelemetryTailSamplingThreshold, DefaultOpenTelemetryTailSamplingThreshold)
 }
 
-// ObjectStoreType returns the type of object store to use for storing blobs.
-func (c Config) ObjectStoreType() objectstore.BackendType {
-	return objectstore.BackendType(c.asString(ObjectStoreType))
-}
-
-// ObjectStoreS3Endpoint returns the endpoint to use for S3 object stores.
-func (c Config) ObjectStoreS3Endpoint() string {
-	return c.asString(ObjectStoreS3Endpoint)
-}
-
-// ObjectStoreS3StaticKey returns the static key to use for S3 object stores.
-func (c Config) ObjectStoreS3StaticKey() string {
-	return c.asString(ObjectStoreS3StaticKey)
-}
-
-// ObjectStoreS3StaticSecret returns the static secret to use for S3 object
-// stores.
-func (c Config) ObjectStoreS3StaticSecret() string {
-	return c.asString(ObjectStoreS3StaticSecret)
-}
-
-// ObjectStoreS3StaticSession returns the static session token to use for S3
-// object stores.
-func (c Config) ObjectStoreS3StaticSession() string {
-	return c.asString(ObjectStoreS3StaticSession)
-}
-
 // SSHServerPort returns the port the SSH server listens on.
 func (c Config) SSHServerPort() int {
 	return c.intOrDefault(SSHServerPort, DefaultSSHServerPort)
@@ -1377,15 +1321,6 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[ObjectStoreType].(string); ok {
-		if v == "" {
-			return errors.NotValidf("empty object store type")
-		}
-		if _, err := objectstore.ParseObjectStoreType(v); err != nil {
-			return errors.NotValidf("invalid object store type %q", v)
-		}
-	}
-
 	if v, ok := c[JujudControllerSnapSource].(string); ok {
 		switch v {
 		case "legacy": // TODO(jujud-controller-snap): remove once jujud-controller snap is fully implemented.
@@ -1501,27 +1436,4 @@ func parseRatio(c Config, name string) (float64, error) {
 	default:
 		return 0, errors.Errorf("unexpected type %T", c[name])
 	}
-}
-
-// HasCompleteS3ControllerConfig returns true if the controller has a complete
-// S3 configuration. This includes an endpoint, static key, and static secret.
-func HasCompleteS3ControllerConfig(cfg Config) error {
-	endpoint := cfg.ObjectStoreS3Endpoint()
-	staticKey := cfg.ObjectStoreS3StaticKey()
-	staticSecret := cfg.ObjectStoreS3StaticSecret()
-	return HasCompleteS3Config(endpoint, staticKey, staticSecret)
-}
-
-// HasCompleteS3Config returns true if the S3 configuration is complete.
-func HasCompleteS3Config(endpoint, staticKey, staticSecret string) error {
-	if endpoint == "" {
-		return errors.New("missing S3 endpoint")
-	}
-	if staticKey == "" {
-		return errors.New("missing S3 static key")
-	}
-	if staticSecret == "" {
-		return errors.New("missing S3 static secret")
-	}
-	return nil
 }

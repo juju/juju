@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -370,7 +371,7 @@ func (w *Worker) loop() error {
 // HandleConfigChange starts the whole draining process if the object store
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
-	config, err := w.controllerConfigService.ControllerConfig(ctx)
+	_, err := w.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -380,7 +381,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	objectStoreType := config.ObjectStoreType()
+	objectStoreType := coreobjectstore.FileBackend
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	if !objectStoreTypeChanged {
