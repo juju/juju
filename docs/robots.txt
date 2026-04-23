@@ -1,4 +1,3 @@
 User-agent: *
-Disallow: /latest/
 
 Sitemap: https://documentation.ubuntu.com/juju/sitemapindex.xml
