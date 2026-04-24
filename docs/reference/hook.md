@@ -808,7 +808,7 @@ When the networking on a machine has changed, any units deployed to that machine
 
 The `install` hook always runs once, and only once, before any other hook.
 
-fired when Juju is done provisioning the unit.
+It is fired when Juju is done provisioning the unit.
 
 The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
 
