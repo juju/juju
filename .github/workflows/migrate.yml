@@ -49,7 +49,7 @@ jobs:
 
       - name: Build local juju client
         run: |
-          BUILD_TAGS='minimal provider_lxd' make juju jujud jujud-controller
+          BUILD_TAGS='minimal provider_lxd' make juju jujud
 
       - name: Install Juju ${{ matrix.channel }}
         if: ${{ matrix.channel != 'local' }}

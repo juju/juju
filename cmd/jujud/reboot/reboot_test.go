@@ -12,8 +12,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/cmd/jujud-controller/reboot"
-	"github.com/juju/juju/cmd/jujud-controller/reboot/mocks"
+	"github.com/juju/juju/cmd/jujud/reboot"
+	"github.com/juju/juju/cmd/jujud/reboot/mocks"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testhelpers/filetesting"

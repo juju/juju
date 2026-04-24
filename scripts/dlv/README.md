@@ -7,7 +7,7 @@ is aimed to help to understand how to run Juju in debug mode.
 
 ## Setup everything
 
-To debug a jujud or jujud-controller, we will use [Delve]. To be able to access to codebase, [Delve] requires
+To debug a jujud, we will use [Delve]. To be able to access to codebase, [Delve] requires
 that a binary has been compiled with specific option. For juju, it implies to set a specific environment variable. So, 
 in order to be able to bootstrap a controller with debugging capabilities, we need to build with the following command:
 
@@ -18,7 +18,7 @@ DEBUG_JUJU=1 make install
 `DEBUG_JUJU` will enable required flags and tags and embed [Delve] into the binary[^1]. 
 
 [^1]: Check the [Makefile](../../Makefile), [dlv package](../../internal/dlv/doc.go) and maybe a 
-[command with debug enabler](../../cmd/jujud-controller/main_debug.go)
+[command with debug enabler](../../cmd/jujud/main_debug.go)
 
 ## Debugging
 
@@ -29,7 +29,7 @@ Once build with debugging capabilities, we can debug Juju on our favorite IDE.
 To debug any juju command, just run the built command with [Delve]. It can be through `delve exec`, or even simply by 
 using `go build` configuration in any good IDE. 
 
-###  `jujud` / `jujud-controller`
+###  `jujud`
 
 Once built with delve, bootstrapping, juju will run `jujud` on the machine with a dedicated unix socket
 to connect a [Delve] remote instance.

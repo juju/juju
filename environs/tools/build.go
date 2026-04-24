@@ -288,7 +288,7 @@ func buildJujus(ctx context.Context, dir string) error {
 
 	// Build binaries.
 	cmds := [][]string{
-		{"make", "jujud-controller"},
+		{"make", "jujud"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)

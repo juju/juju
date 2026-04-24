@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud-controller/agent/model"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 )
@@ -34,7 +34,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
+	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
 		"agent",
@@ -80,7 +80,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
+	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
 		"agent",

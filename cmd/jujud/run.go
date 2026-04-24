@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/internal/run"
-	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
