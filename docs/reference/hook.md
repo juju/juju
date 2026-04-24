@@ -821,17 +821,6 @@ Note:
 - Typically, operations performed on {ref}`hook-install` should also be considered for {ref}`hook-upgrade-charm`.
 - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
-The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
-
-Therefore, ways to cause `install` to occur are:
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
-
-Note:
-- Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
-- In some cases, {ref}`hook-config-changed` can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
-
 (hook-remove)=
 #### `remove`
 
@@ -864,8 +853,6 @@ This can occur:
 - (Kubernetes:) on pod churn
 - (Kubernetes:) on cluster reboot
 - on charm upgrades
-
-For Kubernetes charms, this occurs on pod churn as well.
 
 Callback methods bound to the event should be used to ensure that the charm’s software is in a running state. Note that the charm’s software should be configured to persist in a started state without further intervention from Juju or an administrator.
 
