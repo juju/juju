@@ -9,6 +9,7 @@ import (
 	stdcontext "context"
 	"database/sql"
 	"encoding/json"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1046,7 +1047,22 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Check the mongo certificate file too.
 	pemContent, err := os.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
+	cert := leafCertificatePEM(stateInfo.Cert)
+	c.Check(string(pemContent), gc.Equals, cert+"\n"+stateInfo.PrivateKey)
+}
+
+func leafCertificatePEM(cert string) string {
+	rest := []byte(cert)
+	for {
+		block, remainder := pem.Decode(rest)
+		if block == nil {
+			return cert
+		}
+		rest = remainder
+		if block.Type == "CERTIFICATE" {
+			return string(pem.EncodeToMemory(block))
+		}
+	}
 }
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {

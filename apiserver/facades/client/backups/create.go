@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/replicaset/v3"
@@ -15,6 +17,8 @@ import (
 var waitUntilReady = func(s *mgo.Session, timeout int) error {
 	return replicaset.WaitUntilReady(s, timeout)
 }
+
+const dataPathForJujuDbSnap = "/var/snap/juju-db/common"
 
 // Create is the API method that requests juju to create a new backup
 // of its state.
@@ -35,10 +39,15 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 	if err != nil {
 		return result, errors.Annotatef(err, "getting mongo info")
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session})
+	dataDir := a.paths.DataDir
+	if _, err := os.Stat(dataPathForJujuDbSnap); err == nil {
+		dataDir = dataPathForJujuDbSnap
+	}
+	dbInfo, err := backups.NewDBInfo(mgoInfo, sessionShim{session}, dataDir)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
 	mBase, err := a.backend.MachineBase(a.machineID)
 	if err != nil {
 		return result, errors.Trace(err)

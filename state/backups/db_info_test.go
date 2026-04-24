@@ -81,9 +81,10 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		Tag:      tag,
 		Password: "eggs",
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session, "/path/to/data")
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(dbInfo.DataDir, gc.Equals, "/path/to/data")
 	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
 	c.Check(dbInfo.Username, gc.Equals, "machine-0")
 	c.Check(dbInfo.Password, gc.Equals, "eggs")
@@ -104,9 +105,10 @@ func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
 		},
 		Password: "eggs",
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session, "/path/to/data")
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(dbInfo.DataDir, gc.Equals, "/path/to/data")
 	c.Check(dbInfo.Username, gc.Equals, "")
 	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
 	c.Check(dbInfo.Password, gc.Equals, "eggs")
