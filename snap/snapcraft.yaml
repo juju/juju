@@ -98,6 +98,7 @@ parts:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+      github.com/juju/juju/cloudconfig/podcfg.JujudOCINamespace: ""
     # go-static is not supported by the standard go plugin.
     go-static: true
     # go-strip is not supported by the standard go plugin.
