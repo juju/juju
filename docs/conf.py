@@ -172,6 +172,7 @@ sitemap_excludes = [
 
 html_static_path = [".sphinx/_static"]
 templates_path = [".sphinx/_templates"]
+html_extra_path = ["robots.txt", "sitemapindex.xml"]
 
 
 #############
