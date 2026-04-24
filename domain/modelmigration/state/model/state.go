@@ -31,10 +31,10 @@ func New(modelFactory database.TxnRunnerFactory, modelUUID model.UUID) *State {
 	}
 }
 
-// NamespaceModelMigrating returns the name of the model_migrating
+// GetNamespaceModelMigrating returns the name of the model_migrating
 // changestream namespace. A change in this namespace indicates that this
 // model has started or stopped undergoing a migration.
-func (s *State) NamespaceModelMigrating() string {
+func (s *State) GetNamespaceModelMigrating() string {
 	return "model_migrating"
 }
 

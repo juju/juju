@@ -422,40 +422,40 @@ func (c *MockModelStateGetModelTargetAgentVersionCall) DoAndReturn(f func(contex
 	return c
 }
 
-// NamespaceModelMigrating mocks base method.
-func (m *MockModelState) NamespaceModelMigrating() string {
+// GetNamespaceModelMigrating mocks base method.
+func (m *MockModelState) GetNamespaceModelMigrating() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NamespaceModelMigrating")
+	ret := m.ctrl.Call(m, "GetNamespaceModelMigrating")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// NamespaceModelMigrating indicates an expected call of NamespaceModelMigrating.
-func (mr *MockModelStateMockRecorder) NamespaceModelMigrating() *MockModelStateNamespaceModelMigratingCall {
+// GetNamespaceModelMigrating indicates an expected call of GetNamespaceModelMigrating.
+func (mr *MockModelStateMockRecorder) GetNamespaceModelMigrating() *MockModelStateGetNamespaceModelMigratingCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceModelMigrating", reflect.TypeOf((*MockModelState)(nil).NamespaceModelMigrating))
-	return &MockModelStateNamespaceModelMigratingCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespaceModelMigrating", reflect.TypeOf((*MockModelState)(nil).GetNamespaceModelMigrating))
+	return &MockModelStateGetNamespaceModelMigratingCall{Call: call}
 }
 
-// MockModelStateNamespaceModelMigratingCall wrap *gomock.Call
-type MockModelStateNamespaceModelMigratingCall struct {
+// MockModelStateGetNamespaceModelMigratingCall wrap *gomock.Call
+type MockModelStateGetNamespaceModelMigratingCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateNamespaceModelMigratingCall) Return(arg0 string) *MockModelStateNamespaceModelMigratingCall {
+func (c *MockModelStateGetNamespaceModelMigratingCall) Return(arg0 string) *MockModelStateGetNamespaceModelMigratingCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateNamespaceModelMigratingCall) Do(f func() string) *MockModelStateNamespaceModelMigratingCall {
+func (c *MockModelStateGetNamespaceModelMigratingCall) Do(f func() string) *MockModelStateGetNamespaceModelMigratingCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateNamespaceModelMigratingCall) DoAndReturn(f func() string) *MockModelStateNamespaceModelMigratingCall {
+func (c *MockModelStateGetNamespaceModelMigratingCall) DoAndReturn(f func() string) *MockModelStateGetNamespaceModelMigratingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -114,10 +114,10 @@ type ModelState interface {
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context) error
 
-	// NamespaceModelMigrating returns the name of the model_migrating
+	// GetNamespaceModelMigrating returns the name of the model_migrating
 	// changestream namespace. A change in this namespace indicates that this
 	// model has started or stopped undergoing a migration.
-	NamespaceModelMigrating() string
+	GetNamespaceModelMigrating() string
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -275,7 +275,7 @@ func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher,
 		ctx,
 		"watch for model migration",
 		eventsource.PredicateFilter(
-			s.modelState.NamespaceModelMigrating(),
+			s.modelState.GetNamespaceModelMigrating(),
 			changestream.All,
 			eventsource.EqualsPredicate(s.modelUUID),
 		),

@@ -298,7 +298,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 	)
 
 	ch := make(chan struct{}, 1)
-	s.modelState.EXPECT().NamespaceModelMigrating().Return("model_migrating")
+	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 			namespace = fo.Namespace()
@@ -338,7 +338,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().NamespaceModelMigrating().Return("model_migrating")
+	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil, errors.Errorf("boom"),
 	)
