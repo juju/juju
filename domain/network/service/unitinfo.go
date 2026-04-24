@@ -95,21 +95,19 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
-	egressSubnets, err := s.getUnitEgressSubnets(ctx, unitUUID)
+	defaultEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
 	}
 
-	return s.getUnitEndpointNetworks(
-		ctx, unitUUID.String(), endpointNames, egressSubnets,
-	)
+	return s.getUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames, defaultEgressSubnets)
 }
 
 func (s *ProviderService) getUnitEndpointNetworks(
 	ctx context.Context,
 	unitUUID string,
 	endpointNames []string,
-	egressSubnets []string,
+	defaultEgressSubnets []string,
 ) ([]domainnetwork.UnitNetwork, error) {
 	supportsNetworking, err := s.supportsNetworking(ctx)
 	if err != nil {
@@ -122,13 +120,10 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	}
 
 	if !supportsNetworking {
-		return s.getUnitEndpointNetworksWithoutProviderNetworking(
-			ctx, unitUUID, endpointNames, isCaas, egressSubnets)
+		return s.getUnitEndpointNetworksWithoutProviderNetworking(ctx, unitUUID, endpointNames, isCaas, defaultEgressSubnets)
 	}
 
-	endpointNetworks, err := s.st.GetUnitEndpointNetworkInfo(
-		ctx, unitUUID, endpointNames,
-	)
+	endpointNetworks, err := s.st.GetUnitEndpointNetworkInfo(ctx, unitUUID, endpointNames)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit endpoint network info: %w", err)
 	}
@@ -141,7 +136,10 @@ func (s *ProviderService) getUnitEndpointNetworks(
 			isCaas,
 		)
 		info.EndpointName = endpointNetwork.EndpointName
-		info.EgressSubnets = egressSubnets
+		info.EgressSubnets = defaultEgressSubnets
+		if len(info.EgressSubnets) == 0 {
+			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
+		}
 		result[i] = info
 	}
 
@@ -178,29 +176,6 @@ func (s *ProviderService) getRelationEgressSubnets(
 		)
 	}
 	return publicEgressSubnets, nil
-}
-
-func (s *ProviderService) getUnitEgressSubnets(
-	ctx context.Context,
-	unitUUID coreunit.UUID,
-) ([]string, error) {
-	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
-	if err != nil {
-		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
-	}
-	if len(egressSubnets) > 0 {
-		return egressSubnets, nil
-	}
-
-	modelEgressSubnets, err := s.st.GetModelEgressSubnets(ctx)
-	if err != nil {
-		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
-	}
-	if len(modelEgressSubnets) > 0 {
-		return modelEgressSubnets, nil
-	}
-
-	return s.getUnitPublicEgressSubnets(ctx, unitUUID)
 }
 
 func (s *ProviderService) getUnitPublicEgressSubnets(
@@ -264,19 +239,25 @@ func normaliseAddress(address string) string {
 	return before
 }
 
+func subnetsForAddresses(addrs []string) []string {
+	if egress := corenetwork.SubnetsForAddresses(addrs); len(egress) > 0 {
+		return egress[:1]
+	}
+	return nil
+}
+
 func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
-	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, egressSubnets []string,
+	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, defaultEgressSubnets []string,
 ) ([]domainnetwork.UnitNetwork, error) {
 	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
 	if err != nil {
-		return nil, internalerrors.Errorf(
-			"getting unit network info: %w", err,
-		)
+		return nil, internalerrors.Errorf("getting unit network info: %w", err)
 	}
-	info := buildUnitNetworkWithIngressAddresses(
-		unitNetwork.Addresses, unitNetwork.IngressAddresses, isCaas,
-	)
-	info.EgressSubnets = egressSubnets
+	info := buildUnitNetworkWithIngressAddresses(unitNetwork.Addresses, unitNetwork.IngressAddresses, isCaas)
+	info.EgressSubnets = defaultEgressSubnets
+	if len(info.EgressSubnets) == 0 {
+		info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
+	}
 
 	infos := make([]domainnetwork.UnitNetwork, len(endpointNames))
 	for i, endpointName := range endpointNames {
