@@ -167,6 +167,10 @@ var modelPostPatchFilesByVersion = []struct {
 		"0054-application-k8s-resources.PATCH.sql",
 		"0055-constraint-view.PATCH.sql",
 		"0056-blockdevice-partial.PATCH.sql",
+	},
+}, {
+	version: semversion.MustParse("4.0.7"),
+	files: []string{
 		"0057-model-migrating-triggers.PATCH.sql",
 	},
 }}
