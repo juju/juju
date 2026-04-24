@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://documentation.ubuntu.com/juju/en/latest/sitemap.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://documentation.ubuntu.com/juju/4.0/sitemap.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://documentation.ubuntu.com/juju/3.6/sitemap.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://documentation.ubuntu.com/juju/2.9/sitemap.xml</loc>
+  </sitemap>
+</sitemapindex>
