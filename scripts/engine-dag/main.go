@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
-	"github.com/juju/juju/cmd/jujud-controller/agent/model"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"

@@ -155,21 +155,6 @@ func (c *upgradeControllerCommand) getModelConfigAPI(ctx context.Context) (Model
 	return modelconfig.NewClient(api), nil
 }
 
-// TODO(jujud-controller-snap): remove if not needed in final upgrade command.
-// type ClientAPI interface {
-// 	Status(args *apiclient.StatusArgs) (*params.FullStatus, error)
-// }
-// func (c *upgradeControllerCommand) getAPIClient() (ClientAPI, error) {
-// 	if c.clientAPI != nil {
-// 		return c.clientAPI, nil
-// 	}
-// 	api, err := c.NewModelAPIRoot(bootstrap.ControllerModelName)
-// 	if err != nil {
-// 		return nil, errors.Trace(err)
-// 	}
-// 	return apiclient.NewClient(api, logger), nil
-// }
-
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 	controllerName, err := c.ControllerName()

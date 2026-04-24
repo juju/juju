@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/api/macaroon"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cmd/jujud-controller/util"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"

@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
