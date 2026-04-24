@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
@@ -57,7 +59,22 @@ type Service struct {
 
 	controllerState ControllerState
 	modelState      ModelState
+	watcherFactory  WatcherFactory
 	modelUUID       string
+}
+
+// WatcherFactory describes methods for creating watchers used by the
+// [Service].
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required,
+	// though additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // ControllerState defines the interface required for accessing the underlying
@@ -96,6 +113,11 @@ type ModelState interface {
 	// table in the model database, indicating that the model import has
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context) error
+
+	// GetNamespaceModelMigrating returns the name of the model_migrating
+	// changestream namespace. A change in this namespace indicates that this
+	// model has started or stopped undergoing a migration.
+	GetNamespaceModelMigrating() string
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -104,12 +126,14 @@ func NewService(
 	controllerState ControllerState,
 	modelState ModelState,
 	modelUUID string,
+	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
 		modelState:             modelState,
+		watcherFactory:         watcherFactory,
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
 		modelUUID:              modelUUID,
@@ -244,10 +268,18 @@ func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.Ta
 // WatchForMigration returns a notification watcher that fires when this model
 // undergoes migration.
 func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	// TODO(modelmigration): implement migration watcher.
-	return watcher.TODO[struct{}](), nil
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch for model migration",
+		eventsource.PredicateFilter(
+			s.modelState.GetNamespaceModelMigrating(),
+			changestream.All,
+			eventsource.EqualsPredicate(s.modelUUID),
+		),
+	)
 }
 
 // WatchMigrationPhase returns a notification watcher that fires when this
