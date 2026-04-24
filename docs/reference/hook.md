@@ -342,7 +342,7 @@ Note that units only receive `relation-changed` events for **other** units' chan
 
 `relation-created` is a "setup" event and, emitted when an application is related to another. Its purpose is to inform the newly related charms that they are entering the relation.
 
-If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
+If Juju is aware of the existence of the relation "early enough", before the application has started (i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
 
 Similarly, if an application is being scaled up, the new unit will see `relation-created` events for all relations the application already has during the Setup phase.
 
