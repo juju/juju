@@ -429,12 +429,20 @@ func (env *maasEnviron) parsePlacement(ctx context.ProviderCallContext, placemen
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
+const systemIdVMPlacementError = errors.ConstError("cannot specify system-id placement constraint when requesting a virtual machine")
+
 func (env *maasEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement == "" {
 		return nil
 	}
-	_, err := env.parsePlacement(ctx, args.Placement)
-	return err
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return err
+	}
+	if p.systemId != "" && args.Constraints.HasVirtType() {
+		return systemIdVMPlacementError
+	}
+	return nil
 }
 
 // getCapabilities asks the MAAS server for its capabilities, if
@@ -635,8 +643,12 @@ func (env *maasEnviron) acquireNode(
 	// When the caller explicitly requests a virtual machine, compose it from
 	// a pod rather than trying to acquire a pre-existing machine.
 	if cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
-		logger.Criticalf("virt-type=virtual-machine: using pod compose workflow")
-		err := env.composeNode(ctx, nodeName, zoneName, cons, positiveSpaceIDs, volumes)
+		// Should never happen - checked in PrecheckInstance().
+		if systemId != "" {
+			return nil, systemIdVMPlacementError
+		}
+		var err error
+		systemId, err = env.composeNode(ctx, nodeName, zoneName, cons, positiveSpaceIDs, volumes)
 		if err != nil {
 			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return nil, errors.Annotate(err, "composing virtual machine")
@@ -675,13 +687,13 @@ func (env *maasEnviron) composeNode(
 	cons constraints.Value,
 	positiveSpaceIDs set.Strings,
 	volumes []volumeInfo,
-) error {
+) (string, error) {
 	pods, err := env.maasController.Pods()
 	if err != nil {
-		return errors.Annotate(err, "listing pods")
+		return "", errors.Annotate(err, "listing pods")
 	}
 	if len(pods) == 0 {
-		return errors.New("no pods available to compose machine")
+		return "", errors.New("no pods available to compose machine")
 	}
 
 	composeArgs := gomaasapi.ComposeMachineArgs{
@@ -724,26 +736,26 @@ func (env *maasEnviron) composeNode(
 		}
 		machine, err := pod.ComposeMachine(composeArgs)
 		if err != nil {
-			// If compose failed, try to clean up any machine that may have been
-			// partially created before the error occurred.
-			env.cleanupOrphanedComposedMachine(nodeName)
-			return errors.Annotate(err, "composing machine")
+			return "", errors.Annotate(err, "composing machine")
 		}
-		logger.Infof("composed machine %q in pod %q", machine.SystemID(), pod.Name())
+		systemID := machine.SystemID()
+		logger.Infof("composed machine %q in pod %q", systemID, pod.Name())
 
 		// The composed machine goes through MAAS commissioning before it
 		// reaches "Ready" state. AllocateMachine only works on Ready
 		// machines, so we must wait here.
-		if err := env.waitForComposedMachineReady(ctx, machine.SystemID()); err != nil {
+		if err := env.waitForComposedMachineReady(ctx, systemID); err != nil {
 			// If compose failed, try to clean up any machine that may have been
 			// partially created before the error occurred.
-			env.cleanupOrphanedComposedMachine(nodeName)
-			return errors.Annotate(err, "waiting for machine to be ready")
+			if deleteErr := env.maasController.DeleteMachine(systemID); deleteErr != nil {
+				logger.Warningf("failed to delete orphaned machine %q: %v", systemID, deleteErr)
+			}
+			return "", errors.Annotate(err, "waiting for machine to be ready")
 		}
-		return nil
+		return systemID, nil
 	}
 
-	return errors.New("no pods matched the zone requirement")
+	return "", errors.New("no pods matched the zone requirement")
 }
 
 // waitForComposedMachineReady polls MAAS until the machine with the given
@@ -790,29 +802,6 @@ func (env *maasEnviron) waitForComposedMachineReady(ctx context.ProviderCallCont
 		return errors.Errorf("timed out waiting for composed machine %q to become ready", systemID)
 	}
 	return errors.Trace(err)
-}
-
-// cleanupOrphanedComposedMachine attempts to find and release the machine
-// that may have been created by a failed ComposeMachine call.
-// This handles cases where the pod API created the machine but failed to return
-// successfully, leaving it orphaned in MAAS.
-func (env *maasEnviron) cleanupOrphanedComposedMachine(hostname string) {
-	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{
-		Hostnames: []string{hostname},
-	})
-	if err != nil {
-		logger.Warningf("could not get machine %q for orphan cleanup: %v", err, hostname)
-		return
-	}
-	if len(machines) == 0 {
-		return
-	}
-
-	systemID := machines[0].SystemID()
-	logger.Infof("cleaning up orphaned machine %q", systemID)
-	if err := env.maasController.DeleteMachine(systemID); err != nil {
-		logger.Warningf("failed to delete orphaned machine %q: %v", systemID, err)
-	}
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -646,7 +647,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 		name: "pod-a",
 		zone: fakeZone{name: "mossack"},
 		composeMachineArgsCheck: func(args gomaasapi.ComposeMachineArgs) {
-			c.Assert(args, gc.DeepEquals, gomaasapi.ComposeMachineArgs{
+			c.Assert(args, jc.DeepEquals, gomaasapi.ComposeMachineArgs{
 				Hostname:    "vm-1",
 				MinCPUCount: 2,
 				MinMemory:   4096,
@@ -666,8 +667,11 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 	controller := &fakeController{
 		Stub: &testing.Stub{},
 		pods: []gomaasapi.Pod{pod},
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args.SystemId, gc.Equals, "composed-1")
+		},
 		allocateMachine: &fakeMachine{
-			systemID:     "allocated-1",
+			systemID:     "composed-1",
 			architecture: arch.HostArch(),
 		},
 		allocateMachineMatches: gomaasapi.ConstraintMatches{Storage: map[string][]gomaasapi.StorageDevice{}},
@@ -690,14 +694,17 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
 }
 
-func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeFailureCleansOrphan(c *gc.C) {
-	orphan := &fakeMachine{systemID: "orphan-1", hostname: "vm-2"}
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineWaitReadyFailureCleansOrphan(c *gc.C) {
+	orphan := &fakeMachine{
+		systemID:      "orphan-1",
+		hostname:      "vm-2",
+		statusName:    "Failed commissioning",
+		statusMessage: "commissioning scripts failed",
+	}
 	controller := &fakeController{
-		Stub:                   &testing.Stub{},
-		pods:                   []gomaasapi.Pod{&fakePod{composeMachineErr: errors.New("boom")}},
-		allocateMachine:        newFakeMachine("allocated-1", arch.HostArch(), ""),
-		allocateMachineMatches: gomaasapi.ConstraintMatches{Storage: map[string][]gomaasapi.StorageDevice{}},
-		machines:               []gomaasapi.Machine{orphan},
+		Stub:     &testing.Stub{},
+		pods:     []gomaasapi.Pod{&fakePod{composeMachine: orphan}},
+		machines: []gomaasapi.Machine{orphan},
 	}
 	env := suite.makeEnviron(c, controller)
 
@@ -711,8 +718,78 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeFailureCleans
 		nil,
 		nil,
 	)
-	c.Assert(err, gc.ErrorMatches, `composing virtual machine: composing machine: boom`)
+	c.Assert(err, gc.ErrorMatches, `composing virtual machine: waiting for machine to be ready: composed machine "orphan-1" entered failed state: Failed commissioning \(commissioning scripts failed\)`)
 	c.Assert(collectDeleteMachineArgs(controller), jc.SameContents, []string{"orphan-1"})
+}
+
+func (suite *maasEnvironSuite) TestWaitForComposedMachineReady(c *gc.C) {
+	composed := &fakeMachine{systemID: "composed-1", statusName: "Ready"}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{composed},
+		machinesArgsCheck: func(args gomaasapi.MachinesArgs) {
+			c.Assert(args.SystemIDs, jc.DeepEquals, []string{"composed-1"})
+		},
+	}
+	env := suite.makeEnviron(c, controller)
+
+	err := env.waitForComposedMachineReady(suite.callCtx, "composed-1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *maasEnvironSuite) TestWaitForComposedMachineReadyRetriesUntilReady(c *gc.C) {
+	composed := &fakeMachine{systemID: "composed-1", statusName: "Commissioning"}
+	polls := 0
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{composed},
+		machinesArgsCheck: func(args gomaasapi.MachinesArgs) {
+			polls++
+			c.Assert(args.SystemIDs, jc.DeepEquals, []string{"composed-1"})
+			if polls == 2 {
+				composed.statusName = "Ready"
+			}
+		},
+	}
+	env := suite.makeEnviron(c, controller)
+	env.longRetryStrategy.Delay = time.Millisecond
+	env.longRetryStrategy.MaxDuration = 50 * time.Millisecond
+
+	err := env.waitForComposedMachineReady(suite.callCtx, "composed-1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(polls, gc.Equals, 2)
+}
+
+func (suite *maasEnvironSuite) TestWaitForComposedMachineReadyFailedStates(c *gc.C) {
+	for _, state := range []string{"Failed commissioning", "Failed testing", "Broken"} {
+		composed := &fakeMachine{
+			systemID:      "composed-1",
+			statusName:    state,
+			statusMessage: "failed state",
+		}
+		controller := &fakeController{machines: []gomaasapi.Machine{composed}}
+		env := suite.makeEnviron(c, controller)
+
+		err := env.waitForComposedMachineReady(suite.callCtx, "composed-1")
+		c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
+	}
+}
+
+func (suite *maasEnvironSuite) TestWaitForComposedMachineReadyTimeout(c *gc.C) {
+	composed := &fakeMachine{systemID: "composed-1", statusName: "Commissioning"}
+	polls := 0
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{composed},
+		machinesArgsCheck: func(args gomaasapi.MachinesArgs) {
+			polls++
+			c.Assert(args.SystemIDs, jc.DeepEquals, []string{"composed-1"})
+		},
+	}
+	env := suite.makeEnviron(c, controller)
+	env.longRetryStrategy.Delay = time.Millisecond
+	env.longRetryStrategy.MaxDuration = 20 * time.Millisecond
+
+	err := env.waitForComposedMachineReady(suite.callCtx, "composed-1")
+	c.Assert(err, gc.ErrorMatches, `timed out waiting for composed machine "composed-1" to become ready`)
+	c.Assert(polls, gc.Not(gc.Equals), 0)
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
@@ -2723,10 +2800,10 @@ func (suite *maasEnvironSuite) TestConstraintsValidator(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=virtual-machine")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
 }
 
 func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *gc.C) {
@@ -2738,7 +2815,7 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *gc
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=virtual-machine")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
@@ -2778,6 +2855,16 @@ func (suite *maasEnvironSuite) TestPrecheckInstanceAllowsSystemIDPlacement(c *gc
 		Placement: "system-id=abc123",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *maasEnvironSuite) TestPrecheckInstanceRejectsSystemIDPlacementForVirtualMachine(c *gc.C) {
+	controller := newFakeController()
+	env := suite.makeEnviron(c, controller)
+	err := env.PrecheckInstance(suite.callCtx, environs.PrecheckInstanceParams{
+		Placement:   "system-id=abc123",
+		Constraints: constraints.MustParse("virt-type=virtual-machine"),
+	})
+	c.Assert(errors.Cause(err), gc.Equals, systemIdVMPlacementError)
 }
 
 func (suite *maasEnvironSuite) TestPrecheckInstanceNoPlacement(c *gc.C) {
