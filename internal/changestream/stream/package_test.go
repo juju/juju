@@ -45,6 +45,13 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.FileNotifier = NewMockFileNotifier(ctrl)
 
+	c.Cleanup(func() {
+		s.clock = nil
+		s.timer = nil
+		s.metrics = nil
+		s.FileNotifier = nil
+	})
+
 	return ctrl
 }
 
