@@ -25,6 +25,7 @@ type StateBackend interface {
 	PopulateApplicationStorageUniqueID() error
 	OpenControllerAPIPort() error
 	ConvertScalingToCurrentOperationEnumField() error
+	ExposeControllerApplication() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -76,6 +77,12 @@ func (s stateBackend) PopulateApplicationStorageUniqueID() error {
 // scaling field to an enum field.
 func (s stateBackend) ConvertScalingToCurrentOperationEnumField() error {
 	return state.ConvertScalingToCurrentOperationEnumField(s.pool)
+}
+
+// ExposeControllerApplication runs an upgrade to expose
+// the controller application.
+func (s stateBackend) ExposeControllerApplication() error {
+	return state.ExposeControllerApplication(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.

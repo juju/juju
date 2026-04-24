@@ -322,6 +322,40 @@ nextUnit:
 	return nil
 }
 
+// ExposeControllerApplication runs an upgrade to expose the
+// controller application.
+func ExposeControllerApplication(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	appsColl, closer := st.db().GetCollection(applicationsC)
+	defer closer()
+	var appData bson.M
+	err = appsColl.Find(bson.M{"_id": controllerAppName}).Select(bson.M{"exposed": 1}).One(&appData)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	exposed, _ := appData["exposed"].(bool)
+	if exposed {
+		return nil
+	}
+
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     st.docID(controllerAppName),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"exposed", true},
+		}}},
+	}}
+	if err = st.runRawTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // PopulateApplicationStorageUniqueID has the responsibility of populating the
 // `storage-unique-id` field in the application document.
 func PopulateApplicationStorageUniqueID(

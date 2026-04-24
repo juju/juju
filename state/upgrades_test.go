@@ -285,6 +285,27 @@ func (s *upgradesSuite) TestOpenControllerAPIPort(c *gc.C) {
 	)
 
 }
+
+func (s *upgradesSuite) TestExposeControllerApplication(c *gc.C) {
+	AddTestingApplication(c, s.state, "controller", AddTestingCharm(c, s.state, "wordpress"))
+
+	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	var appData bson.M
+	err := appsColl.Find(bson.M{"_id": s.state.docID(controllerAppName)}).One(&appData)
+	c.Assert(err, jc.ErrorIsNil)
+	exposed, ok := appData["exposed"].(bool)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(exposed, jc.IsFalse)
+
+	appData["exposed"] = true
+	delete(appData, "txn-revno")
+	s.assertUpgradedData(c, ExposeControllerApplication, nil,
+		upgradedData(appsColl, []bson.M{appData}),
+	)
+}
+
 func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
 	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
