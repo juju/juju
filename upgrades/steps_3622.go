@@ -13,5 +13,12 @@ func stateStepsFor3622() []Step {
 				return context.State().ExposeControllerApplication()
 			},
 		},
+		&upgradeStep{
+			description: "convert scaling field to enum",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ConvertScalingToCurrentOperationEnumField()
+			},
+		},
 	}
 }
