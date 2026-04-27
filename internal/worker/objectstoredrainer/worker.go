@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -381,7 +380,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	objectStoreType := coreobjectstore.FileBackend
+	objectStoreType := objectstore.FileBackend
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	if !objectStoreTypeChanged {
