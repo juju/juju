@@ -6458,13 +6458,13 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialKubernetes
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "tmpfs"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"kubernetes\" to \"tmpfs\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"kubernetes\" to \"tmpfs\" is not allowed")
 
 	// Updating from kubernetes to rootfs is not allowed.
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "rootfs"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"kubernetes\" to \"rootfs\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"kubernetes\" to \"rootfs\" is not allowed")
 
 	// Updating to a different pool backed by kubernetes is allowed.
 	var size uint64 = 500
@@ -6517,13 +6517,13 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProvi
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "kubernetes"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"kubernetes\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"tmpfs\" to \"kubernetes\" is not allowed")
 
 	// Updating from tmpfs to rootfs is not allowed.
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "rootfs"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"rootfs\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"tmpfs\" to \"rootfs\" is not allowed")
 
 	// Updating to a different pool backed by a different provider type is not allowed.
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6531,7 +6531,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProvi
 			Pool: "coolpool",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"tmpfs\" to \"kubernetes\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"tmpfs\" to \"kubernetes\" is not allowed")
 
 	var size uint64 = 500
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6539,7 +6539,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProvi
 			Size: &size,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current size: 100 to 500")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 to 500 for provider type \"tmpfs\" is not allowed")
 
 	var count uint64 = 5
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6547,7 +6547,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProvi
 			Count: &count,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current count: 1 to 5")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing count from 1 to 5 for provider type \"tmpfs\" is not allowed")
 }
 
 // TestUpdateStorageConstraintsWithInitialRootfsProviderType tests that initial storage with rootfs provider type
@@ -6590,13 +6590,13 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProv
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "kubernetes"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"kubernetes\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"rootfs\" to \"kubernetes\" is not allowed")
 
 	// Updating from rootfs to tmpfs is not allowed.
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
 		"database": {Pool: "tmpfs"},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"tmpfs\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"rootfs\" to \"tmpfs\" is not allowed")
 
 	// Updating to a different pool backed by a different provider type is not allowed.
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6604,7 +6604,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProv
 			Pool: "coolpool",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current provider type: \"rootfs\" to \"kubernetes\"")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing provider type from \"rootfs\" to \"kubernetes\" is not allowed")
 
 	var size uint64 = 500
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6612,7 +6612,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProv
 			Size: &size,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current size: 100 to 500")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 to 500 for provider type \"rootfs\" is not allowed")
 
 	var count uint64 = 5
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6620,7 +6620,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProv
 			Count: &count,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: updating current count: 1 to 5")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing count from 1 to 5 for provider type \"rootfs\" is not allowed")
 }
 
 func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {

@@ -3709,8 +3709,11 @@ func (a *Application) UpdateStorageConstraints(storageDirectivesUpdate map[strin
 				sc.Count = *storageCons.Count
 			}
 
-			if err := validateUpdateStorageConstraintsCAAS(sb, m.Type(), originalStorageCons, sc); err != nil {
-				return nil, errors.Trace(err)
+			if m.Type() == ModelTypeCAAS {
+				err := validateUpdateStorageConstraintsCAAS(sb, originalStorageCons, sc)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 			}
 
 			storageConsToUpdate[storageName] = sc

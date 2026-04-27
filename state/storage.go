@@ -1809,10 +1809,7 @@ func validateStorageConstraintsAgainstCharm(
 	return nil
 }
 
-func validateUpdateStorageConstraintsCAAS(sb *storageBackend, modelType ModelType, originalCons, newCons StorageConstraints) error {
-	if modelType != ModelTypeCAAS {
-		return nil
-	}
+func validateUpdateStorageConstraintsCAAS(sb *storageBackend, originalCons, newCons StorageConstraints) error {
 	oldProviderType, _, _, err := poolStorageProvider(sb, originalCons.Pool)
 	if err != nil {
 		return errors.Annotatef(err, "getting old provider type for pool: %q", originalCons.Pool)
@@ -1822,23 +1819,22 @@ func validateUpdateStorageConstraintsCAAS(sb *storageBackend, modelType ModelTyp
 		return errors.Annotatef(err, "getting new provider type for pool: %q", newCons.Pool)
 	}
 
-	isStaticProviderType := oldProviderType == "tmpfs" || oldProviderType == "rootfs" ||
-		oldProviderType == "kubernetes"
-
-	// Disallow changing provider types as this would mutate the PodSpec which is treated as
-	// immutable by k8s.
-	if isStaticProviderType && oldProviderType != newProviderType {
-		return errors.Errorf("updating current provider type: %q to %q", oldProviderType, newProviderType)
+	// Disallow changing provider types as this would mutate (add or remove entry) the PodSpec.Volumes
+	// which is treated as immutable by k8s.
+	if oldProviderType != newProviderType {
+		return errors.Errorf("changing provider type from %q to %q is not allowed", oldProviderType, newProviderType)
 	}
 
-	// Disallow changing the size and count because this would mutate the PodSpec.Volumes entry.
-	// K8s treat it as immutable.
-	if oldProviderType == "tmpfs" || oldProviderType == "rootfs" {
+	// Disallow changing the size and count because this would mutate the PodSpec.Volumes[*].SizeLimit entry.
+	// K8s treats it as immutable.
+	if oldProviderType == provider.TmpfsProviderType || oldProviderType == provider.RootfsProviderType {
 		if originalCons.Size != newCons.Size {
-			return errors.Errorf("updating current size: %d to %d", originalCons.Size, newCons.Size)
+			return errors.Errorf("changing size from %d to %d for provider type %q is not allowed",
+				originalCons.Size, newCons.Size, oldProviderType)
 		}
 		if originalCons.Count != newCons.Count {
-			return errors.Errorf("updating current count: %d to %d", originalCons.Count, newCons.Count)
+			return errors.Errorf("changing count from %d to %d for provider type %q is not allowed",
+				originalCons.Count, newCons.Count, oldProviderType)
 		}
 	}
 
