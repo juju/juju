@@ -124,7 +124,11 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		return err
 	}
 
-	return writeServiceModelVersionFile(versionToken, semanticVersion)
+	if err := writeServiceModelVersionFile(versionToken, semanticVersion); err != nil {
+		return err
+	}
+
+	return generateTransforms(export.ExportVersions)
 }
 
 func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {
