@@ -82,6 +82,7 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/docs.yml'
+              - 'docs/**'
             check-ddl:
               - 'go.mod'
               - 'domain/schema/**'
