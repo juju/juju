@@ -729,8 +729,8 @@ test_update_storage_constraints_validation_error() {
 	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "tmpfs" to "kubernetes" is not allowed'
 	OUT=$(juju application-storage db2 pgdata=rootfs 2>&1 || true)
 	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "tmpfs" to "rootfs" is not allowed'
-	OUT=$(juju application-storage db2 pgdata=2GB 2>&1 || true)
-	echo "$OUT" | check 'cannot update storage constraints: changing size from 1024 to 2048 for provider type "tmpfs" is not allowed'
+	OUT=$(juju application-storage db2 pgdata=2G 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing size from 1.0 GiB to 2.0 GiB for provider type "tmpfs" is not allowed'
 
 	juju deploy postgresql-k8s --channel 14/stable db3 --storage=pgdata=rootfs --trust
 	wait_for_active_units "db3" 1 2
@@ -738,8 +738,8 @@ test_update_storage_constraints_validation_error() {
 	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "rootfs" to "kubernetes" is not allowed'
 	OUT=$(juju application-storage db3 pgdata=tmpfs 2>&1 || true)
 	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "rootfs" to "tmpfs" is not allowed'
-	OUT=$(juju application-storage db3 pgdata=2GB 2>&1 || true)
-	echo "$OUT" | check 'cannot update storage constraints: changing size from 1024 to 2048 for provider type "rootfs" is not allowed'
+	OUT=$(juju application-storage db3 pgdata=2G 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing size from 1.0 GiB to 2.0 GiB for provider type "rootfs" is not allowed'
 
 	destroy_model "${model_name}"
 }
@@ -834,7 +834,7 @@ EOF
 		check "coolstorageclass"
 
 	# Update storage now: resize "pgdata" to 2GB and use a different pool named "awesomestoragepool".
-	juju application-storage postgresql-k8s pgdata=awesomestoragepool,2GB
+	juju application-storage postgresql-k8s pgdata=awesomestoragepool,2G
 	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
 
 	juju scale-application postgresql-k8s 2

@@ -1829,8 +1829,9 @@ func validateUpdateStorageConstraintsCAAS(sb *storageBackend, originalCons, newC
 	// K8s treats it as immutable.
 	if oldProviderType == provider.TmpfsProviderType || oldProviderType == provider.RootfsProviderType {
 		if originalCons.Size != newCons.Size {
-			return errors.Errorf("changing size from %d to %d for provider type %q is not allowed",
-				originalCons.Size, newCons.Size, oldProviderType)
+			return errors.Errorf("changing size from %s to %s for provider type %q is not allowed",
+				humanize.IBytes(originalCons.Size*humanize.MiByte),
+				humanize.IBytes(newCons.Size*humanize.MiByte), oldProviderType)
 		}
 		if originalCons.Count != newCons.Count {
 			return errors.Errorf("changing count from %d to %d for provider type %q is not allowed",

@@ -6539,7 +6539,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialTmpfsProvi
 			Size: &size,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 to 500 for provider type \"tmpfs\" is not allowed")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 MiB to 500 MiB for provider type \"tmpfs\" is not allowed")
 
 	var count uint64 = 5
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
@@ -6612,7 +6612,7 @@ func (s *CAASApplicationSuite) TestUpdateStorageConstraintsWithInitialRootfsProv
 			Size: &size,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 to 500 for provider type \"rootfs\" is not allowed")
+	c.Assert(err, gc.ErrorMatches, "cannot update storage constraints: changing size from 100 MiB to 500 MiB for provider type \"rootfs\" is not allowed")
 
 	var count uint64 = 5
 	err = cockroachdb.UpdateStorageConstraints(map[string]state.StorageDirectivesUpdate{
