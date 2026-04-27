@@ -118,6 +118,11 @@ type ModelState interface {
 	// changestream namespace. A change in this namespace indicates that this
 	// model has started or stopped undergoing a migration.
 	GetNamespaceModelMigrating() string
+
+	// IsModelMigrating returns true if the model has an entry in the
+	// model_migrating table, indicating that the model is currently being
+	// imported as part of a migration.
+	IsModelMigrating(ctx context.Context) (bool, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -241,9 +246,16 @@ func (s *Service) CheckMachines(
 
 // ModelMigrationMode returns the current migration mode for the model.
 func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	// TODO(modelmigration): implement migration mode reporting.
+
+	isMigrating, err := s.modelState.IsModelMigrating(ctx)
+	if err != nil {
+		return modelmigration.MigrationModeNone, errors.Errorf("checking if model is migrating: %w", err)
+	}
+	if isMigrating {
+		return modelmigration.MigrationModeImporting, nil
+	}
 	return modelmigration.MigrationModeNone, nil
 }
 

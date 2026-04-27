@@ -460,6 +460,45 @@ func (c *MockModelStateGetNamespaceModelMigratingCall) DoAndReturn(f func() stri
 	return c
 }
 
+// IsModelMigrating mocks base method.
+func (m *MockModelState) IsModelMigrating(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsModelMigrating", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsModelMigrating indicates an expected call of IsModelMigrating.
+func (mr *MockModelStateMockRecorder) IsModelMigrating(arg0 any) *MockModelStateIsModelMigratingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsModelMigrating", reflect.TypeOf((*MockModelState)(nil).IsModelMigrating), arg0)
+	return &MockModelStateIsModelMigratingCall{Call: call}
+}
+
+// MockModelStateIsModelMigratingCall wrap *gomock.Call
+type MockModelStateIsModelMigratingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsModelMigratingCall) Return(arg0 bool, arg1 error) *MockModelStateIsModelMigratingCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsModelMigratingCall) Do(f func(context.Context) (bool, error)) *MockModelStateIsModelMigratingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsModelMigratingCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelStateIsModelMigratingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) SetModelTargetAgentVersion(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

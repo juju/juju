@@ -20,6 +20,11 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// count is a helper type used with sqlair to read a COUNT(*) result.
+type count struct {
+	Count int `db:"count"`
+}
+
 // agentVersionTarget represents the target agent version column from the
 // agent_version table.
 type agentVersionTarget struct {

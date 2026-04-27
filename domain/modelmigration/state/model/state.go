@@ -142,6 +142,41 @@ WHERE model_uuid = $entityUUID.uuid
 	})
 }
 
+// IsModelMigrating returns true if the model has an entry in the
+// model_migrating table, indicating that the model is currently being
+// imported as part of a migration.
+func (s *State) IsModelMigrating(ctx context.Context) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM model_migrating
+WHERE model_uuid = $entityUUID.uuid`, count{}, entityUUID{})
+	if err != nil {
+		return false, errors.Errorf("preparing is model migrating statement: %w", err)
+	}
+
+	modelUUIDArg := entityUUID{
+		UUID: s.modelUUID.String(),
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, modelUUIDArg).Get(&result); err != nil {
+			return errors.Errorf("checking if model is migrating: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return result.Count > 0, nil
+}
+
 // GetModelTargetAgentVersion returns the target agent version currently set for
 // the model. This func expects that the target agent version for the model has
 // already been set.

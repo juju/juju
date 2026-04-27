@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 )
@@ -352,6 +353,64 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.resourceProviderGetter(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+// TestModelMigrationModeImporting tests that ModelMigrationMode returns
+// MigrationModeImporting when the model has an entry in the model_migrating
+// table.
+func (s *serviceSuite) TestModelMigrationModeImporting(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(true, nil)
+
+	mode, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ModelMigrationMode(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
+}
+
+// TestModelMigrationModeNone tests that ModelMigrationMode returns
+// MigrationModeNone when the model has no entry in the model_migrating
+// table.
+func (s *serviceSuite) TestModelMigrationModeNone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+
+	mode, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ModelMigrationMode(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mode, tc.Equals, modelmigration.MigrationModeNone)
+}
+
+// TestModelMigrationModeError tests that ModelMigrationMode returns an error
+// when the state layer fails.
+func (s *serviceSuite) TestModelMigrationModeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, errors.Errorf("boom"))
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ModelMigrationMode(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 

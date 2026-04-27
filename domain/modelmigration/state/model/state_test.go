@@ -284,6 +284,31 @@ func (s *migrationSuite) TestSetModelTargetAgentVersion(c *tc.C) {
 	c.Check(ver, tc.Equals, "5.2.0")
 }
 
+// TestIsModelMigratingTrue tests that IsModelMigrating returns true
+// when the model has an entry in the model_migrating table.
+func (s *migrationSuite) TestIsModelMigratingTrue(c *tc.C) {
+	db := s.DB()
+
+	// Insert a model_migrating entry.
+	migratingUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_migrating (uuid, model_uuid) VALUES (?, ?)",
+		migratingUUID, s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelMigrating(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isMigrating, tc.IsTrue)
+}
+
+// TestIsModelMigratingFalse tests that IsModelMigrating returns false
+// when the model has no entry in the model_migrating table.
+func (s *migrationSuite) TestIsModelMigratingFalse(c *tc.C) {
+	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelMigrating(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isMigrating, tc.IsFalse)
+}
+
 func (s *migrationSuite) TestSetModelTargetAgentVersionDifferentVersion(c *tc.C) {
 	toVersion := semversion.MustParse("5.2.0").String()
 
