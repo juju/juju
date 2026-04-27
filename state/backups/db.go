@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,8 @@ var runCommandFn = runCommand
 // the database. This includes a simplification of the information in
 // authentication.MongoInfo.
 type DBInfo struct {
+	// DataDir is the location of the certificates.
+	DataDir string
 	// Address is the DB system's host address.
 	Address string
 	// Username is used when connecting to the DB system.
@@ -70,7 +73,7 @@ type Database interface {
 
 // NewDBInfo returns the information needed by backups to dump
 // the database.
-func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
+func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession, dataDir string) (*DBInfo, error) {
 	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -102,6 +105,7 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 	}
 
 	info := DBInfo{
+		DataDir:      dataDir,
 		Address:      mgoInfo.Addrs[0],
 		Password:     mgoInfo.Password,
 		Targets:      targets,
@@ -203,16 +207,9 @@ func (md *mongoDumper) options(dumpDir string) []string {
 		"--password", md.Password,
 		"--out", dumpDir,
 		"--oplog",
-	}
-	if md.DBInfo.BuildInfo.VersionAtLeast(4, 4, 30) {
-		logger.Infof("using mongo v4.4.30+ arguments for mongodump")
-		options = append(options,
-			"--sslCAFile", "/var/snap/juju-db/common/ca.crt",
-			"--sslPEMKeyFile", "/var/snap/juju-db/common/server.pem",
-			"--sslPEMKeyPassword", "ignore",
-		)
-	} else {
-		options = append(options, "--tlsInsecure")
+		"--sslCAFile", fmt.Sprintf("%s/ca.crt", md.DataDir),
+		"--sslPEMKeyFile", fmt.Sprintf("%s/server.pem", md.DataDir),
+		"--sslPEMKeyPassword", "ignore",
 	}
 	return options
 }

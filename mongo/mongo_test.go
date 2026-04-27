@@ -6,6 +6,7 @@ package mongo_test
 import (
 	"context"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,11 +23,13 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/service/snap"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type MongoSuite struct {
@@ -70,6 +73,8 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	s.PatchValue(&coreos.HostBase, func() (base.Base, error) { return version.DefaultSupportedLTSBase(), nil })
 
 	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v6.6.6'\n")
 	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
@@ -298,6 +303,21 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MongoSuite) TestUpdateSSLKeyUsesLeafCertificateOnly(c *gc.C) {
+	dataDir := c.MkDir()
+
+	firstCert := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("first-cert")}))
+	secondCert := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("second-cert")}))
+	bundle := firstCert + secondCert
+
+	err := mongo.UpdateSSLKey(dataDir, bundle, testInfo.PrivateKey, "ignored-ca")
+	c.Assert(err, jc.ErrorIsNil)
+
+	contents, err := os.ReadFile(mongo.SSLKeyPath(dataDir))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, mongo.GenerateSSLKey(firstCert, testInfo.PrivateKey))
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {

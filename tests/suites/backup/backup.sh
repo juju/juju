@@ -6,7 +6,7 @@ run_basic_backup_create() {
 	ensure "test-basic-backup-create" "${file}"
 
 	juju switch controller
-	checksum=$(juju create-backup --filename "${TEST_DIR}/basic_backup.tar.gz" | tee /dev/tty | awk '/^checksum:/ {print $2}' | base64 -d | xxd -p)
+	checksum=$(juju create-backup --filename "${TEST_DIR}/basic_backup.tar.gz" | tee /dev/stderr | awk '/^checksum:/ {print $2}' | base64 -d | xxd -p)
 
 	# Do some basic sanity checks on what's inside the backup
 	tar xf "${TEST_DIR}/basic_backup.tar.gz" -C "${TEST_DIR}"
