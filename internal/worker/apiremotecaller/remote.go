@@ -70,7 +70,7 @@ type remoteServer struct {
 	logger logger.Logger
 	clock  clock.Clock
 
-	changes     chan []string
+	changes     chan addressChange
 	connections chan chan api.Connection
 	reports     chan chan report
 	connected   atomic.Bool
@@ -89,7 +89,7 @@ func newRemoteServer(config RemoteServerConfig, internalStates chan string) Remo
 		logger:         config.Logger,
 		clock:          config.Clock,
 		apiOpener:      config.APIOpener,
-		changes:        make(chan []string),
+		changes:        make(chan addressChange),
 		internalStates: internalStates,
 		connections:    make(chan chan api.Connection),
 		reports:        make(chan chan report),
@@ -132,10 +132,20 @@ func (w *remoteServer) Connection(ctx context.Context, fn func(context.Context, 
 func (w *remoteServer) UpdateAddresses(addresses []string) {
 	addresses = append([]string(nil), addresses...)
 
+	processed := make(chan struct{})
 	select {
 	case <-w.tomb.Dying():
 		return
-	case w.changes <- addresses:
+	case w.changes <- addressChange{addresses: addresses, processed: processed}:
+	}
+
+	// Wait for the inner goroutine to acknowledge receipt and cancel
+	// the previous request context. This prevents a race where the
+	// main loop picks up a stale request before the cancellation
+	// has been applied.
+	select {
+	case <-w.tomb.Dying():
+	case <-processed:
 	}
 }
 
@@ -187,6 +197,16 @@ type report struct {
 	connected bool
 }
 
+// addressChange carries address data through the changes channel along
+// with an optional acknowledgment channel. When processed is non-nil,
+// the inner goroutine closes it after cancelling the previous request
+// context, guaranteeing the caller that the prior context is cancelled
+// before UpdateAddresses returns.
+type addressChange struct {
+	addresses []string
+	processed chan struct{}
+}
+
 func (w *remoteServer) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
@@ -224,11 +244,16 @@ func (w *remoteServer) loop() error {
 					canceler(context.Canceled)
 				}
 				return tomb.ErrDying
-			case addresses := <-w.changes:
+			case change := <-w.changes:
 				// Cancel the current connection attempt and then proxy the
 				// change through to the main loop.
 				if canceler != nil {
 					canceler(newChangeRequestError)
+				}
+
+				// Signal that the previous context has been cancelled.
+				if change.processed != nil {
+					close(change.processed)
 				}
 
 				// Create a new context for the next connection attempt.
@@ -237,7 +262,7 @@ func (w *remoteServer) loop() error {
 				req := request{
 					ctx:       requestCtx,
 					cancel:    requestCancel,
-					addresses: addresses,
+					addresses: change.addresses,
 				}
 
 				// Keep request handoff to the main loop non-blocking and
@@ -467,7 +492,11 @@ DRAIN:
 		select {
 		case <-w.tomb.Dying():
 			return
-		case addresses = <-w.changes:
+		case change := <-w.changes:
+			addresses = change.addresses
+			if change.processed != nil {
+				close(change.processed)
+			}
 		default:
 			break DRAIN
 		}
@@ -477,7 +506,7 @@ DRAIN:
 	// changes channel, which will trigger a reconnect.
 	select {
 	case <-w.tomb.Dying():
-	case w.changes <- addresses:
+	case w.changes <- addressChange{addresses: addresses}:
 	}
 }
 
