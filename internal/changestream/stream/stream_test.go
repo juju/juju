@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -58,7 +57,7 @@ func (s *streamSuite) TestWithNoNamespace(c *tc.C) {
 	select {
 	case <-stream.Terms():
 		c.Fatal("timed out waiting for term")
-	case <-time.After(testing.LongWait):
+	case <-time.After(witnessChangeLongDuration):
 	}
 
 	workertest.CleanKill(c, stream)
@@ -81,7 +80,7 @@ func (s *streamSuite) TestNoData(c *tc.C) {
 	select {
 	case <-stream.Terms():
 		c.Fatal("timed out waiting for term")
-	case <-time.After(testing.LongWait):
+	case <-time.After(witnessChangeLongDuration):
 	}
 
 	workertest.CleanKill(c, stream)
@@ -113,7 +112,7 @@ func (s *streamSuite) TestOneChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -152,7 +151,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -169,7 +168,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *tc.C) {
 		results = term.Changes()
 		term.Done(false, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -208,7 +207,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *tc.C) {
 		results = term.Changes()
 		term.Done(true, make(chan struct{}))
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -247,7 +246,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *tc.C) {
 		close(ch)
 		term.Done(false, ch)
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -284,7 +283,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -323,7 +322,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *tc.C) {
 	case term = <-stream.Terms():
 		results = term.Changes()
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -368,7 +367,7 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *tc.C) {
 		// the worker is bounced, so we'll just let the term timeout.
 		<-time.After(witnessChangeShortDuration)
 
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -411,7 +410,7 @@ func (s *streamSuite) TestMultipleTerms(c *tc.C) {
 			results = term.Changes()
 			term.Done(false, make(chan struct{}))
 
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 
@@ -472,7 +471,7 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *tc.C) {
 			results = term.Changes()
 			term.Done(true, make(chan struct{}))
 
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 
@@ -626,7 +625,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -672,7 +671,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -737,7 +736,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -810,7 +809,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -832,7 +831,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *tc.C) 
 func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectTermAfterAnyTimes()
+	s.expectAfterWithoutTermTimeout()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -852,7 +851,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 		}()
 		select {
 		case <-notified:
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for blocking change")
 		}
 	}
@@ -877,7 +876,7 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *tc.C) {
 	select {
 	case term := <-stream.Terms():
 		results = append(results, term.Changes()...)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for change")
 	}
 
@@ -948,7 +947,7 @@ func (s *streamSuite) TestReport(c *tc.C) {
 			c.Check(data["last-recorded-watermark"], tc.Equals, "")
 
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
@@ -957,12 +956,18 @@ func (s *streamSuite) TestReport(c *tc.C) {
 	// the change. This is because we wait until after the done channel is
 	// closed before we update the watermark.
 	syncPoint := func(c *tc.C) map[string]any {
-		for range 3 {
+		for i := range 25 {
 			data := stream.Report(c.Context())
 			if strings.Contains(data["watermarks"].(string), strconv.Itoa(changestream.DefaultNumTermWatermarks)) {
 				return data
 			}
-			<-time.After(testing.LongWait)
+
+			// Exponential backoff with a maximum of 10 seconds, we don't want
+			// to wait too long, but we also want to ensure that we give the
+			// worker enough time to process the change and update the
+			// watermark.
+			backoff := time.Duration(1<<i) * time.Millisecond
+			<-time.After(min(backoff, time.Second*10))
 		}
 		c.Fatalf("timed out waiting for sync point")
 		return nil
@@ -976,13 +981,13 @@ func (s *streamSuite) TestReport(c *tc.C) {
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1040,20 +1045,20 @@ func (s *streamSuite) TestWatermarkWrite(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1104,20 +1109,20 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1169,7 +1174,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 		case term := <-stream.Terms():
 			c.Assert(term.Changes(), tc.HasLen, 1)
 			term.Done(false, make(chan struct{}))
-		case <-time.After(testing.LongWait):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for change")
 		}
 	}
@@ -1180,13 +1185,13 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 
 	select {
 	case ch <- time.Now().UTC():
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
 	select {
 	case <-sync:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for timer")
 	}
 
@@ -1196,7 +1201,9 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *tc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithNoChanges(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -1207,7 +1214,9 @@ func (s *streamSuite) TestReadChangesWithNoChanges(c *tc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithOneChange(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -1226,7 +1235,9 @@ func (s *streamSuite) TestReadChangesWithOneChange(c *tc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -1248,7 +1259,9 @@ func (s *streamSuite) TestReadChangesWithMultipleSameChange(c *tc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChanges(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -1273,7 +1286,9 @@ func (s *streamSuite) TestReadChangesWithMultipleChanges(c *tc.C) {
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 
@@ -1306,7 +1321,9 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesGroupsCorrectly(c *tc.C)
 }
 
 func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrectly(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 
 	s.insertNamespace(c, 1000, "foo")
 	s.insertNamespace(c, 2000, "bar")
@@ -1397,7 +1414,11 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 }
 
 func (s *streamSuite) TestProcessWatermark(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	s.expectMetrics()
+
+	stream := s.newNonRunningStream()
 
 	err := stream.processWatermark(func(tv *termView) error {
 		c.Fatalf("unexpected call to process watermark")
@@ -1453,7 +1474,11 @@ func (s *streamSuite) TestProcessWatermark(c *tc.C) {
 }
 
 func (s *streamSuite) TestProcessWatermarkBufferFull(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	s.expectMetrics()
+
+	stream := s.newNonRunningStream()
 
 	err := stream.processWatermark(func(tv *termView) error {
 		c.Fatalf("unexpected call to process watermark")
@@ -1493,7 +1518,11 @@ func (s *streamSuite) TestProcessWatermarkBufferFull(c *tc.C) {
 }
 
 func (s *streamSuite) TestUpperBound(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	s.expectMetrics()
+
+	stream := s.newNonRunningStream()
 
 	c.Check(stream.upperBound(), tc.Equals, int64(-1))
 
@@ -1521,7 +1550,9 @@ func (s *streamSuite) TestUpperBound(c *tc.C) {
 }
 
 func (s *streamSuite) TestCreateWatermarkTwice(c *tc.C) {
-	stream := s.newStream()
+	defer s.setupMocks(c).Finish()
+
+	stream := s.newNonRunningStream()
 	err := stream.createWatermark()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1529,12 +1560,13 @@ func (s *streamSuite) TestCreateWatermarkTwice(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *streamSuite) newStream() *Stream {
+func (s *streamSuite) newNonRunningStream() *Stream {
 	return &Stream{
-		db:         s.TxnRunner(),
-		id:         uuid.MustNewUUID().String(),
-		metrics:    s.metrics,
-		watermarks: make([]*termView, changestream.DefaultNumTermWatermarks),
+		db:             s.TxnRunner(),
+		id:             uuid.MustNewUUID().String(),
+		metrics:        s.metrics,
+		watermarks:     make([]*termView, changestream.DefaultNumTermWatermarks),
+		internalStates: nil,
 	}
 }
 
