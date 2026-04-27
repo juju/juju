@@ -5,6 +5,17 @@
 ```{note}
 Juju 2.9 series is LTS
 ```
+### 🔸 **Juju 2.9.58**
+🗓️ 27 Apr 2026
+
+This is a bug fix release for Juju 2.9, which includes a fix for a creating
+backups using the `juju create-backup` command. The fix deals with an issue
+where upgrading to 2.9 from an older release could (in some cases)
+break backups.
+
+🛠️ Fixes:
+- fix: ensure create backup works after upgrade by @wallyworld in https://github.com/juju/juju/pull/22271
+
 ### 🔸 **Juju 2.9.57**
 🗓️ 09 Apr 2026
 
