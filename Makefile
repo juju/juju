@@ -188,7 +188,8 @@ define link_flags_version
 -X $(PROJECT)/core/version.build=$(JUJU_BUILD_NUMBER) \
 -X $(PROJECT)/core/version.Grade=$(JUJU_GRADE) \
 -X $(PROJECT)/core/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
--X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
+-X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL) \
+-X $(PROJECT)/internal/cloudconfig/podcfg.JujudOCINamespace=$(PULL_OCI_REGISTRY)
 endef
 
 # Enable coverage collection.
@@ -657,7 +658,10 @@ check-deps:
 
 # CAAS related targets
 export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
-OCI_REGISTRY_USERNAME      ?= ghcr.io/juju
+
+# PULL_OCI_REGISTRY is the registry Juju will pull its operator OCI images
+# from by default.
+PULL_OCI_REGISTRY          ?= ghcr.io/juju
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
