@@ -6,6 +6,7 @@ package transformer
 import (
 	"context"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -19,18 +20,18 @@ import (
 type Transformer struct {
 	// versions is the ordered list of schema format versions the transformer
 	// knows about. The last entry is the target.
-	versions []string
+	versions []semversion.Number
 	// chain maps a source version to its transformation entry. The target
 	// version has no entry (nothing to run).
-	chain  map[string]Transformation
-	target string
+	chain  map[semversion.Number]Transformation
+	target semversion.Number
 }
 
 // NewTransformer builds a Transformer from the given transformations and the
 // ordered list of schema format versions. Invoked at controller startup;
 // returns an error if the chain is not well-formed: missing step,
 // duplicate step, length mismatch, type chain break, or no versions configured.
-func NewTransformer(transformations []Transformation, versions []string) (*Transformer, error) {
+func NewTransformer(transformations []Transformation, versions []semversion.Number) (*Transformer, error) {
 	if len(versions) == 0 {
 		return nil, errors.Errorf("no export versions defined")
 	}
@@ -41,7 +42,7 @@ func NewTransformer(transformations []Transformation, versions []string) (*Trans
 			steps, len(versions), len(transformations)).Add(ErrTransformerLengthMismatch)
 	}
 
-	chain := make(map[string]Transformation, len(transformations))
+	chain := make(map[semversion.Number]Transformation, len(transformations))
 	for _, transformation := range transformations {
 		if _, dup := chain[transformation.from]; dup {
 			return nil, errors.Errorf("duplicate transformer for version pair %q -> %q",
@@ -88,7 +89,7 @@ func NewTransformer(transformations []Transformation, versions []string) (*Trans
 // is wrapped with the failing (from -> to) pair.
 //
 // If srcVersion equals the target, payload is returned unchanged.
-func (t *Transformer) Transform(ctx context.Context, srcVersion string, payload any) (any, error) {
+func (t *Transformer) Transform(ctx context.Context, srcVersion semversion.Number, payload any) (any, error) {
 	if srcVersion == t.target {
 		return payload, nil
 	}
@@ -115,13 +116,13 @@ func (t *Transformer) Transform(ctx context.Context, srcVersion string, payload 
 }
 
 // Target returns the schema format version this transformer walks payloads up to.
-func (t *Transformer) Target() string {
+func (t *Transformer) Target() semversion.Number {
 	return t.target
 }
 
 // versionIndex returns the index of version v in t.versions, or -1 if not
 // found.
-func (t *Transformer) versionIndex(v string) int {
+func (t *Transformer) versionIndex(v semversion.Number) int {
 	for i, x := range t.versions {
 		if x == v {
 			return i

@@ -128,7 +128,15 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		return err
 	}
 
-	return generateTransforms(export.ExportVersions)
+	return generateTransforms(exportVersionStrings(export.ExportVersions))
+}
+
+func exportVersionStrings(versions []semversion.Number) []string {
+	result := make([]string, len(versions))
+	for i, v := range versions {
+		result[i] = v.String()
+	}
+	return result
 }
 
 func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {

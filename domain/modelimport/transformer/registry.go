@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -21,7 +22,7 @@ type TransformationFunc[Src, Dst any] func(ctx context.Context, src *Src) (*Dst,
 // to [NewTransformer] to build a [Transformer]. Exported so top-level
 // wiring packages can hold the registered list without an import cycle.
 type Transformation struct {
-	from, to  string
+	from, to  semversion.Number
 	srcType   reflect.Type // *Src
 	dstType   reflect.Type // *Dst
 	transform func(ctx context.Context, src any) (any, error)
@@ -34,8 +35,8 @@ type Transformation struct {
 func NewTransformation[Src, Dst any](from, to string, fn TransformationFunc[Src, Dst]) Transformation {
 	expected := reflect.TypeFor[*Src]()
 	return Transformation{
-		from:    from,
-		to:      to,
+		from:    semversion.MustParse(from),
+		to:      semversion.MustParse(to),
 		srcType: expected,
 		dstType: reflect.TypeFor[*Dst](),
 		transform: func(ctx context.Context, src any) (any, error) {
