@@ -51,11 +51,30 @@ def get_tree_juju_version():
 
 
 def get_juju_version():
-    """Check to see what version of Juju we are running."""
+    """Check to see what version of Juju we are running.
+    
+    Returns None, None if juju is not installed or fails to execute.
+    
+    Note: This function intentionally treats all errors (binary not found,
+    execution failure, etc.) as "juju not present" to allow docs generation
+    in CI environments where juju is not installed. If juju is installed but
+    failing, the actual doc generation (via `go run scripts/docgen.go`) will
+    fail with a clearer error message.
+    """
     # There is probably more that could be done here about all the possible
     # version strings juju spits out, but this should cover stripping things
     # like 'genericlinux' and the architecture out.
-    result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
+    try:
+        result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
+    except FileNotFoundError:
+        # juju binary not found in PATH (expected in CI without juju installed)
+        return None, None
+    
+    if result.returncode != 0:
+        # juju exists but failed to run - treat as not present to allow CI to proceed.
+        # If there's a real problem, doc generation will fail later with clearer errors.
+        return None, None
+    
     version = result.stdout.rstrip()
     major_minor = _major_minor_from_version_string(version)
     if major_minor is None:
@@ -70,7 +89,11 @@ def generate_cli_docs():
 
     tree_major_minor, tree_version = get_tree_juju_version()
     juju_major_minor, juju_version = get_juju_version()
-    if tree_major_minor != juju_major_minor:
+    
+    # If juju is not installed, skip the version check and use tree version
+    if juju_major_minor is None:
+        print("juju binary not found in PATH, generating cli command docs using tree version {}".format(tree_version))
+    elif tree_major_minor != juju_major_minor:
         warning = ("refusing to rebuild docs with a mismatched minor juju version.\n" +
                 "Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version))
         print(warning)
