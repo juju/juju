@@ -2861,7 +2861,7 @@ func (u *UniterAPI) updatedNetworkInfo(
 	return transform.Map(relationNetworkInfos, func(relationUUID corerelation.UUID, relationNetworkInfo domainnetork.UnitNetwork) (corerelation.UUID, unitstate.Settings) {
 		var ingress, egress string
 		if len(relationNetworkInfo.EgressSubnets) > 0 {
-			egress = strings.Join(relationNetworkInfo.EgressSubnets, ", ")
+			egress = strings.Join(relationNetworkInfo.EgressSubnets, ",")
 		}
 		if len(relationNetworkInfo.IngressAddresses) > 0 {
 			ingress = relationNetworkInfo.IngressAddresses[0]

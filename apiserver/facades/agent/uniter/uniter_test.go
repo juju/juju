@@ -3415,10 +3415,10 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 		CharmState: arg.SetUnitState.CharmState,
 		UpdatedRelationNetworkInfo: map[corerelation.UUID]unitstate.Settings{
 			relationUUID: map[string]string{
-				unitstate.IngressAddressKey: "10.0.0.7",
-				unitstate.EgressSubnetsKey:  "10.0.0.0/24, 10.0.1.0/24",
+					unitstate.IngressAddressKey: "10.0.0.7",
+					unitstate.EgressSubnetsKey:  "10.0.0.0/24,10.0.1.0/24",
+				},
 			},
-		},
 		ClosePorts: network.GroupedPortRanges{
 			"ep0": []network.PortRange{{
 				Protocol: "icmp", FromPort: 22, ToPort: 22,
