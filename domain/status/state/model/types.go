@@ -319,7 +319,7 @@ type filesystemStatusDetails struct {
 
 	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
 	StorageID           string         `db:"storage_id"`
-	PoolName            sql.NullString `db:"pool_name"`
+	PoolName            string         `db:"pool_name"`
 	VolumeID            sql.NullString `db:"volume_id"`
 	ProviderID          string         `db:"provider_id"`
 	SizeMiB             uint64         `db:"size_mib"`
@@ -349,7 +349,7 @@ type volumeStatusDetails struct {
 
 	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
 	StorageID           string         `db:"storage_id"`
-	PoolName            sql.NullString `db:"pool_name"`
+	PoolName            string         `db:"pool_name"`
 	ProviderID          string         `db:"provider_id"`
 	HardwareID          string         `db:"hardware_id"`
 	WWN                 string         `db:"wwn"`

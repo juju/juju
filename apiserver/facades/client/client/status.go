@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -1463,8 +1462,9 @@ func processStorage(
 	// zeroTime is used to set the status time no status time is available.
 	zeroTime := time.UnixMicro(0).UTC()
 
-	storageResult := make([]params.StorageDetails, 0, len(storageInstances))
-	for _, v := range storageInstances {
+	storageResult := make([]params.StorageDetails, len(storageInstances))
+	storageMap := make(map[string]params.StorageDetails, len(storageInstances))
+	for i, v := range storageInstances {
 		details := params.StorageDetails{
 			StorageTag: names.NewStorageTag(v.ID).String(),
 			Life:       v.Life,
@@ -1481,7 +1481,7 @@ func processStorage(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			v.Status.Since = &zeroTime
+			details.Status.Since = &zeroTime
 		}
 		if v.Owner != nil {
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
@@ -1499,6 +1499,8 @@ func processStorage(
 			sad := params.StorageAttachmentDetails{
 				StorageTag: details.StorageTag,
 				UnitTag:    names.NewUnitTag(sa.Unit.String()).String(),
+				Life:       sa.Life,
+				Location:   sa.Location,
 			}
 			if sa.Machine != nil {
 				sad.MachineTag = names.NewMachineTag(sa.Machine.String()).String()
@@ -1508,7 +1510,8 @@ func processStorage(
 			}
 			details.Attachments[unitTag.String()] = sad
 		}
-		storageResult = append(storageResult, details)
+		storageResult[i] = details
+		storageMap[v.ID] = details
 	}
 
 	filesystems, err := statusService.GetAllFilesystemStatuses(ctx)
@@ -1538,7 +1541,9 @@ func processStorage(
 		if v.VolumeID != nil {
 			details.VolumeTag = names.NewVolumeTag(*v.VolumeID).String()
 		}
-		unitAttachmentLocations := map[string]string{}
+		if v.Status.Since == nil {
+			details.Status.Since = &zeroTime
+		}
 		for unit, fa := range v.UnitAttachments {
 			fad := params.FilesystemAttachmentDetails{
 				Life: fa.Life,
@@ -1552,7 +1557,6 @@ func processStorage(
 			}
 			unitTag := names.NewUnitTag(unit.String()).String()
 			details.UnitAttachments[unitTag] = fad
-			unitAttachmentLocations[unitTag] = fa.MountPoint
 		}
 		for machine, fa := range v.MachineAttachments {
 			fad := params.FilesystemAttachmentDetails{
@@ -1567,6 +1571,9 @@ func processStorage(
 			}
 			machineTag := names.NewMachineTag(machine.String()).String()
 			details.MachineAttachments[machineTag] = fad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			details.Storage = &storage
 		}
 		filesystemResult = append(filesystemResult, details)
 	}
@@ -1598,7 +1605,9 @@ func processStorage(
 				Since:  v.Status.Since,
 			},
 		}
-		unitAttachmentLocations := map[string]string{}
+		if v.Status.Since == nil {
+			details.Status.Since = &zeroTime
+		}
 		for unit, va := range v.UnitAttachments {
 			vad := params.VolumeAttachmentDetails{
 				Life: va.Life,
@@ -1621,18 +1630,6 @@ func processStorage(
 			}
 			unitTag := names.NewUnitTag(unit.String()).String()
 			details.UnitAttachments[unitTag] = vad
-
-			var deviceLinks []string
-			if va.DeviceLink != "" {
-				deviceLinks = append(deviceLinks, vad.DeviceLink)
-			}
-			blockDevicePath, _ := blockdevice.BlockDevicePath(blockdevice.BlockDevice{
-				HardwareId:  v.HardwareID,
-				WWN:         v.WWN,
-				DeviceName:  va.DeviceName,
-				DeviceLinks: deviceLinks,
-			})
-			unitAttachmentLocations[unitTag] = blockDevicePath
 		}
 		for machine, va := range v.MachineAttachments {
 			vad := params.VolumeAttachmentDetails{
@@ -1661,6 +1658,9 @@ func processStorage(
 			}
 			machineTag := names.NewMachineTag(machine.String()).String()
 			details.MachineAttachments[machineTag] = vad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			details.Storage = &storage
 		}
 		volumeResult = append(volumeResult, details)
 	}

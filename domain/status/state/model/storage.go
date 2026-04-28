@@ -756,10 +756,6 @@ WHERE     sf.uuid IN ($entityUUIDs[:])
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
-		var poolName string
-		if v.PoolName.Valid {
-			poolName = v.PoolName.String
-		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -771,7 +767,7 @@ WHERE     sf.uuid IN ($entityUUIDs[:])
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
-			PoolName:    poolName,
+			PoolName:    v.PoolName,
 			VolumeID:    volumeID,
 			ProviderID:  v.ProviderID,
 			SizeMiB:     v.SizeMiB,
@@ -832,10 +828,6 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
-		var poolName string
-		if v.PoolName.Valid {
-			poolName = v.PoolName.String
-		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -847,7 +839,7 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
-			PoolName:    poolName,
+			PoolName:    v.PoolName,
 			VolumeID:    volumeID,
 			ProviderID:  v.ProviderID,
 			SizeMiB:     v.SizeMiB,
@@ -1051,10 +1043,6 @@ WHERE     sv.uuid IN ($entityUUIDs[:])
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
-		var poolName string
-		if v.PoolName.Valid {
-			poolName = v.PoolName.String
-		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -1066,7 +1054,7 @@ WHERE     sv.uuid IN ($entityUUIDs[:])
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
-			PoolName:    poolName,
+			PoolName:    v.PoolName,
 			ProviderID:  v.ProviderID,
 			HardwareID:  v.HardwareID,
 			WWN:         v.WWN,
@@ -1123,10 +1111,6 @@ LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
-		var poolName string
-		if v.PoolName.Valid {
-			poolName = v.PoolName.String
-		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -1138,7 +1122,7 @@ LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
-			PoolName:    poolName,
+			PoolName:    v.PoolName,
 			ProviderID:  v.ProviderID,
 			HardwareID:  v.HardwareID,
 			WWN:         v.WWN,
