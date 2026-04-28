@@ -2207,6 +2207,481 @@ func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLSource(c *tc.C) {
 	})
 }
 
+// TestRemoteApplicationInfo tests that RemoteApplicationInfo returns empty
+// results (the method is a stub for the Dashboard).
+func (s *offerSuite) TestRemoteApplicationInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerAPI := s.offerAPI(c)
+	results, err := offerAPI.RemoteApplicationInfo(c.Context(), params.OfferURLs{
+		OfferURLs: []string{"fred@external/test-model.hosted-mysql"},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.RemoteApplicationInfoResults{})
+}
+
+// TestListApplicationOffersModelAdmin tests that a model admin who is not a
+// controller superuser can list application offers.
+func (s *offerSuite) TestListApplicationOffersModelAdmin(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: user is model admin but not superuser.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	// Not superuser, but is model admin.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	// Model admin check passes.
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, names.NewModelTag(foundModel.UUID.String()),
+	).Return(nil)
+
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              uuid.MustNewUUID().String(),
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "bob", Access: permission.AdminAccess}},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelQualifier: modelOwnerTag.Id(),
+				ModelName:      modelName,
+				OfferName:      "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.Results, tc.HasLen, 1)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
+	mc.AddExpr("_.ApplicationOfferDetailsV5.OfferUUID", tc.IsUUID)
+	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "fred@external/prod.hosted-db2",
+			OfferName:              "hosted-db2",
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "bob", Access: "admin"},
+			}},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+}
+
+// TestApplicationOffersOfferLevelAccess tests that a user with offer-level
+// consume access (but not model admin) can get application offers via
+// ApplicationOffers.
+func (s *offerSuite) TestApplicationOffersOfferLevelAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: user is not model admin, but has consume access on the offer.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	// Not superuser, not model admin.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+
+	modelName := "test-model"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+
+	offerUUID := uuid.MustNewUUID().String()
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{Name: "bob", Access: permission.ConsumeAccess},
+			},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	// User has consume access on the offer (not admin).
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+	).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.ConsumeAccess, offerTag,
+	).Return(nil)
+
+	args := params.OfferURLs{
+		OfferURLs: []string{"fred@external/test-model.hosted-db2"},
+	}
+
+	// Act
+	obtainedOffers, err := offerAPI.ApplicationOffers(c.Context(), args)
+
+	// Assert: user sees the offer with limited view (only their own access).
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOffers.Results, tc.HasLen, 1)
+	c.Assert(obtainedOffers.Results[0].Error, tc.IsNil)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
+	c.Check(obtainedOffers.Results[0].Result, mc, &params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "fred@external/test-model.hosted-db2",
+			OfferName:              "hosted-db2",
+			OfferUUID:              offerUUID,
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "bob", DisplayName: "bob smith", Access: "consume"},
+			},
+		},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+}
+
+// TestFindApplicationOffersOfferLevelAdminAccess tests that a user with
+// admin access on an offer (but not model admin) sees the full user list
+// for that offer.
+func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: user has offer admin but is not model admin.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(userTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
+	// User is not model admin.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+
+	offerUUID := uuid.MustNewUUID().String()
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{Name: "bob", Access: permission.AdminAccess},
+				{Name: "george", Access: permission.ConsumeAccess},
+			},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	// User has admin access on the offer.
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+	).Return(nil)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
+
+	// Assert: user sees full user list because they have offer admin.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.Results, tc.HasLen, 1)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
+	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "bob/prod.hosted-db2",
+			OfferName:              "hosted-db2",
+			OfferUUID:              offerUUID,
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "bob", Access: "admin"},
+				{UserName: "george", Access: "consume"},
+			},
+		},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+}
+
+// TestFindApplicationOffersOfferConsumeAccess tests that a user with
+// consume-level access on an offer sees the offer with limited view.
+func (s *offerSuite) TestFindApplicationOffersOfferConsumeAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: user has consume access on the offer, not admin.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(userTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
+	// User is not model admin.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+
+	offerUUID := uuid.MustNewUUID().String()
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{
+				{Name: "bob", Access: permission.ConsumeAccess},
+				{Name: "george", Access: permission.AdminAccess},
+			},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	// User has consume access on the offer (not admin).
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+	).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.ConsumeAccess, offerTag,
+	).Return(nil)
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
+
+	// Assert: user sees the offer but with limited view (only own access).
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.Results, tc.HasLen, 1)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ApplicationOfferDetailsV5.SourceModelTag", tc.Ignore)
+	c.Check(obtained.Results[0], mc, params.ApplicationOfferAdminDetailsV5{
+		ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+			OfferURL:               "bob/prod.hosted-db2",
+			OfferName:              "hosted-db2",
+			OfferUUID:              offerUUID,
+			ApplicationDescription: "testing application",
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Users: []params.OfferUserDetails{
+				{UserName: "bob", DisplayName: "bob smith", Access: "consume"},
+			},
+		},
+		ApplicationName: "test-app",
+		CharmURL:        "ch:amd64/app-42",
+	})
+}
+
+// TestFindApplicationOffersPermissionCheckError tests that when the
+// permission check on an offer returns an unexpected error (not
+// ErrorEntityMissingPermission), the offer is filtered out.
+func (s *offerSuite) TestFindApplicationOffersPermissionCheckError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: user is not model admin, and permission check returns
+	// an unexpected error.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(userTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
+	// User is not model admin.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+
+	offerUUID := uuid.MustNewUUID().String()
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{
+		{OfferName: "hosted-db2"},
+	}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	// Permission check returns an unexpected error on admin access check.
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+	).Return(errors.New("unexpected database error"))
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
+
+	// Assert: no outer error, but offer is filtered out due to the error.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained.Results, tc.HasLen, 0)
+}
+
+// TestDestroyOffersSuperuser tests that a controller superuser can
+// destroy offers.
+func (s *offerSuite) TestDestroyOffersSuperuser(c *tc.C) {
+	s.setupMocks(c).Finish()
+
+	// Arrange
+	offerAPI := s.offerAPI(c)
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/prod.hosted-mysql")
+	modelUUID := s.expectGetModelByNameAndQualifier(c, names.NewUserTag("fred@external"), offerURL.ModelName)
+	s.setupAuthUser("simon")
+	// Superuser check passes.
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(offerAPI.controllerUUID)).Return(nil)
+	// ModelAdmin check is not needed (superuser short-circuits).
+	_ = modelUUID
+
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	s.removalService.EXPECT().RemoveOffer(gomock.Any(), offerUUID, false).Return(nil)
+
+	args := params.DestroyApplicationOffers{
+		OfferURLs: []string{offerURL.String()},
+	}
+
+	// Act
+	results, err := offerAPI.DestroyOffers(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+}
+
 func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
