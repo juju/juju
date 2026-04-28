@@ -715,11 +715,13 @@ func (st *ModelState) GetFilesystems(
 SELECT    (sf.uuid, sf.filesystem_id, sf.life_id, sf.provider_id, sf.size_mib) AS (&filesystemStatusDetails.*),
           (sfs.status_id, sfs.message, sfs.updated_at) AS (&filesystemStatusDetails.*),
           (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*),
+          sp.name AS &filesystemStatusDetails.pool_name,
           si.uuid AS &filesystemStatusDetails.storage_instance_uuid
 FROM      storage_filesystem sf
 LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
 LEFT JOIN storage_instance_filesystem sif ON sf.uuid=sif.storage_filesystem_uuid
 LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
+LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid=si.uuid
 LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 WHERE     sf.uuid IN ($entityUUIDs[:])
@@ -754,6 +756,10 @@ WHERE     sf.uuid IN ($entityUUIDs[:])
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
+		var poolName string
+		if v.PoolName.Valid {
+			poolName = v.PoolName.String
+		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -765,6 +771,7 @@ WHERE     sf.uuid IN ($entityUUIDs[:])
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
+			PoolName:    poolName,
 			VolumeID:    volumeID,
 			ProviderID:  v.ProviderID,
 			SizeMiB:     v.SizeMiB,
@@ -785,11 +792,13 @@ func (st *ModelState) GetAllFilesystems(
 SELECT    (sf.uuid, sf.filesystem_id, sf.life_id, sf.provider_id, sf.size_mib) AS (&filesystemStatusDetails.*),
           (sfs.status_id, sfs.message, sfs.updated_at) AS (&filesystemStatusDetails.*),
           (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*),
+          sp.name AS &filesystemStatusDetails.pool_name,
           si.uuid AS &filesystemStatusDetails.storage_instance_uuid
 FROM      storage_filesystem sf
 LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
 LEFT JOIN storage_instance_filesystem sif ON sf.uuid=sif.storage_filesystem_uuid
 LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
+LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid=si.uuid
 LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 `, filesystemStatusDetails{})
@@ -823,6 +832,10 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
+		var poolName string
+		if v.PoolName.Valid {
+			poolName = v.PoolName.String
+		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -834,6 +847,7 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
+			PoolName:    poolName,
 			VolumeID:    volumeID,
 			ProviderID:  v.ProviderID,
 			SizeMiB:     v.SizeMiB,
@@ -1001,12 +1015,14 @@ func (st *ModelState) GetVolumes(
 	stmt, err := st.Prepare(`
 SELECT    (sv.uuid, sv.volume_id, sv.life_id, sv.provider_id, sv.hardware_id, sv.wwn, sv.size_mib, sv.persistent) AS (&volumeStatusDetails.*),
           (svs.status_id, svs.message, svs.updated_at) AS (&volumeStatusDetails.*),
-          (si.storage_id) AS (&volumeStatusDetails.*),
+          si.storage_id AS &volumeStatusDetails.storage_id,
+          sp.name AS &volumeStatusDetails.pool_name,
           si.uuid AS &volumeStatusDetails.storage_instance_uuid
 FROM      storage_volume sv
 LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
 LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
+LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 WHERE     sv.uuid IN ($entityUUIDs[:])
 `, volumeStatusDetails{}, ids)
 	if err != nil {
@@ -1035,6 +1051,10 @@ WHERE     sv.uuid IN ($entityUUIDs[:])
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
+		var poolName string
+		if v.PoolName.Valid {
+			poolName = v.PoolName.String
+		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -1046,6 +1066,7 @@ WHERE     sv.uuid IN ($entityUUIDs[:])
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
+			PoolName:    poolName,
 			ProviderID:  v.ProviderID,
 			HardwareID:  v.HardwareID,
 			WWN:         v.WWN,
@@ -1067,12 +1088,14 @@ func (st *ModelState) GetAllVolumes(
 	stmt, err := st.Prepare(`
 SELECT    (sv.uuid, sv.volume_id, sv.life_id, sv.provider_id, sv.hardware_id, sv.wwn, sv.size_mib, sv.persistent) AS (&volumeStatusDetails.*),
           (svs.status_id, svs.message, svs.updated_at) AS (&volumeStatusDetails.*),
-          (si.storage_id) AS (&volumeStatusDetails.*),
+          si.storage_id AS &volumeStatusDetails.storage_id,
+          sp.name AS &volumeStatusDetails.pool_name,
           si.uuid AS &volumeStatusDetails.storage_instance_uuid
 FROM      storage_volume sv
 LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
 LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
+LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 `, volumeStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1100,6 +1123,10 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
 			storageInstanceUUID = &siUUID
 		}
+		var poolName string
+		if v.PoolName.Valid {
+			poolName = v.PoolName.String
+		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -1111,6 +1138,7 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 			},
 			StorageUUID: storageInstanceUUID,
 			StorageID:   v.StorageID,
+			PoolName:    poolName,
 			ProviderID:  v.ProviderID,
 			HardwareID:  v.HardwareID,
 			WWN:         v.WWN,

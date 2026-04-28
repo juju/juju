@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainnetwork "github.com/juju/juju/domain/network"
 	service "github.com/juju/juju/domain/status/service"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -558,6 +560,42 @@ func (s *fullStatusSuite) TestFullStatusFilteredByApplicationName(c *tc.C) {
 	_, ok = output.Machines["2"]
 	c.Check(ok, tc.IsFalse)
 	c.Check(output.Applications["mysql"].Units, tc.HasLen, 1)
+}
+
+func (s *fullStatusSuite) TestProcessStorageIncludesPoolNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.statusService.EXPECT().GetAllStorageInstanceStatuses(gomock.Any()).Return(
+		[]service.StorageInstance{{
+			ID:   "data/0",
+			Kind: domainstorage.StorageKindFilesystem,
+			Life: corelife.Alive,
+		}}, nil)
+	s.statusService.EXPECT().GetAllFilesystemStatuses(gomock.Any()).Return(
+		[]service.Filesystem{{
+			ID:        "0",
+			Life:      corelife.Alive,
+			PoolName:  "fspool",
+			SizeMiB:   2048,
+			StorageID: "data/0",
+		}}, nil)
+	s.statusService.EXPECT().GetAllVolumeStatuses(gomock.Any()).Return(
+		[]service.Volume{{
+			ID:       "0",
+			Life:     corelife.Alive,
+			PoolName: "blkpool",
+			SizeMiB:  2048,
+		}}, nil)
+
+	_, filesystems, volumes, err := processStorage(
+		c.Context(), s.statusService, nil,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(filesystems, tc.HasLen, 1)
+	c.Check(filesystems[0].Info.Pool, tc.Equals, "fspool")
+	c.Assert(volumes, tc.HasLen, 1)
+	c.Check(volumes[0].Info.Pool, tc.Equals, "blkpool")
 }
 
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
