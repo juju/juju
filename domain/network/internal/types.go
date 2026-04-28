@@ -91,17 +91,17 @@ type UnitAddress struct {
 	DeviceType corenetwork.LinkLayerDeviceType
 }
 
-type ImportCloudService struct {
+type ImportK8sService struct {
 	UUID        string // generated during import
 	DeviceUUID  string // generated during import
 	NetNodeUUID string // generated during import
 
 	ApplicationName string
 	ProviderID      string
-	Addresses       []ImportCloudServiceAddress
+	Addresses       []ImportK8sServiceAddress
 }
 
-type ImportCloudServiceAddress struct {
+type ImportK8sServiceAddress struct {
 	UUID string // generated during import
 
 	Value   string

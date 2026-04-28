@@ -454,7 +454,7 @@ func updateState(
 		return nil, errors.Trace(err)
 	}
 	if svc != nil {
-		err := applicationService.UpdateCloudService(
+		err := applicationService.UpdateK8sService(
 			ctx, appName, svc.Id, svc.Addresses)
 		if err != nil {
 			return nil, errors.Trace(err)

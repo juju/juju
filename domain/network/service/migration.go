@@ -29,10 +29,10 @@ type MigrationState interface {
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
 
-	// CreateCloudServices creates cloud service in state.
+	// CreateK8sServices creates cloud service in state.
 	// It creates the associated netnode and link it to the application
 	// through the provided application name.
-	CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error
+	CreateK8sServices(ctx context.Context, k8sServices []internal.ImportK8sService) error
 
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (corenetwork.SpaceInfos, error)
@@ -212,9 +212,9 @@ func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.Imp
 	return addr, nil
 }
 
-// ImportCloudServices is part of the [modelmigration.MigrationService]
+// ImportK8sServices is part of the [modelmigration.MigrationService]
 // interface.
-func (s *MigrationService) ImportCloudServices(ctx context.Context, services []internal.ImportCloudService) error {
+func (s *MigrationService) ImportK8sServices(ctx context.Context, services []internal.ImportK8sService) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -227,10 +227,10 @@ func (s *MigrationService) ImportCloudServices(ctx context.Context, services []i
 	}
 
 	// Create the k8s_services and nodes through a call to state (can take
-	// directly []ImportCloudService)
-	err = s.st.CreateCloudServices(ctx, services)
+	// directly []ImportK8sService)
+	err = s.st.CreateK8sServices(ctx, services)
 	if err != nil {
-		return errors.Errorf("creating cloud services: %w", err)
+		return errors.Errorf("creating k8s services: %w", err)
 	}
 	err = s.st.ImportLinkLayerDevices(ctx, llds)
 	if err != nil {
@@ -267,10 +267,10 @@ func (s *MigrationService) getPlaceholderSubnetUUIDByAddressType(ctx context.Con
 }
 
 // getPlaceholderLinkLayerDevices processes the list of cloud services to
-// generate placeholder link layer devices for migrated CloudServices
+// generate placeholder link layer devices for migrated K8sServices
 func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	ctx context.Context,
-	services []internal.ImportCloudService,
+	services []internal.ImportK8sService,
 ) ([]internal.ImportLinkLayerDevice, error) {
 	subnetUUIDByAddressType, err := s.getPlaceholderSubnetUUIDByAddressType(ctx)
 	if err != nil {
@@ -281,9 +281,9 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	for _, service := range services {
 		transformedAddresses := make([]internal.ImportIPAddress, 0, len(service.Addresses))
 		for _, addr := range service.Addresses {
-			transformedAddr, err := s.transformCloudServiceAddress(addr, subnetUUIDByAddressType)
+			transformedAddr, err := s.transformK8sServiceAddress(addr, subnetUUIDByAddressType)
 			if err != nil {
-				return nil, errors.Errorf("converting address %q for %q cloud service: %w",
+				return nil, errors.Errorf("converting address %q for %q k8s service: %w",
 					addr.Value,
 					service.ApplicationName,
 					err)
@@ -307,10 +307,10 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	return devices, nil
 }
 
-// transformCloudServiceAddress transforms an ImportCloudServiceAddress by
+// transformK8sServiceAddress transforms an ImportK8sServiceAddress by
 // finding and setting its subnet UUID
-func (s *MigrationService) transformCloudServiceAddress(
-	addr internal.ImportCloudServiceAddress,
+func (s *MigrationService) transformK8sServiceAddress(
+	addr internal.ImportK8sServiceAddress,
 	addressTypeSubnetUUID map[corenetwork.AddressType]string,
 ) (internal.ImportIPAddress, error) {
 	addressType := corenetwork.AddressType(addr.Type)

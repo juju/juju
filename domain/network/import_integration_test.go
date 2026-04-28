@@ -618,7 +618,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 	s.checkSubnetExists(c, "203.0.113.0/32")
 }
 
-func (s *importSuite) TestImportCloudServices(c *tc.C) {
+func (s *importSuite) TestImportK8sServices(c *tc.C) {
 	s.createCAASApplication(c, "foo")
 	s.createCAASApplication(c, "bar")
 
@@ -667,7 +667,7 @@ func (s *importSuite) TestImportCloudServices(c *tc.C) {
 		},
 	})
 
-	networkmodelmigration.RegisterImportCloudService(s.coordinator, loggertesting.WrapCheckLog(c))
+	networkmodelmigration.RegisterImportK8sService(s.coordinator, loggertesting.WrapCheckLog(c))
 	err := s.coordinator.Perform(c.Context(), s.scope, desc)
 	c.Assert(err, tc.ErrorIsNil)
 

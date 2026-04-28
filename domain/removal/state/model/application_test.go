@@ -860,11 +860,11 @@ func (s *applicationSuite) TestDeleteCAASApplication(c *tc.C) {
 	s.checkNoCharmsExist(c)
 }
 
-func (s *applicationSuite) TestDeleteCAASApplicationWithCloudService(c *tc.C) {
+func (s *applicationSuite) TestDeleteCAASApplicationWithK8sService(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app")
 
-	err := svc.UpdateCloudService(c.Context(), "some-app", "provider-id", corenetwork.ProviderAddresses{
+	err := svc.UpdateK8sService(c.Context(), "some-app", "provider-id", corenetwork.ProviderAddresses{
 		{
 			MachineAddress: corenetwork.MachineAddress{
 				Value:      "10.0.0.1/8",
