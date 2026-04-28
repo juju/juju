@@ -2359,8 +2359,13 @@ func (s *uniterRelationSuite) TestNetworkInfoWithRelationUsesRelationNetwork(c *
 		RelationId: &relID,
 	}
 
+	s.networkService.EXPECT().GetUnitEndpointNetworks(
+		gomock.Any(), unitName, args.Endpoints,
+	).Return([]domainnetwork.UnitNetwork{{
+		EndpointName:     "database",
+		IngressAddresses: []string{"192.0.2.10"},
+	}}, nil)
 	s.expectGetRelationUUIDByID(relID, relUUID, nil)
-	s.networkService.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitName, args.Endpoints).Times(0)
 	s.networkService.EXPECT().GetUnitRelationNetworks(
 		gomock.Any(), unitName, []corerelation.UUID{relUUID},
 	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
@@ -2396,6 +2401,46 @@ func (s *uniterRelationSuite) TestNetworkInfoWithRelationUsesRelationNetwork(c *
 				}},
 				IngressAddresses: []string{"198.51.100.10"},
 				EgressSubnets:    []string{"203.0.113.0/24"},
+			},
+		},
+	})
+}
+
+func (s *uniterRelationSuite) TestNetworkInfoWithRelationPreservesRequestedEndpointNetworks(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relID := 42
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	unitName := coreunit.Name(s.wordpressUnitTag.Id())
+	args := params.NetworkInfoParams{
+		Unit:       s.wordpressUnitTag.String(),
+		Endpoints:  []string{"database"},
+		RelationId: &relID,
+	}
+
+	s.networkService.EXPECT().GetUnitEndpointNetworks(
+		gomock.Any(), unitName, args.Endpoints,
+	).Return([]domainnetwork.UnitNetwork{{
+		EndpointName:     "database",
+		IngressAddresses: []string{"192.0.2.10"},
+	}}, nil)
+	s.expectGetRelationUUIDByID(relID, relUUID, nil)
+	s.networkService.EXPECT().GetUnitRelationNetworks(
+		gomock.Any(), unitName, []corerelation.UUID{relUUID},
+	).Return(map[corerelation.UUID]domainnetwork.UnitNetwork{
+		relUUID: {
+			EndpointName:     "database-peers",
+			IngressAddresses: []string{"198.51.100.10"},
+			EgressSubnets:    []string{"203.0.113.0/24"},
+		},
+	}, nil)
+
+	result, err := s.uniter.NetworkInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"database": {
+				IngressAddresses: []string{"192.0.2.10"},
 			},
 		},
 	})
@@ -3415,10 +3460,10 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 		CharmState: arg.SetUnitState.CharmState,
 		UpdatedRelationNetworkInfo: map[corerelation.UUID]unitstate.Settings{
 			relationUUID: map[string]string{
-					unitstate.IngressAddressKey: "10.0.0.7",
-					unitstate.EgressSubnetsKey:  "10.0.0.0/24,10.0.1.0/24",
-				},
+				unitstate.IngressAddressKey: "10.0.0.7",
+				unitstate.EgressSubnetsKey:  "10.0.0.0/24,10.0.1.0/24",
 			},
+		},
 		ClosePorts: network.GroupedPortRanges{
 			"ep0": []network.PortRange{{
 				Protocol: "icmp", FromPort: 22, ToPort: 22,

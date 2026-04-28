@@ -7,6 +7,7 @@ import (
 	"context"
 	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -2346,6 +2347,19 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		Results: make(map[string]params.NetworkInfoResult),
 	}
 
+	if len(args.Endpoints) > 0 {
+		infos, err := u.networkService.GetUnitEndpointNetworks(ctx, unitName, args.Endpoints)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
+		} else if err != nil {
+			return params.NetworkInfoResults{}, internalerrors.Capture(err)
+		}
+
+		for _, info := range infos {
+			results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
+		}
+	}
+
 	if args.RelationId != nil {
 		relationUUID, err := u.relationService.GetRelationUUIDByID(
 			ctx, *args.RelationId,
@@ -2370,19 +2384,12 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		if !ok {
 			return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 		}
-		results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
-		return results, nil
-	}
 
-	infos, err := u.networkService.GetUnitEndpointNetworks(ctx, unitName, args.Endpoints)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return params.NetworkInfoResults{}, errors.NotFoundf("unit %q", unitTag.Id())
-	} else if err != nil {
-		return params.NetworkInfoResults{}, internalerrors.Capture(err)
-	}
-
-	for _, info := range infos {
-		results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
+		overrideRelationEndpoint := len(args.Endpoints) == 0 ||
+			slices.Contains(args.Endpoints, info.EndpointName)
+		if overrideRelationEndpoint {
+			results.Results[info.EndpointName] = unitNetworkToNetworkInfoResult(info)
+		}
 	}
 	return results, nil
 }
