@@ -177,6 +177,41 @@ WHERE model_uuid = $entityUUID.uuid`, count{}, entityUUID{})
 	return result.Count > 0, nil
 }
 
+// IsModelExporting returns true if the model has an entry in the
+// model_exporting table, indicating that the model is currently being
+// exported as part of a migration to another controller.
+func (s *State) IsModelExporting(ctx context.Context) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM model_exporting
+WHERE model_uuid = $entityUUID.uuid`, count{}, entityUUID{})
+	if err != nil {
+		return false, errors.Errorf("preparing is model exporting statement: %w", err)
+	}
+
+	modelUUIDArg := entityUUID{
+		UUID: s.modelUUID.String(),
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, modelUUIDArg).Get(&result); err != nil {
+			return errors.Errorf("checking if model is exporting: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return result.Count > 0, nil
+}
+
 // GetModelTargetAgentVersion returns the target agent version currently set for
 // the model. This func expects that the target agent version for the model has
 // already been set.

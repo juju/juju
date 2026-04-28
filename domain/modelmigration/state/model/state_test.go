@@ -309,6 +309,31 @@ func (s *migrationSuite) TestIsModelMigratingFalse(c *tc.C) {
 	c.Check(isMigrating, tc.IsFalse)
 }
 
+// TestIsModelExportingTrue tests that IsModelExporting returns true
+// when the model has an entry in the model_exporting table.
+func (s *migrationSuite) TestIsModelExportingTrue(c *tc.C) {
+	db := s.DB()
+
+	// Insert a model_exporting entry.
+	exportingUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_exporting (uuid, model_uuid) VALUES (?, ?)",
+		exportingUUID, s.modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	isExporting, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelExporting(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isExporting, tc.IsTrue)
+}
+
+// TestIsModelExportingFalse tests that IsModelExporting returns false
+// when the model has no entry in the model_exporting table.
+func (s *migrationSuite) TestIsModelExportingFalse(c *tc.C) {
+	isExporting, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelExporting(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isExporting, tc.IsFalse)
+}
+
 func (s *migrationSuite) TestSetModelTargetAgentVersionDifferentVersion(c *tc.C) {
 	toVersion := semversion.MustParse("5.2.0").String()
 

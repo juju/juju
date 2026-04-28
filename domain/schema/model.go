@@ -173,6 +173,11 @@ var modelPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0057-model-migrating-triggers.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.9"),
+	files: []string{
+		"0058-model-exporting.PATCH.sql",
+	},
 }}
 
 // ModelDDL is used to create model databases.

@@ -376,13 +376,35 @@ func (s *serviceSuite) TestModelMigrationModeImporting(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
-// TestModelMigrationModeNone tests that ModelMigrationMode returns
-// MigrationModeNone when the model has no entry in the model_migrating
+// TestModelMigrationModeExporting tests that ModelMigrationMode returns
+// MigrationModeExporting when the model has an entry in the model_exporting
 // table.
+func (s *serviceSuite) TestModelMigrationModeExporting(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(true, nil)
+
+	mode, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ModelMigrationMode(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mode, tc.Equals, modelmigration.MigrationModeExporting)
+}
+
+// TestModelMigrationModeNone tests that ModelMigrationMode returns
+// MigrationModeNone when the model has no entry in the model_migrating or
+// model_exporting tables.
 func (s *serviceSuite) TestModelMigrationModeNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(false, nil)
 
 	mode, err := NewService(
 		s.controllerState,
@@ -396,12 +418,31 @@ func (s *serviceSuite) TestModelMigrationModeNone(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeNone)
 }
 
-// TestModelMigrationModeError tests that ModelMigrationMode returns an error
-// when the state layer fails.
-func (s *serviceSuite) TestModelMigrationModeError(c *tc.C) {
+// TestModelMigrationModeImportingError tests that ModelMigrationMode returns an
+// error when the importing check fails.
+func (s *serviceSuite) TestModelMigrationModeImportingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, errors.Errorf("boom"))
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ModelMigrationMode(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+// TestModelMigrationModeExportingError tests that ModelMigrationMode returns an
+// error when the exporting check fails.
+func (s *serviceSuite) TestModelMigrationModeExportingError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(false, errors.Errorf("boom"))
 
 	_, err := NewService(
 		s.controllerState,

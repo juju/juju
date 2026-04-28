@@ -123,6 +123,11 @@ type ModelState interface {
 	// model_migrating table, indicating that the model is currently being
 	// imported as part of a migration.
 	IsModelMigrating(ctx context.Context) (bool, error)
+
+	// IsModelExporting returns true if the model has an entry in the
+	// model_exporting table, indicating that the model is currently being
+	// exported as part of a migration to another controller.
+	IsModelExporting(ctx context.Context) (bool, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -249,13 +254,22 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	isMigrating, err := s.modelState.IsModelMigrating(ctx)
+	isImporting, err := s.modelState.IsModelMigrating(ctx)
 	if err != nil {
-		return modelmigration.MigrationModeNone, errors.Errorf("checking if model is migrating: %w", err)
+		return modelmigration.MigrationModeNone, errors.Errorf("checking if model is importing: %w", err)
 	}
-	if isMigrating {
+	if isImporting {
 		return modelmigration.MigrationModeImporting, nil
 	}
+
+	isExporting, err := s.modelState.IsModelExporting(ctx)
+	if err != nil {
+		return modelmigration.MigrationModeNone, errors.Errorf("checking if model is exporting: %w", err)
+	}
+	if isExporting {
+		return modelmigration.MigrationModeExporting, nil
+	}
+
 	return modelmigration.MigrationModeNone, nil
 }
 

@@ -140,6 +140,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Model config
 		"model_config",
 		"model_constraint",
+		"model_exporting",
 		"model_migrating",
 
 		// Object store metadata

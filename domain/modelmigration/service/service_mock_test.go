@@ -460,6 +460,45 @@ func (c *MockModelStateGetNamespaceModelMigratingCall) DoAndReturn(f func() stri
 	return c
 }
 
+// IsModelExporting mocks base method.
+func (m *MockModelState) IsModelExporting(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsModelExporting", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsModelExporting indicates an expected call of IsModelExporting.
+func (mr *MockModelStateMockRecorder) IsModelExporting(arg0 any) *MockModelStateIsModelExportingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsModelExporting", reflect.TypeOf((*MockModelState)(nil).IsModelExporting), arg0)
+	return &MockModelStateIsModelExportingCall{Call: call}
+}
+
+// MockModelStateIsModelExportingCall wrap *gomock.Call
+type MockModelStateIsModelExportingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsModelExportingCall) Return(arg0 bool, arg1 error) *MockModelStateIsModelExportingCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsModelExportingCall) Do(f func(context.Context) (bool, error)) *MockModelStateIsModelExportingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsModelExportingCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelStateIsModelExportingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsModelMigrating mocks base method.
 func (m *MockModelState) IsModelMigrating(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
