@@ -119,10 +119,10 @@ type ModelState interface {
 	// model has started or stopped undergoing a migration.
 	GetNamespaceModelMigrating() string
 
-	// IsModelMigrating returns true if the model has an entry in the
+	// IsModelImporting returns true if the model has an entry in the
 	// model_migrating table, indicating that the model is currently being
 	// imported as part of a migration.
-	IsModelMigrating(ctx context.Context) (bool, error)
+	IsModelImporting(ctx context.Context) (bool, error)
 
 	// IsModelExporting returns true if the model has an entry in the
 	// model_exporting table, indicating that the model is currently being
@@ -254,7 +254,7 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	isImporting, err := s.modelState.IsModelMigrating(ctx)
+	isImporting, err := s.modelState.IsModelImporting(ctx)
 	if err != nil {
 		return modelmigration.MigrationModeNone, errors.Errorf("checking if model is importing: %w", err)
 	}

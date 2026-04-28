@@ -362,7 +362,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 func (s *serviceSuite) TestModelMigrationModeImporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(true, nil)
+	s.modelState.EXPECT().IsModelImporting(gomock.Any()).Return(true, nil)
 
 	mode, err := NewService(
 		s.controllerState,
@@ -382,7 +382,7 @@ func (s *serviceSuite) TestModelMigrationModeImporting(c *tc.C) {
 func (s *serviceSuite) TestModelMigrationModeExporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelImporting(gomock.Any()).Return(false, nil)
 	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(true, nil)
 
 	mode, err := NewService(
@@ -403,7 +403,7 @@ func (s *serviceSuite) TestModelMigrationModeExporting(c *tc.C) {
 func (s *serviceSuite) TestModelMigrationModeNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelImporting(gomock.Any()).Return(false, nil)
 	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(false, nil)
 
 	mode, err := NewService(
@@ -423,7 +423,7 @@ func (s *serviceSuite) TestModelMigrationModeNone(c *tc.C) {
 func (s *serviceSuite) TestModelMigrationModeImportingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, errors.Errorf("boom"))
+	s.modelState.EXPECT().IsModelImporting(gomock.Any()).Return(false, errors.Errorf("boom"))
 
 	_, err := NewService(
 		s.controllerState,
@@ -441,7 +441,7 @@ func (s *serviceSuite) TestModelMigrationModeImportingError(c *tc.C) {
 func (s *serviceSuite) TestModelMigrationModeExportingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().IsModelMigrating(gomock.Any()).Return(false, nil)
+	s.modelState.EXPECT().IsModelImporting(gomock.Any()).Return(false, nil)
 	s.modelState.EXPECT().IsModelExporting(gomock.Any()).Return(false, errors.Errorf("boom"))
 
 	_, err := NewService(

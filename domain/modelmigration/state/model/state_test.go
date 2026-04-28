@@ -284,9 +284,9 @@ func (s *migrationSuite) TestSetModelTargetAgentVersion(c *tc.C) {
 	c.Check(ver, tc.Equals, "5.2.0")
 }
 
-// TestIsModelMigratingTrue tests that IsModelMigrating returns true
+// TestIsModelImportingTrue tests that IsModelImporting returns true
 // when the model has an entry in the model_migrating table.
-func (s *migrationSuite) TestIsModelMigratingTrue(c *tc.C) {
+func (s *migrationSuite) TestIsModelImportingTrue(c *tc.C) {
 	db := s.DB()
 
 	// Insert a model_migrating entry.
@@ -296,15 +296,15 @@ func (s *migrationSuite) TestIsModelMigratingTrue(c *tc.C) {
 		migratingUUID, s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelMigrating(c.Context())
+	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelImporting(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isMigrating, tc.IsTrue)
 }
 
-// TestIsModelMigratingFalse tests that IsModelMigrating returns false
+// TestIsModelImportingFalse tests that IsModelImporting returns false
 // when the model has no entry in the model_migrating table.
-func (s *migrationSuite) TestIsModelMigratingFalse(c *tc.C) {
-	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelMigrating(c.Context())
+func (s *migrationSuite) TestIsModelImportingFalse(c *tc.C) {
+	isMigrating, err := New(s.TxnRunnerFactory(), s.modelUUID).IsModelImporting(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(isMigrating, tc.IsFalse)
 }

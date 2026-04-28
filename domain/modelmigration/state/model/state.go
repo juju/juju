@@ -142,10 +142,10 @@ WHERE model_uuid = $entityUUID.uuid
 	})
 }
 
-// IsModelMigrating returns true if the model has an entry in the
+// IsModelImporting returns true if the model has an entry in the
 // model_migrating table, indicating that the model is currently being
 // imported as part of a migration.
-func (s *State) IsModelMigrating(ctx context.Context) (bool, error) {
+func (s *State) IsModelImporting(ctx context.Context) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
