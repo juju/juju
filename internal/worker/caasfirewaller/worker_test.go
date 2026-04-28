@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
+	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -227,11 +228,11 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
+func (s *WorkerSuite) assertRemoveApplicationStopsWatchingApplication(c *gc.C, lifeErr error) {
 	// Set up the errors before triggering any events to avoid racing
 	// with the worker loop. First time around the loop the
 	// application's alive, then it's gone.
-	s.lifeGetter.SetErrors(nil, errors.NotFoundf("application"))
+	s.lifeGetter.SetErrors(nil, lifeErr)
 
 	w, err := caasfirewaller.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,6 +243,14 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 
 	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationErrorsNotFound(c *gc.C) {
+	s.assertRemoveApplicationStopsWatchingApplication(c, errors.NotFoundf("application"))
+}
+
+func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationCodeNotFound(c *gc.C) {
+	s.assertRemoveApplicationStopsWatchingApplication(c, &params.Error{Code: params.CodeNotFound, Message: "application gone"})
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {

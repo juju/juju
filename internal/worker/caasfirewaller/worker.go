@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.
@@ -105,7 +106,7 @@ func (p *firewaller) loop() error {
 			for _, appName := range apps {
 				// If charm is (now) a v2 charm, skip processing.
 				format, err := p.charmFormat(appName)
-				if errors.IsNotFound(err) {
+				if isNotFound(err) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)
 					continue
 				} else if err != nil {
@@ -117,7 +118,7 @@ func (p *firewaller) loop() error {
 				}
 
 				appLife, err := p.config.LifeGetter.Life(appName)
-				if errors.IsNotFound(err) || appLife == life.Dead {
+				if isNotFound(err) || appLife == life.Dead {
 					if appWorker, ok := appWorkers[appName]; ok {
 						if err := worker.Stop(appWorker); err != nil {
 							logger.Errorf("error stopping caas firewaller: %v", err)
@@ -151,6 +152,10 @@ func (p *firewaller) loop() error {
 			}
 		}
 	}
+}
+
+func isNotFound(err error) bool {
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 func (p *firewaller) charmFormat(appName string) (charm.Format, error) {

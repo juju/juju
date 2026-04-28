@@ -6,6 +6,7 @@ package caasfirewallersidecar_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar/mocks"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -164,4 +166,54 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 		c.Errorf("timed out waiting for worker")
 	}
 	workertest.CleanKill(c, w)
+}
+
+func (s *appWorkerSuite) assertPortChangeHandling(c *gc.C, getOpenPortsErr error) {
+	ctrl := s.getController(c)
+	defer ctrl.Finish()
+
+	done := make(chan struct{})
+
+	go func() {
+		s.portsChanges <- []string{"port changes"}
+	}()
+
+	gomock.InOrder(
+		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
+		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
+		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(network.GroupedPortRanges{}, nil),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).DoAndReturn(func(_ string) (network.GroupedPortRanges, error) {
+			close(done)
+			return nil, getOpenPortsErr
+		}),
+	)
+
+	w := s.getWorker(c)
+
+	select {
+	case <-done:
+	case <-time.After(testing.ShortWait):
+		c.Errorf("timed out waiting for worker")
+	}
+
+	if getOpenPortsErr != nil {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		workertest.CheckAlive(c, w)
+		workertest.CleanKill(c, w)
+	}
+}
+
+func (s *appWorkerSuite) TestPortChangeSuccess(c *gc.C) {
+	s.assertPortChangeHandling(c, nil)
+}
+
+func (s *appWorkerSuite) TestPortChangeCodeNotFoundStopsGracefully(c *gc.C) {
+	s.assertPortChangeHandling(c, &params.Error{Code: params.CodeNotFound, Message: "app gone"})
+}
+
+func (s *appWorkerSuite) TestPortChangeNotFoundErrorStopsGracefully(c *gc.C) {
+	s.assertPortChangeHandling(c, errors.NotFound)
 }

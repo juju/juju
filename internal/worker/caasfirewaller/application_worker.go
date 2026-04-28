@@ -74,7 +74,7 @@ func (w *applicationWorker) Wait() error {
 func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
-		if errors.IsNotFound(err) {
+		if isNotFound(err) {
 			w.logger.Debugf("caas firewaller application %v has been removed", w.application)
 			err = nil
 		}
@@ -98,7 +98,7 @@ func (w *applicationWorker) loop() (err error) {
 
 			// If charm is (now) a v2 charm, exit the worker.
 			format, err := w.charmFormat()
-			if errors.IsNotFound(err) {
+			if isNotFound(err) {
 				w.logger.Debugf("application %q no longer exists", w.application)
 				return nil
 			} else if err != nil {
@@ -131,7 +131,7 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
-		if errors.IsNotFound(err) {
+		if isNotFound(err) {
 			// Perhaps the app got removed while we were processing.
 			if _, err2 := w.lifeGetter.Life(w.application); err2 != nil {
 				err = err2

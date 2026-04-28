@@ -287,7 +287,7 @@ func (fw *Firewaller) loop() error {
 			return fw.catacomb.ErrDying()
 		case <-ensureModelFirewalls:
 			err := fw.flushModel()
-			if errors.Is(err, errors.NotFound) {
+			if isNotFound(err) {
 				ensureModelFirewalls = fw.clk.After(time.Second)
 			} else if err != nil {
 				return err
@@ -1710,7 +1710,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		BakeryVersion:   bakery.LatestVersion,
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
-	if errors.IsNotFound(err) {
+	if isNotFound(err) {
 		rd.fw.logger.Debugf("relation id not found publishing %+v", event)
 		return nil
 	}
@@ -1722,6 +1722,10 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		return rd.fw.firewallerApi.SetRelationStatus(rd.tag.Id(), relation.Error, err.Error())
 	}
 	return errors.Annotate(err, "cannot publish ingress network change")
+}
+
+func isNotFound(err error) bool {
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 // updateIngressNetworks processes the changed ingress networks on the relation.

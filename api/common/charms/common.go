@@ -31,7 +31,7 @@ func (c *CharmInfoClient) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmURL{URL: charmURL}
 	var info params.Charm
 	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(params.TranslateWellKnownError(err))
 	}
 	return convertCharm(&info)
 }
@@ -52,7 +52,7 @@ func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(appName string) (*Char
 	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
 	var info params.Charm
 	if err := c.facade.FacadeCall("ApplicationCharmInfo", args, &info); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(params.TranslateWellKnownError(err))
 	}
 	return convertCharm(&info)
 }
