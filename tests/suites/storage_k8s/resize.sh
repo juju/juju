@@ -133,6 +133,7 @@ test_scale_and_update_storage() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -183,6 +184,7 @@ test_scale_down_and_back_up_retains_storage_sizes() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Verify no pod restarts on unit 0.
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -329,12 +331,16 @@ test_scale_and_update_storage_successive() {
 		check 4096
 
 	# Check that the containers in existing pods 0-3 should not restart.
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-1 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-2 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-3 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -402,6 +408,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -418,6 +425,7 @@ test_scale_app_with_updated_storage_self_healing() {
 		check 2048
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -483,6 +491,7 @@ test_scale_after_storage_update_crash() {
 		check 2048
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -564,6 +573,7 @@ test_scale_resumes_after_storage_update_missing_sts() {
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -630,6 +640,7 @@ test_storage_update_after_scale_crash() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -758,18 +769,17 @@ test_update_pool_same_provider_different_storage_class() {
 	echo
 	model_name="update-pool-same-provider-different-storage-class"
 	file="${TEST_DIR}/test-${model_name}.log"
-	main_sh_dir="$(dirname "$(readlink -f "$0")")"
 	ensure "${model_name}" "${file}"
 
-	# Get the default storage class
+	#	 Get the default storage class
 	current_storage_class=$(kubectl get sc -o json | yq -r '.items[0]?.metadata.name // ""')
 
-	# Clean up storage class in case there are leftovers from a previous run.
+	#	 Clean up storage class in case there are leftovers from a previous run.
 	cleanup_storage_class
 	add_clean_func "cleanup_storage_class"
 
-	# Dynamically get the name of the provisioner (different names in microk8s and
-	# minikube but both contains hostpath in the name)
+	#	 Dynamically get the name of the provisioner (different names in microk8s and
+	#	 minikube but both contains hostpath in the name)
 	provisioner=$(
 		kubectl get sc -o json |
 			yq -r '.items[]? | select(.provisioner | test("hostpath")) | .provisioner' |
@@ -781,7 +791,7 @@ test_update_pool_same_provider_different_storage_class() {
 		return 1
 	fi
 
-	# Create a storage class named "coolstorageclass" and "awesomestorageclass".
+	#	Create a storage class named "coolstorageclass" and "awesomestorageclass".
 	cat <<EOF | kubectl apply -f -
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -805,7 +815,7 @@ volumeBindingMode: Immediate
 EOF
 
 	# Unset the default class for current storage class.
-	if [[ -n "$current_storage_class" ]]; then
+	if [[ -n $current_storage_class ]]; then
 		kubectl annotate sc "$current_storage_class" storageclass.kubernetes.io/is-default-class-
 	fi
 
@@ -842,6 +852,7 @@ EOF
 	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -880,7 +891,7 @@ EOF
 		yq -o json '.spec.storageClassName' |
 		check "awesomestorageclass"
 
-	if [[ -n "$current_storage_class" ]]; then
+	if [[ -n $current_storage_class ]]; then
 		kubectl annotate sc "$current_storage_class" storageclass.kubernetes.io/is-default-class="true"
 	fi
 
