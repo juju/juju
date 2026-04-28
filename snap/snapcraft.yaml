@@ -313,6 +313,7 @@ parts:
           sha256: $hash
       EOF
       cp -a jujud-versions.yaml ${CRAFT_PART_INSTALL}/bin
+      install -D scripts/mongo-client.sh ${CRAFT_PART_INSTALL}/bin/mongo-client.sh
     stage-packages:
       - openssh-client
 
