@@ -762,6 +762,7 @@ func (a *StorageAPI) volumeDetails(
 				ProviderId: v.ProviderID,
 				HardwareId: v.HardwareID,
 				WWN:        v.WWN,
+				Pool:       v.PoolName,
 				SizeMiB:    v.SizeMiB,
 				Persistent: v.Persistent,
 			},
@@ -1026,6 +1027,7 @@ func (a *StorageAPI) filesystemDetails(
 			Life:          v.Life,
 			Info: params.FilesystemInfo{
 				ProviderId: v.ProviderID,
+				Pool:       v.PoolName,
 				SizeMiB:    v.SizeMiB,
 			},
 			Status: params.EntityStatus{

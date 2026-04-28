@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainnetwork "github.com/juju/juju/domain/network"
 	service "github.com/juju/juju/domain/status/service"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -558,6 +560,191 @@ func (s *fullStatusSuite) TestFullStatusFilteredByApplicationName(c *tc.C) {
 	_, ok = output.Machines["2"]
 	c.Check(ok, tc.IsFalse)
 	c.Check(output.Applications["mysql"].Units, tc.HasLen, 1)
+}
+
+func (s *fullStatusSuite) TestProcessStorageIncludesPoolNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.statusService.EXPECT().GetAllStorageInstanceStatuses(gomock.Any()).Return(
+		[]service.StorageInstance{{
+			ID:   "data/0",
+			Kind: domainstorage.StorageKindFilesystem,
+			Life: corelife.Alive,
+		}}, nil)
+	s.statusService.EXPECT().GetAllFilesystemStatuses(gomock.Any()).Return(
+		[]service.Filesystem{{
+			ID:        "0",
+			Life:      corelife.Alive,
+			PoolName:  "fspool",
+			SizeMiB:   2048,
+			StorageID: "data/0",
+		}}, nil)
+	s.statusService.EXPECT().GetAllVolumeStatuses(gomock.Any()).Return(
+		[]service.Volume{{
+			ID:       "0",
+			Life:     corelife.Alive,
+			PoolName: "blkpool",
+			SizeMiB:  2048,
+		}}, nil)
+
+	_, filesystems, volumes, err := processStorage(
+		c.Context(), s.statusService, nil,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(filesystems, tc.HasLen, 1)
+	c.Check(filesystems[0].Info.Pool, tc.Equals, "fspool")
+	c.Assert(volumes, tc.HasLen, 1)
+	c.Check(volumes[0].Info.Pool, tc.Equals, "blkpool")
+}
+
+func (s *fullStatusSuite) TestProcessStorageLinksFilesystemStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	unitName := coreunit.Name("dummy-storage/0")
+	machineName := machine.Name("0")
+	storageSince := time.Date(2026, 4, 28, 10, 38, 0, 0, time.UTC)
+	filesystemSince := storageSince.Add(time.Minute)
+
+	s.statusService.EXPECT().GetAllStorageInstanceStatuses(gomock.Any()).Return(
+		[]service.StorageInstance{{
+			UUID:  storageUUID,
+			ID:    "multi-fs/0",
+			Owner: &unitName,
+			Kind:  domainstorage.StorageKindFilesystem,
+			Life:  corelife.Alive,
+			Status: status.StatusInfo{
+				Status: status.Pending,
+				Since:  &storageSince,
+			},
+			Attachments: map[coreunit.Name]service.StorageAttachment{
+				unitName: {
+					Life:     corelife.Alive,
+					Unit:     unitName,
+					Machine:  &machineName,
+					Location: "/srv/multi-fs/storage-instance",
+				},
+			},
+		}}, nil)
+	s.statusService.EXPECT().GetAllFilesystemStatuses(gomock.Any()).Return(
+		[]service.Filesystem{{
+			ID:        "0",
+			StorageID: "multi-fs/0",
+			Life:      corelife.Alive,
+			Status: status.StatusInfo{
+				Status: status.Attached,
+				Since:  &filesystemSince,
+			},
+			MachineAttachments: map[machine.Name]service.FilesystemAttachment{
+				machineName: {
+					Life:       corelife.Alive,
+					MountPoint: "/srv/multi-fs/filesystem",
+				},
+			},
+			UnitAttachments: map[coreunit.Name]service.FilesystemAttachment{
+				unitName: {
+					Life:       corelife.Alive,
+					MountPoint: "/srv/multi-fs/filesystem",
+				},
+			},
+		}}, nil)
+	s.statusService.EXPECT().GetAllVolumeStatuses(gomock.Any()).Return(nil, nil)
+
+	storage, filesystems, volumes, err := processStorage(
+		c.Context(), s.statusService, nil,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(volumes, tc.HasLen, 0)
+	c.Assert(storage, tc.HasLen, 1)
+	c.Assert(filesystems, tc.HasLen, 1)
+
+	c.Assert(filesystems[0].Storage, tc.NotNil)
+	c.Check(filesystems[0].Storage.StorageTag, tc.Equals, "storage-multi-fs-0")
+	c.Check(filesystems[0].Storage.Status.Status, tc.Equals, status.Pending)
+	c.Check(storage[0].Status.Status, tc.Equals, status.Pending)
+
+	attachment := filesystems[0].Storage.Attachments["unit-dummy-storage-0"]
+	c.Check(attachment.MachineTag, tc.Equals, "machine-0")
+	c.Check(attachment.Location, tc.Equals, "/srv/multi-fs/storage-instance")
+	c.Check(attachment.Life, tc.Equals, corelife.Alive)
+}
+
+func (s *fullStatusSuite) TestProcessStorageLinksVolumeStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	unitName := coreunit.Name("postgresql/0")
+	machineName := machine.Name("0")
+	storageSince := time.Date(2026, 4, 28, 10, 38, 0, 0, time.UTC)
+	volumeSince := storageSince.Add(time.Minute)
+
+	s.statusService.EXPECT().GetAllStorageInstanceStatuses(gomock.Any()).Return(
+		[]service.StorageInstance{{
+			UUID:  storageUUID,
+			ID:    "pgdata/0",
+			Owner: &unitName,
+			Kind:  domainstorage.StorageKindBlock,
+			Life:  corelife.Alive,
+			Status: status.StatusInfo{
+				Status: status.Pending,
+				Since:  &storageSince,
+			},
+			Attachments: map[coreunit.Name]service.StorageAttachment{
+				unitName: {
+					Life:     corelife.Alive,
+					Unit:     unitName,
+					Machine:  &machineName,
+					Location: "/dev/disk/by-id/storage-link",
+				},
+			},
+		}}, nil)
+	s.statusService.EXPECT().GetAllFilesystemStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetAllVolumeStatuses(gomock.Any()).Return(
+		[]service.Volume{{
+			ID:         "0",
+			StorageID:  "pgdata/0",
+			Life:       corelife.Alive,
+			Persistent: true,
+			Status: status.StatusInfo{
+				Status: status.Attached,
+				Since:  &volumeSince,
+			},
+			UnitAttachments: map[coreunit.Name]service.VolumeAttachment{
+				unitName: {
+					Life:       corelife.Alive,
+					DeviceLink: "/dev/disk/by-id/volume-0",
+				},
+			},
+			MachineAttachments: map[machine.Name]service.VolumeAttachment{
+				machineName: {
+					Life:       corelife.Alive,
+					DeviceLink: "/dev/disk/by-id/volume-0",
+				},
+			},
+		}}, nil)
+
+	storage, filesystems, volumes, err := processStorage(
+		c.Context(), s.statusService, nil,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(filesystems, tc.HasLen, 0)
+	c.Assert(storage, tc.HasLen, 1)
+	c.Assert(volumes, tc.HasLen, 1)
+
+	c.Assert(volumes[0].Storage, tc.NotNil)
+	c.Check(volumes[0].Storage.StorageTag, tc.Equals, "storage-pgdata-0")
+	c.Check(volumes[0].Storage.Status.Status, tc.Equals, status.Pending)
+	c.Check(volumes[0].Storage.Persistent, tc.IsFalse)
+	c.Check(storage[0].Status.Status, tc.Equals, status.Pending)
+	c.Check(storage[0].Persistent, tc.IsFalse)
+
+	attachment := volumes[0].Storage.Attachments["unit-postgresql-0"]
+	c.Check(attachment.MachineTag, tc.Equals, "machine-0")
+	c.Check(attachment.Location, tc.Equals, "/dev/disk/by-id/storage-link")
+	c.Check(attachment.Life, tc.Equals, corelife.Alive)
 }
 
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
