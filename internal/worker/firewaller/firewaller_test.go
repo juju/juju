@@ -656,6 +656,69 @@ func (s *InstanceModeSuite) TestShouldFlushModelWhenFlushingMachine(c *gc.C) {
 	s.waitForModelFlush(c)
 }
 
+func (s *InstanceModeSuite) assertModelFlushRetriesOnParamsNotFound(c *gc.C, modelRulesErr error) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.modelIngressRules = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR),
+	}
+	s.ensureMocksWithoutMachine(ctrl)
+
+	modelRulesCalls := make(chan struct{}, 4)
+	firstCall := true
+	s.firewaller.EXPECT().ModelFirewallRules().AnyTimes().DoAndReturn(func() (firewall.IngressRules, error) {
+		modelRulesCalls <- struct{}{}
+		if firstCall {
+			firstCall = false
+			return nil, modelRulesErr
+		}
+		return s.modelIngressRules, nil
+	})
+	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).AnyTimes().DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.envModelPorts, nil
+	})
+	s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		add, _ := s.envModelPorts.Diff(rules)
+		s.envModelPorts = append(s.envModelPorts, add...)
+		return nil
+	})
+
+	m, _ := s.addMachine(ctrl)
+	inst := s.startInstance(c, ctrl, m)
+	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
+
+	fw := s.newFirewaller(c)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachine(c, m.Tag().Id())
+
+	for i := 0; i < 2; i++ {
+		select {
+		case <-modelRulesCalls:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for model firewall rules call %d", i+1)
+		}
+	}
+
+	s.waitForModelFlush(c)
+	s.assertModelIngressRules(c, s.modelIngressRules)
+	workertest.CheckAlive(c, fw)
+}
+
+func (s *InstanceModeSuite) TestModelFlushRetriesOnParamsCodeNotFound(c *gc.C) {
+	s.assertModelFlushRetriesOnParamsNotFound(c, &params.Error{Code: params.CodeNotFound, Message: "model not found"})
+}
+
+func (s *InstanceModeSuite) TestModelFlushRetriesOnErrorsNotFound(c *gc.C) {
+	s.assertModelFlushRetriesOnParamsNotFound(c, errors.NotFoundf("model"))
+}
+
 func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
