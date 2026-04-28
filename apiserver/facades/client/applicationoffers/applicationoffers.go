@@ -349,7 +349,15 @@ func (api *OffersAPI) applicationOffersFromModel(
 	requiredAccess permission.Access,
 	filters []crossmodelrelationservice.OfferFilter,
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
-	if err := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), requiredAccess); err != nil {
+	// Determine if the user is a controller superuser or model admin.
+	// This check is performed once outside the offer loop.
+	isModelAdmin := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), permission.AdminAccess) == nil
+
+	requiresAdminAccess := requiredAccess == permission.AdminAccess
+
+	// If admin access is required (e.g. ListApplicationOffers), the user
+	// must be a controller superuser or model admin.
+	if requiresAdminAccess && !isModelAdmin {
 		return nil, apiservererrors.ErrPerm
 	}
 
@@ -367,13 +375,24 @@ func (api *OffersAPI) applicationOffersFromModel(
 	// Process data.
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
-		isAdminUser := api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID)) == nil
+		// If the user is not a model admin, check whether they have
+		// access to this specific offer. Users with offer-level access
+		// can see offers even without model-level access.
+		isAdmin := isModelAdmin
+		if !isModelAdmin {
+			offerAccess := api.userOfferAccess(ctx, apiUser, appOffer.OfferUUID)
+			if offerAccess == permission.NoAccess {
+				continue
+			}
+			isAdmin = offerAccess == permission.AdminAccess
+		}
+
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
 			appOffer,
 			apiUser,
 			apiUserDisplayName,
-			isAdminUser,
+			isAdmin,
 		)
 
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
@@ -387,10 +406,9 @@ func (api *OffersAPI) applicationOffersFromModel(
 		})
 	}
 
-	// Populate offer connections when the caller requires admin access.
-	// At this point the user has been verified as superuser or model admin
-	// by checkModelPermission above.
-	if requiredAccess == permission.AdminAccess && len(results) > 0 {
+	// Populate offer connections only when the caller requires admin access
+	// (i.e. ListApplicationOffers) and the user is verified as model admin.
+	if requiresAdminAccess && isModelAdmin && len(results) > 0 {
 		offerUUIDs := make([]string, len(results))
 		offerIndexByUUID := make(map[string]int, len(results))
 		for i, r := range results {
@@ -411,6 +429,31 @@ func (api *OffersAPI) applicationOffersFromModel(
 	}
 
 	return results, nil
+}
+
+// userOfferAccess returns the highest level of access the user has to the
+// specified offer. It checks access levels from highest to lowest and returns
+// the first match, or NoAccess if the user has no permissions on the offer.
+func (api *OffersAPI) userOfferAccess(
+	ctx context.Context,
+	user names.UserTag,
+	offerUUID string,
+) permission.Access {
+	offerTag := names.NewApplicationOfferTag(offerUUID)
+	for _, access := range []permission.Access{
+		permission.AdminAccess,
+		permission.ConsumeAccess,
+		permission.ReadAccess,
+	} {
+		err := api.authorizer.EntityHasPermission(ctx, user, access, offerTag)
+		if err == nil {
+			return access
+		}
+		if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return permission.NoAccess
+		}
+	}
+	return permission.NoAccess
 }
 
 func (api *OffersAPI) makeOfferParams(
@@ -855,6 +898,11 @@ func filterFromURL(url corecrossmodel.OfferURL) params.OfferFilter {
 
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResultsV5, error) {
+	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
+	}
+
 	var (
 		result       params.QueryApplicationOffersResultsV5
 		filtersToUse params.OfferFilters
@@ -876,10 +924,6 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 		}
 	} else {
 		filtersToUse = filters
-	}
-	apiUser, ok := api.authorizer.GetAuthTag().(names.UserTag)
-	if !ok {
-		return params.QueryApplicationOffersResultsV5{}, apiservererrors.ErrPerm
 	}
 
 	offers, err := api.getApplicationOffersDetails(ctx, apiUser, permission.ReadAccess, filtersToUse)
