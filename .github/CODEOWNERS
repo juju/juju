@@ -28,7 +28,7 @@
 /domain/macaroon/**                           @manadart @jack-w-shaw
 
 # Juju controller
-/cmd/jujud-controller/**                      @manadart @SimonRichardson
+/cmd/jujud/**                                 @manadart @SimonRichardson
 
 # Application (and charm) domain packages
 /core/charm/**                                @SimonRichardson @nvinuesa @jack-w-shaw

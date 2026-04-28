@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/cmd/jujud-controller/agent/model"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
