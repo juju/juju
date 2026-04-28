@@ -227,7 +227,7 @@ func (s *workerSuite) TestFlushWorkersCancelledContext(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
@@ -236,8 +236,6 @@ func (s *workerSuite) TestFlushWorkersCancelledContext(c *tc.C) {
 
 	err := w.FlushWorkers(ctx)
 	c.Assert(err, tc.ErrorIs, context.Canceled)
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) newWorker(c *tc.C) *objectStoreWorker {

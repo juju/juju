@@ -331,6 +331,11 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 // the runner. This is only called from the main loop goroutine, so no
 // concurrent worker additions can occur during iteration.
 func (w *objectStoreWorker) stopAndRemoveAllWorkers(ctx context.Context) error {
+	// If the context is already done, return early with the context error.
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, namespace := range w.runner.WorkerNames() {
 		err := w.runner.StopAndRemoveWorker(namespace, ctx.Done())
 		if err != nil && !errors.Is(err, errors.NotFound) {
