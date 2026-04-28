@@ -24,3 +24,8 @@ func (s *steps3622Suite) TestExposeControllerApplication(c *gc.C) {
 	step := findStateStep(c, v3622, "expose controller application")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps3622Suite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
+	step := findStateStep(c, v3622, "convert scaling field to enum")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

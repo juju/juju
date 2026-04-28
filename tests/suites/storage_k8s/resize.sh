@@ -27,6 +27,11 @@ cleanup_wrench_scale_application() {
 		'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/scale-application' >/dev/null 2>&1 || true
 }
 
+cleanup_storage_class() {
+	kubectl delete sc coolstorageclass --ignore-not-found=true >/dev/null 2>&1 || true
+	kubectl delete sc awesomestorageclass --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
 storage_id_for_pod() {
 	local model_name pod_name storage_name claim_name_prefix_regex
 	local pod_json pvc_name pvc_json pv_name storage_id
@@ -75,12 +80,13 @@ storage_id_for_pod() {
 }
 
 wait_for_active_units() {
-	local app_name expected_count
+	local app_name expected_count app_index
 
 	app_name=${1}
 	expected_count=${2}
+	app_index=${3:-0}
 
-	wait_for "${app_name}" "$(active_condition "${app_name}" 0)"
+	wait_for "${app_name}" "$(active_condition "${app_name}" "$app_index")"
 	wait_for "${expected_count}" ".applications[\"${app_name}\"].units | map(select(.[\"workload-status\"].current == \"active\")) | length"
 }
 
@@ -127,6 +133,7 @@ test_scale_and_update_storage() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -140,6 +147,88 @@ test_scale_and_update_storage() {
 		check 2048
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
+		check 2048
+
+	destroy_model "${model_name}"
+}
+
+# Scenario: resize storage, scale up, scale down to 0, scale back up.
+# Expected outcome: existing units retain their original storage sizes after scaling back up.
+test_scale_down_and_back_up_retains_storage_sizes() {
+	if [ "$(skip 'test_scale_down_and_back_up_retains_storage_sizes')" ]; then
+		echo "==> TEST SKIPPED: test_scale_down_and_back_up_retains_storage_sizes"
+		return
+	fi
+
+	echo
+
+	model_name="scale-down-and-back-up-retains-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	juju deploy postgresql-k8s --channel 14/stable --trust
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
+
+	# Update storage to 2GB.
+	juju application-storage postgresql-k8s pgdata=2G
+	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+
+	# Scale up to 3 units.
+	juju scale-application postgresql-k8s 3
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
+
+	# Verify no pod restarts on unit 0.
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
+	# Verify unit 0 has 1GB, units 1 and 2 have 2GB.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
+		check 1024
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
+		check 2048
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
+		check 2048
+
+	# Scale down to 0.
+	juju scale-application postgresql-k8s 0
+	wait_for 0 '.applications["postgresql-k8s"]."units" // {} | keys | length'
+
+	# Scale back up to 3.
+	juju scale-application postgresql-k8s 3
+	wait_for_active_units "postgresql-k8s" 3
+
+	# Units are recreated but PVCs are reused. We verify storage IDs are the same.
+	postgresql_k8s_0_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id_after\"][\"status\"].current"
+	postgresql_k8s_1_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id_after\"][\"status\"].current"
+	postgresql_k8s_2_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id_after\"][\"status\"].current"
+
+	# Assert storage IDs are unchanged after scale down and back up.
+	echo "${postgresql_k8s_0_storage_id_after}" | check "${postgresql_k8s_0_storage_id}"
+	echo "${postgresql_k8s_1_storage_id_after}" | check "${postgresql_k8s_1_storage_id}"
+	echo "${postgresql_k8s_2_storage_id_after}" | check "${postgresql_k8s_2_storage_id}"
+
+	# Verify storage sizes are preserved: unit 0 still 1GB, units 1 and 2 still 2GB.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id_after\") | .value.size" |
+		check 1024
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id_after\") | .value.size" |
+		check 2048
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id_after\") | .value.size" |
 		check 2048
 
 	destroy_model "${model_name}"
@@ -241,6 +330,20 @@ test_scale_and_update_storage_successive() {
 		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" |
 		check 4096
 
+	# Check that the containers in existing pods 0-3 should not restart.
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-1 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-2 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-3 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
 	destroy_model "${model_name}"
 }
 
@@ -305,6 +408,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
 	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
 		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
@@ -319,6 +423,11 @@ test_scale_app_with_updated_storage_self_healing() {
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	destroy_model "${model_name}"
 }
@@ -380,6 +489,11 @@ test_scale_after_storage_update_crash() {
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	destroy_model "${model_name}"
 }
@@ -458,6 +572,11 @@ test_scale_resumes_after_storage_update_missing_sts() {
 	juju storage --format json |
 		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
 
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
 	# Let's try scaling down now. Repeat the steps above.
 	kubectl apply -f "${deny_postgresql_sts_spec}"
 	juju application-storage postgresql-k8s pgdata=3G,kubernetes
@@ -519,6 +638,11 @@ test_storage_update_after_scale_crash() {
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 	postgresql_k8s_3_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-3" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# All units should use the old size (1GB).
 	juju storage --format json |
@@ -586,6 +710,190 @@ test_remove_app_while_storage_update_stuck() {
 	# Remove app while storage update is stuck.
 	juju remove-application postgresql-k8s --no-prompt
 	wait_for "{}" ".applications"
+
+	destroy_model "${model_name}"
+}
+
+# Scenario: updating storage pool that uses different provider type.
+# Expected outcome: update is rejected.
+test_update_storage_constraints_validation_error() {
+	if [ "$(skip 'test_update_storage_constraints_validation_error')" ]; then
+		echo "==> TEST SKIPPED: test_update_storage_constraints_validation_error"
+		return
+	fi
+
+	echo
+	model_name="update-storage-constraints-validation-error"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	juju deploy postgresql-k8s --channel 14/stable db1 --storage=pgdata=kubernetes --trust
+	wait_for_active_units "db1" 1 0
+	OUT=$(juju application-storage db1 pgdata=tmpfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "kubernetes" to "tmpfs" is not allowed'
+	OUT=$(juju application-storage db1 pgdata=rootfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "kubernetes" to "rootfs" is not allowed'
+
+	juju deploy postgresql-k8s --channel 14/stable db2 --storage=pgdata=tmpfs --trust
+	wait_for_active_units "db2" 1 1
+	OUT=$(juju application-storage db2 pgdata=kubernetes 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "tmpfs" to "kubernetes" is not allowed'
+	OUT=$(juju application-storage db2 pgdata=rootfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "tmpfs" to "rootfs" is not allowed'
+	OUT=$(juju application-storage db2 pgdata=2G 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing size from 1.0 GiB to 2.0 GiB for provider type "tmpfs" is not allowed'
+
+	juju deploy postgresql-k8s --channel 14/stable db3 --storage=pgdata=rootfs --trust
+	wait_for_active_units "db3" 1 2
+	OUT=$(juju application-storage db3 pgdata=kubernetes 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "rootfs" to "kubernetes" is not allowed'
+	OUT=$(juju application-storage db3 pgdata=tmpfs 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing provider type from "rootfs" to "tmpfs" is not allowed'
+	OUT=$(juju application-storage db3 pgdata=2G 2>&1 || true)
+	echo "$OUT" | check 'cannot update storage constraints: changing size from 1.0 GiB to 2.0 GiB for provider type "rootfs" is not allowed'
+
+	destroy_model "${model_name}"
+}
+
+# Scenario: updating storage to a different pool that is backed by the same
+# kubernetes provider but uses a different storage class.
+# Expected outcome: update storage works because the pool is backed by the same
+# provider type. After scaling down and up, the storage size and storage class
+# is retained.
+test_update_pool_same_provider_different_storage_class() {
+	if [ "$(skip 'test_update_pool_same_provider_different_storage_class')" ]; then
+		echo "==> TEST SKIPPED: test_update_pool_same_provider_different_storage_class"
+		return
+	fi
+
+	echo
+	model_name="update-pool-same-provider-different-storage-class"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	#	 Get the default storage class
+	current_storage_class=$(kubectl get sc -o json | yq -r '.items[0]?.metadata.name // ""')
+
+	#	 Clean up storage class in case there are leftovers from a previous run.
+	cleanup_storage_class
+	add_clean_func "cleanup_storage_class"
+
+	#	 Dynamically get the name of the provisioner (different names in microk8s and
+	#	 minikube but both contains hostpath in the name)
+	provisioner=$(
+		kubectl get sc -o json |
+			yq -r '.items[]? | select(.provisioner | test("hostpath")) | .provisioner' |
+			head -n1
+	)
+
+	if [[ -z ${provisioner} ]]; then
+		echo "ERROR: no hostpath provisioner found among storage classes"
+		return 1
+	fi
+
+	#	Create a storage class named "coolstorageclass" and "awesomestorageclass".
+	cat <<EOF | kubectl apply -f -
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: coolstorageclass
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+provisioner: ${provisioner}
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: awesomestorageclass
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+provisioner: ${provisioner}
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+EOF
+
+	# Unset the default class for current storage class.
+	if [[ -n $current_storage_class ]]; then
+		kubectl annotate sc "$current_storage_class" storageclass.kubernetes.io/is-default-class-
+	fi
+
+	# Create storage pool using our new storage class backed by kubernetes provider.
+	juju create-storage-pool coolstoragepool kubernetes storage-class=coolstorageclass
+	juju create-storage-pool awesomestoragepool kubernetes storage-class=awesomestorageclass
+
+	# Deploy postgres and supply a storage directive to use "coolstoragepool" pool
+	# for "pgdata" storage.
+	juju deploy postgresql-k8s --channel 14/stable --storage=pgdata=coolstoragepool --trust --debug
+	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+
+	# Check size is 1GB before updating storage.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
+		check 1024
+
+	# Verify PV references the correct storage class name before updating storage.
+	provider_id_0=$(
+		juju storage --format json |
+			STORAGE_ID=$postgresql_k8s_0_storage_id yq -o json -r '.volumes[] | select(.storage == strenv(STORAGE_ID)) | ."provider-id"'
+	)
+	kubectl get pv "$provider_id_0" -o json |
+		yq -o json '.spec.storageClassName' |
+		check "coolstorageclass"
+
+	# Update storage now: resize "pgdata" to 2GB and use a different pool named "awesomestoragepool".
+	juju application-storage postgresql-k8s pgdata=awesomestoragepool,2G
+	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+
+	juju scale-application postgresql-k8s 2
+	wait_for_active_units "postgresql-k8s" 2
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+
+	# Check that the containers in postgresql-k8s-0 pod should not restart
+	# shellcheck disable=SC2016
+	kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
+
+	juju scale-application postgresql-k8s 0
+	wait_for 0 '.applications["postgresql-k8s"]."units" // {} | keys | length'
+
+	juju scale-application postgresql-k8s 2
+	wait_for_active_units "postgresql-k8s" 2
+
+	# Units are recreated but PVCs are reused. We verify storage IDs are the same.
+	postgresql_k8s_0_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	postgresql_k8s_1_storage_id_after=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+
+	# Assert storage IDs are unchanged after scale down and back up.
+	echo "${postgresql_k8s_0_storage_id_after}" | check "${postgresql_k8s_0_storage_id}"
+	echo "${postgresql_k8s_1_storage_id_after}" | check "${postgresql_k8s_1_storage_id}"
+
+	# Verify storage sizes are preserved: unit 0 still 1GB, units 1 still 2GB.
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id_after\") | .value.size" |
+		check 1024
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id_after\") | .value.size" |
+		check 2048
+
+	# Verify PV references the correct storage class names.
+	provider_id_0_after=$(juju storage --format json |
+		STORAGE_ID=$postgresql_k8s_0_storage_id_after yq -o json -r '.volumes[] | select(.storage == strenv(STORAGE_ID)) | ."provider-id"')
+	provider_id_1_after=$(juju storage --format json |
+		STORAGE_ID=$postgresql_k8s_1_storage_id_after yq -o json -r '.volumes[] | select(.storage == strenv(STORAGE_ID)) | ."provider-id"')
+
+	kubectl get pv "$provider_id_0_after" -o json |
+		yq -o json '.spec.storageClassName' |
+		check "coolstorageclass"
+	kubectl get pv "$provider_id_1_after" -o json |
+		yq -o json '.spec.storageClassName' |
+		check "awesomestorageclass"
+
+	if [[ -n $current_storage_class ]]; then
+		kubectl annotate sc "$current_storage_class" storageclass.kubernetes.io/is-default-class="true"
+	fi
 
 	destroy_model "${model_name}"
 }
