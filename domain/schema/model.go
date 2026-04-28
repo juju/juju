@@ -14,7 +14,7 @@ import (
 )
 
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config,model_migrating
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
@@ -108,6 +108,7 @@ const (
 	tableApplicationStatus
 	tableRelationNetworkIngress
 	tableRelationNetworkEgress
+	tableModelMigrating
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -191,6 +192,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForApplicationStatus("application_uuid", tableApplicationStatus),
 		triggers.ChangeLogTriggersForRelationNetworkIngress("relation_uuid", tableRelationNetworkIngress),
 		triggers.ChangeLogTriggersForRelationNetworkEgress("relation_uuid", tableRelationNetworkEgress),
+		triggers.ChangeLogTriggersForModelMigrating("model_uuid", tableModelMigrating),
 	)
 
 	// Generic triggers.
@@ -226,6 +228,9 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 
 		// Relation network egress is unmodifiable.
 		triggersForUnmodifiableTable("relation_network_egress", "relation_network_egress table is unmodifiable, only insertions and deletions are allowed"),
+
+		// Model migrating is unmodifiable.
+		triggersForUnmodifiableTable("model_migrating", "model_migrating table is unmodifiable, only insertions and deletions are allowed"),
 
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",

@@ -21,7 +21,7 @@ Initializes a cloud environment.
 | `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
 | `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
 | `--constraints` | [] | Set model constraints |
-| `--controller-charm-channel` | 4.0/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
+| `--controller-charm-channel` | 4.1/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
 | `--controller-charm-path` |  | Path to a locally built controller charm |
 | `--credential` |  | Credentials to use when bootstrapping |
 | `--force` | false | Allow the bypassing of checks such as supported base |

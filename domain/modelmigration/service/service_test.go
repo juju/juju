@@ -9,14 +9,19 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,6 +29,7 @@ import (
 type serviceSuite struct {
 	controllerState  *MockControllerState
 	modelState       *MockModelState
+	watcherFactory   *MockWatcherFactory
 	instanceProvider *MockInstanceProvider
 	resourceProvider *MockResourceProvider
 }
@@ -54,6 +60,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
@@ -82,6 +89,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
 	).AdoptResources(c.Context(), sourceControllerVersion)
@@ -111,6 +119,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
@@ -139,6 +148,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).CheckMachines(c.Context())
@@ -165,6 +175,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).CheckMachines(c.Context())
@@ -195,6 +206,7 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).ActivateImport(c.Context())
@@ -224,6 +236,7 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).ActivateImport(c.Context())
@@ -241,6 +254,7 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).ActivateImport(c.Context())
@@ -262,10 +276,83 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.controllerState,
 		s.modelState,
 		"test-model-uuid",
+		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
+}
+
+// TestWatchForMigration asserts that WatchForMigration asks the watcher
+// factory for a notify watcher filtering on the model_migrating namespace
+// scoped to this service's model UUID.
+func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var (
+		namespace       string
+		changeMask      changestream.ChangeType
+		matchesUUID     bool
+		matchesOtherID  bool
+		predicateCalled bool
+	)
+
+	ch := make(chan struct{}, 1)
+	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			namespace = fo.Namespace()
+			changeMask = fo.ChangeMask()
+			// The predicate captured here confirms we're scoping to the
+			// service's model UUID.
+			if pred := fo.ChangePredicate(); pred != nil {
+				predicateCalled = true
+				matchesUUID = pred("test-model-uuid")
+				matchesOtherID = pred("other-model-uuid")
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	svc := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	)
+	w, err := svc.WatchForMigration(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespace, tc.Equals, "model_migrating")
+	c.Check(changeMask, tc.Equals, changestream.All)
+	c.Check(predicateCalled, tc.IsTrue)
+	c.Check(matchesUUID, tc.IsTrue)
+	c.Check(matchesOtherID, tc.IsFalse)
+}
+
+// TestWatchForMigrationError asserts that if the watcher factory returns an
+// error, WatchForMigration propagates it to the caller.
+func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		nil, errors.Errorf("boom"),
+	)
+
+	svc := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	)
+	_, err := svc.WatchForMigration(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -273,6 +360,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -280,6 +368,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.controllerState = nil
 		s.modelState = nil
+		s.watcherFactory = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
 	})

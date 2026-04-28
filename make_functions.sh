@@ -12,7 +12,7 @@ JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
 
 # OCI variables
 OCI_BUILDER=${OCI_BUILDER:-docker}
-OCI_REGISTRY_USERNAME=${OCI_REGISTRY_USERNAME:-ghcr.io/juju}
+PUSH_OCI_REGISTRY=${PUSH_OCI_REGISTRY:-ghcr.io/juju}
 
 # Docker variables
 DOCKER_BUILDX_CONTEXT=${DOCKER_BUILDX_CONTEXT:-juju-make}
@@ -63,7 +63,7 @@ juju_version() {
 
 operator_image_release_path() {
     juju_version=$(juju_version)
-    echo "${OCI_REGISTRY_USERNAME}/jujud-operator:$(_image_version $juju_version)"
+    echo "${PUSH_OCI_REGISTRY}/jujud-operator:$(_image_version $juju_version)"
 }
 
 operator_image_path() {
@@ -71,7 +71,7 @@ operator_image_path() {
     if [[ -z "${JUJU_BUILD_NUMBER}" ]] || [[ ${JUJU_BUILD_NUMBER} -eq 0 ]]; then
         operator_image_release_path
     else
-        echo "${OCI_REGISTRY_USERNAME}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
+        echo "${PUSH_OCI_REGISTRY}/jujud-operator:$(_image_version "$juju_version").${JUJU_BUILD_NUMBER}"
     fi
 }
 
@@ -158,8 +158,8 @@ seed_repository() {
   # Copy all the lts that are available
   for (( i = 18; ; i += 2 )); do
     if "$DOCKER_BIN" pull "ghcr.io/juju/charm-base:ubuntu-$i.04" ; then
-      "$DOCKER_BIN" tag "ghcr.io/juju/charm-base:ubuntu-$i.04" "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
-      "$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
+      "$DOCKER_BIN" tag "ghcr.io/juju/charm-base:ubuntu-$i.04" "${PUSH_OCI_REGISTRY}/charm-base:ubuntu-$i.04"
+      "$DOCKER_BIN" push "${PUSH_OCI_REGISTRY}/charm-base:ubuntu-$i.04"
     else
       break
     fi
