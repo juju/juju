@@ -557,15 +557,71 @@ func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
 	c.Check(info.SecretKey, tc.IsNil)
 }
 
-func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+func (s *drainingServiceSuite) TestBackendInfoS3CredentialsNonS3(c *tc.C) {
+	info := BackendInfo{
+		Type: objectstore.FileBackend,
+	}
+	creds, ok := info.S3Credentials()
+	c.Check(ok, tc.IsFalse)
+	c.Check(creds, tc.DeepEquals, domainobjectstore.S3Credentials{})
+}
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+func (s *drainingServiceSuite) TestBackendInfoS3CredentialsS3(c *tc.C) {
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
+	info := BackendInfo{
+		Type:      objectstore.S3Backend,
+		Endpoint:  &endpoint,
+		AccessKey: &accessKey,
+		SecretKey: &secretKey,
+	}
+	creds, ok := info.S3Credentials()
+	c.Check(ok, tc.IsTrue)
+	c.Check(creds, tc.DeepEquals, domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
 	})
+}
+
+func (s *drainingServiceSuite) TestBackendInfoS3CredentialsNilFields(c *tc.C) {
+	info := BackendInfo{
+		Type: objectstore.S3Backend,
+	}
+	creds, ok := info.S3Credentials()
+	c.Check(ok, tc.IsTrue)
+	c.Check(creds, tc.DeepEquals, domainobjectstore.S3Credentials{})
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3StateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorMatches, ".*boom.*")
 }
 
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingEndpoint(c *tc.C) {

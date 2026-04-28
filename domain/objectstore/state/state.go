@@ -835,7 +835,7 @@ WHERE life_id = 0`, backendInfo{})
 	}, nil
 }
 
-// SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
+// TransitionBackendToS3 sets the object store to use S3 with the provided
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
 //
@@ -845,7 +845,7 @@ WHERE life_id = 0`, backendInfo{})
 //     while we're in the middle of a draining process.
 //   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a backend
 //     with the specified uuid.
-func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error {
+func (s *State) TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
