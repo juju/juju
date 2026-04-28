@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	internallogger "github.com/juju/juju/internal/logger"
@@ -60,6 +60,7 @@ func (s *bufferedLogWriterSuite) TestBuffering(c *tc.C) {
 	now := time.Now()
 	for i := range numMessages {
 		s.writer.Write(
+			c.Context(),
 			loggo.Entry{
 				Level:     loggo.Level(i),
 				Module:    fmt.Sprintf("module%d", i),
@@ -84,6 +85,7 @@ func (s *bufferedLogWriterSuite) TestBuffering(c *tc.C) {
 func (s *bufferedLogWriterSuite) TestLimiting(c *tc.C) {
 	write := func(msgNum int) {
 		s.writer.Write(
+			c.Context(),
 			loggo.Entry{
 				Level:     loggo.INFO,
 				Module:    "module",
@@ -186,6 +188,7 @@ func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *tc.C) {
 func (s *bufferedLogWriterSuite) writeAndReceive(c *tc.C) {
 	now := time.Now()
 	s.writer.Write(
+		c.Context(),
 		loggo.Entry{
 			Level:     loggo.INFO,
 			Module:    "module",

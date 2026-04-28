@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/flightrecorder"
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -87,7 +87,7 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggo.GetLogger("juju.worker.dependency"),
+				internaldependency.WrapLogger(loggertesting.WrapCheckLog(c)),
 			)
 		},
 		SetupLogging:  func(corelogger.LoggerContext, agent.Config) {},

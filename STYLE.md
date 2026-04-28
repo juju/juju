@@ -18,7 +18,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/juju/loggo/v2"
+    "github.com/juju/loggo/v3"
     "github.com/juju/worker/v4"
 
     "github.com/juju/juju/core/model"

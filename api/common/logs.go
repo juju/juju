@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"

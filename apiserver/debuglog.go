@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/httpcontext"

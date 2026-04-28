@@ -5,7 +5,7 @@ package logsink
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"

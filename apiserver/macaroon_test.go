@@ -13,7 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"

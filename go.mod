@@ -62,7 +62,7 @@ require (
 	github.com/juju/gomaasapi/v2 v2.3.0
 	github.com/juju/idmclient/v2 v2.0.1
 	github.com/juju/jsonschema v1.0.0
-	github.com/juju/loggo/v2 v2.2.0
+	github.com/juju/loggo/v3 v3.0.0-20260430073220-8e1a5fe19b98
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137
@@ -72,7 +72,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
+	github.com/juju/tc v1.0.0
 	github.com/juju/testing v1.2.0
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
@@ -210,6 +210,7 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/loggo v1.0.0 // indirect
+	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.2 // indirect
