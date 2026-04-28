@@ -18,4 +18,6 @@ definitive source is the code.
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
+| `TEST_PARALLEL`               | When `true`, run tests concurrently where the suite supports it. Set using `-P`.   |
+| `TEST_PARALLEL_JOBS`          | Maximum number of concurrent tests when parallel is enabled (default: 5).          |
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |

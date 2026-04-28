@@ -7,6 +7,8 @@ export SKIP_DESTROY="${SKIP_DESTROY:-}"
 export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2001 -e SC2263 -e SC2043 -e SC2038"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
+export TEST_PARALLEL="${TEST_PARALLEL:-}"
+export TEST_PARALLEL_JOBS="${TEST_PARALLEL_JOBS:-5}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
 export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-}"
 export BOOTSTRAP_BASE="${BOOTSTRAP_BASE:-}"
@@ -131,6 +133,7 @@ show_help() {
 	echo "    $(green './main.sh -c')        Cloud name to use when bootstrapping, must be one of provider types listed above"
 	echo "    $(green './main.sh -R')        Region to use with cloud"
 	echo "    $(green './main.sh -B')        Bootstrap base to use <default is host>, priority over -l"
+	echo "    $(green './main.sh -P')        Run tests in parallel where the suite supports it"
 	echo ""
 	echo "Tests:"
 	echo "¯¯¯¯¯¯"
@@ -165,7 +168,7 @@ show_help() {
 	exit 1
 }
 
-while getopts "hH?vAs:a:x:rl:p:c:R:B:V" opt; do
+while getopts "hH?vAs:a:x:rl:p:c:R:B:VP" opt; do
 	case "${opt}" in
 	h | \?)
 		show_help
@@ -221,6 +224,9 @@ while getopts "hH?vAs:a:x:rl:p:c:R:B:V" opt; do
 		;;
 	B)
 		export BOOTSTRAP_BASE="${OPTARG}"
+		;;
+	P)
+		export TEST_PARALLEL="true"
 		;;
 	*)
 		echo "Unexpected argument ${opt}" >&2
