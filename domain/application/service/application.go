@@ -1809,7 +1809,7 @@ func (s *ProviderService) validateCharmBaseCompatibility(
 	}
 
 	return errors.Errorf(
-		"cannot refresh application from base %q to %q without --force-base",
+		"refreshing application from base %q to %q",
 		currentBase.DisplayString(),
 		requestedBase.DisplayString(),
 	).Add(applicationerrors.IncompatibleBase)

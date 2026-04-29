@@ -767,7 +767,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	case errors.Is(err, applicationerrors.IncompatibleBase):
 		return apiservererrors.ParamsErrorf(
 			params.CodeIncompatibleBase,
-			"cannot set charm %q because %s", args.CharmURL, err.Error(),
+			"cannot set charm %q: %s", args.CharmURL, err.Error(),
 		)
 	case errors.HasType[applicationerrors.CharmStorageTypeChanged](err):
 		typeErr, _ := errors.AsType[applicationerrors.CharmStorageTypeChanged](err)
