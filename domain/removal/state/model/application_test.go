@@ -876,12 +876,49 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithCloudService(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Capture the net node UUID before deletion so we can verify it is removed.
+	var netNodeUUID string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT net_node_uuid FROM k8s_service WHERE application_uuid = ?", appUUID.String(),
+	).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
 	s.advanceApplicationLife(c, appUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// DeleteApplication handles cloud service cleanup internally.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Verify the net node and cloud service rows were cleaned up, not orphaned.
+	var count int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM net_node WHERE uuid = ?", netNodeUUID,
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0, tc.Commentf("net_node should be deleted"))
+
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM k8s_service WHERE application_uuid = ?", appUUID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0, tc.Commentf("k8s_service should be deleted"))
+}
+
+func (s *applicationSuite) TestDeleteCAASApplicationWithoutK8sService(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app")
+
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
