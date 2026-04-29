@@ -20,4 +20,5 @@ definitive source is the code.
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
 | `TEST_PARALLEL`               | When `true`, run tests concurrently where the suite supports it. Set using `-P`.   |
 | `TEST_PARALLEL_JOBS`          | Maximum number of concurrent tests when parallel is enabled (default: 5).          |
+| `TEST_PARALLEL_FAIL_FAST`     | Stop launching new batches on first failure (default: true). Set `false` to run all.|
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |

@@ -24,6 +24,7 @@
 #
 # Enable via: ./main.sh -P <suite> or TEST_PARALLEL=true ./main.sh <suite>
 # Control concurrency: TEST_PARALLEL_JOBS=8 ./main.sh -P <suite>
+# Run all tests even on failure: TEST_PARALLEL_FAIL_FAST=false ./main.sh -P <suite>
 
 PARALLEL_QUEUE_FILE=""
 
@@ -114,8 +115,11 @@ wait_parallel() {
 			# Launch the test in a subshell with isolated JUJU_DATA.
 			# If the test fails (via set -e), the subshell exits
 			# immediately and duration is not written.
+			# Tests expect to run from the repo root (parent of
+			# CURRENT_DIR) since they use ./tests/... paths.
 			(
 				export JUJU_DATA="${iso_dir}/juju-data"
+				cd "${CURRENT_DIR}/.." || exit
 				set_verbosity
 
 				START_TIME=$(date +%s)
@@ -140,6 +144,17 @@ wait_parallel() {
 		done
 
 		idx=$((idx + batch_size))
+
+		# In fail-fast mode, stop launching new batches on first failure.
+		if [[ "${TEST_PARALLEL_FAIL_FAST:-true}" == "true" ]]; then
+			for status in "${all_statuses[@]}"; do
+				if [[ "${status}" != "0" ]]; then
+					echo "==> Fail-fast: stopping after batch failure"
+					idx=${total}
+					break
+				fi
+			done
+		fi
 	done
 
 	# Report results for all tests.
