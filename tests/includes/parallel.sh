@@ -134,7 +134,50 @@ wait_parallel() {
 			all_iso_dirs+=("${iso_dir}")
 		done
 
-		# Wait for every job in this batch and record exit status.
+		# Monitor progress: print "." each second that any log grows.
+		# Silence means a stall — easy to spot hanging tests.
+		local -a batch_last_sizes=()
+		for ((j = 0; j < batch_size; j++)); do
+			batch_last_sizes+=(0)
+		done
+
+		while true; do
+			sleep 1
+
+			# Check if any process in this batch is still running.
+			local any_running=false
+			for pid in "${batch_pids[@]}"; do
+				if kill -0 "${pid}" 2>/dev/null; then
+					any_running=true
+					break
+				fi
+			done
+
+			if [[ "${any_running}" == "false" ]]; then
+				break
+			fi
+
+			# Check for log activity across the batch.
+			local activity=false
+			for ((j = 0; j < batch_size; j++)); do
+				local log="${all_iso_dirs[$((${#all_iso_dirs[@]} - batch_size + j))]}/output.log"
+				local cur_size
+				cur_size=$(stat -c%s "${log}" 2>/dev/null || echo "0")
+				if [[ "${cur_size}" -gt "${batch_last_sizes[$j]}" ]]; then
+					activity=true
+					# shellcheck disable=SC2004
+					batch_last_sizes[$j]=${cur_size}
+				fi
+			done
+
+			if [[ "${activity}" == "true" ]]; then
+				printf "."
+			fi
+		done
+		# End progress line if any dots were printed.
+		printf "\n"
+
+		# Collect exit statuses now that all PIDs have exited.
 		for pid in "${batch_pids[@]}"; do
 			if wait "${pid}" 2>/dev/null; then
 				all_statuses+=("0")
