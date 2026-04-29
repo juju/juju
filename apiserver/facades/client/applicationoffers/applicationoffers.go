@@ -351,7 +351,11 @@ func (api *OffersAPI) applicationOffersFromModel(
 ) ([]params.ApplicationOfferAdminDetailsV5, error) {
 	// Determine if the user is a controller superuser or model admin.
 	// This check is performed once outside the offer loop.
-	isModelAdmin := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), permission.AdminAccess) == nil
+	err := api.checkModelPermission(ctx, apiUser, model.UUID(modelUUID), permission.AdminAccess)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return nil, errors.Capture(err)
+	}
+	isModelAdmin := err == nil
 
 	requiresAdminAccess := requiredAccess == permission.AdminAccess
 
