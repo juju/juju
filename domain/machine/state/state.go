@@ -928,87 +928,6 @@ ORDER BY a.name ASC
 	return result, nil
 }
 
-// GetMachinePlacement returns the placement structure as it was recorded for
-// the given machine.
-//
-// The following errors may be returned:
-// - [machineerrors.MachineNotFound] if the machine does not exist.
-func (st *State) GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &placementDirective.*
-FROM machine_placement
-WHERE machine_uuid = $entityUUID.uuid
-`, placementDirective{}, entityUUID{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var placementDirective placementDirective
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
-		if err != nil {
-			return err
-		}
-		err = tx.Query(ctx, stmt, machineUUID).Get(&placementDirective)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("querying placement for machine %q: %w", mName, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	if placementDirective.Directive.Valid {
-		return &placementDirective.Directive.V, nil
-	}
-	return nil, nil
-}
-
-// GetMachineConstraints returns the constraints for the given machine.
-// Empty constraints are returned if no constraints exist for the given
-// machine.
-//
-// The following errors may be returned:
-// - [machineerrors.MachineNotFound] if the machine does not exist.
-func (st *State) GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return constraints.Constraints{}, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &machineConstraint.*
-FROM v_machine_constraint
-WHERE machine_uuid = $entityUUID.uuid;
-`, machineConstraint{}, entityUUID{})
-	if err != nil {
-		return constraints.Constraints{}, errors.Capture(err)
-	}
-	var result machineConstraints
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machine.Name(mName))
-		if err != nil {
-			return err
-		}
-		err = tx.Query(ctx, stmt, machineUUID).GetAll(&result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return constraints.Constraints{}, errors.Errorf("getting constraints for machine %q: %w", mName, err)
-	}
-
-	return decodeConstraints(result), nil
-}
-
 // GetModelConstraints returns the currently set constraints for the model.
 // The following error types can be expected:
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
@@ -1158,6 +1077,84 @@ WHERE machine_uuid = $entityUUID.uuid
 	}
 
 	return base.ParseBase(result.OSName, result.Channel)
+}
+
+// GetMachineProvisioningInfo returns the base, placement directive and
+// constraints for the given machine using a single SELECT query with JOINs,
+// resolving the machine UUID only once.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+func (st *State) GetMachineProvisioningInfo(ctx context.Context, mName string) (base.Base, *string, constraints.Constraints, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return base.Base{}, nil, constraints.Constraints{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineProvisioningRow.*
+FROM machine AS m
+LEFT JOIN v_machine_platform AS vp ON vp.machine_uuid = m.uuid
+LEFT JOIN machine_placement AS mp ON mp.machine_uuid = m.uuid
+LEFT JOIN v_machine_constraint AS vc ON vc.machine_uuid = m.uuid
+WHERE m.name = $machineName.name
+`, machineProvisioningRow{}, machineName{})
+	if err != nil {
+		return base.Base{}, nil, constraints.Constraints{}, errors.Capture(err)
+	}
+
+	nameParam := machineName{Name: mName}
+	var rows machineProvisioningRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, nameParam).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return base.Base{}, nil, constraints.Constraints{},
+			errors.Errorf("getting provisioning info for machine %q: %w", mName, err)
+	}
+
+	firstRow := rows[0]
+	machineBase, err := base.ParseBase(firstRow.OSName, firstRow.Channel)
+	if err != nil {
+		return base.Base{}, nil, constraints.Constraints{},
+			errors.Errorf("parsing base for machine %q from OS %q and channel %q: %w",
+				mName, firstRow.OSName, firstRow.Channel, err)
+	}
+
+	var placement *string
+	if firstRow.Directive.Valid {
+		placement = &firstRow.Directive.V
+	}
+
+	// Convert provisioning rows to constraint rows for decoding via the
+	// existing decodeConstraints helper.
+	constraintRows := make(machineConstraints, len(rows))
+	for i, row := range rows {
+		constraintRows[i] = machineConstraint{
+			Arch:             row.Arch,
+			CPUCores:         row.CPUCores,
+			CPUPower:         row.CPUPower,
+			Mem:              row.Mem,
+			RootDisk:         row.RootDisk,
+			RootDiskSource:   row.RootDiskSource,
+			InstanceRole:     row.InstanceRole,
+			InstanceType:     row.InstanceType,
+			ContainerType:    row.ContainerType,
+			VirtType:         row.VirtType,
+			AllocatePublicIP: row.AllocatePublicIP,
+			ImageID:          row.ImageID,
+			SpaceName:        row.SpaceName,
+			SpaceExclude:     row.SpaceExclude,
+			Tag:              row.Tag,
+			Zone:             row.Zone,
+		}
+	}
+
+	return machineBase, placement, decodeConstraints(constraintRows), nil
 }
 
 // CountMachinesInSpace counts the number of machines with address in a given

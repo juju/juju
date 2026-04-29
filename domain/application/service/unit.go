@@ -197,6 +197,10 @@ type UnitState interface {
 	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 	GetUnitNamesForNetNode(context.Context, string) ([]coreunit.Name, error)
 
+	// GetUnitNamesWithPrincipalForMachine returns the name of every unit on the
+	// given machine together with its optional principal unit name.
+	GetUnitNamesWithPrincipalForMachine(context.Context, string) ([]coreunit.NameWithPrincipal, error)
+
 	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
 	// machine. The following errors may be returned: -
 	// [applicationerrors.MachineNotFound] if the machine does not exist
@@ -1329,6 +1333,26 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremac
 		return nil, errors.Capture(err)
 	}
 	return names, nil
+}
+
+// GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and
+// their principal unit names on the given machine.
+func (s *Service) GetUnitNamesWithPrincipalOnMachine(
+	ctx context.Context,
+	name coremachine.Name,
+) ([]coreunit.NameWithPrincipal, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	netNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, name)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.st.GetUnitNamesWithPrincipalForMachine(ctx, netNodeUUID)
 }
 
 // SetUnitWorkloadVersion sets the workload version for the given unit.

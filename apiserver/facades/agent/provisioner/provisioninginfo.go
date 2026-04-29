@@ -123,14 +123,12 @@ func (api *ProvisionerAPI) getProvisioningInfo(
 	machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
 	switch {
 	case errors.Is(err, machineerrors.MachineNotFound):
-		return nil, errors.Errorf(
-			"machine %q does not exist", machineName,
-		).Add(coreerrors.NotFound)
+		return nil, errors.Errorf("machine %q does not exist", machineName).Add(coreerrors.NotFound)
 	case err != nil:
 		return nil, errors.Errorf("getting machine %q uuid: %w", machineName, err)
 	}
 
-	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	unitNames, err := api.applicationService.GetUnitNamesWithPrincipalOnMachine(ctx, machineName)
 	if err != nil {
 		return nil, errors.Errorf("getting unit names on machine %q: %w", machineName, err)
 	}
@@ -177,60 +175,45 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	ctx context.Context,
 	machineName coremachine.Name,
 	machineUUID coremachine.UUID,
-	unitNames []coreunit.Name,
+	unitNames []coreunit.NameWithPrincipal,
 	endpointBindings map[string]string,
 	cloudInitUserData map[string]any,
 	imageStream string,
 	resourceTags tags.ResourceTagger,
 	cloudRegionSpec simplestreams.CloudSpec,
 ) (params.ProvisioningInfo, error) {
-	// TODO (stickupkid): Refactor these, so that we can just do this in
-	// one call (probably called GetProvisioningInfo) to the machine service.
-	machineBase, err := api.machineService.GetMachineBase(ctx, machineName)
+	pInfo, err := api.machineService.GetMachineProvisioningInfo(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return params.ProvisioningInfo{}, apiservererrors.ServerError(jujuerrors.NotFoundf("machine %q", machineName))
 	} else if err != nil {
-		return params.ProvisioningInfo{}, errors.Errorf("getting machine base: %w", err)
+		return params.ProvisioningInfo{}, errors.Errorf("getting machine provisioning info: %w", err)
 	}
-	machinePlacement, err := api.machineService.GetMachinePlacementDirective(ctx, machineName)
-	if err != nil {
-		return params.ProvisioningInfo{}, errors.Errorf("getting machine placement directive: %w", err)
-	}
-	machineConstraints, err := api.machineService.GetMachineConstraints(ctx, machineName)
+	volumes, volumeAttachments, err := api.machineVolumeParams(ctx, machineName, machineUUID)
 	if err != nil {
 		return params.ProvisioningInfo{}, errors.Capture(err)
 	}
 
-	volumes, volumeAttachments, err := api.machineVolumeParams(
-		ctx, machineName, machineUUID,
-	)
+	rootDisk, err := api.machineRootDiskParams(ctx, pInfo.Constraints)
 	if err != nil {
 		return params.ProvisioningInfo{}, errors.Capture(err)
 	}
 
-	rootDisk, err := api.machineRootDiskParams(
-		ctx, machineConstraints,
-	)
-	if err != nil {
-		return params.ProvisioningInfo{}, errors.Capture(err)
-	}
-
-	imageMetadata, err := api.availableImageMetadata(ctx, machineName, machineBase, machineConstraints, imageStream, cloudRegionSpec)
+	imageMetadata, err := api.availableImageMetadata(ctx, pInfo.Base, pInfo.Constraints, imageStream, cloudRegionSpec)
 	if err != nil {
 		return params.ProvisioningInfo{}, errors.Errorf("cannot get available image metadata: %w", err)
 	}
 
 	result := params.ProvisioningInfo{
 		Base: params.Base{
-			Name:    machineBase.OS,
-			Channel: machineBase.Channel.String(),
+			Name:    pInfo.Base.OS,
+			Channel: pInfo.Base.Channel.String(),
 		},
 		CloudInitUserData: cloudInitUserData,
 		// EndpointBindings are used by MAAS by the provider. Operator defined
 		// space bindings are reflected in ProvisioningNetworkTopology.
 		EndpointBindings:  endpointBindings,
-		Constraints:       machineConstraints,
-		Placement:         unptr(machinePlacement),
+		Constraints:       pInfo.Constraints,
+		Placement:         unptr(pInfo.PlacementDirective),
 		Volumes:           volumes,
 		VolumeAttachments: volumeAttachments,
 		RootDisk:          rootDisk,
@@ -241,7 +224,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	// the processing as no controller-specific jobs or tags are required.
 	if !api.isControllerModel {
 		result.Jobs = []model.MachineJob{model.JobHostUnits}
-		result.Tags, err = api.machineTags(ctx, unitNames, machineName, false, resourceTags)
+		result.Tags, err = api.machineTags(unitNames, machineName, false, resourceTags)
 		if err != nil {
 			return result, errors.Capture(err)
 		}
@@ -268,7 +251,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	}
 	result.Jobs = jobs
 
-	result.Tags, err = api.machineTags(ctx, unitNames, machineName, isController, resourceTags)
+	result.Tags, err = api.machineTags(unitNames, machineName, isController, resourceTags)
 	if err != nil {
 		return result, errors.Capture(err)
 	}
@@ -386,26 +369,19 @@ func (api *ProvisionerAPI) machineRootDiskParams(
 
 // machineTags returns machine-specific tags to set on the instance.
 func (api *ProvisionerAPI) machineTags(
-	ctx context.Context,
-	unitNames []coreunit.Name,
+	unitNames []coreunit.NameWithPrincipal,
 	machineName coremachine.Name,
 	isController bool,
 	resourceTags tags.ResourceTagger,
 ) (map[string]string, error) {
 	// Names of all units deployed to the machine.
-	//
-	// TODO(axw) 2015-06-02 #1461358
-	// We need a worker that periodically updates
-	// instance tags with current deployment info.
 	principalUnitNames := make([]string, 0, len(unitNames))
 	for _, unitName := range unitNames {
-		_, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName)
-		if err != nil {
-			return nil, errors.Errorf("getting unit principal for unit %q: %w", unitName, err)
+		principleUnit := unitName.Name
+		if unitName.IsSubordinate() {
+			principleUnit = *unitName.Principal
 		}
-		if isPrincipal {
-			principalUnitNames = append(principalUnitNames, unitName.String())
-		}
+		principalUnitNames = append(principalUnitNames, principleUnit.String())
 	}
 	sort.Strings(principalUnitNames)
 
@@ -552,18 +528,17 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(
 	return subnetsToZones, nil
 }
 
-func (api *ProvisionerAPI) machineEndpointBindings(ctx context.Context, unitNames []coreunit.Name) (map[string]map[string]network.SpaceUUID, error) {
+func (api *ProvisionerAPI) machineEndpointBindings(
+	ctx context.Context,
+	unitNames []coreunit.NameWithPrincipal,
+) (map[string]map[string]network.SpaceUUID, error) {
 	endpointBindings := make(map[string]map[string]network.SpaceUUID)
 	for _, unitName := range unitNames {
-		_, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName)
-		if err != nil {
-			return nil, errors.Errorf("checking principal for unit %q: %w", unitName, err)
-		}
-		if !isPrincipal {
+		if unitName.IsSubordinate() {
 			continue
 		}
 
-		appName := unitName.Application()
+		appName := unitName.Name.Application()
 		if _, ok := endpointBindings[appName]; ok {
 			// Already processed, skip it.
 			continue
@@ -587,8 +562,8 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 
 		for endpoint, spaceID := range bindings {
 			space := spaceInfos.GetByID(spaceID)
-			boundSpaceNames = append(boundSpaceNames, space.Name)
 			if space != nil {
+				boundSpaceNames = append(boundSpaceNames, space.Name)
 				bound := string(space.ProviderId)
 				if bound == "" {
 					bound = space.Name.String()
@@ -608,13 +583,12 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 // or an error fetching them.
 func (api *ProvisionerAPI) availableImageMetadata(
 	ctx context.Context,
-	machineName coremachine.Name,
 	machineBase corebase.Base,
 	machineConstraints constraints.Value,
 	imageStream string,
 	cloudRegionSpec simplestreams.CloudSpec,
 ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := api.constructImageConstraint(ctx, machineName, machineBase, machineConstraints, imageStream, cloudRegionSpec)
+	imageConstraint, err := constructImageConstraint(machineBase, machineConstraints, imageStream, cloudRegionSpec)
 	if err != nil {
 		return nil, errors.Errorf("could not construct image constraint: %w", err)
 	}
@@ -632,9 +606,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 
 // constructImageConstraint returns model-specific criteria used to look for
 // image metadata.
-func (api *ProvisionerAPI) constructImageConstraint(
-	ctx context.Context,
-	machineName coremachine.Name,
+func constructImageConstraint(
 	machineBase corebase.Base,
 	machineConstraints constraints.Value,
 	imageStream string,
