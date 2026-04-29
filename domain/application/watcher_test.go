@@ -963,7 +963,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	harness.Run(c, []string{"eb27bc0dd239e03fd70690f95e3cb9b55013da43cd7606e6c972fb2c3d576f38"})
 }
 
-func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
+func (s *watcherSuite) TestWatchK8sServiceAddressesHash(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
@@ -972,8 +972,8 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 
 	ctx := c.Context()
 
-	// Add a cloud service to get an initial state.
-	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
+	// Add a k8s service to get an initial state.
+	err := svc.UpdateK8sService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1"),
 		},
@@ -987,8 +987,8 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(c, func(c *tc.C) {
-		// Change the address for the cloud service should trigger a change.
-		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.ProviderAddresses{
+		// Change the address for the k8s service should trigger a change.
+		err := svc.UpdateK8sService(ctx, "foo", "foo-provider", network.ProviderAddresses{
 			{
 				MachineAddress: network.NewMachineAddress("192.168.0.1"),
 			},

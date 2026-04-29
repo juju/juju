@@ -186,14 +186,14 @@ type unitNameCloudContainer struct {
 	ProviderID string `db:"provider_id"`
 }
 
-type cloudService struct {
+type k8sService struct {
 	UUID            string `db:"uuid"`
 	ApplicationUUID string `db:"application_uuid"`
 	NetNodeUUID     string `db:"net_node_uuid"`
 	ProviderID      string `db:"provider_id"`
 }
 
-type cloudServiceDevice struct {
+type k8sServiceDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`
 	NetNodeID         string `db:"net_node_uuid"`

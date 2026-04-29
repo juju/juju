@@ -73,10 +73,10 @@ type ApplicationState interface {
 	// found.
 	CreateCAASApplication(context.Context, string, application.AddCAASApplicationArg, []application.AddCAASUnitArg) (coreapplication.UUID, error)
 
-	// UpsertCloudService updates the cloud service for the specified application.
+	// UpsertK8sService updates the cloud service for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+	UpsertK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application. This blocks removal until
@@ -859,17 +859,17 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 	), locator, nil
 }
 
-// UpsertCloudService updates the cloud service for the specified application.
+// UpsertK8sService updates the cloud service for the specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
+func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if providerID == "" {
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
-	return errors.Capture(s.st.UpsertCloudService(ctx, appName, providerID, sAddrs))
+	return errors.Capture(s.st.UpsertK8sService(ctx, appName, providerID, sAddrs))
 }
 
 // SetApplicationHasK8sResources records that the provisioner is managing k8s

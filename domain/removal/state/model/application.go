@@ -461,8 +461,8 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application annotations: %w", err)
 		}
 
-		if err := st.deleteCloudServices(ctx, tx, aUUID); err != nil {
-			return errors.Errorf("deleting cloud services: %w", err)
+		if err := st.deleteK8sServices(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("deleting k8s services: %w", err)
 		}
 
 		if err := st.deleteDeviceConstraintAttributes(ctx, tx, aUUID); err != nil {
@@ -557,7 +557,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 	return nil
 }
 
-func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+func (st *State) deleteK8sServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
 	app := entityUUID{UUID: aUUID}
 
 	// Capture the net node UUID before any deletions. We cannot subquery
@@ -581,14 +581,14 @@ WHERE  application_uuid = $entityUUID.uuid`, app)
 
 	// k8s_service holds a FK to net_node, so delete it before tearing down
 	// the net node itself.
-	deleteCloudServiceStmt, err := st.Prepare(`
+	deleteK8sServiceStmt, err := st.Prepare(`
 DELETE FROM k8s_service
 WHERE application_uuid = $entityUUID.uuid
 `, app)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := tx.Query(ctx, deleteCloudServiceStmt, app).Run(); err != nil {
+	if err := tx.Query(ctx, deleteK8sServiceStmt, app).Run(); err != nil {
 		return errors.Capture(err)
 	}
 

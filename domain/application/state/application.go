@@ -1003,25 +1003,25 @@ WHERE  application_uuid = $applicationScale.application_uuid
 	return errors.Capture(err)
 }
 
-// UpsertCloudService updates the cloud service for the specified application.
+// UpsertK8sService updates the cloud service for the specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.ProviderAddresses) error {
+func (st *State) UpsertK8sService(ctx context.Context, applicationName, providerID string, sAddrs network.ProviderAddresses) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	serviceInfo := cloudService{
+	serviceInfo := k8sService{
 		ProviderID: providerID,
 	}
 
 	// Query any existing records for application and provider id.
 	queryExistingStmt, err := st.Prepare(`
-SELECT &cloudService.* 
+SELECT &k8sService.* 
 FROM   k8s_service
-WHERE  application_uuid = $cloudService.application_uuid
-AND    provider_id = $cloudService.provider_id`, serviceInfo)
+WHERE  application_uuid = $k8sService.application_uuid
+AND    provider_id = $k8sService.provider_id`, serviceInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1044,18 +1044,18 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing already exists so create a new net node and the cloud
 			// service.
-			netNodeUUID, cloudServiceUUID, err := st.createCloudService(ctx, tx, serviceInfo)
+			netNodeUUID, k8sServiceUUID, err := st.createK8sService(ctx, tx, serviceInfo)
 			if err != nil {
-				return errors.Errorf("creating cloud service for application %q: %w", applicationName, err)
+				return errors.Errorf("creating k8s service for application %q: %w", applicationName, err)
 			}
 			serviceInfo.NetNodeUUID = netNodeUUID.String()
-			serviceInfo.UUID = cloudServiceUUID.String()
+			serviceInfo.UUID = k8sServiceUUID.String()
 		}
 
 		if len(sAddrs) > 0 {
 			// If we have addresses to insert, then first create the link layer
 			// device (if needed) and then insert the addresses.
-			if err := st.upsertCloudServiceAddresses(ctx, tx, serviceInfo, applicationName, sAddrs); err != nil {
+			if err := st.upsertK8sServiceAddresses(ctx, tx, serviceInfo, applicationName, sAddrs); err != nil {
 				return errors.Capture(err)
 			}
 		}
@@ -1077,9 +1077,9 @@ func (st *State) SetApplicationHasK8sResources(ctx context.Context, appUUID core
 
 	insertStmt, err := st.Prepare(`
 INSERT INTO application_k8s_resources_managed (application_uuid)
-VALUES ($cloudService.application_uuid)
+VALUES ($k8sService.application_uuid)
 ON CONFLICT (application_uuid) DO NOTHING
-`, cloudService{})
+`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1097,7 +1097,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 			).Add(applicationerrors.ApplicationNotFound)
 		}
 
-		if err := tx.Query(ctx, insertStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+		if err := tx.Query(ctx, insertStmt, k8sService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
 			return errors.Errorf("setting k8s resources managed for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -1117,27 +1117,27 @@ func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID co
 
 	deleteStmt, err := st.Prepare(`
 DELETE FROM application_k8s_resources_managed
-WHERE application_uuid = $cloudService.application_uuid
-`, cloudService{})
+WHERE application_uuid = $k8sService.application_uuid
+`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteStmt, cloudService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
+		if err := tx.Query(ctx, deleteStmt, k8sService{ApplicationUUID: appUUID.String()}).Run(); err != nil {
 			return errors.Errorf("clearing k8s resources managed for application %q: %w", appUUID, err)
 		}
 		return nil
 	}))
 }
 
-// createCloudService creates a cloud service for the specified application and
+// createK8sService creates a cloud service for the specified application and
 // its associated net node. It returns the net node UUID, the cloud service UUID
 // and an error if any.
-func (st *State) createCloudService(
+func (st *State) createK8sService(
 	ctx context.Context,
 	tx *sqlair.TX,
-	serviceInfo cloudService,
+	serviceInfo k8sService,
 ) (domainnetwork.NetNodeUUID, uuid.UUID, error) {
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	if err != nil {
@@ -1154,31 +1154,31 @@ INSERT INTO net_node (uuid) VALUES ($dbUUID.uuid)
 	serviceInfo.NetNodeUUID = netNodeUUID.String()
 
 	if err := tx.Query(ctx, insertNetNodeStmt, nodeDBUUID).Run(); err != nil {
-		return "", uuid.UUID{}, errors.Errorf("inserting net node for cloud service application %q: %w", serviceInfo.ApplicationUUID, err)
+		return "", uuid.UUID{}, errors.Errorf("inserting net node for k8s service application %q: %w", serviceInfo.ApplicationUUID, err)
 	}
 
-	insertCloudServiceStmt, err := st.Prepare(`
-INSERT INTO k8s_service (*) VALUES ($cloudService.*)
+	insertK8sServiceStmt, err := st.Prepare(`
+INSERT INTO k8s_service (*) VALUES ($k8sService.*)
 `, serviceInfo)
 	if err != nil {
 		return "", uuid.UUID{}, errors.Capture(err)
 	}
 
-	cloudServiceUUID, err := uuid.NewUUID()
+	k8sServiceUUID, err := uuid.NewUUID()
 	if err != nil {
 		return "", uuid.UUID{}, errors.Capture(err)
 	}
-	serviceInfo.UUID = cloudServiceUUID.String()
-	if err := tx.Query(ctx, insertCloudServiceStmt, serviceInfo).Run(); err != nil {
+	serviceInfo.UUID = k8sServiceUUID.String()
+	if err := tx.Query(ctx, insertK8sServiceStmt, serviceInfo).Run(); err != nil {
 		return "", uuid.UUID{}, errors.Errorf("inserting cloud service for application %q: %w", serviceInfo.ApplicationUUID, err)
 	}
-	return netNodeUUID, cloudServiceUUID, nil
+	return netNodeUUID, k8sServiceUUID, nil
 }
 
-func (st *State) upsertCloudServiceAddresses(
+func (st *State) upsertK8sServiceAddresses(
 	ctx context.Context,
 	tx *sqlair.TX,
-	serviceInfo cloudService,
+	serviceInfo k8sService,
 	applicationName string,
 	addresses network.ProviderAddresses,
 ) error {
@@ -1186,7 +1186,7 @@ func (st *State) upsertCloudServiceAddresses(
 	queryLinkLayerDeviceFromServiceStmt, err := st.Prepare(`
 SELECT lld.uuid AS &dbUUID.uuid
 FROM   link_layer_device AS lld
-WHERE  lld.net_node_uuid = $cloudService.net_node_uuid
+WHERE  lld.net_node_uuid = $k8sService.net_node_uuid
 			`, linkLayerDeviceUUID, serviceInfo)
 	if err != nil {
 		return errors.Capture(err)
@@ -1199,7 +1199,7 @@ WHERE  lld.net_node_uuid = $cloudService.net_node_uuid
 		return errors.Errorf("querying cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
 	} else if errors.Is(err, sqlair.ErrNoRows) {
 		// Ensure the address link layer device is inserted.
-		lldUUID, err := st.insertCloudServiceDevice(ctx, tx, applicationName, serviceInfo.NetNodeUUID)
+		lldUUID, err := st.insertK8sServiceDevice(ctx, tx, applicationName, serviceInfo.NetNodeUUID)
 		if err != nil {
 			return errors.Errorf("inserting cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
 		}
@@ -1210,16 +1210,16 @@ WHERE  lld.net_node_uuid = $cloudService.net_node_uuid
 
 	// Before inserting the new addresses, we need to remove any existing
 	// ones for the given application and provider id.
-	if err := st.deleteCloudServiceAddresses(ctx, tx, serviceInfo.ApplicationUUID, serviceInfo.ProviderID); err != nil {
+	if err := st.deleteK8sServiceAddresses(ctx, tx, serviceInfo.ApplicationUUID, serviceInfo.ProviderID); err != nil {
 		return errors.Capture(err)
 	}
-	if err := st.insertCloudServiceAddresses(ctx, tx, lldUUIDStr, serviceInfo.NetNodeUUID, addresses); err != nil {
+	if err := st.insertK8sServiceAddresses(ctx, tx, lldUUIDStr, serviceInfo.NetNodeUUID, addresses); err != nil {
 		return errors.Errorf("inserting cloud service addresses for application %q: %w", applicationName, err)
 	}
 	return nil
 }
 
-func (st *State) insertCloudServiceDevice(
+func (st *State) insertK8sServiceDevice(
 	ctx context.Context, tx *sqlair.TX, applicationName, netNodeUUID string,
 ) (uuid.UUID, error) {
 	// For cloud services, the device is a placeholder without
@@ -1230,28 +1230,28 @@ func (st *State) insertCloudServiceDevice(
 	if err != nil {
 		return uuid.UUID{}, errors.Capture(err)
 	}
-	cloudServiceDeviceInfo := cloudServiceDevice{
+	k8sServiceDeviceInfo := k8sServiceDevice{
 		UUID:              devUUID.String(),
-		Name:              fmt.Sprintf("placeholder for %q cloud service", applicationName),
+		Name:              fmt.Sprintf("placeholder for %q k8s service", applicationName),
 		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
 		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
 		NetNodeID:         netNodeUUID,
 	}
-	insertCloudServiceDeviceStmt, err := st.Prepare(`
-INSERT INTO link_layer_device (*) VALUES ($cloudServiceDevice.*)
-`, cloudServiceDeviceInfo)
+	insertK8sServiceDeviceStmt, err := st.Prepare(`
+INSERT INTO link_layer_device (*) VALUES ($k8sServiceDevice.*)
+`, k8sServiceDeviceInfo)
 	if err != nil {
 		return uuid.UUID{}, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, insertCloudServiceDeviceStmt, cloudServiceDeviceInfo).Run(); err != nil {
+	if err := tx.Query(ctx, insertK8sServiceDeviceStmt, k8sServiceDeviceInfo).Run(); err != nil {
 		return uuid.UUID{}, errors.Capture(err)
 	}
 	return devUUID, nil
 }
 
-func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID, providerID string) error {
-	cloudService := cloudService{
+func (st *State) deleteK8sServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID, providerID string) error {
+	k8sService := k8sService{
 		ApplicationUUID: appUUID,
 		ProviderID:      providerID,
 	}
@@ -1260,16 +1260,16 @@ WITH lld_uuids AS (
 	SELECT lld.uuid
 	FROM   link_layer_device AS lld
 	JOIN   k8s_service AS ks ON ks.net_node_uuid = lld.net_node_uuid
-	WHERE  ks.application_uuid = $cloudService.application_uuid
-	AND    ks.provider_id = $cloudService.provider_id
+	WHERE  ks.application_uuid = $k8sService.application_uuid
+	AND    ks.provider_id = $k8sService.provider_id
 )
 DELETE FROM ip_address
 WHERE device_uuid IN lld_uuids;
-`, cloudService)
+`, k8sService)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := tx.Query(ctx, deleteAddressStmt, cloudService).Run(); err != nil {
+	if err := tx.Query(ctx, deleteAddressStmt, k8sService).Run(); err != nil {
 		return errors.Errorf("removing cloud service addresses for application %q and providerID %q: %w", appUUID, providerID, err)
 	}
 	return nil
@@ -1290,7 +1290,7 @@ func addressTypeForUnspecifiedCIDR(cidr string) network.AddressType {
 	}
 }
 
-func (st *State) insertCloudServiceAddresses(
+func (st *State) insertK8sServiceAddresses(
 	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.ProviderAddresses) error {
 	if len(addresses) == 0 {
 		return nil

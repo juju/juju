@@ -458,57 +458,57 @@ func (s *migrationSuite) migrationService(c *tc.C) *MigrationService {
 	return NewMigrationService(s.st, loggertesting.WrapCheckLog(c))
 }
 
-func (s *migrationSuite) TestImportCloudServicesGetAllSubnetsError(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesGetAllSubnetsError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, errors.New("subnets error"))
 	// No calls to another state function.
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), []internal.ImportCloudService{})
+	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{})
 
 	// Assert: the error from GetAllSubnets is passed through to the caller
 	c.Assert(err, tc.ErrorMatches, ".*subnets error")
 }
 
-func (s *migrationSuite) TestImportCloudServicesCreateCloudServicesError(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesCreateK8sServicesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
-	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).Return(errors.New("create services error"))
-	// No try to create LLD if creating cloud services fails
+	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).Return(errors.New("create services error"))
+	// No try to create LLD if creating k8s services fails
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), []internal.ImportCloudService{})
+	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{})
 
-	// Assert: the error from CreateCloudServices is passed through to the caller
-	c.Assert(err, tc.ErrorMatches, "creating cloud services: create services error")
+	// Assert: the error from CreateK8sServices is passed through to the caller
+	c.Assert(err, tc.ErrorMatches, "creating k8s services: create services error")
 }
 
-func (s *migrationSuite) TestImportCloudServicesImportLinkLayerDevicesError(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesImportLinkLayerDevicesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
-	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).Return(nil)
+	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).Return(nil)
 	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), gomock.Any()).Return(errors.New("import devices error"))
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), []internal.ImportCloudService{})
+	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{})
 
 	// Assert: the error from ImportLinkLayerDevices is passed through to the caller
 	c.Assert(err, tc.ErrorMatches, "importing link layer devices: import devices error")
 }
 
-func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesErrorGetSubnetNoSubnet(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Create test data
-	services := []internal.ImportCloudService{
+	services := []internal.ImportK8sService{
 		{
-			Addresses: []internal.ImportCloudServiceAddress{
+			Addresses: []internal.ImportK8sServiceAddress{
 				{
 					UUID:    "addr-uuid",
 					SpaceID: "space-id",
@@ -520,23 +520,23 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) 
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 
-	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
+	err := s.migrationService(c).ImportK8sServices(c.Context(), services)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *migrationSuite) TestImportCloudServicesIPv4AndIPv6Success(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesIPv4AndIPv6Success(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Create test data
-	services := []internal.ImportCloudService{
+	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
 			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
-			Addresses: []internal.ImportCloudServiceAddress{
+			Addresses: []internal.ImportK8sServiceAddress{
 				{
 					UUID:    "addr-uuid1",
 					Value:   "192.0.2.1",
@@ -563,15 +563,15 @@ func (s *migrationSuite) TestImportCloudServicesIPv4AndIPv6Success(c *tc.C) {
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
-	// Capture the arguments passed to CreateCloudServices
-	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, svcs []internal.ImportCloudService) error {
+	// Capture the arguments passed to CreateK8sServices
+	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, svcs []internal.ImportK8sService) error {
 			c.Assert(svcs, tc.DeepEquals, services)
 			return nil
 		})
 
 	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), cloudServiceLLDMatcher{
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -581,25 +581,25 @@ func (s *migrationSuite) TestImportCloudServicesIPv4AndIPv6Success(c *tc.C) {
 	}).Return(nil)
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
+	err := s.migrationService(c).ImportK8sServices(c.Context(), services)
 
 	// Assert: no error is returned
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *migrationSuite) TestImportCloudServicesIPv4Success(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesIPv4Success(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Create test data
-	services := []internal.ImportCloudService{
+	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
 			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
-			Addresses: []internal.ImportCloudServiceAddress{
+			Addresses: []internal.ImportK8sServiceAddress{
 				{
 					UUID:    "addr-uuid",
 					Value:   "192.0.2.1",
@@ -618,15 +618,15 @@ func (s *migrationSuite) TestImportCloudServicesIPv4Success(c *tc.C) {
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
-	// Capture the arguments passed to CreateCloudServices
-	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, svcs []internal.ImportCloudService) error {
+	// Capture the arguments passed to CreateK8sServices
+	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, svcs []internal.ImportK8sService) error {
 			c.Assert(svcs, tc.DeepEquals, services)
 			return nil
 		})
 
 	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), cloudServiceLLDMatcher{
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -635,25 +635,25 @@ func (s *migrationSuite) TestImportCloudServicesIPv4Success(c *tc.C) {
 	}).Return(nil)
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
+	err := s.migrationService(c).ImportK8sServices(c.Context(), services)
 
 	// Assert: no error is returned
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
+func (s *migrationSuite) TestImportK8sServicesIPv6Success(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
 	// Create test data
-	services := []internal.ImportCloudService{
+	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
 			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
-			Addresses: []internal.ImportCloudServiceAddress{
+			Addresses: []internal.ImportK8sServiceAddress{
 				{
 					UUID:    "addr-uuid",
 					Value:   "be7b:a111:58aa:fe61:a0b9:81c7:f136:697f",
@@ -672,15 +672,15 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
-	// Capture the arguments passed to CreateCloudServices
-	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, svcs []internal.ImportCloudService) error {
+	// Capture the arguments passed to CreateK8sServices
+	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, svcs []internal.ImportK8sService) error {
 			c.Assert(svcs, tc.DeepEquals, services)
 			return nil
 		})
 
 	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), cloudServiceLLDMatcher{
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -689,7 +689,7 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 	}).Return(nil)
 
 	// Act
-	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
+	err := s.migrationService(c).ImportK8sServices(c.Context(), services)
 
 	// Assert: no error is returned
 	c.Assert(err, tc.IsNil)
@@ -708,13 +708,13 @@ func (s *migrationSuite) fallbackSubnetInfo() corenetwork.SubnetInfos {
 	}
 }
 
-type cloudServiceLLDMatcher struct {
+type k8sServiceLLDMatcher struct {
 	c           *tc.C
-	from        []internal.ImportCloudService
+	from        []internal.ImportK8sService
 	subnetUUIDs map[string]string
 }
 
-func (m cloudServiceLLDMatcher) Matches(x any) bool {
+func (m k8sServiceLLDMatcher) Matches(x any) bool {
 	input, ok := x.([]internal.ImportLinkLayerDevice)
 	if !ok {
 		return false
@@ -724,7 +724,7 @@ func (m cloudServiceLLDMatcher) Matches(x any) bool {
 			return in.NetNodeUUID, in
 		})
 	expectedByNodeUUID := transform.SliceToMap(m.from,
-		func(f internal.ImportCloudService) (string, internal.ImportCloudService) {
+		func(f internal.ImportK8sService) (string, internal.ImportK8sService) {
 			return f.NetNodeUUID, f
 		})
 
@@ -741,8 +741,8 @@ func (m cloudServiceLLDMatcher) Matches(x any) bool {
 		inputAddrByUUID := transform.SliceToMap(in.Addresses, func(f internal.ImportIPAddress) (string, internal.ImportIPAddress) {
 			return f.UUID, f
 		})
-		expectedAddrByUUID := transform.SliceToMap(expected.Addresses, func(f internal.ImportCloudServiceAddress) (string,
-			internal.ImportCloudServiceAddress) {
+		expectedAddrByUUID := transform.SliceToMap(expected.Addresses, func(f internal.ImportK8sServiceAddress) (string,
+			internal.ImportK8sServiceAddress) {
 			return f.UUID, f
 		})
 
@@ -777,7 +777,7 @@ func (m cloudServiceLLDMatcher) Matches(x any) bool {
 	return result
 }
 
-func (cloudServiceLLDMatcher) String() string {
+func (k8sServiceLLDMatcher) String() string {
 	return "matches args for ImportLinkLayerDevices"
 }
 

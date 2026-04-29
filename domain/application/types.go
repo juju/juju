@@ -116,8 +116,8 @@ type ScaleState struct {
 	ScaleTarget int
 }
 
-// CloudService contains parameters for an application's cloud service.
-type CloudService struct {
+// K8sService contains parameters for an application's cloud service.
+type K8sService struct {
 	ProviderID string
 	Address    *ServiceAddress
 }
@@ -125,7 +125,7 @@ type CloudService struct {
 // ServiceAddress contains parameters for a cloud service address.
 // This may be from a load balancer, or cluster service etc.
 type ServiceAddress struct {
-	Device      CloudServiceDevice
+	Device      K8sServiceDevice
 	Value       string
 	AddressType ipaddress.AddressType
 	Scope       ipaddress.Scope
@@ -133,9 +133,9 @@ type ServiceAddress struct {
 	ConfigType  ipaddress.ConfigType
 }
 
-// CloudServiceDevice is the placeholder link layer device
+// K8sServiceDevice is the placeholder link layer device
 // used to tie the cloud service IP address to the application.
-type CloudServiceDevice struct {
+type K8sServiceDevice struct {
 	Name              string
 	DeviceTypeID      domainnetwork.DeviceType
 	VirtualPortTypeID domainnetwork.VirtualPortType
