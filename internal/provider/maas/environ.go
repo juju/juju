@@ -639,7 +639,7 @@ func (env *maasEnviron) acquireNode(
 	positiveSpaceIDs set.Strings,
 	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
-) (*maasInstance, error) {
+) (_ *maasInstance, acquireErr error) {
 	// When the caller explicitly requests a virtual machine, compose it from
 	// a pod rather than trying to acquire a pre-existing machine.
 	if cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
@@ -653,6 +653,15 @@ func (env *maasEnviron) acquireNode(
 			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 			return nil, errors.Annotate(err, "composing virtual machine")
 		}
+		defer func() {
+			if acquireErr == nil {
+				return
+			}
+			if err := env.maasController.DeleteMachine(systemId); err != nil {
+				logger.Errorf("cannot delete unused composed node %v: %v", systemId, err)
+				common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+			}
+		}()
 	}
 
 	acquireParams := convertConstraints(cons)
@@ -729,6 +738,7 @@ func (env *maasEnviron) composeNode(
 	}
 
 	// Use the first pod that can commission the machine.
+	var lastComposeErr error
 	for _, pod := range pods {
 		// Filter by zone if specified.
 		if zoneName != "" && pod.Zone() != nil && pod.Zone().Name() != zoneName {
@@ -736,6 +746,11 @@ func (env *maasEnviron) composeNode(
 		}
 		machine, err := pod.ComposeMachine(composeArgs)
 		if err != nil {
+			if gomaasapi.IsNoMatchError(err) || gomaasapi.IsCannotCompleteError(err) {
+				lastComposeErr = err
+				logger.Debugf("pod %q could not compose machine, trying next pod: %v", pod.Name(), err)
+				continue
+			}
 			return "", errors.Annotate(err, "composing machine")
 		}
 		systemID := machine.SystemID()
@@ -753,6 +768,9 @@ func (env *maasEnviron) composeNode(
 			return "", errors.Annotate(err, "waiting for machine to be ready")
 		}
 		return systemID, nil
+	}
+	if lastComposeErr != nil {
+		return "", errors.Annotate(lastComposeErr, "composing machine")
 	}
 
 	return "", errors.New("no pods matched the zone requirement")
@@ -1146,7 +1164,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext
 		err := env.releaseNodes(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
-			logger.Errorf("error while releasing node %v (%v)", id, err)
+			logger.Errorf("cannot release node %v: %v", id, err)
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
@@ -1176,7 +1194,7 @@ func (env *maasEnviron) deleteAnyComposedNodes(ctx context.ProviderCallContext, 
 		err = env.maasController.DeleteMachine(m.SystemID())
 		if err != nil {
 			lastErr = err
-			logger.Errorf("error while deleting node %v (%v)", m.SystemID(), err)
+			logger.Errorf("cannot delete node %v: %v", m.SystemID(), err)
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}

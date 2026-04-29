@@ -694,6 +694,118 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
 }
 
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchTriesNextPod(c *gc.C) {
+	composedMachine := &fakeMachine{systemID: "composed-2", hostname: "vm-2", statusName: "Ready"}
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		pods: []gomaasapi.Pod{
+			&fakePod{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
+			&fakePod{name: "pod-b", composeMachine: composedMachine},
+		},
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args.SystemId, gc.Equals, "composed-2")
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "composed-2",
+			architecture: arch.HostArch(),
+		},
+		allocateMachineMatches: gomaasapi.ConstraintMatches{Storage: map[string][]gomaasapi.StorageDevice{}},
+		machines:               []gomaasapi.Machine{composedMachine},
+	}
+	env := suite.makeEnviron(c, controller)
+
+	_, err := env.acquireNode(
+		suite.callCtx,
+		"vm-2",
+		"",
+		"",
+		constraints.MustParse("virt-type=virtual-machine"),
+		nil,
+		nil,
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
+}
+
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchAllPodsFail(c *gc.C) {
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		pods: []gomaasapi.Pod{
+			&fakePod{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
+			&fakePod{name: "pod-b", composeMachineErr: gomaasapi.NewCannotCompleteError("cannot compose right now")},
+		},
+	}
+	env := suite.makeEnviron(c, controller)
+
+	_, err := env.acquireNode(
+		suite.callCtx,
+		"vm-2",
+		"",
+		"",
+		constraints.MustParse("virt-type=virtual-machine"),
+		nil,
+		nil,
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, "composing virtual machine: composing machine: cannot compose right now")
+	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
+}
+
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchNextPodSkipped(c *gc.C) {
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		pods: []gomaasapi.Pod{
+			&fakePod{
+				name:              "pod-a",
+				zone:              &fakeZone{name: "mossack"},
+				composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources"),
+			},
+			&fakePod{
+				name: "pod-b",
+				zone: &fakeZone{name: "fonseca"},
+			},
+		},
+	}
+	env := suite.makeEnviron(c, controller)
+
+	_, err := env.acquireNode(
+		suite.callCtx,
+		"vm-2",
+		"mossack",
+		"",
+		constraints.MustParse("virt-type=virtual-machine"),
+		nil,
+		nil,
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, "composing virtual machine: composing machine: insufficient resources")
+}
+
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineAllocateFailureCleansUnusedComposedNode(c *gc.C) {
+	composedMachine := &fakeMachine{systemID: "composed-2", hostname: "vm-2", statusName: "Ready"}
+	controller := &fakeController{
+		Stub:                 &testing.Stub{},
+		pods:                 []gomaasapi.Pod{&fakePod{composeMachine: composedMachine}},
+		machines:             []gomaasapi.Machine{composedMachine},
+		allocateMachineError: errors.New("allocate failed"),
+	}
+	env := suite.makeEnviron(c, controller)
+
+	_, err := env.acquireNode(
+		suite.callCtx,
+		"vm-2",
+		"",
+		"",
+		constraints.MustParse("virt-type=virtual-machine"),
+		nil,
+		nil,
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, "allocate failed")
+	c.Assert(collectDeleteMachineArgs(controller), jc.SameContents, []string{"composed-2"})
+}
+
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineWaitReadyFailureCleansOrphan(c *gc.C) {
 	orphan := &fakeMachine{
 		systemID:      "orphan-1",
