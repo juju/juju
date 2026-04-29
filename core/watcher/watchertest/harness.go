@@ -112,15 +112,13 @@ func (h *Harness[T]) Run(c *tc.C, initial ...T) {
 		test.setup(c)
 		h.idler.AssertChangeStreamIdle(c)
 		test.assert(h.watcher)
+
+		// Ensure that the watcher doesn't emit any more changes.
+		h.watcher.AssertNoChange()
+		h.idler.AssertChangeStreamIdle(c)
 	}
 
-	// Ensure that the watcher doesn't emit any more changes.
-
-	h.watcher.AssertNoChange()
-	h.idler.AssertChangeStreamIdle(c)
-
-	// Now ensure that the watcher is also killed cleanly.
-
+	// Ensure that the watcher is killed cleanly.
 	h.watcher.AssertKilled()
 }
 
