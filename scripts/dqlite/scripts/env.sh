@@ -8,7 +8,7 @@ DEBUG_MODE=${DEBUG_MODE:-false}
 
 is_darwin() {
 	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-	if [[ "${OS}" =~ ^darwin* ]]; then
+	if [[ ${OS} =~ ^darwin* ]]; then
 		echo true
 	else
 		echo false
@@ -17,19 +17,19 @@ is_darwin() {
 
 current_arch() {
 	case $(uname -m) in
-		x86_64) echo amd64 ;;
-		aarch64) echo arm64 ;;
-		s390x) echo s390x ;;
-		ppc64le) echo ppc64le ;;
-		riscv64) echo riscv64 ;;
-		arm64)
-			if [[ $(is_darwin) = true  ]]; then
-				echo "arm64"
-			else
-				echo "Unsupported OS: ${OS}" && exit 1
-			fi
-			;;
-		*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
+	x86_64) echo amd64 ;;
+	aarch64) echo arm64 ;;
+	s390x) echo s390x ;;
+	ppc64le) echo ppc64le ;;
+	riscv64) echo riscv64 ;;
+	arm64)
+		if [[ $(is_darwin) == true ]]; then
+			echo "arm64"
+		else
+			echo "Unsupported OS: ${OS}" && exit 1
+		fi
+		;;
+	*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
 	esac
 }
 
