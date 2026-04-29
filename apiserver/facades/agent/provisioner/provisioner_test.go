@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
@@ -861,10 +862,10 @@ func (s *provisionerMockSuite) setupProvisioningInfoPrereqsWithSpaces(c *tc.C, s
 // getProvisioningInfo successfully with minimal result.
 func (s *provisionerMockSuite) setupMachineForProvisioning(machineName coremachine.Name, machineUUID coremachine.UUID) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
@@ -908,10 +909,10 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	machineName := coremachine.Name("0")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}, nil)
 
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(
@@ -963,14 +964,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithRootDisk(c *tc.C) {
 
 	machineUUID := machinetesting.GenUUID(c)
 	machineName := coremachine.Name("0")
-	rootDiskSource := "my-pool"
-
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{
-		RootDiskSource: &rootDiskSource,
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Constraints: constraints.Value{RootDiskSource: new("my-pool")},
 	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
@@ -1021,10 +1019,10 @@ func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 	machineUUID := machinetesting.GenUUID(c)
 	machineName := coremachine.Name("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
@@ -1061,29 +1059,23 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C)
 	unitName := coreunit.Name("myapp/0")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).
-		Return([]coreunit.Name{unitName}, nil)
-	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).
-		Return(coreunit.Name(""), true, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).
+		Return([]coreunit.NameWithPrincipal{{Name: unitName}}, nil)
 	s.applicationService.EXPECT().GetApplicationEndpointBindings(gomock.Any(), "myapp").
 		Return(map[string]network.SpaceUUID{
 			"":    spaceUUID,
 			"web": spaceUUID,
 		}, nil)
 
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{}, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
 		Return(map[string][]cloudimagemetadata.Metadata{
 			"default": {{ImageID: "img-1"}},
 		}, nil)
-
-	// For machineTags — GetUnitPrincipal is called again.
-	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).
-		Return(coreunit.Name(""), true, nil)
 
 	// machineSpaceTopology calls SpaceByName for bound spaces.
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("myspace")).Return(&network.SpaceInfo{
@@ -1132,10 +1124,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithMultiplePositiveSpaceCons
 	cons := constraints.MustParse("spaces=" + spaceConstraints)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(cons, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Constraints: cons,
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
@@ -1195,10 +1188,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithUnsuitableSpacesConstrain
 	cons := constraints.MustParse("spaces=empty")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(cons, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Constraints: cons,
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
@@ -1245,28 +1239,23 @@ func (s *provisionerMockSuite) TestProvisioningInfoConflictingNegativeConstraint
 	cons := constraints.MustParse("spaces=^myspace")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).
-		Return([]coreunit.Name{unitName}, nil)
-	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).
-		Return(coreunit.Name(""), true, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).
+		Return([]coreunit.NameWithPrincipal{{Name: unitName}}, nil)
 	s.applicationService.EXPECT().GetApplicationEndpointBindings(gomock.Any(), "myapp").
 		Return(map[string]network.SpaceUUID{
 			"web": spaceUUID,
 		}, nil)
 
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(cons, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Constraints: cons,
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
 		Return(map[string][]cloudimagemetadata.Metadata{
 			"default": {{ImageID: "img-1"}},
 		}, nil)
-
-	// For machineTags.
-	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).
-		Return(coreunit.Name(""), true, nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1289,10 +1278,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 	placement := "zone=us-east-1a"
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(&placement, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:               corebase.MakeDefaultBase("ubuntu", "22.04"),
+		PlacementDirective: &placement,
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
@@ -1321,10 +1311,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 	cons := constraints.MustParse("cores=4 mem=8G")
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineBase(gomock.Any(), machineName).Return(corebase.MakeDefaultBase("ubuntu", "22.04"), nil)
-	s.machineService.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineConstraints(gomock.Any(), machineName).Return(cons, nil)
+	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Constraints: cons,
+	}, nil)
 	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
 		Return(nil, nil, nil)
 	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).

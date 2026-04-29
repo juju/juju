@@ -1758,6 +1758,59 @@ func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid
 	}), nil
 }
 
+// GetUnitNamesWithPrincipalForMachine returns the name of every unit on the
+// given machine together with its principal unit name.
+func (st *State) GetUnitNamesWithPrincipalForMachine(
+	ctx context.Context,
+	uuid string,
+) ([]coreunit.NameWithPrincipal, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT u.name AS &unitWithPrincipal.name,
+       p.name AS &unitWithPrincipal.principal_unit_name
+FROM   machine AS m
+INNER JOIN unit AS u ON u.net_node_uuid = m.net_node_uuid
+LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
+LEFT JOIN unit AS p ON up.principal_uuid = p.uuid
+WHERE  m.net_node_uuid = $netNodeUUID.uuid
+`, unitWithPrincipal{}, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []unitWithPrincipal
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, netNodeUUID).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf(
+			"querying unit names with principals for machine %q: %w", uuid, err,
+		)
+	}
+
+	result := make([]coreunit.NameWithPrincipal, len(rows))
+	for i, row := range rows {
+		nwp := coreunit.NameWithPrincipal{
+			Name: row.Name,
+		}
+		if row.PrincipalUnitName.Valid {
+			nwp.Principal = new(coreunit.Name(row.PrincipalUnitName.String))
+		}
+		result[i] = nwp
+		st.logger.Debugf(ctx, "found unit %q with principle: %q", row.Name.String(), row.PrincipalUnitName.String)
+	}
+	return result, nil
+}
+
 // SetUnitWorkloadVersion sets the workload version for the given unit.
 func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error {
 	db, err := st.DB(ctx)

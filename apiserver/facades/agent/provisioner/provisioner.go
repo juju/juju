@@ -630,7 +630,7 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
 func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineName coremachine.Name) ([]instance.Id, error) {
-	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	unitNames, err := api.applicationService.GetUnitNamesWithPrincipalOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Errorf(
 			"machine %q not found", machineName,
@@ -639,14 +639,12 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 		return nil, errors.Capture(err)
 	}
 	instanceIdSet := make(set.Strings)
-	for _, unitName := range unitNames {
-		if _, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName); err != nil {
-			return nil, errors.Capture(err)
-		} else if !isPrincipal {
+	for _, u := range unitNames {
+		if u.IsSubordinate() {
 			continue
 		}
 
-		appName := unitName.Application()
+		appName := u.Name.Application()
 		machineNames, err := api.applicationService.GetMachinesForApplication(ctx, appName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Errorf(
@@ -746,12 +744,12 @@ func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		cons, err := api.machineService.GetMachineConstraints(ctx, coremachine.Name(tag.Id()))
+		pInfo, err := api.machineService.GetMachineProvisioningInfo(ctx, coremachine.Name(tag.Id()))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Constraints = cons
+		result.Results[i].Constraints = pInfo.Constraints
 	}
 	return result, nil
 }

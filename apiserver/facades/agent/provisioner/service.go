@@ -7,8 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	domainmachine "github.com/juju/juju/domain/machine"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
@@ -127,17 +126,9 @@ type MachineService interface {
 	// life changes.
 	WatchMachineContainerLife(ctx context.Context, parentMachineName coremachine.Name) (watcher.StringsWatcher, error)
 
-	// GetMachinePlacementDirective returns the placement structure as it was
-	// recorded for the given machine.
-	GetMachinePlacementDirective(ctx context.Context, mName coremachine.Name) (*string, error)
-
-	// GetMachineConstraints returns the constraints for the given machine.
-	// Empty constraints are returned if no constraints exist for the given
-	// machine.
-	GetMachineConstraints(ctx context.Context, mName coremachine.Name) (constraints.Value, error)
-
-	// GetMachineBase returns the base for the given machine.
-	GetMachineBase(ctx context.Context, mName coremachine.Name) (base.Base, error)
+	// GetMachineProvisioningInfo returns the base, placement directive and
+	// constraints for the given machine.
+	GetMachineProvisioningInfo(ctx context.Context, mName coremachine.Name) (domainmachine.ProvisioningInfo, error)
 
 	// GetBootstrapEnviron returns the bootstrap environ.
 	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
@@ -233,8 +224,8 @@ type KeyUpdaterService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
-	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]unit.Name, error)
+	// GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and their principles on the given machine.
+	GetUnitNamesWithPrincipalOnMachine(ctx context.Context, name coremachine.Name) ([]unit.NameWithPrincipal, error)
 
 	// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
 	// is found, for example, when the unit is not a subordinate, then false is
@@ -254,7 +245,7 @@ type ApplicationService interface {
 // RemovalService provides access to the removal service.
 type RemovalService interface {
 	// MarkMachineAsDead marks the machine as dead. It will not remove the machine as
-	// that is a separate operation. This will advance the machines's life to dead
+	// that is a separate operation. This will advance the machine's life to dead
 	// and will not allow it to be transitioned back to alive.
 	// Returns an error if the machine does not exist.
 	MarkMachineAsDead(context.Context, coremachine.UUID) error

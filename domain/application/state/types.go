@@ -1285,6 +1285,14 @@ type principal struct {
 	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
 }
 
+// unitWithPrincipal is a scan target for a unit row joined with the optional
+// unit_principal row. PrincipalUnitName is NULL when the unit is not a
+// subordinate.
+type unitWithPrincipal struct {
+	Name              coreunit.Name  `db:"name"`
+	PrincipalUnitName sql.NullString `db:"principal_unit_name"`
+}
+
 type unitMachineName struct {
 	UnitUUID    string `db:"unit_uuid"`
 	MachineName string `db:"name"`
