@@ -473,9 +473,7 @@ func bootstrapIAAS(
 
 	if featureflag.Enabled(featureflag.ControllerSnap) {
 		if args.ControllerSnapPath == "" && args.ControllerSnapRevision == "" {
-			args.ControllerSnapResolvedChannel = fmt.Sprintf(
-				"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
-			)
+			args.ControllerSnapResolvedChannel = resolveSnapChannel(args.ControllerSnapChannel)
 			resolvedVersion, err := resolveSnapChannelVersion(ctx, args.ControllerSnapResolvedChannel)
 			if err != nil {
 				return errors.Annotate(err, "resolving controller snap version")
@@ -712,6 +710,16 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func resolveSnapChannel(channel charm.Channel) string {
+	if !channel.Empty() {
+		return channel.String()
+	}
+
+	return fmt.Sprintf(
+		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
+	)
 }
 
 func finaliseInstanceRole(
