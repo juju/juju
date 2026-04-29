@@ -1115,6 +1115,36 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
 }
 
+func (s *bootstrapSuite) TestBootstrapControllerSnapCandidateChannel(c *tc.C) {
+	s.SetFeatureFlags(featureflag.ControllerSnap)
+
+	resolvedVersion := jujuversion.Current.ToPatch()
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf(`
+  4.0/stable:    4.0.5             2026-03-26 (34378) 107MB -
+  4.0/candidate: %s                2026-04-28 (34852) 108MB -
+  4.0/beta:      ↑
+  4.0/edge:      4.0.10-e0c5d0b    2026-04-29 (34868) 108MB -
+`, resolvedVersion.String()), nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapChannel:   charm.Channel{Track: "4.0", Risk: charm.Candidate},
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapChannel, tc.Equals, "4.0/candidate")
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+}
+
 func createImageMetadata(c *tc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
 	return createImageMetadataForArch(c, "amd64")
 }
