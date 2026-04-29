@@ -31,6 +31,20 @@ func resolveSnapChannelVersion(ctx context.Context, channel string) (string, err
 	pattern := fmt.Sprintf(`(?m)^\s*%s:\s*([^\s]+)`, regexp.QuoteMeta(channel))
 	matches := regexp.MustCompile(pattern).FindStringSubmatch(out)
 	if len(matches) < 2 {
+		return "", errors.Errorf("unable to find controller snap version in channel %q", channel)
+	}
+
+	// validate the version of the snap matches following structure:
+	//  4.1/edge:      4.1-beta2-cbd20b2
+	//  4.0/stable:    4.0.5
+	//  4.0/edge:      4.0.10-e0c5d0b
+	//  3.6/beta:      3.6-beta2
+	//
+	// But not any of:
+	//  4/beta:        ↑
+	//  4.1/beta:      –
+	v := strings.Split(matches[1], ".")
+	if len(v) < 2 {
 		return "", errors.Errorf("unable to resolve controller snap version in channel %q", channel)
 	}
 
