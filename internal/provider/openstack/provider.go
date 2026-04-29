@@ -822,11 +822,16 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
 		cred.UserDomain = credAttrs[CredAttrUserDomainName]
 		cred.Domain = credAttrs[CredAttrDomainName]
+		cred.TrustID = credAttrs[CredAttrTrustID]
 		if credAttrs[CredAttrVersion] != "" {
 			version, err := strconv.Atoi(credAttrs[CredAttrVersion])
 			if err != nil {
 				return identity.Credentials{}, 0,
 					errors.Errorf("cred.Version is not a valid integer type : %v", err)
+			}
+			if version < 3 && cred.TrustID != "" {
+				return identity.Credentials{}, 0,
+					errors.Errorf("cred.TrustID requires Keystone identity version 3")
 			}
 			if version < 3 {
 				authMode = identity.AuthUserPass
@@ -834,7 +839,7 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 				authMode = identity.AuthUserPassV3
 			}
 			cred.Version = version
-		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
+		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" || cred.TrustID != "" {
 			authMode = identity.AuthUserPassV3
 		} else {
 			authMode = identity.AuthUserPass

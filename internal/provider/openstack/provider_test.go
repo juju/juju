@@ -840,6 +840,52 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *tc
 	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
 }
 
+func (s *providerUnitTests) TestNewCredentialsWithTrustID(c *tc.C) {
+	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username":         "user",
+		"password":         "secret",
+		"user-domain-name": "openstack_userdomain",
+		"trust-id":         "trust-id",
+	})
+	clouldSpec := environscloudspec.CloudSpec{
+		Type:       "openstack",
+		Region:     "openstack_region",
+		Name:       "openstack",
+		Endpoint:   "http://endpoint",
+		Credential: &creds,
+	}
+	cred, authmode, err := newCredentials(clouldSpec)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
+		URL:           "http://endpoint",
+		User:          "user",
+		Secrets:       "secret",
+		Region:        "openstack_region",
+		UserDomain:    "openstack_userdomain",
+		ProjectDomain: "",
+		TrustID:       "trust-id",
+	})
+	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
+}
+
+func (s *providerUnitTests) TestNewCredentialsWithTrustIDAndVersion2(c *tc.C) {
+	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"version":  "2",
+		"username": "user",
+		"password": "secret",
+		"trust-id": "trust-id",
+	})
+	clouldSpec := environscloudspec.CloudSpec{
+		Type:       "openstack",
+		Region:     "openstack_region",
+		Name:       "openstack",
+		Endpoint:   "http://endpoint",
+		Credential: &creds,
+	}
+	_, _, err := newCredentials(clouldSpec)
+	c.Assert(err, tc.ErrorMatches, "cred.TrustID requires Keystone identity version 3")
+}
+
 func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "2",

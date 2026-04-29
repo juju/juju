@@ -57,6 +57,7 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 		"username":    "bob",
 		"password":    "dobbs",
 		"tenant-name": "gary",
+		"trust-id":    "trust",
 	})
 }
 
@@ -117,11 +118,40 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "",
+			"trust-id":            "",
 			"user-domain-name":    "user-domain",
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
 	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsUserPassTrustEnvironmentVariables(c *tc.C) {
+	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
+	s.PatchEnvironment("OS_USERNAME", "admin")
+	s.PatchEnvironment("OS_PASSWORD", "secret")
+	s.PatchEnvironment("OS_REGION_NAME", "region")
+	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "admin_domain")
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
+
+	credentials, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "region")
+	expected := cloud.NewCredential(
+		cloud.UserPassAuthType, map[string]string{
+			"version":             "3",
+			"username":            "admin",
+			"password":            "secret",
+			"tenant-name":         "",
+			"tenant-id":           "",
+			"domain-name":         "",
+			"project-domain-name": "",
+			"trust-id":            "trust-id",
+			"user-domain-name":    "admin_domain",
+		},
+	)
+	expected.Label = `openstack region "region" project "" user "admin"`
+	c.Assert(credentials.AuthCredentials["admin"], tc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
@@ -145,6 +175,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
 			"tenant-id":           "",
 			"domain-name":         "",
 			"project-domain-name": "default-domain",
+			"trust-id":            "",
 			"user-domain-name":    "default-domain",
 		},
 	)
@@ -190,6 +221,7 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "project-domain",
+			"trust-id":            "",
 			"user-domain-name":    "",
 		},
 	)
