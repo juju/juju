@@ -20,12 +20,16 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
+	envconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	environtesting "github.com/juju/juju/environs/testing"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -34,12 +38,15 @@ import (
 type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
-	clock              clock.Clock
-	applicationService *MockApplicationService
-	machineService     *MockMachineService
-	statusService      *MockStatusService
-	networkService     *MockNetworkService
-	removalService     *MockRemovalService
+	clock                   clock.Clock
+	applicationService      *MockApplicationService
+	machineService          *MockMachineService
+	statusService           *MockStatusService
+	networkService          *MockNetworkService
+	removalService          *MockRemovalService
+	modelInfoService        *MockModelInfoService
+	modelConfigService      *MockModelConfigService
+	controllerConfigService *MockControllerConfigService
 
 	authorizer *facademocks.MockAuthorizer
 
@@ -617,6 +624,9 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	s.api = &ProvisionerAPI{
 		applicationService: s.applicationService,
@@ -624,6 +634,9 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		statusService:      s.statusService,
 		networkService:     s.networkService,
 		removalService:     s.removalService,
+		modelInfoService:   s.modelInfoService,
+		modelConfigService: s.modelConfigService,
+		controllerConfigService: s.controllerConfigService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -643,6 +656,9 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.statusService = nil
 		s.networkService = nil
 		s.removalService = nil
+		s.modelInfoService = nil
+		s.modelConfigService = nil
+		s.controllerConfigService = nil
 		s.authorizer = nil
 		s.api = nil
 	})
@@ -704,4 +720,91 @@ func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
+}
+
+// TestProvisioningInfoErrorContinues verifies that when getProvisioningInfo
+// fails for one machine in a multi-entity request, it records the error and
+// continues processing subsequent machines (the continue statement).
+func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+		CloudType: "ec2",
+	}, nil)
+	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
+	// Machine-0: getProvisioningInfo fails because machine not found.
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).
+		Return("", machineerrors.MachineNotFound)
+
+	// Machine-1: getProvisioningInfo also fails (different error).
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).
+		Return("", internalerrors.New("some internal error"))
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+	}}
+	result, err := s.api.ProvisioningInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+
+	// Machine-0: should have a not-found error.
+	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[0].Result, tc.IsNil)
+
+	// Machine-1: should have an error too, but processing was not skipped.
+	c.Check(result.Results[1].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[1].Result, tc.IsNil)
+}
+
+// TestProvisioningInfoPermissionDenied verifies that an unparseable tag or
+// access denial results in ErrPerm and does not panic.
+func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Override the auth function to deny access to machine-0.
+	s.api.getAuthFunc = func(context.Context) (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag.Id() != "0"
+		}, nil
+	}
+
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+		CloudType: "ec2",
+	}, nil)
+	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
+	// Machine-1 is allowed but fails in getProvisioningInfo.
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).
+		Return("", machineerrors.MachineNotFound)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"}, // denied by auth
+		{Tag: "machine-1"}, // allowed but not found
+	}}
+	result, err := s.api.ProvisioningInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+
+	// Machine-0: permission denied.
+	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[0].Error.Message, tc.Equals, "permission denied")
+	c.Check(result.Results[0].Result, tc.IsNil)
+
+	// Machine-1: not found error (proves we continued past machine-0).
+	c.Check(result.Results[1].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[1].Result, tc.IsNil)
 }
