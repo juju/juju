@@ -622,16 +622,21 @@ func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context,
 	}
 
 	query := `
-SELECT DISTINCT m.name AS &CredentialOwnerModelAccess.model_name,
-       pat.type AS &CredentialOwnerModelAccess.access_type
-FROM   v_model AS m
-       JOIN permission AS p ON m.uuid = p.grant_on
+SELECT DISTINCT m.name      AS &CredentialOwnerModelAccess.model_name,
+       m.qualifier           AS &CredentialOwnerModelAccess.model_qualifier,
+       pat.type              AS &CredentialOwnerModelAccess.access_type
+FROM   model AS m
+       JOIN cloud_credential AS cc  ON m.cloud_credential_uuid = cc.uuid
+       JOIN cloud             AS c  ON cc.cloud_uuid = c.uuid
+       JOIN user              AS co ON cc.owner_uuid = co.uuid
+       JOIN permission        AS p  ON m.uuid = p.grant_on
        JOIN permission_access_type AS pat ON p.access_type_id = pat.id
-       JOIN user AS u ON p.grant_to = u.uuid
-WHERE  m.cloud_credential_owner_name = $input.owner_name
-AND    m.cloud_credential_cloud_name = $input.cloud_name
-AND    m.cloud_credential_name = $input.cred_name
-AND    u.name = $input.owner_name
+       JOIN user              AS u  ON p.grant_to = u.uuid
+WHERE  co.name = $input.owner_name
+AND    c.name  = $input.cloud_name
+AND    cc.name = $input.cred_name
+AND    m.activated = TRUE
+AND    u.name    = $input.owner_name
 AND    u.removed = FALSE
 `
 	readStmt, err := st.Prepare(query, input{}, access.CredentialOwnerModelAccess{})

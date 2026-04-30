@@ -1279,6 +1279,69 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredentialRemovedOwner(c *
 	c.Assert(err, tc.ErrorIs, accesserrors.PermissionNotFound)
 }
 
+func (s *permissionStateSuite) TestModelAccessForCloudCredentialDistinctByQualifier(c *tc.C) {
+	// This test verifies that AllModelAccessForCloudCredential returns one result
+	// per (name, qualifier) pair. Two models sharing the same name but with
+	// different qualifiers must both appear in the result set. Without DISTINCT
+	// covering qualifier, they would be collapsed into a single row.
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	ctx := c.Context()
+
+	// Create the first model (the helper sets qualifier to "prod").
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-dup-qual")
+	key := credential.Key{
+		Cloud: "model-dup-qual",
+		Owner: usertesting.GenNewName(c, "test-usermodel-dup-qual"),
+		Name:  "foobar",
+	}
+
+	// Insert a second model with the same name but qualifier "staging", reusing
+	// the same cloud credential. This creates the duplicate-name scenario that
+	// requires DISTINCT to span both name and qualifier.
+	secondModelUUID, err := coremodel.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var cloudUUID, credUUID string
+		err := tx.QueryRowContext(ctx, `
+			SELECT c.uuid, cc.uuid
+			FROM cloud AS c
+			JOIN cloud_credential AS cc ON cc.cloud_uuid = c.uuid
+			WHERE c.name = ? AND cc.name = 'foobar'
+		`, key.Cloud).Scan(&cloudUUID, &credUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO model
+			    (uuid, name, qualifier, cloud_uuid, cloud_credential_uuid,
+			     model_type_id, life_id, activated)
+			VALUES (?, 'model-dup-qual', 'staging', ?, ?, 0, 0, true)
+		`, secondModelUUID.String(), cloudUUID, credUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Grant the credential owner admin access to the second model as well.
+	_, err = st.CreatePermission(ctx, uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: key.Owner,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        secondModelUUID.String(),
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Both models must be returned: one per (name, qualifier) pair.
+	obtained, err := st.AllModelAccessForCloudCredential(ctx, key)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 2,
+		tc.Commentf("expected two results for models with same name but different qualifiers"))
+}
+
 func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
