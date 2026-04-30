@@ -4,7 +4,7 @@
 // Package apiserver provides the server-side API implementation for Juju controllers.
 //
 // The server-side API handles authenticated client requests (from CLI commands,
-// agents, external tools, etc.) by routing them to versioned RPC facades
+// agents, external tools, etc.) by routing them to versioned facades
 // (endpoints organized by client type providing domain-specific operations).
 // The Server type manages the API server and routes incoming requests to
 // registered facades based on version and client authentication. Facades are
