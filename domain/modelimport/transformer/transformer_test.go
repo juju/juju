@@ -143,6 +143,48 @@ func (s *transformerSuite) TestTransformRejectsPayloadTypeMismatch(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, ErrPayloadTypeMismatch)
 }
 
+func (s *transformerSuite) TestTransformFromMidChain(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation("1.0", "1.1", okAtoB),
+		NewTransformation("1.1", "1.2", okBtoC),
+	}
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Starting from "1.1" should apply only the BtoC step, not AtoB.
+	got, err := a.Transform(c.Context(), "1.1", &payloadB{Val: 5})
+	c.Assert(err, tc.ErrorIsNil)
+	// 5 + 10 (BtoC) = 15; AtoB (+1) must not have run.
+	c.Check(got, tc.DeepEquals, &payloadC{Val: 15})
+}
+
+func (s *transformerSuite) TestTransformPassesThroughWhenSrcIsTargetInMultiStepChain(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation("1.0", "1.1", okAtoB),
+		NewTransformation("1.1", "1.2", okBtoC),
+	}
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	payload := &payloadC{Val: 99}
+	got, err := a.Transform(c.Context(), "1.2", payload)
+	c.Assert(err, tc.ErrorIsNil)
+	// Same pointer — no transformation ran.
+	c.Check(got, tc.Equals, any(payload))
+}
+
+func (s *transformerSuite) TestTransformNilPayloadReturnsMismatch(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation("1.0", "1.1", okAtoB),
+	}
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// nil any fails the *payloadA type assertion inside the closure.
+	_, err = a.Transform(c.Context(), "1.0", nil)
+	c.Assert(err, tc.ErrorIs, ErrPayloadTypeMismatch)
+}
+
 func (s *transformerSuite) TestTransformWrapsMidChainErrors(c *tc.C) {
 	transformations := []Transformation{
 		NewTransformation("1.0", "1.1", okAtoB),
