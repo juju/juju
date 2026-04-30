@@ -30,7 +30,6 @@ type jaasBakerySuite struct {
 func TestJAASBakerySuite(t *testing.T) {
 	tc.Run(t, &jaasBakerySuite{})
 }
-
 func (s *jaasBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -38,7 +37,7 @@ func (s *jaasBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
 	bakery, err := NewJAASOfferBakery(
 		s.keyPair,
 		"juju model",
-		"http://offer-access",
+		"http://offer-access/.well-known/jwks.json",
 		s.store,
 		checker,
 		s.authorizer,
@@ -49,6 +48,25 @@ func (s *jaasBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(bakery, tc.Not(tc.IsNil))
+}
+
+func (s *jaasBakerySuite) TestNewJAASOfferBakeryError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	checker := checkers.New(apimacaroon.MacaroonNamespace)
+	_, err := NewJAASOfferBakery(
+		s.keyPair,
+		"juju model",
+		"http://offer-access/public-key",
+		s.store,
+		checker,
+		s.authorizer,
+		s.httpClient,
+		s.clock,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	c.Assert(err, tc.ErrorMatches, "failed to cut .well-known.*")
 }
 
 func (s *jaasBakerySuite) TestParseCaveatNoOfferPermission(c *tc.C) {
