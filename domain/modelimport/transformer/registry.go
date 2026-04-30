@@ -10,6 +10,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// TransformationFunc converts a payload of schema format version Src into a
+// payload of schema format version Dst. Implementations are produced per
+// version step by a generator-emitted transform.go plus an engineer-written
+// deltas.go (see domain/modelimport/transformer/transforms/<pair>).
+type TransformationFunc[Src, Dst any] func(ctx context.Context, src *Src) (*Dst, error)
+
 // Transformation is the type-erased form of a single version-to-version
 // step. Construct instances with [NewTransformation]; pass a slice of them
 // to [NewTransformer] to build a [Transformer]. Exported so top-level
@@ -26,19 +32,17 @@ type Transformation struct {
 // checks the payload's runtime Go type against Src before invoking fn so the
 // erasure boundary stays safe.
 func NewTransformation[Src, Dst any](from, to string, fn TransformationFunc[Src, Dst]) Transformation {
-	var zeroSrc Src
-	var zeroDst Dst
-	expected := reflect.TypeOf(&zeroSrc)
+	expected := reflect.TypeFor[*Src]()
 	return Transformation{
 		from:    from,
 		to:      to,
 		srcType: expected,
-		dstType: reflect.TypeOf(&zeroDst),
+		dstType: reflect.TypeFor[*Dst](),
 		transform: func(ctx context.Context, src any) (any, error) {
 			typed, ok := src.(*Src)
 			if !ok {
-				return nil, errors.Errorf("%w: expected %s, got %T",
-					ErrPayloadTypeMismatch, expected, src)
+				return nil, errors.Errorf("payload type mismatch: expected %s, got %T",
+					expected, src).Add(ErrPayloadTypeMismatch)
 			}
 			return fn(ctx, typed)
 		},

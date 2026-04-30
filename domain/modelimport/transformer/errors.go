@@ -24,4 +24,15 @@ const (
 	// ErrDuplicateTransformer is returned by NewTransformer when two
 	// registrations cover the same (from, to) pair.
 	ErrDuplicateTransformer = errors.ConstError("duplicate transformer registered for version pair")
+
+	// ErrTransformerLengthMismatch is returned by NewTransformer when the
+	// number of transformations does not equal the number of adjacent version
+	// pairs (i.e. len(versions)-1). Extra transformations would be silently
+	// ignored when walking the chain.
+	ErrTransformerLengthMismatch = errors.ConstError("transformer count does not match version step count")
+
+	// ErrTransformerTypeMismatch is returned by NewTransformer when the output
+	// Go type of one step does not match the input Go type of the next step,
+	// meaning a runtime type-assertion failure is guaranteed.
+	ErrTransformerTypeMismatch = errors.ConstError("transformer chain type mismatch")
 )

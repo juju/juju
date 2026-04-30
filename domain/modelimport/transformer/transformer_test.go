@@ -32,6 +32,11 @@ func okBtoC(_ context.Context, src *payloadB) (*payloadC, error) {
 	return &payloadC{Val: src.Val + 10}, nil
 }
 
+// okAtoC has srcType *payloadA, not *payloadB, so it breaks the chain after okAtoB.
+func okAtoC(_ context.Context, src *payloadA) (*payloadC, error) {
+	return &payloadC{Val: src.Val}, nil
+}
+
 func failBtoC(_ context.Context, _ *payloadB) (*payloadC, error) {
 	return nil, errors.Errorf("boom")
 }
@@ -48,9 +53,30 @@ func (s *transformerSuite) TestNewSingleVersionIsValid(c *tc.C) {
 	c.Check(a.Target(), tc.Equals, "1.0")
 }
 
-func (s *transformerSuite) TestNewDetectsMissingTransformer(c *tc.C) {
+func (s *transformerSuite) TestNewDetectsLengthMismatch(c *tc.C) {
+	// Zero transformations for two versions: length check fires before anything else.
 	_, err := NewTransformer(nil, []string{"1.0", "1.1"})
+	c.Assert(err, tc.ErrorIs, ErrTransformerLengthMismatch)
+}
+
+func (s *transformerSuite) TestNewDetectsMissingTransformer(c *tc.C) {
+	// Right count but "1.1" step is absent — "0.9" -> "1.2" fills the slot without covering it.
+	transformations := []Transformation{
+		NewTransformation("1.0", "1.1", okAtoB),
+		NewTransformation("0.9", "1.2", okBtoC),
+	}
+	_, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
 	c.Assert(err, tc.ErrorIs, ErrMissingTransformer)
+}
+
+func (s *transformerSuite) TestNewDetectsTypeMismatch(c *tc.C) {
+	// okAtoB outputs *payloadB; okAtoC expects *payloadA — chain is broken.
+	transformations := []Transformation{
+		NewTransformation("1.0", "1.1", okAtoB),
+		NewTransformation("1.1", "1.2", okAtoC),
+	}
+	_, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
+	c.Assert(err, tc.ErrorIs, ErrTransformerTypeMismatch)
 }
 
 func (s *transformerSuite) TestNewDetectsWrongToInChain(c *tc.C) {
@@ -63,7 +89,9 @@ func (s *transformerSuite) TestNewDetectsWrongToInChain(c *tc.C) {
 func (s *transformerSuite) TestNewDetectsDuplicateTransformer(c *tc.C) {
 	reg1 := NewTransformation("1.0", "1.1", okAtoB)
 	reg2 := NewTransformation("1.0", "1.1", okAtoB)
-	_, err := NewTransformer([]Transformation{reg1, reg2}, []string{"1.0", "1.1"})
+	// Two transformations for three versions satisfies the length check, but the
+	// duplicate "from" is caught before the chain walk.
+	_, err := NewTransformer([]Transformation{reg1, reg2}, []string{"1.0", "1.1", "1.2"})
 	c.Assert(err, tc.ErrorIs, ErrDuplicateTransformer)
 }
 
@@ -79,11 +107,11 @@ func (s *transformerSuite) TestTransformPassesThroughWhenSrcIsTarget(c *tc.C) {
 }
 
 func (s *transformerSuite) TestTransformWalksChain(c *tc.C) {
-	regs := []Transformation{
+	transformations := []Transformation{
 		NewTransformation("1.0", "1.1", okAtoB),
 		NewTransformation("1.1", "1.2", okBtoC),
 	}
-	a, err := NewTransformer(regs, []string{"1.0", "1.1", "1.2"})
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := a.Transform(c.Context(), "1.0", &payloadA{Val: 1})
@@ -93,10 +121,10 @@ func (s *transformerSuite) TestTransformWalksChain(c *tc.C) {
 }
 
 func (s *transformerSuite) TestTransformRejectsUnknownSource(c *tc.C) {
-	regs := []Transformation{
+	transformations := []Transformation{
 		NewTransformation("1.0", "1.1", okAtoB),
 	}
-	a, err := NewTransformer(regs, []string{"1.0", "1.1"})
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = a.Transform(c.Context(), "0.9", &payloadA{})
@@ -104,10 +132,10 @@ func (s *transformerSuite) TestTransformRejectsUnknownSource(c *tc.C) {
 }
 
 func (s *transformerSuite) TestTransformRejectsPayloadTypeMismatch(c *tc.C) {
-	regs := []Transformation{
+	transformations := []Transformation{
 		NewTransformation("1.0", "1.1", okAtoB),
 	}
-	a, err := NewTransformer(regs, []string{"1.0", "1.1"})
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Transformation expects *payloadA, we hand it *payloadB.
@@ -116,11 +144,11 @@ func (s *transformerSuite) TestTransformRejectsPayloadTypeMismatch(c *tc.C) {
 }
 
 func (s *transformerSuite) TestTransformWrapsMidChainErrors(c *tc.C) {
-	regs := []Transformation{
+	transformations := []Transformation{
 		NewTransformation("1.0", "1.1", okAtoB),
 		NewTransformation("1.1", "1.2", failBtoC),
 	}
-	a, err := NewTransformer(regs, []string{"1.0", "1.1", "1.2"})
+	a, err := NewTransformer(transformations, []string{"1.0", "1.1", "1.2"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = a.Transform(c.Context(), "1.0", &payloadA{Val: 0})

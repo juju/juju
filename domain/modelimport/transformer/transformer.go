@@ -29,30 +29,53 @@ type Transformer struct {
 // NewTransformer builds a Transformer from the given transformations and the
 // ordered list of schema format versions. Invoked at controller startup;
 // returns an error if the chain is not well-formed: missing step,
-// duplicate step, or no versions configured.
-func NewTransformer(regs []Transformation, versions []string) (*Transformer, error) {
+// duplicate step, length mismatch, type chain break, or no versions configured.
+func NewTransformer(transformations []Transformation, versions []string) (*Transformer, error) {
 	if len(versions) == 0 {
 		return nil, errors.Errorf("no export versions defined")
 	}
 
-	chain := make(map[string]Transformation, len(regs))
-	for _, r := range regs {
-		if _, dup := chain[r.from]; dup {
-			return nil, errors.Errorf("%w: %s -> %s", ErrDuplicateTransformer, r.from, r.to)
-		}
-		chain[r.from] = r
+	steps := len(versions) - 1
+	if len(transformations) != steps {
+		return nil, errors.Errorf("need %d transformer(s) for %d version(s), got %d",
+			steps, len(versions), len(transformations)).Add(ErrTransformerLengthMismatch)
 	}
 
-	for i := 0; i < len(versions)-1; i++ {
+	chain := make(map[string]Transformation, len(transformations))
+	for _, transformation := range transformations {
+		if _, dup := chain[transformation.from]; dup {
+			return nil, errors.Errorf("duplicate transformer for version pair %q -> %q",
+				transformation.from, transformation.to).Add(ErrDuplicateTransformer)
+		}
+		chain[transformation.from] = transformation
+	}
+
+	// Verify transformation chain completeness: each version must have a
+	// corresponding transformation.
+	for i := range steps {
 		from, to := versions[i], versions[i+1]
-		r, ok := chain[from]
-		if !ok || r.to != to {
-			return nil, errors.Errorf("%w: %s -> %s", ErrMissingTransformer, from, to)
+		transformation, ok := chain[from]
+		if !ok || transformation.to != to {
+			return nil, errors.Errorf("missing transformer for version pair %q -> %q",
+				from, to).Add(ErrMissingTransformer)
+		}
+	}
+
+	// Verify type chain continuity: each step's output type must equal the
+	// next step's input type, or a runtime type-assertion failure is guaranteed.
+	for i := 0; i < steps-1; i++ {
+		currentTransformation, nextTransformation := chain[versions[i]], chain[versions[i+1]]
+		if currentTransformation.dstType != nextTransformation.srcType {
+			return nil, errors.Errorf(
+				"type mismatch at %q -> %q: outputs %s but %q -> %q expects %s",
+				versions[i], versions[i+1], currentTransformation.dstType,
+				versions[i+1], versions[i+2], nextTransformation.srcType,
+			).Add(ErrTransformerTypeMismatch)
 		}
 	}
 
 	return &Transformer{
-		versions: append([]string(nil), versions...),
+		versions: versions,
 		chain:    chain,
 		target:   versions[len(versions)-1],
 	}, nil
@@ -70,25 +93,25 @@ func (t *Transformer) Transform(ctx context.Context, srcVersion string, payload 
 		return payload, nil
 	}
 
-	if t.indexOf(srcVersion) < 0 {
-		return nil, errors.Errorf("%w: %s", ErrUnknownSourceVersion, srcVersion)
+	if t.versionIndex(srcVersion) < 0 {
+		return nil, errors.Errorf("unknown source export version: %q", srcVersion).Add(ErrUnknownSourceVersion)
 	}
 
 	current := srcVersion
-	cur := payload
+	currentPayload := payload
 	for current != t.target {
-		r, ok := t.chain[current]
+		transformation, ok := t.chain[current]
 		if !ok {
-			return nil, errors.Errorf("%w: %s -> ?", ErrMissingTransformer, current)
+			return nil, errors.Errorf("missing version in transformation chain: %q", current).Add(ErrMissingTransformer)
 		}
-		next, err := r.transform(ctx, cur)
+		nextPayload, err := transformation.transform(ctx, currentPayload)
 		if err != nil {
-			return nil, errors.Errorf("transforming %s -> %s: %w", r.from, r.to, err)
+			return nil, errors.Errorf("transforming %s -> %s: %w", transformation.from, transformation.to, err)
 		}
-		cur = next
-		current = r.to
+		currentPayload = nextPayload
+		current = transformation.to
 	}
-	return cur, nil
+	return currentPayload, nil
 }
 
 // Target returns the schema format version this transformer walks payloads up to.
@@ -96,7 +119,9 @@ func (t *Transformer) Target() string {
 	return t.target
 }
 
-func (t *Transformer) indexOf(v string) int {
+// versionIndex returns the index of version v in t.versions, or -1 if not
+// found.
+func (t *Transformer) versionIndex(v string) int {
 	for i, x := range t.versions {
 		if x == v {
 			return i
