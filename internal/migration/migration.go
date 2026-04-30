@@ -57,8 +57,7 @@ type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchem
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
-	domainServices        services.DomainServicesGetter
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
+	domainServices services.DomainServicesGetter
 
 	controllerUUID string
 	scope          modelmigration.ScopeForModel
@@ -72,18 +71,16 @@ type ModelImporter struct {
 func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	domainServices services.DomainServicesGetter,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	controllerUUID string,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		scope:                 scope,
-		controllerUUID:        controllerUUID,
-		domainServices:        domainServices,
-		storageRegistryGetter: storageRegistryGetter,
-		logger:                logger,
-		clock:                 clock,
+		scope:          scope,
+		controllerUUID: controllerUUID,
+		domainServices: domainServices,
+		logger:         logger,
+		clock:          clock,
 	}
 }
 
@@ -116,7 +113,6 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	migrations.ImportOperations(
 		coordinator,
 		modelDefaultsProvider,
-		i.storageRegistryGetter,
 		configGetter,
 		i.clock,
 		i.logger)
