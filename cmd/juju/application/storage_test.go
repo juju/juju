@@ -117,8 +117,8 @@ func (s *ApplicationStorageSuite) TestGetDirectivesAllTabular(c *gc.C) {
 	c.Assert(len(lines), gc.Equals, 3)
 
 	assertTabLine(c, lines[0], "Storage", "Pool", "Size", "Count")
-	assertTabLine(c, lines[1], "allecto", "loop", "20480", "2")
-	assertTabLine(c, lines[2], "data", "rootfs", "10240", "1")
+	assertTabLine(c, lines[1], "allecto", "loop", "20", "GiB", "2")
+	assertTabLine(c, lines[2], "data", "rootfs", "10", "GiB", "1")
 
 	c.Assert(strings.TrimSpace(cmdtesting.Stderr(ctx)), gc.Equals, "")
 }
@@ -132,7 +132,7 @@ func (s *ApplicationStorageSuite) TestGetDirectivesSingleKeyTabular(c *gc.C) {
 	c.Assert(len(lines), gc.Equals, 2)
 
 	assertTabLine(c, lines[0], "Storage", "Pool", "Size", "Count")
-	assertTabLine(c, lines[1], "data", "rootfs", "10240", "1")
+	assertTabLine(c, lines[1], "data", "rootfs", "10", "GiB", "1")
 
 	c.Assert(strings.TrimSpace(cmdtesting.Stderr(ctx)), gc.Equals, "")
 }
