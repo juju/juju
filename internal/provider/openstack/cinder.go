@@ -73,21 +73,21 @@ func newCinderConfig(attrs map[string]any) (*cinderConfig, error) {
 
 // RecommendedPoolForKind returns the recommended storage pool to use for
 // the given storage kind. If no pool can be recommended nil is returned. The
-// openstack provider recommends the "cinder" pool for block and filesystem
-// storage.
+// OpenStack provider recommends the "cinder" pool for block storage when
+// available, and falls back to common IAAS recommendations for filesystems.
 //
 // Implements [storage.ProviderRegistry] interface.
 func (e *Environ) RecommendedPoolForKind(
 	kind storage.StorageKind,
 ) *storage.Config {
 	// If the volume url is nil it means that cinder is not supported in this
-	// enviorn region.
+	// environ region.
 	if e.volumeURL == nil {
 		return common.GetCommonRecommendedIAASPoolForKind(kind)
 	}
 
 	switch kind {
-	case storage.StorageKindBlock, storage.StorageKindFilesystem:
+	case storage.StorageKindBlock:
 		defaultPool, _ := storage.NewConfig(
 			CinderProviderType.String(), CinderProviderType, storage.Attrs{},
 		)

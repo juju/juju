@@ -23,8 +23,8 @@ func TestStorageRegistrySuite(t *testing.T) {
 }
 
 // TestRecommendedPoolForKindWithCinder ensures that when cinder is available to
-// the environ that the cinder pool is the recommended storage for filesystem
-// and block storage.
+// the environ that cinder is recommended for block storage, and the common
+// IAAS filesystem recommendation is used for filesystem storage.
 func (s *storageRegistrySuite) TestRecommendedPoolForKindWithCinder(c *tc.C) {
 	volumeURL, err := url.Parse("https://cinder.example.com")
 	c.Assert(err, tc.IsNil)
@@ -36,9 +36,9 @@ func (s *storageRegistrySuite) TestRecommendedPoolForKindWithCinder(c *tc.C) {
 	c.Check(bPool.Name(), tc.Equals, "cinder")
 	c.Check(bPool.Provider().String(), tc.Equals, "cinder")
 
-	fPool := env.RecommendedPoolForKind(internalstorage.StorageKindBlock)
-	c.Check(fPool.Name(), tc.Equals, "cinder")
-	c.Check(fPool.Provider().String(), tc.Equals, "cinder")
+	fPool := env.RecommendedPoolForKind(internalstorage.StorageKindFilesystem)
+	c.Check(fPool.Name(), tc.Equals, "rootfs")
+	c.Check(fPool.Provider().String(), tc.Equals, "rootfs")
 }
 
 // TestRecommendedPoolForKindWithoutCinder ensures that if cinder is not
@@ -53,7 +53,7 @@ func (s *storageRegistrySuite) TestRecommendedPoolForKindWithoutCinder(c *tc.C) 
 		c.Check(bPool.Provider().String(), tc.Not(tc.Equals), "cinder")
 	}
 
-	fPool := env.RecommendedPoolForKind(internalstorage.StorageKindBlock)
+	fPool := env.RecommendedPoolForKind(internalstorage.StorageKindFilesystem)
 	if fPool != nil {
 		c.Check(fPool.Name(), tc.Not(tc.Equals), "cinder")
 		c.Check(fPool.Provider().String(), tc.Not(tc.Equals), "cinder")
