@@ -8,6 +8,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -255,7 +256,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 
 	for _, name := range valueNames {
 		info := configValues[name]
-		w.Println(name, info.Pool, info.Size, info.Count)
+		w.Println(name, info.Pool, humanize.IBytes(info.Size*humanize.MiByte), info.Count)
 	}
 
 	tw.Flush()
