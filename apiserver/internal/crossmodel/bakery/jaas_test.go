@@ -38,7 +38,7 @@ func (s *jaasBakerySuite) TestNewJAASOfferBakery(c *tc.C) {
 	bakery, err := NewJAASOfferBakery(
 		s.keyPair,
 		"juju model",
-		"http://offer-access",
+		"http://offer-access/.well-known/jwks.json",
 		s.store,
 		checker,
 		s.authorizer,
