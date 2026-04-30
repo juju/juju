@@ -1150,12 +1150,11 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 func (s *offerSuite) TestFindApplicationOffersPermission(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: a user with no model admin access and no offer-level
-	// access should get an empty result (not a permission error), because
-	// permission filtering happens per-offer.
+	// Arrange: a user with no model admin access, no model read access,
+	// and no offer-level access should get an empty result (not a
+	// permission error), because permission filtering happens per-offer.
 	offerAPI := s.offerAPI(c)
 	adminTag := s.setupAuthUser("admin")
-	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
 
@@ -1165,8 +1164,14 @@ func (s *offerSuite) TestFindApplicationOffersPermission(c *tc.C) {
 		UUID: tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(adminTag.Id())).Return(foundModel, nil)
+
+	// User is not superuser (checked twice: once for admin, once for read).
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
 	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.ReadAccess)
 
 	offerUUID1 := uuid.MustNewUUID().String()
 	offerUUID2 := uuid.MustNewUUID().String()
@@ -1195,26 +1200,10 @@ func (s *offerSuite) TestFindApplicationOffersPermission(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has no access to either offer.
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.AdminAccess,
-		names.NewApplicationOfferTag(offerUUID1),
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.ConsumeAccess,
-		names.NewApplicationOfferTag(offerUUID1),
-	).Return(authentication.ErrorEntityMissingPermission)
+	// User has no access to either offer (only ReadAccess is checked).
 	s.authorizer.EXPECT().EntityHasPermission(
 		gomock.Any(), adminTag, permission.ReadAccess,
 		names.NewApplicationOfferTag(offerUUID1),
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.AdminAccess,
-		names.NewApplicationOfferTag(offerUUID2),
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.ConsumeAccess,
-		names.NewApplicationOfferTag(offerUUID2),
 	).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().EntityHasPermission(
 		gomock.Any(), adminTag, permission.ReadAccess,
@@ -1244,13 +1233,16 @@ func (s *offerSuite) TestFindApplicationOffersPermission(c *tc.C) {
 func (s *offerSuite) TestFindApplicationOffersOfferLevelAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user has no model admin access, but has read access to one
-	// offer. They should see only that offer.
+	// Arrange: user has no model admin or read access, but has read access
+	// to one offer. They should see only that offer.
 	offerAPI := s.offerAPI(c)
 	userTag := s.setupAuthUser("bob")
-	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 	bobUser := user.User{DisplayName: "bob smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+
+	// User is not superuser (checked twice: admin check + read check).
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 
 	modelName := "prod"
 	foundModel := model.Model{
@@ -1261,6 +1253,8 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAccess(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
 	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.ReadAccess)
 
 	offerUUID1 := uuid.MustNewUUID().String()
 	offerUUID2 := uuid.MustNewUUID().String()
@@ -1303,26 +1297,14 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAccess(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has read access to offer 1.
+	// User has read access to offer 1 (only ReadAccess is checked).
 	offerTag1 := names.NewApplicationOfferTag(offerUUID1)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag1,
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.ConsumeAccess, offerTag1,
-	).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().EntityHasPermission(
 		gomock.Any(), userTag, permission.ReadAccess, offerTag1,
 	).Return(nil)
 
 	// User has no access to offer 2.
 	offerTag2 := names.NewApplicationOfferTag(offerUUID2)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag2,
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.ConsumeAccess, offerTag2,
-	).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().EntityHasPermission(
 		gomock.Any(), userTag, permission.ReadAccess, offerTag2,
 	).Return(authentication.ErrorEntityMissingPermission)
@@ -1799,15 +1781,21 @@ func (s *offerSuite) TestListApplicationOffersWithConnections(c *tc.C) {
 func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user has no model admin access and no offer-level access.
-	// The result should be per-offer NotFound errors (not a blanket
-	// permission error) since per-offer filtering is applied.
+	// Arrange: user has no model admin access, no model read access,
+	// and no offer-level access. The result should be per-offer NotFound
+	// errors (not a blanket permission error) since per-offer filtering
+	// is applied.
 	offerAPI := s.offerAPI(c)
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
 	adminUser := user.User{DisplayName: "fred smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+	// User is not superuser (checked twice: admin check + read check).
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
+	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(adminTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.ReadAccess)
 
 	modelName := "test-model"
 	modelOwnerTag := names.NewUserTag("fred@external")
@@ -1839,14 +1827,8 @@ func (s *offerSuite) TestApplicationOffersNoRead(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has no access to the offer.
+	// User has no access to the offer (only ReadAccess is checked).
 	offerTag := names.NewApplicationOfferTag(offerUUID)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.AdminAccess, offerTag,
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), adminTag, permission.ConsumeAccess, offerTag,
-	).Return(authentication.ErrorEntityMissingPermission)
 	s.authorizer.EXPECT().EntityHasPermission(
 		gomock.Any(), adminTag, permission.ReadAccess, offerTag,
 	).Return(authentication.ErrorEntityMissingPermission)
@@ -2312,14 +2294,19 @@ func (s *offerSuite) TestListApplicationOffersModelAdmin(c *tc.C) {
 func (s *offerSuite) TestApplicationOffersOfferLevelAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user is not model admin, but has consume access on the offer.
+	// Arrange: user is not model admin, not model reader, but has consume
+	// access on the offer. Since consume >= read, the offer is visible.
 	offerAPI := s.offerAPI(c)
 	userTag := s.setupAuthUser("bob")
 	bobUser := user.User{DisplayName: "bob smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
-	// Not superuser, not model admin.
+	// Not superuser (checked twice: admin check + read check).
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+	// Not model admin.
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+	// Not model reader.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.ReadAccess)
 
 	modelName := "test-model"
 	modelOwnerTag := names.NewUserTag("fred@external")
@@ -2358,13 +2345,11 @@ func (s *offerSuite) TestApplicationOffersOfferLevelAccess(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has consume access on the offer (not admin).
+	// User has read access on the offer (consume >= read in the hierarchy,
+	// so EntityHasPermission with ReadAccess returns nil).
 	offerTag := names.NewApplicationOfferTag(offerUUID)
 	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag,
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.ConsumeAccess, offerTag,
+		gomock.Any(), userTag, permission.ReadAccess, offerTag,
 	).Return(nil)
 
 	args := params.OfferURLs{
@@ -2397,16 +2382,19 @@ func (s *offerSuite) TestApplicationOffersOfferLevelAccess(c *tc.C) {
 }
 
 // TestFindApplicationOffersOfferLevelAdminAccess tests that a user with
-// admin access on an offer (but not model admin) sees the full user list
-// for that offer.
+// admin access on an offer (but not model admin) sees the offer but with
+// a limited user list (only their own access), since full user visibility
+// requires model admin.
 func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user has offer admin but is not model admin.
+	// Arrange: user has offer admin but is not model admin or reader.
 	offerAPI := s.offerAPI(c)
 	userTag := s.setupAuthUser("bob")
 	bobUser := user.User{DisplayName: "bob smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	// Not superuser (checked twice: admin check + read check).
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 
 	modelName := "prod"
@@ -2418,6 +2406,8 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
 	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.ReadAccess)
 
 	offerUUID := uuid.MustNewUUID().String()
 	charmLocator := charm.CharmLocator{
@@ -2447,10 +2437,10 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has admin access on the offer.
+	// User has read access on the offer (admin >= read in the hierarchy).
 	offerTag := names.NewApplicationOfferTag(offerUUID)
 	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+		gomock.Any(), userTag, permission.ReadAccess, offerTag,
 	).Return(nil)
 
 	filters := params.OfferFilters{
@@ -2465,7 +2455,9 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 	// Act
 	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
 
-	// Assert: user sees full user list because they have offer admin.
+	// Assert: user sees the offer but with limited user list (only their own
+	// access) because full user visibility requires model admin, not just
+	// offer admin.
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtained.Results, tc.HasLen, 1)
 	mc := tc.NewMultiChecker()
@@ -2478,8 +2470,7 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Users: []params.OfferUserDetails{
-				{UserName: "bob", Access: "admin"},
-				{UserName: "george", Access: "consume"},
+				{UserName: "bob", DisplayName: "bob smith", Access: "admin"},
 			},
 		},
 		ApplicationName: "test-app",
@@ -2492,11 +2483,13 @@ func (s *offerSuite) TestFindApplicationOffersOfferLevelAdminAccess(c *tc.C) {
 func (s *offerSuite) TestFindApplicationOffersOfferConsumeAccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user has consume access on the offer, not admin.
+	// Arrange: user has consume access on the offer, not model admin.
 	offerAPI := s.offerAPI(c)
 	userTag := s.setupAuthUser("bob")
 	bobUser := user.User{DisplayName: "bob smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	// Not superuser (checked twice: admin check + read check).
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 
 	modelName := "prod"
@@ -2508,6 +2501,8 @@ func (s *offerSuite) TestFindApplicationOffersOfferConsumeAccess(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
 	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.ReadAccess)
 
 	offerUUID := uuid.MustNewUUID().String()
 	charmLocator := charm.CharmLocator{
@@ -2537,13 +2532,10 @@ func (s *offerSuite) TestFindApplicationOffersOfferConsumeAccess(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// User has consume access on the offer (not admin).
+	// User has read access on the offer (consume >= read in the hierarchy).
 	offerTag := names.NewApplicationOfferTag(offerUUID)
 	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag,
-	).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.ConsumeAccess, offerTag,
+		gomock.Any(), userTag, permission.ReadAccess, offerTag,
 	).Return(nil)
 
 	filters := params.OfferFilters{
@@ -2581,16 +2573,18 @@ func (s *offerSuite) TestFindApplicationOffersOfferConsumeAccess(c *tc.C) {
 
 // TestFindApplicationOffersPermissionCheckError tests that when the
 // permission check on an offer returns an unexpected error (not
-// ErrorEntityMissingPermission), the offer is filtered out.
+// ErrorEntityMissingPermission), the error is propagated to the caller.
 func (s *offerSuite) TestFindApplicationOffersPermissionCheckError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange: user is not model admin, and permission check returns
-	// an unexpected error.
+	// Arrange: user is not model admin or reader, and the offer permission
+	// check returns an unexpected error.
 	offerAPI := s.offerAPI(c)
 	userTag := s.setupAuthUser("bob")
 	bobUser := user.User{DisplayName: "bob smith"}
 	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	// Not superuser (checked twice: admin check + read check).
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
 
 	modelName := "prod"
@@ -2602,6 +2596,8 @@ func (s *offerSuite) TestFindApplicationOffersPermissionCheckError(c *tc.C) {
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
 	// User is not model admin.
 	s.expectEntityHasPermissionMissingPermission(userTag, permission.AdminAccess)
+	// User is not model reader.
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.ReadAccess)
 
 	offerUUID := uuid.MustNewUUID().String()
 	charmLocator := charm.CharmLocator{
@@ -2627,10 +2623,10 @@ func (s *offerSuite) TestFindApplicationOffersPermissionCheckError(c *tc.C) {
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 
-	// Permission check returns an unexpected error on admin access check.
+	// Permission check returns an unexpected error on the offer read check.
 	offerTag := names.NewApplicationOfferTag(offerUUID)
 	s.authorizer.EXPECT().EntityHasPermission(
-		gomock.Any(), userTag, permission.AdminAccess, offerTag,
+		gomock.Any(), userTag, permission.ReadAccess, offerTag,
 	).Return(errors.New("unexpected database error"))
 
 	filters := params.OfferFilters{
@@ -2643,11 +2639,96 @@ func (s *offerSuite) TestFindApplicationOffersPermissionCheckError(c *tc.C) {
 	}
 
 	// Act
-	obtained, err := offerAPI.FindApplicationOffers(c.Context(), filters)
+	_, err := offerAPI.FindApplicationOffers(c.Context(), filters)
 
-	// Assert: no outer error, but offer is filtered out due to the error.
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained.Results, tc.HasLen, 0)
+	// Assert: the unexpected error is propagated to the caller.
+	c.Assert(err, tc.ErrorMatches, ".*unexpected database error.*")
+}
+
+// TestFindApplicationOffersModelAdminCheckError tests that when the model
+// admin permission check returns an unexpected error (not
+// ErrorEntityMissingPermission), the error is propagated to the caller.
+func (s *offerSuite) TestFindApplicationOffersModelAdminCheckError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: superuser check returns missing permission, then model admin
+	// check returns an unexpected error.
+	offerAPI := s.offerAPI(c)
+	userTag := s.setupAuthUser("bob")
+	bobUser := user.User{DisplayName: "bob smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(userTag)).Return(bobUser, nil)
+	s.expectEntityHasPermissionMissingPermission(userTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(userTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(userTag.Id())).Return(foundModel, nil)
+
+	// Model admin check returns an unexpected error (e.g., database failure).
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), userTag, permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{}),
+	).Return(errors.New("unexpected database error"))
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	_, err := offerAPI.FindApplicationOffers(c.Context(), filters)
+
+	// Assert: the unexpected error is propagated.
+	c.Assert(err, tc.ErrorMatches, ".*unexpected database error.*")
+}
+
+// TestListApplicationOffersModelAdminCheckError tests that when the model
+// admin permission check returns an unexpected error (not
+// ErrorEntityMissingPermission), the error is propagated for list operations.
+func (s *offerSuite) TestListApplicationOffersModelAdminCheckError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: superuser check returns missing permission, then model admin
+	// check returns an unexpected error.
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	adminUser := user.User{DisplayName: "admin smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+	s.expectEntityHasPermissionMissingPermission(adminTag, permission.SuperuserAccess)
+
+	modelName := "prod"
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(adminTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, model.Qualifier(adminTag.Id())).Return(foundModel, nil)
+
+	// Model admin check returns an unexpected error (e.g., database failure).
+	s.authorizer.EXPECT().EntityHasPermission(
+		gomock.Any(), adminTag, permission.AdminAccess, gomock.AssignableToTypeOf(names.ModelTag{}),
+	).Return(errors.New("unexpected database error"))
+
+	filters := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelName: modelName,
+				OfferName: "hosted-db2",
+			},
+		},
+	}
+
+	// Act
+	_, err := offerAPI.ListApplicationOffers(c.Context(), filters)
+
+	// Assert: the unexpected error is propagated.
+	c.Assert(err, tc.ErrorMatches, ".*unexpected database error.*")
 }
 
 // TestDestroyOffersSuperuser tests that a controller superuser can
