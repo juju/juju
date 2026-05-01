@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,14 +22,15 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	coresecrets "github.com/juju/juju/core/secrets"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type backendSuite struct {
-	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&backendSuite{})
+func TestBackendSuite(t *testing.T) {
+	tc.Run(t, &backendSuite{})
+}
 
 func (s *backendSuite) newBackend(client *k8sfake.Clientset) *k8sBackend {
 	return &k8sBackend{
@@ -42,7 +42,7 @@ func (s *backendSuite) newBackend(client *k8sfake.Clientset) *k8sBackend {
 	}
 }
 
-func (s *backendSuite) TestIsFatalError(c *gc.C) {
+func (s *backendSuite) TestIsFatalError(c *tc.C) {
 	gr := schema.GroupResource{Resource: "secrets"}
 	tests := []struct {
 		description string
@@ -102,13 +102,13 @@ func (s *backendSuite) TestIsFatalError(c *gc.C) {
 	}
 	for _, t := range tests {
 		c.Logf("testing: %s", t.description)
-		c.Check(isFatalError(t.err), gc.Equals, t.expectFatal, gc.Commentf(t.description))
+		c.Check(isFatalError(t.err), tc.Equals, t.expectFatal, tc.Commentf(t.description))
 	}
 }
 
 // TestGetContentRetries checks that GetContent retries the backend get when
 // transient errors are encountered.
-func (s *backendSuite) TestGetContentRetries(c *gc.C) {
+func (s *backendSuite) TestGetContentRetries(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -122,7 +122,7 @@ func (s *backendSuite) TestGetContentRetries(c *gc.C) {
 			"foo": []byte("bar"),
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var callCount atomic.Int32
 	fakeClient.PrependReactor("get", "secrets", func(
@@ -137,17 +137,17 @@ func (s *backendSuite) TestGetContentRetries(c *gc.C) {
 
 	b := s.newBackend(fakeClient)
 	content, err := b.GetContent(ctx, revisionID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(content.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(content.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "YmFy", // base64("bar")
 	})
 	// Two failures and a success.
-	c.Check(callCount.Load(), gc.Equals, int32(3))
+	c.Check(callCount.Load(), tc.Equals, int32(3))
 }
 
 // TestGetContentNotFound checks that GetContent does not retry when
 // the secret is NotFound.
-func (s *backendSuite) TestGetContentNotFound(c *gc.C) {
+func (s *backendSuite) TestGetContentNotFound(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -161,14 +161,14 @@ func (s *backendSuite) TestGetContentNotFound(c *gc.C) {
 
 	b := s.newBackend(fakeClient)
 	_, err := b.GetContent(ctx, "nonexistent-secret")
-	c.Assert(err, gc.NotNil)
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
-	c.Check(callCount.Load(), gc.Equals, int32(1))
+	c.Assert(err, tc.NotNil)
+	c.Check(errors.IsNotFound(err), tc.IsTrue)
+	c.Check(callCount.Load(), tc.Equals, int32(1))
 }
 
 // TestSaveContentRetries checks SaveContent retries when the backend returns
 // a transient error.
-func (s *backendSuite) TestSaveContentRetries(c *gc.C) {
+func (s *backendSuite) TestSaveContentRetries(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -187,15 +187,15 @@ func (s *backendSuite) TestSaveContentRetries(c *gc.C) {
 	uri := coresecrets.NewURI()
 	sv := coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}) // base64("bar")
 	name, err := b.SaveContent(ctx, uri, 1, sv)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, uri.Name(1))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, uri.Name(1))
 	// Two failures and a success.
-	c.Check(patchCount.Load(), gc.Equals, int32(3))
+	c.Check(patchCount.Load(), tc.Equals, int32(3))
 }
 
 // TestSaveContentError checks that SaveContent does not retry on unknown
 // errors.
-func (s *backendSuite) TestSaveContentError(c *gc.C) {
+func (s *backendSuite) TestSaveContentError(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -211,14 +211,14 @@ func (s *backendSuite) TestSaveContentError(c *gc.C) {
 	uri := coresecrets.NewURI()
 	sv := coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"})
 	_, err := b.SaveContent(ctx, uri, 1, sv)
-	c.Assert(err, gc.NotNil)
-	c.Check(k8serrors.IsBadRequest(err), jc.IsTrue)
-	c.Check(patchCount.Load(), gc.Equals, int32(1))
+	c.Assert(err, tc.NotNil)
+	c.Check(k8serrors.IsBadRequest(err), tc.IsTrue)
+	c.Check(patchCount.Load(), tc.Equals, int32(1))
 }
 
 // TestDeleteContentRetries checks that DeleteContent retries when the backend
 // returns a trainsient error.
-func (s *backendSuite) TestDeleteContentRetries(c *gc.C) {
+func (s *backendSuite) TestDeleteContentRetries(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -229,7 +229,7 @@ func (s *backendSuite) TestDeleteContentRetries(c *gc.C) {
 			Namespace: "test-ns",
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var deleteCount atomic.Int32
 	fakeClient.PrependReactor("delete", "secrets", func(
@@ -244,19 +244,19 @@ func (s *backendSuite) TestDeleteContentRetries(c *gc.C) {
 
 	b := s.newBackend(fakeClient)
 	err = b.DeleteContent(ctx, revisionID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Two failures and a success.
-	c.Check(deleteCount.Load(), gc.Equals, int32(3))
+	c.Check(deleteCount.Load(), tc.Equals, int32(3))
 
 	// Confirm the secret revision was actually deleted.
 	list, err := fakeClient.CoreV1().Secrets("test-ns").List(ctx, metav1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(list.Items, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(list.Items, tc.HasLen, 0)
 }
 
 // TestDeleteContentError checks that DeleteContent does not retry on unknown
 // errors.
-func (s *backendSuite) TestDeleteContentError(c *gc.C) {
+func (s *backendSuite) TestDeleteContentError(c *tc.C) {
 	ctx := context.Background()
 	fakeClient := k8sfake.NewSimpleClientset()
 
@@ -267,7 +267,7 @@ func (s *backendSuite) TestDeleteContentError(c *gc.C) {
 			Namespace: "test-ns",
 		},
 	}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var deleteCount atomic.Int32
 	fakeClient.PrependReactor("delete", "secrets", func(
@@ -279,6 +279,6 @@ func (s *backendSuite) TestDeleteContentError(c *gc.C) {
 
 	b := s.newBackend(fakeClient)
 	err = b.DeleteContent(ctx, revisionID)
-	c.Assert(k8serrors.IsBadRequest(err), jc.IsTrue)
-	c.Check(deleteCount.Load(), gc.Equals, int32(1))
+	c.Assert(k8serrors.IsBadRequest(err), tc.IsTrue)
+	c.Check(deleteCount.Load(), tc.Equals, int32(1))
 }

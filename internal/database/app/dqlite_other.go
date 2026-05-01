@@ -145,7 +145,3 @@ func (*App) Close() error {
 func SimpleDialTLSConfig(cert tls.Certificate, pool *x509.CertPool) *tls.Config {
 	return nil
 }
-
-func SimpleDialTLSConfig(cert tls.Certificate, pool *x509.CertPool) *tls.Config {
-	return nil
-}

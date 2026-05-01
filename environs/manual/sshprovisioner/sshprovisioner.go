@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
-	"github.com/juju/utils/v4/shell"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/core/arch"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"

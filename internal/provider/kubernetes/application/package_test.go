@@ -5,7 +5,6 @@ package application
 
 import (
 	"github.com/juju/clock"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -49,17 +48,4 @@ func NewApplicationForTest(
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
 		controllerUUID,
 	)
-}
-
-func PVCNames(client kubernetes.Interface, namespace, appName, storagePrefix string) (map[string]string, error) {
-	a := &app{
-		name:      appName,
-		namespace: namespace,
-		client:    client,
-	}
-	return a.pvcNames(storagePrefix)
-}
-
-func VolumeClaimTemplateMatch(currentVolClaims, newVolClaims []corev1.PersistentVolumeClaim) bool {
-	return volumeClaimTemplateMatch(currentVolClaims, newVolClaims)
 }

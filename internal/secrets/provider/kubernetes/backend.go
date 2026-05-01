@@ -6,7 +6,6 @@ package kubernetes
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"math"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/secrets"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 )
 
@@ -87,6 +85,7 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*resourc
 				logFn = logger.Debugf
 			}
 			logFn(
+				ctx,
 				"error getting secret (attempt %d): %s",
 				attempt, lastError.Error(),
 			)
@@ -155,6 +154,7 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision
 				logFn = logger.Debugf
 			}
 			logFn(
+				ctx,
 				"error saving secret content (attempt %d): %s",
 				attempt, lastError.Error(),
 			)
@@ -197,6 +197,7 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 				logFn = logger.Debugf
 			}
 			logFn(
+				ctx,
 				"error deleting secret content (attempt %d): %s",
 				attempt, lastError.Error(),
 			)

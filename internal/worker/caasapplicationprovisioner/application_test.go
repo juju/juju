@@ -182,7 +182,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
-	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
@@ -197,8 +196,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		applicationService.EXPECT().WatchApplicationSettings(x, "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
 		applicationService.EXPECT().WatchApplicationUnitLife(x, "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
-
-		facade.EXPECT().WatchStorageConstraints("test").Return(watchertest.NewMockNotifyWatcher(storageConsChan), nil),
 
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
@@ -256,20 +253,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 			provisioningInfoChan <- struct{}{}
 			return nil, nil
 		}),
-
-		// storageConsChan fired
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), facade, clk, s.logger).
-			Return(errors.ConstError("not provisioned")),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), facade, clk, s.logger).
-			Return(errors.ConstError("try again")),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), facade, clk, s.logger).
-			DoAndReturn(func(_, _, _, _, _, _ any) error {
-				provisioningInfoChan <- struct{}{}
-				return nil
-			}),
 
 		// provisioningInfoChan fired
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).
@@ -330,7 +313,6 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
-	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
@@ -412,7 +394,6 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
-	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 

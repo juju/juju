@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	storagev1client "k8s.io/client-go/kubernetes/typed/storage/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
@@ -56,7 +55,6 @@ import (
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/wrench"
 )
 
 var logger = internallogger.GetLogger("juju.kubernetes.provider.application")
@@ -286,9 +284,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			storageUniqueID,
 			config.Filesystems,
 			storageClasses,
-			podSpec,
-			applier,
-			config,
 			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
 		)
 		return errors.Trace(err)
@@ -296,10 +291,91 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		statefulset, err := a.buildStatefulSet(context.TODO(), config, podSpec, configureStorage)
-		if err != nil {
+		if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
+			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
+		}
+		exists := true
+		existingSts, getErr := a.getStatefulSet()
+		if errors.Is(getErr, errors.NotFound) {
+			exists = false
+		} else if getErr != nil {
+			return errors.Trace(getErr)
+		}
+
+		// If the existing StatefulSet has a different storage unique ID,
+		// it is an orphan from a previous deployment. Kubernetes does not
+		// allow updating volumeClaimTemplates on an existing StatefulSet,
+		// so we must delete and recreate it to avoid a PVC name mismatch.
+		// See https://github.com/juju/juju/issues/21722.
+		if exists && a.shouldDeleteExistingStatefulSet(existingSts, config.StorageUniqueID) {
+			logger.Infof(context.TODO(), "deleting orphaned statefulset %q", a.name)
+			delErr := existingSts.Delete(context.TODO())
+			if delErr != nil && !errors.Is(delErr, errors.NotFound) {
+				return errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
+			}
+			// Wait for the StatefulSet to be fully removed.
+			// Kubernetes foreground deletion is async — the resource
+			// persists with a deletionTimestamp until dependents are gone.
+			if delErr == nil {
+				if err := a.waitForStatefulSetDeletion(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+			// Keep exists=true so that numPods stays nil below.
+			// With nil Replicas, Kubernetes defaults to 1 replica
+			// on creation. The provisioner's EnsureScale will
+			// correct the replica count if needed.
+		}
+
+		var numPods *int32
+		if !exists {
+			numPods = pointer.Int32(int32(config.InitialScale))
+		}
+
+		var volumeClaimTemplates []corev1.PersistentVolumeClaim
+		if err = configureStorage(
+			config.StorageUniqueID,
+			func(pvc corev1.PersistentVolumeClaim,
+				attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+			) (*corev1.VolumeMount, error) {
+				if err := storage.PushUniqueVolumeClaimTemplate(&volumeClaimTemplates, pvc); err != nil {
+					return nil, errors.Trace(err)
+				}
+				return &corev1.VolumeMount{
+					Name:      pvc.GetName(),
+					ReadOnly:  attachParams.ReadOnly,
+					MountPath: attachParams.Path,
+				}, nil
+			},
+		); err != nil {
 			return errors.Trace(err)
 		}
+		sts := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      a.name,
+				Namespace: a.namespace,
+				Labels:    a.labels(),
+				Annotations: a.annotations(config).
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: numPods,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: a.selectorLabels(),
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      a.selectorLabels(),
+						Annotations: a.annotations(config),
+					},
+					Spec: *podSpec,
+				},
+				VolumeClaimTemplates: volumeClaimTemplates,
+				PodManagementPolicy:  appsv1.ParallelPodManagement,
+				ServiceName:          HeadlessServiceName(a.name),
+			},
+		}
+		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
@@ -377,54 +453,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	return applier.Run(context.TODO(), false)
-}
-
-func handleVolume(
-	v corev1.Volume,
-	mountPath string,
-	readOnly bool,
-	podSpec *corev1.PodSpec,
-) (*corev1.VolumeMount, error) {
-	if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &corev1.VolumeMount{
-		Name:      v.Name,
-		ReadOnly:  readOnly,
-		MountPath: mountPath,
-	}, nil
-}
-
-func handleVolumeMount(
-	storageName string,
-	m corev1.VolumeMount,
-	podSpec *corev1.PodSpec,
-	config caas.ApplicationConfig,
-) error {
-	for i := range podSpec.Containers {
-		name := podSpec.Containers[i].Name
-		if name == constants.ApplicationCharmContainer {
-			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
-			continue
-		}
-		for _, mount := range config.Containers[name].Mounts {
-			if mount.StorageName == storageName {
-				volumeMountCopy := m
-				// TODO(sidecar): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
-				// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
-				volumeMountCopy.MountPath = mount.Path
-				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
-			}
-		}
-	}
-	return nil
-}
-
-func handleStorageClass(applier resources.Applier, sc storagev1.StorageClass,
-	storageClient storagev1client.StorageClassInterface) error {
-	storageClass := resources.NewStorageClass(storageClient, sc.Name, &sc)
-	applier.Apply(storageClass)
-	return nil
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
@@ -525,105 +553,6 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 	applier.Apply(clusterRoleBinding)
 
 	return a.applyImagePullSecrets(applier, config)
-}
-
-func (a *app) buildStatefulSet(
-	ctx context.Context,
-	config caas.ApplicationConfig,
-	podSpec *corev1.PodSpec,
-	configureStorage func(storageUniqueID string, handlePVC handlePVCFunc) error,
-) (*resources.StatefulSet, error) {
-	if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
-		return nil, errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
-	}
-	exists := true
-	existingSts, getErr := a.getStatefulSet()
-	if errors.Is(getErr, errors.NotFound) {
-		exists = false
-	} else if getErr != nil {
-		return nil, errors.Trace(getErr)
-	}
-
-	// If the existing StatefulSet has a different storage unique ID,
-	// it is an orphan from a previous deployment. Kubernetes does not
-	// allow updating volumeClaimTemplates on an existing StatefulSet,
-	// so we must delete and recreate it to avoid a PVC name mismatch.
-	// See https://github.com/juju/juju/issues/21722.
-	if exists && a.shouldDeleteExistingStatefulSet(existingSts, config.StorageUniqueID) {
-		logger.Infof(ctx, "deleting orphaned statefulset %q", a.name)
-		delErr := existingSts.Delete(context.TODO())
-		if delErr != nil && !errors.Is(delErr, errors.NotFound) {
-			return nil, errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
-		}
-		// Wait for the StatefulSet to be fully removed.
-		// Kubernetes foreground deletion is async — the resource
-		// persists with a deletionTimestamp until dependents are gone.
-		if delErr == nil {
-			if err := a.waitForStatefulSetDeletion(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		// Keep exists=true so that numPods stays nil below.
-		// With nil Replicas, Kubernetes defaults to 1 replica
-		// on creation. The provisioner's EnsureScale will
-		// correct the replica count if needed.
-	}
-
-	var numPods *int32
-	if !exists {
-		numPods = pointer.Int32(int32(config.InitialScale))
-	}
-
-	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      a.name,
-			Namespace: a.namespace,
-			Labels:    a.labels(),
-			Annotations: a.annotations(config).
-				Add(utils.AnnotationKeyApplicationUUID(a.labelVersion),
-					config.StorageUniqueID),
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: numPods,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: a.selectorLabels(),
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      a.selectorLabels(),
-					Annotations: a.annotations(config),
-				},
-				Spec: *podSpec,
-			},
-			PodManagementPolicy: appsv1.ParallelPodManagement,
-			ServiceName:         HeadlessServiceName(a.name),
-		},
-	}
-	statefulset := resources.NewStatefulSet(
-		a.client.AppsV1().StatefulSets(a.namespace), a.namespace,
-		a.name, sts)
-
-	if err := configureStorage(
-		config.StorageUniqueID,
-		func(pvc corev1.PersistentVolumeClaim,
-			attachParams jujustorage.KubernetesFilesystemAttachmentParams,
-		) (*corev1.VolumeMount, error) {
-			if err := storage.PushUniqueVolumeClaimTemplate(
-				&statefulset.Spec.VolumeClaimTemplates,
-				pvc,
-			); err != nil {
-				return nil, errors.Trace(err)
-			}
-			return &corev1.VolumeMount{
-				Name:      pvc.GetName(),
-				ReadOnly:  attachParams.ReadOnly,
-				MountPath: attachParams.Path,
-			}, nil
-		},
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return statefulset, nil
 }
 
 // Upgrade upgrades the app to the specified version.
@@ -1052,17 +981,6 @@ func (a *app) shouldDeleteExistingStatefulSet(sts *resources.StatefulSet, expect
 	logger.Infof(context.TODO(), "detected orphaned statefulset %q: storage UUID %q does not match expected %q",
 		a.name, existingUUID, expectedStorageUUID)
 	return true
-}
-
-func (a *app) getStatefulSetWithOrphanDelete() (
-	*resources.StatefulSetWithOrphanDelete,
-	error,
-) {
-	ss, err := a.getStatefulSet()
-	if err != nil {
-		return nil, err
-	}
-	return resources.NewStatefulSetWithOrphanDelete(ss), nil
 }
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
@@ -2372,9 +2290,6 @@ func (a *app) configureStorage(
 	storageUniqueID string,
 	filesystems []jujustorage.KubernetesFilesystemParams,
 	storageClasses []resources.StorageClass,
-	podSpec *corev1.PodSpec,
-	applier resources.Applier,
-	config caas.ApplicationConfig,
 	handleVolume handleVolumeFunc,
 	handleVolumeMount handleVolumeMountFunc,
 	handlePVC handlePVCFunc,
@@ -2568,7 +2483,7 @@ func (a *app) handleVolumeAttachment(
 			&pvc,
 		)
 
-		err := persistentVolumeClaim.Get(context.TODO())
+		err := persistentVolumeClaim.Get(context.Background())
 		if errors.Is(err, errors.NotFound) {
 			logger.Debugf(context.TODO(), "pvc %s not found, create pvc with VolumeName %s", pvcName, attachment.VolumeId)
 			persistentVolumeClaim.Spec.VolumeName = attachment.VolumeId
@@ -2596,167 +2511,4 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 		}
 		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
 	}
-}
-
-// EnsureStorage aims to reflect the updated storage to the app's statefulset.
-// It does so by deleting the existing statefulset with DeletePropagationOrphan
-// policy (so the existing pods are still running) and reapplies a new statefulset.
-func (a *app) EnsureStorage(
-	config caas.ApplicationConfig,
-	saveReplicaCount func(
-		appName string,
-		replicaCount int) error,
-) error {
-	logger.Debugf("ensuring storage app %q", a.name)
-	currentStatefulset, err := a.getStatefulSetWithOrphanDelete()
-	notFound := k8serrors.IsNotFound(err)
-	if !notFound && err != nil {
-		return errors.Trace(err)
-	}
-
-	storageClasses, err := resources.ListStorageClass(context.TODO(),
-		a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	podSpec, err := a.ApplicationPodSpec(config)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	applier := a.newApplier()
-	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
-		err := a.configureStorage(
-			storageUniqueID,
-			config.Filesystems,
-			storageClasses,
-			podSpec,
-			applier,
-			config,
-			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
-		)
-		return errors.Trace(err)
-	}
-
-	newStatefulset, err := a.buildStatefulSet(config, podSpec, configureStorage)
-	if err != nil {
-		return errors.Annotatef(err, "building statefulset for app %q", a.name)
-	}
-	// We have to build the statefulset object because it's missing.
-	// This may happen when a storage update occurs, we delete the statefulset,
-	// then crashes before we are able to reapply a new one.
-	if notFound {
-		applier.Apply(newStatefulset)
-		err := applier.Run(context.TODO(), false)
-		return errors.Annotatef(err, "ensuring storage for app %q", a.name)
-	}
-
-	// Check whether the current state matches the desired state. Since this
-	// is a storage update, we compare the volume claim templates.
-	// If they match, then there is no need to do a storage update and we can
-	// return early here.
-	currentClaims := currentStatefulset.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
-	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
-	if volumeClaimTemplateMatch(currentClaims, newClaims) {
-		logger.Debugf("no changes in storage for app %q", a.name)
-		return nil
-	}
-	// We save the statefulset replica count before deleting the storage update.
-	// This helps us if we succeed deleting the statefulset but fail to reapply,
-	// we can create a new statefulset following the original replica count.
-	// It's not ideal to use the "desiredscale" field in the application doc
-	// because while the statefulset is missing, users could issue scale commands
-	// in which the "desiredscale" field gets updated on demand which won't reflect
-	// what we had originally.
-	replica := 0
-	if currentStatefulset.Spec.Replicas != nil {
-		replica = int(*currentStatefulset.Spec.Replicas)
-		newStatefulset.Spec.Replicas = currentStatefulset.Spec.Replicas
-	}
-	err = saveReplicaCount(a.name, replica)
-	if err != nil {
-		return errors.Annotatef(err, "saving statefulset %q replica count", a.name)
-	}
-
-	if wrench.IsActive("application-storage", "ensure-storage-fail") {
-		logger.Debugf("feature ensure-storage-fail is enabled for testing purposes")
-		return errors.Errorf("ensure-storage-fail app %q", a.name)
-	}
-	// Orphan delete the sts here.
-	applier.Delete(currentStatefulset)
-	// Reapply the new sts with the updated pvc.
-	applier.Apply(newStatefulset)
-	err = applier.Run(context.TODO(), false)
-	return errors.Annotatef(err, "ensuring storage for app %q", a.name)
-}
-
-func volumeClaimTemplateMatch(
-	currentVolClaims []corev1.PersistentVolumeClaim,
-	newVolClaims []corev1.PersistentVolumeClaim,
-) bool {
-	if len(currentVolClaims) != len(newVolClaims) {
-		return false
-	}
-
-	currentByName := make(map[string]corev1.PersistentVolumeClaim, len(currentVolClaims))
-	for _, claim := range currentVolClaims {
-		currentByName[claim.Name] = claim
-	}
-
-	for _, desiredClaim := range newVolClaims {
-		currentClaim, exists := currentByName[desiredClaim.Name]
-		if !exists {
-			return false
-		}
-		if !volumeClaimTemplateEqual(currentClaim, desiredClaim) {
-			return false
-		}
-	}
-	return true
-}
-
-func volumeClaimTemplateEqual(currentVolClaim, newVolClaim corev1.PersistentVolumeClaim) bool {
-	if currentVolClaim.Name != newVolClaim.Name {
-		return false
-	}
-
-	if !stringPtrEqual(currentVolClaim.Spec.StorageClassName, newVolClaim.Spec.StorageClassName) {
-		return false
-	}
-
-	if !accessModesEqual(currentVolClaim.Spec.AccessModes, newVolClaim.Spec.AccessModes) {
-		return false
-	}
-
-	currentQuantity := currentVolClaim.Spec.Resources.Requests.Storage()
-	newQuantity := newVolClaim.Spec.Resources.Requests.Storage()
-	if (currentQuantity == nil) != (newQuantity == nil) {
-		return false
-	}
-	if currentQuantity != nil && !currentQuantity.Equal(*newQuantity) {
-		return false
-	}
-	return true
-}
-
-func accessModesEqual(currentModes, newModes []corev1.PersistentVolumeAccessMode) bool {
-	if len(currentModes) != len(newModes) {
-		return false
-	}
-	currentSorted := slices.Clone(currentModes)
-	newSorted := slices.Clone(newModes)
-	slices.Sort(currentSorted)
-	slices.Sort(newSorted)
-	return slices.Equal(currentSorted, newSorted)
-}
-
-func stringPtrEqual(a, b *string) bool {
-	if (a == nil) != (b == nil) {
-		return false
-	}
-	if a == nil {
-		return true
-	}
-	return *a == *b
 }

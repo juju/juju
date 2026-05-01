@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 
@@ -155,7 +154,7 @@ func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 	// K8s doesn't delete the sts immediately. Block until it's deleted.
 	err = wait.PollUntilContextCancel(ctx, s.interval, true,
 		func(ctx context.Context) (done bool, err error) {
-			logger.Debugf("waiting until sts %q is deleted", s.Name)
+			logger.Debugf(ctx, "waiting until sts %q is deleted", s.Name)
 			getErr := s.Get(ctx)
 			if errors.Is(getErr, errors.NotFound) {
 				return true, nil

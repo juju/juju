@@ -214,14 +214,6 @@ func (applicationOps) EnsureScale(
 	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
 }
 
-// EnsureStorage recreates the app in the caas provider with updated filesystem
-// configurations when storage updates occur, preserving the current
-// replica count across the operation.
-func (applicationOps) EnsureStorage(appName string, app caas.Application,
-	password string, facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	return ensureStorage(appName, app, password, facade, clk, logger)
-}
-
 type Tomb interface {
 	Dying() <-chan struct{}
 	ErrDying() error
@@ -255,7 +247,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		},
 	})
 	if err != nil {
-		return emptyCfg, errors.Annotate(err, "getting image for base")
+		return errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -266,11 +258,11 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
-			return emptyCfg, errors.NotValidf("empty container resource reference")
+			return errors.NotValidf("empty container resource reference")
 		}
 		image, ok := pi.Images[v.Resource]
 		if !ok {
-			return emptyCfg, errors.NotFoundf("referenced charm base image resource %s", v.Resource)
+			return errors.NotFoundf("referenced charm base image resource %s", v.Resource)
 		}
 		container.Image = image
 		for _, m := range v.Mounts {
@@ -334,7 +326,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		}
 		*lastApplied = config
 		reason = "deployed"
-		if state.Exists {
+		if appState.Exists {
 			reason = "updated"
 		}
 	}
@@ -727,7 +719,7 @@ func ensureScale(
 		if err != nil {
 			return err
 		}
-		ps.CurrentOperation = scaleOp
+		ps.Scaling = true
 		ps.ScaleTarget = desiredScale
 	}
 

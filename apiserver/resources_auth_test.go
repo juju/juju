@@ -34,22 +34,22 @@ package apiserver_test
 //	return u
 //}
 //
-//func (s *resourcesAuthSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+//func (s *resourcesAuthSuite) assertJSONErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 //	uploadResponse := s.assertResponse(c, resp, expCode)
-//	c.Check(uploadResponse.Error, gc.NotNil)
-//	c.Check(uploadResponse.Error.Message, gc.Matches, expError)
+//	c.Check(uploadResponse.Error, tc.NotNil)
+//	c.Check(uploadResponse.Error.Message, tc.Matches, expError)
 //}
 //
-//func (s *resourcesAuthSuite) assertPlainErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+//func (s *resourcesAuthSuite) assertPlainErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 //	body := apitesting.AssertResponse(c, resp, expCode, "text/plain; charset=utf-8")
-//	c.Assert(string(body), gc.Matches, expError+"\n")
+//	c.Assert(string(body), tc.Matches, expError+"\n")
 //}
 //
-//func (s *resourcesAuthSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.UploadResult {
+//func (s *resourcesAuthSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int) params.UploadResult {
 //	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 //	var uploadResult params.UploadResult
 //	err := json.Unmarshal(body, &uploadResult)
-//	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
+//	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Body: %s", body))
 //	return uploadResult
 //}
 //
@@ -57,7 +57,7 @@ package apiserver_test
 //	tc.Run(t, &resourcesAuthSuite{})
 //}
 //
-//func (s *resourcesAuthSuite) TestResourcesUploadedSecurely(c *gc.C) {
+//func (s *resourcesAuthSuite) TestResourcesUploadedSecurely(c *tc.C) {
 //	url := s.resourcesURL("tomcat", "jdk")
 //	url.Scheme = "http"
 //	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -68,22 +68,22 @@ package apiserver_test
 //	defer resp.Body.Close()
 //}
 //
-//func (s *resourcesAuthSuite) TestRequiresAuth(c *gc.C) {
+//func (s *resourcesAuthSuite) TestRequiresAuth(c *tc.C) {
 //	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.resourcesURL("tomcat", "jdk").String()})
 //	defer resp.Body.Close()
 //	s.assertPlainErrorResponse(c, resp, http.StatusUnauthorized, "authentication failed: no credentials provided")
 //}
 //
-//func (s *resourcesAuthSuite) TestAuthRejectsNonsUser(c *gc.C) {
+//func (s *resourcesAuthSuite) TestAuthRejectsNonsUser(c *tc.C) {
 //	// Add a machine and try to login.
 //	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	password, err := utils.RandomPassword()
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	err = machine.SetPassword(password)
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //
 //	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 //		Tag:      machine.Tag().String(),
@@ -100,7 +100,7 @@ package apiserver_test
 //
 //	// Now try a user login.
 //	content, err := resources.GenerateContent(strings.NewReader("resource"))
-//	c.Assert(err, jc.ErrorIsNil)
+//	c.Assert(err, tc.ErrorIsNil)
 //	filename := mime.BEncoding.Encode("utf-8", "foo.txt")
 //	disp := mime.FormatMediaType(
 //		"form-data",
@@ -122,7 +122,7 @@ package apiserver_test
 //	resp.Body.Close()
 //}
 //
-//func (s *resourcesAuthSuite) TestUploadAuthRejectsUserWithoutPermission(c *gc.C) {
+//func (s *resourcesAuthSuite) TestUploadAuthRejectsUserWithoutPermission(c *tc.C) {
 //	s.Factory.MakeUser(c, &factory.UserParams{
 //		Name:     "oryx",
 //		Password: "gardener",
@@ -131,7 +131,7 @@ package apiserver_test
 //	s.assertAuthRejectsUserWithoutPermission(c, "PUT")
 //}
 //
-//func (s *resourcesAuthSuite) TestDownloadAuthRejectsUserWithoutPermission(c *gc.C) {
+//func (s *resourcesAuthSuite) TestDownloadAuthRejectsUserWithoutPermission(c *tc.C) {
 //	s.Factory.MakeUser(c, &factory.UserParams{
 //		Name:        "oryx",
 //		Password:    "gardener",
@@ -140,7 +140,7 @@ package apiserver_test
 //	s.assertAuthRejectsUserWithoutPermission(c, "GET")
 //}
 //
-//func (s *resourcesAuthSuite) assertAuthRejectsUserWithoutPermission(c *gc.C, method string) {
+//func (s *resourcesAuthSuite) assertAuthRejectsUserWithoutPermission(c *tc.C, method string) {
 //
 //	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 //		Tag:      "user-oryx",

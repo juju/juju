@@ -119,25 +119,25 @@ func (s *statefulSetSuite) TestDeleteWithOrphan(c *tc.C) {
 		},
 	}
 	_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(), &sts, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "sts1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `sts1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `sts1`)
 
 	stsResource := resources.NewStatefulSet(s.client.AppsV1().StatefulSets(sts.Namespace), "test", "sts1", &sts)
 	stsWithOrphanDeleteResource := resources.NewStatefulSetWithOrphanDelete(stsResource)
 	err = stsWithOrphanDeleteResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = stsWithOrphanDeleteResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	err = stsWithOrphanDeleteResource.Get(context.TODO())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "sts1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
 func (s *statefulSetSuite) TestListStatefulSets(c *tc.C) {

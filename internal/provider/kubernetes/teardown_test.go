@@ -468,7 +468,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 // that when a namespaced CRD has a CR with a finalizer in a namespace other than the
 // model namespace, the finalizer is patched away (against the correct namespace) before
 // the DeleteCollection is issued.
-func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesNamespacedCRFinalizersStripped(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesNamespacedCRFinalizersStripped(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -563,9 +563,9 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesNamespacedCR
 	// The two sub-functions run sequentially, so we advance the clock twice:
 	// once for the CR deletion checker, then once for the CRD deletion checker.
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -582,7 +582,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesNamespacedCR
 // TestDeleteClusterScopeAPIExtensionResourcesAllNamespacesDeleted verifies that CRs
 // belonging to a namespaced CRD are deleted across ALL namespaces (via an unscoped
 // DeleteCollection), not just the model's own namespace.
-func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesAllNamespacesDeleted(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesAllNamespacesDeleted(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -656,9 +656,9 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesAllNamespace
 	// The two sub-functions run sequentially, so we advance the clock twice:
 	// once for the CR deletion checker, then once for the CRD deletion checker.
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -672,7 +672,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeAPIExtensionResourcesAllNamespace
 	}
 }
 
-func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

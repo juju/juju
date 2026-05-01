@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	gopath "path"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"

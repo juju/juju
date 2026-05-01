@@ -76,26 +76,6 @@ type AppWorkerConfig struct {
 	Facade CAASProvisionerFacade
 }
 
-type appLoopState struct {
-	app                 caas.Application
-	appLife             life.Value
-	appProvisionChanges watcher.NotifyChannel
-	appChanges          watcher.NotifyChannel
-	replicaChanges      watcher.NotifyChannel
-
-	done    bool
-	ready   bool
-	initial bool
-
-	scaleChan              <-chan time.Time
-	scaleTries             int
-	trustChan              <-chan time.Time
-	trustTries             int
-	reconcileDeadChan      <-chan time.Time
-	stateAppChangedChan    <-chan time.Time
-	storageConstraintsChan <-chan time.Time
-}
-
 const tryAgain errors.ConstError = "try again"
 
 type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
@@ -184,7 +164,7 @@ func (a *appWorker) loop() error {
 	} else if err != nil {
 		return errors.Annotatef(err, "fetching life status for application %q", name)
 	}
-	state.appLife = appLife
+	a.life = appLife
 	if appLife == life.Dead {
 		if !statusOnly {
 			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
@@ -210,31 +190,6 @@ func (a *appWorker) loop() error {
 		err = a.agentPasswordService.SetApplicationPassword(ctx, a.appUUID, a.password)
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api password")
-		}
-
-		ps, err := a.facade.ProvisioningState(a.name)
-		if err != nil {
-			return errors.Annotatef(err, "getting provision state for %q", a.name)
-		}
-		if ps == nil {
-			ps = &params.CAASApplicationProvisioningState{}
-		}
-
-		// We have to resume the current operation (if one exists) on worker
-		// restart.
-		if ps.CurrentOperation == application.StorageUpdateOperation {
-			a.logger.Debugf("app %q resuming storage update operation", a.name)
-			err := a.ops.EnsureStorage(a.name, state.app, a.password,
-				a.facade, a.clock, a.logger)
-			if err != nil {
-				return errors.Annotatef(err, "ensuring storage for %q", a.name)
-			}
-		} else if ps.CurrentOperation == application.ScaleOperation {
-			a.logger.Debugf("app %q resuming scale operation", a.name)
-			err := a.ops.EnsureScale(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
-			if err != nil && !errors.Is(err, tryAgain) && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "scaling app %q", a.name)
-			}
 		}
 	}
 
@@ -267,17 +222,17 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q units life changes", name)
 	}
 
-	var storageConstraintsWatcher watcher.NotifyWatcher
-	storageConstraintsWatcher, err = a.facade.WatchStorageConstraints(a.name)
-	if err != nil {
-		return errors.Annotatef(err,
-			"creating application %q storage constraints watcher", a.name)
-	}
-	if err := a.catacomb.Add(storageConstraintsWatcher); err != nil {
-		return errors.Annotatef(err,
-			"failed to watch for application %q storage constraints changes", a.name)
-	}
-
+	var (
+		done                = false // done is true when the app is dead and cleaned up.
+		ready               = false // ready is true when the k8s resources are created.
+		initial             = true
+		scaleChan           <-chan time.Time
+		scaleTries          int
+		trustChan           <-chan time.Time
+		trustTries          int
+		reconcileDeadChan   <-chan time.Time
+		stateAppChangedChan <-chan time.Time
+	)
 	const (
 		maxRetries = 20
 		retryDelay = 3 * time.Second
@@ -405,51 +360,45 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q scale watcher closed channel", name)
 			}
-			if state.scaleChan == nil {
-				state.scaleTries = 0
-				state.scaleChan = a.clock.After(0)
+			if scaleChan == nil {
+				scaleTries = 0
+				scaleChan = a.clock.After(0)
 			}
 			shouldRefresh = false
-<<<<<<< HEAD
 		case <-scaleChan:
 			if statusOnly {
 				scaleChan = nil
-=======
-		case <-state.scaleChan:
-			if a.statusOnly {
-				state.scaleChan = nil
->>>>>>> 6b8cbf075b8e82ad762dd7bfb866a9f729d22d43
 				break
 			}
-			if !state.ready {
-				state.scaleChan = a.clock.After(retryDelay)
+			if !ready {
+				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
 				a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
-				if state.scaleTries >= maxRetries {
+				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
-				state.scaleTries++
-				state.scaleChan = a.clock.After(retryDelay)
+				scaleTries++
+				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {
-				state.scaleChan = a.clock.After(retryDelay)
+				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
-				state.scaleChan = nil
+				scaleChan = nil
 			}
 		case _, ok := <-appSettingsWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q trust watcher closed channel", name)
 			}
-			if state.trustChan == nil {
-				state.trustTries = 0
-				state.trustChan = a.clock.After(0)
+			if trustChan == nil {
+				trustTries = 0
+				trustChan = a.clock.After(0)
 			}
 			shouldRefresh = false
 		case <-trustChan:
@@ -457,30 +406,30 @@ func (a *appWorker) loop() error {
 				trustChan = nil
 				break
 			}
-			if !state.ready {
-				state.trustChan = a.clock.After(retryDelay)
+			if !ready {
+				trustChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureTrust(ctx, name, app, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
-				if state.trustTries >= maxRetries {
+				if trustTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
 				}
-				state.trustTries++
-				state.trustChan = a.clock.After(retryDelay)
+				trustTries++
+				trustChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
-				state.trustChan = nil
+				trustChan = nil
 			}
 		case _, ok := <-appUnitsWatcher.Changes():
 			if !ok {
 				return fmt.Errorf("application %q units watcher closed channel", name)
 			}
-			if state.reconcileDeadChan == nil {
-				state.reconcileDeadChan = a.clock.After(0)
+			if reconcileDeadChan == nil {
+				reconcileDeadChan = a.clock.After(0)
 			}
 			shouldRefresh = false
 		case <-reconcileDeadChan:
@@ -491,40 +440,40 @@ func (a *appWorker) loop() error {
 			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
 				a.facade, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
-				state.reconcileDeadChan = a.clock.After(retryDelay)
+				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {
-				state.reconcileDeadChan = a.clock.After(retryDelay)
+				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
 			} else {
-				state.reconcileDeadChan = nil
+				reconcileDeadChan = nil
 			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
-		case <-state.appProvisionChanges:
-			if state.stateAppChangedChan == nil {
-				state.stateAppChangedChan = a.clock.After(0)
+		case <-appProvisionChanges:
+			if stateAppChangedChan == nil {
+				stateAppChangedChan = a.clock.After(0)
 			}
 			shouldRefresh = false
 		case <-a.changes:
-			if state.stateAppChangedChan == nil {
-				state.stateAppChangedChan = a.clock.After(0)
+			if stateAppChangedChan == nil {
+				stateAppChangedChan = a.clock.After(0)
 			}
 			shouldRefresh = false
-		case <-state.stateAppChangedChan:
+		case <-stateAppChangedChan:
 			// Respond to life changes (Notify called by parent worker).
-			err = a.handleLifeChange(state)
+			err = handleChange()
 			if errors.Is(err, tryAgain) {
-				state.stateAppChangedChan = a.clock.After(retryDelay)
+				stateAppChangedChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
-				state.stateAppChangedChan = nil
+				stateAppChangedChan = nil
 			}
-		case <-state.appChanges:
+		case <-appChanges:
 			// Respond to changes in provider application.
 			lastReportedStatus, err = a.ops.UpdateState(
 				ctx, name, a.appUUID, app, lastReportedStatus,
@@ -533,34 +482,13 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		case <-state.replicaChanges:
+		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.ops.UpdateState(
 				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
 			if err != nil {
-				return errors.Trace(err)
-			}
-		case _, ok := <-storageConstraintsWatcher.Changes():
-			if !ok {
-				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
-			}
-			if state.storageConstraintsChan == nil {
-				state.storageConstraintsChan = a.clock.After(0)
-			}
-			shouldRefresh = false
-		case <-state.storageConstraintsChan:
-			if !state.ready {
-				state.storageConstraintsChan = a.clock.After(retryDelay)
-				shouldRefresh = false
-				break
-			}
-			err = a.handleStorageChange(state)
-			if errors.Is(err, tryAgain) || errors.Is(err, errors.NotProvisioned) {
-				state.storageConstraintsChan = a.clock.After(retryDelay)
-				shouldRefresh = false
-			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-refreshTimer.Chan():
@@ -594,7 +522,7 @@ func (a *appWorker) loop() error {
 			}
 			shouldRefresh = false
 		}
-		if state.done {
+		if done {
 			return nil
 		}
 		if shouldRefresh {
@@ -605,156 +533,6 @@ func (a *appWorker) loop() error {
 			}
 		}
 	}
-}
-
-// handleLifeChange processes transitions in the application's lifecycle.
-// It retrieves the current lifecycle status (Alive, Dying, or Dead) and
-// reconciles the provider's actual state to match. For newly alive
-// applications, it initializes resource watchers (provisioning, application,
-// and replicas) and triggers [ApplicationOps.AppAlive]. For dying or dead
-// applications, it invokes cleanup operations ([ApplicationOps.AppDying] and
-// [ApplicationOps.AppDead]).
-// It also updates the provided appLoopState with the current readiness and completion
-// status, while respecting status-only worker configurations.
-func (a *appWorker) handleLifeChange(state *appLoopState) error {
-	appLife, err := a.facade.Life(a.name)
-	if errors.Is(err, errors.NotFound) {
-		appLife = life.Dead
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	state.appLife = appLife
-
-	if state.initial {
-		state.initial = false
-		ps, err := a.facade.ProvisioningState(a.name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if ps != nil && ps.CurrentOperation == application.ScaleOperation {
-			if a.statusOnly {
-				// Clear provisioning state for status only app.
-				err = a.facade.SetProvisioningState(a.name, params.CAASApplicationProvisioningState{})
-				if err != nil {
-					return errors.Trace(err)
-				}
-			} else {
-				state.scaleChan = a.clock.After(0)
-				state.reconcileDeadChan = a.clock.After(0)
-			}
-		}
-	}
-
-	switch state.appLife {
-	case life.Alive:
-		if state.appProvisionChanges == nil {
-			appProvisionWatcher, err := a.facade.WatchProvisioningInfo(a.name)
-			if err != nil {
-				return errors.Annotatef(err, "failed to watch facade for changes to application provisioning %q", a.name)
-			}
-			if err := a.catacomb.Add(appProvisionWatcher); err != nil {
-				return errors.Trace(err)
-			}
-			state.appProvisionChanges = appProvisionWatcher.Changes()
-		}
-		if !a.statusOnly {
-			err := a.ops.AppAlive(a.name, state.app, a.password, &a.lastApplied, a.facade, a.clock, a.logger)
-			if errors.Is(err, errors.NotProvisioned) {
-				// State not ready for this application to be provisioned yet.
-				// Usually because the charm has not yet been downloaded.
-				break
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if state.appChanges == nil {
-			appWatcher, err := state.app.Watch()
-			if err != nil {
-				return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
-			}
-			if err := a.catacomb.Add(appWatcher); err != nil {
-				return errors.Trace(err)
-			}
-			state.appChanges = appWatcher.Changes()
-		}
-		if state.replicaChanges == nil {
-			replicaWatcher, err := state.app.WatchReplicas()
-			if err != nil {
-				return errors.Annotatef(err, "failed to watch for changes to replicas %q", a.name)
-			}
-			if err := a.catacomb.Add(replicaWatcher); err != nil {
-				return errors.Trace(err)
-			}
-			state.replicaChanges = replicaWatcher.Changes()
-		}
-		a.logger.Debugf("application %q is ready", a.name)
-		state.ready = true
-
-	case life.Dying:
-		if !a.statusOnly {
-			err := a.ops.AppDying(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		state.ready = false
-
-	case life.Dead:
-		if !a.statusOnly {
-			err := a.ops.AppDying(a.name, state.app, state.appLife, a.facade, a.unitFacade, a.logger)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			err = a.ops.AppDead(a.name, state.app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		state.done = true
-		state.ready = false
-		return nil
-
-	default:
-		return errors.NotImplementedf("unknown life %q", state.appLife)
-	}
-	return nil
-}
-
-// handleStorageChange synchronizes the underlying provider's storage allocations
-// with the application's current storage constraints. It evaluates the application's
-// lifecycle status and only applies storage changes via [ApplicationOps.EnsureStorage]
-// if the application is currently Alive. If the worker is operating in a status-only
-// mode, or if the application is no longer active, it safely bypasses the update
-// and clears the pending storage constraints channel in the appLoopState.
-func (a *appWorker) handleStorageChange(state *appLoopState) error {
-	if a.statusOnly {
-		state.storageConstraintsChan = nil
-		return nil
-	}
-
-	appLife, err := a.facade.Life(a.name)
-	if errors.Is(err, errors.NotFound) {
-		state.storageConstraintsChan = nil
-		a.logger.Debugf("application %q no longer exists, skipping storage update", a.name)
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "fetching life status for application %q", a.name)
-	}
-	state.appLife = appLife
-
-	switch appLife {
-	case life.Alive:
-		err := a.ops.EnsureStorage(a.name, state.app, a.password, a.facade,
-			a.clock, a.logger)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	default:
-		a.logger.Debugf("application %q is not alive (%s), skipping storage update", a.name, appLife)
-	}
-	state.storageConstraintsChan = nil
-
-	return nil
 }
 
 // Report returns a report about this application provisioner.

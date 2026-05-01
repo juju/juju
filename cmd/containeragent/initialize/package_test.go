@@ -39,7 +39,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"cmd/constants",
 		"cmd/containeragent/utils",
 		"controller",
-		"core/application",
 		"core/arch",
 		"core/backups",
 		"core/base",

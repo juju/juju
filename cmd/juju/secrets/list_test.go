@@ -129,7 +129,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
   updated: 0001-01-01T00:00:00Z
 `[1:], uris[0].ID))
 
-	c.Assert(out, jc.Contains, fmt.Sprintf(`
+	c.Assert(out, tc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: mariadb
@@ -138,7 +138,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
   error: boom
 `[1:], uris[1].ID))
 
-	c.Assert(out, jc.Contains, fmt.Sprintf(`
+	c.Assert(out, tc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: <model>

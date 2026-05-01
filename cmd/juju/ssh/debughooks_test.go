@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/domain/deployment/charm"
 	jujussh "github.com/juju/juju/internal/network/ssh"
+	"github.com/juju/juju/testcharms"
 )
 
 func TestDebugHooksSuite(t *testing.T) {
@@ -241,14 +241,11 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 	})
 }
 
-func (s *DebugHooksSuite) TestGetValidActionsReturnsEmptySetWhenNoActions(c *gc.C) {
-	charmPath := filepath.Join(c.MkDir(), "actionless")
-	err := ch.ArchiveToPath(charmPath)
-	ch, err := charm.ReadCharmArchive(charmPath)
-	c.Assert(err, tc.ErrorIsNil)
+func (s *DebugHooksSuite) TestGetValidActionsReturnsEmptySetWhenNoActions(c *tc.C) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "actionless")
 
 	cmd := &debugHooksCommand{}
-	validActions, err := cmd.getValidActions(ch)
+	validActions, err := cmd.getValidActions(charmArchive.Actions())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(validActions.SortedValues(), tc.DeepEquals, []string{})
 }
