@@ -558,6 +558,16 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 // If a crash occurs after step 1, on restart the worker sees PhaseCompleted,
 // unlocks the guard, and the manifold start logic reconciles the remaining
 // steps.
+//
+// NOTE: The fortress guard ensures no new objectstore operations can begin
+// during draining (all callers go through the objectStoreFacade which uses
+// fortress.Guest.Visit). However, callers that obtained an io.ReadCloser
+// from a Get() call before lockdown may still be streaming data when
+// FlushWorkers kills the underlying objectstore child workers. This is a
+// known limitation — such readers will receive an IO error. The practical
+// risk is low because draining is a rare operational event and callers
+// handle read errors. Fixing this would require reference-counting active
+// readers, which is disproportionate to the risk.
 func (w *Worker) completeDraining(ctx context.Context) error {
 	w.logger.Infof(ctx, "completing object store draining")
 
