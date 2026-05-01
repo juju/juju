@@ -765,7 +765,7 @@ func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisks(c *tc.C) {
 	os := ostype.OSTypeForName("ubuntu")
-	diskSpecs, err := gce.GetDisks("image-url", os, "home-zone", s.StartInstArgs.Constraints, nil)
+	diskSpecs, err := gce.GetDisks(c.Context(), "image-url", os, "home-zone", s.StartInstArgs.Constraints, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(diskSpecs, tc.HasLen, 1)
 	diskSpec := diskSpecs[0]
@@ -774,26 +774,9 @@ func (s *environBrokerSuite) TestGetDisks(c *tc.C) {
 	c.Check(diskSpec.InitializeParams.GetSourceImage(), tc.Equals, "image-url")
 }
 
-func (s *environBrokerSuite) TestGetDisks(c *tc.C) {
-	for _, test := range getDisksTests {
-		os := ostype.OSTypeForName(test.osname)
-		diskSpecs, err := gce.GetDisks(c.Context(), "image-url", s.StartInstArgs.Constraints, os)
-		if test.error != nil {
-			c.Assert(err, tc.Equals, err)
-		} else {
-			c.Assert(err, tc.ErrorIsNil)
-			c.Assert(diskSpecs, tc.HasLen, 1)
-			diskSpec := diskSpecs[0]
-			c.Assert(diskSpec.InitializeParams, tc.NotNil)
-			c.Check(diskSpec.InitializeParams.GetDiskSizeGb(), tc.Equals, int64(10))
-			c.Check(diskSpec.InitializeParams.GetSourceImage(), tc.Equals, "image-url")
-		}
-	}
-}
-
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceValid(c *tc.C) {
 	cons := constraints.MustParse("root-disk-source=pd-ssd")
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	diskSpecs, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(diskSpecs, tc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, tc.NotNil)
@@ -802,13 +785,13 @@ func (s *environBrokerSuite) TestGetDisksRootDiskSourceValid(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceLocalSSD(c *tc.C) {
 	cons := constraints.MustParse("root-disk-source=local-ssd")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	_, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, tc.ErrorMatches, `local SSD disk storage not valid`)
 }
 
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceInvalid(c *tc.C) {
 	cons := constraints.MustParse("root-disk-source=unknown-type")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	_, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, tc.ErrorMatches, `root disk source "unknown-type" not valid`)
 }
 
@@ -818,7 +801,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesValid(c *tc.C) {
 			"disk-type": "pd-ssd",
 		},
 	}
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", constraints.Value{}, rootDisk)
+	diskSpecs, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", constraints.Value{}, rootDisk)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(diskSpecs, tc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, tc.NotNil)
@@ -832,7 +815,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesOverrideConstraint(c 
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=pd-ssd")
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	diskSpecs, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(diskSpecs, tc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, tc.NotNil)
@@ -846,7 +829,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesLocalSSD(c *tc.C) {
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=test-storage-pool")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	_, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, tc.ErrorMatches, `local SSD disk storage not valid`)
 }
 
@@ -857,7 +840,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesInvalidDiskType(c *tc
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=test-storage-pool")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	_, err := gce.GetDisks(c.Context(), "image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, tc.ErrorMatches, `disk type "unknown-type" for root disk not valid`)
 }
 

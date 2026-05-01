@@ -223,7 +223,7 @@ func (env *environ) startInstance(
 	}
 	imageURL := imageURLBase + imageID
 
-	disks, err := getDisks(ctx, imageURL, args.Constraints, os, args.RootDisk)
+	disks, err := getDisks(ctx, imageURL, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -340,7 +340,7 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(ctx context.Context, imageURL string, cons constraints.Value, os ostype.OSType, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
+func getDisks(ctx context.Context, imageURL string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
