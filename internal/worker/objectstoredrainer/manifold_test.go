@@ -71,7 +71,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.GetGuardService = nil
+	cfg.GetDrainingService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -112,7 +112,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		GeObjectStoreServices: func(g dependency.Getter, s string) (ObjectStoreServicesGetter, error) {
 			return nil, nil
 		},
-		GetGuardService: func(dependency.Getter, string) (GuardService, error) {
+		GetDrainingService: func(dependency.Getter, string) (DrainingService, error) {
 			return s.guardService, nil
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {

@@ -176,7 +176,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
 		Agent:                        s.agent,
 		Guard:                        s.guard,
-		GuardService:                 s.guardService,
+		DrainingService:              s.guardService,
 		ControllerService:            s.controllerService,
 		ControllerConfigService:      s.controllerConfigService,
 		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,

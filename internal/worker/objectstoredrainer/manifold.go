@@ -49,9 +49,9 @@ type GetControllerObjectStoreServiceFunc func(dependency.Getter, string) (coreob
 // object store services from the dependency getter.
 type GetObjectStoreServicesFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
 
-// GetGuardServiceFunc is a function that retrieves the
+// GetDrainingServiceFunc is a function that retrieves the
 // controller object store services from the dependency getter.
-type GetGuardServiceFunc func(dependency.Getter, string) (GuardService, error)
+type GetDrainingServiceFunc func(dependency.Getter, string) (DrainingService, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
@@ -79,7 +79,7 @@ type ManifoldConfig struct {
 	GetControllerService            GetControllerServiceFunc
 	GeObjectStoreServices           GetObjectStoreServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
-	GetGuardService                 GetGuardServiceFunc
+	GetDrainingService              GetDrainingServiceFunc
 	GetControllerConfigService      GetControllerConfigServiceFunc
 	NewWorker                       func(Config) (worker.Worker, error)
 	NewHashFileSystemAccessor       NewHashFileSystemAccessorFunc
@@ -116,8 +116,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
 	}
-	if config.GetGuardService == nil {
-		return errors.NotValidf("nil GetGuardService")
+	if config.GetDrainingService == nil {
+		return errors.NotValidf("nil GetDrainingService")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -156,7 +156,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	guardService, err := config.GetGuardService(getter, config.ObjectStoreServicesName)
+	drainingService, err := config.GetDrainingService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -203,7 +203,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	phase, err := guardService.GetDrainingPhase(ctx)
+	phase, err := drainingService.GetDrainingPhase(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,7 +244,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	worker, err := config.NewWorker(Config{
 		Agent:                        a,
 		Guard:                        fortress,
-		GuardService:                 guardService,
+		DrainingService:              drainingService,
 		ControllerService:            controllerService,
 		ControllerConfigService:      controllerConfigService,
 		ControllerObjectStoreService: controllerObjectStoreSerivce,
@@ -325,8 +325,8 @@ func GetControllerObjectStoreService(getter dependency.Getter, name string) (cor
 	return services.AgentObjectStore(), nil
 }
 
-// GetGuardService retrieves the GuardService using the given service.
-func GetGuardService(getter dependency.Getter, name string) (GuardService, error) {
+// GetDrainingService retrieves the DrainingService using the given service.
+func GetDrainingService(getter dependency.Getter, name string) (DrainingService, error) {
 	var services services.ControllerObjectStoreServices
 	if err := getter.Get(name, &services); err != nil {
 		return nil, errors.Trace(err)
