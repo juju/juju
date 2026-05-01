@@ -528,6 +528,11 @@ WHERE uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath)
 // existing phase. This eliminates the TOCTOU race that existed when reading
 // and writing were in separate transactions.
 //
+// Note: this pushes transition validation logic into the state layer, which
+// is not ideal from a layering perspective, but is necessary to prevent a
+// TOCTOU race where two concurrent callers could read the same phase and
+// both attempt to transition.
+//
 // Valid transitions:
 //   - Unknown → Draining (starts a new drain)
 //   - Draining → Error
@@ -975,6 +980,10 @@ VALUES ($s3Credentials.*)
 // record, and marks it as drained. This eliminates the TOCTOU race that
 // existed when the service read drain info in one transaction and then called
 // this in another.
+//
+// Note: this pushes phase validation and backend lookup into the state layer
+// to prevent a TOCTOU race where the drain record could be modified between
+// reading and acting on it.
 //
 // This method returns the following errors:
 //   - [objectstoreerrors.ErrDrainingPhaseNotFound]: if there is no active

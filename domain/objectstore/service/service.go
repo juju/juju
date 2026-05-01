@@ -92,6 +92,11 @@ type DrainingState interface {
 	// the transition, and either starts a new drain or updates the phase.
 	// The newDrainUUID is only used when starting a new drain (Unknown →
 	// Draining); for other transitions it is ignored.
+	//
+	// Note: this pushes transition validation logic into the state layer,
+	// which is not ideal from a layering perspective, but is necessary to
+	// prevent a TOCTOU race where two concurrent callers could read the
+	// same phase and both attempt to transition.
 	TransitionDrainingPhase(ctx context.Context, newDrainUUID string, phase objectstore.Phase) error
 
 	// GetObjectStoreBackend returns the object store backend information for
@@ -104,6 +109,10 @@ type DrainingState interface {
 
 	// MarkObjectStoreBackendAsDrained atomically validates the draining phase,
 	// identifies the source backend, and marks it as drained.
+	//
+	// Note: this pushes phase validation and backend lookup into the state
+	// layer to prevent a TOCTOU race where the drain record could be
+	// modified between reading and acting on it.
 	MarkObjectStoreBackendAsDrained(ctx context.Context) error
 
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
