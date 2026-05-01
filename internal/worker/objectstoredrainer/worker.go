@@ -224,6 +224,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 		selectFileHash: config.SelectFileHash,
 
+		clock:  config.Clock,
 		logger: config.Logger,
 	}
 
@@ -270,6 +271,7 @@ type Worker struct {
 
 	selectFileHash SelectFileHashFunc
 
+	clock  clock.Clock
 	logger logger.Logger
 }
 
@@ -370,6 +372,7 @@ func (w *Worker) loop() error {
 					_ = w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseError)
 					return errors.Errorf("completing draining: %w", err)
 				}
+				continue
 			}
 
 			signal, err := w.drainModels(ctx, uniqueNamespaces)
@@ -429,7 +432,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 
 func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 	w.logger.Infof(ctx, "draining controller agent binaries")
-	signal := make(chan string, 1)
+	signal := make(chan drainResult, 1)
 
 	namespace := "controller"
 	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
@@ -442,6 +445,7 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 			w.rootBucketName,
 			namespace,
 			w.selectFileHash,
+			w.clock,
 			w.logger,
 		), nil
 	})
@@ -452,7 +456,12 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
-	case <-signal:
+	case <-w.clock.After(defaultDrainTimeout):
+		return errors.Errorf("timeout waiting for controller agent binaries to drain")
+	case result := <-signal:
+		if result.Err != nil {
+			return errors.Errorf("drain worker for controller agent binaries failed: %w", result.Err)
+		}
 		w.logger.Infof(ctx, "drain worker for controller agent binaries completed")
 		return nil
 	}
@@ -460,8 +469,8 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 
 // drainModels starts a worker for each model in the state and waits for them
 // to complete. It signals the completion of each worker through a channel.
-func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan string, error) {
-	signal := make(chan string, len(namespaces))
+func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan drainResult, error) {
+	signal := make(chan drainResult, len(namespaces))
 	for _, namespace := range namespaces {
 		w.logger.Infof(ctx, "draining model %q", namespace)
 
@@ -476,6 +485,7 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan s
 				w.rootBucketName,
 				namespace,
 				w.selectFileHash,
+				w.clock,
 				w.logger,
 			), nil
 		})
@@ -489,22 +499,35 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan s
 	return signal, nil
 }
 
-// waits for all the draining workers to complete. It will block until
-// all the workers have completed or the context is cancelled.
-func (w *Worker) waitForDraining(ctx context.Context, signal <-chan string, namespaces []string) error {
+// waitForDraining waits for all the draining workers to complete. It will
+// block until all the workers have completed, the timeout expires, or the
+// context is cancelled.
+func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult, namespaces []string) error {
 	remaining := map[string]struct{}{}
 	for _, namespace := range namespaces {
 		remaining[namespace] = struct{}{}
 	}
 
+	timeout := w.clock.After(defaultDrainTimeout)
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case namespace := <-signal:
-			w.logger.Infof(ctx, "drain worker for model %q completed", namespace)
+		case <-timeout:
+			return errors.Errorf("timeout waiting for %d drain workers to complete", len(remaining))
+		case result := <-signal:
+			// Ignore results for namespaces we're not tracking (defensive).
+			if _, ok := remaining[result.Namespace]; !ok {
+				continue
+			}
 
-			delete(remaining, namespace)
+			if result.Err != nil {
+				return errors.Errorf("drain worker for model %q failed: %w", result.Namespace, result.Err)
+			}
+
+			w.logger.Infof(ctx, "drain worker for model %q completed", result.Namespace)
+
+			delete(remaining, result.Namespace)
 
 			if len(remaining) == 0 {
 				return nil

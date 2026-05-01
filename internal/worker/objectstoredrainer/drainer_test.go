@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 	stdtesting "testing"
-	time "time"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -22,7 +23,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	objectstore "github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/testing"
 )
 
 const (
@@ -100,21 +100,21 @@ func (s *drainerSuite) TestDrainFilesWithError(c *tc.C) {
 		Path:   "foo",
 		Size:   12,
 	}})
-	done := s.expectHashToExistError("foo", errors.Errorf("boom"))
+	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), "foo").Return(errors.Errorf("boom"))
 
-	_, store := s.newDrainerWorker(c)
+	ch, store := s.newDrainerWorker(c)
 	defer workertest.DirtyKill(c, store)
 
-	// Note: the drained state is never reached because of the error.
-
+	// The worker signals failure after exhausting retries (maxRetries=1 in
+	// tests), so we receive the result on the channel.
 	select {
-	case <-done:
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for drain")
+	case result := <-ch:
+		c.Check(result.Err, tc.ErrorMatches, `.*boom.*`)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for drain result")
 	}
 
-	err := workertest.CheckKill(c, store)
-	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+	workertest.CleanKill(c, store)
 }
 
 func (s *drainerSuite) TestDrainFileDoesNotExist(c *tc.C) {
@@ -314,21 +314,25 @@ func (s *drainerSuite) TestComputeS3HashNoSeekerReader(c *tc.C) {
 	c.Check(string(bytes), tc.Equals, content)
 }
 
-func (s *drainerSuite) newDrainerWorker(c *tc.C) (<-chan string, worker.Worker) {
-	ch := make(chan string, 1)
-	store := NewDrainWorker(
-		ch,
-		s.hashFileSystemAccessor,
-		&client{s3Session: s.s3Session},
-		s.objectStoreMetadata,
-		defaultBucketName,
-		"inferi",
-		func(m objectstore.Metadata) string {
+func (s *drainerSuite) newDrainerWorker(c *tc.C) (<-chan drainResult, worker.Worker) {
+	ch := make(chan drainResult, 1)
+	w := &drainWorker{
+		completed:       ch,
+		fileSystem:      s.hashFileSystemAccessor,
+		client:          &client{s3Session: s.s3Session},
+		metadataService: s.objectStoreMetadata,
+		rootBucket:      defaultBucketName,
+		namespace:       "inferi",
+		selectFileHash: func(m objectstore.Metadata) string {
 			return m.SHA384
 		},
-		s.logger,
-	)
-	return ch, store
+		maxRetries: 1,
+		retryDelay: time.Millisecond,
+		clock:      clock.WallClock,
+		logger:     s.logger,
+	}
+	w.tomb.Go(w.loop)
+	return ch, w
 }
 
 func (s *drainerSuite) expectListMetadata(metadata []objectstore.Metadata) {

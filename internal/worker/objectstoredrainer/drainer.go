@@ -10,7 +10,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"gopkg.in/tomb.v2"
 
@@ -20,21 +23,48 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	// defaultMaxDrainRetries is the maximum number of retries for draining
+	// a single namespace before signalling failure. This prevents the drain
+	// worker from hanging indefinitely on permanent errors.
+	defaultMaxDrainRetries = 10
+
+	// defaultDrainRetryDelay is the delay between retry attempts within the
+	// drain worker. This allows transient errors (network, S3) to resolve.
+	defaultDrainRetryDelay = 30 * time.Second
+
+	// defaultDrainTimeout is the maximum duration the parent will wait for
+	// all drain workers to complete. This is a defense-in-depth safeguard
+	// against indefinite blocking.
+	defaultDrainTimeout = 1 * time.Hour
+)
+
+// drainResult is the result of a drain worker's execution. It is sent on the
+// completed channel to signal the parent whether the drain succeeded or failed.
+type drainResult struct {
+	// Namespace is the namespace (model UUID or "controller") that was drained.
+	Namespace string
+	// Err is nil on success, or the last error encountered after exhausting
+	// retries.
+	Err error
+}
+
 // NewDrainerWorkerFunc is a function that creates a new drain worker.
 type NewDrainerWorkerFunc func(
-	completed chan<- string,
+	completed chan<- drainResult,
 	fileSystem HashFileSystemAccessor,
 	client objectstore.Client,
 	metadataService objectstore.ObjectStoreMetadata,
 	rootBucket, namespace string,
 	selectFileHash SelectFileHashFunc,
+	clock clock.Clock,
 	logger logger.Logger,
 ) worker.Worker
 
 type drainWorker struct {
 	tomb tomb.Tomb
 
-	completed chan<- string
+	completed chan<- drainResult
 
 	selectFileHash SelectFileHashFunc
 	fileSystem     HashFileSystemAccessor
@@ -45,18 +75,23 @@ type drainWorker struct {
 	rootBucket string
 	namespace  string
 
+	maxRetries int
+	retryDelay time.Duration
+	clock      clock.Clock
+
 	logger logger.Logger
 }
 
 // NewDrainWorker creates a new drain worker that will drain files from the
 // file backed object store to the s3 object store.
 func NewDrainWorker(
-	completed chan<- string,
+	completed chan<- drainResult,
 	fileSystem HashFileSystemAccessor,
 	client objectstore.Client,
 	metadataService objectstore.ObjectStoreMetadata,
 	rootBucket, namespace string,
 	selectFileHash SelectFileHashFunc,
+	clk clock.Clock,
 	logger logger.Logger,
 ) worker.Worker {
 	w := &drainWorker{
@@ -67,6 +102,9 @@ func NewDrainWorker(
 		rootBucket:      rootBucket,
 		namespace:       namespace,
 		selectFileHash:  selectFileHash,
+		maxRetries:      defaultMaxDrainRetries,
+		retryDelay:      defaultDrainRetryDelay,
+		clock:           clk,
 		logger:          logger,
 	}
 
@@ -98,6 +136,51 @@ func (w *drainWorker) Report(_ context.Context) map[string]any {
 func (w *drainWorker) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
+	if err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			return w.run(ctx)
+		},
+		Attempts: w.maxRetries,
+		Delay:    w.retryDelay,
+		Clock:    w.clock,
+		Stop:     w.tomb.Dying(),
+		NotifyFunc: func(lastError error, attempt int) {
+			w.logger.Warningf(ctx, "drain attempt %d/%d for %q failed: %v, retrying", attempt, w.maxRetries, w.namespace, lastError)
+		},
+	}); err != nil {
+		// If the retry was stopped because the tomb is dying, propagate that.
+		if retry.IsRetryStopped(err) {
+			return tomb.ErrDying
+		}
+
+		// Max retries exhausted — signal failure to the parent so it doesn't
+		// deadlock. The worker returns nil so the runner doesn't restart it;
+		// retry semantics are entirely internal.
+		if retry.IsAttemptsExceeded(err) {
+			lastErr := retry.LastError(err)
+			w.logger.Errorf(ctx, "drain worker for %q exhausted %d retries, last error: %v", w.namespace, w.maxRetries, lastErr)
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case w.completed <- drainResult{Namespace: w.namespace, Err: lastErr}:
+			}
+			return nil
+		}
+
+		// Unexpected error from retry framework.
+		return errors.Capture(err)
+	}
+
+	// Success — signal the parent.
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.completed <- drainResult{Namespace: w.namespace}:
+	}
+	return nil
+}
+
+func (w *drainWorker) run(ctx context.Context) error {
 	// Ensure that we have the base directory.
 	if err := w.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		err := s.CreateBucket(ctx, w.rootBucket)
@@ -127,14 +210,6 @@ func (w *drainWorker) loop() error {
 
 			return errors.Errorf("draining file %q to s3 object store: %w", m.Path, err)
 		}
-	}
-
-	// We can't use the tomb dying to signal completion here, because we
-	// allow the worker to be restarted.
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case w.completed <- w.namespace:
 	}
 
 	return nil

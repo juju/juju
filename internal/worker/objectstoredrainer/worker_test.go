@@ -187,7 +187,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 			return s.hashFileSystemAccessor
 		},
-		NewDrainerWorker: func(completed chan<- string, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, logger logger.Logger) worker.Worker {
+		NewDrainerWorker: func(completed chan<- drainResult, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, clk clock.Clock, logger logger.Logger) worker.Worker {
 			return newTestWorker(completed)
 		},
 		SelectFileHash: func(m objectstore.Metadata) string {
@@ -200,7 +200,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 	}
 }
 
-func newTestWorker(ns chan<- string) worker.Worker {
+func newTestWorker(ns chan<- drainResult) worker.Worker {
 	w := &errorWorker{}
 	w.tomb.Go(func() error {
 		select {
@@ -210,7 +210,7 @@ func newTestWorker(ns chan<- string) worker.Worker {
 			select {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
-			case ns <- "model-uuid1":
+			case ns <- drainResult{Namespace: "model-uuid1"}:
 				return nil
 			}
 		}
