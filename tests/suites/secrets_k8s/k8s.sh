@@ -54,7 +54,7 @@ run_secrets() {
 	done
 
 	echo "remove the app and the app owned secret should be deleted too"
-	juju --show-log remove-application prometheus-k8s
+	juju --show-log remove-application prometheus-k8s --no-prompt
 	attempt=0
 	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then

@@ -624,7 +624,12 @@ func refreshApplicationStatus(appName string, app caas.Application, appLife life
 		// Only set status to waiting for scale up.
 		// When the application gets scaled down, the desired units will be kept running and
 		// the application should be active always.
-		return setApplicationStatus(appName, status.Waiting, "waiting for units to settle down", nil, facade, logger)
+		statusErr := setApplicationStatus(appName, status.Waiting, "waiting for units to settle down", nil, facade, logger)
+		if statusErr != nil {
+			return statusErr
+		}
+		// Signal to the caller that units have not yet settled down.
+		return unitsChurning
 	}
 	return setApplicationStatus(appName, status.Active, "", nil, facade, logger)
 }
