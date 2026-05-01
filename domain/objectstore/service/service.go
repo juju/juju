@@ -88,6 +88,12 @@ type DrainingState interface {
 	// store.
 	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
 
+	// TransitionDrainingPhase atomically reads the current phase, validates
+	// the transition, and either starts a new drain or updates the phase.
+	// The newDrainUUID is only used when starting a new drain (Unknown →
+	// Draining); for other transitions it is ignored.
+	TransitionDrainingPhase(ctx context.Context, newDrainUUID string, phase objectstore.Phase) error
+
 	// GetObjectStoreBackend returns the object store backend information for
 	// the specified uuid.
 	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
@@ -96,22 +102,14 @@ type DrainingState interface {
 	// information.
 	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
 
-	// MarkObjectStoreBackendAsDrained marks the object store backend as
-	// drained. This is used to mark the object store backend as drained after
-	// the draining process has completed. If the s3 backend has been drained,
-	// then this will remove the credentials.
-	MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error
+	// MarkObjectStoreBackendAsDrained atomically validates the draining phase,
+	// identifies the source backend, and marks it as drained.
+	MarkObjectStoreBackendAsDrained(ctx context.Context) error
 
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
 	TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
-
-	// StartDraining initiates the draining process for the object store.
-	StartDraining(ctx context.Context, uuid string) error
-
-	// SetDrainingPhase sets the phase of the object store to draining.
-	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
 
 	// InitialWatchBackendTable returns the table for the object store backend.
 	InitialWatchBackendTable() (string, string)
@@ -161,6 +159,10 @@ func NewService(st State) *Service {
 func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if path == "" {
+		return objectstore.Metadata{}, objectstoreerrors.ErrEmptyPath
+	}
 
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
@@ -251,6 +253,10 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if metadata.Path == "" {
+		return "", objectstoreerrors.ErrEmptyPath
+	}
+
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Errorf("missing hash256: %w", objectstoreerrors.ErrMissingHash)
@@ -327,6 +333,10 @@ func (s *Service) PutMetadataWithControllerIDHint(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if metadata.Path == "" {
+		return "", objectstoreerrors.ErrEmptyPath
+	}
+
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Errorf("missing hash256").Add(objectstoreerrors.ErrMissingHash)
@@ -381,6 +391,10 @@ func (s *Service) AddControllerIDHint(ctx context.Context, sha384 string, contro
 func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if path == "" {
+		return objectstoreerrors.ErrEmptyPath
+	}
 
 	if err := s.st.RemoveMetadata(ctx, path); err != nil {
 		return errors.Errorf("removing path %s: %w", path, err)
@@ -442,6 +456,8 @@ func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory
 }
 
 // SetDrainingPhase sets the phase of the object store to draining.
+// This delegates to the state layer's atomic TransitionDrainingPhase method
+// which validates and applies the transition in a single transaction.
 func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -450,41 +466,16 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
-	hasPhase := true
-	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		hasPhase = false
-	} else if err != nil {
-		return errors.Errorf("getting active draining phase: %w", err)
+	// Generate a UUID for the new drain record. This is only used when
+	// transitioning from Unknown → Draining; otherwise it's ignored by the
+	// state layer.
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new uuid: %w", err)
 	}
 
-	// If there is no active draining phase, we consider the current phase to be
-	// unknown, otherwise we use the active draining phase.
-	current := objectstore.PhaseUnknown
-	if hasPhase {
-		current = objectstore.Phase(phaseInfo.Phase)
-	}
-
-	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("transitioning phase: %w", err)
-	}
-
-	// If the phase is draining, we need to start the draining process,
-	// otherwise we just update the phase in the state.
-	if phase.IsDraining() {
-		uuid, err := objectstore.NewUUID()
-		if err != nil {
-			return errors.Errorf("creating new uuid: %w", err)
-		}
-
-		return s.st.StartDraining(ctx, uuid.String())
-	}
-
-	// Set the phase in the state.
-	if err := s.st.SetDrainingPhase(ctx, phaseInfo.UUID, phase); err != nil {
-		return errors.Errorf("setting draining phase: %w", err)
+	if err := s.st.TransitionDrainingPhase(ctx, uuid.String(), phase); err != nil {
+		return errors.Errorf("transitioning draining phase: %w", err)
 	}
 	return nil
 }
@@ -613,20 +604,9 @@ func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.C
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Verify that we're in a draining phase before marking the backend as
-	// drained.
-	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
-	if err != nil {
-		return errors.Errorf("getting active draining phase: %w", err)
-	}
-	if phase := objectstore.Phase(phaseInfo.Phase); !phase.IsDraining() {
-		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
-	}
-	if phaseInfo.FromBackendUUID == nil {
-		return errors.Errorf("invalid draining state: from backend uuid is nil")
-	}
-
-	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, *phaseInfo.FromBackendUUID); err != nil {
+	// The state method atomically validates the draining phase, finds the
+	// source backend, and marks it as drained in a single transaction.
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx); err != nil {
 		return errors.Errorf("marking object store backend as drained: %w", err)
 	}
 	return nil

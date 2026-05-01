@@ -6,6 +6,9 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// ErrEmptyPath is returned when a path is empty.
+	ErrEmptyPath = errors.ConstError("empty path")
+
 	// ErrNotFound is returned when a path is not found.
 	ErrNotFound = errors.ConstError("path not found")
 

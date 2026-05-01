@@ -694,7 +694,7 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetActiveDrainingInfo(c.Context())
@@ -715,7 +715,7 @@ WHERE life_id = 1`)
 	c.Check(*info.FromBackendUUID, tc.Equals, fromBackendUUID)
 }
 
-func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhase(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -728,28 +728,28 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
-func (s *stateSuite) TestStartDrainingMissingFromBackend(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
-	err := st.StartDraining(c.Context(), "foo")
+	err := st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorMatches, ".*migrating from: backend not found")
 }
 
-func (s *stateSuite) TestStartDrainingMissingToBackend(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseMissingToBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -760,11 +760,11 @@ SET life_id = 1`)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorMatches, ".*migrating to: backend not found")
 }
 
-func (s *stateSuite) TestStartDraining(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseAlreadyInProgress(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -777,14 +777,14 @@ func (s *stateSuite) TestStartDraining(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "bar")
+	err = st.TransitionDrainingPhase(c.Context(), "bar", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
 
-func (s *stateSuite) TestStartDrainingAndSetDrainingPhase(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseToCompleted(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -797,10 +797,10 @@ func (s *stateSuite) TestStartDrainingAndSetDrainingPhase(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -846,7 +846,7 @@ func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the first backend to be marked as dead.
@@ -855,7 +855,7 @@ func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), backendUUID2, creds)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.TransitionBackendToS3(c.Context(), backendUUID2, creds)
@@ -884,7 +884,7 @@ func (s *stateSuite) TestTransitionBackendToS3WithActiveDrainingBackend(c *tc.C)
 	err = st.TransitionBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetActiveDrainingInfo(c.Context())
@@ -991,7 +991,13 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), activeUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
+	// Start a draining phase so that MarkObjectStoreBackendAsDrained can find
+	// the from_backend_uuid from the active drain info record.
+	drainUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.TransitionDrainingPhase(c.Context(), drainUUID, coreobjectstore.PhaseDraining)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkObjectStoreBackendAsDrained(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var drainingLifeID, activeLifeID int
@@ -1051,12 +1057,18 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), activeUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// First call should mark the draining backend dead.
-	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
+	// Start a draining phase so from_backend_uuid is available.
+	drainUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.TransitionDrainingPhase(c.Context(), drainUUID, coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call should be a no-op.
-	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
+	// First call should mark the draining backend dead.
+	err = st.MarkObjectStoreBackendAsDrained(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Second call should fail because the backend is already dead and the
+	// phase check still sees the active drain record.
+	err = st.MarkObjectStoreBackendAsDrained(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID int

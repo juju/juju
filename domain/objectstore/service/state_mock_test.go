@@ -921,17 +921,17 @@ func (c *MockDrainingStateListMetadataCall) DoAndReturn(f func(context.Context) 
 }
 
 // MarkObjectStoreBackendAsDrained mocks base method.
-func (m *MockDrainingState) MarkObjectStoreBackendAsDrained(arg0 context.Context, arg1 string) error {
+func (m *MockDrainingState) MarkObjectStoreBackendAsDrained(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkObjectStoreBackendAsDrained", arg0, arg1)
+	ret := m.ctrl.Call(m, "MarkObjectStoreBackendAsDrained", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MarkObjectStoreBackendAsDrained indicates an expected call of MarkObjectStoreBackendAsDrained.
-func (mr *MockDrainingStateMockRecorder) MarkObjectStoreBackendAsDrained(arg0, arg1 any) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+func (mr *MockDrainingStateMockRecorder) MarkObjectStoreBackendAsDrained(arg0 any) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkObjectStoreBackendAsDrained", reflect.TypeOf((*MockDrainingState)(nil).MarkObjectStoreBackendAsDrained), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkObjectStoreBackendAsDrained", reflect.TypeOf((*MockDrainingState)(nil).MarkObjectStoreBackendAsDrained), arg0)
 	return &MockDrainingStateMarkObjectStoreBackendAsDrainedCall{Call: call}
 }
 
@@ -947,13 +947,13 @@ func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) Return(arg0 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) Do(f func(context.Context, string) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) Do(f func(context.Context) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) DoAndReturn(f func(context.Context, string) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) DoAndReturn(f func(context.Context) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1074,82 +1074,6 @@ func (c *MockDrainingStateRemoveMetadataCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// SetDrainingPhase mocks base method.
-func (m *MockDrainingState) SetDrainingPhase(arg0 context.Context, arg1 string, arg2 objectstore.Phase) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetDrainingPhase", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetDrainingPhase indicates an expected call of SetDrainingPhase.
-func (mr *MockDrainingStateMockRecorder) SetDrainingPhase(arg0, arg1, arg2 any) *MockDrainingStateSetDrainingPhaseCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDrainingPhase", reflect.TypeOf((*MockDrainingState)(nil).SetDrainingPhase), arg0, arg1, arg2)
-	return &MockDrainingStateSetDrainingPhaseCall{Call: call}
-}
-
-// MockDrainingStateSetDrainingPhaseCall wrap *gomock.Call
-type MockDrainingStateSetDrainingPhaseCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDrainingStateSetDrainingPhaseCall) Return(arg0 error) *MockDrainingStateSetDrainingPhaseCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDrainingStateSetDrainingPhaseCall) Do(f func(context.Context, string, objectstore.Phase) error) *MockDrainingStateSetDrainingPhaseCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDrainingStateSetDrainingPhaseCall) DoAndReturn(f func(context.Context, string, objectstore.Phase) error) *MockDrainingStateSetDrainingPhaseCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// StartDraining mocks base method.
-func (m *MockDrainingState) StartDraining(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartDraining", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartDraining indicates an expected call of StartDraining.
-func (mr *MockDrainingStateMockRecorder) StartDraining(arg0, arg1 any) *MockDrainingStateStartDrainingCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartDraining", reflect.TypeOf((*MockDrainingState)(nil).StartDraining), arg0, arg1)
-	return &MockDrainingStateStartDrainingCall{Call: call}
-}
-
-// MockDrainingStateStartDrainingCall wrap *gomock.Call
-type MockDrainingStateStartDrainingCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDrainingStateStartDrainingCall) Return(arg0 error) *MockDrainingStateStartDrainingCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDrainingStateStartDrainingCall) Do(f func(context.Context, string) error) *MockDrainingStateStartDrainingCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDrainingStateStartDrainingCall) DoAndReturn(f func(context.Context, string) error) *MockDrainingStateStartDrainingCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // TransitionBackendToS3 mocks base method.
 func (m *MockDrainingState) TransitionBackendToS3(arg0 context.Context, arg1 string, arg2 objectstore0.S3Credentials) error {
 	m.ctrl.T.Helper()
@@ -1184,6 +1108,44 @@ func (c *MockDrainingStateTransitionBackendToS3Call) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDrainingStateTransitionBackendToS3Call) DoAndReturn(f func(context.Context, string, objectstore0.S3Credentials) error) *MockDrainingStateTransitionBackendToS3Call {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// TransitionDrainingPhase mocks base method.
+func (m *MockDrainingState) TransitionDrainingPhase(arg0 context.Context, arg1 string, arg2 objectstore.Phase) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransitionDrainingPhase", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TransitionDrainingPhase indicates an expected call of TransitionDrainingPhase.
+func (mr *MockDrainingStateMockRecorder) TransitionDrainingPhase(arg0, arg1, arg2 any) *MockDrainingStateTransitionDrainingPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransitionDrainingPhase", reflect.TypeOf((*MockDrainingState)(nil).TransitionDrainingPhase), arg0, arg1, arg2)
+	return &MockDrainingStateTransitionDrainingPhaseCall{Call: call}
+}
+
+// MockDrainingStateTransitionDrainingPhaseCall wrap *gomock.Call
+type MockDrainingStateTransitionDrainingPhaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateTransitionDrainingPhaseCall) Return(arg0 error) *MockDrainingStateTransitionDrainingPhaseCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateTransitionDrainingPhaseCall) Do(f func(context.Context, string, objectstore.Phase) error) *MockDrainingStateTransitionDrainingPhaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateTransitionDrainingPhaseCall) DoAndReturn(f func(context.Context, string, objectstore.Phase) error) *MockDrainingStateTransitionDrainingPhaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
