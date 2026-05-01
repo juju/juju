@@ -765,7 +765,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
 			GetControllerObjectStoreService: objectstoredrainer.GetControllerObjectStoreService,
-			GetGuardService:                 objectstoredrainer.GetGuardService,
+			GetDrainingService:              objectstoredrainer.GetDrainingService,
 			GetControllerConfigService:      objectstoredrainer.GetControllerConfigService,
 			NewHashFileSystemAccessor:       objectstoredrainer.NewHashFileStoreAccessor,
 			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
