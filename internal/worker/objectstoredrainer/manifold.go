@@ -246,7 +246,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Guard:                        fortress,
 		DrainingService:              drainingService,
 		ControllerService:            controllerService,
-		ControllerConfigService:      controllerConfigService,
 		ControllerObjectStoreService: controllerObjectStoreSerivce,
 		ObjectStoreServicesGetter:    objectStoreServicesGetter,
 		ObjectStoreFlusher:           objectStoreFlusher,

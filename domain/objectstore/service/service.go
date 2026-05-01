@@ -643,8 +643,6 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 	return nil
 }
 
-
-
 // WatchObjectStoreBackend returns a watcher that watches the object store
 // backend. The watcher emits the backend changes that either have been added or
 // removed.
