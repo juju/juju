@@ -420,12 +420,14 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 
 	w.logger.Debugf(ctx, "object store type changed: %q => %q", w.objectStoreType, objectStoreType)
 
-	w.objectStoreType = objectStoreType
-
 	// Force the draining process to move into the draining phase.
+	// Persist state before updating in-memory state to avoid divergence
+	// if SetDrainingPhase fails.
 	if err := w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseDraining); err != nil {
 		return errors.Capture(err)
 	}
+
+	w.objectStoreType = objectStoreType
 
 	return nil
 }
