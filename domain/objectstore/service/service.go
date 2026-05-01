@@ -88,16 +88,30 @@ type DrainingState interface {
 	// store.
 	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
 
-	// StartDraining initiates the draining process for the object store.
-	StartDraining(ctx context.Context, uuid string) error
+	// GetObjectStoreBackend returns the object store backend information for
+	// the specified uuid.
+	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
 
-	// SetDrainingPhase sets the phase of the object store to draining.
-	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
+
+	// MarkObjectStoreBackendAsDrained marks the object store backend as
+	// drained. This is used to mark the object store backend as drained after
+	// the draining process has completed. If the s3 backend has been drained,
+	// then this will remove the credentials.
+	MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error
 
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
 	TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
+
+	// StartDraining initiates the draining process for the object store.
+	StartDraining(ctx context.Context, uuid string) error
+
+	// SetDrainingPhase sets the phase of the object store to draining.
+	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
 
 	// InitialWatchBackendTable returns the table for the object store backend.
 	InitialWatchBackendTable() (string, string)
@@ -525,25 +539,106 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 	}, true
 }
 
+// GetDrainingPhaseInfo returns the phase information of the draining object
+// store.
+func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	info, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil {
+		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
+	}
+
+	var fromBackend *objectstore.UUID
+	if info.FromBackendUUID != nil {
+		fb := objectstore.UUID(*info.FromBackendUUID)
+		fromBackend = &fb
+	}
+
+	return objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.Phase(info.Phase),
+		FromBackendUUID:   fromBackend,
+		ActiveBackendUUID: objectstore.UUID(info.ActiveBackendUUID),
+	}, nil
+}
+
 // GetActiveObjectStoreBackend returns the active object store backend
 // information.
 func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	backendInfo, err := s.st.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting active object store backend info: %w", err)
+	}
 	return BackendInfo{
-		Type: objectstore.FileBackend,
+		UUID:      objectstore.UUID(backendInfo.UUID),
+		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:  backendInfo.Endpoint,
+		AccessKey: backendInfo.AccessKey,
+		SecretKey: backendInfo.SecretKey,
 	}, nil
+}
+
+// GetObjectStoreBackend returns the object store backend information for the
+// specified uuid.
+func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return BackendInfo{}, errors.Errorf("invalid uuid %s: %w", uuid, err)
+	}
+
+	backendInfo, err := s.st.GetObjectStoreBackend(ctx, uuid.String())
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting object store backend info for uuid %s: %w", uuid, err)
+	}
+	return BackendInfo{
+		UUID:      objectstore.UUID(backendInfo.UUID),
+		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:  backendInfo.Endpoint,
+		AccessKey: backendInfo.AccessKey,
+		SecretKey: backendInfo.SecretKey,
+	}, nil
+}
+
+// MarkObjectStoreBackendAsDrained marks the object store backend as drained.
+// This is used to mark the object store backend as drained after the draining
+// process has completed. If the s3 backend has been drained, then this will
+// remove the credentials.
+func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Verify that we're in a draining phase before marking the backend as
+	// drained.
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil {
+		return errors.Errorf("getting active draining phase: %w", err)
+	}
+	if phase := objectstore.Phase(phaseInfo.Phase); !phase.IsDraining() {
+		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
+	}
+	if phaseInfo.FromBackendUUID == nil {
+		return errors.Errorf("invalid draining state: from backend uuid is nil")
+	}
+
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, *phaseInfo.FromBackendUUID); err != nil {
+		return errors.Errorf("marking object store backend as drained: %w", err)
+	}
+	return nil
 }
 
 // TransitionBackendToS3 sets the object store to use S3 with the provided
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
 func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Validate the credentials before transitioning the backend to S3.
 	if err := credential.Validate(); err != nil {
 		return errors.Errorf("validating S3 credentials: %w", err)
 	}
@@ -556,9 +651,10 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 	if err := s.st.TransitionBackendToS3(ctx, uuid.String(), credential); err != nil {
 		return errors.Errorf("transitioning backend to S3: %w", err)
 	}
-
 	return nil
 }
+
+
 
 // WatchObjectStoreBackend returns a watcher that watches the object store
 // backend. The watcher emits the backend changes that either have been added or

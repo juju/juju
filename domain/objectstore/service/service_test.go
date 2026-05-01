@@ -548,10 +548,15 @@ func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: "file",
+	}, nil)
+
 	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Type, tc.Equals, objectstore.FileBackend)
-	c.Check(info.UUID, tc.Equals, objectstore.UUID(""))
+	c.Check(info.UUID, tc.Equals, objectstore.UUID("backend-uuid"))
 	c.Check(info.Endpoint, tc.IsNil)
 	c.Check(info.AccessKey, tc.IsNil)
 	c.Check(info.SecretKey, tc.IsNil)
