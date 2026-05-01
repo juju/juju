@@ -542,11 +542,25 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 // object store type has changed and then flushes the object store workers.
 // It sets the draining phase to completed, which will cause the main loop
 // to unlock the guard and allow the object store to be used again.
+//
+// The ordering is important for crash recovery:
+// 1. Set phase to completed (persistent, authoritative state)
+// 2. Update agent config (idempotent, re-applied on restart if missed)
+// 3. Flush workers (idempotent, re-applied on restart if missed)
+//
+// If a crash occurs after step 1, on restart the worker sees PhaseCompleted,
+// unlocks the guard, and the manifold start logic reconciles the remaining
+// steps.
 func (w *Worker) completeDraining(ctx context.Context) error {
-	// If we're in a completed state (PhaseCompleted), we can safely update the
-	// agent configuration and then force the object store to pick up the
-	// new configuration.
-	w.logger.Infof(ctx, "object store is in a completed state, updating agent configuration")
+	w.logger.Infof(ctx, "completing object store draining")
+
+	// Set the draining phase to completed first. This is the persistent
+	// source of truth that determines recovery behavior on restart.
+	if err := w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Update the agent configuration to reflect the new object store type.
 	if err := w.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
 		w.logger.Debugf(ctx, "setting object store type: %q => %q", setter.ObjectStoreType(), w.objectStoreType)
 		setter.SetObjectStoreType(w.objectStoreType)
@@ -562,10 +576,6 @@ func (w *Worker) completeDraining(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	// Set the draining phase to completed.
-	if err := w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
-		return errors.Capture(err)
-	}
 	w.logger.Infof(ctx, "object store draining completed successfully")
 
 	return nil

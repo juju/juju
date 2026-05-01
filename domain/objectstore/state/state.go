@@ -928,6 +928,17 @@ VALUES ($s3Credentials.*)
 	if err != nil {
 		return errors.Errorf("preparing insert object store information statement: %w", err)
 	}
+	// Check if there are any dying backends already, which indicates a
+	// transition is already in progress. This prevents concurrent calls from
+	// each creating a new active backend.
+	getDyingBackendStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM object_store_backend
+WHERE life_id = 1`, count{})
+	if err != nil {
+		return errors.Errorf("preparing select dying backends statement: %w", err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Ensure that we're not currently in a draining phase, as we don't want
 		// to update the backend information while we're in the middle of a
@@ -936,6 +947,16 @@ VALUES ($s3Credentials.*)
 		if err := tx.Query(ctx, getPhaseInfoStmt).Get(&phaseCount); err != nil {
 			return errors.Errorf("checking draining phase: %w", err)
 		} else if phaseCount.Count > 0 {
+			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		}
+
+		// Ensure there are no dying backends, which would indicate a transition
+		// is already in progress. This prevents concurrent calls from each
+		// creating a new active backend.
+		var dyingCount count
+		if err := tx.Query(ctx, getDyingBackendStmt).Get(&dyingCount); err != nil {
+			return errors.Errorf("checking dying backends: %w", err)
+		} else if dyingCount.Count > 0 {
 			return objectstoreerrors.ErrDrainingAlreadyInProgress
 		}
 

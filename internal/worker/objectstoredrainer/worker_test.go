@@ -93,16 +93,16 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
 	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
 
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).Return(nil)
+
 	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
 	})
 
-	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
-
 	done := make(chan struct{})
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		defer close(done)
 		return nil
 	})
