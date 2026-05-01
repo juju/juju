@@ -136,6 +136,18 @@ func (w *drainWorker) Report(_ context.Context) map[string]any {
 func (w *drainWorker) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
+	// resultErr captures the outcome of the drain operation. The deferred
+	// signal guarantees the parent is always notified, even if the function
+	// returns via an unexpected path (framework error, panic recovery). This
+	// prevents the parent from blocking indefinitely on the signal channel.
+	var resultErr error
+	defer func() {
+		select {
+		case <-w.tomb.Dying():
+		case w.completed <- drainResult{Namespace: w.namespace, Err: resultErr}:
+		}
+	}()
+
 	if err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			return w.run(ctx)
@@ -148,35 +160,25 @@ func (w *drainWorker) loop() error {
 			w.logger.Warningf(ctx, "drain attempt %d/%d for %q failed: %v, retrying", attempt, w.maxRetries, w.namespace, lastError)
 		},
 	}); err != nil {
-		// If the retry was stopped because the tomb is dying, propagate that.
+		// If the retry was stopped because the tomb is dying, the deferred
+		// signal will attempt to send but the Dying() branch will fire.
 		if retry.IsRetryStopped(err) {
 			return tomb.ErrDying
 		}
 
-		// Max retries exhausted — signal failure to the parent so it doesn't
-		// deadlock. The worker returns nil so the runner doesn't restart it;
-		// retry semantics are entirely internal.
+		// Max retries exhausted — set the error for the deferred signal.
 		if retry.IsAttemptsExceeded(err) {
-			lastErr := retry.LastError(err)
-			w.logger.Errorf(ctx, "drain worker for %q exhausted %d retries, last error: %v", w.namespace, w.maxRetries, lastErr)
-			select {
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case w.completed <- drainResult{Namespace: w.namespace, Err: lastErr}:
-			}
+			resultErr = retry.LastError(err)
+			w.logger.Errorf(ctx, "drain worker for %q exhausted %d retries, last error: %v", w.namespace, w.maxRetries, resultErr)
 			return nil
 		}
 
-		// Unexpected error from retry framework.
-		return errors.Capture(err)
+		// Unexpected error from retry framework — still signal via defer.
+		resultErr = err
+		return nil
 	}
 
-	// Success — signal the parent.
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case w.completed <- drainResult{Namespace: w.namespace}:
-	}
+	// Success — resultErr remains nil, deferred signal sends success.
 	return nil
 }
 
