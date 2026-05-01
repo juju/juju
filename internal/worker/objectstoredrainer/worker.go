@@ -397,11 +397,6 @@ func (w *Worker) loop() error {
 // HandleConfigChange starts the whole draining process if the object store
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
-	_, err := w.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	phase, err := w.drainingService.GetDrainingPhase(ctx)
 	if err != nil {
 		return errors.Capture(err)
