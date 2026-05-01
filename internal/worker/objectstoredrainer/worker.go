@@ -449,7 +449,12 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 			w.logger,
 		), nil
 	})
-	if err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+	if errors.Is(err, coreerrors.AlreadyExists) {
+		// A controller drain worker already exists from a previous invocation.
+		// This is terminal because the existing worker has a different signal
+		// channel and will never notify us.
+		return errors.Errorf("worker for controller agent binaries: %w", err).Add(ErrWorkerInUnknownState)
+	} else if err != nil {
 		return errors.Errorf("starting worker for controller agent binaries: %w", err)
 	}
 

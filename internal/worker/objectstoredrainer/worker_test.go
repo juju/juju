@@ -125,6 +125,93 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestObjectStoreDrainingAlreadyExistsIsFatal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
+	})
+
+	draining := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining), nil
+	})
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).Return(nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	// Pre-register a worker with name "controller" in the runner to simulate
+	// a prior invocation that is still alive.
+	internalW := w.(*Worker)
+	err := internalW.runner.StartWorker(context.Background(), "controller", func(ctx context.Context) (worker.Worker, error) {
+		return newBlockingWorker(), nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Trigger draining - drainAgentBinaries will get AlreadyExists from runner.
+	select {
+	case draining <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event to be consumed")
+	}
+
+	// The worker should die with ErrWorkerInUnknownState.
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, ErrWorkerInUnknownState)
+}
+
+func newBlockingWorker() worker.Worker {
+	w := &errorWorker{}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
+
+func (s *workerSuite) TestObjectStoreDrainingModelAlreadyExistsIsFatal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
+	})
+
+	draining := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining), nil
+	})
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).Return(nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	// Pre-register a worker with name "model-uuid1" in the runner to simulate
+	// a prior invocation that is still alive.
+	internalW := w.(*Worker)
+	err := internalW.runner.StartWorker(context.Background(), "model-uuid1", func(ctx context.Context) (worker.Worker, error) {
+		return newBlockingWorker(), nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Trigger draining - drainModels will get AlreadyExists from runner.
+	select {
+	case draining <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event to be consumed")
+	}
+
+	// The worker should die with ErrWorkerInUnknownState.
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, ErrWorkerInUnknownState)
+}
+
 func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
