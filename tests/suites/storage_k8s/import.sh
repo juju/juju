@@ -14,22 +14,23 @@ test_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
 	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application postgresql-k8s --no-prompt
+	juju remove-application dummy-k8s-storage --no-prompt
 	wait_for "{}" ".applications"
-	juju remove-storage pgdata/0 --no-destroy
+	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
 	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
 	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
 	set -e
 	echo "${OUT}" | check \
 		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
@@ -39,7 +40,7 @@ test_import_filesystem() {
 
 	# Attempt to import the PersistentVolume: expect failure due to existing claimRef.
 	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
 	set -e
 	echo "${OUT}" | check \
 		"importing volume \"${PV}\" already bound to a claim not supported"
@@ -50,9 +51,9 @@ test_import_filesystem() {
 	microk8s kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
 
-	wait_for_storage "detached" '.storage["pgdata/1"]["status"].current'
+	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 	wait_for_storage "${PV}" '.volumes["1"]."provider-id"'
 
 	# Destroy the test model.
@@ -75,22 +76,23 @@ test_force_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
 	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application postgresql-k8s --no-prompt
+	juju remove-application dummy-k8s-storage --no-prompt
 	wait_for "{}" ".applications"
-	juju remove-storage pgdata/0 --no-destroy
+	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
 	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
 	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
 	set -e
 	echo "${OUT}" | check \
 		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
@@ -101,7 +103,7 @@ test_force_import_filesystem() {
 	microk8s kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by=not-juju --overwrite
 
 	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata --force 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
 	set -e
 
 	echo "${OUT}" | check \
@@ -110,9 +112,9 @@ test_force_import_filesystem() {
 	microk8s kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
 
 	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" pgdata --force 2>&1)
+	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
 
-	wait_for_storage "detached" '.storage["pgdata/1"]["status"].current'
+	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
 	# Ensure pv imported & status is available.
 	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
