@@ -6,7 +6,7 @@ run_create_storage_pool() {
 	ensure "test-create-storage-pool" "${file}"
 
 	juju create-storage-pool mygpd gce disk-type=pd-ssd
-	juju deploy postgresql --channel 14/stable --storage pgdata=20G,mygpd
+	juju deploy juju-qa-dummy-storage dummy-storage --storage single-blk=20G,mygpd
 	wait_for_machine_agent_status "0" "started"
 
 	disk_name="$(juju status --format=json | jq -r '.storage.volumes["0"]."provider-id"')"
