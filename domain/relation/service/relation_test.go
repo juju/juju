@@ -266,8 +266,10 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 		},
 	}
 
+	// The state layer is responsible for returning endpoints in canonical
+	// key order (requirer, provider), so the mock reflects that contract.
 	results := []relation.RelationUnitStatusResult{{
-		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
+		Endpoints: []relation.Endpoint{endpoint2, endpoint1},
 		InScope:   true,
 		Suspended: true,
 	}, {

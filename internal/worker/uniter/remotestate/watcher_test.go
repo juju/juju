@@ -710,59 +710,6 @@ func (s *WatcherSuite) TestRelationsChanged(c *tc.C) {
 	c.Assert(s.uniterClient.relationUnitsWatchers[relationTag].Stopped(), tc.IsTrue)
 }
 
-// TestRelationReplacedSameEndpoints simulates a remove-SAAS + re-consume +
-// re-relate workflow: the same endpoint key (relation tag) is reused for a
-// brand-new relation (different ID). The watcher must tear down the stale
-// per-relation watcher and start a fresh one for the new relation ID so
-// that the snapshot is consistent.
-func (s *WatcherSuite) TestRelationReplacedSameEndpoints(c *tc.C) {
-	s.signalAll()
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-
-	relationTag := names.NewRelationTag("mysql:peer")
-
-	// Set up the first relation (id=123).
-	s.uniterClient.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 123, life: life.Alive, suspended: false,
-	}
-	oldUnitsWatcher := newMockRelationUnitsWatcher()
-	s.uniterClient.relationUnitsWatchers[relationTag] = oldUnitsWatcher
-	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
-
-	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	oldUnitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
-	}
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Relations, tc.HasLen, 1)
-	_, ok := s.watcher.Snapshot().Relations[123]
-	c.Assert(ok, tc.IsTrue)
-
-	// Simulate remove-SAAS + re-consume + re-relate: same endpoint key, new id=456.
-	newUnitsWatcher := newMockRelationUnitsWatcher()
-	s.uniterClient.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 456, life: life.Alive, suspended: false,
-	}
-	s.uniterClient.relationUnitsWatchers[relationTag] = newUnitsWatcher
-	s.uniterClient.unit.relationsWatcher.changes <- []string{relationTag.Id()}
-
-	// The watcher blocks for the initial change from the new units watcher.
-	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	newUnitsWatcher.changes <- watcher.RelationUnitsChange{}
-	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-
-	// The snapshot must track only the new relation.
-	snap := s.watcher.Snapshot().Relations
-	c.Assert(snap, tc.HasLen, 1)
-	_, ok = snap[123]
-	c.Check(ok, tc.IsFalse, tc.Commentf("stale relation id=123 should be gone"))
-	_, ok = snap[456]
-	c.Check(ok, tc.IsTrue, tc.Commentf("new relation id=456 should be present"))
-
-	// The old units watcher must have been stopped.
-	c.Check(oldUnitsWatcher.Stopped(), tc.IsTrue)
-}
-
 func (s *WatcherSuite) TestRelationsSuspended(c *tc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")

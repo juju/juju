@@ -2618,6 +2618,11 @@ func (st State) GetRelationEndpoints(ctx context.Context, relUUID string) ([]cor
 SELECT &endpointIdentifier.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
+ORDER BY CASE role
+    WHEN 'requirer' THEN 0
+    WHEN 'provider' THEN 1
+    ELSE 2
+END
 `, id, endpointIdentifier{})
 	if err != nil {
 		return nil, errors.Capture(err)

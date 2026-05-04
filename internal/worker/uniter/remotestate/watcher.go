@@ -1084,27 +1084,17 @@ func (w *RemoteStateWatcher) relationsChanged(ctx context.Context, keys []string
 
 func (w *RemoteStateWatcher) ensureRelationUnits(ctx context.Context, rel api.Relation) error {
 	relationTag := rel.Tag()
-	if ruw, ok := w.relations[relationTag]; ok {
-		// The map is keyed by relation tag (endpoint key), which is stable
-		// across a remove + re-integrate of the same endpoints. If the
-		// relation ID differs from the one we were watching, the previous
-		// relation was removed and a new one with the same key has taken
-		// its place: tear down the stale watcher and fall through to start
-		// a fresh one for the new relation.
-		if ruw.relationId != rel.Id() {
-			_ = worker.Stop(ruw)
-			delete(w.relations, relationTag)
-			delete(w.current.Relations, ruw.relationId)
-		} else {
-			// We're already watching this one, so just update life/suspension status
-			relationSnapshot := w.current.Relations[rel.Id()]
-			relationSnapshot.Life = rel.Life()
-			relationSnapshot.Suspended = rel.Suspended()
-			w.current.Relations[rel.Id()] = relationSnapshot
-			if rel.Suspended() {
-				// Relation has been suspended, so stop the listeners here.
-				// The relation itself is retained in the current relations
-				// in the suspended state so that departed/broken hooks can run.
+	if _, ok := w.relations[relationTag]; ok {
+		// We're already watching this one, so just update life/suspension status
+		relationSnapshot := w.current.Relations[rel.Id()]
+		relationSnapshot.Life = rel.Life()
+		relationSnapshot.Suspended = rel.Suspended()
+		w.current.Relations[rel.Id()] = relationSnapshot
+		if rel.Suspended() {
+			// Relation has been suspended, so stop the listeners here.
+			// The relation itself is retained in the current relations
+			// in the suspended state so that departed/broken hooks can run.
+			if ruw, ok := w.relations[relationTag]; ok {
 				err := worker.Stop(ruw)
 				if err != nil {
 					// This was always silently ignored, so it can't be
@@ -1113,8 +1103,8 @@ func (w *RemoteStateWatcher) ensureRelationUnits(ctx context.Context, rel api.Re
 				}
 				delete(w.relations, relationTag)
 			}
-			return nil
 		}
+		return nil
 	}
 	// We weren't watching it already, but if the relation is suspended,
 	// we don't need to start watching it.

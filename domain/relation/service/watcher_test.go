@@ -232,8 +232,8 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	expectedRelations[newSubordinateRelUUID] = newData
 	expectedRelations[principalSubordinateRelUUID] = newRelData
 
-	expectedChangeZero, _ := corerelation.NewKey(newData.EndpointIdentifiers)
-	expectedChangeOne, _ := corerelation.NewKey(newRelData.EndpointIdentifiers)
+	expectedChangeZero := corerelation.Key(newData.EndpointIdentifiers)
+	expectedChangeOne := corerelation.Key(newRelData.EndpointIdentifiers)
 	expectedChanged := set.NewStrings(expectedChangeZero.String())
 	expectedChanged.Add(expectedChangeOne.String())
 
@@ -291,8 +291,7 @@ func (s *watcherSuite) TestSubordinateRelationRemovedKnown(c *tc.C) {
 	// the consumer can clean up its key-indexed state.
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtained, tc.HasLen, 1)
-	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
-	c.Assert(keyErr, tc.IsNil)
+	expectedKey := corerelation.Key(existingData.EndpointIdentifiers)
 	c.Check(obtained[0], tc.Equals, expectedKey.String())
 	// The relation must be removed from currentRelations.
 	c.Check(watcher.currentRelations, tc.HasLen, 0)
@@ -378,8 +377,7 @@ func (s *watcherSuite) TestSubordinateAppNotFoundForTrackedRelation(c *tc.C) {
 	// Assert: the old key is emitted and the relation is cleaned up.
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtained, tc.HasLen, 1)
-	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
-	c.Assert(keyErr, tc.IsNil)
+	expectedKey := corerelation.Key(existingData.EndpointIdentifiers)
 	c.Check(obtained[0], tc.Equals, expectedKey.String())
 	c.Check(watcher.currentRelations, tc.HasLen, 0)
 	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)
@@ -459,8 +457,7 @@ func (s *watcherSuite) TestPrincipalAppNotFoundForTrackedRelation(c *tc.C) {
 	// Assert: the old key is emitted and the relation is cleaned up.
 	c.Assert(err, tc.IsNil)
 	c.Assert(obtained, tc.HasLen, 1)
-	expectedKey, keyErr := corerelation.NewKey(existingData.EndpointIdentifiers)
-	c.Assert(keyErr, tc.IsNil)
+	expectedKey := corerelation.Key(existingData.EndpointIdentifiers)
 	c.Check(obtained[0], tc.Equals, expectedKey.String())
 	c.Check(watcher.currentRelations, tc.HasLen, 0)
 	c.Check(relationsIgnored.IsEmpty(), tc.IsTrue)

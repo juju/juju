@@ -54,17 +54,17 @@ func (s *relationStatusSuite) TestFetchRelation(c *tc.C) {
 		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
-				ApplicationName: "source",
-				Relation: charm.Relation{
-					Name: "provider",
-					Role: charm.RoleProvider,
-				},
-			},
-			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
 					Role: charm.RoleRequirer,
+				},
+			},
+			{
+				ApplicationName: "source",
+				Relation: charm.Relation{
+					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 		},
@@ -117,17 +117,17 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *tc.C) {
 		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
-				ApplicationName: "source",
-				Relation: charm.Relation{
-					Name: "provider",
-					Role: charm.RoleProvider,
-				},
-			},
-			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
 					Role: charm.RoleRequirer,
+				},
+			},
+			{
+				ApplicationName: "source",
+				Relation: charm.Relation{
+					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 		},

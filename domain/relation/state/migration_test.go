@@ -455,9 +455,23 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
+	// Endpoints are returned in canonical key order: requirer first, then
+	// provider for regular relations.
 	c.Check(exported, tc.SameContents, []domainrelation.ExportRelation{{
 		ID: 0,
 		Endpoints: []domainrelation.ExportEndpoint{{
+			ApplicationName: s.fakeApplicationName2,
+			Name:            endpoint2.Name,
+			Role:            endpoint2.Role,
+			Interface:       endpoint2.Interface,
+			Optional:        endpoint2.Optional,
+			Limit:           endpoint2.Limit,
+			Scope:           relationScope,
+			ApplicationSettings: map[string]any{
+				"app-foo": "app-bar",
+			},
+			AllUnitSettings: make(map[string]map[string]any),
+		}, {
 			ApplicationName: s.fakeApplicationName1,
 			Name:            endpoint1.Name,
 			Role:            endpoint1.Role,
@@ -474,18 +488,6 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 				},
 			},
 			ApplicationSettings: make(map[string]any),
-		}, {
-			ApplicationName: s.fakeApplicationName2,
-			Name:            endpoint2.Name,
-			Role:            endpoint2.Role,
-			Interface:       endpoint2.Interface,
-			Optional:        endpoint2.Optional,
-			Limit:           endpoint2.Limit,
-			Scope:           relationScope,
-			ApplicationSettings: map[string]any{
-				"app-foo": "app-bar",
-			},
-			AllUnitSettings: make(map[string]map[string]any),
 		}},
 	}, {
 		ID: 1,

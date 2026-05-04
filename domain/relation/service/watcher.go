@@ -520,11 +520,7 @@ func removedRelationKey(
 	if !seen {
 		return nil, continueError
 	}
-	key, err := corerelation.NewKey(previous.EndpointIdentifiers)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return key, nil
+	return corerelation.Key(previous.EndpointIdentifiers), nil
 }
 
 func (w *lifeSuspendedStatusWatcher[T]) filterChangeEvents(
@@ -596,7 +592,7 @@ func (w *principalLifeSuspendedStatusWatcher) processInitialChange(
 	relUUID corerelation.UUID,
 	data relation.RelationLifeSuspendedData,
 ) (corerelation.Key, error) {
-	return corerelation.NewKey(data.EndpointIdentifiers)
+	return corerelation.Key(data.EndpointIdentifiers), nil
 }
 
 // processChange returns a relation key when the relation change should
@@ -633,11 +629,7 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 	}
 
 	w.currentRelations[relUUID] = changedRelationData
-	key, err := corerelation.NewKey(changedRelationData.EndpointIdentifiers)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return key, nil
+	return corerelation.Key(changedRelationData.EndpointIdentifiers), nil
 }
 
 // subordinateLifeSuspendedStatusWatcher implements the processChange method
@@ -674,7 +666,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) processInitialChange(
 	relUUID corerelation.UUID,
 	data relation.RelationLifeSuspendedData,
 ) (corerelation.Key, error) {
-	return corerelation.NewKey(data.EndpointIdentifiers)
+	return corerelation.Key(data.EndpointIdentifiers), nil
 }
 
 // processChange returns a relation key when the relation change should
@@ -703,10 +695,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) processChange(
 		return nil, errors.Capture(err)
 	}
 
-	key, err := corerelation.NewKey(changedRelationData.EndpointIdentifiers)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
+	key := corerelation.Key(changedRelationData.EndpointIdentifiers)
 
 	// If this is a known relation where neither the Life nor
 	// Suspended value have changed, do not notify.
