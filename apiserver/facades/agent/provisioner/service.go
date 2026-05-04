@@ -224,13 +224,8 @@ type KeyUpdaterService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	// GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and their principles on the given machine.
+	// GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and their principals on the given machine.
 	GetUnitNamesWithPrincipalOnMachine(ctx context.Context, name coremachine.Name) ([]unit.NameWithPrincipal, error)
-
-	// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
-	// is found, for example, when the unit is not a subordinate, then false is
-	// returned.
-	GetUnitPrincipal(context.Context, unit.Name) (unit.Name, bool, error)
 
 	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
 	// the space ID it is bound to (or empty if unspecified). When no bindings are

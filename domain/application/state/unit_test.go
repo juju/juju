@@ -2090,6 +2090,123 @@ func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name s
 	return appID
 }
 
+// addUnitOnNetNode inserts a unit that shares an existing net node, placing
+// it on the same machine as any other unit that uses that net node.
+func (s *unitStateSubordinateSuite) addUnitOnNetNode(
+	c *tc.C,
+	unitName coreunit.Name,
+	appUUID coreapplication.UUID,
+	netNode domainnetwork.NetNodeUUID,
+) coreunit.UUID {
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, 0, ?, uuid, charm_uuid
+FROM application WHERE uuid = ?
+`, unitUUID, unitName, netNode.String(), appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return unitUUID
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitNamesWithPrincipalForMachineNoUnits(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	var machineName coremachine.Name
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		names, err := machinestate.PlaceMachine(ctx, tx, s.state, clock.WallClock,
+			domainmachine.PlaceMachineArgs{
+				Directive:   deployment.Placement{Type: deployment.PlacementTypeUnset},
+				MachineUUID: machinetesting.GenUUID(c),
+				NetNodeUUID: netNodeUUID,
+			})
+		if err != nil {
+			return err
+		}
+		machineName = names[0]
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitNamesWithPrincipalForMachine(c.Context(), machineName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitNamesWithPrincipalForMachine(c *tc.C) {
+	// Given: machine "0" has foo/0 (principal), foo/1 (principal) and
+	// sub/0 (a subordinate of foo/0). Machine "1" has foo/2, which must
+	// be absent from the result to confirm machine-level filtering.
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	altNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+
+	s.createIAASApplication(c, "foo", life.Alive,
+		application.AddIAASUnitArg{
+			MachineUUID:        machineUUID,
+			MachineNetNodeUUID: netNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
+				NetNodeUUID: netNodeUUID,
+				Placement:   deployment.Placement{Directive: "0"},
+			},
+		},
+		application.AddIAASUnitArg{
+			MachineUUID:        machineUUID,
+			MachineNetNodeUUID: netNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
+				NetNodeUUID: netNodeUUID,
+				Placement:   deployment.Placement{Type: deployment.PlacementTypeMachine, Directive: "0"},
+			},
+		},
+		application.AddIAASUnitArg{
+			MachineUUID:        machinetesting.GenUUID(c),
+			MachineNetNodeUUID: altNetNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
+				NetNodeUUID: altNetNodeUUID,
+				Placement:   deployment.Placement{Directive: "1"},
+			},
+		},
+	)
+
+	// Get the UUID of foo/0 to establish the principal relationship.
+	principalUUID, err := s.state.GetUnitUUIDByName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add a subordinate application and a unit on the same net node as M0.
+	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
+	subUUID := s.addUnitOnNetNode(c, coreunit.Name("sub/0"), subAppID, netNodeUUID)
+
+	// Wire sub/0 as a subordinate of foo/0.
+	s.addUnitPrincipal(c, principalUUID, subUUID)
+
+	// When: query by the net node UUID that identifies machine "0".
+	got, err := s.state.GetUnitNamesWithPrincipalForMachine(c.Context(), netNodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 3)
+
+	// Build a lookup map for readable assertions.
+	byName := make(map[coreunit.Name]coreunit.NameWithPrincipal, len(got))
+	for _, nwp := range got {
+		byName[nwp.Name] = nwp
+	}
+
+	// foo/0 and foo/1 are principal units — they must have no principal.
+	c.Check(byName[coreunit.Name("foo/0")].Principal, tc.IsNil)
+	c.Check(byName[coreunit.Name("foo/1")].Principal, tc.IsNil)
+
+	// sub/0 is a subordinate of foo/0.
+	c.Assert(byName[coreunit.Name("sub/0")].Principal, tc.NotNil)
+	c.Check(*byName[coreunit.Name("sub/0")].Principal, tc.Equals, coreunit.Name("foo/0"))
+
+	// foo/2 lives on machine "1" and must not appear in the result.
+	_, found := byName[coreunit.Name("foo/2")]
+	c.Check(found, tc.IsFalse)
+}
+
 func (s *unitStateSuite) TestGetIAASUnitContext(c *tc.C) {
 	// Arrange: Create an IAAS unit with a machine
 	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)

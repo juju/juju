@@ -1762,22 +1762,21 @@ func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid
 // given machine together with its principal unit name.
 func (st *State) GetUnitNamesWithPrincipalForMachine(
 	ctx context.Context,
-	uuid string,
+	nodeUUID string,
 ) ([]coreunit.NameWithPrincipal, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+	netNodeUUID := netNodeUUID{NetNodeUUID: nodeUUID}
 	stmt, err := st.Prepare(`
 SELECT u.name AS &unitWithPrincipal.name,
        p.name AS &unitWithPrincipal.principal_unit_name
-FROM   machine AS m
-INNER JOIN unit AS u ON u.net_node_uuid = m.net_node_uuid
+FROM      unit           AS u
 LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
-LEFT JOIN unit AS p ON up.principal_uuid = p.uuid
-WHERE  m.net_node_uuid = $netNodeUUID.uuid
+LEFT JOIN unit           AS p ON up.principal_uuid = p.uuid
+WHERE u.net_node_uuid = $netNodeUUID.uuid
 `, unitWithPrincipal{}, netNodeUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1793,7 +1792,7 @@ WHERE  m.net_node_uuid = $netNodeUUID.uuid
 	})
 	if err != nil {
 		return nil, errors.Errorf(
-			"querying unit names with principals for machine %q: %w", uuid, err,
+			"querying unit names with principals for machine %q: %w", nodeUUID, err,
 		)
 	}
 
@@ -1806,7 +1805,6 @@ WHERE  m.net_node_uuid = $netNodeUUID.uuid
 			nwp.Principal = new(coreunit.Name(row.PrincipalUnitName.String))
 		}
 		result[i] = nwp
-		st.logger.Debugf(ctx, "found unit %q with principle: %q", row.Name.String(), row.PrincipalUnitName.String)
 	}
 	return result, nil
 }
