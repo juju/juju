@@ -377,11 +377,11 @@ func (api *ProvisionerAPI) machineTags(
 	// Names of all units deployed to the machine.
 	principalUnitNames := make([]string, 0, len(unitNames))
 	for _, unitName := range unitNames {
-		principleUnit := unitName.Name
+		principalUnit := unitName.Name
 		if unitName.IsSubordinate() {
-			principleUnit = *unitName.Principal
+			principalUnit = *unitName.Principal
 		}
-		principalUnitNames = append(principalUnitNames, principleUnit.String())
+		principalUnitNames = append(principalUnitNames, principalUnit.String())
 	}
 	sort.Strings(principalUnitNames)
 
