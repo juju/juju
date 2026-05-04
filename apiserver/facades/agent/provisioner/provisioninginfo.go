@@ -383,7 +383,8 @@ func (api *ProvisionerAPI) machineTags(
 		}
 		principalUnitNames = append(principalUnitNames, principalUnit.String())
 	}
-	sort.Strings(principalUnitNames)
+	slices.Sort(principalUnitNames)
+	principalUnitNames = slices.Compact(principalUnitNames)
 
 	machineTags := instancecfg.InstanceTags(api.modelUUID.String(), api.controllerUUID, resourceTags, isController)
 	if len(unitNames) > 0 {
