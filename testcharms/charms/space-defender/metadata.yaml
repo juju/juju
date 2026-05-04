@@ -1,8 +1,4 @@
-name: space-defender
-summary: Defend your spaces against invaders
 maintainer: juju QA <juju-qa@canonical.com>
-description: |
-  Defend your spaces against invaders
 tags:
   - security
 series:

@@ -1,3 +1,6 @@
+name: dummy-source
+summary: Dummy charm that provides data
+description: This dummy charm is used to verify that a relationship is created correctly
 type: "charm"
 base: ubuntu@24.04
 platforms:

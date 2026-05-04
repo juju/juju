@@ -1,8 +1,4 @@
-name: dummy-source
 maintainer: Juju Crew <juju-crew@canonical.com>
-summary: Dummy charm that provides data
-description: |
-  This dummy charm is used to verify that a relationship is created correctly
 requires:
   sink:
     interface: dummy-token
@@ -13,4 +9,3 @@ series:
   - bionic
   - focal
   - jammy
-

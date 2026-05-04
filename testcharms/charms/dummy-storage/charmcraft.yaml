@@ -1,3 +1,6 @@
+name: dummy-storage
+summary: Dummy charm that utilises storage.
+description: This dummy-storage charm is used for testing persistent storage.
 type: "charm"
 base: ubuntu@24.04
 platforms:

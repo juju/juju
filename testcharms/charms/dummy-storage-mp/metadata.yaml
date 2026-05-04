@@ -1,6 +1,4 @@
-description: description
 maintainer: juju-qa@lists.canonical.com
-name: dummy-storage-mp
 series:
 - jammy
 - focal
@@ -13,4 +11,3 @@ storage:
     multiple:
       range: 0-10
     type: block
-summary: Test charm for storage

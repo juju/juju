@@ -1,3 +1,6 @@
+name: space-defender
+summary: Defend your spaces against invaders
+description: Defend your spaces against invaders
 type: "charm"
 base: ubuntu@24.04
 platforms:

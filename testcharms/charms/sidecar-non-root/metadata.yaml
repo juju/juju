@@ -1,6 +1,3 @@
-name: sidecar-non-root
-summary: sidecar charm with rootless charm and workloads
-description: ""
 containers:
   rootful:
     resource: ubuntu

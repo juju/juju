@@ -1,3 +1,6 @@
+name: dummy-storage-lp
+summary: Test charm for storage
+description: description
 type: "charm"
 base: ubuntu@24.04
 platforms:

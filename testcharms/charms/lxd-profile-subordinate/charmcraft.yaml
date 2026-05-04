@@ -1,3 +1,6 @@
+name: lxd-profile-subordinate
+summary: start a juju machine with a lxd profile subordinate
+description: Run an Ubuntu system, with the given subordinate lxd-profile
 type: "charm"
 base: ubuntu@24.04
 platforms:

@@ -1,8 +1,4 @@
-name: lxd-profile
-summary: start a juju machine with a lxd profile
 maintainer: Juju Crew <juju-crew@canonical.com>
-description: |
-  Run an Ubuntu system, with the given lxd-profile
 provides:
   ubuntu:
     interface: ubuntu
@@ -17,4 +13,3 @@ series:
   - focal
   - bionic
   - xenial
-

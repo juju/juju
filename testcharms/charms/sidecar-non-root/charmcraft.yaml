@@ -1,3 +1,6 @@
+name: sidecar-non-root
+summary: sidecar charm with rootless charm and workloads
+description: sidecar charm with rootless charm and workloads
 type: "charm"
 base: ubuntu@24.04
 platforms:

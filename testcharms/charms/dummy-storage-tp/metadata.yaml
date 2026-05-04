@@ -1,6 +1,4 @@
-description: description
 maintainer: juju-qa@lists.canonical.com
-name: dummy-storage-tp
 series:
 - jammy
 - focal
@@ -9,4 +7,3 @@ storage:
   data:
     location: /srv/data
     type: filesystem
-summary: Test charm for storage
