@@ -971,6 +971,12 @@ func (b *CommitHookParamsBuilder) AddTrackLatest(trackLatest []string) {
 	copy(b.arg.TrackLatest, trackLatest)
 }
 
+// SetExpireIssuedTokensOnly requests a minimal commit that only expires secret
+// backend issued tokens for the unit.
+func (b *CommitHookParamsBuilder) SetExpireIssuedTokensOnly() {
+	b.arg.ExpireIssuedTokensOnly = true
+}
+
 // SecretGrantRevokeArgs holds parameters for updating a secret's access.
 type SecretGrantRevokeArgs struct {
 	URI             *secrets.URI

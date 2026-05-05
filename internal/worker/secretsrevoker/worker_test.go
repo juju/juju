@@ -176,28 +176,37 @@ func (s *workerSuite) TestWorkerQuantisedSchedule(c *gc.C) {
 
 	const iterations = 100
 	clk := testclock.NewDilatedWallClock(50 * time.Microsecond)
+	type scheduledExpiry struct {
+		when      time.Time
+		quantised time.Time
+	}
+	times := make([]scheduledExpiry, 0, iterations)
 	now := clk.Now().UTC().Truncate(time.Second)
-	times := map[time.Time]time.Time{}
-	first := time.Time{}
-	for i := range iterations {
-		next := now.Add(time.Duration(rand.Intn(600)) * time.Second)
-		nextQ := secretsrevoker.DefaultQuantiseTime(next)
-		times[next] = nextQ
-		if i == 0 {
-			first = next
-		} else {
-			s.facade.EXPECT().RevokeIssuedTokens(times[now]).Return(next, nil)
-		}
+	for range iterations {
+		next := now.Add(time.Duration(rand.Intn(600)+1) * time.Second)
+		times = append(times, scheduledExpiry{
+			when:      next,
+			quantised: secretsrevoker.DefaultQuantiseTime(next),
+		})
 		now = next
 	}
+	first := times[0].when
 
 	done := make(chan struct{})
-	s.facade.EXPECT().RevokeIssuedTokens(
-		times[now],
-	).DoAndReturn(func(_ time.Time) (time.Time, error) {
-		defer close(done)
-		return time.Time{}, nil
-	})
+	for i, nextExpiry := range times {
+		s.facade.EXPECT().RevokeIssuedTokens(gomock.Any()).DoAndReturn(func(until time.Time) (time.Time, error) {
+			if !until.Equal(nextExpiry.quantised) {
+				// If the clock has already passed the target expiry, the worker
+				// intentionally schedules immediate revocation.
+				c.Assert(until, jc.Before, clk.Now().Add(2*time.Second))
+			}
+			if i+1 >= len(times) {
+				close(done)
+				return time.Time{}, nil
+			}
+			return times[i+1].when, nil
+		})
+	}
 
 	ch := make(chan []string, 1)
 	ch <- []string(nil)
@@ -205,26 +214,54 @@ func (s *workerSuite) TestWorkerQuantisedSchedule(c *gc.C) {
 	defer workertest.CheckKilled(c, expiryWatcher)
 	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
 
-	quantiseTime := func(x time.Time) time.Time {
-		for k, v := range times {
-			if k.Equal(x) {
-				return v
-			}
-		}
-		c.Errorf("unexpected time %q", x)
-		return x
-	}
 	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
 		Facade:       s.facade,
 		Logger:       loggo.GetLogger("test"),
 		Clock:        clk,
-		QuantiseTime: quantiseTime,
+		QuantiseTime: secretsrevoker.DefaultQuantiseTime,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 
 	ch <- []string{first.Format(time.RFC3339)}
+	<-done
+}
+
+func (s *workerSuite) TestWorkerSchedulesImmediateForPastDueExpiry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+	now := clk.Now().UTC().Truncate(time.Second)
+	pastDue := now.Add(-10 * time.Second)
+
+	ch := make(chan []string, 1)
+	ch <- []string(nil)
+	expiryWatcher := watchertest.NewMockStringsWatcher(ch)
+	defer workertest.CheckKilled(c, expiryWatcher)
+	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
+
+	done := make(chan struct{})
+	s.facade.EXPECT().RevokeIssuedTokens(gomock.Any()).DoAndReturn(func(until time.Time) (time.Time, error) {
+		defer close(done)
+		c.Assert(until, jc.Before, now.Add(5*time.Second))
+		return time.Time{}, nil
+	})
+
+	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
+		Facade: s.facade,
+		Logger: loggo.GetLogger("test"),
+		Clock:  clk,
+		QuantiseTime: func(t time.Time) time.Time {
+			// Use a large offset to make accidental quantisation obvious.
+			return t.Add(10 * time.Minute)
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	ch <- []string{pastDue.Format(time.RFC3339)}
 	<-done
 }
 

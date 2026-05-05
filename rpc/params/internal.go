@@ -321,6 +321,10 @@ type CommitHookChangesArg struct {
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`
 	SecretDeletes        []DeleteSecretArg      `json:"secret-deletes,omitempty"`
+	// ExpireIssuedTokensOnly requests a minimal commit operation that only
+	// expires secret backend issued tokens. It's used when there's no
+	// other changes but we still need to expire tokens.
+	ExpireIssuedTokensOnly bool `json:"expire-issued-tokens-only,omitempty"`
 }
 
 // ModelConfig holds a model configuration.

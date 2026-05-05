@@ -121,6 +121,15 @@ func (w *revoker) loop() (err error) {
 		next  time.Time
 		fire  <-chan time.Time
 	)
+	// Expiry times that are already due should be processed immediately,
+	// while future times are still bucketed for normal quantised scheduling.
+	scheduleTime := func(when time.Time) time.Time {
+		now := clk.Now()
+		if !when.After(now) {
+			return now
+		}
+		return quantiseTime(when)
+	}
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -149,7 +158,7 @@ func (w *revoker) loop() (err error) {
 			if earliest.IsZero() {
 				continue
 			}
-			earliestQuantised := quantiseTime(earliest)
+			earliestQuantised := scheduleTime(earliest)
 			if !next.Equal(earliestQuantised) {
 				next = earliestQuantised
 				logger.Debugf("scheduling revoke at %v", next)
@@ -171,7 +180,7 @@ func (w *revoker) loop() (err error) {
 				next = time.Time{}
 				continue
 			}
-			next = quantiseTime(nextRevoke)
+			next = scheduleTime(nextRevoke)
 			logger.Debugf("scheduling revoke at %v", next)
 			alarm.Reset(next)
 		}

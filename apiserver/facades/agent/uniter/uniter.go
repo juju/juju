@@ -2686,6 +2686,16 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 	appTag := names.NewApplicationTag(appName)
 
+	if changes.ExpireIssuedTokensOnly {
+		if hasOtherCommitHookChanges(changes) {
+			// Should never happen.
+			return errors.New("expire-issued-tokens-only cannot be combined with other commit hook changes")
+		}
+		return u.st.ApplyOperation(state.ComposeModelOperations(
+			u.secrets.ExpireSecretBackendIssuedTokensForConsumer(unitTag),
+		))
+	}
+
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
@@ -2927,6 +2937,19 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+}
+
+func hasOtherCommitHookChanges(changes params.CommitHookChangesArg) bool {
+	if changes.UpdateNetworkInfo || changes.SetUnitState != nil ||
+		changes.SetPodSpec != nil || changes.SetRawK8sSpec != nil {
+		return true
+	}
+	return len(changes.RelationUnitSettings) > 0 ||
+		len(changes.OpenPorts) > 0 || len(changes.ClosePorts) > 0 ||
+		len(changes.AddStorage) > 0 || len(changes.SecretCreates) > 0 ||
+		len(changes.TrackLatest) > 0 || len(changes.SecretUpdates) > 0 ||
+		len(changes.SecretGrants) > 0 || len(changes.SecretRevokes) > 0 ||
+		len(changes.SecretDeletes) > 0
 }
 
 // WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.

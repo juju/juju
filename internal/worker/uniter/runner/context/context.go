@@ -363,6 +363,10 @@ type HookContext struct {
 	// secretChanges records changes to secrets during a hook execution.
 	secretChanges *secretsChangeRecorder
 
+	// secretAccessPerformed tracks whether a secret get was requested during
+	// this hook, so a "read-only" hook can still commit token-expiry cleanup.
+	secretAccessPerformed bool
+
 	mu sync.Mutex
 }
 
@@ -900,6 +904,7 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 			}
 		}
 	}
+	ctx.secretAccessPerformed = true
 	backend, err := ctx.getSecretsBackend()
 	if err != nil {
 		return nil, err
@@ -1833,9 +1838,16 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
-	// Generate change request but skip its execution if no changes are pending.
+	// Generate change request but skip its execution if no changes are pending,
+	// unless we still need to expire issued tokens after secret access.
 	commitReq, numChanges := b.Build()
-	if numChanges > 0 {
+	shouldCommit := numChanges > 0
+	if !shouldCommit && ctx.secretAccessPerformed {
+		b.SetExpireIssuedTokensOnly()
+		commitReq, _ = b.Build()
+		shouldCommit = true
+	}
+	if shouldCommit {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
 			ctx.logger.Errorf("cannot apply changes: %v", err)
 		cleanupDone:
@@ -1853,6 +1865,7 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	// Call completed successfully; update local state
 	ctx.charmStateCacheDirty = false
+	ctx.secretAccessPerformed = false
 	return nil
 }
 

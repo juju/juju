@@ -4840,6 +4840,46 @@ func (s *uniterSuite) TestCommitHookChangesExpiresSecretBackendTokens(c *gc.C) {
 	c.Check(tokens, gc.HasLen, 10)
 }
 
+func (s *uniterSuite) TestCommitHookChangesExpireIssuedTokensOnly(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	now := time.Now()
+
+	// Create 3 tokens to check expiry.
+	for range 3 {
+		issuedToken := state.SecretBackendIssuedToken{
+			UUID:       utils.MustNewUUID().String(),
+			ExpireTime: now.Add(time.Hour),
+			BackendID:  "backend-id",
+			Consumer:   s.wordpressUnit.Tag(),
+		}
+		err := store.CreateSecretBackendIssuedToken(issuedToken)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	reservedURI := secrets.NewURI()
+	err := store.ReserveSecret(reservedURI, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.SetExpireIssuedTokensOnly()
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	// Tokens are expired by just setting the expire tokens bool.
+	tokens, err := store.ListSecretBackendIssuedTokenUntilForConsumer(now, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 3)
+
+	// Read-only secret access commit must not remove secret reservations.
+	reserved, err := store.ListReservedSecrets([]names.Tag{s.wordpressUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, gc.HasLen, 1)
+}
+
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block2") // supports multiple storage instances

@@ -407,6 +407,29 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
+func (s *FlushContextSuite) TestFlushReadOnlySecretAccessExpiresIssuedTokens(c *gc.C) {
+	ctx := s.context(c)
+	ctx.SetSecretAccessPerformed(true)
+
+	store := state.NewSecrets(s.State)
+	now := time.Now()
+	token := state.SecretBackendIssuedToken{
+		UUID:       utils.MustNewUUID().String(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.unit.Tag(),
+	}
+	err := store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.Flush("secret-get", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expired, err := store.ListSecretBackendIssuedTokenUntilForConsumer(now, s.unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expired, gc.HasLen, 1)
+}
+
 func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)

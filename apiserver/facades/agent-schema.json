@@ -14038,6 +14038,9 @@
                                 "$ref": "#/definitions/EntityPortRange"
                             }
                         },
+                        "expire-issued-tokens-only": {
+                            "type": "boolean"
+                        },
                         "open-ports": {
                             "type": "array",
                             "items": {

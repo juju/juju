@@ -137,7 +137,7 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state State) 
 func NewMockUnitHookContextWithStateAndModelType(mockUnit *mocks.MockHookUnit, state State, modelType model.ModelType) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
+		unitName:               mockUnit.Tag().Id(), // unitName used by the action finaliser method.
 		unit:                   mockUnit,
 		state:                  state,
 		logger:                 logger,
@@ -151,7 +151,7 @@ func NewMockUnitHookContextWithStateAndModelType(mockUnit *mocks.MockHookUnit, s
 func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, state State, storageTag names.StorageTag) *HookContext {
 	logger := loggo.GetLogger("test")
 	return &HookContext{
-		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
+		unitName:               unit.Tag().Id(), // unitName used by the action finaliser method.
 		unit:                   unit,
 		state:                  state,
 		logger:                 logger,
@@ -384,4 +384,8 @@ func (ctx *HookContext) PendingSecretTrackLatest() map[string]bool {
 
 func (ctx *HookContext) SetInClusterConfig(inClusterConfig func() (*rest.Config, error)) {
 	ctx.inClusterConfig = inClusterConfig
+}
+
+func (ctx *HookContext) SetSecretAccessPerformed(performed bool) {
+	ctx.secretAccessPerformed = performed
 }
