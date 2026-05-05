@@ -6,7 +6,6 @@ package kubernetes
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -45,36 +44,6 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(ctx context.Context, 
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteCustomResources(ctx context.Context, selectorGetter func(apiextensionsv1.CustomResourceDefinition) k8slabels.Selector) error {
-	crds, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{
-		// CRDs might be provisioned by another application/charm from a different model.
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, crd := range crds.Items {
-		selector := selectorGetter(crd)
-		if selector.Empty() {
-			continue
-		}
-		for _, version := range crd.Spec.Versions {
-			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			err = crdClient.DeleteCollection(ctx, metav1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
-			}, metav1.ListOptions{
-				LabelSelector: selector.String(),
-			})
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
 }
 
 // getAllNamespacesCustomResourceDefinitionClient returns a dynamic resource
@@ -272,41 +241,4 @@ func (k *kubernetesClient) listAllCustomResourcesAllNamespaces(
 
 func isCRDScopeNamespaced(scope apiextensionsv1.ResourceScope) bool {
 	return scope == apiextensionsv1.NamespaceScoped
-}
-
-func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv1.CustomResourceDefinition, version string) (dynamic.ResourceInterface, error) {
-	if version == "" {
-		return nil, errors.NotValidf("empty version for custom resource definition %q", crd.GetName())
-	}
-
-	checkVersion := func() error {
-		for _, v := range crd.Spec.Versions {
-			if !v.Served {
-				continue
-			}
-			if version == v.Name {
-				return nil
-			}
-		}
-		return errors.NewNotValid(nil, fmt.Sprintf("custom resource definition %s %s is not a supported and served version", crd.GetName(), version))
-	}
-
-	if err := checkVersion(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	client := k.dynamicClient().Resource(
-		schema.GroupVersionResource{
-			Group:    crd.Spec.Group,
-			Version:  version,
-			Resource: crd.Spec.Names.Plural,
-		},
-	)
-	if !isCRDScopeNamespaced(crd.Spec.Scope) {
-		return client, nil
-	}
-
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-	return client.Namespace(k.namespace), nil
 }

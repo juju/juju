@@ -96,6 +96,7 @@ type CreateSecretArg struct {
 
 	// URI identifies the secret to create.
 	// If empty, the controller generates a URI.
+	//
 	// Deprecated: Do not supply a URI, it will be ignored.
 	URI *string `json:"uri,omitempty"`
 	// OwnerTag is the owner of the secret.

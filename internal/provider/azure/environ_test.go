@@ -795,10 +795,10 @@ func (s *environSuite) assertStartInstance(
 	}
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, tc.DeepEquals, &instance.HardwareCharacteristics{
-		Arch:     &arch,
-		Mem:      &mem,
-		RootDisk: &expectedRootDisk,
-		CpuCores: &cpuCores,
+		Arch:           &arch,
+		Mem:            &mem,
+		RootDisk:       &expectedRootDisk,
+		CpuCores:       &cpuCores,
 		RootDiskSource: &testRootDiskSource,
 	})
 	startParams := assertStartInstanceRequestsParams{

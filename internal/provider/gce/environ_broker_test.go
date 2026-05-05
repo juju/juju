@@ -635,7 +635,7 @@ func (s *environBrokerSuite) TestStartInstanceRootDiskStoragePool(c *tc.C) {
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	s.StartInstArgs.Constraints = constraints.MustParse("root-disk-source=test-storage-pool")
 	s.StartInstArgs.RootDisk = &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "pd-ssd",
 		},
 	}
@@ -797,7 +797,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskSourceInvalid(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesValid(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "pd-ssd",
 		},
 	}
@@ -810,7 +810,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesValid(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesOverrideConstraint(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "pd-standard",
 		},
 	}
@@ -824,7 +824,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesOverrideConstraint(c 
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesLocalSSD(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "local-ssd",
 		},
 	}
@@ -835,7 +835,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesLocalSSD(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesInvalidDiskType(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "unknown-type",
 		},
 	}

@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/clock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -584,7 +583,7 @@ func (k *kubernetesClient) updateRole(
 	var out *rbacv1.Role
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			patch := map[string]interface{}{
+			patch := map[string]any{
 				"rules": role.Rules,
 			}
 			data, err := json.Marshal(patch)
@@ -1245,7 +1244,7 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		serviceAccount: broker.serviceAccount,
 		client:         broker.client,
 		// TODO: expose to test.
-		clock: clock.WallClock,
+		clock: jujuclock.WallClock,
 	}, nil
 }
 

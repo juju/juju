@@ -9,8 +9,8 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/constraints"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/jujutest"
