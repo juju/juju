@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -427,9 +428,9 @@ const (
 	minExpireSeconds = 600
 )
 
-func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.ServiceAccount) (*core.ServiceAccount, error) {
+func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.ServiceAccount) (_ *core.ServiceAccount, created bool, _ error) {
 	if k.namespace == "" {
-		return nil, errNoNamespace
+		return nil, false, errNoNamespace
 	}
 
 	api := k.client.CoreV1().ServiceAccounts(k.namespace)
@@ -439,19 +440,19 @@ func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.Se
 		// by something other than Juju.
 		existing, err := api.Get(ctx, sa.Name, v1.GetOptions{})
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, false, errors.Trace(err)
 		}
 		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
 			// sa.Name is already used for an existing service account.
-			return nil, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
+			return nil, false, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
 		}
 		if existingModelIdValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIdValue != k.modelUUID {
 			// sa.Name is already used for an existing service account from a different model.
-			return nil, errors.Errorf("service account %q exists and is not managed by this model", sa.GetName())
+			return nil, false, errors.Errorf("service account %q exists and is not managed by this model", sa.GetName())
 		}
-		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
+		return existing, false, nil
 	}
-	return out, errors.Trace(err)
+	return out, true, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteServiceAccount(ctx context.Context, name string, uid types.UID) error {
@@ -521,16 +522,31 @@ func (k *kubernetesClient) deleteSecrets(ctx context.Context) error {
 
 func (k *kubernetesClient) createRole(
 	ctx context.Context, role *rbacv1.Role,
-) (*rbacv1.Role, error) {
+) (_ *rbacv1.Role, created bool, _ error) {
 	if k.namespace == "" {
-		return nil, errNoNamespace
+		return nil, false, errNoNamespace
 	}
+	api := k.client.RbacV1().Roles(k.namespace)
 	out, err := k.client.RbacV1().Roles(k.namespace).Create(
 		ctx, role, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("role %q", role.GetName())
+		existing, err := api.Get(ctx, role.GetName(), v1.GetOptions{})
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+			return nil, false, errors.Errorf("role %q exists and is not managed by Juju", role.GetName())
+		}
+		if existingModelIDValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIDValue != k.modelUUID {
+			return nil, false, errors.Errorf("role %q exists and is not managed by this model", role.GetName())
+		}
+		// Should never happen.
+		if !reflect.DeepEqual(existing.Rules, role.Rules) {
+			return nil, false, errors.NotSupportedf("changing rules for role %q", role.GetName())
+		}
+		return existing, false, nil
 	}
-	return out, errors.Trace(err)
+	return out, true, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteRoles(ctx context.Context) error {
@@ -638,23 +654,40 @@ func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid type
 
 func (k *kubernetesClient) createRoleBinding(
 	ctx context.Context, rb *rbacv1.RoleBinding,
-) (_ *rbacv1.RoleBinding, cleanups []func(), err error) {
+) (_ *rbacv1.RoleBinding, created bool, cleanups []func(), err error) {
 	if k.namespace == "" {
-		return nil, nil, errNoNamespace
+		return nil, false, nil, errNoNamespace
 	}
 
 	api := k.client.RbacV1().RoleBindings(k.namespace)
 	out, err := api.Create(ctx, rb, v1.CreateOptions{
 		FieldManager: resources.JujuFieldManager,
 	})
+	if k8serrors.IsAlreadyExists(err) {
+		existing, err := api.Get(ctx, rb.GetName(), v1.GetOptions{})
+		if err != nil {
+			return nil, false, nil, errors.Trace(err)
+		}
+		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+			return nil, false, nil, errors.Errorf("role binding %q exists and is not managed by Juju", rb.GetName())
+		}
+		if existingModelIDValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIDValue != k.modelUUID {
+			return nil, false, nil, errors.Errorf("role binding %q exists and is not managed by this model", rb.GetName())
+		}
+		// Should never happen.
+		if !reflect.DeepEqual(existing.RoleRef, rb.RoleRef) || !reflect.DeepEqual(existing.Subjects, rb.Subjects) {
+			return nil, false, nil, errors.NotSupportedf("changing bindings for role binding %q", rb.GetName())
+		}
+		return existing, false, nil, nil
+	}
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, false, nil, errors.Trace(err)
 	}
 	cleanups = append(cleanups, func() {
 		_ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID())
 	})
 
-	return out, cleanups, nil
+	return out, true, cleanups, nil
 }
 
 func (k *kubernetesClient) deleteRoleBinding(
@@ -712,23 +745,24 @@ func policyRulesForSecretAccess(
 func (k *kubernetesClient) createRoleAndBinding(
 	ctx context.Context, sa *core.ServiceAccount, rules []rbacv1.PolicyRule,
 ) (cleanups []func(), _ error) {
-	role, err := k.createRole(ctx,
-		&rbacv1.Role{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        sa.Name,
-				Namespace:   k.namespace,
-				Labels:      sa.Labels,
-				Annotations: sa.Annotations,
-			},
-			Rules: rules,
+	roleSpec := &rbacv1.Role{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        sa.Name,
+			Namespace:   k.namespace,
+			Labels:      sa.Labels,
+			Annotations: sa.Annotations,
 		},
-	)
+		Rules: rules,
+	}
+	role, roleCreated, err := k.createRole(ctx, roleSpec)
 	if err != nil {
 		return cleanups, errors.Annotatef(err, "creating role %q", sa.Name)
 	}
-	cleanups = append(cleanups, func() {
-		_ = k.deleteRole(ctx, role.GetName(), role.GetUID())
-	})
+	if roleCreated {
+		cleanups = append(cleanups, func() {
+			_ = k.deleteRole(ctx, role.GetName(), role.GetUID())
+		})
+	}
 
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
@@ -750,7 +784,7 @@ func (k *kubernetesClient) createRoleAndBinding(
 			},
 		},
 	}
-	out, rbCleanups, err := k.createRoleBinding(ctx, rb)
+	out, _, rbCleanups, err := k.createRoleBinding(ctx, rb)
 	if err != nil {
 		return cleanups, errors.Trace(err)
 	}
@@ -778,12 +812,27 @@ func (k *kubernetesClient) createRoleAndBinding(
 	}))
 }
 
-func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	out, err := k.client.RbacV1().ClusterRoles().Create(ctx, clusterRole, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
+func (k *kubernetesClient) createClusterRole(ctx context.Context, clusterRole *rbacv1.ClusterRole) (_ *rbacv1.ClusterRole, created bool, _ error) {
+	api := k.client.RbacV1().ClusterRoles()
+	out, err := api.Create(ctx, clusterRole, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("cluster role %q", clusterRole.GetName())
+		existing, err := api.Get(ctx, clusterRole.GetName(), v1.GetOptions{})
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+			return nil, false, errors.Errorf("cluster role %q exists and is not managed by Juju", clusterRole.GetName())
+		}
+		if existingModelIDValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIDValue != k.modelUUID {
+			return nil, false, errors.Errorf("cluster role %q exists and is not managed by this model", clusterRole.GetName())
+		}
+		// Should never happen.
+		if !reflect.DeepEqual(existing.Rules, clusterRole.Rules) {
+			return nil, false, errors.NotSupportedf("changing rules for cluster role %q", clusterRole.GetName())
+		}
+		return existing, false, nil
 	}
-	return out, errors.Trace(err)
+	return out, true, errors.Trace(err)
 }
 
 // updateClusterRole fetches the latest version of the specified ClusterRole,
@@ -832,12 +881,27 @@ func (k *kubernetesClient) deleteClusterRole(ctx context.Context, name string, u
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createClusterRoleBinding(ctx context.Context, clusterRoleBinding *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-	out, err := k.client.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
+func (k *kubernetesClient) createClusterRoleBinding(ctx context.Context, clusterRoleBinding *rbacv1.ClusterRoleBinding) (_ *rbacv1.ClusterRoleBinding, created bool, _ error) {
+	api := k.client.RbacV1().ClusterRoleBindings()
+	out, err := api.Create(ctx, clusterRoleBinding, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("cluster role binding %q", clusterRoleBinding.GetName())
+		existing, err := api.Get(ctx, clusterRoleBinding.GetName(), v1.GetOptions{})
+		if err != nil {
+			return nil, false, errors.Trace(err)
+		}
+		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+			return nil, false, errors.Errorf("cluster role binding %q exists and is not managed by Juju", clusterRoleBinding.GetName())
+		}
+		if existingModelIDValue, ok := existing.Annotations[modelIdKey]; ok && existingModelIDValue != k.modelUUID {
+			return nil, false, errors.Errorf("cluster role binding %q exists and is not managed by this model", clusterRoleBinding.GetName())
+		}
+		// Should never happen.
+		if !reflect.DeepEqual(existing.RoleRef, clusterRoleBinding.RoleRef) || !reflect.DeepEqual(existing.Subjects, clusterRoleBinding.Subjects) {
+			return nil, false, errors.NotSupportedf("changing bindings for cluster role binding %q", clusterRoleBinding.GetName())
+		}
+		return existing, false, nil
 	}
-	return out, errors.Trace(err)
+	return out, true, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteClusterRoleBinding(ctx context.Context, name string, uid types.UID) error {
@@ -902,7 +966,7 @@ func (k *kubernetesClient) createClusterRoleAndBinding(
 	ctx context.Context, sa *core.ServiceAccount,
 	rules []rbacv1.PolicyRule,
 ) (cleanups []func(), _ error) {
-	cr, err := k.createClusterRole(ctx,
+	cr, crCreated, err := k.createClusterRole(ctx,
 		&rbacv1.ClusterRole{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        sa.Name,
@@ -916,11 +980,13 @@ func (k *kubernetesClient) createClusterRoleAndBinding(
 		return cleanups, errors.Annotatef(
 			err, "creating cluster role %q", sa.Name)
 	}
-	cleanups = append(cleanups, func() {
-		_ = k.deleteClusterRole(ctx, cr.GetName(), cr.GetUID())
-	})
+	if crCreated {
+		cleanups = append(cleanups, func() {
+			_ = k.deleteClusterRole(ctx, cr.GetName(), cr.GetUID())
+		})
+	}
 
-	crb, err := k.createClusterRoleBinding(ctx,
+	crb, crbCreated, err := k.createClusterRoleBinding(ctx,
 		&rbacv1.ClusterRoleBinding{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        sa.Name,
@@ -945,9 +1011,11 @@ func (k *kubernetesClient) createClusterRoleAndBinding(
 		return cleanups, errors.Annotatef(
 			err, "creating cluster role binding %q", sa.Name)
 	}
-	cleanups = append(cleanups, func() {
-		_ = k.deleteClusterRoleBinding(ctx, crb.GetName(), crb.GetUID())
-	})
+	if crbCreated {
+		cleanups = append(cleanups, func() {
+			_ = k.deleteClusterRoleBinding(ctx, crb.GetName(), crb.GetUID())
+		})
+	}
 
 	// Ensure role binding exists before we return to avoid a race where a
 	// client attempts to perform an operation before the role is allowed.
@@ -1065,13 +1133,16 @@ func (k *kubernetesClient) createSecretAccessToken(
 		},
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
-	sa, err = k.createServiceAccount(ctx, sa)
+	var saCreated bool
+	sa, saCreated, err = k.createServiceAccount(ctx, sa)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot ensure service account %q", serviceAccountName)
 	}
-	cleanups = append(cleanups, func() {
-		_ = k.deleteServiceAccount(ctx, sa.Name, sa.UID)
-	})
+	if saCreated {
+		cleanups = append(cleanups, func() {
+			_ = k.deleteServiceAccount(ctx, sa.Name, sa.UID)
+		})
+	}
 
 	rules := policyRulesForSecretAccess(k.namespace, ownedRevs, readRevs)
 	rCleanups, err := k.createRoleAndBinding(ctx, sa, rules)

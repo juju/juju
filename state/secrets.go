@@ -4019,6 +4019,7 @@ type secretIssuedTokenDoc struct {
 	ConsumerTag string    `bson:"consumer-tag"`
 	ExpireTime  time.Time `bson:"expire-time"`
 	BackendID   string    `bson:"backend-id"`
+	ScopeHash   string    `bson:"scope-hash"`
 }
 
 // CreateSecretBackendIssuedToken inserts the given secret backend issued token
@@ -4076,6 +4077,7 @@ func (s *secretsStore) CreateSecretBackendIssuedToken(
 		BackendID:   token.BackendID,
 		ExpireTime:  token.ExpireTime.UTC().Truncate(time.Second),
 		ConsumerTag: token.Consumer.String(),
+		ScopeHash:   token.ScopeHash,
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
@@ -4126,6 +4128,10 @@ type SecretBackendIssuedToken struct {
 	// Consumer is a tag that represents the entity which the secret backend
 	// issued token was created for.
 	Consumer names.Tag
+
+	// ScopeHash is a deterministic hash of the backend access scope (owned IDs,
+	// owned revs, read revs) used when this token was issued.
+	ScopeHash string
 }
 
 // NextSecretBackendIssuedTokenExpiry returns the time of the next secret
@@ -4195,6 +4201,7 @@ func (s *secretsStore) listSecretBackendIssuedTokenUntil(
 			ExpireTime: doc.ExpireTime,
 			BackendID:  doc.BackendID,
 			Consumer:   consumerTag,
+			ScopeHash:  doc.ScopeHash,
 		})
 	}
 

@@ -5,6 +5,7 @@ package vault_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -116,6 +117,18 @@ func (s *providerSuite) TestBackendConfigAdmin(c *gc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodGet)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader(`{"errors":[]}`)),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodPut)
 			b, _ := ioutil.ReadAll(req.Body)
 			defer req.Body.Close()
 			policyReq := struct {
@@ -186,6 +199,18 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *gc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodGet)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader(`{"errors":[]}`)),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodPut)
 			b, _ := ioutil.ReadAll(req.Body)
 			defer req.Body.Close()
 			policyReq := struct {
@@ -266,6 +291,18 @@ func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodGet)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader(`{"errors":[]}`)),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodPut)
 			b, _ := ioutil.ReadAll(req.Body)
 			defer req.Body.Close()
 			policyReq := struct {
@@ -337,6 +374,182 @@ func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
+}
+
+func (s *providerSuite) TestBackendConfigNonAdminIdempotentSameIssuedTokenUUID(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	policyURL := `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`
+	tokenURL := `http://vault-ip:8200/v1/auth/token/create`
+	expectedPolicy := strings.Join([]string{
+		`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+		`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+	}, "\n")
+	policyGetCalls := 0
+	policyPutCalls := 0
+	tokenCalls := 0
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			switch req.URL.String() {
+			case policyURL:
+				if req.Method == http.MethodGet {
+					policyGetCalls++
+					if policyGetCalls == 1 {
+						return &http.Response{Request: req, StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{"errors":[]}`))}, nil
+					}
+					return &http.Response{
+						Request:    req,
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"data":{"policy":%q}}`, expectedPolicy))),
+					}, nil
+				}
+				c.Assert(req.Method, gc.Equals, http.MethodPut)
+				policyPutCalls++
+				b, _ := ioutil.ReadAll(req.Body)
+				defer req.Body.Close()
+				policyReq := struct {
+					Policy string
+				}{}
+				_ = json.Unmarshal(b, &policyReq)
+				c.Assert(policyReq.Policy, gc.Equals, expectedPolicy)
+				return &http.Response{Request: req, StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			case tokenURL:
+				tokenCalls++
+				tokenValue := "foo1"
+				if tokenCalls == 2 {
+					tokenValue = "foo2"
+				}
+				return &http.Response{Request: req, StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"auth": {"client_token": "` + tokenValue + `"}}`))}, nil
+			default:
+				c.Fatalf("unexpected URL %q", req.URL.String())
+				return nil, nil
+			}
+		},
+	).AnyTimes()
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	ownedNames := []string{"owned-1"}
+	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
+	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
+	issuedTokenUUID := "some-uuid"
+
+	cfg1, err := p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, names.NewUnitTag("ubuntu/0"),
+		ownedNames, ownedRevs, readRevs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg1.Config["token"], gc.Equals, "foo1")
+
+	cfg2, err := p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, names.NewUnitTag("ubuntu/0"),
+		ownedNames, ownedRevs, readRevs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg2.Config["token"], gc.Equals, "foo2")
+	c.Assert(policyGetCalls, gc.Equals, 2)
+	c.Assert(policyPutCalls, gc.Equals, 1)
+	c.Assert(tokenCalls, gc.Equals, 2)
+}
+
+func (s *providerSuite) TestBackendConfigNonAdminImmutableMismatchSameIssuedTokenUUID(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	policyURL := `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`
+	tokenURL := `http://vault-ip:8200/v1/auth/token/create`
+	expectedPolicy := strings.Join([]string{
+		`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+		`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+	}, "\n")
+	policyGetCalls := 0
+	policyPutCalls := 0
+	tokenCalls := 0
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			switch req.URL.String() {
+			case policyURL:
+				if req.Method == http.MethodGet {
+					policyGetCalls++
+					if policyGetCalls == 1 {
+						return &http.Response{Request: req, StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{"errors":[]}`))}, nil
+					}
+					return &http.Response{
+						Request:    req,
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"data":{"policy":%q}}`, expectedPolicy))),
+					}, nil
+				}
+				c.Assert(req.Method, gc.Equals, http.MethodPut)
+				policyPutCalls++
+				return &http.Response{Request: req, StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
+			case tokenURL:
+				tokenCalls++
+				return &http.Response{Request: req, StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo1"}}`))}, nil
+			default:
+				c.Fatalf("unexpected URL %q", req.URL.String())
+				return nil, nil
+			}
+		},
+	).AnyTimes()
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	ownedNames := []string{"owned-1"}
+	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
+	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
+	issuedTokenUUID := "some-uuid"
+
+	_, err = p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, names.NewUnitTag("ubuntu/0"),
+		ownedNames, ownedRevs, readRevs,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = p.RestrictedConfig(
+		adminCfg, true, false, issuedTokenUUID, names.NewUnitTag("ubuntu/0"),
+		ownedNames, ownedRevs,
+		map[string]set.Strings{"read-1": set.NewStrings("read-rev-2")},
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(policyGetCalls, gc.Equals, 2)
+	c.Assert(policyPutCalls, gc.Equals, 1)
+	c.Assert(tokenCalls, gc.Equals, 1)
 }
 
 func (s *providerSuite) TestNewBackend(c *gc.C) {

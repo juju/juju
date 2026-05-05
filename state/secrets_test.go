@@ -4419,6 +4419,67 @@ func (s *SecretsSuite) TestCreateSecretBackendIssuedToken(c *gc.C) {
 	c.Assert(n, gc.Equals, 1)
 }
 
+func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenNoopWhenScopeHashMatches(c *gc.C) {
+	uuid := uuid.NewString()
+	expire := s.Clock.Now().Add(time.Minute)
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: expire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Same UUID and scope hash should be a no-op.
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: expire.Add(time.Minute),
+		BackendID:  "backend-id-2",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(expire.Add(2*time.Minute), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	c.Assert(tokens[0].BackendID, gc.Equals, "backend-id")
+	c.Assert(tokens[0].ScopeHash, gc.Equals, "scope-1")
+}
+
+func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenNoopWhenScopeHashChanges(c *gc.C) {
+	uuid := uuid.NewString()
+	expire := s.Clock.Now().Add(time.Minute)
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: expire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newExpire := expire.Add(2 * time.Minute)
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: newExpire,
+		BackendID:  "backend-id-2",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(newExpire.Add(time.Minute), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	c.Assert(tokens[0].UUID, gc.Equals, uuid)
+	c.Assert(tokens[0].BackendID, gc.Equals, "backend-id")
+	c.Assert(tokens[0].ScopeHash, gc.Equals, "scope-1")
+	c.Assert(tokens[0].ExpireTime, jc.DeepEquals, expire.Truncate(time.Second))
+}
+
 func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenForRemoteConsumerApplication(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
@@ -4630,6 +4691,25 @@ func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntilForConsumer(c *gc.C)
 	c.Assert(tokens, gc.HasLen, 1)
 	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
 	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
+}
+
+func (s *SecretsSuite) TestListSecretBackendIssuedTokenIncludesScopeHash(c *gc.C) {
+	now := s.Clock.Now()
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+		ScopeHash:  "scope-hash-1",
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(now.Add(2*time.Minute), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	token.ExpireTime = token.ExpireTime.Truncate(time.Second)
+	c.Assert(tokens[0], jc.DeepEquals, token)
 }
 
 func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {

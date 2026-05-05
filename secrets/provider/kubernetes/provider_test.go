@@ -602,7 +602,15 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.tokens, gc.HasLen, 1)
+	backendCfg2, err := p.RestrictedConfig(
+		adminCfg, false, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 2)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]any{
@@ -613,6 +621,16 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 		},
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
+	expected2 := &provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: map[string]any{
+			"ca-certs":  []string{"cert-data"},
+			"endpoint":  "http://nowhere",
+			"namespace": s.namespace,
+			"token":     s.tokens[1],
+		},
+	}
+	c.Assert(backendCfg2, jc.DeepEquals, expected2)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -646,7 +664,15 @@ func (s *providerSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C)
 		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.tokens, gc.HasLen, 1)
+	backendCfg2, err := p.RestrictedConfig(
+		adminCfg, false, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 2)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]any{
@@ -657,6 +683,16 @@ func (s *providerSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C)
 		},
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
+	expected2 := &provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: map[string]any{
+			"ca-certs":  []string{"cert-data"},
+			"endpoint":  "http://nowhere",
+			"namespace": s.namespace,
+			"token":     s.tokens[1],
+		},
+	}
+	c.Assert(backendCfg2, jc.DeepEquals, expected2)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

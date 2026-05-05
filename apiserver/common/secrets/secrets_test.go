@@ -4,7 +4,11 @@
 package secrets_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -1380,6 +1384,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesToken(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
+	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
@@ -1406,12 +1411,16 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesToken(c *gc.C) {
 	}}, nil)
 	secretProvider.EXPECT().Initialise(gomock.Any()).Return(nil)
 	secretProvider.EXPECT().IssuesTokens().Return(true)
+	secretsState.EXPECT().ListSecretBackendIssuedTokenUntilForConsumer(
+		gomock.Any(), unitTag,
+	).Return(nil, nil)
 	secretsState.EXPECT().CreateSecretBackendIssuedToken(
 		gomock.Any(),
 	).DoAndReturn(func(sbit state.SecretBackendIssuedToken) error {
 		issuedTokenUUID = sbit.UUID
 		c.Check(sbit.Consumer, gc.Equals, unitTag)
 		c.Check(sbit.BackendID, gc.Equals, "backend-id")
+		c.Check(sbit.ScopeHash, gc.Equals, scopeHash)
 		c.Check(sbit.ExpireTime, jc.After, time.Now())
 		return nil
 	})
@@ -1499,6 +1508,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesTokenWithReservedSecrets(c *gc
 	ownedRevs := map[string]set.Strings{}
 	read := []*coresecrets.SecretMetadata{}
 	readRevs := map[string]set.Strings{}
+	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
@@ -1525,12 +1535,16 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesTokenWithReservedSecrets(c *gc
 	}}, nil)
 	secretProvider.EXPECT().Initialise(gomock.Any()).Return(nil)
 	secretProvider.EXPECT().IssuesTokens().Return(true)
+	secretsState.EXPECT().ListSecretBackendIssuedTokenUntilForConsumer(
+		gomock.Any(), unitTag,
+	).Return(nil, nil)
 	secretsState.EXPECT().CreateSecretBackendIssuedToken(
 		gomock.Any(),
 	).DoAndReturn(func(sbit state.SecretBackendIssuedToken) error {
 		issuedTokenUUID = sbit.UUID
 		c.Check(sbit.Consumer, gc.Equals, unitTag)
 		c.Check(sbit.BackendID, gc.Equals, "backend-id")
+		c.Check(sbit.ScopeHash, gc.Equals, scopeHash)
 		c.Check(sbit.ExpireTime, jc.After, time.Now())
 		return nil
 	})
@@ -1575,4 +1589,219 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesTokenWithReservedSecrets(c *gc
 			},
 		},
 	})
+}
+
+func (s *secretsSuite) TestBackendConfigInfoReusesIssuedTokenForSameScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("gitlab/0")
+	model := mocks.NewMockModel(ctrl)
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	secretProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
+	secretsState := mocks.NewMockSecretsStore(ctrl)
+
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return secretProvider, nil })
+	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
+	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
+
+	backendIDs := []string{"backend-id"}
+	owned := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "owned-1"}}}
+	ownedIDs := []string{"owned-1"}
+	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
+	read := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "read-1"}}}
+	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
+	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+
+	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": "backend-name"})
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+	}
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
+	model.EXPECT().Config().Return(modelCfg, nil)
+	model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	secretsState.EXPECT().ListReservedSecrets([]names.Tag{unitTag, names.NewApplicationTag("gitlab")}).Return(nil, nil)
+	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend-name",
+		BackendType: "some-backend",
+	}}, nil)
+	secretProvider.EXPECT().Initialise(gomock.Any()).Return(nil)
+	secretProvider.EXPECT().IssuesTokens().Return(true)
+	secretsState.EXPECT().ListSecretBackendIssuedTokenUntilForConsumer(gomock.Any(), unitTag).Return([]state.SecretBackendIssuedToken{{
+		UUID:       "reused-uuid",
+		ExpireTime: time.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   unitTag,
+		ScopeHash:  scopeHash,
+	}}, nil)
+	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
+	token.EXPECT().Check().Return(nil)
+
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
+	}).Return(owned, nil)
+	secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+		Return([]*coresecrets.SecretRevisionMetadata{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
+		}, {
+			Revision: 2,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
+		}}, nil)
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
+	}).Return(read, nil)
+	secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+		Return([]*coresecrets.SecretRevisionMetadata{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
+		}}, nil)
+	secretProvider.EXPECT().RestrictedConfig(
+		&adminCfg, true, false, "reused-uuid", unitTag,
+		ownedIDs, ownedRevs, readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
+
+	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+			},
+		},
+	})
+}
+
+func (s *secretsSuite) TestBackendConfigInfoDoesNotReuseIssuedTokenForDifferentScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("gitlab/0")
+	model := mocks.NewMockModel(ctrl)
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	token := mocks.NewMockToken(ctrl)
+	secretProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
+	secretsState := mocks.NewMockSecretsStore(ctrl)
+
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return secretProvider, nil })
+	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
+	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
+
+	backendIDs := []string{"backend-id"}
+	owned := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "owned-1"}}}
+	ownedIDs := []string{"owned-1"}
+	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
+	read := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "read-1"}}}
+	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
+	newScopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+
+	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": "backend-name"})
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+	}
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
+	model.EXPECT().Config().Return(modelCfg, nil)
+	model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	secretsState.EXPECT().ListReservedSecrets([]names.Tag{unitTag, names.NewApplicationTag("gitlab")}).Return(nil, nil)
+	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend-name",
+		BackendType: "some-backend",
+	}}, nil)
+	secretProvider.EXPECT().Initialise(gomock.Any()).Return(nil)
+	secretProvider.EXPECT().IssuesTokens().Return(true)
+	secretsState.EXPECT().ListSecretBackendIssuedTokenUntilForConsumer(gomock.Any(), unitTag).Return([]state.SecretBackendIssuedToken{{
+		UUID:       "old-uuid",
+		ExpireTime: time.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   unitTag,
+		ScopeHash:  "different-scope",
+	}}, nil)
+	createdTokenUUID := ""
+	secretsState.EXPECT().CreateSecretBackendIssuedToken(gomock.Any()).DoAndReturn(func(tok state.SecretBackendIssuedToken) error {
+		createdTokenUUID = tok.UUID
+		c.Check(tok.ScopeHash, gc.Equals, newScopeHash)
+		c.Check(tok.UUID, gc.Not(gc.Equals), "old-uuid")
+		return nil
+	})
+	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
+	token.EXPECT().Check().Return(nil)
+
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		OwnerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
+	}).Return(owned, nil)
+	secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "owned-1"}).
+		Return([]*coresecrets.SecretRevisionMetadata{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-1"},
+		}, {
+			Revision: 2,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "owned-rev-2"},
+		}}, nil)
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{
+		ConsumerTags: []names.Tag{unitTag, names.NewApplicationTag("gitlab")},
+	}).Return(read, nil)
+	secretsState.EXPECT().ListSecretRevisions(&coresecrets.URI{ID: "read-1"}).
+		Return([]*coresecrets.SecretRevisionMetadata{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
+		}}, nil)
+	secretProvider.EXPECT().RestrictedConfig(
+		&adminCfg, true, false, gomock.Any(), unitTag,
+		ownedIDs, ownedRevs, readRevs,
+	).DoAndReturn(func(_ *provider.ModelBackendConfig, _, _ bool, gotIssuedTokenUUID string, _ names.Tag, _ []string, _, _ provider.SecretRevisions) (*provider.BackendConfig, error) {
+		c.Check(gotIssuedTokenUUID, gc.Equals, createdTokenUUID)
+		c.Check(gotIssuedTokenUUID, gc.Not(gc.Equals), "old-uuid")
+		return &adminCfg.BackendConfig, nil
+	})
+
+	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+			},
+		},
+	})
+}
+
+func issuedTokenScopeHash(ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) string {
+	canonicalOwnedIDs := append([]string(nil), ownedIDs...)
+	slices.Sort(canonicalOwnedIDs)
+	canonicalOwnedIDs = slices.Compact(canonicalOwnedIDs)
+	payload := struct {
+		OwnedIDs  []string `json:"owned-ids"`
+		OwnedRevs []string `json:"owned-revs"`
+		ReadRevs  []string `json:"read-revs"`
+	}{
+		OwnedIDs:  canonicalOwnedIDs,
+		OwnedRevs: ownedRevs.RevisionIDs(),
+		ReadRevs:  readRevs.RevisionIDs(),
+	}
+	b, _ := json.Marshal(payload)
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
 }

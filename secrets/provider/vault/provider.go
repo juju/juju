@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -275,9 +276,9 @@ func (p vaultProvider) RestrictedConfig(
 	}
 
 	policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
-	err = sys.PutPolicyWithContext(ctx, policyName, strings.Join(rules, "\n"))
+	err = p.ensureSecretAccessPolicy(ctx, sys, policyName, rules)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating policy %q", policyName)
+		return nil, errors.Trace(err)
 	}
 	logger.Tracef("policy rules for %q: %#v", policyName, rules)
 
@@ -297,8 +298,51 @@ func (p vaultProvider) RestrictedConfig(
 	}
 
 	cfg := adminCfg.BackendConfig
+	cfg.Config = map[string]interface{}{}
+	for k, v := range adminCfg.BackendConfig.Config {
+		cfg.Config[k] = v
+	}
 	cfg.Config[TokenKey] = s.Auth.ClientToken
 	return &cfg, nil
+}
+
+func (p vaultProvider) ensureSecretAccessPolicy(
+	ctx context.Context,
+	sys *api.Sys,
+	policyName string,
+	rules []string,
+) error {
+	policyRules := strings.Join(rules, "\n")
+	existingRules, err := sys.GetPolicyWithContext(ctx, policyName)
+	if err != nil {
+		return errors.Annotatef(err, "getting policy %q", policyName)
+	}
+	// Should never happen.
+	if existingRules != "" {
+		if normalizePolicyRules(existingRules) != normalizePolicyRules(policyRules) {
+			return errors.NotSupportedf("changing rules for policy %q", policyName)
+		}
+		return nil
+	}
+	err = sys.PutPolicyWithContext(ctx, policyName, policyRules)
+	if err != nil {
+		return errors.Annotatef(err, "creating policy %q", policyName)
+	}
+	return nil
+}
+
+func normalizePolicyRules(rules string) string {
+	lines := strings.Split(rules, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		out = append(out, line)
+	}
+	sort.Strings(out)
+	return strings.Join(out, "\n")
 }
 
 // NewVaultClient is patched for testing.
