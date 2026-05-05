@@ -823,11 +823,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		}
 		info.Models = make([]params.ModelAccess, len(models))
 		for i, m := range models {
-			modelName := m.ModelName
-			if m.ModelQualifier != "" {
-				modelName = fmt.Sprintf("%s/%s", m.ModelQualifier, m.ModelName)
-			}
-			info.Models[i] = params.ModelAccess{Model: modelName, Access: m.OwnerAccess.String()}
+			info.Models[i] = params.ModelAccess{Model: m.ModelQualifier.QualifyName(m.ModelName), Access: m.OwnerAccess.String()}
 		}
 
 		return params.CredentialContentResult{Result: &info}

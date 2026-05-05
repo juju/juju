@@ -5,6 +5,7 @@ package access
 
 import (
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
@@ -41,7 +42,7 @@ func (args UpdatePermissionArgs) Validate() error {
 // or an error retrieving it.
 type CredentialOwnerModelAccess struct {
 	ModelName      string            `db:"model_name"`
-	ModelQualifier string            `db:"model_qualifier"`
+	ModelQualifier model.Qualifier   `db:"model_qualifier"`
 	OwnerAccess    permission.Access `db:"access_type"`
 }
 
