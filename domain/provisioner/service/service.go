@@ -52,8 +52,9 @@ type ControllerState interface {
 	GetCloudEndpoint(ctx context.Context, cloudName, regionName string) (string, error)
 
 	// GetCachedImageMetadata retrieves cached image metadata from the
-	// controller database matching the given version and architecture.
-	GetCachedImageMetadata(ctx context.Context, version, arch string) ([]provisioner.CloudImageMetadata, error)
+	// controller database matching the given version, architecture, region,
+	// and stream. Empty string parameters are treated as wildcards.
+	GetCachedImageMetadata(ctx context.Context, version, arch, region, stream string) ([]provisioner.CloudImageMetadata, error)
 }
 
 // ImageMetadataFetcher fetches image metadata from external sources
@@ -146,11 +147,12 @@ func (s *Service) GetProvisioningInfo(
 	if stateInfo.Constraints.HasArch() {
 		arch = *stateInfo.Constraints.Arch
 	}
-	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch)
+	stream := imageStream(stateInfo.ImageStream)
+	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch, stateInfo.CloudRegion, stream)
 	if err != nil {
-		return provisioner.ProvisioningInfo{}, errors.Errorf(
-			"getting cached image metadata: %w", err,
-		)
+		// Log and continue — fall through to external datasources if cache
+		// lookup fails (matches original graceful-degradation behaviour).
+		s.logger.Infof(ctx, "could not get image metadata from controller: %v", err)
 	}
 
 	// Step 3: Resolve endpoint bindings to space provider IDs/names.
@@ -196,7 +198,7 @@ func (s *Service) GetProvisioningInfo(
 	jobs := s.computeJobs(isControllerModel, stateInfo.IsController)
 
 	// Step 9: Build volume params.
-	volumes, volumeAttachments := s.buildVolumeParams(machineName, stateInfo)
+	volumes, volumeAttachments := s.buildVolumeParams(machineName, stateInfo, resourceTags, controllerUUID)
 
 	// Step 10: Build root disk params.
 	rootDisk := s.buildRootDisk(stateInfo.RootDiskStoragePool)
@@ -441,11 +443,23 @@ func (s *Service) computeJobs(isControllerModel, isController bool) []model.Mach
 }
 
 // buildVolumeParams converts the state-level volume data into the
-// final volume params.
+// final volume params, computing volume tags from model/controller metadata.
 func (s *Service) buildVolumeParams(
 	machineName coremachine.Name,
 	stateInfo provisioner.ProvisioningInfoState,
+	resourceTags map[string]string,
+	controllerUUID string,
 ) ([]provisioner.VolumeParams, []provisioner.VolumeAttachmentParams) {
+	// Compute model-level storage tags (resource tags + controller/model UUIDs).
+	modelTags := make(map[string]string, len(resourceTags)+2)
+	for k, v := range resourceTags {
+		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
+			modelTags[k] = v
+		}
+	}
+	modelTags[tags.JujuController] = controllerUUID
+	modelTags[tags.JujuModel] = string(s.modelUUID)
+
 	capturedVolumes := make(map[string]provisioner.VolumeParams, len(stateInfo.VolumeParams))
 
 	for _, vp := range stateInfo.VolumeParams {
@@ -453,12 +467,24 @@ func (s *Service) buildVolumeParams(
 		for k, v := range vp.Attributes {
 			attr[k] = v
 		}
+
+		// Compute per-volume tags.
+		vTags := make(map[string]string, len(modelTags)+2)
+		for k, v := range modelTags {
+			vTags[k] = v
+		}
+		storageInstTagVal := fmt.Sprintf("%s/%s", vp.StorageName, vp.StorageID)
+		vTags[tags.JujuStorageInstance] = storageInstTagVal
+		if vp.StorageOwnerUnitName != nil {
+			vTags[tags.JujuStorageOwner] = *vp.StorageOwnerUnitName
+		}
+
 		capturedVolumes[vp.UUID] = provisioner.VolumeParams{
 			VolumeID:   vp.ID,
 			Provider:   vp.Provider,
 			SizeMiB:    vp.RequestedSizeMiB,
 			Attributes: attr,
-			Tags:       vp.Tags,
+			Tags:       vTags,
 		}
 	}
 

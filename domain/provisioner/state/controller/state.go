@@ -129,8 +129,9 @@ WHERE c.name = $cloudNameParam.name
 }
 
 // GetCachedImageMetadata retrieves cached image metadata from the controller
-// database matching the given version and architecture.
-func (st *State) GetCachedImageMetadata(ctx context.Context, version, arch string) ([]provisioner.CloudImageMetadata, error) {
+// database matching the given version, architecture, region, and stream.
+// Empty string parameters are treated as wildcards (not filtered on).
+func (st *State) GetCachedImageMetadata(ctx context.Context, version, arch, region, stream string) ([]provisioner.CloudImageMetadata, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -151,18 +152,26 @@ FROM cloud_image_metadata AS cim
 JOIN architecture AS a ON cim.architecture_id = a.id
 WHERE ($imageMetadataFlags.has_version = 0 OR cim.version = $imageMetadataFilter.version)
 AND ($imageMetadataFlags.has_arch = 0 OR a.name = $imageMetadataFilter.arch)
+AND ($imageMetadataFlags.has_region = 0 OR cim.region = $imageMetadataFilter.region)
+AND ($imageMetadataFlags.has_stream = 0 OR cim.stream = $imageMetadataFilter.stream)
 `, imageMetadataRow{}, imageMetadataFilter{}, imageMetadataFlags{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	flags := imageMetadataFlags{}
-	filter := imageMetadataFilter{Version: version, Arch: arch}
+	filter := imageMetadataFilter{Version: version, Arch: arch, Region: region, Stream: stream}
 	if version != "" {
 		flags.HasVersion = 1
 	}
 	if arch != "" {
 		flags.HasArch = 1
+	}
+	if region != "" {
+		flags.HasRegion = 1
+	}
+	if stream != "" {
+		flags.HasStream = 1
 	}
 
 	var rows []imageMetadataRow

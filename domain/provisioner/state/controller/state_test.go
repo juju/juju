@@ -119,7 +119,7 @@ func (s *controllerStateSuite) TestGetCloudEndpointRegionNoEndpoint(c *tc.C) {
 
 // TestGetCachedImageMetadataEmpty verifies empty result for no metadata.
 func (s *controllerStateSuite) TestGetCachedImageMetadataEmpty(c *tc.C) {
-	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64")
+	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }
@@ -131,7 +131,7 @@ func (s *controllerStateSuite) TestGetCachedImageMetadataFiltered(c *tc.C) {
 	s.insertImageMetadata(c, "img-3", "released", "us-east-1", "24.04", 0, "hvm", "ebs", "custom", 30)
 
 	// Filter for 22.04 + amd64 should return img-1 only.
-	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64")
+	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Check(result[0].ImageID, tc.Equals, "img-1")
@@ -147,7 +147,7 @@ func (s *controllerStateSuite) TestGetCachedImageMetadataNoFilter(c *tc.C) {
 	s.insertImageMetadata(c, "img-1", "released", "us-east-1", "22.04", 0, "hvm", "ebs", "custom", 10)
 	s.insertImageMetadata(c, "img-2", "daily", "eu-west-1", "24.04", 1, "hvm", "ssd", "custom", 20)
 
-	result, err := s.state.GetCachedImageMetadata(c.Context(), "", "")
+	result, err := s.state.GetCachedImageMetadata(c.Context(), "", "", "", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 2)
 }
@@ -162,11 +162,37 @@ func (s *controllerStateSuite) TestGetCachedImageMetadataRootStorageSize(c *tc.C
 		"meta-uuid-1", "custom", "released", "us-east-1", "22.04", 0,
 		"hvm", "ebs", 8192, 10, "img-with-size")
 
-	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64")
+	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.HasLen, 1)
 	c.Assert(result[0].RootStorageSize, tc.Not(tc.IsNil))
 	c.Check(*result[0].RootStorageSize, tc.Equals, uint64(8192))
+}
+
+// TestGetCachedImageMetadataFilteredByRegionAndStream verifies filtering by
+// region and stream in addition to version and arch.
+func (s *controllerStateSuite) TestGetCachedImageMetadataFilteredByRegionAndStream(c *tc.C) {
+	s.insertImageMetadata(c, "img-1", "released", "us-east-1", "22.04", 0, "hvm", "ebs", "custom", 10)
+	s.insertImageMetadata(c, "img-2", "daily", "us-east-1", "22.04", 0, "hvm", "ebs", "custom", 20)
+	s.insertImageMetadata(c, "img-3", "released", "eu-west-1", "22.04", 0, "hvm", "ebs", "custom", 30)
+
+	// Filter for released + us-east-1 should only return img-1.
+	result, err := s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "us-east-1", "released")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].ImageID, tc.Equals, "img-1")
+
+	// Filter for daily stream should only return img-2.
+	result, err = s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "", "daily")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].ImageID, tc.Equals, "img-2")
+
+	// Filter for eu-west-1 should only return img-3.
+	result, err = s.state.GetCachedImageMetadata(c.Context(), "", "", "eu-west-1", "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].ImageID, tc.Equals, "img-3")
 }
 
 // setupCloud inserts a cloud and returns its UUID.

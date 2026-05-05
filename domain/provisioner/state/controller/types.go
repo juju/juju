@@ -42,10 +42,14 @@ type imageMetadataRow struct {
 type imageMetadataFilter struct {
 	Version string `db:"version"`
 	Arch    string `db:"arch"`
+	Region  string `db:"region"`
+	Stream  string `db:"stream"`
 }
 
 // imageMetadataFlags holds boolean flags for conditional filtering.
 type imageMetadataFlags struct {
 	HasVersion int `db:"has_version"`
 	HasArch    int `db:"has_arch"`
+	HasRegion  int `db:"has_region"`
+	HasStream  int `db:"has_stream"`
 }

@@ -92,8 +92,15 @@ type VolumeProvisioningParams struct {
 	// Attributes holds provider-specific attributes.
 	Attributes map[string]string
 
-	// Tags holds tags to apply to the volume.
-	Tags map[string]string
+	// StorageName is the name of the storage instance (e.g. "data").
+	StorageName string
+
+	// StorageID is the ID of the storage instance (numeric string).
+	StorageID string
+
+	// StorageOwnerUnitName is the name of the unit that owns the storage
+	// (nil if no owner).
+	StorageOwnerUnitName *string
 }
 
 // VolumeAttachmentProvisioningParams holds raw volume attachment data

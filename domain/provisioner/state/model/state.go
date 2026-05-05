@@ -446,18 +446,24 @@ WHERE aee.application_uuid = $appUUIDParam.uuid
 }
 
 // getVolumeParams fetches volume provisioning params for the machine.
+// It returns:
+//   - Volume params for unprovisioned volumes (provider_id IS NULL)
+//   - Attachment params for ALL unprovisioned attachments (block_device_uuid IS NULL),
+//     including attachments for already-provisioned volumes.
 func (st *State) getVolumeParams(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID string,
 ) ([]provisioner.VolumeProvisioningParams, []provisioner.VolumeAttachmentProvisioningParams, error) {
-	// Fetch volumes attached to this machine that are machine-scoped and
-	// not yet provisioned (no provider_id).
+	// Fetch unprovisioned volumes attached to this machine that are
+	// machine-scoped (provision_scope_id = 1).
 	volStmt, err := st.Prepare(`
 SELECT sv.uuid AS &volumeRow.uuid,
        sv.volume_id AS &volumeRow.volume_id,
        si.requested_size_mib AS &volumeRow.requested_size_mib,
-       sp.type AS &volumeRow.provider
+       sp.type AS &volumeRow.provider,
+       si.storage_name AS &volumeRow.storage_name,
+       si.storage_id AS &volumeRow.storage_id
 FROM storage_volume AS sv
 JOIN storage_volume_attachment AS sva ON sva.storage_volume_uuid = sv.uuid
 JOIN machine AS m ON sva.net_node_uuid = m.net_node_uuid
@@ -478,12 +484,10 @@ AND sv.provider_id IS NULL
 		return nil, nil, errors.Errorf("querying volume params: %w", err)
 	}
 
-	if len(volRows) == 0 {
-		return nil, nil, nil
-	}
-
 	// Fetch pool attributes for each volume's storage pool.
-	attrStmt, err := st.Prepare(`
+	var attrStmt *sqlair.Statement
+	if len(volRows) > 0 {
+		attrStmt, err = st.Prepare(`
 SELECT spa."key" AS &storagePoolAttrRow.key,
        spa.value AS &storagePoolAttrRow.value
 FROM storage_pool_attribute AS spa
@@ -492,27 +496,28 @@ JOIN storage_instance AS si ON si.storage_pool_uuid = sp.uuid
 JOIN storage_instance_volume AS siv ON siv.storage_instance_uuid = si.uuid
 WHERE siv.storage_volume_uuid = $volumeUUIDParam.uuid
 `, storagePoolAttrRow{}, volumeUUIDParam{})
-	if err != nil {
-		return nil, nil, errors.Capture(err)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
 	}
 
-	// Fetch attachment details.
-	attachStmt, err := st.Prepare(`
-SELECT sva.read_only AS &volumeAttachmentRow.read_only,
-       sv.provider_id AS &volumeAttachmentRow.provider_id
-FROM storage_volume_attachment AS sva
-JOIN storage_volume AS sv ON sv.uuid = sva.storage_volume_uuid
-JOIN machine AS m ON sva.net_node_uuid = m.net_node_uuid
-WHERE m.uuid = $machineUUIDParam.uuid
-AND sv.uuid = $volumeUUIDParam.uuid
-`, volumeAttachmentRow{}, machineUUIDParam{}, volumeUUIDParam{})
-	if err != nil {
-		return nil, nil, errors.Capture(err)
+	// Fetch the storage owner unit name for each volume.
+	var ownerStmt *sqlair.Statement
+	if len(volRows) > 0 {
+		ownerStmt, err = st.Prepare(`
+SELECT u.name AS &volumeOwnerRow.unit_name
+FROM storage_attachment AS sa
+JOIN storage_instance_volume AS siv ON siv.storage_instance_uuid = sa.storage_instance_uuid
+JOIN unit AS u ON u.uuid = sa.unit_uuid
+WHERE siv.storage_volume_uuid = $volumeUUIDParam.uuid
+LIMIT 1
+`, volumeOwnerRow{}, volumeUUIDParam{})
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
 	}
 
 	volumes := make([]provisioner.VolumeProvisioningParams, 0, len(volRows))
-	attachments := make([]provisioner.VolumeAttachmentProvisioningParams, 0, len(volRows))
-
 	for _, vr := range volRows {
 		// Get pool attributes.
 		var attrRows []storagePoolAttrRow
@@ -526,27 +531,65 @@ AND sv.uuid = $volumeUUIDParam.uuid
 			attrs[a.Key] = a.Value
 		}
 
-		volumes = append(volumes, provisioner.VolumeProvisioningParams{
-			UUID:             vr.UUID,
-			ID:               vr.VolumeID,
-			Provider:         vr.Provider,
-			RequestedSizeMiB: uint64(vr.RequestedSizeMiB),
-			Attributes:       attrs,
-		})
-
-		// Get attachment details.
-		var attachRow volumeAttachmentRow
-		err = tx.Query(ctx, attachStmt, machineUUIDParam{UUID: machineUUID}, volumeUUIDParam{UUID: vr.UUID}).Get(&attachRow)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil, errors.Errorf("querying volume attachment for volume %q: %w", vr.UUID, err)
+		// Get owner unit name.
+		var ownerUnitName *string
+		var ownerRow volumeOwnerRow
+		err = tx.Query(ctx, ownerStmt, volumeUUIDParam{UUID: vr.UUID}).Get(&ownerRow)
+		if err == nil {
+			ownerUnitName = &ownerRow.UnitName
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil, errors.Errorf("querying volume owner for volume %q: %w", vr.UUID, err)
 		}
 
+		volumes = append(volumes, provisioner.VolumeProvisioningParams{
+			UUID:                 vr.UUID,
+			ID:                   vr.VolumeID,
+			Provider:             vr.Provider,
+			RequestedSizeMiB:    uint64(vr.RequestedSizeMiB),
+			Attributes:           attrs,
+			StorageName:          vr.StorageName,
+			StorageID:            vr.StorageID,
+			StorageOwnerUnitName: ownerUnitName,
+		})
+	}
+
+	// Fetch ALL unprovisioned attachments for this machine (including
+	// attachments for already-provisioned volumes). An attachment is
+	// unprovisioned when block_device_uuid IS NULL.
+	attachStmt, err := st.Prepare(`
+SELECT sv.uuid AS &volumeAttachmentRow.volume_uuid,
+       sv.volume_id AS &volumeAttachmentRow.volume_id,
+       sp.type AS &volumeAttachmentRow.provider,
+       sva.read_only AS &volumeAttachmentRow.read_only,
+       COALESCE(sv.provider_id, '') AS &volumeAttachmentRow.provider_id
+FROM storage_volume_attachment AS sva
+JOIN storage_volume AS sv ON sv.uuid = sva.storage_volume_uuid
+JOIN machine AS m ON sva.net_node_uuid = m.net_node_uuid
+JOIN storage_instance_volume AS siv ON siv.storage_volume_uuid = sv.uuid
+JOIN storage_instance AS si ON si.uuid = siv.storage_instance_uuid
+JOIN storage_pool AS sp ON sp.uuid = si.storage_pool_uuid
+WHERE m.uuid = $machineUUIDParam.uuid
+AND sv.provision_scope_id = 1
+AND sva.block_device_uuid IS NULL
+`, volumeAttachmentRow{}, machineUUIDParam{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	var attachRows []volumeAttachmentRow
+	err = tx.Query(ctx, attachStmt, machineUUIDParam{UUID: machineUUID}).GetAll(&attachRows)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil, errors.Errorf("querying volume attachments: %w", err)
+	}
+
+	attachments := make([]provisioner.VolumeAttachmentProvisioningParams, 0, len(attachRows))
+	for _, ar := range attachRows {
 		attachments = append(attachments, provisioner.VolumeAttachmentProvisioningParams{
-			VolumeUUID:       vr.UUID,
-			VolumeID:         vr.VolumeID,
-			Provider:         vr.Provider,
-			ReadOnly:         attachRow.ReadOnly,
-			VolumeProviderID: attachRow.ProviderID,
+			VolumeUUID:       ar.VolumeUUID,
+			VolumeID:         ar.VolumeID,
+			Provider:         ar.Provider,
+			ReadOnly:         ar.ReadOnly,
+			VolumeProviderID: ar.ProviderID,
 		})
 	}
 

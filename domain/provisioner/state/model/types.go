@@ -124,6 +124,8 @@ type volumeRow struct {
 	VolumeID         string `db:"volume_id"`
 	RequestedSizeMiB int64  `db:"requested_size_mib"`
 	Provider         string `db:"provider"`
+	StorageName      string `db:"storage_name"`
+	StorageID        string `db:"storage_id"`
 }
 
 // volumeUUIDParam is used for parameterising queries by volume UUID.
@@ -133,6 +135,14 @@ type volumeUUIDParam struct {
 
 // volumeAttachmentRow holds volume attachment query results.
 type volumeAttachmentRow struct {
+	VolumeUUID string `db:"volume_uuid"`
+	VolumeID   string `db:"volume_id"`
+	Provider   string `db:"provider"`
 	ReadOnly   bool   `db:"read_only"`
 	ProviderID string `db:"provider_id"`
+}
+
+// volumeOwnerRow holds the unit name that owns a storage volume.
+type volumeOwnerRow struct {
+	UnitName string `db:"unit_name"`
 }
