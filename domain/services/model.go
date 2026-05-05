@@ -520,7 +520,11 @@ func (s *ModelServices) Provisioning() *provisionerservice.Service {
 	return provisionerservice.NewService(
 		provisionerstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		provisionerstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
-		nil, // ImageMetadataFetcher — provided by caller when needed.
+		provisionerservice.NewImageMetadataFetcher(
+			providertracker.ProviderRunner[provisionerservice.ProviderForImageMetadata](s.providerFactory, s.modelUUID.String()),
+			s.CloudImageMetadata(),
+			log,
+		),
 		s.modelUUID,
 		log,
 	)
