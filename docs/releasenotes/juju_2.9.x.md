@@ -5,6 +5,14 @@
 ```{note}
 Juju 2.9 series is LTS
 ```
+### 🔸 **Juju 2.9.59**
+🗓️ 29 Apr 2026
+
+This release fixes an issue in 2.9.58 caused by a misconfigured build pipeline.
+The issue resulted in bootstrap to k8s being broken unless `caas-image-repo`
+was configured explicitly at bootstrap. There are no Juju code changes in
+this release.
+
 ### 🔸 **Juju 2.9.58**
 🗓️ 27 Apr 2026
 
