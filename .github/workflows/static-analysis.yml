@@ -80,6 +80,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wagoid/commitlint-github-action@v6
         with:
-          configFile: .github/commitlint.config.mjs
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install commitlint
+        run: |
+          npm install --global @commitlint/cli@19.8.1 @commitlint/config-conventional@19.8.1
+
+      - name: Run commitlint
+        run: |
+          # For PRs, use the base branch to determine which commits to lint
+          # For push events, use the previous commit
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          HEAD_SHA="${{ github.sha }}"
+
+          # Get commits that are in HEAD but not in BASE
+          # Use --first-parent to follow only the first parent of merge commits
+          # This excludes commits brought in by merging other branches
+          COMMITS=$(git rev-list --first-parent --no-merges "${BASE_SHA}..${HEAD_SHA}")
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to lint"
+            exit 0
+          fi
+
+          echo "Linting commits:"
+          echo "$COMMITS"
+
+          # Lint each commit
+          EXIT_CODE=0
+          for commit in $COMMITS; do
+            echo ""
+            echo "⧗   input: $(git log -1 --pretty=format:'%s' "$commit")"
+            if ! git log -1 --pretty=format:'%B' "$commit" | commitlint --config "${{ github.workspace }}/.github/commitlint.config.mjs" 2>&1; then
+              EXIT_CODE=1
+            fi
+          done
+
+          exit $EXIT_CODE
