@@ -29,11 +29,51 @@ type CloudImageMetadataSaver interface {
 	SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error
 }
 
+// imageMetadataSource abstracts the simplestreams data source operations so
+// that the fetcher can be tested without real network calls.
+type imageMetadataSource interface {
+	// ImageMetadataSources returns the data sources for the given environ.
+	ImageMetadataSources(
+		env environs.BootstrapEnviron,
+		factory simplestreams.DataSourceFactory,
+	) ([]simplestreams.DataSource, error)
+
+	// Fetch retrieves image metadata from the given data sources matching
+	// the constraint.
+	Fetch(
+		ctx context.Context,
+		fetcher imagemetadata.SimplestreamsFetcher,
+		sources []simplestreams.DataSource,
+		cons *imagemetadata.ImageConstraint,
+	) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error)
+}
+
+// defaultImageMetadataSource is the production implementation that delegates
+// to the environs and imagemetadata packages.
+type defaultImageMetadataSource struct{}
+
+func (defaultImageMetadataSource) ImageMetadataSources(
+	env environs.BootstrapEnviron,
+	factory simplestreams.DataSourceFactory,
+) ([]simplestreams.DataSource, error) {
+	return environs.ImageMetadataSources(env, factory)
+}
+
+func (defaultImageMetadataSource) Fetch(
+	ctx context.Context,
+	fetcher imagemetadata.SimplestreamsFetcher,
+	sources []simplestreams.DataSource,
+	cons *imagemetadata.ImageConstraint,
+) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
+	return imagemetadata.Fetch(ctx, fetcher, sources, cons)
+}
+
 // imageMetadataFetcher is a concrete implementation of ImageMetadataFetcher
 // that looks up image metadata from simplestreams data sources.
 type imageMetadataFetcher struct {
 	providerGetter providertracker.ProviderGetter[ProviderForImageMetadata]
 	metadataSaver  CloudImageMetadataSaver
+	source         imageMetadataSource
 	logger         logger.Logger
 }
 
@@ -47,6 +87,7 @@ func NewImageMetadataFetcher(
 	return &imageMetadataFetcher{
 		providerGetter: providerGetter,
 		metadataSaver:  metadataSaver,
+		source:         defaultImageMetadataSource{},
 		logger:         logger,
 	}
 }
@@ -63,8 +104,8 @@ func (f *imageMetadataFetcher) FetchImageMetadata(
 		return nil, errors.Errorf("getting bootstrap environ: %w", err)
 	}
 
-	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	sources, err := environs.ImageMetadataSources(environ, fetcher)
+	ssFactory := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	sources, err := f.source.ImageMetadataSources(environ, ssFactory)
 	if err != nil {
 		return nil, errors.Errorf("getting image metadata sources: %w", err)
 	}
@@ -85,7 +126,7 @@ func (f *imageMetadataFetcher) FetchImageMetadata(
 	var allMetadata []cloudimagemetadata.Metadata
 	for _, source := range sources {
 		f.logger.Debugf(ctx, "looking in data source %v", source.Description())
-		found, info, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{source}, ssConstraint)
+		found, info, err := f.source.Fetch(ctx, ssFactory, []simplestreams.DataSource{source}, ssConstraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an
 			// issue here.

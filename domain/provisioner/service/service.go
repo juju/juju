@@ -14,11 +14,11 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/logger"
 	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
@@ -83,11 +83,12 @@ func NewService(
 }
 
 // GetProvisioningInfo returns the complete provisioning information for a
-// machine, consolidating all data from the model and controller databases
-// into a single call.
+// machine, consolidating all data from the model and controller databases into
+// a single call.
 //
 // The following errors may be returned:
-//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the
+//     machine does not exist.
 func (s *Service) GetProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
@@ -128,7 +129,14 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 5: Construct network topology.
-	spaceSubnets, subnetAZs := s.buildNetworkTopology(ctx, machineName.String(), stateInfo.Constraints, machineSpaces, stateInfo.Spaces, stateInfo.CloudType)
+	spaceSubnets, subnetAZs := s.buildNetworkTopology(
+		ctx,
+		machineName.String(),
+		stateInfo.Constraints,
+		machineSpaces,
+		stateInfo.Spaces,
+		stateInfo.CloudType,
+	)
 
 	// Step 6: Resolve image metadata (cached or fallback to external).
 	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo)
@@ -139,7 +147,15 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 7: Compute instance tags.
-	machineTags := s.computeTags(stateInfo.UnitNames, machineName, stateInfo.IsController, stateInfo.ResourceTags, stateInfo.ResourceTagsFound, controllerUUID, stateInfo.ModelName)
+	machineTags := s.computeTags(
+		stateInfo.UnitNames,
+		machineName,
+		stateInfo.IsController,
+		stateInfo.ResourceTags,
+		stateInfo.ResourceTagsFound,
+		controllerUUID,
+		stateInfo.ModelName,
+	)
 
 	// Step 8: Determine machine jobs.
 	jobs := s.computeJobs(isControllerModel, stateInfo.IsController)
