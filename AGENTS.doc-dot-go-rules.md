@@ -148,6 +148,144 @@ when it is package-wide behavior (for example Juju creating a VCN in OCI).
    //	+-----------------+       |                 |       +-----------------+
    ```
 
+## Guard-Rails for LLM Consumption
+
+Beyond describing what a package does, doc.go should explicitly state behavioral boundaries that prevent misuse. These guard-rails help LLMs (and developers) make safe decisions when using or modifying the package.
+
+**The insight**: Implicit constraints are invisible to LLMs. Humans might learn through experience or tribal knowledge that "you always check grants before accessing secrets" or "domain packages never import from apiserver," but an LLM has no such experience. Making these explicit transforms doc.go from a map (here's what exists) into a rulebook (here's how to use this safely).
+
+### When to Add Guard-Rails
+
+Add guard-rail sections when the package has:
+- Transaction or concurrency requirements
+- Security-sensitive operations with specific handling rules
+- Immutability constraints on types
+- Required validation steps before operations
+- Layer boundary restrictions (what can/cannot be imported)
+- Initialization or cleanup requirements
+- Error handling patterns that must be followed
+- Performance-critical patterns that must be maintained
+
+### Guard-Rail Section Format
+
+Use section headers like:
+- `# Constraints` - for immutability and structural invariants
+- `# Transaction Requirements` - for database transaction boundaries
+- `# Security Invariants` - for security-sensitive handling rules
+- `# Concurrency` - for thread-safety guarantees (only what's explicitly guaranteed)
+- `# Lifecycle` - for initialization and cleanup requirements
+- `# Architecture Constraints` - for layer boundaries and import restrictions
+- `# Error Handling` - for required error handling patterns
+- `# Required Validations` - for mandatory validation steps
+
+Write guard-rails using RFC 2119 keywords:
+- **MUST** statements for mandatory requirements
+- **MUST NOT** statements for forbidden actions
+- **MAY** statements for optional behaviors
+- **SHOULD** statements for recommended but not mandatory practices
+
+Focus on **interface contracts**, not implementation details. State what callers must respect, not how the package implements protection internally.
+
+### Examples by Category
+
+**Transaction boundaries** (critical for domain packages):
+```go
+// # Transaction Requirements
+//
+// All write operations MUST occur within a transaction provided by the caller.
+// The state layer does not manage transaction lifecycle. Callers MUST NOT hold
+// transactions across multiple service calls to avoid deadlocks.
+```
+
+**Security constraints**:
+```go
+// # Security Invariants
+//
+// Secret values MUST NOT be logged or included in error messages. Callers MUST
+// validate grants before accessing secret content using CheckGrant(). The
+// service layer does not enforce grant checks automatically -- this is the
+// caller's responsibility.
+```
+
+**Layer boundaries** (preventing architectural erosion):
+```go
+// # Architecture Constraints
+//
+// This package MUST NOT import from apiserver or internal/worker packages.
+// Domain logic must remain transport-agnostic and independent of deployment
+// concerns. Only core/* and domain/* packages may be imported for type
+// definitions.
+```
+
+**Immutability constraints**:
+```go
+// # Constraints
+//
+// Secret URIs are immutable once created. Secret revisions are append-only --
+// existing revisions cannot be modified or deleted, only obsoleted through
+// expiry. Grant modifications must be performed atomically within a single
+// transaction to prevent partial access states.
+```
+
+**Validation requirements**:
+```go
+// # Required Validations
+//
+// Secret URIs MUST be validated using secret.ParseURI() before storage.
+// Rotation policies MUST be one of the enumerated constants (HourlyRotation,
+// DailyRotation, etc.) -- arbitrary durations are not supported. Grant scopes
+// MUST match the secret's ownership scope (model secrets cannot grant
+// unit-level access).
+```
+
+**Initialization and lifecycle**:
+```go
+// # Lifecycle
+//
+// Services MUST be initialized with a valid backend provider before use.
+// Secret watches MUST be closed explicitly to prevent goroutine leaks. Rotation
+// workers rely on monotonic clock progression -- callers MUST NOT manipulate
+// system time during testing without using the injected clock.
+```
+
+**Error handling patterns**:
+```go
+// # Error Handling
+//
+// All errors from the state layer MUST be wrapped with context using
+// errors.Annotatef() before returning to callers. NotFound errors MUST use
+// errors.NotFoundf() for consistent handling. Security-sensitive errors (grant
+// violations) MUST NOT expose the secret URI in the error message.
+```
+
+**Concurrency safety** (only what's explicitly guaranteed):
+```go
+// # Concurrency
+//
+// The service layer is concurrency-safe for reads. Write operations acquire
+// exclusive locks on the affected entities. Callers MAY call read methods
+// concurrently but MUST serialize write operations to the same entity.
+```
+
+### Balancing Comprehensiveness with Maintainability
+
+To avoid doc.go bloat:
+- Focus on **package-wide constraints** that affect multiple functions
+- Skip constraints that are **enforced by type systems** (e.g., if a function signature requires `*sql.Tx`, the transaction requirement is obvious from the types)
+- Document only what you can **verify in code** (stick to the "Facts vs Interpretation" principle)
+- Prioritize **security and correctness** constraints over performance or style preferences
+- Omit constraints that are **obvious from function names** (e.g., ValidateURI clearly validates)
+
+### Verification for Guard-Rails
+
+Verify each guard-rail statement by:
+1. **Searching for validation code** that enforces the constraint
+2. **Finding code comments** that explicitly state the requirement
+3. **Locating tests** that verify the boundary condition
+4. **Checking error messages** that indicate violation of the constraint
+
+If a constraint cannot be verified through code inspection, grep searches, or explicit comments, do not document it. Unverifiable guard-rails are interpretations, not facts.
+
 ## Verification Process
 
 Before finalizing a doc.go file:
