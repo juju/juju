@@ -510,7 +510,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % timeout "$timeout" juju destroy-model --no-prompt --destroy-storage % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -e "^ERROR " || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues destroying model\n'
