@@ -370,7 +370,7 @@ func (w *Worker) loop() error {
 // HandleConfigChange starts the whole draining process if the object store
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
-	config, err := w.controllerConfigService.ControllerConfig(ctx)
+	_, err := w.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -380,7 +380,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	objectStoreType := config.ObjectStoreType()
+	objectStoreType := objectstore.FileBackend
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	if !objectStoreTypeChanged {

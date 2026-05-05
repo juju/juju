@@ -518,62 +518,6 @@ controller on behalf of workers running for a model.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-object-store-s3-endpoint)=
-## `object-store-s3-endpoint`
-
-`object-store-s3-endpoint` is the endpoint to use for S3 object stores.
-
-**Type:** string
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-object-store-s3-static-key)=
-## `object-store-s3-static-key`
-
-`object-store-s3-static-key` is the static key to use for S3 object stores.
-
-**Type:** string
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-object-store-s3-static-secret)=
-## `object-store-s3-static-secret`
-
-`object-store-s3-static-secret` is the static secret to use for S3 object
-stores.
-
-**Type:** string
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-object-store-s3-static-session)=
-## `object-store-s3-static-session`
-
-`object-store-s3-static-session` is the static session token to use for S3
-object stores.
-
-**Type:** string
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-object-store-type)=
-## `object-store-type`
-
-`object-store-type` is the type of object store to use for storing blobs.
-This isn't currently allowed to be changed dynamically, that will come
-when we support multiple object store types (not including state).
-
-**Type:** string
-
-**Default value:** file
-
-**Can be changed after bootstrap:** yes
-
-
 (controller-config-open-telemetry-enabled)=
 ## `open-telemetry-enabled`
 

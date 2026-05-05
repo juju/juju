@@ -157,17 +157,17 @@ func (c *MockStateNamespacesForWatchControllerConfigCall) DoAndReturn(f func() [
 }
 
 // UpdateControllerConfig mocks base method.
-func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]string, arg2 []string, arg3 func(map[string]string) error) error {
+func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
-func (mr *MockStateMockRecorder) UpdateControllerConfig(arg0, arg1, arg2, arg3 any) *MockStateUpdateControllerConfigCall {
+func (mr *MockStateMockRecorder) UpdateControllerConfig(arg0, arg1, arg2 any) *MockStateUpdateControllerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2)
 	return &MockStateUpdateControllerConfigCall{Call: call}
 }
 
@@ -183,13 +183,13 @@ func (c *MockStateUpdateControllerConfigCall) Return(arg0 error) *MockStateUpdat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateControllerConfigCall) Do(f func(context.Context, map[string]string, []string, func(map[string]string) error) error) *MockStateUpdateControllerConfigCall {
+func (c *MockStateUpdateControllerConfigCall) Do(f func(context.Context, map[string]string, []string) error) *MockStateUpdateControllerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateControllerConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string, func(map[string]string) error) error) *MockStateUpdateControllerConfigCall {
+func (c *MockStateUpdateControllerConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string) error) *MockStateUpdateControllerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

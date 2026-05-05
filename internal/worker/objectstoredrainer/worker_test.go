@@ -18,14 +18,12 @@ import (
 	"gopkg.in/tomb.v2"
 
 	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internaltesting "github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
@@ -164,80 +162,6 @@ func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
 	}
 
 	workertest.DirtyKill(c, w)
-}
-
-func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	changes := make(chan []string, 1)
-	sync := make(chan struct{}, 1)
-
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(changes), nil
-	})
-	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	draining := make(chan struct{})
-	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
-		return watchertest.NewMockNotifyWatcher(draining), nil
-	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseDraining).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
-		close(sync)
-		return nil
-	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-
-	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
-
-	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, nil)
-	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
-	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
-
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
-	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
-
-	done := make(chan struct{})
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
-		defer close(done)
-		return nil
-	})
-
-	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case changes <- []string{""}:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for worker to start")
-	}
-
-	select {
-	case <-sync:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for worker to start")
-	}
-
-	select {
-	case draining <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for worker to start")
-	}
-
-	select {
-	case <-done:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for worker to start")
-	}
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {

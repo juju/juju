@@ -356,21 +356,6 @@ Controller configuration keys:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    object-store-s3-endpoint:
-      type: string
-      description: The s3 endpoint for the object store backend
-    object-store-s3-static-key:
-      type: string
-      description: The s3 static key for the object store backend
-    object-store-s3-static-secret:
-      type: string
-      description: The s3 static secret for the object store backend
-    object-store-s3-static-session:
-      type: string
-      description: The s3 static session for the object store backend
-    object-store-type:
-      type: string
-      description: The type of object store backend to use for storing blobs
     open-telemetry-enabled:
       type: bool
       description: Enable open telemetry tracing

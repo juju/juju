@@ -17,7 +17,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -25,7 +24,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	internaltesting "github.com/juju/juju/internal/testing"
-	internalworker "github.com/juju/juju/internal/worker"
 )
 
 type manifoldSuite struct {
@@ -163,7 +161,6 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.FileBackend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
@@ -176,53 +173,6 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-
-	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
-	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
-	c.Assert(err, tc.ErrorIsNil)
-	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-
-	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
-	_, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
-	c.Assert(err, tc.ErrorIs, internalworker.ErrRestartAgent)
 }
 
 // Note: This replicates the ability to get a controller domain services and
