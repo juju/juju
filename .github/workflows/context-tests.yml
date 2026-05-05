@@ -191,8 +191,6 @@ jobs:
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-ddl == 'true'
     uses: ./.github/workflows/ddl.yml
 
-  result-check:
-    needs: [build, snap, generate, docs, client, terraform, migrate, upgrade, ddl]
   smoke:
     needs: [changed-files]
     name: Smoke
