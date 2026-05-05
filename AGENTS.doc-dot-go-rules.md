@@ -168,15 +168,7 @@ Add guard-rail sections when the package has:
 
 ### Guard-Rail Section Format
 
-Use section headers like:
-- `# Constraints` - for immutability and structural invariants
-- `# Transaction Requirements` - for database transaction boundaries
-- `# Security Invariants` - for security-sensitive handling rules
-- `# Concurrency` - for thread-safety guarantees (only what's explicitly guaranteed)
-- `# Lifecycle` - for initialization and cleanup requirements
-- `# Architecture Constraints` - for layer boundaries and import restrictions
-- `# Error Handling` - for required error handling patterns
-- `# Required Validations` - for mandatory validation steps
+In actual doc.go files, group all guard-rails under a single h1 section (typically `# Constraints` or `# Guard-Rails`). This distinguishes prescriptive constraints from descriptive pattern explanations. Within that section, organize by category using bold labels or paragraphs:
 
 Write guard-rails using RFC 2119 keywords:
 - **MUST** statements for mandatory requirements
@@ -186,86 +178,67 @@ Write guard-rails using RFC 2119 keywords:
 
 Focus on **interface contracts**, not implementation details. State what callers must respect, not how the package implements protection internally.
 
-### Examples by Category
+### Example Structure
 
-**Transaction boundaries** (critical for domain packages):
 ```go
-// # Transaction Requirements
+// # Secret Access and Grants
 //
-// All write operations MUST occur within a transaction provided by the caller.
-// The state layer does not manage transaction lifecycle. Callers MUST NOT hold
-// transactions across multiple service calls to avoid deadlocks.
-```
+// [Descriptive content explaining the pattern...]
 
-**Security constraints**:
-```go
-// # Security Invariants
+// # Rotation and Expiry
 //
-// Secret values MUST NOT be logged or included in error messages. Callers MUST
-// validate grants before accessing secret content using CheckGrant(). The
-// service layer does not enforce grant checks automatically -- this is the
-// caller's responsibility.
-```
+// [Descriptive content explaining the pattern...]
 
-**Layer boundaries** (preventing architectural erosion):
-```go
-// # Architecture Constraints
-//
-// This package MUST NOT import from apiserver or internal/worker packages.
-// Domain logic must remain transport-agnostic and independent of deployment
-// concerns. Only core/* and domain/* packages may be imported for type
-// definitions.
-```
-
-**Immutability constraints**:
-```go
 // # Constraints
 //
-// Secret URIs are immutable once created. Secret revisions are append-only --
-// existing revisions cannot be modified or deleted, only obsoleted through
-// expiry. Grant modifications must be performed atomically within a single
-// transaction to prevent partial access states.
+// **Immutability**: Secret URIs are immutable once created. Secret revisions
+// are append-only -- existing revisions cannot be modified or deleted, only
+// obsoleted through expiry.
+//
+// **Transactions**: All write operations MUST occur within a transaction
+// provided by the caller. The state layer does not manage transaction
+// lifecycle. Callers MUST NOT hold transactions across multiple service calls
+// to avoid deadlocks.
+//
+// **Security**: Secret values MUST NOT be logged or included in error messages.
+// Callers MUST validate grants before accessing secret content using
+// CheckGrant(). The service layer does not enforce grant checks automatically.
+//
+// **Architecture**: This package MUST NOT import from apiserver or
+// internal/worker packages. Domain logic must remain transport-agnostic. Only
+// core/* and domain/* packages may be imported for type definitions.
+//
+// **Validation**: Secret URIs MUST be validated using secret.ParseURI() before
+// storage. Rotation policies MUST be one of the enumerated constants
+// (HourlyRotation, DailyRotation, etc.). Grant scopes MUST match the secret's
+// ownership scope.
+//
+// **Lifecycle**: Services MUST be initialized with a valid backend provider
+// before use. Secret watches MUST be closed explicitly to prevent goroutine
+// leaks.
+//
+// **Error Handling**: All errors from the state layer MUST be wrapped with
+// context using errors.Annotatef(). NotFound errors MUST use errors.NotFoundf()
+// for consistent handling. Security-sensitive errors MUST NOT expose the secret
+// URI in the error message.
+//
+// **Concurrency**: The service layer is concurrency-safe for reads. Write
+// operations acquire exclusive locks on the affected entities. Callers MAY call
+// read methods concurrently but MUST serialize write operations to the same
+// entity.
 ```
 
-**Validation requirements**:
-```go
-// # Required Validations
-//
-// Secret URIs MUST be validated using secret.ParseURI() before storage.
-// Rotation policies MUST be one of the enumerated constants (HourlyRotation,
-// DailyRotation, etc.) -- arbitrary durations are not supported. Grant scopes
-// MUST match the secret's ownership scope (model secrets cannot grant
-// unit-level access).
-```
+### Categories to Consider
 
-**Initialization and lifecycle**:
-```go
-// # Lifecycle
-//
-// Services MUST be initialized with a valid backend provider before use.
-// Secret watches MUST be closed explicitly to prevent goroutine leaks. Rotation
-// workers rely on monotonic clock progression -- callers MUST NOT manipulate
-// system time during testing without using the injected clock.
-```
-
-**Error handling patterns**:
-```go
-// # Error Handling
-//
-// All errors from the state layer MUST be wrapped with context using
-// errors.Annotatef() before returning to callers. NotFound errors MUST use
-// errors.NotFoundf() for consistent handling. Security-sensitive errors (grant
-// violations) MUST NOT expose the secret URI in the error message.
-```
-
-**Concurrency safety** (only what's explicitly guaranteed):
-```go
-// # Concurrency
-//
-// The service layer is concurrency-safe for reads. Write operations acquire
-// exclusive locks on the affected entities. Callers MAY call read methods
-// concurrently but MUST serialize write operations to the same entity.
-```
+When documenting constraints, consider including (where applicable):
+- **Immutability** - structural invariants and append-only constraints
+- **Transactions** - database transaction boundaries (critical for domain packages)
+- **Security** - handling of sensitive data, access control requirements
+- **Architecture** - layer boundaries and import restrictions
+- **Validation** - mandatory validation steps before operations
+- **Lifecycle** - initialization and cleanup requirements
+- **Error Handling** - required error handling patterns
+- **Concurrency** - thread-safety guarantees (only what's explicitly guaranteed)
 
 ### Balancing Comprehensiveness with Maintainability
 
