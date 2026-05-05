@@ -446,7 +446,8 @@ func (s *serviceSuite) TestFetchImageMetadataAllFieldsMapped(c *tc.C) {
 }
 
 // TestFetchImageMetadataConstraintPassedToFetch verifies that the constraint
-// releases, arches, and stream are passed to the underlying Fetch call.
+// releases, arches, stream, region, and endpoint are passed to the underlying
+// Fetch call via the ImageConstraint's CloudSpec.
 func (s *serviceSuite) TestFetchImageMetadataConstraintPassedToFetch(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -471,6 +472,8 @@ func (s *serviceSuite) TestFetchImageMetadataConstraintPassedToFetch(c *tc.C) {
 			c.Check(cons.Releases, tc.DeepEquals, []string{"22.04", "24.04"})
 			c.Check(cons.Arches, tc.DeepEquals, []string{"amd64", "arm64"})
 			c.Check(cons.Stream, tc.Equals, "daily")
+			c.Check(cons.Region, tc.Equals, "eu-west-1")
+			c.Check(cons.Endpoint, tc.Equals, "https://ec2.eu-west-1.amazonaws.com")
 			c.Assert(sources, tc.HasLen, 1)
 			return nil, nil, errors.New("expected")
 		})
@@ -488,7 +491,8 @@ func (s *serviceSuite) TestFetchImageMetadataConstraintPassedToFetch(c *tc.C) {
 		Releases: []string{"22.04", "24.04"},
 		Arches:   []string{"amd64", "arm64"},
 		Stream:   "daily",
-		Region:   "us-east-1",
+		Region:   "eu-west-1",
+		Endpoint: "https://ec2.eu-west-1.amazonaws.com",
 	})
 	// Fetch error is swallowed (continues to next source), result is empty.
 	c.Assert(err, tc.ErrorIsNil)

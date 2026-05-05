@@ -113,6 +113,10 @@ func (f *imageMetadataFetcher) FetchImageMetadata(
 	// Build the simplestreams image constraint.
 	ssConstraint, err := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
+			CloudSpec: simplestreams.CloudSpec{
+				Region:   constraint.Region,
+				Endpoint: constraint.Endpoint,
+			},
 			Releases: constraint.Releases,
 			Arches:   constraint.Arches,
 			Stream:   constraint.Stream,
