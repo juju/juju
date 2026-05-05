@@ -129,7 +129,7 @@ func (f *imageMetadataFetcher) FetchImageMetadata(
 
 	var allMetadata []cloudimagemetadata.Metadata
 	for _, source := range sources {
-		f.logger.Debugf(ctx, "looking in data source %v", source.Description())
+		f.logger.Criticalf(ctx, "looking in data source %v", source.Description())
 		found, info, err := f.source.Fetch(ctx, ssFactory, []simplestreams.DataSource{source}, ssConstraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an

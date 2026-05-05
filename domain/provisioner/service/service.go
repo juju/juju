@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -375,15 +374,10 @@ func (s *Service) resolveImageMetadata(
 
 	metadata, err := s.imageMetadataFetcher.FetchImageMetadata(ctx, constraint)
 	if err != nil {
-		return nil, errors.Errorf("fetching image metadata from external sources: %w", err)
-	}
-
-	if len(metadata) == 0 {
-		return nil, errors.Errorf(
-			"image metadata for version %v, arch %v: %w",
-			constraint.Releases, constraint.Arches,
-			cloudimagemetadataerrors.NotFound,
-		)
+		// Do not block provisioning if simplestreams lookup fails — some
+		// providers can select images on their own without explicit metadata.
+		s.logger.Warningf(ctx, "fetching image metadata from external sources: %v", err)
+		return nil, nil
 	}
 
 	sort.Slice(metadata, func(i, j int) bool {

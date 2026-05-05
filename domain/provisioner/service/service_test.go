@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
@@ -312,7 +311,8 @@ func (s *serviceSuite) TestGetProvisioningInfoWithCachedImageMetadata(c *tc.C) {
 }
 
 // TestGetProvisioningInfoImageMetadataFetcherError verifies that fetch
-// errors are propagated.
+// errors from simplestreams are logged and the service continues with
+// empty image metadata (graceful degradation matching 3.6 behaviour).
 func (s *serviceSuite) TestGetProvisioningInfoImageMetadataFetcherError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -331,12 +331,14 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataFetcherError(c *tc.C)
 		Return(nil, errors.New("simplestreams unavailable"))
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
-	c.Assert(err, tc.ErrorMatches, `resolving image metadata:.*simplestreams unavailable`)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ImageMetadata, tc.HasLen, 0)
 }
 
 // TestGetProvisioningInfoImageMetadataNotFound verifies that when the
-// fetcher returns empty metadata, a NotFound error is returned.
+// fetcher returns empty metadata, provisioning continues with no image
+// metadata (the provider selects images on its own).
 func (s *serviceSuite) TestGetProvisioningInfoImageMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -355,8 +357,9 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataNotFound(c *tc.C) {
 		Return([]provisioner.CloudImageMetadata{}, nil)
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
-	c.Assert(err, tc.ErrorIs, cloudimagemetadataerrors.NotFound)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ImageMetadata, tc.HasLen, 0)
 }
 
 // TestGetProvisioningInfoEndpointBindingsWithProviderID verifies endpoint
