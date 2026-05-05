@@ -1407,6 +1407,12 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 			o.FieldSelector = a.fieldSelector()
 		}),
 	)
+	pvcFactory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
+		informers.WithNamespace(a.namespace),
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
+			o.LabelSelector = a.labelSelector()
+		}),
+	)
 	var informer cache.SharedIndexInformer
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1426,7 +1432,11 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return watcher.NewMultiNotifyWatcher(w1, w2), nil
+	w3, err := a.newWatcher(pvcFactory.Core().V1().PersistentVolumeClaims().Informer(), a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher.NewMultiNotifyWatcher(w1, w2, w3), nil
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {

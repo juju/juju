@@ -516,6 +516,8 @@ type mockStorage struct {
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
+	filesystemInfos    map[names.FilesystemTag]state.FilesystemInfo
+	volumeInfos        map[names.VolumeTag]state.VolumeInfo
 	backingVolume      names.VolumeTag
 }
 
@@ -531,7 +533,7 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	m.MethodCall(m, "AllFilesystems")
 	var result []state.Filesystem
 	for _, fsTag := range m.storageFilesystems {
-		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume})
+		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume, info: m.filesystemInfos[fsTag]})
 	}
 	return result, nil
 }
@@ -553,11 +555,12 @@ func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
 	m.MethodCall(m, "Filesystem", fsTag)
-	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume, info: m.filesystemInfos[fsTag]}, nil
 }
 
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
-	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume}, nil
+	fsTag := m.storageFilesystems[tag]
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume, info: m.filesystemInfos[fsTag]}, nil
 }
 
 func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
@@ -582,11 +585,12 @@ func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.Fi
 
 func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
 	m.MethodCall(m, "Volume", volTag)
-	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil
+	return &mockVolume{Stub: &m.Stub, tag: volTag, info: m.volumeInfos[volTag]}, nil
 }
 
 func (m *mockStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
-	return &mockVolume{Stub: &m.Stub, tag: m.storageVolumes[tag]}, nil
+	volTag := m.storageVolumes[tag]
+	return &mockVolume{Stub: &m.Stub, tag: volTag, info: m.volumeInfos[volTag]}, nil
 }
 
 func (m *mockStorage) SetVolumeInfo(volTag names.VolumeTag, volInfo state.VolumeInfo) error {
@@ -634,6 +638,7 @@ type mockFilesystem struct {
 	state.Filesystem
 	tag    names.FilesystemTag
 	volTag names.VolumeTag
+	info   state.FilesystemInfo
 }
 
 func (f *mockFilesystem) Tag() names.Tag {
@@ -657,13 +662,17 @@ func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
+	if f.info != (state.FilesystemInfo{}) {
+		return f.info, nil
+	}
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
 type mockVolume struct {
 	*testing.Stub
 	state.Volume
-	tag names.VolumeTag
+	tag  names.VolumeTag
+	info state.VolumeInfo
 }
 
 func (v *mockVolume) Tag() names.Tag {
@@ -680,6 +689,9 @@ func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 func (v *mockVolume) Info() (state.VolumeInfo, error) {
+	if v.info != (state.VolumeInfo{}) {
+		return v.info, nil
+	}
 	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
 }
 
