@@ -1111,4 +1111,3 @@ func (s *CAASProvisionerSuite) TestUpdateUnitsWithProvisionedStorageInfo(c *gc.C
 		Since:   &now,
 	})
 }
-

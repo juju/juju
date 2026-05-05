@@ -210,12 +210,23 @@ func (s *FilesystemIAASModelSuite) TestSetFilesystemInfoRejectsFilesystemIdChang
 }
 
 func (s *FilesystemCAASModelSuite) TestSetFilesystemInfoAllowsFilesystemIdAndSizeUpdate(c *gc.C) {
-	_, _, storageTag := s.setupSingleStorage(c, "filesystem", "kubernetes")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "kubernetes")
+	hostTag := s.maybeAssignUnit(c, u)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 	filesystemTag := filesystem.FilesystemTag()
+	volume := s.filesystemVolume(c, filesystemTag)
+
+	err := s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeAttachmentInfo(
+		hostTag,
+		volume.VolumeTag(),
+		state.VolumeAttachmentInfo{DeviceName: "sdc"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	initial := state.FilesystemInfo{Size: 123, FilesystemId: "fs-old", Pool: "kubernetes"}
-	err := s.storageBackend.SetFilesystemInfo(filesystemTag, initial)
+	err = s.storageBackend.SetFilesystemInfo(filesystemTag, initial)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertFilesystemInfo(c, filesystemTag, initial)
 

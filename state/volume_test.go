@@ -32,7 +32,7 @@ type VolumeIAASModelSuite struct {
 }
 
 type VolumeCAASModelSuite struct {
-	VolumeStateSuite
+	StorageStateSuiteBase
 }
 
 var _ = gc.Suite(&VolumeIAASModelSuite{})
@@ -40,7 +40,7 @@ var _ = gc.Suite(&VolumeCAASModelSuite{})
 
 func (s *VolumeCAASModelSuite) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
-	s.VolumeStateSuite.SetUpTest(c)
+	s.StorageStateSuiteBase.SetUpTest(c)
 	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
@@ -275,24 +275,29 @@ func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
 }
 
 func (s *VolumeIAASModelSuite) TestSetVolumeInfoRejectsVolumeIdChange(c *gc.C) {
-	_, _, storageTag := s.setupSingleStorage(c, "volume", "rootfs")
-	volume := s.storageInstanceVolume(c, storageTag)
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
 	volumeTag := volume.VolumeTag()
 
-	initial := state.VolumeInfo{Size: 123, VolumeId: "vol-old", Pool: "rootfs"}
-	err := s.storageBackend.SetVolumeInfo(volumeTag, initial)
+	initial := state.VolumeInfo{Size: 123, VolumeId: "vol-old", Pool: "modelscoped-block"}
+	err = s.storageBackend.SetVolumeInfo(volumeTag, initial)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVolumeInfo(c, volumeTag, initial)
 
 	// For IAAS models, changing identifier should fail.
-	updated := state.VolumeInfo{Size: 456, VolumeId: "vol-new", Pool: "rootfs"}
+	updated := state.VolumeInfo{Size: 456, VolumeId: "vol-new", Pool: "modelscoped-block"}
 	err = s.storageBackend.SetVolumeInfo(volumeTag, updated)
-	c.Assert(err, gc.ErrorMatches, `cannot set info for volume ".*0/0": cannot change volume ID from "vol-old" to "vol-new" for machine models`)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume ".*0(/0)?": cannot change volume ID from "vol-old" to "vol-new" for machine models`)
 }
 
 func (s *VolumeCAASModelSuite) TestSetVolumeInfoAllowsVolumeIdAndSizeUpdate(c *gc.C) {
-	_, _, storageTag := s.setupSingleStorage(c, "volume", "kubernetes")
-	volume := s.storageInstanceVolume(c, storageTag)
+	_, _, storageTag := s.setupSingleStorage(c, "filesystem", "kubernetes")
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
 	volumeTag := volume.VolumeTag()
 
 	initial := state.VolumeInfo{Size: 123, VolumeId: "vol-old", Pool: "kubernetes"}
