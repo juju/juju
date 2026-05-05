@@ -122,6 +122,14 @@ func (w *revoker) loop() (err error) {
 		fire  <-chan time.Time
 	)
 	for {
+		scheduleTime := func(target time.Time) time.Time {
+			now := clk.Now()
+			if !target.After(now) {
+				return now
+			}
+			return quantiseTime(target)
+		}
+
 		select {
 		case <-w.catacomb.Dying():
 			if !next.IsZero() {
@@ -149,7 +157,7 @@ func (w *revoker) loop() (err error) {
 			if earliest.IsZero() {
 				continue
 			}
-			earliestQuantised := quantiseTime(earliest)
+			earliestQuantised := scheduleTime(earliest)
 			if !next.Equal(earliestQuantised) {
 				next = earliestQuantised
 				logger.Debugf("scheduling revoke at %v", next)
@@ -171,7 +179,7 @@ func (w *revoker) loop() (err error) {
 				next = time.Time{}
 				continue
 			}
-			next = quantiseTime(nextRevoke)
+			next = scheduleTime(nextRevoke)
 			logger.Debugf("scheduling revoke at %v", next)
 			alarm.Reset(next)
 		}

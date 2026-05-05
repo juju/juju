@@ -124,7 +124,7 @@ type klogSuppressMessagePrefixes []*klogSuppressMessagePrefix
 var (
 	klogSuppressedPrefixes = klogSuppressMessagePrefixes{
 		&klogSuppressMessagePrefix{
-			prefix: "Use tokens from the TokenRequest API or manually created secret-based tokens instead of auto-generated secret-based tokens",
+			prefix: "Warning: Use tokens from the TokenRequest API or manually created secret-based tokens instead of auto-generated secret-based tokens",
 			// We suppress the message at a rate of 1 per 5 minute, but we
 			// allow the first message to go through.
 			rate: &rate.Sometimes{

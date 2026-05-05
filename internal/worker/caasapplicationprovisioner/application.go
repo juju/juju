@@ -78,7 +78,10 @@ type appLoopState struct {
 	storageConstraintsChan <-chan time.Time
 }
 
-const tryAgain errors.ConstError = "try again"
+const (
+	tryAgain      errors.ConstError = "try again"
+	unitsChurning errors.ConstError = "units churning"
+)
 
 type NewAppWorkerFunc func(AppWorkerConfig) func() (worker.Worker, error)
 
@@ -251,7 +254,8 @@ func (a *appWorker) loop() error {
 		retryDelay = 3 * time.Second
 	)
 
-	refreshTimer := a.clock.NewTimer(10 * time.Second)
+	const refreshInterval = 10 * time.Second
+	refreshTimer := a.clock.NewTimer(refreshInterval)
 	defer refreshTimer.Stop()
 	for {
 		shouldRefresh := true
@@ -435,7 +439,10 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 		if shouldRefresh {
-			if err = a.ops.RefreshApplicationStatus(a.name, state.app, appLife, a.facade, a.logger); err != nil {
+			err = a.ops.RefreshApplicationStatus(a.name, state.app, state.appLife, a.facade, a.logger)
+			if errors.Is(err, unitsChurning) {
+				refreshTimer.Reset(refreshInterval)
+			} else if err != nil {
 				return errors.Annotatef(err, "refreshing application status for %q", a.name)
 			}
 		}

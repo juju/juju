@@ -91,6 +91,10 @@ bootstrap() {
 		;;
 	"k8s")
 		cloud="${BOOTSTRAP_CLOUD:-$(default_k8s)}"
+		if [[ -z ${cloud} ]]; then
+			echo "must specify k8s cloud to bootstrap"
+			exit 1
+		fi
 		;;
 	"manual")
 		manual_name=${1}
