@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainprovisioning "github.com/juju/juju/domain/provisioning"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
@@ -261,4 +262,14 @@ type CloudImageMetadataService interface {
 	// FindMetadata searches for cloud image metadata based on the given filter criteria in a specific context.
 	// It returns a set of image metadata grouped by region
 	FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
+}
+
+// ProvisioningService provides access to consolidated provisioning info
+// for a machine. This replaces the multiple per-machine service calls with
+// a single domain-level aggregation.
+type ProvisioningService interface {
+	// GetProvisioningInfo returns the complete provisioning information for a
+	// machine, consolidating all data from the model and controller databases
+	// into a single call.
+	GetProvisioningInfo(ctx context.Context, machineName coremachine.Name, isControllerModel bool) (domainprovisioning.ProvisioningInfo, error)
 }

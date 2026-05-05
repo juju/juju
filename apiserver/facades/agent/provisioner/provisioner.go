@@ -59,6 +59,7 @@ type ProvisionerAPI struct {
 	statusService              StatusService
 	applicationService         ApplicationService
 	removalService             RemovalService
+	provisioningService        ProvisioningService
 	authorizer                 facade.Authorizer
 	storagePoolGetter          StoragePoolGetter
 	storageProvisioningService StoageProvisioningService
@@ -134,6 +135,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	modelInfoService := domainServices.ModelInfo()
 	modelService := domainServices.Model()
 	networkService := domainServices.Network()
+	provisioningService := domainServices.Provisioning()
 	removalService := domainServices.Removal()
 	statusService := domainServices.Status()
 	storageService := domainServices.Storage()
@@ -175,6 +177,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		statusService:              statusService,
 		applicationService:         applicationService,
 		removalService:             removalService,
+		provisioningService:        provisioningService,
 		authorizer:                 authorizer,
 		storagePoolGetter:          storageService,
 		storageProvisioningService: storageProvisioningService,

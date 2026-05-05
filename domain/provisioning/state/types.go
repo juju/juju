@@ -100,3 +100,10 @@ type spaceSubnetRow struct {
 	SubnetProviderID string `db:"subnet_provider_id"`
 	AvailabilityZone string `db:"subnet_az"`
 }
+
+// modelInfoRow maps to the model table for identity info.
+type modelInfoRow struct {
+	Name        string `db:"name"`
+	CloudType   string `db:"cloud_type"`
+	CloudRegion string `db:"cloud_region"`
+}

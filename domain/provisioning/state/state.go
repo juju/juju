@@ -97,8 +97,8 @@ func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName strin
 			return txErr
 		}
 
-		// Query 8: Cloud region info.
-		result.CloudType, result.CloudRegion, result.CloudEndpoint, txErr = st.getCloudRegionInfo(ctx, tx)
+		// Query 8: Model identity info (name, cloud type, region).
+		result.ModelName, result.CloudType, result.CloudRegion, result.CloudEndpoint, txErr = st.getModelInfo(ctx, tx)
 		if txErr != nil {
 			return txErr
 		}
@@ -549,15 +549,30 @@ func (st *ModelState) getModelConfigValues(
 	return nil, "released", nil, false, nil
 }
 
-// getCloudRegionInfo fetches cloud type, region, and endpoint for
-// the model.
-func (st *ModelState) getCloudRegionInfo(
+// getModelInfo fetches the model name, cloud type, region, and endpoint.
+func (st *ModelState) getModelInfo(
 	ctx context.Context,
 	tx *sqlair.TX,
-) (string, string, string, error) {
-	// TODO(provisioning): Implement cloud region info query.
-	// Query model + cloud tables to get cloud_type, region, endpoint.
-	return "", "", "", nil
+) (string, string, string, string, error) {
+	stmt, err := st.Prepare(`
+SELECT m.name AS &modelInfoRow.name,
+       m.cloud_type AS &modelInfoRow.cloud_type,
+       m.cloud_region AS &modelInfoRow.cloud_region
+FROM model AS m
+`, modelInfoRow{})
+	if err != nil {
+		return "", "", "", "", errors.Capture(err)
+	}
+
+	var row modelInfoRow
+	err = tx.Query(ctx, stmt).Get(&row)
+	if err != nil {
+		return "", "", "", "", errors.Errorf("querying model info: %w", err)
+	}
+
+	// TODO(provisioning): Cloud endpoint is not stored in the model table.
+	// It would need to be fetched from a cloud_region table or similar.
+	return row.Name, row.CloudType, row.CloudRegion, "", nil
 }
 
 // getCachedImageMetadata fetches cached image metadata matching the

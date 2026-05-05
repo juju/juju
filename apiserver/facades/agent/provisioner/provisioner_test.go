@@ -25,16 +25,11 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/cloudimagemetadata"
-	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
-	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
-	envconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
+	domainprovisioning "github.com/juju/juju/domain/provisioning"
+	provisioningerrors "github.com/juju/juju/domain/provisioning/errors"
 	environtesting "github.com/juju/juju/environs/testing"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -57,6 +52,7 @@ type provisionerMockSuite struct {
 	storageProvisioningService *MockStoageProvisioningService
 	storagePoolGetter          *MockStoragePoolGetter
 	cloudImageMetadataService  *MockCloudImageMetadataService
+	provisioningService        *MockProvisioningService
 
 	authorizer *facademocks.MockAuthorizer
 
@@ -640,6 +636,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.storageProvisioningService = NewMockStoageProvisioningService(ctrl)
 	s.storagePoolGetter = NewMockStoragePoolGetter(ctrl)
 	s.cloudImageMetadataService = NewMockCloudImageMetadataService(ctrl)
+	s.provisioningService = NewMockProvisioningService(ctrl)
 
 	s.api = &ProvisionerAPI{
 		applicationService:         s.applicationService,
@@ -653,6 +650,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		storageProvisioningService: s.storageProvisioningService,
 		storagePoolGetter:          s.storagePoolGetter,
 		cloudImageMetadataService:  s.cloudImageMetadataService,
+		provisioningService:        s.provisioningService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -678,6 +676,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.storageProvisioningService = nil
 		s.storagePoolGetter = nil
 		s.cloudImageMetadataService = nil
+		s.provisioningService = nil
 		s.authorizer = nil
 		s.api = nil
 	})
@@ -741,30 +740,19 @@ func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-// TestProvisioningInfoErrorContinues verifies that when getProvisioningInfo
+// TestProvisioningInfoErrorContinues verifies that when GetProvisioningInfo
 // fails for one machine in a multi-entity request, it records the error and
 // continues processing subsequent machines (the continue statement).
 func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, tc.ErrorIsNil)
+	// Machine-0: provisioning service returns MachineNotFound.
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
 
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		CloudType: "ec2",
-	}, nil)
-	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-
-	// Machine-0: getProvisioningInfo fails because machine not found.
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).
-		Return("", machineerrors.MachineNotFound)
-
-	// Machine-1: getProvisioningInfo also fails (different error).
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).
-		Return("", internalerrors.New("some internal error"))
+	// Machine-1: provisioning service returns a different error.
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
+		Return(domainprovisioning.ProvisioningInfo{}, internalerrors.New("some internal error"))
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -788,9 +776,6 @@ func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Override the auth function to deny access to machine-0.
 	s.api.getAuthFunc = func(context.Context) (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -798,17 +783,9 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 		}, nil
 	}
 
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		CloudType: "ec2",
-	}, nil)
-	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-
-	// Machine-1 is allowed but fails in getProvisioningInfo.
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).
-		Return("", machineerrors.MachineNotFound)
+	// Machine-1 is allowed but GetProvisioningInfo returns MachineNotFound.
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
+		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"}, // denied by auth
@@ -828,60 +805,18 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 	c.Check(result.Results[1].Result, tc.IsNil)
 }
 
-// setupProvisioningInfoPrereqs sets up the common mock expectations for tests
-// that call ProvisioningInfo (the per-call setup before the per-machine loop).
-func (s *provisionerMockSuite) setupProvisioningInfoPrereqs(c *tc.C) {
-	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		CloudType: "ec2",
-	}, nil)
-	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-}
-
-// setupProvisioningInfoPrereqsWithSpaces is like setupProvisioningInfoPrereqs
-// but allows setting custom space infos.
-func (s *provisionerMockSuite) setupProvisioningInfoPrereqsWithSpaces(c *tc.C, spaces network.SpaceInfos) {
-	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaces, nil)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		CloudType: "ec2",
-	}, nil)
-	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-}
-
-// setupMachineForProvisioning sets up a machine that passes through
-// getProvisioningInfo successfully with minimal result.
-func (s *provisionerMockSuite) setupMachineForProvisioning(machineName coremachine.Name, machineUUID coremachine.UUID) {
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
-		}, nil)
-}
-
 // TestProvisioningInfoBasicSuccess verifies a basic successful call to
 // ProvisioningInfo returns the expected result with base, jobs, and tags.
 func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
-	machineUUID := machinetesting.GenUUID(c)
-	s.setupMachineForProvisioning(coremachine.Name("0"), machineUUID)
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
+			EndpointBindings: map[string]string{},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
+		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -903,37 +838,24 @@ func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 // populated in the provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
-	}, nil)
-
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(
-			[]domainstorageprovisioning.MachineVolumeProvisioningParams{{
-				ID:               "0",
-				Provider:         "ebs",
-				RequestedSizeMiB: 1024,
-				Tags:             map[string]string{"env": "test"},
-				Attributes:       map[string]string{"iops": "3000"},
-				UUID:             "vol-uuid-0",
-			}},
-			[]domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams{{
-				Provider:   "ebs",
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
+			Volumes: []domainprovisioning.VolumeParams{{
 				VolumeID:   "0",
-				VolumeUUID: "vol-uuid-0",
+				Provider:   "ebs",
+				SizeMiB:    1024,
+				Tags:       map[string]string{"env": "test"},
+				Attributes: map[string]any{"iops": "3000"},
+				Attachment: &domainprovisioning.VolumeAttachmentParams{
+					VolumeID:  "0",
+					MachineID: "0",
+					Provider:  "ebs",
+				},
 			}},
-			nil,
-		)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -960,25 +882,16 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 // populated when root-disk-source constraint is set.
 func (s *provisionerMockSuite) TestProvisioningInfoWithRootDisk(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
-		Constraints: constraints.Value{RootDiskSource: new("my-pool")},
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "my-pool").Return(domainstorage.StoragePool{
-		Provider: "ebs",
-		Attrs:    map[string]string{"iops": "3000"},
-	}, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
+			RootDisk: &domainprovisioning.VolumeParams{
+				Provider:   "ebs",
+				Attributes: map[string]any{"iops": "3000"},
+			},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1005,29 +918,13 @@ func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 		"packages":        []any{"python3-pip", "curl"},
 		"package_upgrade": true,
 	}
-	cfg, err := envconfig.New(envconfig.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"cloudinit-userdata": "packages:\n- python3-pip\n- curl\npackage_upgrade: true\n",
-	}))
-	c.Assert(err, tc.ErrorIsNil)
 
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{}, nil)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{CloudType: "ec2"}, nil)
-	s.modelInfoService.EXPECT().GetRegionCloudSpec(gomock.Any()).Return(simplestreams.CloudSpec{}, nil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base:              corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:              []coremodel.MachineJob{coremodel.JobHostUnits},
+			CloudInitUserData: cloudInitData,
+			ControllerConfig:  map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1042,51 +939,26 @@ func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 }
 
 // TestProvisioningInfoWithEndpointBindings verifies that endpoint bindings
-// are resolved from application endpoints to space provider IDs.
+// are correctly mapped to the API result.
 func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	spaceUUID := network.SpaceUUID("space-uuid-1")
-	spaces := network.SpaceInfos{{
-		ID:         spaceUUID,
-		Name:       "myspace",
-		ProviderId: "provider-space-1",
-	}}
-	s.setupProvisioningInfoPrereqsWithSpaces(c, spaces)
-
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-	unitName := coreunit.Name("myapp/0")
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).
-		Return([]coreunit.NameWithPrincipal{{Name: unitName}}, nil)
-	s.applicationService.EXPECT().GetApplicationEndpointBindings(gomock.Any(), "myapp").
-		Return(map[string]network.SpaceUUID{
-			"":    spaceUUID,
-			"web": spaceUUID,
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
+			EndpointBindings: map[string]string{
+				"":    "provider-space-1",
+				"web": "provider-space-1",
+			},
+			SpaceSubnets: map[string][]string{
+				"myspace": {"subnet-0"},
+			},
+			SubnetAZs: map[string][]string{
+				"subnet-0": {"zone-a"},
+			},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
-
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
-		}, nil)
-
-	// machineSpaceTopology calls SpaceByName for bound spaces.
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("myspace")).Return(&network.SpaceInfo{
-		ID:         spaceUUID,
-		Name:       "myspace",
-		ProviderId: "provider-space-1",
-		Subnets: network.SubnetInfos{{
-			ProviderId:        "subnet-0",
-			AvailabilityZones: []string{"zone-a"},
-		}},
-	}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1103,56 +975,25 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C)
 	})
 }
 
-// TestProvisioningInfoWithMultiplePositiveSpaceConstraints verifies that
-// space constraints produce a provisioning network topology with subnets
-// and availability zones.
-func (s *provisionerMockSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *tc.C) {
+// TestProvisioningInfoWithNetworkTopology verifies that network topology
+// data (space subnets and subnet AZs) is correctly mapped.
+func (s *provisionerMockSuite) TestProvisioningInfoWithNetworkTopology(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	space1UUID := network.SpaceUUID("space1-uuid")
-	space2UUID := network.SpaceUUID("space2-uuid")
-	spaces := network.SpaceInfos{
-		{ID: space1UUID, Name: "space1", ProviderId: "prov-space1"},
-		{ID: space2UUID, Name: "space2", ProviderId: "prov-space2"},
-	}
-	s.setupProvisioningInfoPrereqsWithSpaces(c, spaces)
-
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-
-	spaceConstraints := "space1,space2"
-	cons := constraints.MustParse("spaces=" + spaceConstraints)
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
-		Constraints: cons,
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
+			SpaceSubnets: map[string][]string{
+				"space1": {"subnet-0"},
+				"space2": {"subnet-1"},
+			},
+			SubnetAZs: map[string][]string{
+				"subnet-0": {"zone-a"},
+				"subnet-1": {"zone-b"},
+			},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
-
-	// machineSpaceTopology will call SpaceByName for each space.
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space1")).Return(&network.SpaceInfo{
-		ID:   space1UUID,
-		Name: "space1",
-		Subnets: network.SubnetInfos{{
-			ProviderId:        "subnet-0",
-			AvailabilityZones: []string{"zone-a"},
-		}},
-	}, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space2")).Return(&network.SpaceInfo{
-		ID:   space2UUID,
-		Name: "space2",
-		Subnets: network.SubnetInfos{{
-			ProviderId:        "subnet-1",
-			AvailabilityZones: []string{"zone-b"},
-		}},
-	}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1171,123 +1012,36 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithMultiplePositiveSpaceCons
 	c.Check(topo.SpaceSubnets["space2"], tc.DeepEquals, []string{"subnet-1"})
 }
 
-// TestProvisioningInfoWithUnsuitableSpacesConstraints verifies that a space
-// constraint referencing a space with no subnets returns an error.
-func (s *provisionerMockSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *tc.C) {
+// TestProvisioningInfoServiceError verifies that an error from the
+// provisioning service is mapped to the per-machine result error.
+func (s *provisionerMockSuite) TestProvisioningInfoServiceError(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	space1UUID := network.SpaceUUID("empty-space-uuid")
-	spaces := network.SpaceInfos{
-		{ID: space1UUID, Name: "empty", ProviderId: "prov-empty"},
-	}
-	s.setupProvisioningInfoPrereqsWithSpaces(c, spaces)
-
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-
-	cons := constraints.MustParse("spaces=empty")
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
-		Constraints: cons,
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
-		}, nil)
-
-	// Space has no subnets.
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("empty")).Return(&network.SpaceInfo{
-		ID:      space1UUID,
-		Name:    "empty",
-		Subnets: nil,
-	}, nil)
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("99"), false).
+		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-0"},
+		{Tag: "machine-99"},
 	}}
 	result, err := s.api.ProvisioningInfo(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
-	c.Check(result.Results[0].Error.Message, tc.Matches, `.*cannot use space "empty" as deployment target: no subnets.*`)
-}
-
-// TestProvisioningInfoConflictingNegativeConstraintWithBinding verifies that
-// when a machine has an endpoint binding to a space that conflicts with a
-// negative space constraint, an error is returned.
-func (s *provisionerMockSuite) TestProvisioningInfoConflictingNegativeConstraintWithBinding(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	spaceUUID := network.SpaceUUID("space-uuid-1")
-	spaces := network.SpaceInfos{{
-		ID:         spaceUUID,
-		Name:       "myspace",
-		ProviderId: "provider-space-1",
-	}}
-	s.setupProvisioningInfoPrereqsWithSpaces(c, spaces)
-
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
-	unitName := coreunit.Name("myapp/0")
-
-	// Constraint excludes "myspace", but the binding uses it.
-	cons := constraints.MustParse("spaces=^myspace")
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).
-		Return([]coreunit.NameWithPrincipal{{Name: unitName}}, nil)
-	s.applicationService.EXPECT().GetApplicationEndpointBindings(gomock.Any(), "myapp").
-		Return(map[string]network.SpaceUUID{
-			"web": spaceUUID,
-		}, nil)
-
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
-		Constraints: cons,
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
-		}, nil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-0"},
-	}}
-	result, err := s.api.ProvisioningInfo(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
-	c.Check(result.Results[0].Error.Message, tc.Matches, `.*conflicts with negative space constraint.*`)
+	c.Check(result.Results[0].Result, tc.IsNil)
 }
 
 // TestProvisioningInfoWithPlacement verifies that the placement directive
 // from the machine is included in provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
 	placement := "zone=us-east-1a"
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:               corebase.MakeDefaultBase("ubuntu", "22.04"),
-		PlacementDirective: &placement,
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base:               corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:               []coremodel.MachineJob{coremodel.JobHostUnits},
+			PlacementDirective: &placement,
+			ControllerConfig:   map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1304,23 +1058,14 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 // machine are included in provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
-	machineUUID := machinetesting.GenUUID(c)
-	machineName := coremachine.Name("0")
 	cons := constraints.MustParse("cores=4 mem=8G")
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.applicationService.EXPECT().GetUnitNamesWithPrincipalOnMachine(gomock.Any(), machineName).Return(nil, nil)
-	s.machineService.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName).Return(machine.ProvisioningInfo{
-		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
-		Constraints: cons,
-	}, nil)
-	s.storageProvisioningService.EXPECT().GetMachineProvisioningVolumeParams(gomock.Any(), machineUUID).
-		Return(nil, nil, nil)
-	s.cloudImageMetadataService.EXPECT().FindMetadata(gomock.Any(), gomock.Any()).
-		Return(map[string][]cloudimagemetadata.Metadata{
-			"default": {{ImageID: "img-1"}},
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
+			Constraints:      cons,
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1338,7 +1083,6 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 // Other machines and non-machine tags are denied.
 func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
 	// Only machine-0 and its containers are accessible.
 	s.api.getAuthFunc = func(context.Context) (common.AuthFunc, error) {
@@ -1351,12 +1095,15 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c
 		}, nil
 	}
 
-	machineUUID := machinetesting.GenUUID(c)
-	s.setupMachineForProvisioning(coremachine.Name("0"), machineUUID)
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
+		Return(domainprovisioning.ProvisioningInfo{
+			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
+		}, nil)
 
-	// Container passes auth but doesn't exist.
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).
-		Return("", machineerrors.MachineNotFound)
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0/lxd/0"), false).
+		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},       // allowed
@@ -1384,31 +1131,10 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c
 	c.Check(result.Results[3].Error.Message, tc.Equals, "permission denied")
 }
 
-// TestProvisioningInfoMachineNotFound verifies that a machine that doesn't
-// exist returns a not-found error in the results.
-func (s *provisionerMockSuite) TestProvisioningInfoMachineNotFound(c *tc.C) {
-	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("99")).
-		Return("", machineerrors.MachineNotFound)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-99"},
-	}}
-	result, err := s.api.ProvisioningInfo(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
-	c.Check(result.Results[0].Error.Message, tc.Matches, `.*does not exist.*`)
-	c.Check(result.Results[0].Result, tc.IsNil)
-}
-
 // TestProvisioningInfoInvalidTag verifies that a non-machine tag returns
 // a permission error.
 func (s *provisionerMockSuite) TestProvisioningInfoInvalidTag(c *tc.C) {
 	defer s.setup(c).Finish()
-	s.setupProvisioningInfoPrereqs(c)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-foo"},

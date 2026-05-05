@@ -86,6 +86,9 @@ type ProvisioningInfoState struct {
 	// IsController indicates whether the machine is a controller machine.
 	IsController bool
 
+	// ModelName is the name of the model this machine belongs to.
+	ModelName string
+
 	// UnitNames holds the unit names assigned to this machine with
 	// their principal info.
 	UnitNames []coreunit.NameWithPrincipal

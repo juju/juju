@@ -26,6 +26,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// ControllerUUIDKey is the controller config key for the controller UUID.
+const ControllerUUIDKey = "controller-uuid"
+
 // ModelState provides direct database access to the model database for
 // provisioning info retrieval. All methods execute within a single
 // transaction.
@@ -58,9 +61,7 @@ type Service struct {
 	modelSt              ModelState
 	controllerSt         ControllerState
 	imageMetadataFetcher ImageMetadataFetcher
-	controllerUUID       string
 	modelUUID            model.UUID
-	modelName            string
 	logger               logger.Logger
 }
 
@@ -69,18 +70,14 @@ func NewService(
 	modelSt ModelState,
 	controllerSt ControllerState,
 	imageMetadataFetcher ImageMetadataFetcher,
-	controllerUUID string,
 	modelUUID model.UUID,
-	modelName string,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
 		modelSt:              modelSt,
 		controllerSt:         controllerSt,
 		imageMetadataFetcher: imageMetadataFetcher,
-		controllerUUID:       controllerUUID,
 		modelUUID:            modelUUID,
-		modelName:            modelName,
 		logger:               logger,
 	}
 }
@@ -118,6 +115,9 @@ func (s *Service) GetProvisioningInfo(
 		)
 	}
 
+	// Extract controller UUID from the config.
+	controllerUUID, _ := controllerConfig[ControllerUUIDKey].(string)
+
 	// Step 3: Resolve endpoint bindings to space provider IDs/names.
 	endpointBindings, boundSpaceNames := s.resolveEndpointBindings(stateInfo.EndpointBindings, stateInfo.Spaces)
 
@@ -139,7 +139,7 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 7: Compute instance tags.
-	machineTags := s.computeTags(stateInfo.UnitNames, machineName, stateInfo.IsController, stateInfo.ResourceTags, stateInfo.ResourceTagsFound)
+	machineTags := s.computeTags(stateInfo.UnitNames, machineName, stateInfo.IsController, stateInfo.ResourceTags, stateInfo.ResourceTagsFound, controllerUUID, stateInfo.ModelName)
 
 	// Step 8: Determine machine jobs.
 	jobs := s.computeJobs(isControllerModel, stateInfo.IsController)
@@ -344,6 +344,8 @@ func (s *Service) computeTags(
 	isController bool,
 	resourceTagsMap map[string]string,
 	resourceTagsFound bool,
+	controllerUUID string,
+	modelName string,
 ) map[string]string {
 	var resourceTagger tags.ResourceTagger
 	if resourceTagsFound {
@@ -352,7 +354,7 @@ func (s *Service) computeTags(
 		resourceTagger = resourceTagsWrapper{}
 	}
 
-	machineTags := instancecfg.InstanceTags(string(s.modelUUID), s.controllerUUID, resourceTagger, isController)
+	machineTags := instancecfg.InstanceTags(string(s.modelUUID), controllerUUID, resourceTagger, isController)
 
 	// Compute principal unit names for the tag.
 	principalUnitNames := make([]string, 0, len(unitNames))
@@ -370,7 +372,7 @@ func (s *Service) computeTags(
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(principalUnitNames, " ")
 	}
 
-	machineID := fmt.Sprintf("%s-%s", s.modelName, "machine-"+machineName.String())
+	machineID := fmt.Sprintf("%s-%s", modelName, "machine-"+machineName.String())
 	machineTags[tags.JujuMachine] = machineID
 
 	return machineTags
@@ -407,11 +409,10 @@ func (s *Service) buildVolumeParams(
 		}
 	}
 
-	machineTag := "machine-" + machineName.String()
 	var retVAParams []provisioning.VolumeAttachmentParams
 	for _, ap := range stateInfo.VolumeAttachmentParams {
 		attachParams := provisioning.VolumeAttachmentParams{
-			MachineID:  machineTag,
+			MachineID:  machineName.String(),
 			Provider:   ap.Provider,
 			ReadOnly:   ap.ReadOnly,
 			ProviderID: ap.VolumeProviderID,
