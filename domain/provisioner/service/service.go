@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -180,12 +181,13 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 7: Compute instance tags.
+	resourceTags, resourceTagsFound := parseResourceTags(stateInfo.ResourceTags)
 	machineTags := s.computeTags(
 		stateInfo.UnitNames,
 		machineName,
 		stateInfo.IsController,
-		stateInfo.ResourceTags,
-		stateInfo.ResourceTagsFound,
+		resourceTags,
+		resourceTagsFound,
 		controllerUUID,
 		stateInfo.ModelName,
 	)
@@ -213,7 +215,7 @@ func (s *Service) GetProvisioningInfo(
 		Tags:               machineTags,
 		SpaceSubnets:       spaceSubnets,
 		SubnetAZs:          subnetAZs,
-		CloudInitUserData:  stateInfo.CloudInitUserData,
+		CloudInitUserData:  parseCloudInitUserData(stateInfo.CloudInitUserData),
 		ControllerConfig:   controllerConfig,
 	}, nil
 }
@@ -361,7 +363,7 @@ func (s *Service) resolveImageMetadata(
 	constraint := provisioner.ImageConstraint{
 		Releases: []string{base.Channel.Track},
 		Arches:   arches,
-		Stream:   stateInfo.ImageStream,
+		Stream:   imageStream(stateInfo.ImageStream),
 		Region:   stateInfo.CloudRegion,
 		Endpoint: cloudEndpoint,
 	}
@@ -516,4 +518,45 @@ func (r resourceTagsWrapper) ResourceTags() (map[string]string, bool) {
 		return nil, false
 	}
 	return r.tags, true
+}
+
+// parseCloudInitUserData parses a YAML string into a map.
+// Returns nil if the string is empty or invalid.
+func parseCloudInitUserData(raw string) map[string]any {
+	if raw == "" {
+		return nil
+	}
+	var result map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &result); err != nil {
+		return nil
+	}
+	return result
+}
+
+// parseResourceTags parses a space-separated "key=value" string into a map.
+// Returns the parsed tags and whether any were found.
+func parseResourceTags(raw string) (map[string]string, bool) {
+	if raw == "" {
+		return nil, false
+	}
+	tags := make(map[string]string)
+	for _, part := range strings.Fields(raw) {
+		k, v, ok := strings.Cut(part, "=")
+		if ok {
+			tags[k] = v
+		}
+	}
+	if len(tags) == 0 {
+		return nil, false
+	}
+	return tags, true
+}
+
+// imageStream returns the image stream value, defaulting to "released"
+// if the raw value is empty.
+func imageStream(raw string) string {
+	if raw == "" {
+		return "released"
+	}
+	return raw
 }

@@ -266,8 +266,8 @@ func (s *modelStateSuite) TestGetProvisioningInfoNotControllerModel(c *tc.C) {
 	c.Check(info.IsController, tc.IsFalse)
 }
 
-// TestGetProvisioningInfoImageStream verifies that the default image
-// stream is returned.
+// TestGetProvisioningInfoImageStream verifies that image stream is
+// returned as-is from the database (empty when not configured).
 func (s *modelStateSuite) TestGetProvisioningInfoImageStream(c *tc.C) {
 	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
 	s.addMachineWithPlatform(c, "8", "ubuntu", "22.04/stable")
@@ -275,8 +275,9 @@ func (s *modelStateSuite) TestGetProvisioningInfoImageStream(c *tc.C) {
 	info, err := s.state.GetProvisioningInfo(c.Context(), "8", false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Default image stream from the stub getModelConfigValues.
-	c.Check(info.ImageStream, tc.Equals, "released")
+	// State returns raw value; empty string when model_config has no
+	// image-stream key. The service layer applies the "released" default.
+	c.Check(info.ImageStream, tc.Equals, "")
 }
 
 // TestGetProvisioningInfoSpaceWithMultipleSubnets verifies spaces

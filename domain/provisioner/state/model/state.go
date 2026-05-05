@@ -5,10 +5,8 @@ package model
 
 import (
 	"context"
-	"strings"
 
 	"github.com/canonical/sqlair"
-	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -94,7 +92,7 @@ func (st *State) GetProvisioningInfo(ctx context.Context, machineName string, is
 		}
 
 		// Query 7: Model config values for provisioner.
-		result.CloudInitUserData, result.ImageStream, result.ResourceTags, result.ResourceTagsFound, txErr = st.getModelConfigValues(ctx, tx)
+		result.CloudInitUserData, result.ImageStream, result.ResourceTags, txErr = st.getModelConfigValues(ctx, tx)
 		if txErr != nil {
 			return txErr
 		}
@@ -633,72 +631,36 @@ FROM v_space_subnet
 func (st *State) getModelConfigValues(
 	ctx context.Context,
 	tx *sqlair.TX,
-) (map[string]any, string, map[string]string, bool, error) {
+) (string, string, string, error) {
 	stmt, err := st.Prepare(`
 SELECT &modelConfigRow.*
 FROM model_config
 WHERE "key" IN ($modelConfigKeys[:])
 `, modelConfigRow{}, modelConfigKeys{})
 	if err != nil {
-		return nil, "", nil, false, errors.Capture(err)
+		return "", "", "", errors.Capture(err)
 	}
 
 	keys := modelConfigKeys{"cloudinit-userdata", "image-stream", "resource-tags"}
 	var rows []modelConfigRow
 	err = tx.Query(ctx, stmt, keys).GetAll(&rows)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, "", nil, false, errors.Errorf("querying model config: %w", err)
+		return "", "", "", errors.Errorf("querying model config: %w", err)
 	}
 
-	// Defaults.
-	imageStream := "released"
-	var cloudInitUserData map[string]any
-	var resourceTags map[string]string
-	resourceTagsFound := false
-
+	var cloudInitUserData, imageStream, resourceTags string
 	for _, row := range rows {
 		switch row.Key {
 		case "image-stream":
-			if row.Value != "" {
-				imageStream = row.Value
-			}
+			imageStream = row.Value
 		case "cloudinit-userdata":
-			if row.Value != "" {
-				cloudInitUserData = parseCloudInitUserData(row.Value)
-			}
+			cloudInitUserData = row.Value
 		case "resource-tags":
-			if row.Value != "" {
-				resourceTags = parseResourceTags(row.Value)
-				resourceTagsFound = true
-			}
+			resourceTags = row.Value
 		}
 	}
 
-	return cloudInitUserData, imageStream, resourceTags, resourceTagsFound, nil
-}
-
-// parseCloudInitUserData parses a YAML string into a map.
-func parseCloudInitUserData(raw string) map[string]any {
-	var result map[string]any
-	if err := yaml.Unmarshal([]byte(raw), &result); err != nil {
-		return nil
-	}
-	return result
-}
-
-// parseResourceTags parses a space-separated "key=value" string into a map.
-func parseResourceTags(raw string) map[string]string {
-	tags := make(map[string]string)
-	for _, part := range strings.Fields(raw) {
-		k, v, ok := strings.Cut(part, "=")
-		if ok {
-			tags[k] = v
-		}
-	}
-	if len(tags) == 0 {
-		return nil
-	}
-	return tags
+	return cloudInitUserData, imageStream, resourceTags, nil
 }
 
 // getModelInfo fetches the model name, cloud name, cloud type, and region.

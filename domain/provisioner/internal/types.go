@@ -53,17 +53,16 @@ type ProvisioningInfoState struct {
 	// Spaces holds all spaces with their subnets and availability zones.
 	Spaces network.SpaceInfos
 
-	// CloudInitUserData holds cloud-init user data from model config.
-	CloudInitUserData map[string]any
+	// CloudInitUserData holds the raw cloud-init user data YAML string
+	// from model config.
+	CloudInitUserData string
 
 	// ImageStream is the image stream from model config (e.g. "released").
 	ImageStream string
 
-	// ResourceTags holds the resource tags from model config.
-	ResourceTags map[string]string
-
-	// ResourceTagsFound indicates whether resource tags were configured.
-	ResourceTagsFound bool
+	// ResourceTags holds the raw resource tags string from model config
+	// (space-separated key=value pairs).
+	ResourceTags string
 
 	// CloudType is the cloud type (e.g. "ec2", "azure", "openstack").
 	CloudType string

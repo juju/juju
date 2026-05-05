@@ -711,8 +711,7 @@ func (s *serviceSuite) TestGetProvisioningInfoTags(c *tc.C) {
 			{Name: coreunit.Name("wordpress/0")},
 			{Name: coreunit.Name("wordpress/1")},
 		},
-		ResourceTags:        map[string]string{"env": "production", "team": "infra"},
-		ResourceTagsFound:   true,
+		ResourceTags:        "env=production team=infra",
 		
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
@@ -928,9 +927,7 @@ func (s *serviceSuite) TestGetProvisioningInfoCloudInitUserData(c *tc.C) {
 		CloudType:   "ec2",
 		CloudRegion: "us-east-1",
 		ImageStream: "released",
-		CloudInitUserData: map[string]any{
-			"packages": []any{"htop", "vim"},
-		},
+		CloudInitUserData: "packages:\n  - htop\n  - vim\n",
 		
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
@@ -1029,7 +1026,6 @@ func (s *serviceSuite) TestGetProvisioningInfoResourceTagsNotFound(c *tc.C) {
 		CloudType:           "ec2",
 		CloudRegion:         "us-east-1",
 		ImageStream:         "released",
-		ResourceTagsFound:   false,
 		
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
