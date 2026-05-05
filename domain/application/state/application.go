@@ -578,7 +578,7 @@ func (st *State) GetApplicationLife(ctx context.Context, appUUID coreapplication
 
 	ident := entityUUID{UUID: appUUID.String()}
 	stmt, err := st.Prepare(`
-SELECT a.life_id AS &lifeID.life_id 
+SELECT a.life_id AS &lifeID.life_id
 FROM   application AS a
 JOIN   charm AS c ON c.uuid = a.charm_uuid
 WHERE  a.uuid = $entityUUID.uuid;
@@ -885,7 +885,7 @@ func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapp
 		Scale:         scale,
 	}
 	upsertApplicationScale := `
-UPDATE application_scale 
+UPDATE application_scale
 SET    scale = $applicationScale.scale
 WHERE  application_uuid = $applicationScale.application_uuid
 `
@@ -911,7 +911,7 @@ func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplica
 	}
 
 	upsertApplicationScale := `
-UPDATE application_scale 
+UPDATE application_scale
 SET    scale = $applicationScale.scale
 WHERE  application_uuid = $applicationScale.application_uuid
 `
@@ -1840,6 +1840,12 @@ WHERE  uuid = $entityUUID.uuid
 			}
 		}
 
+		if params.Platform != nil {
+			if err := st.updateApplicationPlatform(ctx, tx, *params.Platform, appID.String()); err != nil {
+				return errors.Errorf("updating application platform: %w", err)
+			}
+		}
+
 		charmModifiedVersionNamespace := domainsequence.MakePrefixNamespace(
 			application.ApplicationCharmSequenceNamespace, appID.String(),
 		)
@@ -1884,6 +1890,71 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	if err := tx.Query(ctx, upsertAppChannelStmt, appChannel).Run(); err != nil {
 		return errors.Errorf("upserting application channel: %w", err)
 	}
+	return nil
+}
+
+func (st *State) getApplicationPlatformArchitectureID(ctx context.Context, tx *sqlair.TX, appID string) (int, error) {
+	type platformArchitecture struct {
+		ArchitectureID int `db:"architecture_id"`
+	}
+
+	appIDInput := entityUUID{UUID: appID}
+	stmt, err := st.Prepare(`
+SELECT architecture_id AS &platformArchitecture.architecture_id
+FROM   application_platform
+WHERE  application_uuid = $entityUUID.uuid
+`, platformArchitecture{}, appIDInput)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var result platformArchitecture
+	if err := tx.Query(ctx, stmt, appIDInput).Get(&result); err != nil {
+		return 0, err
+	}
+	return result.ArchitectureID, nil
+}
+
+func (st *State) updateApplicationPlatform(ctx context.Context, tx *sqlair.TX, platform deployment.Platform, appID string) error {
+	var (
+		archID int
+		err    error
+	)
+
+	if platform.Architecture == architecture.Unknown {
+		archID, err = st.getApplicationPlatformArchitectureID(ctx, tx, appID)
+		if err != nil {
+			return errors.Errorf("getting existing application platform architecture: %w", err)
+		}
+	} else {
+		archID, err = encodeArchitecture(platform.Architecture)
+		if err != nil {
+			return errors.Errorf("encoding architecture: %w", err)
+		}
+	}
+
+	appPlatform := applicationPlatform{
+		ApplicationID:  appID,
+		OSTypeID:       int(platform.OSType),
+		Channel:        platform.Channel,
+		ArchitectureID: archID,
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE application_platform
+SET    os_id = $applicationPlatform.os_id,
+       channel = $applicationPlatform.channel,
+       architecture_id = $applicationPlatform.architecture_id
+WHERE  application_uuid = $applicationPlatform.application_uuid
+`, applicationPlatform{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, updateStmt, appPlatform).Run(); err != nil {
+		return errors.Errorf("updating application platform: %w", err)
+	}
+
 	return nil
 }
 
@@ -3434,10 +3505,10 @@ SELECT
 FROM application AS a
 JOIN charm_config AS cc ON a.charm_uuid = cc.charm_uuid
 JOIN charm_config_type AS cct ON cc.type_id = cct.id
-LEFT JOIN application_config AS ac 
+LEFT JOIN application_config AS ac
 	ON  ac.application_uuid = a.uuid
-	AND ac.type_id  = cc.type_id 
-	AND ac.key = cc.key 
+	AND ac.type_id  = cc.type_id
+	AND ac.key = cc.key
 WHERE a.uuid = $entityUUID.uuid;
 `, applicationConfig{}, appID)
 	if err != nil {
