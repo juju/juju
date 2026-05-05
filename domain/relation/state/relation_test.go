@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1366,8 +1367,10 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 	s.setRelationSuspended(c, relationUUID)
 
+	// Endpoints are expected in canonical key order: requirer first, provider
+	// second. endpoint2 (requirer) must come before endpoint1 (provider).
 	expectedResults := []domainrelation.RelationUnitStatusResult{{
-		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+		Endpoints: []domainrelation.Endpoint{endpoint2, endpoint1},
 		InScope:   true,
 		Suspended: true,
 	}}
@@ -1381,7 +1384,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 	c.Assert(results, tc.HasLen, 1)
 	c.Check(results[0].InScope, tc.Equals, expectedResults[0].InScope)
 	c.Check(results[0].Suspended, tc.Equals, expectedResults[0].Suspended)
-	c.Check(results[0].Endpoints, tc.SameContents, expectedResults[0].Endpoints)
+	c.Check(results[0].Endpoints, tc.DeepEquals, expectedResults[0].Endpoints)
 }
 
 // TestGetRelationsStatusForUnit checks that GetRelationStatusesForUnit works
@@ -1570,14 +1573,85 @@ func (s *relationSuite) TestGetRelationEndpoints(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
-	expectedEndpoints := []domainrelation.Endpoint{endpoint1, endpoint2}
+	// Endpoints are expected in canonical key order: requirer first, provider
+	// second. endpoint2 (requirer) must come before endpoint1 (provider).
+	expectedEndpoints := []domainrelation.Endpoint{endpoint2, endpoint1}
 
 	// Act: Get relation endpoints.
 	obtainedEndpoints, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedEndpoints, tc.SameContents, expectedEndpoints)
+	c.Check(obtainedEndpoints, tc.DeepEquals, expectedEndpoints)
+}
+
+// TestGetRelationEndpointsCanonicalOrder verifies that GetRelationEndpoints
+// returns endpoints in canonical key order (requirer first, provider second,
+// peer last) regardless of insertion order. The SQL ORDER BY CASE role block
+// in getRelationEndpoints is responsible for this guarantee; callers build a
+// relation Key directly from the returned slice without any further sorting.
+//
+// Every permutation of the three roles (requirer, provider, peer) is exercised.
+func (s *relationSuite) TestGetRelationEndpointsCanonicalOrder(c *tc.C) {
+	tests := []struct {
+		description string
+		// insertionRoles lists endpoint roles in the order they are written to
+		// relation_endpoint.
+		insertionRoles []charm.RelationRole
+		// wantRoles is the canonical order the SQL ORDER BY must produce.
+		wantRoles []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
+		},
+	}
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Each iteration needs its own charms and applications to avoid
+		// UNIQUE constraint violations on (charm_uuid, name) in charm_relation.
+		charmUUIDs := make([]corecharm.ID, len(tt.insertionRoles))
+		appUUIDs := make([]coreapplication.UUID, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			charmUUIDs[j] = s.addCharm(c)
+			appUUIDs[j] = s.addApplication(c, charmUUIDs[j],
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID, appEpUUID)
+		}
+
+		obtained, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("%s", tt.description))
+		c.Assert(obtained, tc.HasLen, len(tt.wantRoles), tc.Commentf("%s", tt.description))
+		for j, wantRole := range tt.wantRoles {
+			c.Check(obtained[j].Relation.Role, tc.Equals, wantRole,
+				tc.Commentf("%s: endpoint[%d]", tt.description, j))
+		}
+	}
 }
 
 func (s *relationSuite) TestGetRelationLifeSuspendedStatus(c *tc.C) {
@@ -1615,14 +1689,16 @@ func (s *relationSuite) TestGetRelationLifeSuspendedStatus(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
-	expectedEndpoints := []domainrelation.Endpoint{endpoint1, endpoint2}
+	// Endpoints are expected in canonical key order: requirer first, provider
+	// second. endpoint2 (requirer) must come before endpoint1 (provider).
+	expectedEndpoints := []domainrelation.Endpoint{endpoint2, endpoint1}
 
 	// Act: Get relation endpoints.
 	obtained, err := s.state.GetRelationLifeSuspendedStatus(c.Context(), relationUUID.String())
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained.Endpoints, tc.SameContents, expectedEndpoints)
+	c.Check(obtained.Endpoints, tc.DeepEquals, expectedEndpoints)
 	c.Check(obtained.Life, tc.Equals, corelife.Dying)
 	c.Check(obtained.Suspended, tc.IsFalse)
 }
@@ -1663,10 +1739,13 @@ func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	expectedDetails := domainrelation.RelationDetailsResult{
-		Life:      corelife.Dying,
-		UUID:      relationUUID,
-		ID:        relationID,
-		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+		Life: corelife.Dying,
+		UUID: relationUUID,
+		ID:   relationID,
+		// Endpoints are expected in canonical key order: requirer first,
+		// provider second. endpoint2 (requirer) must come before endpoint1
+		// (provider).
+		Endpoints: []domainrelation.Endpoint{endpoint2, endpoint1},
 	}
 
 	// Act: Get relation details.
@@ -1677,7 +1756,7 @@ func (s *relationSuite) TestGetRelationDetails(c *tc.C) {
 	c.Check(details.Life, tc.Equals, expectedDetails.Life)
 	c.Check(details.UUID, tc.Equals, expectedDetails.UUID)
 	c.Check(details.ID, tc.Equals, expectedDetails.ID)
-	c.Check(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Endpoints, tc.DeepEquals, expectedDetails.Endpoints)
 	c.Check(details.Suspended, tc.IsFalse)
 	c.Check(details.InScopeUnits, tc.Equals, 0)
 }
@@ -1724,10 +1803,13 @@ func (s *relationSuite) TestGetRelationDetailsInScopeUnits(c *tc.C) {
 	s.addRelationUnit(c, unitUUID2, relationEndpointUUID2)
 
 	expectedDetails := domainrelation.RelationDetailsResult{
-		Life:      corelife.Dying,
-		UUID:      relationUUID,
-		ID:        relationID,
-		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+		Life: corelife.Dying,
+		UUID: relationUUID,
+		ID:   relationID,
+		// Endpoints are expected in canonical key order: requirer first,
+		// provider second. endpoint2 (requirer) must come before endpoint1
+		// (provider).
+		Endpoints: []domainrelation.Endpoint{endpoint2, endpoint1},
 	}
 
 	// Act: Get relation details.
@@ -1738,7 +1820,7 @@ func (s *relationSuite) TestGetRelationDetailsInScopeUnits(c *tc.C) {
 	c.Check(details.Life, tc.Equals, expectedDetails.Life)
 	c.Check(details.UUID, tc.Equals, expectedDetails.UUID)
 	c.Check(details.ID, tc.Equals, expectedDetails.ID)
-	c.Check(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Endpoints, tc.DeepEquals, expectedDetails.Endpoints)
 	c.Check(details.Suspended, tc.IsFalse)
 	c.Check(details.InScopeUnits, tc.Equals, 2)
 }
@@ -1781,10 +1863,13 @@ func (s *relationSuite) TestGetRelationDetailsSuspended(c *tc.C) {
 	s.setRelationSuspended(c, relationUUID)
 
 	expectedDetails := domainrelation.RelationDetailsResult{
-		Life:      corelife.Dying,
-		UUID:      relationUUID,
-		ID:        relationID,
-		Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+		Life: corelife.Dying,
+		UUID: relationUUID,
+		ID:   relationID,
+		// Endpoints are expected in canonical key order: requirer first,
+		// provider second. endpoint2 (requirer) must come before endpoint1
+		// (provider).
+		Endpoints: []domainrelation.Endpoint{endpoint2, endpoint1},
 	}
 
 	// Act: Get relation details.
@@ -1795,7 +1880,7 @@ func (s *relationSuite) TestGetRelationDetailsSuspended(c *tc.C) {
 	c.Check(details.Life, tc.Equals, expectedDetails.Life)
 	c.Check(details.UUID, tc.Equals, expectedDetails.UUID)
 	c.Check(details.ID, tc.Equals, expectedDetails.ID)
-	c.Check(details.Endpoints, tc.SameContents, expectedDetails.Endpoints)
+	c.Check(details.Endpoints, tc.DeepEquals, expectedDetails.Endpoints)
 	c.Check(details.Suspended, tc.IsTrue)
 }
 
@@ -1894,16 +1979,21 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 
 	expectedDetails := map[int]domainrelation.RelationDetailsResult{
 		relationID1: {
-			Life:      corelife.Dying,
-			UUID:      relationUUID1,
-			ID:        relationID1,
-			Endpoints: []domainrelation.Endpoint{endpoint1, endpoint2},
+			Life: corelife.Dying,
+			UUID: relationUUID1,
+			ID:   relationID1,
+			// Endpoints are expected in canonical key order: requirer first,
+			// provider second. endpoint2 (requirer) must come before endpoint1
+			// (provider).
+			Endpoints: []domainrelation.Endpoint{endpoint2, endpoint1},
 		},
 		relationID2: {
-			Life:      corelife.Alive,
-			UUID:      relationUUID2,
-			ID:        relationID2,
-			Endpoints: []domainrelation.Endpoint{endpoint1, endpoint3},
+			Life: corelife.Alive,
+			UUID: relationUUID2,
+			ID:   relationID2,
+			// endpoint3 is also a requirer, so it comes before endpoint1
+			// (provider).
+			Endpoints: []domainrelation.Endpoint{endpoint3, endpoint1},
 		},
 	}
 
@@ -1921,14 +2011,89 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	c.Check(detailsByRelationID[relationID1].Life, tc.Equals, expectedDetails[relationID1].Life)
 	c.Check(detailsByRelationID[relationID1].UUID, tc.Equals, expectedDetails[relationID1].UUID)
 	c.Check(detailsByRelationID[relationID1].ID, tc.Equals, expectedDetails[relationID1].ID)
-	c.Check(detailsByRelationID[relationID1].Endpoints, tc.SameContents, expectedDetails[relationID1].Endpoints)
+	c.Check(detailsByRelationID[relationID1].Endpoints, tc.DeepEquals, expectedDetails[relationID1].Endpoints)
 	c.Check(detailsByRelationID[relationID1].Suspended, tc.IsFalse)
 	// Second relation
 	c.Check(detailsByRelationID[relationID2].Life, tc.Equals, expectedDetails[relationID2].Life)
 	c.Check(detailsByRelationID[relationID2].UUID, tc.Equals, expectedDetails[relationID2].UUID)
 	c.Check(detailsByRelationID[relationID2].ID, tc.Equals, expectedDetails[relationID2].ID)
-	c.Check(detailsByRelationID[relationID2].Endpoints, tc.SameContents, expectedDetails[relationID2].Endpoints)
+	c.Check(detailsByRelationID[relationID2].Endpoints, tc.DeepEquals, expectedDetails[relationID2].Endpoints)
 	c.Check(detailsByRelationID[relationID2].Suspended, tc.IsTrue)
+}
+
+// TestGetAllRelationDetailsCanonicalOrder verifies that GetAllRelationDetails
+// returns endpoints in canonical key order (requirer first, provider second,
+// peer last) regardless of insertion order. All permutations of the SQL
+// ORDER BY CASE role block in getRelationEndpointsByRelationUUIDs are
+// exercised.
+func (s *relationSuite) TestGetAllRelationDetailsCanonicalOrder(c *tc.C) {
+	tests := []struct {
+		description    string
+		insertionRoles []charm.RelationRole
+		wantRoles      []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
+		},
+	}
+
+	// wantRolesByUUID maps relation UUID → expected canonical role order.
+	wantRolesByUUID := make(map[corerelation.UUID][]charm.RelationRole)
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Create fresh charms and apps per iteration to avoid UNIQUE
+		// constraint violations on (charm_uuid, name) in charm_relation.
+		charmUUIDs := make([]corecharm.ID, len(tt.insertionRoles))
+		appUUIDs := make([]coreapplication.UUID, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			charmUUIDs[j] = s.addCharm(c)
+			appUUIDs[j] = s.addApplication(c, charmUUIDs[j],
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID, appEpUUID)
+		}
+		wantRolesByUUID[relationUUID] = tt.wantRoles
+	}
+
+	details, err := s.state.GetAllRelationDetails(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.HasLen, len(tests))
+
+	for _, detail := range details {
+		wantRoles, ok := wantRolesByUUID[detail.UUID]
+		c.Assert(ok, tc.IsTrue, tc.Commentf("unexpected relation UUID %s", detail.UUID))
+		c.Assert(detail.Endpoints, tc.HasLen, len(wantRoles),
+			tc.Commentf("relation %s", detail.UUID))
+		for j, wantRole := range wantRoles {
+			c.Check(detail.Endpoints[j].Relation.Role, tc.Equals, wantRole,
+				tc.Commentf("relation %s endpoint[%d]", detail.UUID, j))
+		}
+	}
 }
 
 func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
@@ -2027,7 +2192,7 @@ func (s *relationSuite) TestGetAllRelationDetailsFiltersSyntheticRelations(c *tc
 	c.Assert(details, tc.HasLen, 1)
 	c.Check(details[0].ID, tc.Equals, relationID1)
 	c.Check(details[0].UUID, tc.Equals, relationUUID1)
-	c.Check(details[0].Endpoints, tc.SameContents, []domainrelation.Endpoint{endpoint1, endpoint2})
+	c.Check(details[0].Endpoints, tc.DeepEquals, []domainrelation.Endpoint{endpoint2, endpoint1})
 }
 
 func (s *relationSuite) TestGetAllRelationDetailsWithMissingEndpoints(c *tc.C) {
@@ -2093,7 +2258,7 @@ func (s *relationSuite) TestGetAllRelationDetailsWithMissingInScopeCount(c *tc.C
 	c.Check(details[0].ID, tc.Equals, relationID1)
 	c.Check(details[0].UUID, tc.Equals, relationUUID1)
 	c.Check(details[0].InScopeUnits, tc.Equals, 0, tc.Commentf("Relations with no units should have in-scope count of 0"))
-	c.Check(details[0].Endpoints, tc.SameContents, []domainrelation.Endpoint{endpoint1, endpoint2})
+	c.Check(details[0].Endpoints, tc.DeepEquals, []domainrelation.Endpoint{endpoint2, endpoint1})
 }
 
 func (s *relationSuite) TestEnterScope(c *tc.C) {
@@ -2532,9 +2697,12 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Life, tc.DeepEquals, corelife.Alive)
 	c.Check(result.Suspended, tc.IsTrue)
-	c.Check(result.EndpointIdentifiers, tc.SameContents, []corerelation.EndpointIdentifier{
-		endpoint1.EndpointIdentifier(),
+	// EndpointIdentifiers are expected in canonical key order: requirer first,
+	// provider second. endpoint2 (requirer) must come before endpoint1
+	// (provider).
+	c.Check(result.EndpointIdentifiers, tc.DeepEquals, []corerelation.EndpointIdentifier{
 		endpoint2.EndpointIdentifier(),
+		endpoint1.EndpointIdentifier(),
 	})
 }
 

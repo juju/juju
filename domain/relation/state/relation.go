@@ -923,10 +923,19 @@ func (st *State) getRelationEndpoints(
 		UUID: uuid,
 	}
 
+	// Endpoints are ordered canonically: requirer first, then provider for
+	// regular relations, peer for peer relations. This guarantees that the
+	// resulting relation key is stable across calls and matches the form used
+	// elsewhere (e.g. names.RelationTag) without further reordering in Go.
 	stmt, err := st.Prepare(`
 SELECT &Endpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
+ORDER BY CASE role
+    WHEN 'requirer' THEN 0
+    WHEN 'provider' THEN 1
+    ELSE 2
+END
 `, id, Endpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -966,7 +975,11 @@ func (st *State) exportRelationEndpoints(
 SELECT &exportEndpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
-ORDER BY endpoint_name
+ORDER BY CASE role
+    WHEN 'requirer' THEN 0
+    WHEN 'provider' THEN 1
+    ELSE 2
+END
 `, id, exportEndpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -3248,6 +3261,12 @@ func (st *State) getRelationEndpointsByRelationUUIDs(ctx context.Context, tx *sq
 SELECT &endpointWithRelationUUID.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid IN ($relationUUIDsInput[:])
+ORDER BY relation_uuid,
+    CASE role
+        WHEN 'requirer' THEN 0
+        WHEN 'provider' THEN 1
+        ELSE 2
+    END
 `, relationUUIDsInput{}, endpointWithRelationUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)

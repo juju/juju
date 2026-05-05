@@ -712,20 +712,16 @@ func (s *Service) GetRelationDetails(
 		return relation.RelationDetails{}, errors.Capture(err)
 	}
 
-	var identifiers []corerelation.EndpointIdentifier
-	for _, e := range relationDetails.Endpoints {
-		identifiers = append(identifiers, e.EndpointIdentifier())
-	}
-	key, err := corerelation.NewKey(identifiers)
-	if err != nil {
-		return relation.RelationDetails{}, errors.Errorf("generating relation key: %w", err)
+	identifiers := make(corerelation.Key, len(relationDetails.Endpoints))
+	for i, e := range relationDetails.Endpoints {
+		identifiers[i] = e.EndpointIdentifier()
 	}
 
 	return relation.RelationDetails{
 		Life:         relationDetails.Life,
 		UUID:         relationDetails.UUID,
 		ID:           relationDetails.ID,
-		Key:          key,
+		Key:          identifiers,
 		Endpoints:    relationDetails.Endpoints,
 		Suspended:    relationDetails.Suspended,
 		InScopeUnits: relationDetails.InScopeUnits,
@@ -757,13 +753,9 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	var statuses []relation.RelationUnitStatus
 	for _, result := range results {
-		var identifiers []corerelation.EndpointIdentifier
-		for _, e := range result.Endpoints {
-			identifiers = append(identifiers, e.EndpointIdentifier())
-		}
-		key, err := corerelation.NewKey(identifiers)
-		if err != nil {
-			return nil, errors.Errorf("generating relation key: %w", err)
+		key := make(corerelation.Key, len(result.Endpoints))
+		for i, e := range result.Endpoints {
+			key[i] = e.EndpointIdentifier()
 		}
 		statuses = append(statuses, relation.RelationUnitStatus{
 			Key:       key,
@@ -911,14 +903,9 @@ func (s *Service) GetRelationLifeSuspendedStatus(
 		return relation.RelationLifeSuspendedStatus{}, errors.Capture(err)
 	}
 
-	identifiers := transform.Slice(change.Endpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
+	key := corerelation.Key(transform.Slice(change.Endpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
 		return in.EndpointIdentifier()
-	})
-
-	key, err := corerelation.NewKey(identifiers)
-	if err != nil {
-		return relation.RelationLifeSuspendedStatus{}, errors.Errorf("generating relation key: %w", err)
-	}
+	}))
 
 	return relation.RelationLifeSuspendedStatus{
 		Key:             key.String(),
@@ -1217,14 +1204,9 @@ func (s *Service) GetRelationKeyByUUID(ctx context.Context, relationUUID corerel
 		return corerelation.Key{}, errors.Capture(err)
 	}
 
-	identifiers := transform.Slice(relationEndpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
+	key := corerelation.Key(transform.Slice(relationEndpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
 		return in.EndpointIdentifier()
-	})
-
-	key, err := corerelation.NewKey(identifiers)
-	if err != nil {
-		return corerelation.Key{}, errors.Errorf("generating relation key: %w", err)
-	}
+	}))
 
 	return key, nil
 }

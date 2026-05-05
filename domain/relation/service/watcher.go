@@ -507,6 +507,22 @@ func (w *lifeSuspendedStatusWatcher[T]) GetMapper() eventsource.Mapper {
 // loop rather than error or assume the happy case.
 const continueError = errors.ConstError("continue")
 
+// removedRelationKey builds a final change event for a relation that has been
+// removed. Key-based consumers rely on this to clean up state they hold under
+// the endpoint-derived relation key (e.g. the uniter's remote-state watcher).
+// If the relation was never seen, there is nothing to notify.
+func removedRelationKey(
+	current map[corerelation.UUID]relation.RelationLifeSuspendedData,
+	relUUID corerelation.UUID,
+) (corerelation.Key, error) {
+	previous, seen := current[relUUID]
+	delete(current, relUUID)
+	if !seen {
+		return nil, continueError
+	}
+	return corerelation.Key(previous.EndpointIdentifiers), nil
+}
+
 func (w *lifeSuspendedStatusWatcher[T]) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
@@ -576,7 +592,7 @@ func (w *principalLifeSuspendedStatusWatcher) processInitialChange(
 	relUUID corerelation.UUID,
 	data relation.RelationLifeSuspendedData,
 ) (corerelation.Key, error) {
-	return corerelation.NewKey(data.EndpointIdentifiers)
+	return corerelation.Key(data.EndpointIdentifiers), nil
 }
 
 // processChange returns a relation key when the relation change should
@@ -591,11 +607,15 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 ) (corerelation.Key, error) {
 	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		// If the relation was previously tracked, emit the old key so
+		// the consumer can clean up. Only ignore truly unknown relations.
+		if _, seen := w.currentRelations[relUUID]; seen {
+			return removedRelationKey(w.currentRelations, relUUID)
+		}
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
-		delete(w.currentRelations, relUUID)
-		return nil, continueError
+		return removedRelationKey(w.currentRelations, relUUID)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -609,11 +629,7 @@ func (w *principalLifeSuspendedStatusWatcher) processChange(
 	}
 
 	w.currentRelations[relUUID] = changedRelationData
-	key, err := corerelation.NewKey(changedRelationData.EndpointIdentifiers)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return key, nil
+	return corerelation.Key(changedRelationData.EndpointIdentifiers), nil
 }
 
 // subordinateLifeSuspendedStatusWatcher implements the processChange method
@@ -650,7 +666,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) processInitialChange(
 	relUUID corerelation.UUID,
 	data relation.RelationLifeSuspendedData,
 ) (corerelation.Key, error) {
-	return corerelation.NewKey(data.EndpointIdentifiers)
+	return corerelation.Key(data.EndpointIdentifiers), nil
 }
 
 // processChange returns a relation key when the relation change should
@@ -666,19 +682,20 @@ func (w *subordinateLifeSuspendedStatusWatcher) processChange(
 ) (corerelation.Key, error) {
 	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		// If the relation was previously tracked, emit the old key so
+		// the consumer can clean up. Only ignore truly unknown relations.
+		if _, seen := w.currentRelations[relUUID]; seen {
+			return removedRelationKey(w.currentRelations, relUUID)
+		}
 		relationsIgnored.Add(relUUID.String())
 		return nil, continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
-		delete(w.currentRelations, relUUID)
-		return nil, continueError
+		return removedRelationKey(w.currentRelations, relUUID)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	key, err := corerelation.NewKey(changedRelationData.EndpointIdentifiers)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
+	key := corerelation.Key(changedRelationData.EndpointIdentifiers)
 
 	// If this is a known relation where neither the Life nor
 	// Suspended value have changed, do not notify.
