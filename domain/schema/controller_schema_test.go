@@ -143,9 +143,10 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Model migration
 		"model_migration",
+		"model_migration_direction",
+		"model_migration_phase",
 		"model_migration_status",
-		"model_migration_user",
-		"model_migration_minion_sync",
+		"model_migration_target",
 		"model_authorized_keys",
 		"model_migration_import",
 
@@ -297,14 +298,6 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_external_controller_insert",
 		"trg_log_external_controller_update",
 		"trg_log_external_controller_delete",
-
-		"trg_log_model_migration_minion_sync_insert",
-		"trg_log_model_migration_minion_sync_update",
-		"trg_log_model_migration_minion_sync_delete",
-
-		"trg_log_model_migration_status_insert",
-		"trg_log_model_migration_status_update",
-		"trg_log_model_migration_status_delete",
 
 		"trg_log_object_store_metadata_path_insert",
 		"trg_log_object_store_metadata_path_update",
