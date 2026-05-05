@@ -12,20 +12,13 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainprovisioner "github.com/juju/juju/domain/provisioner"
-	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 )
 
 // AgentProvisionerService provides access to container config.
@@ -47,37 +40,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// ModelConfigService is the interface that the provisioner facade uses to get
-// the model config.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
-
-// ModelInfoService describe the service for interacting and reading the underlying
-// model information.
-type ModelInfoService interface {
-	// GetModelInfo returns the readonly model information for the model in
-	// question.
-	GetModelInfo(context.Context) (model.ModelInfo, error)
-
-	// GetRegionCloudSpec returns a CloudSpec representing the cloud deployment of
-	// this model if supported by the provider. If not, an empty structure is
-	// returned with no error.
-	GetRegionCloudSpec(ctx context.Context) (simplestreams.CloudSpec, error)
-}
-
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
 	// ShouldKeepInstance reports whether a machine, when removed from Juju,
 	// should cause the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, machineName coremachine.Name) (bool, error)
-
-	// SetKeepInstance sets whether the machine cloud instance will be retained
-	// when the machine is removed from Juju. This is only relevant if an
-	// instance exists.
-	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags.
@@ -115,10 +83,6 @@ type MachineService interface {
 	// provider.
 	GetSupportedContainersTypes(ctx context.Context, mUUID coremachine.UUID) ([]instance.ContainerType, error)
 
-	// IsMachineController returns whether the machine is a controller machine.
-	// It returns a NotFound if the given machine doesn't exist.
-	IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error)
-
 	// GetMachinePrincipalApplications returns the names of the principal
 	// (non-subordinate) units for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName coremachine.Name) ([]string, error)
@@ -130,9 +94,6 @@ type MachineService interface {
 	// GetMachineProvisioningInfo returns the base, placement directive and
 	// constraints for the given machine.
 	GetMachineProvisioningInfo(ctx context.Context, mName coremachine.Name) (domainmachine.ProvisioningInfo, error)
-
-	// GetBootstrapEnviron returns the bootstrap environ.
-	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
 }
 
 // StatusService defines the methods that the facade assumes from the Status
@@ -152,24 +113,6 @@ type StatusService interface {
 	SetMachineStatus(context.Context, coremachine.Name, status.StatusInfo) error
 }
 
-// StoragePoolGetter instances get a storage pool by name.
-type StoragePoolGetter interface {
-	// GetStoragePoolByName returns the storage pool with the specified name.
-	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error)
-}
-
-// StoageProvisioningService provides the needed functionality for determining
-// a machines volume storage provisioning information.
-type StoageProvisioningService interface {
-	GetMachineProvisioningVolumeParams(
-		ctx context.Context, uuid coremachine.UUID,
-	) (
-		[]domainstorageprovisioning.MachineVolumeProvisioningParams,
-		[]domainstorageprovisioning.MachineVolumeAttachmentProvisioningParams,
-		error,
-	)
-}
-
 // NetworkService provides functionality for working with the network topology,
 // setting machine network configuration, and determining container devices
 // and addresses.
@@ -185,17 +128,6 @@ type NetworkService interface {
 		containerName string,
 		preparedInfo network.InterfaceInfos,
 	) (network.InterfaceInfos, error)
-
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfies errors.NotFound if there is no
-	// such space.
-	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
-
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 
 	// SetMachineNetConfig updates the detected network configuration for
 	// the machine with the input UUID.
@@ -228,11 +160,6 @@ type ApplicationService interface {
 	// GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and their principals on the given machine.
 	GetUnitNamesWithPrincipalOnMachine(ctx context.Context, name coremachine.Name) ([]unit.NameWithPrincipal, error)
 
-	// GetApplicationEndpointBindings returns the mapping for each endpoint name and
-	// the space ID it is bound to (or empty if unspecified). When no bindings are
-	// stored for the application, defaults are returned.
-	GetApplicationEndpointBindings(ctx context.Context, appName string) (map[string]network.SpaceUUID, error)
-
 	// GetMachinesForApplication returns the names of the machines which have a unit.
 	// of the specified application deployed to it.
 	GetMachinesForApplication(ctx context.Context, appName string) ([]coremachine.Name, error)
@@ -251,17 +178,6 @@ type RemovalService interface {
 	// instance's life to dead and will not allow it to be transitioned back to
 	// alive.
 	MarkInstanceAsDead(context.Context, coremachine.UUID) error
-}
-
-// CloudImageMetadataService manages cloud image metadata for provisionning
-type CloudImageMetadataService interface {
-
-	// SaveMetadata saves the provided cloud image metadata to the storage and returns an error if the operation fails.
-	SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error
-
-	// FindMetadata searches for cloud image metadata based on the given filter criteria in a specific context.
-	// It returns a set of image metadata grouped by region
-	FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 }
 
 // ProvisioningService provides access to consolidated provisioning info

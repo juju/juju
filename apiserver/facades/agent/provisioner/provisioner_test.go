@@ -29,7 +29,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
 	domainprovisioner "github.com/juju/juju/domain/provisioner"
-	environtesting "github.com/juju/juju/environs/testing"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -39,24 +38,16 @@ import (
 type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
-	clock                      clock.Clock
-	applicationService         *MockApplicationService
-	machineService             *MockMachineService
-	statusService              *MockStatusService
-	networkService             *MockNetworkService
-	removalService             *MockRemovalService
-	modelInfoService           *MockModelInfoService
-	modelConfigService         *MockModelConfigService
-	controllerConfigService    *MockControllerConfigService
-	storageProvisioningService *MockStoageProvisioningService
-	storagePoolGetter          *MockStoragePoolGetter
-	cloudImageMetadataService  *MockCloudImageMetadataService
-	provisioningService        *MockProvisioningService
+	clock                   clock.Clock
+	applicationService      *MockApplicationService
+	machineService          *MockMachineService
+	statusService           *MockStatusService
+	networkService          *MockNetworkService
+	removalService          *MockRemovalService
+	controllerConfigService *MockControllerConfigService
+	provisioningService     *MockProvisioningService
 
 	authorizer *facademocks.MockAuthorizer
-
-	// All these need deprecation.
-	environ *environtesting.MockNetworkingEnviron
 
 	api *ProvisionerAPI
 }
@@ -620,7 +611,6 @@ func (s *provisionerMockSuite) TestMarkMachinesForRemovalNotFound(c *tc.C) {
 func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
 	s.clock = testclock.NewClock(time.Now())
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
@@ -629,27 +619,17 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.statusService = NewMockStatusService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
-	s.modelInfoService = NewMockModelInfoService(ctrl)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.storageProvisioningService = NewMockStoageProvisioningService(ctrl)
-	s.storagePoolGetter = NewMockStoragePoolGetter(ctrl)
-	s.cloudImageMetadataService = NewMockCloudImageMetadataService(ctrl)
 	s.provisioningService = NewMockProvisioningService(ctrl)
 
 	s.api = &ProvisionerAPI{
-		applicationService:         s.applicationService,
-		machineService:             s.machineService,
-		statusService:              s.statusService,
-		networkService:             s.networkService,
-		removalService:             s.removalService,
-		modelInfoService:           s.modelInfoService,
-		modelConfigService:         s.modelConfigService,
-		controllerConfigService:    s.controllerConfigService,
-		storageProvisioningService: s.storageProvisioningService,
-		storagePoolGetter:          s.storagePoolGetter,
-		cloudImageMetadataService:  s.cloudImageMetadataService,
-		provisioningService:        s.provisioningService,
+		applicationService:      s.applicationService,
+		machineService:          s.machineService,
+		statusService:           s.statusService,
+		networkService:          s.networkService,
+		removalService:          s.removalService,
+		controllerConfigService: s.controllerConfigService,
+		provisioningService:     s.provisioningService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -663,18 +643,12 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	}
 
 	c.Cleanup(func() {
-		s.environ = nil
 		s.applicationService = nil
 		s.machineService = nil
 		s.statusService = nil
 		s.networkService = nil
 		s.removalService = nil
-		s.modelInfoService = nil
-		s.modelConfigService = nil
 		s.controllerConfigService = nil
-		s.storageProvisioningService = nil
-		s.storagePoolGetter = nil
-		s.cloudImageMetadataService = nil
 		s.provisioningService = nil
 		s.authorizer = nil
 		s.api = nil
