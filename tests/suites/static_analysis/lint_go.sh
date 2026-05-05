@@ -55,7 +55,7 @@ run_juju_errors_imports() {
 		dirs=$(find ${pkg} -mindepth 1 -maxdepth 10 -type d | sort -u)
 		for dir in $dirs; do
 			echo "Checking $dir"
-			imports=$(go list -json -e -test "./${dir}" 2>/dev/null | yq -r ".Imports // [] | .[]")
+			imports=$(go list -json -e -test "./${dir}" 2>/dev/null | yq -p=json -r ".Imports // [] | .[]")
 			disallowed="github.com/juju/errors"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${imports}" || (echo "Error: pkg $dir contains juju/errors imports" && exit 1)
 		done
