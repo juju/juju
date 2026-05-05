@@ -259,6 +259,52 @@ Verify each guard-rail statement by:
 
 If a constraint cannot be verified through code inspection, grep searches, or explicit comments, do not document it. Unverifiable guard-rails are interpretations, not facts.
 
+### AI-Assisted Guard-Rail Development
+
+LLMs can accelerate guard-rail documentation, but human oversight is critical to distinguish **interface contracts** from **implementation details**.
+
+**What LLMs can reasonably infer:**
+- Import patterns and architecture boundaries (what packages are imported/forbidden)
+- Function signatures and type relationships (what goes in and out)
+- Explicit error types and validation patterns visible in code
+- Structural patterns (e.g., State/Service layer separation)
+
+**What LLMs struggle to infer:**
+- Implicit behavioral rules ("always check grants before accessing secret values")
+- Required operation ordering ("must validate before persisting")
+- Transaction boundaries in domain packages (service calls `RunAtomic`, but state methods don't show `*sql.Tx` parameters)
+- Immutability constraints (types may be mutable in Go but conceptually immutable)
+- Security requirements that span multiple functions
+- Concurrency safety guarantees not enforced by type system
+
+**Critical distinction: Contract vs. Implementation**
+
+Guard-rails document **interface contracts** (what callers must respect), not **implementation details** (how the package enforces those contracts internally).
+
+Good guard-rail (contract):
+```
+**Security**: Secret values MUST NOT be accessed without verifying
+grants through GetSecretAccess.
+```
+
+Bad guard-rail (implementation detail):
+```
+**Security**: GetSecretAccess queries the secret_permission table
+with a JOIN on secret_metadata...
+```
+
+The first states what callers must do; the second reveals internal database structure.
+
+**Recommended workflow for AI-assisted guard-rails:**
+
+1. **LLM analyzes code** and proposes constraint statements based on patterns
+2. **Human reviews proposals** to identify which are real contracts vs. current implementation
+3. **LLM drafts `# Constraints` section** with validated constraints in RFC 2119 language
+4. **Human verifies** each constraint is observable in code (per "Verification for Guard-Rails")
+5. **Iterate** until all statements are contract-level and verifiable
+
+This workflow leverages LLM pattern recognition while maintaining human architectural authority on what constitutes a package contract.
+
 ## Verification Process
 
 Before finalizing a doc.go file:
