@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1585,56 +1586,72 @@ func (s *relationSuite) TestGetRelationEndpoints(c *tc.C) {
 }
 
 // TestGetRelationEndpointsCanonicalOrder verifies that GetRelationEndpoints
-// returns endpoints in canonical key order (requirer first, provider second)
-// regardless of the insertion order in the database. The SQL ORDER BY clause
-// in getRelationEndpoints is responsible for this guarantee, which is relied
-// upon by callers that build a relation Key directly from the returned slice
-// without further sorting.
+// returns endpoints in canonical key order (requirer first, provider second,
+// peer last) regardless of insertion order. The SQL ORDER BY CASE role block
+// in getRelationEndpoints is responsible for this guarantee; callers build a
+// relation Key directly from the returned slice without any further sorting.
+//
+// Every permutation of the three roles (requirer, provider, peer) is exercised.
 func (s *relationSuite) TestGetRelationEndpointsCanonicalOrder(c *tc.C) {
-	// Arrange: define provider and requirer endpoints, but insert the
-	// provider (ep1) into the relation first — i.e. the "wrong" insertion
-	// order — to confirm the ORDER BY reorders them correctly.
-	providerEndpoint := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName1,
-		Relation: charm.Relation{
-			Name:      "provides-ep",
-			Role:      charm.RoleProvider,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
+	tests := []struct {
+		description string
+		// insertionRoles lists endpoint roles in the order they are written to
+		// relation_endpoint.
+		insertionRoles []charm.RelationRole
+		// wantRoles is the canonical order the SQL ORDER BY must produce.
+		wantRoles []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
 		},
 	}
-	requirerEndpoint := domainrelation.Endpoint{
-		ApplicationName: s.fakeApplicationName2,
-		Relation: charm.Relation{
-			Name:      "requires-ep",
-			Role:      charm.RoleRequirer,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
-		},
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Each iteration needs its own charms and applications to avoid
+		// UNIQUE constraint violations on (charm_uuid, name) in charm_relation.
+		charmUUIDs := make([]corecharm.ID, len(tt.insertionRoles))
+		appUUIDs := make([]coreapplication.UUID, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			charmUUIDs[j] = s.addCharm(c)
+			appUUIDs[j] = s.addApplication(c, charmUUIDs[j],
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID, appEpUUID)
+		}
+
+		obtained, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("%s", tt.description))
+		c.Assert(obtained, tc.HasLen, len(tt.wantRoles), tc.Commentf("%s", tt.description))
+		for j, wantRole := range tt.wantRoles {
+			c.Check(obtained[j].Relation.Role, tc.Equals, wantRole,
+				tc.Commentf("%s: endpoint[%d]", tt.description, j))
+		}
 	}
-
-	providerCharmRelUUID := s.addCharmRelation(c, s.fakeCharmUUID1, providerEndpoint.Relation)
-	requirerCharmRelUUID := s.addCharmRelation(c, s.fakeCharmUUID2, requirerEndpoint.Relation)
-	providerAppEpUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, providerCharmRelUUID)
-	requirerAppEpUUID := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, requirerCharmRelUUID)
-
-	relationUUID := s.addRelation(c)
-	// Deliberately insert provider first, requirer second.
-	s.addRelationEndpoint(c, relationUUID, providerAppEpUUID)
-	s.addRelationEndpoint(c, relationUUID, requirerAppEpUUID)
-
-	// Act:
-	obtainedEndpoints, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
-
-	// Assert: requirer must come first, provider second, regardless of
-	// insertion order.
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedEndpoints, tc.HasLen, 2)
-	c.Check(obtainedEndpoints[0].Relation.Role, tc.Equals, charm.RoleRequirer,
-		tc.Commentf("first endpoint should be the requirer"))
-	c.Check(obtainedEndpoints[1].Relation.Role, tc.Equals, charm.RoleProvider,
-		tc.Commentf("second endpoint should be the provider"))
-	c.Check(obtainedEndpoints, tc.DeepEquals, []domainrelation.Endpoint{requirerEndpoint, providerEndpoint})
 }
 
 func (s *relationSuite) TestGetRelationLifeSuspendedStatus(c *tc.C) {
@@ -2002,6 +2019,81 @@ func (s *relationSuite) TestGetAllRelationDetails(c *tc.C) {
 	c.Check(detailsByRelationID[relationID2].ID, tc.Equals, expectedDetails[relationID2].ID)
 	c.Check(detailsByRelationID[relationID2].Endpoints, tc.DeepEquals, expectedDetails[relationID2].Endpoints)
 	c.Check(detailsByRelationID[relationID2].Suspended, tc.IsTrue)
+}
+
+// TestGetAllRelationDetailsCanonicalOrder verifies that GetAllRelationDetails
+// returns endpoints in canonical key order (requirer first, provider second,
+// peer last) regardless of insertion order. All permutations of the SQL
+// ORDER BY CASE role block in getRelationEndpointsByRelationUUIDs are
+// exercised.
+func (s *relationSuite) TestGetAllRelationDetailsCanonicalOrder(c *tc.C) {
+	tests := []struct {
+		description    string
+		insertionRoles []charm.RelationRole
+		wantRoles      []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
+		},
+	}
+
+	// wantRolesByUUID maps relation UUID → expected canonical role order.
+	wantRolesByUUID := make(map[corerelation.UUID][]charm.RelationRole)
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Create fresh charms and apps per iteration to avoid UNIQUE
+		// constraint violations on (charm_uuid, name) in charm_relation.
+		charmUUIDs := make([]corecharm.ID, len(tt.insertionRoles))
+		appUUIDs := make([]coreapplication.UUID, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			charmUUIDs[j] = s.addCharm(c)
+			appUUIDs[j] = s.addApplication(c, charmUUIDs[j],
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID, appEpUUID)
+		}
+		wantRolesByUUID[relationUUID] = tt.wantRoles
+	}
+
+	details, err := s.state.GetAllRelationDetails(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details, tc.HasLen, len(tests))
+
+	for _, detail := range details {
+		wantRoles, ok := wantRolesByUUID[detail.UUID]
+		c.Assert(ok, tc.IsTrue, tc.Commentf("unexpected relation UUID %s", detail.UUID))
+		c.Assert(detail.Endpoints, tc.HasLen, len(wantRoles),
+			tc.Commentf("relation %s", detail.UUID))
+		for j, wantRole := range wantRoles {
+			c.Check(detail.Endpoints[j].Relation.Role, tc.Equals, wantRole,
+				tc.Commentf("relation %s endpoint[%d]", detail.UUID, j))
+		}
+	}
 }
 
 func (s *relationSuite) TestGetAllRelationDetailsNone(c *tc.C) {
