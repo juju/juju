@@ -30,9 +30,9 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 	}
 }
 
-// controllerConfigRow is a key-value pair from the controller_config table.
+// controllerConfigRow is a key-value pair from the v_controller_config view.
 // GetControllerConfig retrieves controller configuration from the
-// controller database.
+// controller database, including controller-uuid, ca-cert, and api-port.
 func (st *State) GetControllerConfig(ctx context.Context) (map[string]any, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -41,7 +41,7 @@ func (st *State) GetControllerConfig(ctx context.Context) (map[string]any, error
 
 	stmt, err := st.Prepare(`
 SELECT &controllerConfigRow.*
-FROM controller_config
+FROM v_controller_config
 `, controllerConfigRow{})
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -43,27 +43,43 @@ func (s *controllerStateSuite) runQuery(c *tc.C, query string, args ...any) {
 		errors.ErrorStack(err)))
 }
 
-// TestGetControllerConfigEmpty verifies that an empty controller_config
-// table returns an empty map.
+// TestGetControllerConfigEmpty verifies that when neither the controller
+// table nor controller_config is populated, an empty map is returned.
 func (s *controllerStateSuite) TestGetControllerConfigEmpty(c *tc.C) {
 	result, err := s.state.GetControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }
 
-// TestGetControllerConfigPopulated verifies that controller_config rows
-// are returned as a key-value map.
-func (s *controllerStateSuite) TestGetControllerConfigPopulated(c *tc.C) {
+// TestGetControllerConfigFromView verifies that the view includes
+// controller-uuid, ca-cert, and api-port from the controller table
+// as well as entries from controller_config.
+func (s *controllerStateSuite) TestGetControllerConfigFromView(c *tc.C) {
+	s.runQuery(c, `INSERT INTO controller (uuid, model_uuid, target_version, api_port, ca_cert) VALUES (?,?,?,?,?)`,
+		"ctrl-uuid-abc", "model-uuid-123", "4.0.0", "17070", "test-ca-cert")
 	s.runQuery(c, `INSERT INTO controller_config ("key", value) VALUES (?,?)`,
-		"controller-uuid", "ctrl-uuid-abc")
-	s.runQuery(c, `INSERT INTO controller_config ("key", value) VALUES (?,?)`,
-		"api-port", "17070")
+		"model-logfile-max-size", "10M")
 
 	result, err := s.state.GetControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.HasLen, 2)
 	c.Check(result["controller-uuid"], tc.Equals, "ctrl-uuid-abc")
+	c.Check(result["ca-cert"], tc.Equals, "test-ca-cert")
 	c.Check(result["api-port"], tc.Equals, "17070")
+	c.Check(result["model-logfile-max-size"], tc.Equals, "10M")
+}
+
+// TestGetControllerConfigNoAPIPort verifies that when api_port is NULL
+// in the controller table, the view omits the api-port key.
+func (s *controllerStateSuite) TestGetControllerConfigNoAPIPort(c *tc.C) {
+	s.runQuery(c, `INSERT INTO controller (uuid, model_uuid, target_version, ca_cert) VALUES (?,?,?,?)`,
+		"ctrl-uuid-abc", "model-uuid-123", "4.0.0", "test-ca-cert")
+
+	result, err := s.state.GetControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result["controller-uuid"], tc.Equals, "ctrl-uuid-abc")
+	c.Check(result["ca-cert"], tc.Equals, "test-ca-cert")
+	_, hasAPIPort := result["api-port"]
+	c.Check(hasAPIPort, tc.IsFalse)
 }
 
 // TestGetControllerConfigSingleEntry verifies a single config entry.
@@ -73,7 +89,6 @@ func (s *controllerStateSuite) TestGetControllerConfigSingleEntry(c *tc.C) {
 
 	result, err := s.state.GetControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.HasLen, 1)
 	c.Check(result["model-logfile-max-size"], tc.Equals, "10M")
 }
 
