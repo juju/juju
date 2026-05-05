@@ -27,9 +27,9 @@ kubectl() {
 }
 
 default_k8s() {
-	if command -v minikube && [[ "Started" == "$(minikube status -o json | yq .Host)" ]]; then
+	if command -v minikube >/dev/null 2>&1 && [[ "Stopped" != "$(minikube status -o json | yq .APIServer)" ]]; then
 		printf "minikube"
-	elif command -v microk8s && [[ "True" == "$(microk8s status --format yaml | yq .microk8s.running)" ]]; then
+	elif command -v microk8s >/dev/null 2>&1 && [[ "True" == "$(microk8s status --format yaml | yq .microk8s.running)" ]]; then
 		printf "microk8s"
 	fi
 }
