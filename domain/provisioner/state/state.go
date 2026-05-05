@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/domain/provisioning"
+	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -43,13 +43,13 @@ func NewModelState(factory coredb.TxnRunnerFactory, logger logger.Logger) *Model
 //
 // The following errors may be returned:
 //   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
-func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioning.ProvisioningInfoState, error) {
+func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return provisioning.ProvisioningInfoState{}, errors.Capture(err)
+		return provisioner.ProvisioningInfoState{}, errors.Capture(err)
 	}
 
-	var result provisioning.ProvisioningInfoState
+	var result provisioner.ProvisioningInfoState
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var txErr error
@@ -91,7 +91,7 @@ func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName strin
 			return txErr
 		}
 
-		// Query 7: Model config values for provisioning.
+		// Query 7: Model config values for provisioner.
 		result.CloudInitUserData, result.ImageStream, result.ResourceTags, result.ResourceTagsFound, txErr = st.getModelConfigValues(ctx, tx)
 		if txErr != nil {
 			return txErr
@@ -112,7 +112,7 @@ func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName strin
 		return nil
 	})
 	if err != nil {
-		return provisioning.ProvisioningInfoState{}, errors.Capture(err)
+		return provisioner.ProvisioningInfoState{}, errors.Capture(err)
 	}
 
 	return result, nil
@@ -456,7 +456,7 @@ func (st *ModelState) getVolumeParams(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID string,
-) ([]provisioning.VolumeProvisioningParams, []provisioning.VolumeAttachmentProvisioningParams, error) {
+) ([]provisioner.VolumeProvisioningParams, []provisioner.VolumeAttachmentProvisioningParams, error) {
 	// TODO(provisioning): Implement volume params query.
 	// This needs to query storage_volume, storage_volume_attachment,
 	// storage_pool, and storage_pool_attribute tables.
@@ -470,7 +470,7 @@ func (st *ModelState) getRootDiskStoragePool(
 	ctx context.Context,
 	tx *sqlair.TX,
 	cons constraints.Value,
-) (*provisioning.StoragePool, error) {
+) (*provisioner.StoragePool, error) {
 	if !cons.HasRootDiskSource() {
 		return nil, nil
 	}
@@ -507,7 +507,7 @@ WHERE sp.name = $storagePoolNameParam.name
 		}
 	}
 
-	return &provisioning.StoragePool{
+	return &provisioner.StoragePool{
 		Provider: poolRows[0].Provider,
 		Attrs:    attrs,
 	}, nil
@@ -538,7 +538,7 @@ FROM v_space_subnet
 	return decodeSpaceSubnetRows(rows), nil
 }
 
-// getModelConfigValues fetches model config values relevant to provisioning.
+// getModelConfigValues fetches model config values relevant to provisioner.
 func (st *ModelState) getModelConfigValues(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -582,7 +582,7 @@ func (st *ModelState) getCachedImageMetadata(
 	tx *sqlair.TX,
 	machineBase corebase.Base,
 	cons constraints.Value,
-) ([]provisioning.CloudImageMetadata, error) {
+) ([]provisioner.CloudImageMetadata, error) {
 	// TODO(provisioning): Implement cached image metadata query.
 	// Query cloud_image_metadata filtered by version and arch.
 	return nil, nil

@@ -28,7 +28,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
-	domainprovisioning "github.com/juju/juju/domain/provisioning"
+	domainprovisioner "github.com/juju/juju/domain/provisioner"
 	environtesting "github.com/juju/juju/environs/testing"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -747,11 +747,11 @@ func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 
 	// Machine-0: provisioning service returns MachineNotFound.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
+		Return(domainprovisioner.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	// Machine-1: provisioning service returns a different error.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, internalerrors.New("some internal error"))
+		Return(domainprovisioner.ProvisioningInfo{}, internalerrors.New("some internal error"))
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -784,7 +784,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 
 	// Machine-1 is allowed but GetProvisioningInfo returns MachineNotFound.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
+		Return(domainprovisioner.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"}, // denied by auth
@@ -810,7 +810,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
 			EndpointBindings: map[string]string{},
@@ -839,16 +839,16 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
-			Volumes: []domainprovisioning.VolumeParams{{
+			Volumes: []domainprovisioner.VolumeParams{{
 				VolumeID:   "0",
 				Provider:   "ebs",
 				SizeMiB:    1024,
 				Tags:       map[string]string{"env": "test"},
 				Attributes: map[string]any{"iops": "3000"},
-				Attachment: &domainprovisioning.VolumeAttachmentParams{
+				Attachment: &domainprovisioner.VolumeAttachmentParams{
 					VolumeID:  "0",
 					MachineID: "0",
 					Provider:  "ebs",
@@ -883,10 +883,10 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithRootDisk(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
-			RootDisk: &domainprovisioning.VolumeParams{
+			RootDisk: &domainprovisioner.VolumeParams{
 				Provider:   "ebs",
 				Attributes: map[string]any{"iops": "3000"},
 			},
@@ -919,7 +919,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 	}
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base:              corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs:              []coremodel.MachineJob{coremodel.JobHostUnits},
 			CloudInitUserData: cloudInitData,
@@ -943,7 +943,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C)
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
 			EndpointBindings: map[string]string{
@@ -980,7 +980,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithNetworkTopology(c *tc.C) 
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs: []coremodel.MachineJob{coremodel.JobHostUnits},
 			SpaceSubnets: map[string][]string{
@@ -1017,7 +1017,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoServiceError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("99"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
+		Return(domainprovisioner.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-99"},
@@ -1036,7 +1036,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 
 	placement := "zone=us-east-1a"
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base:               corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs:               []coremodel.MachineJob{coremodel.JobHostUnits},
 			PlacementDirective: &placement,
@@ -1060,7 +1060,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 
 	cons := constraints.MustParse("cores=4 mem=8G")
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
 			Constraints:      cons,
@@ -1095,14 +1095,14 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c
 	}
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{
+		Return(domainprovisioner.ProvisioningInfo{
 			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
 			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
 			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
 		}, nil)
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0/lxd/0"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
+		Return(domainprovisioner.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},       // allowed

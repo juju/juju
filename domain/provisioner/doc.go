@@ -15,4 +15,4 @@
 // external simplestreams sources. Other domains (machine, application,
 // storage, network) remain the owners of mutations to their respective
 // tables.
-package provisioning
+package provisioner

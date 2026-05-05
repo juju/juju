@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/domain/provisioning/service"
+	"github.com/juju/juju/domain/provisioner/service"
 )
 
 // Compile-time interface assertions.

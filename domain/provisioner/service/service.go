@@ -20,7 +20,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/logger"
 	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
-	"github.com/juju/juju/domain/provisioning"
+	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
@@ -35,7 +35,7 @@ const ControllerUUIDKey = "controller-uuid"
 type ModelState interface {
 	// GetProvisioningInfo retrieves all provisioning data for a machine
 	// in a single transaction from the model database.
-	GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioning.ProvisioningInfoState, error)
+	GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error)
 }
 
 // ControllerState provides direct database access to the controller
@@ -53,7 +53,7 @@ type ImageMetadataFetcher interface {
 	// FetchImageMetadata fetches image metadata from external data
 	// sources for the given image constraint. It returns the metadata
 	// found or an error if none could be located.
-	FetchImageMetadata(ctx context.Context, constraint provisioning.ImageConstraint) ([]provisioning.CloudImageMetadata, error)
+	FetchImageMetadata(ctx context.Context, constraint provisioner.ImageConstraint) ([]provisioner.CloudImageMetadata, error)
 }
 
 // Service provides access to provisioning info aggregation.
@@ -92,9 +92,9 @@ func (s *Service) GetProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
 	isControllerModel bool,
-) (provisioning.ProvisioningInfo, error) {
+) (provisioner.ProvisioningInfo, error) {
 	if err := machineName.Validate(); err != nil {
-		return provisioning.ProvisioningInfo{}, errors.Errorf(
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"validating machine name %q: %w", machineName, err,
 		)
 	}
@@ -102,7 +102,7 @@ func (s *Service) GetProvisioningInfo(
 	// Step 1: Fetch all model-DB data in a single transaction.
 	stateInfo, err := s.modelSt.GetProvisioningInfo(ctx, machineName.String(), isControllerModel)
 	if err != nil {
-		return provisioning.ProvisioningInfo{}, errors.Errorf(
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"getting provisioning info for machine %q: %w", machineName, err,
 		)
 	}
@@ -110,7 +110,7 @@ func (s *Service) GetProvisioningInfo(
 	// Step 2: Fetch controller config (separate DB/transaction).
 	controllerConfig, err := s.controllerSt.GetControllerConfig(ctx)
 	if err != nil {
-		return provisioning.ProvisioningInfo{}, errors.Errorf(
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"getting controller config: %w", err,
 		)
 	}
@@ -124,7 +124,7 @@ func (s *Service) GetProvisioningInfo(
 	// Step 4: Validate space constraints against bindings.
 	machineSpaces, err := s.machineSpaces(stateInfo.Constraints, boundSpaceNames)
 	if err != nil {
-		return provisioning.ProvisioningInfo{}, errors.Capture(err)
+		return provisioner.ProvisioningInfo{}, errors.Capture(err)
 	}
 
 	// Step 5: Construct network topology.
@@ -133,7 +133,7 @@ func (s *Service) GetProvisioningInfo(
 	// Step 6: Resolve image metadata (cached or fallback to external).
 	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo)
 	if err != nil {
-		return provisioning.ProvisioningInfo{}, errors.Errorf(
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"resolving image metadata: %w", err,
 		)
 	}
@@ -150,7 +150,7 @@ func (s *Service) GetProvisioningInfo(
 	// Step 10: Build root disk params.
 	rootDisk := s.buildRootDisk(stateInfo.RootDiskStoragePool)
 
-	return provisioning.ProvisioningInfo{
+	return provisioner.ProvisioningInfo{
 		MachineUUID:        stateInfo.MachineUUID,
 		Base:               stateInfo.Base,
 		PlacementDirective: stateInfo.PlacementDirective,
@@ -221,7 +221,7 @@ func (s *Service) machineSpaces(
 }
 
 // buildNetworkTopology constructs the space-subnet-AZ topology needed
-// by the provider for provisioning.
+// by the provider for provisioner.
 func (s *Service) buildNetworkTopology(
 	ctx context.Context,
 	machineID string,
@@ -285,8 +285,8 @@ func (s *Service) buildNetworkTopology(
 // to the external fetcher.
 func (s *Service) resolveImageMetadata(
 	ctx context.Context,
-	stateInfo provisioning.ProvisioningInfoState,
-) ([]provisioning.CloudImageMetadata, error) {
+	stateInfo provisioner.ProvisioningInfoState,
+) ([]provisioner.CloudImageMetadata, error) {
 	if len(stateInfo.CachedImageMetadata) > 0 {
 		// Sort by priority.
 		metadata := slices.Clone(stateInfo.CachedImageMetadata)
@@ -307,7 +307,7 @@ func (s *Service) resolveImageMetadata(
 		arches = []string{*stateInfo.Constraints.Arch}
 	}
 
-	constraint := provisioning.ImageConstraint{
+	constraint := provisioner.ImageConstraint{
 		Releases: []string{base.Channel.Track},
 		Arches:   arches,
 		Stream:   stateInfo.ImageStream,
@@ -391,16 +391,16 @@ func (s *Service) computeJobs(isControllerModel, isController bool) []model.Mach
 // final volume params.
 func (s *Service) buildVolumeParams(
 	machineName coremachine.Name,
-	stateInfo provisioning.ProvisioningInfoState,
-) ([]provisioning.VolumeParams, []provisioning.VolumeAttachmentParams) {
-	capturedVolumes := make(map[string]provisioning.VolumeParams, len(stateInfo.VolumeParams))
+	stateInfo provisioner.ProvisioningInfoState,
+) ([]provisioner.VolumeParams, []provisioner.VolumeAttachmentParams) {
+	capturedVolumes := make(map[string]provisioner.VolumeParams, len(stateInfo.VolumeParams))
 
 	for _, vp := range stateInfo.VolumeParams {
 		attr := make(map[string]any, len(vp.Attributes))
 		for k, v := range vp.Attributes {
 			attr[k] = v
 		}
-		capturedVolumes[vp.UUID] = provisioning.VolumeParams{
+		capturedVolumes[vp.UUID] = provisioner.VolumeParams{
 			VolumeID:   vp.ID,
 			Provider:   vp.Provider,
 			SizeMiB:    vp.RequestedSizeMiB,
@@ -409,9 +409,9 @@ func (s *Service) buildVolumeParams(
 		}
 	}
 
-	var retVAParams []provisioning.VolumeAttachmentParams
+	var retVAParams []provisioner.VolumeAttachmentParams
 	for _, ap := range stateInfo.VolumeAttachmentParams {
-		attachParams := provisioning.VolumeAttachmentParams{
+		attachParams := provisioner.VolumeAttachmentParams{
 			MachineID:  machineName.String(),
 			Provider:   ap.Provider,
 			ReadOnly:   ap.ReadOnly,
@@ -427,7 +427,7 @@ func (s *Service) buildVolumeParams(
 		}
 	}
 
-	volumes := make([]provisioning.VolumeParams, 0, len(capturedVolumes))
+	volumes := make([]provisioner.VolumeParams, 0, len(capturedVolumes))
 	for _, v := range capturedVolumes {
 		volumes = append(volumes, v)
 	}
@@ -436,12 +436,12 @@ func (s *Service) buildVolumeParams(
 }
 
 // buildRootDisk converts the storage pool into root disk params.
-func (s *Service) buildRootDisk(pool *provisioning.StoragePool) *provisioning.VolumeParams {
+func (s *Service) buildRootDisk(pool *provisioner.StoragePool) *provisioner.VolumeParams {
 	if pool == nil {
 		return nil
 	}
 
-	result := &provisioning.VolumeParams{
+	result := &provisioner.VolumeParams{
 		Provider: pool.Provider,
 	}
 

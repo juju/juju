@@ -44,7 +44,7 @@ import (
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	operationservice "github.com/juju/juju/domain/operation/service"
 	portservice "github.com/juju/juju/domain/port/service"
-	provisioningservice "github.com/juju/juju/domain/provisioning/service"
+	provisionerservice "github.com/juju/juju/domain/provisioner/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	removalservice "github.com/juju/juju/domain/removal/service"
@@ -169,7 +169,7 @@ type ModelDomainServices interface {
 	// Port returns the service for managing opened port ranges for units.
 	Port() *portservice.WatchableService
 	// Provisioning returns the provisioning info aggregation service.
-	Provisioning() *provisioningservice.Service
+	Provisioning() *provisionerservice.Service
 	// BlockCommand returns the service for blocking commands.
 	BlockCommand() *blockcommandservice.Service
 	// Relation returns the service for managing relations.

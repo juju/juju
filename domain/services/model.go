@@ -78,8 +78,8 @@ import (
 	operationstate "github.com/juju/juju/domain/operation/state"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
-	provisioningservice "github.com/juju/juju/domain/provisioning/service"
-	provisioningstate "github.com/juju/juju/domain/provisioning/state"
+	provisionerservice "github.com/juju/juju/domain/provisioner/service"
+	provisionerstate "github.com/juju/juju/domain/provisioner/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	relationstate "github.com/juju/juju/domain/relation/state"
@@ -515,11 +515,11 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 }
 
 // Provisioning returns the service for aggregating provisioning info.
-func (s *ModelServices) Provisioning() *provisioningservice.Service {
+func (s *ModelServices) Provisioning() *provisionerservice.Service {
 	log := s.logger.Child("provisioning")
-	return provisioningservice.NewService(
-		provisioningstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), log),
-		provisioningstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+	return provisionerservice.NewService(
+		provisionerstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		provisionerstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
 		nil, // ImageMetadataFetcher — provided by caller when needed.
 		s.modelUUID,
 		log,

@@ -10,7 +10,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremachine "github.com/juju/juju/core/machine"
-	provisioning "github.com/juju/juju/domain/provisioning"
+	provisioning "github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )

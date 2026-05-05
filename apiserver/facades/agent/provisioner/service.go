@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainnetwork "github.com/juju/juju/domain/network"
-	domainprovisioning "github.com/juju/juju/domain/provisioning"
+	domainprovisioner "github.com/juju/juju/domain/provisioner"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
@@ -271,5 +271,5 @@ type ProvisioningService interface {
 	// GetProvisioningInfo returns the complete provisioning information for a
 	// machine, consolidating all data from the model and controller databases
 	// into a single call.
-	GetProvisioningInfo(ctx context.Context, machineName coremachine.Name, isControllerModel bool) (domainprovisioning.ProvisioningInfo, error)
+	GetProvisioningInfo(ctx context.Context, machineName coremachine.Name, isControllerModel bool) (domainprovisioner.ProvisioningInfo, error)
 }

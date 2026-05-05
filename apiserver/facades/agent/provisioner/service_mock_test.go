@@ -27,7 +27,7 @@ import (
 	cloudimagemetadata "github.com/juju/juju/domain/cloudimagemetadata"
 	machine0 "github.com/juju/juju/domain/machine"
 	network0 "github.com/juju/juju/domain/network"
-	provisioning "github.com/juju/juju/domain/provisioning"
+	provisioning "github.com/juju/juju/domain/provisioner"
 	storage "github.com/juju/juju/domain/storage"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	environs "github.com/juju/juju/environs"
