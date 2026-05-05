@@ -18,8 +18,8 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainconstraints "github.com/juju/juju/domain/constraints"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/provisioning"
-	provisioningerrors "github.com/juju/juju/domain/provisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -42,7 +42,7 @@ func NewModelState(factory coredb.TxnRunnerFactory, logger logger.Logger) *Model
 // single transaction from the model database.
 //
 // The following errors may be returned:
-//   - [provisioningerrors.MachineNotFound] if the machine does not exist.
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
 func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioning.ProvisioningInfoState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -146,7 +146,7 @@ WHERE m.name = $machineRow.name
 	err = tx.Query(ctx, stmt, mRow).Get(&mRow)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return "", corebase.Base{}, nil, constraints.Value{}, false,
-			errors.Errorf("machine %q: %w", machineName, provisioningerrors.MachineNotFound)
+			errors.Errorf("machine %q: %w", machineName, machineerrors.MachineNotFound)
 	}
 	if err != nil {
 		return "", corebase.Base{}, nil, constraints.Value{}, false, errors.Capture(err)

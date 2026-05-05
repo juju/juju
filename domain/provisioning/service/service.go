@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/logger"
+	cloudimagemetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	"github.com/juju/juju/domain/provisioning"
-	provisioningerrors "github.com/juju/juju/domain/provisioning/errors"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
@@ -87,7 +87,7 @@ func NewService(
 // into a single call.
 //
 // The following errors may be returned:
-//   - [provisioningerrors.MachineNotFound] if the machine does not exist.
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
 func (s *Service) GetProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
@@ -327,7 +327,7 @@ func (s *Service) resolveImageMetadata(
 		return nil, errors.Errorf(
 			"image metadata for version %v, arch %v: %w",
 			constraint.Releases, constraint.Arches,
-			provisioningerrors.ImageMetadataNotFound,
+			cloudimagemetadataerrors.NotFound,
 		)
 	}
 

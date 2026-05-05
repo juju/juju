@@ -29,7 +29,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
 	domainprovisioning "github.com/juju/juju/domain/provisioning"
-	provisioningerrors "github.com/juju/juju/domain/provisioning/errors"
 	environtesting "github.com/juju/juju/environs/testing"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -748,7 +747,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 
 	// Machine-0: provisioning service returns MachineNotFound.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
+		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	// Machine-1: provisioning service returns a different error.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
@@ -785,7 +784,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 
 	// Machine-1 is allowed but GetProvisioningInfo returns MachineNotFound.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("1"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
+		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"}, // denied by auth
@@ -1018,7 +1017,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoServiceError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("99"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
+		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-99"},
@@ -1103,7 +1102,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c
 		}, nil)
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0/lxd/0"), false).
-		Return(domainprovisioning.ProvisioningInfo{}, provisioningerrors.MachineNotFound)
+		Return(domainprovisioning.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},       // allowed
