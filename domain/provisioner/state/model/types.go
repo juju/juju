@@ -104,6 +104,35 @@ type spaceSubnetRow struct {
 // modelInfoRow maps to the model table for identity info.
 type modelInfoRow struct {
 	Name        string `db:"name"`
+	CloudName   string `db:"cloud_name"`
 	CloudType   string `db:"cloud_type"`
 	CloudRegion string `db:"cloud_region"`
+}
+
+// modelConfigRow holds a model config key-value pair.
+type modelConfigRow struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+// modelConfigKeys is a slice type for IN-clause parameters.
+type modelConfigKeys []string
+
+// volumeRow holds volume provisioning data from a query.
+type volumeRow struct {
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	RequestedSizeMiB int64  `db:"requested_size_mib"`
+	Provider         string `db:"provider"`
+}
+
+// volumeUUIDParam is used for parameterising queries by volume UUID.
+type volumeUUIDParam struct {
+	UUID string `db:"uuid"`
+}
+
+// volumeAttachmentRow holds volume attachment query results.
+type volumeAttachmentRow struct {
+	ReadOnly   bool   `db:"read_only"`
+	ProviderID string `db:"provider_id"`
 }

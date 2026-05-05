@@ -102,6 +102,84 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
+// GetCachedImageMetadata mocks base method.
+func (m *MockControllerState) GetCachedImageMetadata(ctx context.Context, version, arch string) ([]provisioner.CloudImageMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCachedImageMetadata", ctx, version, arch)
+	ret0, _ := ret[0].([]provisioner.CloudImageMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCachedImageMetadata indicates an expected call of GetCachedImageMetadata.
+func (mr *MockControllerStateMockRecorder) GetCachedImageMetadata(ctx, version, arch any) *MockControllerStateGetCachedImageMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedImageMetadata", reflect.TypeOf((*MockControllerState)(nil).GetCachedImageMetadata), ctx, version, arch)
+	return &MockControllerStateGetCachedImageMetadataCall{Call: call}
+}
+
+// MockControllerStateGetCachedImageMetadataCall wrap *gomock.Call
+type MockControllerStateGetCachedImageMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetCachedImageMetadataCall) Return(arg0 []provisioner.CloudImageMetadata, arg1 error) *MockControllerStateGetCachedImageMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetCachedImageMetadataCall) Do(f func(context.Context, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetCachedImageMetadataCall) DoAndReturn(f func(context.Context, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCloudEndpoint mocks base method.
+func (m *MockControllerState) GetCloudEndpoint(ctx context.Context, cloudName, regionName string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCloudEndpoint", ctx, cloudName, regionName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCloudEndpoint indicates an expected call of GetCloudEndpoint.
+func (mr *MockControllerStateMockRecorder) GetCloudEndpoint(ctx, cloudName, regionName any) *MockControllerStateGetCloudEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudEndpoint", reflect.TypeOf((*MockControllerState)(nil).GetCloudEndpoint), ctx, cloudName, regionName)
+	return &MockControllerStateGetCloudEndpointCall{Call: call}
+}
+
+// MockControllerStateGetCloudEndpointCall wrap *gomock.Call
+type MockControllerStateGetCloudEndpointCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetCloudEndpointCall) Return(arg0 string, arg1 error) *MockControllerStateGetCloudEndpointCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetCloudEndpointCall) Do(f func(context.Context, string, string) (string, error)) *MockControllerStateGetCloudEndpointCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetCloudEndpointCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockControllerStateGetCloudEndpointCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetControllerConfig mocks base method.
 func (m *MockControllerState) GetControllerConfig(ctx context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()

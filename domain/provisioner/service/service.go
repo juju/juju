@@ -44,6 +44,15 @@ type ControllerState interface {
 	// GetControllerConfig retrieves controller configuration from the
 	// controller database.
 	GetControllerConfig(ctx context.Context) (map[string]any, error)
+
+	// GetCloudEndpoint retrieves the cloud endpoint for a given cloud name
+	// and region. If the region has a specific endpoint it is returned,
+	// otherwise the cloud-level endpoint is returned.
+	GetCloudEndpoint(ctx context.Context, cloudName, regionName string) (string, error)
+
+	// GetCachedImageMetadata retrieves cached image metadata from the
+	// controller database matching the given version and architecture.
+	GetCachedImageMetadata(ctx context.Context, version, arch string) ([]provisioner.CloudImageMetadata, error)
 }
 
 // ImageMetadataFetcher fetches image metadata from external sources
@@ -119,6 +128,30 @@ func (s *Service) GetProvisioningInfo(
 	// Extract controller UUID from the config.
 	controllerUUID, _ := controllerConfig[ControllerUUIDKey].(string)
 
+	// Step 2b: Fetch cloud endpoint from controller DB.
+	cloudEndpoint, err := s.controllerSt.GetCloudEndpoint(ctx, stateInfo.CloudName, stateInfo.CloudRegion)
+	if err != nil {
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
+			"getting cloud endpoint: %w", err,
+		)
+	}
+
+	// Step 2c: Fetch cached image metadata from controller DB.
+	var version string
+	if stateInfo.Base.Channel.Track != "" {
+		version = stateInfo.Base.Channel.Track
+	}
+	var arch string
+	if stateInfo.Constraints.HasArch() {
+		arch = *stateInfo.Constraints.Arch
+	}
+	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch)
+	if err != nil {
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
+			"getting cached image metadata: %w", err,
+		)
+	}
+
 	// Step 3: Resolve endpoint bindings to space provider IDs/names.
 	endpointBindings, boundSpaceNames := s.resolveEndpointBindings(stateInfo.EndpointBindings, stateInfo.Spaces)
 
@@ -139,7 +172,7 @@ func (s *Service) GetProvisioningInfo(
 	)
 
 	// Step 6: Resolve image metadata (cached or fallback to external).
-	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo)
+	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo, cachedImageMetadata, cloudEndpoint)
 	if err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"resolving image metadata: %w", err,
@@ -302,10 +335,12 @@ func (s *Service) buildNetworkTopology(
 func (s *Service) resolveImageMetadata(
 	ctx context.Context,
 	stateInfo provisioner.ProvisioningInfoState,
+	cachedImageMetadata []provisioner.CloudImageMetadata,
+	cloudEndpoint string,
 ) ([]provisioner.CloudImageMetadata, error) {
-	if len(stateInfo.CachedImageMetadata) > 0 {
+	if len(cachedImageMetadata) > 0 {
 		// Sort by priority.
-		metadata := slices.Clone(stateInfo.CachedImageMetadata)
+		metadata := slices.Clone(cachedImageMetadata)
 		sort.Slice(metadata, func(i, j int) bool {
 			return metadata[i].Priority < metadata[j].Priority
 		})
@@ -328,7 +363,7 @@ func (s *Service) resolveImageMetadata(
 		Arches:   arches,
 		Stream:   stateInfo.ImageStream,
 		Region:   stateInfo.CloudRegion,
-		Endpoint: stateInfo.CloudEndpoint,
+		Endpoint: cloudEndpoint,
 	}
 	if stateInfo.Constraints.ImageID != nil {
 		constraint.ImageID = stateInfo.Constraints.ImageID

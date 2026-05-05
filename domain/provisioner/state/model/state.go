@@ -5,8 +5,10 @@ package model
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
+	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -97,14 +99,8 @@ func (st *State) GetProvisioningInfo(ctx context.Context, machineName string, is
 			return txErr
 		}
 
-		// Query 8: Model identity info (name, cloud type, region).
-		result.ModelName, result.CloudType, result.CloudRegion, result.CloudEndpoint, txErr = st.getModelInfo(ctx, tx)
-		if txErr != nil {
-			return txErr
-		}
-
-		// Query 9: Cached image metadata.
-		result.CachedImageMetadata, txErr = st.getCachedImageMetadata(ctx, tx, result.Base, result.Constraints)
+		// Query 8: Model identity info (name, cloud type, region, cloud name).
+		result.ModelName, result.CloudType, result.CloudRegion, result.CloudName, txErr = st.getModelInfo(ctx, tx)
 		if txErr != nil {
 			return txErr
 		}
@@ -457,11 +453,106 @@ func (st *State) getVolumeParams(
 	tx *sqlair.TX,
 	machineUUID string,
 ) ([]provisioner.VolumeProvisioningParams, []provisioner.VolumeAttachmentProvisioningParams, error) {
-	// TODO(provisioning): Implement volume params query.
-	// This needs to query storage_volume, storage_volume_attachment,
-	// storage_pool, and storage_pool_attribute tables.
-	// For now, return empty slices — volumes will be added in a follow-up.
-	return nil, nil, nil
+	// Fetch volumes attached to this machine that are machine-scoped and
+	// not yet provisioned (no provider_id).
+	volStmt, err := st.Prepare(`
+SELECT sv.uuid AS &volumeRow.uuid,
+       sv.volume_id AS &volumeRow.volume_id,
+       si.requested_size_mib AS &volumeRow.requested_size_mib,
+       sp.type AS &volumeRow.provider
+FROM storage_volume AS sv
+JOIN storage_volume_attachment AS sva ON sva.storage_volume_uuid = sv.uuid
+JOIN machine AS m ON sva.net_node_uuid = m.net_node_uuid
+JOIN storage_instance_volume AS siv ON siv.storage_volume_uuid = sv.uuid
+JOIN storage_instance AS si ON si.uuid = siv.storage_instance_uuid
+JOIN storage_pool AS sp ON sp.uuid = si.storage_pool_uuid
+WHERE m.uuid = $machineUUIDParam.uuid
+AND sv.provision_scope_id = 1
+AND sv.provider_id IS NULL
+`, volumeRow{}, machineUUIDParam{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	var volRows []volumeRow
+	err = tx.Query(ctx, volStmt, machineUUIDParam{UUID: machineUUID}).GetAll(&volRows)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil, errors.Errorf("querying volume params: %w", err)
+	}
+
+	if len(volRows) == 0 {
+		return nil, nil, nil
+	}
+
+	// Fetch pool attributes for each volume's storage pool.
+	attrStmt, err := st.Prepare(`
+SELECT spa."key" AS &storagePoolAttrRow.key,
+       spa.value AS &storagePoolAttrRow.value
+FROM storage_pool_attribute AS spa
+JOIN storage_pool AS sp ON sp.uuid = spa.storage_pool_uuid
+JOIN storage_instance AS si ON si.storage_pool_uuid = sp.uuid
+JOIN storage_instance_volume AS siv ON siv.storage_instance_uuid = si.uuid
+WHERE siv.storage_volume_uuid = $volumeUUIDParam.uuid
+`, storagePoolAttrRow{}, volumeUUIDParam{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	// Fetch attachment details.
+	attachStmt, err := st.Prepare(`
+SELECT sva.read_only AS &volumeAttachmentRow.read_only,
+       sv.provider_id AS &volumeAttachmentRow.provider_id
+FROM storage_volume_attachment AS sva
+JOIN storage_volume AS sv ON sv.uuid = sva.storage_volume_uuid
+JOIN machine AS m ON sva.net_node_uuid = m.net_node_uuid
+WHERE m.uuid = $machineUUIDParam.uuid
+AND sv.uuid = $volumeUUIDParam.uuid
+`, volumeAttachmentRow{}, machineUUIDParam{}, volumeUUIDParam{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	volumes := make([]provisioner.VolumeProvisioningParams, 0, len(volRows))
+	attachments := make([]provisioner.VolumeAttachmentProvisioningParams, 0, len(volRows))
+
+	for _, vr := range volRows {
+		// Get pool attributes.
+		var attrRows []storagePoolAttrRow
+		err = tx.Query(ctx, attrStmt, volumeUUIDParam{UUID: vr.UUID}).GetAll(&attrRows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil, errors.Errorf("querying pool attributes for volume %q: %w", vr.UUID, err)
+		}
+
+		attrs := make(map[string]string, len(attrRows))
+		for _, a := range attrRows {
+			attrs[a.Key] = a.Value
+		}
+
+		volumes = append(volumes, provisioner.VolumeProvisioningParams{
+			UUID:             vr.UUID,
+			ID:               vr.VolumeID,
+			Provider:         vr.Provider,
+			RequestedSizeMiB: uint64(vr.RequestedSizeMiB),
+			Attributes:       attrs,
+		})
+
+		// Get attachment details.
+		var attachRow volumeAttachmentRow
+		err = tx.Query(ctx, attachStmt, machineUUIDParam{UUID: machineUUID}, volumeUUIDParam{UUID: vr.UUID}).Get(&attachRow)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil, errors.Errorf("querying volume attachment for volume %q: %w", vr.UUID, err)
+		}
+
+		attachments = append(attachments, provisioner.VolumeAttachmentProvisioningParams{
+			VolumeUUID:       vr.UUID,
+			VolumeID:         vr.VolumeID,
+			Provider:         vr.Provider,
+			ReadOnly:         attachRow.ReadOnly,
+			VolumeProviderID: attachRow.ProviderID,
+		})
+	}
+
+	return volumes, attachments, nil
 }
 
 // getRootDiskStoragePool fetches the storage pool for the root disk if
@@ -543,19 +634,81 @@ func (st *State) getModelConfigValues(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (map[string]any, string, map[string]string, bool, error) {
-	// TODO(provisioning): Implement model config query.
-	// Query model_config for cloudinit-userdata, image-stream,
-	// resource-tags. For now return defaults.
-	return nil, "released", nil, false, nil
+	stmt, err := st.Prepare(`
+SELECT &modelConfigRow.*
+FROM model_config
+WHERE "key" IN ($modelConfigKeys[:])
+`, modelConfigRow{}, modelConfigKeys{})
+	if err != nil {
+		return nil, "", nil, false, errors.Capture(err)
+	}
+
+	keys := modelConfigKeys{"cloudinit-userdata", "image-stream", "resource-tags"}
+	var rows []modelConfigRow
+	err = tx.Query(ctx, stmt, keys).GetAll(&rows)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, "", nil, false, errors.Errorf("querying model config: %w", err)
+	}
+
+	// Defaults.
+	imageStream := "released"
+	var cloudInitUserData map[string]any
+	var resourceTags map[string]string
+	resourceTagsFound := false
+
+	for _, row := range rows {
+		switch row.Key {
+		case "image-stream":
+			if row.Value != "" {
+				imageStream = row.Value
+			}
+		case "cloudinit-userdata":
+			if row.Value != "" {
+				cloudInitUserData = parseCloudInitUserData(row.Value)
+			}
+		case "resource-tags":
+			if row.Value != "" {
+				resourceTags = parseResourceTags(row.Value)
+				resourceTagsFound = true
+			}
+		}
+	}
+
+	return cloudInitUserData, imageStream, resourceTags, resourceTagsFound, nil
 }
 
-// getModelInfo fetches the model name, cloud type, region, and endpoint.
+// parseCloudInitUserData parses a YAML string into a map.
+func parseCloudInitUserData(raw string) map[string]any {
+	var result map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &result); err != nil {
+		return nil
+	}
+	return result
+}
+
+// parseResourceTags parses a space-separated "key=value" string into a map.
+func parseResourceTags(raw string) map[string]string {
+	tags := make(map[string]string)
+	for _, part := range strings.Fields(raw) {
+		k, v, ok := strings.Cut(part, "=")
+		if ok {
+			tags[k] = v
+		}
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	return tags
+}
+
+// getModelInfo fetches the model name, cloud name, cloud type, and region.
 func (st *State) getModelInfo(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (string, string, string, string, error) {
 	stmt, err := st.Prepare(`
 SELECT m.name AS &modelInfoRow.name,
+       m.cloud AS &modelInfoRow.cloud_name,
        m.cloud_type AS &modelInfoRow.cloud_type,
        m.cloud_region AS &modelInfoRow.cloud_region
 FROM model AS m
@@ -570,22 +723,7 @@ FROM model AS m
 		return "", "", "", "", errors.Errorf("querying model info: %w", err)
 	}
 
-	// TODO(provisioning): Cloud endpoint is not stored in the model table.
-	// It would need to be fetched from a cloud_region table or similar.
-	return row.Name, row.CloudType, row.CloudRegion, "", nil
-}
-
-// getCachedImageMetadata fetches cached image metadata matching the
-// machine's base and arch constraints.
-func (st *State) getCachedImageMetadata(
-	ctx context.Context,
-	tx *sqlair.TX,
-	machineBase corebase.Base,
-	cons constraints.Value,
-) ([]provisioner.CloudImageMetadata, error) {
-	// TODO(provisioning): Implement cached image metadata query.
-	// Query cloud_image_metadata filtered by version and arch.
-	return nil, nil
+	return row.Name, row.CloudType, row.CloudRegion, row.CloudName, nil
 }
 
 // decodeConstraintRows converts constraint query rows into a

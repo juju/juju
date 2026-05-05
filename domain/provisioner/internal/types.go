@@ -71,12 +71,8 @@ type ProvisioningInfoState struct {
 	// CloudRegion is the cloud region name.
 	CloudRegion string
 
-	// CloudEndpoint is the cloud endpoint URL.
-	CloudEndpoint string
-
-	// CachedImageMetadata holds image metadata from the cache that
-	// matches the machine's base and architecture constraints.
-	CachedImageMetadata []CloudImageMetadata
+	// CloudName is the name of the cloud (used for endpoint lookup).
+	CloudName string
 }
 
 // VolumeProvisioningParams holds raw volume provisioning data from the
