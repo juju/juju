@@ -20,7 +20,7 @@ run_controller_ports() {
 	echo
 
   ## Check open ports
-  OUT=$(juju status -m controller --format=json | jq '.applications.controller.units["controller/0"]."open-ports".[]')
+  OUT=$(juju status -m controller --format=json | yq '.applications.controller.units["controller/0"]."open-ports".[]')
   check_contains "$OUT" "17070/tcp"
   check_contains "$OUT" "17022/tcp"
 

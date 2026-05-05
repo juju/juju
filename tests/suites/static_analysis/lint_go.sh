@@ -20,28 +20,28 @@ run_domain_imports() {
 
 		if [[ -d "$dir/service" ]]; then
 			# Service domain packages should not import state domain packages.
-			got=$(go run ./scripts/import-inspector "$dir/service" 2>/dev/null | jq -r ".[]")
+			got=$(go run ./scripts/import-inspector "$dir/service" 2>/dev/null | yq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/state"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service imports it's state pkg $dir" && exit 1)
 		fi
 
 		if [[ -d "$dir/state" ]]; then
 			# State domain packages should not import service domain packages.
-			got=$(go run ./scripts/import-inspector "$dir/state" 2>/dev/null | jq -r ".[]")
+			got=$(go run ./scripts/import-inspector "$dir/state" 2>/dev/null | yq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/service"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state imports it's service pkg $dir" && exit 1)
 		fi
 
 		if [[ -d "$dir/state/controller" ]]; then
 			# State domain packages should not import service domain packages.
-			got=$(go run ./scripts/import-inspector "$dir/state/controller" 2>/dev/null | jq -r ".[]")
+			got=$(go run ./scripts/import-inspector "$dir/state/controller" 2>/dev/null | yq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/service"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state/controller imports it's service pkg $dir" && exit 1)
 		fi
 
 		if [[ -d "$dir/state/model" ]]; then
 			# State domain packages should not import service domain packages.
-			got=$(go run ./scripts/import-inspector "$dir/state/model" 2>/dev/null | jq -r ".[]")
+			got=$(go run ./scripts/import-inspector "$dir/state/model" 2>/dev/null | yq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/service"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state/model imports it's service pkg $dir" && exit 1)
 		fi
@@ -55,7 +55,7 @@ run_juju_errors_imports() {
 		dirs=$(find ${pkg} -mindepth 1 -maxdepth 10 -type d | sort -u)
 		for dir in $dirs; do
 			echo "Checking $dir"
-			imports=$(go list -json -e -test "./${dir}" 2>/dev/null | jq -r ".Imports // [] | .[]")
+			imports=$(go list -json -e -test "./${dir}" 2>/dev/null | yq -r ".Imports // [] | .[]")
 			disallowed="github.com/juju/errors"
 			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${imports}" || (echo "Error: pkg $dir contains juju/errors imports" && exit 1)
 		done

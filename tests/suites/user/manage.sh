@@ -51,12 +51,12 @@ run_user_grant_revoke_external() {
 	ensure "user-grant-revoke-external" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Check that the everyone@external user has been created on bootstrap"
-	juju show-user everyone@external --format=json | jq -r '."user-name"' | check "everyone@external"
+	juju show-user everyone@external --format=json | yq -r '."user-name"' | check "everyone@external"
 	echo "Check that the everyone@external user has no permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
 
 	echo "Add an external user with no permission"
 	# Grant the user login permissions and immediately revoke them. Granting an
@@ -69,27 +69,27 @@ run_user_grant_revoke_external() {
 	juju grant superuser@external superuser
 
 	echo "Check rights for added users"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Grant everyone@external login permissions"
 	juju grant everyone@external "login"
 
 	echo "Check that external users inherit the permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Revoke login permission of everyone@external"
 	juju revoke everyone@external login
 
 	echo "Check that external users have their original permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Remove added users"
 	juju remove-user -y nopermuser@external

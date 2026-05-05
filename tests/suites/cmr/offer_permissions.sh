@@ -27,7 +27,7 @@ run_offer_permissions() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Check list-offer output"
-	juju list-offers --format=json | jq -r 'has("dummy-offer")' | check true
+	juju list-offers --format=json | yq -r 'has("dummy-offer")' | check true
 
 	echo "Check show-offer plain output"
 	check_contains "$(juju show-offer dummy-offer)" "admin/model-offer.dummy-offer"
@@ -35,10 +35,10 @@ run_offer_permissions() {
 	echo "Check show-offer json output"
 	offer_json=$(juju show-offer dummy-offer --format=json)
 	offer_id="${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
-	jq "has(\"$offer_id\")" <<<$offer_json | check true
-	jq ".\"$offer_id\".users | has(\"admin\")" <<<$offer_json | check true
-	jq ".\"$offer_id\".users | keys | length" <<<$offer_json | check 1
-	jq -r ".\"$offer_id\".users.admin.\"display-name\"" <<<$offer_json | check "admin"
+	yq "has(\"$offer_id\")" <<<$offer_json | check true
+	yq ".\"$offer_id\".users | has(\"admin\")" <<<$offer_json | check true
+	yq ".\"$offer_id\".users | keys | length" <<<$offer_json | check 1
+	yq -r ".\"$offer_id\".users.admin.\"display-name\"" <<<$offer_json | check "admin"
 
 	echo "Add permissions for some users"
 	for i in $(seq 1 5); do juju add-user user$i; done
@@ -46,12 +46,12 @@ run_offer_permissions() {
 
 	echo "Check show-offer json output with multiple users"
 	offer_json=$(juju show-offer dummy-offer --format=json)
-	jq "has(\"$offer_id\")" <<<$offer_json | check true
-	jq ".\"$offer_id\".users | has(\"admin\")" <<<$offer_json | check true
-	jq ".\"$offer_id\".users | keys | length" <<<$offer_json | check 6
-	jq -r ".\"$offer_id\".users.admin.\"display-name\"" <<<$offer_json | check "admin"
-	jq -r ".\"$offer_id\".users.admin.access" <<<$offer_json | check "admin"
-	for i in $(seq 1 5); do jq -r ".\"$offer_id\".users.user$i.access" <<<$offer_json | check "consume"; done
+	yq "has(\"$offer_id\")" <<<$offer_json | check true
+	yq ".\"$offer_id\".users | has(\"admin\")" <<<$offer_json | check true
+	yq ".\"$offer_id\".users | keys | length" <<<$offer_json | check 6
+	yq -r ".\"$offer_id\".users.admin.\"display-name\"" <<<$offer_json | check "admin"
+	yq -r ".\"$offer_id\".users.admin.access" <<<$offer_json | check "admin"
+	for i in $(seq 1 5); do yq -r ".\"$offer_id\".users.user$i.access" <<<$offer_json | check "consume"; done
 
 	echo "Check show-offer yaml output"
 	offer_yaml=$(juju show-offer dummy-offer --format=yaml)
