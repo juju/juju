@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -23,16 +23,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ModelState provides direct database access to the model database for
+// State provides direct database access to the model database for
 // provisioning info retrieval.
-type ModelState struct {
+type State struct {
 	*domain.StateBase
 	logger logger.Logger
 }
 
-// NewModelState returns a new model state reference.
-func NewModelState(factory coredb.TxnRunnerFactory, logger logger.Logger) *ModelState {
-	return &ModelState{
+// NewState returns a new model state reference.
+func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,
 	}
@@ -43,7 +43,7 @@ func NewModelState(factory coredb.TxnRunnerFactory, logger logger.Logger) *Model
 //
 // The following errors may be returned:
 //   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
-func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
+func (st *State) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return provisioner.ProvisioningInfoState{}, errors.Capture(err)
@@ -120,7 +120,7 @@ func (st *ModelState) GetProvisioningInfo(ctx context.Context, machineName strin
 
 // getMachineBaseInfo fetches the machine UUID, base OS, placement directive,
 // constraints, and controller status.
-func (st *ModelState) getMachineBaseInfo(
+func (st *State) getMachineBaseInfo(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineName string,
@@ -182,7 +182,7 @@ WHERE m.name = $machineRow.name
 }
 
 // getMachineConstraints fetches the constraints for a machine by its UUID.
-func (st *ModelState) getMachineConstraints(
+func (st *State) getMachineConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID string,
@@ -211,7 +211,7 @@ WHERE vc.machine_uuid = $machineUUIDParam.uuid
 // isMachineController checks if the machine is a controller by looking
 // up the v_machine_is_controller view which joins through
 // application_controller.
-func (st *ModelState) isMachineController(
+func (st *State) isMachineController(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID string,
@@ -235,7 +235,7 @@ WHERE machine_uuid = $machineUUIDParam.uuid
 }
 
 // getUnitsOnMachine fetches the unit names assigned to the machine.
-func (st *ModelState) getUnitsOnMachine(
+func (st *State) getUnitsOnMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineName string,
@@ -299,7 +299,7 @@ WHERE m.name = $machineRow.name
 }
 
 // resolveUnitUUIDsToNames resolves a set of unit UUIDs to their names.
-func (st *ModelState) resolveUnitUUIDsToNames(
+func (st *State) resolveUnitUUIDsToNames(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuids map[string]bool,
@@ -340,7 +340,7 @@ WHERE u.uuid IN ($S[:])
 // of the units on the machine. This queries application_endpoint and
 // application_extra_endpoint, resolving NULL space UUIDs to the
 // application's default space.
-func (st *ModelState) getEndpointBindings(
+func (st *State) getEndpointBindings(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitNames []coreunit.NameWithPrincipal,
@@ -452,7 +452,7 @@ WHERE aee.application_uuid = $appUUIDParam.uuid
 }
 
 // getVolumeParams fetches volume provisioning params for the machine.
-func (st *ModelState) getVolumeParams(
+func (st *State) getVolumeParams(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID string,
@@ -466,7 +466,7 @@ func (st *ModelState) getVolumeParams(
 
 // getRootDiskStoragePool fetches the storage pool for the root disk if
 // the root-disk-source constraint is set.
-func (st *ModelState) getRootDiskStoragePool(
+func (st *State) getRootDiskStoragePool(
 	ctx context.Context,
 	tx *sqlair.TX,
 	cons constraints.Value,
@@ -514,7 +514,7 @@ WHERE sp.name = $storagePoolNameParam.name
 }
 
 // getAllSpaces fetches all spaces with their subnets and availability zones.
-func (st *ModelState) getAllSpaces(
+func (st *State) getAllSpaces(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (network.SpaceInfos, error) {
@@ -539,7 +539,7 @@ FROM v_space_subnet
 }
 
 // getModelConfigValues fetches model config values relevant to provisioner.
-func (st *ModelState) getModelConfigValues(
+func (st *State) getModelConfigValues(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (map[string]any, string, map[string]string, bool, error) {
@@ -550,7 +550,7 @@ func (st *ModelState) getModelConfigValues(
 }
 
 // getModelInfo fetches the model name, cloud type, region, and endpoint.
-func (st *ModelState) getModelInfo(
+func (st *State) getModelInfo(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (string, string, string, string, error) {
@@ -577,7 +577,7 @@ FROM model AS m
 
 // getCachedImageMetadata fetches cached image metadata matching the
 // machine's base and arch constraints.
-func (st *ModelState) getCachedImageMetadata(
+func (st *State) getCachedImageMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineBase corebase.Base,

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package controller
 
 import (
 	"context"
@@ -18,16 +18,16 @@ import (
 type controllerStateSuite struct {
 	schematesting.ControllerSuite
 
-	state *ControllerState
+	state *State
 }
 
-func TestControllerStateSuite(t *testing.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &controllerStateSuite{})
 }
 
 func (s *controllerStateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
-	s.state = NewControllerState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 // runQuery executes an SQL statement for test setup.

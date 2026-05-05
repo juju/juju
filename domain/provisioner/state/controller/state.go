@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package controller
 
 import (
 	"context"
@@ -14,16 +14,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ControllerState provides direct database access to the controller
+// State provides direct database access to the controller
 // database for provisioning info retrieval.
-type ControllerState struct {
+type State struct {
 	*domain.StateBase
 	logger logger.Logger
 }
 
-// NewControllerState returns a new controller state reference.
-func NewControllerState(factory coredb.TxnRunnerFactory, logger logger.Logger) *ControllerState {
-	return &ControllerState{
+// NewState returns a new controller state reference.
+func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,
 	}
@@ -37,7 +37,7 @@ type controllerConfigRow struct {
 
 // GetControllerConfig retrieves controller configuration from the
 // controller database.
-func (st *ControllerState) GetControllerConfig(ctx context.Context) (map[string]any, error) {
+func (st *State) GetControllerConfig(ctx context.Context) (map[string]any, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"context"
@@ -20,16 +20,16 @@ import (
 type modelStateSuite struct {
 	schematesting.ModelSuite
 
-	state *ModelState
+	state *State
 }
 
-func TestModelStateSuite(t *testing.T) {
+func TestStateSuite(t *testing.T) {
 	tc.Run(t, &modelStateSuite{})
 }
 
 func (s *modelStateSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
-	s.state = NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 // runQuery executes an SQL statement for test setup.
