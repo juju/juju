@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -77,6 +79,8 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 	if err != nil {
 		return nil, errors.Errorf("getting model uuid: %w", err)
 	}
+
+	// TODO(secrets): reserve these URIs in state for the owner.
 	result := make([]*secrets.URI, count)
 	for i := range count {
 		result[i] = secrets.NewURI().WithSource(modelUUID.String())
@@ -116,17 +120,31 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor d
 	if err != nil {
 		return nil, "", errors.Errorf("listing granted secrets: %w", err)
 	}
+	owned := set.NewStrings()
 	ownedRevisions := provider.SecretRevisions{}
 	for _, r := range revInfo {
 		ownedRevisions.Add(r.URI, r.RevisionID)
+		owned.Add(r.URI.ID)
 	}
 	s.logger.Debugf(ctx, "secrets for %s:\nowned: %v", accessor, ownedRevisions)
 
+	issuedTokenUUID := ""
+	if p.IssuesTokens() {
+		// TODO(secrets): call state to save an issued token uuid.
+		u, err := uuid.NewUUID()
+		if err != nil {
+			return nil, "", errors.Errorf(
+				"generating issued token uuid: %w", err,
+			)
+		}
+		issuedTokenUUID = u.String()
+	}
+
 	// Get the restricted config for the provided accessor.
-	restrictedConfig, err := p.RestrictedConfig(ctx, modelBackendCfg, true, false, secrets.Accessor{
+	restrictedConfig, err := p.RestrictedConfig(ctx, modelBackendCfg, true, false, issuedTokenUUID, secrets.Accessor{
 		Kind: secrets.ModelAccessor,
 		ID:   accessor.ID,
-	}, ownedRevisions, provider.SecretRevisions{})
+	}, owned.SortedValues(), ownedRevisions, provider.SecretRevisions{})
 	if err != nil {
 		return nil, "", errors.Capture(err)
 	}
@@ -210,6 +228,9 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if len(params.Data) == 0 {
 		return errors.Errorf("empty secret value %w", coreerrors.NotValid)
 	}
+
+	// TODO(secrets): Generate and reserve a secret URI, instead of accepting
+	// one via an argument.
 
 	now := s.clock.Now()
 	p := domainsecret.UpsertSecretParams{
@@ -1044,4 +1065,39 @@ func (s *SecretService) GetLatestRevisions(ctx context.Context, uris []*secrets.
 		return nil, nil
 	}
 	return s.secretState.GetLatestRevisions(ctx, uris)
+}
+
+// RemoveUnitReservationsAndTokens cleans up any left over reservations the
+// unit has made that have not been claimed, and it also expires any tokens
+// the unit has requested.
+//
+// The following errors can be expected:
+// - [coreunit.InvalidUnitName] when the unit name is not valid.
+// - [domainapplicationerrors.UnitNotFound] when the unit is not found.
+func (s *SecretService) RemoveUnitReservationsAndTokens(
+	ctx context.Context, unitName coreunit.Name,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := unitName.Validate()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.secretState.RemoveUnitReservationsAndTokens(
+		ctx, unitName.String(), s.clock.Now(),
+	)
+	if errors.Is(err, domainapplicationerrors.UnitNotFound) {
+		return errors.Errorf(
+			"unit %q not found removing unit secret reservations and tokens",
+			unitName,
+		).Add(domainapplicationerrors.UnitNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"removing unit secret reservations and tokens",
+		).Add(err)
+	}
+
+	return nil
 }

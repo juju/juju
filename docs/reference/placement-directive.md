@@ -19,8 +19,6 @@ Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`
 
 The rest of this document gives details about the locations.
 
-<!-- where the zone key may be used to override a `zones` {ref}`constraint <constraint>`.  -->
-
 ```{caution}
 
 When the location is a key-value pair, its availability and meaning may vary from cloud to cloud. For details see {ref}`list-of-supported-clouds` > `<cloud name>`.
@@ -49,21 +47,15 @@ See more: {ref}`machine-designations`
 (placement-directive-subnet)=
 ### `subnet=<subnet>`
 
-<!--**Value:** The name of the subnet.-->
-
 Available for Azure and AWS EC2.
 
 (placement-directive-system-id)=
 ### `system-id=<system ID>`
 
-<!--**Value:** The system id.-->
-
 Available for MAAS.
 
 (placement-directive-zone)=
 ### `zone=<zone>`
-
-<!--**Value:** The name of the availability zone.-->
 
 **Purpose:** To specify an availability zone.
 

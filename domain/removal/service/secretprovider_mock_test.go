@@ -41,6 +41,45 @@ func (m *MockSecretBackendProvider) EXPECT() *MockSecretBackendProviderMockRecor
 	return m.recorder
 }
 
+// CleanupIssuedTokens mocks base method.
+func (m *MockSecretBackendProvider) CleanupIssuedTokens(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CleanupIssuedTokens", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CleanupIssuedTokens indicates an expected call of CleanupIssuedTokens.
+func (mr *MockSecretBackendProviderMockRecorder) CleanupIssuedTokens(arg0, arg1, arg2 any) *MockSecretBackendProviderCleanupIssuedTokensCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupIssuedTokens", reflect.TypeOf((*MockSecretBackendProvider)(nil).CleanupIssuedTokens), arg0, arg1, arg2)
+	return &MockSecretBackendProviderCleanupIssuedTokensCall{Call: call}
+}
+
+// MockSecretBackendProviderCleanupIssuedTokensCall wrap *gomock.Call
+type MockSecretBackendProviderCleanupIssuedTokensCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendProviderCleanupIssuedTokensCall) Return(arg0 []string, arg1 error) *MockSecretBackendProviderCleanupIssuedTokensCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendProviderCleanupIssuedTokensCall) Do(f func(context.Context, *provider.ModelBackendConfig, []string) ([]string, error)) *MockSecretBackendProviderCleanupIssuedTokensCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendProviderCleanupIssuedTokensCall) DoAndReturn(f func(context.Context, *provider.ModelBackendConfig, []string) ([]string, error)) *MockSecretBackendProviderCleanupIssuedTokensCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CleanupModel mocks base method.
 func (m *MockSecretBackendProvider) CleanupModel(arg0 context.Context, arg1 *provider.ModelBackendConfig) error {
 	m.ctrl.T.Helper()
@@ -155,6 +194,44 @@ func (c *MockSecretBackendProviderInitialiseCall) DoAndReturn(f func(*provider.M
 	return c
 }
 
+// IssuesTokens mocks base method.
+func (m *MockSecretBackendProvider) IssuesTokens() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IssuesTokens")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IssuesTokens indicates an expected call of IssuesTokens.
+func (mr *MockSecretBackendProviderMockRecorder) IssuesTokens() *MockSecretBackendProviderIssuesTokensCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssuesTokens", reflect.TypeOf((*MockSecretBackendProvider)(nil).IssuesTokens))
+	return &MockSecretBackendProviderIssuesTokensCall{Call: call}
+}
+
+// MockSecretBackendProviderIssuesTokensCall wrap *gomock.Call
+type MockSecretBackendProviderIssuesTokensCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendProviderIssuesTokensCall) Return(arg0 bool) *MockSecretBackendProviderIssuesTokensCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendProviderIssuesTokensCall) Do(f func() bool) *MockSecretBackendProviderIssuesTokensCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendProviderIssuesTokensCall) DoAndReturn(f func() bool) *MockSecretBackendProviderIssuesTokensCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewBackend mocks base method.
 func (m *MockSecretBackendProvider) NewBackend(arg0 *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 	m.ctrl.T.Helper()
@@ -195,18 +272,18 @@ func (c *MockSecretBackendProviderNewBackendCall) DoAndReturn(f func(*provider.M
 }
 
 // RestrictedConfig mocks base method.
-func (m *MockSecretBackendProvider) RestrictedConfig(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2, arg3 bool, arg4 secrets.Accessor, arg5, arg6 provider.SecretRevisions) (*provider.BackendConfig, error) {
+func (m *MockSecretBackendProvider) RestrictedConfig(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2, arg3 bool, arg4 string, arg5 secrets.Accessor, arg6 []string, arg7, arg8 provider.SecretRevisions) (*provider.BackendConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RestrictedConfig", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "RestrictedConfig", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(*provider.BackendConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RestrictedConfig indicates an expected call of RestrictedConfig.
-func (mr *MockSecretBackendProviderMockRecorder) RestrictedConfig(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockSecretBackendProviderRestrictedConfigCall {
+func (mr *MockSecretBackendProviderMockRecorder) RestrictedConfig(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockSecretBackendProviderRestrictedConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestrictedConfig", reflect.TypeOf((*MockSecretBackendProvider)(nil).RestrictedConfig), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestrictedConfig", reflect.TypeOf((*MockSecretBackendProvider)(nil).RestrictedConfig), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	return &MockSecretBackendProviderRestrictedConfigCall{Call: call}
 }
 
@@ -222,13 +299,13 @@ func (c *MockSecretBackendProviderRestrictedConfigCall) Return(arg0 *provider.Ba
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendProviderRestrictedConfigCall) Do(f func(context.Context, *provider.ModelBackendConfig, bool, bool, secrets.Accessor, provider.SecretRevisions, provider.SecretRevisions) (*provider.BackendConfig, error)) *MockSecretBackendProviderRestrictedConfigCall {
+func (c *MockSecretBackendProviderRestrictedConfigCall) Do(f func(context.Context, *provider.ModelBackendConfig, bool, bool, string, secrets.Accessor, []string, provider.SecretRevisions, provider.SecretRevisions) (*provider.BackendConfig, error)) *MockSecretBackendProviderRestrictedConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendProviderRestrictedConfigCall) DoAndReturn(f func(context.Context, *provider.ModelBackendConfig, bool, bool, secrets.Accessor, provider.SecretRevisions, provider.SecretRevisions) (*provider.BackendConfig, error)) *MockSecretBackendProviderRestrictedConfigCall {
+func (c *MockSecretBackendProviderRestrictedConfigCall) DoAndReturn(f func(context.Context, *provider.ModelBackendConfig, bool, bool, string, secrets.Accessor, []string, provider.SecretRevisions, provider.SecretRevisions) (*provider.BackendConfig, error)) *MockSecretBackendProviderRestrictedConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

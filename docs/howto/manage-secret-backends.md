@@ -41,13 +41,6 @@ That's it. You can now start using this backend by adding it to a model.
 See more: {ref}`secret-backend-configuration-options`
 ```
 
-<!--
-```
-juju add-secret-backend mysecrets vault \
---config=/path/to/vault_config.yaml \
-token-rotate=7d
-```
--->
 
 (add-a-secret-backend)=
 ## Add a secret backend

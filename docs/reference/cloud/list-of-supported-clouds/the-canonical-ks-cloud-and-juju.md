@@ -21,7 +21,6 @@ See more: {ref}`cloud-differences`
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
 
-
 ## Requirements
 
 ### Services that must enabled

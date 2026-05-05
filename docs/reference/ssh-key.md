@@ -11,14 +11,6 @@ myst:
 See also: {ref}`manage-ssh-keys`
 ```
 
-<!--TODO: SEE IF WE NEED TO INCORPORATE THIS SOMEWHERE TOO:
-### Model creators and SSH keys
-
-When a controller is either created or registered a passphraseless SSH keypair will be generated and placed under `~/.local/share/juju/ssh`. The public key `juju_id_rsa.pub`, as well as a possibly existing `~/.ssh/id_rsa.pub`, will be placed within any newly-created model.
-
-This means that a model creator will always be able to connect to any machine within that model (with `juju ssh`) without having to add keys since the creator is also granted 'admin' model access by default.
--->
-
 An **SSH key** is an access  key in the [SSH](https://www.ssh.com/academy/ssh-keys) protocol. In Juju it refers to a way of accessing a machine provisioned by Juju individually.
 
 Juju maintains a per-model cache of public SSH keys which it copies to each machine (including machines already deployed). You can add keys via `juju add-ssh-key` or `juju import-ssh-key`. Any key added to the model is placed on all machines (present and future) in the model.

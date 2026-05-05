@@ -3402,6 +3402,7 @@ type commitHookChangesSuite struct {
 	networkService     *MockNetworkService
 	relationService    *MockRelationService
 	unitStateService   *MockUnitStateService
+	secretService      *MockSecretService
 
 	uniter *UniterAPI
 }
@@ -3481,6 +3482,9 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 		}},
 	}
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), domainArg).Return(nil)
+
+	// TODO(secrets): move into txn
+	s.secretService.EXPECT().RemoveUnitReservationsAndTokens(gomock.Any(), unitName).Return(nil)
 
 	// Act
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
@@ -3808,6 +3812,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.relationService = NewMockRelationService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.unitStateService = NewMockUnitStateService(ctrl)
+	s.secretService = NewMockSecretService(ctrl)
 
 	s.uniter = &UniterAPI{
 		logger: loggertesting.WrapCheckLog(c),
@@ -3816,6 +3821,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		networkService:     s.networkService,
 		relationService:    s.relationService,
 		unitStateService:   s.unitStateService,
+		secretService:      s.secretService,
 	}
 
 	c.Cleanup(func() {
@@ -3824,6 +3830,7 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.uniter = nil
 		s.unitStateService = nil
+		s.secretService = nil
 	})
 
 	return ctrl

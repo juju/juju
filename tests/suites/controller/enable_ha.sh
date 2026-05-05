@@ -26,7 +26,7 @@ run_controller_limit_access_in_ha() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2" | "gce")
 		machine_info="$(juju list-machines -m controller --format=json)"
-		instance_id="$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		instance_id="$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
 		region_or_az=$(region_or_availability_zone)
 		network_tag_or_group=$(instance_network_tag_or_group)
 
@@ -92,7 +92,7 @@ run_enable_ha() {
 	wait_for_controller_leader
 
 	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
+	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | (.[] | select(.["instance-id"] == null)) as $i ireduce (0; . + 1)' | grep 0
 
 	destroy_model "enable-ha"
 }

@@ -31,7 +31,6 @@ When you deploy an {ref}`application <application>` on a machine, there is usual
 
 In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
 
-
 ````{dropdown} Example
 
 E.g., `juju add-machine lxd` starts a LXD container on a new machine and adds *both* as 'machines' -- the only difference being that the container 'machine' is prefixed with the ID of its host machine and the annotation `lxd`:
@@ -94,7 +93,4 @@ In Juju, a **base** is  a way to identify a particular operating system (OS) ima
 This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.
 
 A 'base' replaces the older notion of 'series'.
-
-<!--If we link to the doc on Channel https://juju.is/docs/sdk/channel , we need to specify that the notion of `branch` is not relevant here. -->
-
 

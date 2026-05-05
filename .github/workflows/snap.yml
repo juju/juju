@@ -8,8 +8,13 @@ permissions:
 
 jobs:
   snap:
-    name: Build linux-amd64
-    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    name: Build linux-arm64
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
       - name: Install Dependencies
@@ -21,6 +26,10 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.github/squid.sh
 
       - name: Setup LXD
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
@@ -55,7 +64,7 @@ jobs:
           sudo snap connect juju:lxd lxd
           sudo snap connect juju:config-lxd
           sudo snap connect juju:dot-local-share-juju
-          sudo snap connect juju:ssh-keys
+          sudo snap connect juju:ssh-public-keys
           snap connections juju
 
       - name: Test bootstrap

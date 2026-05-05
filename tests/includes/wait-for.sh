@@ -4,7 +4,7 @@ SHORT_TIMEOUT=5
 # wait_for defines the ability to wait for a given condition to happen in a
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
-# The query argument is a jq query.
+# The query argument is a yq query.
 # The default timeout is 10 minutes. You can change this by providing the
 # timeout argument (an integer number of seconds).
 #
@@ -21,7 +21,7 @@ wait_for() {
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
-	until [[ "$(juju status --format=json 2>/dev/null | jq -S "${query}" | grep "${name}")" ]]; do
+	until [[ "$(juju status --format=json 2>/dev/null | yq "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju status --relations 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -92,6 +92,15 @@ active_condition() {
 	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
+error_condition() {
+	local name app_index
+
+	name=${1}
+	app_index=${2:-0}
+
+	echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"error\") | keys[$app_index]"
+}
+
 # not_idle_list should be used where you expect an arbitrary list of applications whose agent-status are not in idle state,
 # ideally applications in a bundle, this helps the tests to avoid being overly specific to a given number of applications.
 # e.g. wait_for 0 "$(not_idle_list) | length" 1800
@@ -160,7 +169,7 @@ wait_for_machine_agent_status() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
+	until [ $(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
 		echo "[+] (attempt ${attempt}) polling machines"
 		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -193,7 +202,7 @@ wait_for_container_agent_status() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${parent_id}\"] | .[\"containers\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
+	until [ $(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${parent_id}\"] | .[\"containers\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
 		echo "[+] (attempt ${attempt}) polling machines"
 		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -225,13 +234,12 @@ wait_for_machine_netif_count() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length" | grep "${count}") ]; do
+	until [ $(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length" | grep "${count}") ]; do
 		# shellcheck disable=SC2046,SC2143
-		echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
+		echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 	done
-
 }
 
 # wait_for_subordinate_count blocks until the number of subordinates
@@ -252,9 +260,40 @@ wait_for_subordinate_count() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju status --format json | jq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates | length" | grep "${count}") ]; do
+	until [ $(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates | length" | grep "${count}") ]; do
 		# shellcheck disable=SC2046,SC2143
-		echo "[+] (attempt ${attempt}) subordinate count for unit ${name}/${unit_index} = "$(juju status --format json | jq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates  | length")
+		echo "[+] (attempt ${attempt}) subordinate count for unit ${name}/${unit_index} = "$(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates  | length")
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling status')"
+		juju status 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
+
+# wait_for_unit_count blocks until the number of units for the application
+# becomes equal to the desired value.
+#
+# ```
+# wait_for_unit_count <application name> <count>
+#
+# example:
+# wait_for_unit_count mysql 3
+# ```
+wait_for_unit_count() {
+	local name count
+
+	name=${1}
+	count=${2:-0}
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	until [ $(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | length" | grep "${count}") ]; do
+		# shellcheck disable=SC2046,SC2143
+		echo "[+] (attempt ${attempt}) unit count ${name} = "$(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | length")
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 	done
@@ -283,15 +322,15 @@ wait_for_model() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju models --format=json | jq -r ".models | .[] | select(.[\"short-name\"] == \"${name}\") | .[\"short-name\"]" | grep "${name}") ]; do
-		echo "[+] (attempt ${attempt}) polling models"
+	until [ $(juju models --format=json | yq -r ".models | .[] | select(.[\"short-name\"] == \"${name}\") | .[\"short-name\"]" | grep "${name}") ]; do
+		echo "[+] (attempt ${attempt}) polling for model ${name}"
 		juju models | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 	done
 
 	if [[ ${attempt} -gt 0 ]]; then
-		echo "[+] $(green 'Completed polling models')"
+		echo "[+] $(green "Completed polling for model ${name}")"
 		juju models | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 	fi
@@ -344,7 +383,7 @@ wait_for_storage() {
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
-	until [[ "$(juju storage --format=json 2>/dev/null | jq "${query}" | grep "${name}")" ]]; do
+	until [[ "$(juju storage --format=json 2>/dev/null | yq "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju storage 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -386,7 +425,7 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 	secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
 	# print the security group rules
 	# shellcheck disable=SC2086
-	got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+	got_cidrs=$(echo ${secgrp_list} | yq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
@@ -395,7 +434,7 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 		# shellcheck disable=SC2086
 		secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
 		# shellcheck disable=SC2086
-		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+		got_cidrs=$(echo ${secgrp_list} | yq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
 		sleep "${SHORT_TIMEOUT}"
 
 		if [ "$got_cidrs" == "$exp_cidrs" ]; then

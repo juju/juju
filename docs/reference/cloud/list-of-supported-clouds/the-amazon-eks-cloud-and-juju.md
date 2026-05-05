@@ -7,7 +7,6 @@ myst:
 (cloud-kubernetes-eks)=
 # The Amazon EKS cloud and Juju
 
-
 This document describes details specific to using your existing Amazon EKS cloud with Juju.
 
 ```{ibnote}
