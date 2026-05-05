@@ -180,45 +180,6 @@ func (c *MockControllerStateGetCloudEndpointCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetControllerConfig mocks base method.
-func (m *MockControllerState) GetControllerConfig(ctx context.Context) (map[string]any, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerConfig", ctx)
-	ret0, _ := ret[0].(map[string]any)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetControllerConfig indicates an expected call of GetControllerConfig.
-func (mr *MockControllerStateMockRecorder) GetControllerConfig(ctx any) *MockControllerStateGetControllerConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerConfig", reflect.TypeOf((*MockControllerState)(nil).GetControllerConfig), ctx)
-	return &MockControllerStateGetControllerConfigCall{Call: call}
-}
-
-// MockControllerStateGetControllerConfigCall wrap *gomock.Call
-type MockControllerStateGetControllerConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerConfigCall) Return(arg0 map[string]any, arg1 error) *MockControllerStateGetControllerConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerConfigCall) Do(f func(context.Context) (map[string]any, error)) *MockControllerStateGetControllerConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerConfigCall) DoAndReturn(f func(context.Context) (map[string]any, error)) *MockControllerStateGetControllerConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockImageMetadataFetcher is a mock of ImageMetadataFetcher interface.
 type MockImageMetadataFetcher struct {
 	ctrl     *gomock.Controller

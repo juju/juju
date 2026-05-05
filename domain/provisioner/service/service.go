@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
@@ -41,10 +42,6 @@ type ModelState interface {
 // ControllerState provides direct database access to the controller
 // database for provisioning info retrieval.
 type ControllerState interface {
-	// GetControllerConfig retrieves controller configuration from the
-	// controller database.
-	GetControllerConfig(ctx context.Context) (map[string]any, error)
-
 	// GetCloudEndpoint retrieves the cloud endpoint for a given cloud name
 	// and region. If the region has a specific endpoint it is returned,
 	// otherwise the cloud-level endpoint is returned.
@@ -103,6 +100,7 @@ func (s *Service) GetProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
 	isControllerModel bool,
+	controllerConfig controller.Config,
 ) (provisioner.ProvisioningInfo, error) {
 	if err := machineName.Validate(); err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
@@ -118,16 +116,8 @@ func (s *Service) GetProvisioningInfo(
 		)
 	}
 
-	// Step 2: Fetch controller config (separate DB/transaction).
-	controllerConfig, err := s.controllerSt.GetControllerConfig(ctx)
-	if err != nil {
-		return provisioner.ProvisioningInfo{}, errors.Errorf(
-			"getting controller config: %w", err,
-		)
-	}
-
 	// Extract controller UUID from the config.
-	controllerUUID, _ := controllerConfig[ControllerUUIDKey].(string)
+	controllerUUID := controllerConfig.ControllerUUID()
 
 	// Step 2b: Fetch cloud endpoint from controller DB.
 	cloudEndpoint, err := s.controllerSt.GetCloudEndpoint(ctx, stateInfo.CloudName, stateInfo.CloudRegion)

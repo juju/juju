@@ -545,7 +545,7 @@ LIMIT 1
 			UUID:                 vr.UUID,
 			ID:                   vr.VolumeID,
 			Provider:             vr.Provider,
-			RequestedSizeMiB:    uint64(vr.RequestedSizeMiB),
+			RequestedSizeMiB:     uint64(vr.RequestedSizeMiB),
 			Attributes:           attrs,
 			StorageName:          vr.StorageName,
 			StorageID:            vr.StorageID,

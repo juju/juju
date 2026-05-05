@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coremachine "github.com/juju/juju/core/machine"
@@ -84,7 +85,7 @@ type ProvisioningInfo struct {
 	CloudInitUserData map[string]any
 
 	// ControllerConfig holds the controller configuration.
-	ControllerConfig map[string]any
+	ControllerConfig controller.Config
 }
 
 // VolumeParams holds volume provisioning parameters.

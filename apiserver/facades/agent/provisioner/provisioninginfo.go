@@ -26,6 +26,11 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Capture(err)
 	}
 
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return result, errors.Errorf("getting controller config: %w", err)
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil || !canAccess(tag) {
@@ -34,7 +39,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		}
 		machineName := coremachine.Name(tag.Id())
 
-		info, err := api.provisioningService.GetProvisioningInfo(ctx, machineName, api.isControllerModel)
+		info, err := api.provisioningService.GetProvisioningInfo(ctx, machineName, api.isControllerModel, controllerConfig)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

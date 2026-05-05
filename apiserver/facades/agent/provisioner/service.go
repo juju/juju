@@ -187,5 +187,10 @@ type ProvisioningService interface {
 	// GetProvisioningInfo returns the complete provisioning information for a
 	// machine, consolidating all data from the model and controller databases
 	// into a single call.
-	GetProvisioningInfo(ctx context.Context, machineName coremachine.Name, isControllerModel bool) (domainprovisioner.ProvisioningInfo, error)
+	GetProvisioningInfo(
+		ctx context.Context,
+		machineName coremachine.Name,
+		isControllerModel bool,
+		controllerConfig controller.Config,
+	) (domainprovisioner.ProvisioningInfo, error)
 }

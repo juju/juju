@@ -7,10 +7,10 @@ import "database/sql"
 
 // machineRow is the sqlair input/output type for the machine query.
 type machineRow struct {
-	UUID      string         `db:"uuid"`
-	Name      string         `db:"name"`
-	OSName    string         `db:"os_name"`
-	Channel   string         `db:"channel"`
+	UUID      string           `db:"uuid"`
+	Name      string           `db:"name"`
+	OSName    string           `db:"os_name"`
+	Channel   string           `db:"channel"`
 	Directive sql.Null[string] `db:"directive"`
 }
 

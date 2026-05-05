@@ -45,6 +45,14 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
+// testControllerConfig returns a default controller config for tests
+// that don't need specific controller configuration values.
+func testControllerConfig() map[string]any {
+	return map[string]any{
+		"controller-uuid": "test-ctrl-uuid",
+	}
+}
+
 // expectControllerDefaults sets up standard controller state expectations
 // for tests that don't specifically test image metadata or cloud endpoint
 // behaviour. Returns minimal cached metadata to avoid triggering the
@@ -80,7 +88,7 @@ func (s *serviceSuite) TestGetProvisioningInfoInvalidMachineName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("invalid/name"), false)
+	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("invalid/name"), false, testControllerConfig())
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorMatches, `validating machine name "invalid/name":.*`)
 }
@@ -94,25 +102,8 @@ func (s *serviceSuite) TestGetProvisioningInfoMachineNotFound(c *tc.C) {
 		Return(provisioner.ProvisioningInfoState{}, machineerrors.MachineNotFound)
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-// TestGetProvisioningInfoControllerConfigError verifies controller config
-// errors are propagated.
-func (s *serviceSuite) TestGetProvisioningInfoControllerConfigError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).
-		Return(provisioner.ProvisioningInfoState{
-			Base: corebase.MustParseBaseFromString("ubuntu@22.04"),
-		}, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).
-		Return(nil, errors.New("db error"))
-
-	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
-	c.Assert(err, tc.ErrorMatches, `getting controller config:.*db error`)
 }
 
 // TestGetProvisioningInfoMinimal verifies a minimal happy path with no
@@ -129,9 +120,6 @@ func (s *serviceSuite) TestGetProvisioningInfoMinimal(c *tc.C) {
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-uuid-1",
-	}, nil)
 	s.expectControllerDefaultsNoCache()
 
 	// No cached metadata, so falls through to external fetch.
@@ -146,13 +134,13 @@ func (s *serviceSuite) TestGetProvisioningInfoMinimal(c *tc.C) {
 	}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, map[string]any{"controller-uuid": "ctrl-uuid-1"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.MachineUUID, tc.Equals, coremachine.UUID("machine-uuid-1"))
 	c.Check(info.Base, tc.Equals, corebase.MustParseBaseFromString("ubuntu@22.04"))
 	c.Check(info.Jobs, tc.DeepEquals, []model.MachineJob{model.JobHostUnits})
-	c.Check(info.ControllerConfig, tc.DeepEquals, map[string]any{"controller-uuid": "ctrl-uuid-1"})
+	c.Check(string(info.ControllerConfig.ControllerUUID()), tc.Equals, "ctrl-uuid-1")
 	c.Check(info.Tags[tags.JujuController], tc.Equals, "ctrl-uuid-1")
 	c.Check(info.Tags[tags.JujuModel], tc.Equals, "model-uuid-1234")
 	c.Check(info.Tags[tags.JujuMachine], tc.Equals, "mymodel-machine-0")
@@ -177,15 +165,12 @@ func (s *serviceSuite) TestGetProvisioningInfoControllerMachine(c *tc.C) {
 		ImageStream:  "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", true).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-uuid-1",
-	}, nil)
 	s.expectControllerDefaultsNoCache()
 	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), gomock.Any()).
 		Return([]provisioner.CloudImageMetadata{{ImageID: "ami-1"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), true)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), true, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Jobs, tc.DeepEquals, []model.MachineJob{model.JobHostUnits, model.JobManageModel})
 }
@@ -205,15 +190,12 @@ func (s *serviceSuite) TestGetProvisioningInfoNonControllerMachineInControllerMo
 		ImageStream:  "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "1", true).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-uuid-1",
-	}, nil)
 	s.expectControllerDefaultsNoCache()
 	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), gomock.Any()).
 		Return([]provisioner.CloudImageMetadata{{ImageID: "ami-1"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("1"), true)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("1"), true, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Jobs, tc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 }
@@ -233,13 +215,13 @@ func (s *serviceSuite) TestGetProvisioningInfoWithPlacement(c *tc.C) {
 		ImageStream:        "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), gomock.Any()).
 		Return([]provisioner.CloudImageMetadata{{ImageID: "ami-1"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.PlacementDirective, tc.Not(tc.IsNil))
 	c.Check(*info.PlacementDirective, tc.Equals, "zone=us-east-1a")
@@ -261,7 +243,7 @@ func (s *serviceSuite) TestGetProvisioningInfoWithConstraints(c *tc.C) {
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 
 	// Should pass the arch constraint through.
@@ -273,7 +255,7 @@ func (s *serviceSuite) TestGetProvisioningInfoWithConstraints(c *tc.C) {
 	}).Return([]provisioner.CloudImageMetadata{{ImageID: "ami-arm", Arch: "arm64"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Constraints.Arch, tc.Not(tc.IsNil))
 	c.Check(*info.Constraints.Arch, tc.Equals, "arm64")
@@ -293,7 +275,7 @@ func (s *serviceSuite) TestGetProvisioningInfoWithCachedImageMetadata(c *tc.C) {
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 	s.controllerState.EXPECT().GetCachedImageMetadata(gomock.Any(), "22.04", "", "us-east-1", "released").Return([]provisioner.CloudImageMetadata{
 		{ImageID: "ami-low", Priority: 50},
@@ -302,7 +284,7 @@ func (s *serviceSuite) TestGetProvisioningInfoWithCachedImageMetadata(c *tc.C) {
 	// FetchImageMetadata should NOT be called.
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info.ImageMetadata, tc.HasLen, 2)
 	// Sorted by priority ascending.
@@ -325,13 +307,13 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataFetcherError(c *tc.C)
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("simplestreams unavailable"))
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ImageMetadata, tc.HasLen, 0)
 }
@@ -351,13 +333,13 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataNotFound(c *tc.C) {
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), gomock.Any()).
 		Return([]provisioner.CloudImageMetadata{}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ImageMetadata, tc.HasLen, 0)
 }
@@ -386,11 +368,11 @@ func (s *serviceSuite) TestGetProvisioningInfoEndpointBindingsWithProviderID(c *
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// "web" bound to space with provider ID → uses provider ID.
@@ -419,11 +401,11 @@ func (s *serviceSuite) TestGetProvisioningInfoEndpointBindingsSpaceNotFound(c *t
 		Spaces: network.SpaceInfos{},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	// No bindings resolved since space not found.
 	c.Check(info.EndpointBindings, tc.HasLen, 0)
@@ -451,11 +433,11 @@ func (s *serviceSuite) TestGetProvisioningInfoSpaceConstraintConflict(c *tc.C) {
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorMatches, `.*conflicts with negative space constraint`)
 }
 
@@ -493,11 +475,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopology(c *tc.C) {
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.SpaceSubnets["myspace"], tc.DeepEquals, []string{"subnet-aaa", "subnet-bbb"})
@@ -533,11 +515,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologySkipsAlphaWhenNotCo
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Alpha not explicitly constrained → empty topology.
@@ -570,11 +552,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologyAlphaExplicitlyCons
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.SpaceSubnets["alpha"], tc.DeepEquals, []string{"subnet-1"})
@@ -607,11 +589,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologySkipsSubnetNoProvid
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Only the subnet with a provider ID is included.
@@ -643,11 +625,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologyAzureNoAZsAllowed(c
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Azure allows subnets with no AZs.
@@ -679,11 +661,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologyEC2SkipsNoAZs(c *tc
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// EC2 skips subnets with no AZs → empty list.
@@ -709,13 +691,10 @@ func (s *serviceSuite) TestGetProvisioningInfoTags(c *tc.C) {
 		ResourceTags: "env=production team=infra",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-1",
-	}, nil)
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, map[string]any{"controller-uuid": "ctrl-1"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.Tags[tags.JujuModel], tc.Equals, "model-uuid-1234")
@@ -746,11 +725,11 @@ func (s *serviceSuite) TestGetProvisioningInfoTagsWithSubordinates(c *tc.C) {
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// nrpe/0 is subordinate → uses principal "wordpress/0", deduplicated.
@@ -792,13 +771,10 @@ func (s *serviceSuite) TestGetProvisioningInfoVolumes(c *tc.C) {
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "5", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-uuid-abc",
-	}, nil)
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("5"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("5"), false, map[string]any{"controller-uuid": "ctrl-uuid-abc"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Volume has its attachment associated (same VolumeUUID).
@@ -845,11 +821,11 @@ func (s *serviceSuite) TestGetProvisioningInfoVolumeAttachmentStandalone(c *tc.C
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// No volumes created (no VolumeParams), but standalone attachment exists.
@@ -880,11 +856,11 @@ func (s *serviceSuite) TestGetProvisioningInfoRootDisk(c *tc.C) {
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.RootDisk, tc.Not(tc.IsNil))
@@ -906,11 +882,11 @@ func (s *serviceSuite) TestGetProvisioningInfoRootDiskNil(c *tc.C) {
 		RootDiskStoragePool: nil,
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.RootDisk, tc.IsNil)
 }
@@ -930,11 +906,11 @@ func (s *serviceSuite) TestGetProvisioningInfoCloudInitUserData(c *tc.C) {
 		CloudInitUserData: "packages:\n  - htop\n  - vim\n",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.CloudInitUserData, tc.DeepEquals, map[string]any{
 		"packages": []any{"htop", "vim"},
@@ -961,7 +937,7 @@ func (s *serviceSuite) TestGetProvisioningInfoImageConstraintWithImageID(c *tc.C
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 
 	// Should include the image ID in the constraint.
@@ -974,7 +950,7 @@ func (s *serviceSuite) TestGetProvisioningInfoImageConstraintWithImageID(c *tc.C
 	}).Return([]provisioner.CloudImageMetadata{{ImageID: imageID}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ImageMetadata[0].ImageID, tc.Equals, "ami-specific")
 }
@@ -1001,11 +977,11 @@ func (s *serviceSuite) TestGetProvisioningInfoMultipleAppsEndpointBindings(c *tc
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.EndpointBindings["web"], tc.Equals, "prov-pub")
@@ -1026,13 +1002,10 @@ func (s *serviceSuite) TestGetProvisioningInfoResourceTagsNotFound(c *tc.C) {
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{
-		"controller-uuid": "ctrl-1",
-	}, nil)
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, map[string]any{"controller-uuid": "ctrl-1"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Standard tags are present.
@@ -1068,13 +1041,13 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologyOpenstackNoAZs(c *t
 		},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 	s.controllerState.EXPECT().GetCachedImageMetadata(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]provisioner.CloudImageMetadata{{ImageID: "img-1"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.SpaceSubnets["myspace"], tc.DeepEquals, []string{"subnet-os"})
@@ -1097,11 +1070,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologySpaceNotInModel(c *
 		Spaces:      network.SpaceInfos{},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Space not found → empty topology.
@@ -1123,11 +1096,11 @@ func (s *serviceSuite) TestGetProvisioningInfoNetworkTopologyEmptySpaces(c *tc.C
 		Spaces:      network.SpaceInfos{},
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.SpaceSubnets, tc.IsNil)
 	c.Check(info.SubnetAZs, tc.IsNil)
@@ -1148,7 +1121,7 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataWithCloudEndpoint(c *
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), "mycloud", "RegionOne").
 		Return("https://cloud.example.com:5000/v3", nil)
 	s.controllerState.EXPECT().GetCachedImageMetadata(gomock.Any(), "22.04", "", "RegionOne", "released").Return(nil, nil)
@@ -1161,7 +1134,7 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataWithCloudEndpoint(c *
 	}).Return([]provisioner.CloudImageMetadata{{ImageID: "img-os-1"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ImageMetadata[0].ImageID, tc.Equals, "img-os-1")
 }
@@ -1187,11 +1160,11 @@ func (s *serviceSuite) TestGetProvisioningInfoImageMetadataBaseParseError(c *tc.
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.expectControllerDefaultsNoCache()
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorMatches, `resolving image metadata:.*`)
 }
 
@@ -1210,7 +1183,7 @@ func (s *serviceSuite) TestGetProvisioningInfoCachedMetadataErrorFallsThrough(c 
 		ImageStream: "released",
 	}
 	s.modelState.EXPECT().GetProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-	s.controllerState.EXPECT().GetControllerConfig(gomock.Any()).Return(map[string]any{}, nil)
+	
 	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
 	// Cache lookup fails with a transient error.
@@ -1222,7 +1195,7 @@ func (s *serviceSuite) TestGetProvisioningInfoCachedMetadataErrorFallsThrough(c 
 		Return([]provisioner.CloudImageMetadata{{ImageID: "img-fallback"}}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false)
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testControllerConfig())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ImageMetadata[0].ImageID, tc.Equals, "img-fallback")
 }

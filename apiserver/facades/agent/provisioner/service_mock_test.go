@@ -1323,18 +1323,18 @@ func (m *MockProvisioningService) EXPECT() *MockProvisioningServiceMockRecorder 
 }
 
 // GetProvisioningInfo mocks base method.
-func (m *MockProvisioningService) GetProvisioningInfo(arg0 context.Context, arg1 machine.Name, arg2 bool) (provisioner.ProvisioningInfo, error) {
+func (m *MockProvisioningService) GetProvisioningInfo(arg0 context.Context, arg1 machine.Name, arg2 bool, arg3 controller.Config) (provisioner.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProvisioningInfo", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetProvisioningInfo", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(provisioner.ProvisioningInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetProvisioningInfo indicates an expected call of GetProvisioningInfo.
-func (mr *MockProvisioningServiceMockRecorder) GetProvisioningInfo(arg0, arg1, arg2 any) *MockProvisioningServiceGetProvisioningInfoCall {
+func (mr *MockProvisioningServiceMockRecorder) GetProvisioningInfo(arg0, arg1, arg2, arg3 any) *MockProvisioningServiceGetProvisioningInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProvisioningInfo", reflect.TypeOf((*MockProvisioningService)(nil).GetProvisioningInfo), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProvisioningInfo", reflect.TypeOf((*MockProvisioningService)(nil).GetProvisioningInfo), arg0, arg1, arg2, arg3)
 	return &MockProvisioningServiceGetProvisioningInfoCall{Call: call}
 }
 
@@ -1350,13 +1350,13 @@ func (c *MockProvisioningServiceGetProvisioningInfoCall) Return(arg0 provisioner
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProvisioningServiceGetProvisioningInfoCall) Do(f func(context.Context, machine.Name, bool) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
+func (c *MockProvisioningServiceGetProvisioningInfoCall) Do(f func(context.Context, machine.Name, bool, controller.Config) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProvisioningServiceGetProvisioningInfoCall) DoAndReturn(f func(context.Context, machine.Name, bool) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
+func (c *MockProvisioningServiceGetProvisioningInfoCall) DoAndReturn(f func(context.Context, machine.Name, bool, controller.Config) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
