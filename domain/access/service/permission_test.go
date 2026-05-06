@@ -263,14 +263,27 @@ func (s *serviceSuite) TestReadAllAccessForUserAndObjectTypeError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("%+v", err))
 }
 
-func (s *serviceSuite) TestAllModelAccessForCloudCredential(c *tc.C) {
+func (s *serviceSuite) TestAllModelAccessForOwner(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().AllModelAccessForCloudCredential(gomock.Any(), gomock.AssignableToTypeOf(credential.Key{})).Return(nil, nil)
 
-	_, err := NewService(s.state, clock.WallClock).AllModelAccessForCloudCredential(
-		c.Context(),
-		credential.Key{})
+	owner := usertesting.GenNewName(c, "alice")
+	keyA := credential.Key{Cloud: "cloud-a", Owner: owner, Name: "cred-a"}
+	keyB := credential.Key{Cloud: "cloud-b", Owner: owner, Name: "cred-b"}
+	expected := []access.OwnerModelAccessByCredential{
+		{
+			CredentialKey: keyA,
+			Models:        []access.OwnerModelAccess{{ModelName: "model-a", OwnerAccess: corepermission.AdminAccess}},
+		},
+		{
+			CredentialKey: keyB,
+			Models:        []access.OwnerModelAccess{{ModelName: "model-b", OwnerAccess: corepermission.ReadAccess}},
+		},
+	}
+	s.state.EXPECT().AllModelAccessForOwner(gomock.Any(), owner).Return(expected, nil)
+
+	result, err := NewService(s.state, clock.WallClock).AllModelAccessForOwner(c.Context(), owner)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
 }
 
 func (s *serviceSuite) TestImportOfferAccess(c *tc.C) {

@@ -6,8 +6,10 @@ package state
 import (
 	"time"
 
+	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -217,6 +219,27 @@ type dbModelExists struct {
 
 // dbEveryoneExternal represents the permissions of the everyone@external user.
 type dbEveryoneExternal dbPermission
+
+// ownerModelAccess is a sqlair scan target for the AllModelAccessForOwner
+// query. Each row represents a single (credential, model) pair for the owner.
+type ownerModelAccess struct {
+	CredName       string                `db:"cred_name"`
+	CloudName      string                `db:"cloud_name"`
+	ModelName      string                `db:"model_name"`
+	ModelQualifier coremodel.Qualifier   `db:"model_qualifier"`
+	OwnerAccess    corepermission.Access `db:"access_type"`
+}
+
+// toOwnerModelAccess converts the DB scan row to the domain OwnerModelAccess
+// type, discarding the credential-identifying fields which are handled by the
+// caller.
+func (r ownerModelAccess) toOwnerModelAccess() access.OwnerModelAccess {
+	return access.OwnerModelAccess{
+		ModelName:      r.ModelName,
+		ModelQualifier: r.ModelQualifier,
+		OwnerAccess:    r.OwnerAccess,
+	}
+}
 
 // nameAndUUID is an agnostic container for a `name` and `uuid`
 // column combination.

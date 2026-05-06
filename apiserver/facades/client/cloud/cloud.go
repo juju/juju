@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/credential/service"
@@ -764,107 +763,130 @@ func (api *CloudAPI) CredentialContents(ctx context.Context, args params.CloudCr
 }
 
 func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params.CloudCredentialArgs, includeValidity bool) (params.CredentialContentResults, error) {
-	// Helper to look up and cache credential schemas for clouds.
+	owner := user.NameFromTag(api.apiUser)
+
+	// Pre-fetch all credentials and model accesses for this owner in two
+	// queries, avoiding any per-credential round-trips.
+	allAccess, err := api.cloudAccessService.AllModelAccessForOwner(ctx, owner)
+	if err != nil {
+		return params.CredentialContentResults{}, errors.Trace(err)
+	}
+	accessByKey := make(map[credential.Key][]access.OwnerModelAccess, len(allAccess))
+	for _, entry := range allAccess {
+		accessByKey[entry.CredentialKey] = entry.Models
+	}
+
+	allCreds, err := api.credentialService.AllCloudCredentialsForOwner(ctx, owner)
+	if err != nil {
+		return params.CredentialContentResults{}, errors.Trace(err)
+	}
+
+	// Render results. If the caller specified credentials, produce one result
+	// per requested entry (error on invalid key or unknown credential).
+	// Otherwise produce one result per credential owned by the user.
 	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
-	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
-		if s, ok := schemaCache[cloudName]; ok {
-			return s, nil
-		}
-		aCloud, err := api.cloudService.Cloud(ctx, cloudName)
-		if errors.Is(err, clouderrors.NotFound) {
-			return nil, errors.NotFoundf("cloud %q", cloudName)
-		} else if err != nil {
-			return nil, err
-		}
-		aProvider, err := environs.Provider(aCloud.Type)
-		if err != nil {
-			return nil, err
-		}
-		schema := aProvider.CredentialSchemas()
-		schemaCache[cloudName] = schema
-		return schema, nil
-	}
-
-	// Helper to parse cloud.CloudCredential into an expected result item.
-	toParam := func(key credential.Key, cred cloud.Credential, includeSecrets bool) params.CredentialContentResult {
-		schemas, err := credentialSchemas(key.Cloud)
-		if err != nil {
-			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
-		}
-		attrs := map[string]string{}
-		// Filter out the secrets.
-		if s, ok := schemas[cred.AuthType()]; ok {
-			for _, attr := range s {
-				if value, exists := cred.Attributes()[attr.Name]; exists {
-					if attr.Hidden && !includeSecrets {
-						continue
-					}
-					attrs[attr.Name] = value
-				}
-			}
-		}
-		info := params.ControllerCredentialInfo{
-			Content: params.CredentialContent{
-				Name:       cred.Label,
-				AuthType:   string(cred.AuthType()),
-				Attributes: attrs,
-				Cloud:      key.Cloud,
-			},
-		}
-		if includeValidity {
-			valid := !cred.Invalid
-			info.Content.Valid = &valid
-		}
-
-		// get model access
-		models, err := api.cloudAccessService.AllModelAccessForCloudCredential(ctx, key)
-		if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
-			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
-		}
-		info.Models = make([]params.ModelAccess, len(models))
-		for i, m := range models {
-			info.Models[i] = params.ModelAccess{Model: m.ModelQualifier.QualifyName(m.ModelName), Access: m.OwnerAccess.String()}
-		}
-
-		return params.CredentialContentResult{Result: &info}
-	}
-
 	var result []params.CredentialContentResult
-	if len(args.Credentials) == 0 {
-		credentials, err := api.credentialService.AllCloudCredentialsForOwner(ctx, user.NameFromTag(api.apiUser))
-		if err != nil {
-			return params.CredentialContentResults{}, errors.Trace(err)
-		}
-		for key, cred := range credentials {
-			result = append(result, toParam(key, cred, args.IncludeSecrets))
+	if len(args.Credentials) > 0 {
+		result = make([]params.CredentialContentResult, 0, len(args.Credentials))
+		for _, given := range args.Credentials {
+			key := credential.Key{Cloud: given.CloudName, Owner: owner, Name: given.CredentialName}
+			if err := key.Validate(); err != nil {
+				result = append(result, params.CredentialContentResult{
+					Error: apiservererrors.ServerError(errors.NotValidf("cloud credential ID %q", key)),
+				})
+				continue
+			}
+			cred, ok := allCreds[key]
+			if !ok {
+				result = append(result, params.CredentialContentResult{
+					Error: apiservererrors.ServerError(errors.NotFoundf("cloud credential %q", key)),
+				})
+				continue
+			}
+			schemas, err := api.cachedCredentialSchemas(ctx, schemaCache, key.Cloud)
+			if err != nil {
+				result = append(result, params.CredentialContentResult{Error: apiservererrors.ServerError(err)})
+				continue
+			}
+			result = append(result, buildCredentialResult(key, cred, schemas, accessByKey[key], includeValidity, args.IncludeSecrets))
 		}
 	} else {
-		// Helper to construct credential ID from cloud and name.
-		credKey := func(cloudName, credentialName string) credential.Key {
-			return credential.Key{
-				Cloud: cloudName, Owner: user.NameFromTag(api.apiUser), Name: credentialName}
-		}
-
-		result = make([]params.CredentialContentResult, len(args.Credentials))
-		for i, given := range args.Credentials {
-			key := credKey(given.CloudName, given.CredentialName)
-			if err := key.Validate(); err != nil {
-				result[i] = params.CredentialContentResult{
-					Error: apiservererrors.ServerError(errors.NotValidf("cloud credential ID %q", key)),
-				}
-				continue
-			}
-			cred, err := api.credentialService.CloudCredential(ctx, key)
+		result = make([]params.CredentialContentResult, 0, len(allCreds))
+		for key, cred := range allCreds {
+			schemas, err := api.cachedCredentialSchemas(ctx, schemaCache, key.Cloud)
 			if err != nil {
-				result[i] = params.CredentialContentResult{
-					Error: apiservererrors.ServerError(err),
-				}
+				result = append(result, params.CredentialContentResult{Error: apiservererrors.ServerError(err)})
 				continue
 			}
-			result[i] = toParam(key, cred, args.IncludeSecrets)
+			result = append(result, buildCredentialResult(key, cred, schemas, accessByKey[key], includeValidity, args.IncludeSecrets))
 		}
 	}
 	return params.CredentialContentResults{Results: result}, nil
+}
+
+// cachedCredentialSchemas looks up the credential schema for cloudName,
+// caching results in schemaCache to avoid repeated cloud lookups across
+// multiple credentials that share the same cloud.
+func (api *CloudAPI) cachedCredentialSchemas(ctx context.Context, cache map[string]map[cloud.AuthType]cloud.CredentialSchema, cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
+	if s, ok := cache[cloudName]; ok {
+		return s, nil
+	}
+	aCloud, err := api.cloudService.Cloud(ctx, cloudName)
+	if errors.Is(err, clouderrors.NotFound) {
+		return nil, errors.NotFoundf("cloud %q", cloudName)
+	} else if err != nil {
+		return nil, err
+	}
+	aProvider, err := environs.Provider(aCloud.Type)
+	if err != nil {
+		return nil, err
+	}
+	s := aProvider.CredentialSchemas()
+	cache[cloudName] = s
+	return s, nil
+}
+
+// buildCredentialResult converts a cloud credential and its associated model
+// accesses into the wire-format result used by the CredentialContents API.
+func buildCredentialResult(
+	key credential.Key,
+	cred cloud.Credential,
+	schemas map[cloud.AuthType]cloud.CredentialSchema,
+	models []access.OwnerModelAccess,
+	includeValidity bool,
+	includeSecrets bool,
+) params.CredentialContentResult {
+	attrs := map[string]string{}
+	if s, ok := schemas[cred.AuthType()]; ok {
+		for _, attr := range s {
+			if value, exists := cred.Attributes()[attr.Name]; exists {
+				if attr.Hidden && !includeSecrets {
+					continue
+				}
+				attrs[attr.Name] = value
+			}
+		}
+	}
+	info := params.ControllerCredentialInfo{
+		Content: params.CredentialContent{
+			Name:       cred.Label,
+			AuthType:   string(cred.AuthType()),
+			Attributes: attrs,
+			Cloud:      key.Cloud,
+		},
+	}
+	if includeValidity {
+		valid := !cred.Invalid
+		info.Content.Valid = &valid
+	}
+	info.Models = make([]params.ModelAccess, len(models))
+	for i, m := range models {
+		info.Models[i] = params.ModelAccess{
+			Model:  m.ModelQualifier.QualifyName(m.ModelName),
+			Access: m.OwnerAccess.String(),
+		}
+	}
+	return params.CredentialContentResult{Result: &info}
 }
 
 // ModifyCloudAccess changes the model access granted to users.

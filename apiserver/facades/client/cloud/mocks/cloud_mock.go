@@ -201,45 +201,6 @@ func (c *MockCredentialServiceCheckCredentialModelsCall) DoAndReturn(f func(cont
 	return c
 }
 
-// CloudCredential mocks base method.
-func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 credential.Key) (cloud.Credential, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
-	ret0, _ := ret[0].(cloud.Credential)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CloudCredential indicates an expected call of CloudCredential.
-func (mr *MockCredentialServiceMockRecorder) CloudCredential(arg0, arg1 any) *MockCredentialServiceCloudCredentialCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockCredentialService)(nil).CloudCredential), arg0, arg1)
-	return &MockCredentialServiceCloudCredentialCall{Call: call}
-}
-
-// MockCredentialServiceCloudCredentialCall wrap *gomock.Call
-type MockCredentialServiceCloudCredentialCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCredentialServiceCloudCredentialCall) Return(arg0 cloud.Credential, arg1 error) *MockCredentialServiceCloudCredentialCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCredentialServiceCloudCredentialCall) Do(f func(context.Context, credential.Key) (cloud.Credential, error)) *MockCredentialServiceCloudCredentialCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCredentialServiceCloudCredentialCall) DoAndReturn(f func(context.Context, credential.Key) (cloud.Credential, error)) *MockCredentialServiceCloudCredentialCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudCredentialsForOwner mocks base method.
 func (m *MockCredentialService) CloudCredentialsForOwner(arg0 context.Context, arg1 user.Name, arg2 string) (map[string]cloud.Credential, error) {
 	m.ctrl.T.Helper()
@@ -632,41 +593,41 @@ func (m *MockCloudAccessService) EXPECT() *MockCloudAccessServiceMockRecorder {
 	return m.recorder
 }
 
-// AllModelAccessForCloudCredential mocks base method.
-func (m *MockCloudAccessService) AllModelAccessForCloudCredential(arg0 context.Context, arg1 credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+// AllModelAccessForOwner mocks base method.
+func (m *MockCloudAccessService) AllModelAccessForOwner(arg0 context.Context, arg1 user.Name) ([]access.OwnerModelAccessByCredential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelAccessForCloudCredential", arg0, arg1)
-	ret0, _ := ret[0].([]access.CredentialOwnerModelAccess)
+	ret := m.ctrl.Call(m, "AllModelAccessForOwner", arg0, arg1)
+	ret0, _ := ret[0].([]access.OwnerModelAccessByCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllModelAccessForCloudCredential indicates an expected call of AllModelAccessForCloudCredential.
-func (mr *MockCloudAccessServiceMockRecorder) AllModelAccessForCloudCredential(arg0, arg1 any) *MockCloudAccessServiceAllModelAccessForCloudCredentialCall {
+// AllModelAccessForOwner indicates an expected call of AllModelAccessForOwner.
+func (mr *MockCloudAccessServiceMockRecorder) AllModelAccessForOwner(arg0, arg1 any) *MockCloudAccessServiceAllModelAccessForOwnerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForCloudCredential", reflect.TypeOf((*MockCloudAccessService)(nil).AllModelAccessForCloudCredential), arg0, arg1)
-	return &MockCloudAccessServiceAllModelAccessForCloudCredentialCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForOwner", reflect.TypeOf((*MockCloudAccessService)(nil).AllModelAccessForOwner), arg0, arg1)
+	return &MockCloudAccessServiceAllModelAccessForOwnerCall{Call: call}
 }
 
-// MockCloudAccessServiceAllModelAccessForCloudCredentialCall wrap *gomock.Call
-type MockCloudAccessServiceAllModelAccessForCloudCredentialCall struct {
+// MockCloudAccessServiceAllModelAccessForOwnerCall wrap *gomock.Call
+type MockCloudAccessServiceAllModelAccessForOwnerCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCloudAccessServiceAllModelAccessForCloudCredentialCall) Return(arg0 []access.CredentialOwnerModelAccess, arg1 error) *MockCloudAccessServiceAllModelAccessForCloudCredentialCall {
+func (c *MockCloudAccessServiceAllModelAccessForOwnerCall) Return(arg0 []access.OwnerModelAccessByCredential, arg1 error) *MockCloudAccessServiceAllModelAccessForOwnerCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudAccessServiceAllModelAccessForCloudCredentialCall) Do(f func(context.Context, credential.Key) ([]access.CredentialOwnerModelAccess, error)) *MockCloudAccessServiceAllModelAccessForCloudCredentialCall {
+func (c *MockCloudAccessServiceAllModelAccessForOwnerCall) Do(f func(context.Context, user.Name) ([]access.OwnerModelAccessByCredential, error)) *MockCloudAccessServiceAllModelAccessForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudAccessServiceAllModelAccessForCloudCredentialCall) DoAndReturn(f func(context.Context, credential.Key) ([]access.CredentialOwnerModelAccess, error)) *MockCloudAccessServiceAllModelAccessForCloudCredentialCall {
+func (c *MockCloudAccessServiceAllModelAccessForOwnerCall) DoAndReturn(f func(context.Context, user.Name) ([]access.OwnerModelAccessByCredential, error)) *MockCloudAccessServiceAllModelAccessForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

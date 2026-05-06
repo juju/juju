@@ -45,14 +45,13 @@ type CloudAccessService interface {
 	// ReadAllAccessForUserAndObjectType returns UserAccess for the given
 	// subject (user) for all clouds based on objectType.
 	ReadAllAccessForUserAndObjectType(ctx context.Context, subject user.Name, objectType corepermission.ObjectType) ([]corepermission.UserAccess, error)
-	// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
-	// model name and model access levels.
-	AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error)
+	// AllModelAccessForOwner returns the model access for all activated models
+	// across every cloud credential owned by owner, grouped by credential key.
+	AllModelAccessForOwner(ctx context.Context, owner user.Name) ([]access.OwnerModelAccessByCredential, error)
 }
 
 // CredentialService provides access to the credential domain service.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 	AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[credential.Key]cloud.Credential, error)
 	CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]cloud.Credential, error)
 	UpdateCloudCredential(ctx context.Context, key credential.Key, cred cloud.Credential) error

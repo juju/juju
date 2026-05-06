@@ -607,9 +607,12 @@ AND    u.removed = false
 	return userAccess, nil
 }
 
-// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
-// model name and model access level combinations.
-func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+// AllModelAccessForOwner returns the model access for all activated models
+// across every cloud credential owned by owner, grouped by credential key.
+//
+// An empty slice is not an error — it means the owner has no activated models
+// associated with their credentials.
+func (st *PermissionState) AllModelAccessForOwner(ctx context.Context, owner user.Name) ([]access.OwnerModelAccessByCredential, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -617,14 +620,14 @@ func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context,
 
 	type input struct {
 		OwnerName string `db:"owner_name"`
-		CloudName string `db:"cloud_name"`
-		CredName  string `db:"cred_name"`
 	}
 
 	query := `
-SELECT DISTINCT m.name      AS &CredentialOwnerModelAccess.model_name,
-       m.qualifier           AS &CredentialOwnerModelAccess.model_qualifier,
-       pat.type              AS &CredentialOwnerModelAccess.access_type
+SELECT DISTINCT cc.name AS &ownerModelAccess.cred_name,
+       c.name           AS &ownerModelAccess.cloud_name,
+       m.name           AS &ownerModelAccess.model_name,
+       m.qualifier      AS &ownerModelAccess.model_qualifier,
+       pat.type         AS &ownerModelAccess.access_type
 FROM   model AS m
        JOIN cloud_credential AS cc  ON m.cloud_credential_uuid = cc.uuid
        JOIN cloud             AS c  ON cc.cloud_uuid = c.uuid
@@ -633,29 +636,24 @@ FROM   model AS m
        JOIN permission_access_type AS pat ON p.access_type_id = pat.id
        JOIN user              AS u  ON p.grant_to = u.uuid
 WHERE  co.name = $input.owner_name
-AND    c.name  = $input.cloud_name
-AND    cc.name = $input.cred_name
 AND    m.activated = TRUE
 AND    u.name    = $input.owner_name
 AND    u.removed = FALSE
 `
-	readStmt, err := st.Prepare(query, input{}, access.CredentialOwnerModelAccess{})
+	readStmt, err := st.Prepare(query, input{}, ownerModelAccess{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	in := input{
-		OwnerName: key.Owner.Name(),
-		CloudName: key.Cloud,
-		CredName:  key.Name,
-	}
-	var results []access.CredentialOwnerModelAccess
+	in := input{OwnerName: owner.Name()}
+	var rows []ownerModelAccess
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, readStmt, in).GetAll(&results)
+		err = tx.Query(ctx, readStmt, in).GetAll(&rows)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("for %q on %q: %w", key.Owner, key.Cloud, accesserrors.PermissionNotFound)
-		} else if err != nil {
-			return errors.Errorf("getting permissions for %q on %q: %w", key.Owner, key.Cloud, err)
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("getting model access for owner %q: %w", owner, err)
 		}
 		return nil
 	})
@@ -663,10 +661,22 @@ AND    u.removed = FALSE
 		return nil, errors.Capture(err)
 	}
 
-	return results, nil
+	// Group rows by credential key, preserving insertion order.
+	indexByKey := make(map[credential.Key]int, len(rows))
+	var result []access.OwnerModelAccessByCredential
+	for _, row := range rows {
+		key := credential.Key{Cloud: row.CloudName, Name: row.CredName, Owner: owner}
+		idx, ok := indexByKey[key]
+		if !ok {
+			idx = len(result)
+			indexByKey[key] = idx
+			result = append(result, access.OwnerModelAccessByCredential{CredentialKey: key})
+		}
+		result[idx].Models = append(result[idx].Models, row.toOwnerModelAccess())
+	}
+	return result, nil
 }
 
-// ImportOfferAccess imports the user access for offers in the model.
 func (st *PermissionState) ImportOfferAccess(
 	ctx context.Context,
 	importAccess []access.OfferImportAccess,

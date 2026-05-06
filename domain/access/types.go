@@ -4,6 +4,7 @@
 package access
 
 import (
+	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -38,12 +39,27 @@ func (args UpdatePermissionArgs) Validate() error {
 	return nil
 }
 
-// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
-// or an error retrieving it.
-type CredentialOwnerModelAccess struct {
-	ModelName      string            `db:"model_name"`
-	ModelQualifier model.Qualifier   `db:"model_qualifier"`
-	OwnerAccess    permission.Access `db:"access_type"`
+// OwnerModelAccess describes the owner's access level on a single model
+// associated with one of their cloud credentials.
+type OwnerModelAccess struct {
+	// ModelName is the name of the model.
+	ModelName string
+	// ModelQualifier disambiguates models that share the same name across
+	// different owners or namespaces.
+	ModelQualifier model.Qualifier
+	// OwnerAccess is the permission level the credential owner holds on
+	// this model.
+	OwnerAccess permission.Access
+}
+
+// OwnerModelAccessByCredential groups a credential key with all models the
+// credential owner can access through that credential.
+type OwnerModelAccessByCredential struct {
+	// CredentialKey identifies the cloud credential.
+	CredentialKey credential.Key
+	// Models is the list of models accessible to the owner via this
+	// credential, together with the owner's access level on each.
+	Models []OwnerModelAccess
 }
 
 // OfferImport contains details to import access to an offer.
