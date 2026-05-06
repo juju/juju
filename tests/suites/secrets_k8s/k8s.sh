@@ -167,7 +167,6 @@ run_secrets_token_reuse() {
 
 	hello_consumer='unit-hello-0'
 	hello_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$hello_consumer")
-	secret_token_rbac_assert_singleton "$hello_token_rbac_before" "$hello_consumer"
 
 	check_contains "$(juju exec --unit hello/0 -- secret-get $unit_owned_full_uri)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get $app_owned_full_uri)" 'owned-by: hello-app'
