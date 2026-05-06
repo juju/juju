@@ -1476,7 +1476,7 @@ func (sb *storageBackend) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (e
 			if err != nil {
 				return nil, err
 			}
-			if err := validateVolumeInfoChange(info, oldInfo); err != nil {
+			if err := validateVolumeInfoChange(info, oldInfo, sb.modelType); err != nil {
 				return nil, err
 			}
 		}
@@ -1486,16 +1486,18 @@ func (sb *storageBackend) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (e
 	return sb.mb.db().Run(buildTxn)
 }
 
-func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {
+func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo, modelType ModelType) error {
 	if newInfo.Pool != oldInfo.Pool {
 		return errors.Errorf(
 			"cannot change pool from %q to %q",
 			oldInfo.Pool, newInfo.Pool,
 		)
 	}
-	if newInfo.VolumeId != oldInfo.VolumeId {
+	// VolumeId is allowed to change only for CAAS models to support the case
+	// where a manual storage resize recreates the underlying PVC with a new ID.
+	if newInfo.VolumeId != oldInfo.VolumeId && modelType != ModelTypeCAAS {
 		return errors.Errorf(
-			"cannot change volume ID from %q to %q",
+			"cannot change volume ID from %q to %q for machine models",
 			oldInfo.VolumeId, newInfo.VolumeId,
 		)
 	}

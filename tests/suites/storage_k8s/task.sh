@@ -32,6 +32,7 @@ test_storage_k8s() {
 		test_remove_app_while_storage_update_stuck
 		test_update_storage_constraints_validation_error
 		test_update_pool_same_provider_different_storage_class
+		test_deleted_pvc_recreated_with_new_storage
 		;;
 	*)
 		echo "==> TEST SKIPPED: storage k8s tests, not a k8s provider"

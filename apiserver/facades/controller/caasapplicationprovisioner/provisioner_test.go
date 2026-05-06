@@ -69,6 +69,8 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		storageFilesystems: make(map[names.StorageTag]names.FilesystemTag),
 		storageVolumes:     make(map[names.StorageTag]names.VolumeTag),
 		storageAttachments: make(map[names.UnitTag]names.StorageTag),
+		filesystemInfos:    make(map[names.FilesystemTag]state.FilesystemInfo),
+		volumeInfos:        make(map[names.VolumeTag]state.VolumeInfo),
 		backingVolume:      names.NewVolumeTag("66"),
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
@@ -653,6 +655,123 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 	s.storage.CheckCallNames(c, "AllFilesystems")
 	s.st.model.CheckCallNames(c, "Containers")
 	s.st.model.CheckCall(c, 0, "Containers", []string{"gitlab-0", "gitlab-1"})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithProvisionedStorageInfo(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag:  names.NewApplicationTag("gitlab"),
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{
+				Deployment: &charm.Deployment{
+					DeploymentType: charm.DeploymentStateful,
+				},
+			},
+			manifest: &charm.Manifest{
+				Bases: []charm.Base{{
+					Name: "ubuntu",
+					Channel: charm.Channel{
+						Risk:  "stable",
+						Track: "20.04",
+					},
+				}},
+			},
+			url: "ch:gitlab",
+		},
+		units: []*mockUnit{{
+			tag: names.NewUnitTag("gitlab/0"),
+			containerInfo: &mockCloudContainer{
+				unit:       "gitlab/0",
+				providerId: "gitlab-0",
+			},
+		}},
+	}
+
+	storageTag := names.NewStorageTag("data/0")
+	fsTag := names.NewFilesystemTag("gitlab/0/0")
+	volTag := names.NewVolumeTag("0")
+
+	s.storage.storageFilesystems[storageTag] = fsTag
+	s.storage.storageVolumes[storageTag] = volTag
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = storageTag
+	s.storage.filesystemInfos[fsTag] = state.FilesystemInfo{
+		Size:         10,
+		Pool:         "filesystem-pool",
+		FilesystemId: "old-fs-id",
+	}
+	s.storage.volumeInfos[volTag] = state.VolumeInfo{
+		Size:       10,
+		Pool:       "volume-pool",
+		VolumeId:   "old-vol-id",
+		Persistent: true,
+	}
+
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{{
+			ApplicationTag: "application-gitlab",
+			Units: []params.ApplicationUnitParams{{
+				ProviderId: "gitlab-0",
+				Address:    "address",
+				Ports:      []string{"port"},
+				Status:     "running",
+				Info:       "message",
+				Stateful:   true,
+				FilesystemInfo: []params.KubernetesFilesystemInfo{{
+					StorageName:  "data",
+					FilesystemId: "new-fs-id",
+					Size:         200,
+					MountPoint:   "/path/to/here",
+					ReadOnly:     true,
+					Status:       "attached",
+					Info:         "ready",
+					Volume: params.KubernetesVolumeInfo{
+						VolumeId:   "new-vol-id",
+						Size:       200,
+						Persistent: true,
+						Status:     "attached",
+						Info:       "vol ready",
+					},
+				}},
+			}},
+		}},
+	}
+
+	results, err := s.api.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	now := s.clock.Now()
+	s.storage.CheckCallNames(c,
+		"UnitStorageAttachments", "StorageInstance",
+		"AllFilesystems",
+		"Volume", "SetVolumeInfo", "SetVolumeAttachmentInfo", "Volume", "SetStatus",
+		"Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo", "Filesystem", "SetStatus",
+	)
+	s.storage.CheckCall(c, 4, "SetVolumeInfo", volTag, state.VolumeInfo{
+		Size:       200,
+		Pool:       "volume-pool",
+		VolumeId:   "new-vol-id",
+		Persistent: true,
+	})
+	s.storage.CheckCall(c, 5, "SetVolumeAttachmentInfo",
+		names.NewUnitTag("gitlab/0"), volTag,
+		state.VolumeAttachmentInfo{ReadOnly: true},
+	)
+	s.storage.CheckCall(c, 7, "SetStatus", status.StatusInfo{
+		Status:  status.Attached,
+		Message: "vol ready",
+		Since:   &now,
+	})
+	s.storage.CheckCall(c, 9, "SetFilesystemInfo", fsTag, state.FilesystemInfo{
+		Size:         200,
+		Pool:         "filesystem-pool",
+		FilesystemId: "new-fs-id",
+	})
+	s.storage.CheckCall(c, 12, "SetStatus", status.StatusInfo{
+		Status:  status.Attached,
+		Message: "ready",
+		Since:   &now,
+	})
 }
 
 func strPtr(s string) *string {

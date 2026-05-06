@@ -104,6 +104,12 @@ func (w *kubernetesNotifyWatcher) loop() error {
 	var delayCh <-chan time.Time
 
 	go w.informer.Run(w.catacomb.Dying())
+
+	// Wait for the informer cache to sync before processing events
+	if ok := cache.WaitForCacheSync(w.catacomb.Dying(), w.informer.HasSynced); !ok {
+		return errors.New("failed to wait for cache to sync")
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -228,6 +234,12 @@ func (w *kubernetesStringsWatcher) loop() error {
 	var pendingEvents []string
 
 	go w.informer.Run(w.catacomb.Dying())
+
+	// Wait for the informer cache to sync before processing events
+	if ok := cache.WaitForCacheSync(w.catacomb.Dying(), w.informer.HasSynced); !ok {
+		return errors.New("failed to wait for cache to sync")
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():

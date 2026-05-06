@@ -104,6 +104,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		storageVolumes:     make(map[names.StorageTag]names.VolumeTag),
 		storageAttachments: make(map[names.UnitTag]names.StorageTag),
 		backingVolume:      names.NewVolumeTag("66"),
+		provisionedVolInfo: make(map[names.VolumeTag]state.VolumeInfo),
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.devices = &mockDeviceBackend{}
@@ -1012,6 +1013,101 @@ func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 		Status:  status.Error,
 		Message: "broken",
 		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *CAASProvisionerSuite) TestUpdateUnitsWithProvisionedStorageInfo(c *gc.C) {
+	ctrl := s.setupFacade(c)
+	defer ctrl.Finish()
+
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
+	}
+	s.st.model.containers = []state.CloudContainer{
+		&mockContainerInfo{unitName: "gitlab/0", providerId: "uuid"},
+	}
+
+	storageTag := names.NewStorageTag("data/0")
+	fsTag := names.NewFilesystemTag("gitlab/0/0")
+	volTag := names.NewVolumeTag("0")
+
+	s.storage.storageFilesystems[storageTag] = fsTag
+	s.storage.storageVolumes[storageTag] = volTag
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = storageTag
+
+	s.storage.provisionedFsInfo = map[names.FilesystemTag]state.FilesystemInfo{
+		fsTag: {
+			Size:         100,
+			FilesystemId: "old-fs-id",
+			Pool:         "filesystem-pool",
+		},
+	}
+	s.storage.provisionedVolInfo[volTag] = state.VolumeInfo{
+		Size:       100,
+		Pool:       "volume-pool",
+		VolumeId:   "old-vol-id",
+		Persistent: true,
+	}
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message", Stateful: true,
+			FilesystemInfo: []params.KubernetesFilesystemInfo{
+				{StorageName: "data", FilesystemId: "new-fs-id", Size: 200, MountPoint: "/path/to/here", ReadOnly: false,
+					Status: "attached", Info: "ready",
+					Volume: params.KubernetesVolumeInfo{
+						VolumeId:   "new-vol-id",
+						Size:       200,
+						Persistent: true,
+						Status:     "attached",
+						Info:       "vol ready",
+					},
+				},
+			},
+		},
+	}
+	s.st.application.scale = 1
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(1), Generation: int64Ptr(1)},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	now := s.clock.Now()
+	s.storage.CheckCallNames(c,
+		"UnitStorageAttachments", "StorageInstance",
+		"AllFilesystems",
+		"Volume", "SetVolumeInfo", "SetVolumeAttachmentInfo", "Volume", "SetStatus",
+		"Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo", "Filesystem", "SetStatus",
+	)
+	s.storage.CheckCall(c, 4, "SetVolumeInfo", volTag, state.VolumeInfo{
+		Size:       200,
+		Pool:       "volume-pool",
+		VolumeId:   "new-vol-id",
+		Persistent: true,
+	})
+	s.storage.CheckCall(c, 5, "SetVolumeAttachmentInfo",
+		names.NewUnitTag("gitlab/0"), volTag,
+		state.VolumeAttachmentInfo{ReadOnly: false},
+	)
+	s.storage.CheckCall(c, 7, "SetStatus", status.StatusInfo{
+		Status:  status.Attached,
+		Message: "vol ready",
+		Since:   &now,
+	})
+	s.storage.CheckCall(c, 9, "SetFilesystemInfo", fsTag,
+		state.FilesystemInfo{
+			Size:         200,
+			Pool:         "filesystem-pool",
+			FilesystemId: "new-fs-id",
+		})
+	s.storage.CheckCall(c, 12, "SetStatus", status.StatusInfo{
+		Status:  status.Attached,
+		Message: "ready",
 		Since:   &now,
 	})
 }

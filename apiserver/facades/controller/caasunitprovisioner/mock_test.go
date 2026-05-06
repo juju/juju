@@ -361,6 +361,8 @@ type mockStorage struct {
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
 	backingVolume      names.VolumeTag
+	provisionedFsInfo  map[names.FilesystemTag]state.FilesystemInfo
+	provisionedVolInfo map[names.VolumeTag]state.VolumeInfo
 }
 
 func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -375,7 +377,14 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	m.MethodCall(m, "AllFilesystems")
 	var result []state.Filesystem
 	for _, fsTag := range m.storageFilesystems {
-		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume})
+		var existingInfo *state.FilesystemInfo
+		if m.provisionedFsInfo != nil {
+			if info, ok := m.provisionedFsInfo[fsTag]; ok {
+				infoCopy := info
+				existingInfo = &infoCopy
+			}
+		}
+		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume, existingInfo: existingInfo})
 	}
 	return result, nil
 }
@@ -397,7 +406,14 @@ func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
 	m.MethodCall(m, "Filesystem", fsTag)
-	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
+	var existingInfo *state.FilesystemInfo
+	if m.provisionedFsInfo != nil {
+		if info, ok := m.provisionedFsInfo[fsTag]; ok {
+			infoCopy := info
+			existingInfo = &infoCopy
+		}
+	}
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume, existingInfo: existingInfo}, nil
 }
 
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
@@ -426,11 +442,26 @@ func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.Fi
 
 func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
 	m.MethodCall(m, "Volume", volTag)
-	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil
+	var existingInfo *state.VolumeInfo
+	if m.provisionedVolInfo != nil {
+		if info, ok := m.provisionedVolInfo[volTag]; ok {
+			infoCopy := info
+			existingInfo = &infoCopy
+		}
+	}
+	return &mockVolume{Stub: &m.Stub, tag: volTag, existingInfo: existingInfo}, nil
 }
 
 func (m *mockStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
-	return &mockVolume{Stub: &m.Stub, tag: m.storageVolumes[tag]}, nil
+	volTag := m.storageVolumes[tag]
+	var existingInfo *state.VolumeInfo
+	if m.provisionedVolInfo != nil {
+		if info, ok := m.provisionedVolInfo[volTag]; ok {
+			infoCopy := info
+			existingInfo = &infoCopy
+		}
+	}
+	return &mockVolume{Stub: &m.Stub, tag: volTag, existingInfo: existingInfo}, nil
 }
 
 func (m *mockStorage) SetVolumeInfo(volTag names.VolumeTag, volInfo state.VolumeInfo) error {
@@ -489,8 +520,9 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 type mockFilesystem struct {
 	*testing.Stub
 	state.Filesystem
-	tag    names.FilesystemTag
-	volTag names.VolumeTag
+	tag          names.FilesystemTag
+	volTag       names.VolumeTag
+	existingInfo *state.FilesystemInfo
 }
 
 func (f *mockFilesystem) Tag() names.Tag {
@@ -513,14 +545,22 @@ func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
 	return nil
 }
 
+func (f *mockFilesystem) Storage() (names.StorageTag, error) {
+	return names.StorageTag{}, errors.NotFoundf("storage")
+}
+
 func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
+	if f.existingInfo != nil {
+		return *f.existingInfo, nil
+	}
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
 type mockVolume struct {
 	*testing.Stub
 	state.Volume
-	tag names.VolumeTag
+	tag          names.VolumeTag
+	existingInfo *state.VolumeInfo
 }
 
 func (v *mockVolume) Tag() names.Tag {
@@ -537,6 +577,9 @@ func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 func (v *mockVolume) Info() (state.VolumeInfo, error) {
+	if v.existingInfo != nil {
+		return *v.existingInfo, nil
+	}
 	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
 }
 

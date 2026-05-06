@@ -1297,7 +1297,7 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 			if err != nil {
 				return nil, err
 			}
-			if err := validateFilesystemInfoChange(info, oldInfo); err != nil {
+			if err := validateFilesystemInfoChange(info, oldInfo, sb.modelType); err != nil {
 				return nil, err
 			}
 		}
@@ -1307,16 +1307,18 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 	return sb.mb.db().Run(buildTxn)
 }
 
-func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo) error {
+func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo, modelType ModelType) error {
 	if newInfo.Pool != oldInfo.Pool {
 		return errors.Errorf(
 			"cannot change pool from %q to %q",
 			oldInfo.Pool, newInfo.Pool,
 		)
 	}
-	if newInfo.FilesystemId != oldInfo.FilesystemId {
+	// FilesystemId is allowed to change only for CAAS models to support the case
+	// where a manual storage resize recreates the underlying PVC with a new ID.
+	if newInfo.FilesystemId != oldInfo.FilesystemId && modelType != ModelTypeCAAS {
 		return errors.Errorf(
-			"cannot change filesystem ID from %q to %q",
+			"cannot change filesystem ID from %q to %q for machine models",
 			oldInfo.FilesystemId, newInfo.FilesystemId,
 		)
 	}

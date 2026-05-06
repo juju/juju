@@ -79,6 +79,34 @@ storage_id_for_pod() {
 	echo "${storage_id}"
 }
 
+pvc_name_for_storage() {
+	local model_name pod_name storage_name claim_name_prefix_regex
+	local pod_json pvc_name
+
+	model_name=${1}
+	pod_name=${2}
+	storage_name=${3}
+	claim_name_prefix_regex="$storage_name-.*-$pod_name$"
+
+	pod_json=$(kubectl get pod "${pod_name}" -n "${model_name}" -o json 2>/dev/null || true)
+	if [[ -z ${pod_json} ]]; then
+		return 1
+	fi
+
+	pvc_name=$(echo "${pod_json}" | CLAIM_NAME_PREFIX="$claim_name_prefix_regex" yq -o json -r '
+		[
+			.spec.volumes[]?
+			| select(.persistentVolumeClaim != null)
+			| .persistentVolumeClaim.claimName
+		] | map(select(test(strenv(CLAIM_NAME_PREFIX)))) | .[0] // ""
+	')
+
+	if [[ -z ${pvc_name} ]]; then
+		return 1
+	fi
+	echo "${pvc_name}"
+}
+
 wait_for_active_units() {
 	local app_name expected_count app_index
 
@@ -894,6 +922,51 @@ EOF
 	if [[ -n $current_storage_class ]]; then
 		kubectl annotate sc "$current_storage_class" storageclass.kubernetes.io/is-default-class="true"
 	fi
+
+	destroy_model "${model_name}"
+}
+
+# Scenario: delete the pvc for an existing unit after app storage
+# directives have been updated. The pvc gets the new size which
+# then should be reflected in the Juju model.
+test_deleted_pvc_recreated_with_new_storage() {
+	if [ "$(skip 'test_deleted_pvc_recreated_with_new_storage')" ]; then
+		echo "==> TEST SKIPPED: test_deleted_pvc_recreated_with_new_storage"
+		return
+	fi
+
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# Ensure a bootstrap Juju model exists.
+	model_name="update-pvc"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	juju deploy postgresql-k8s --channel 14/stable --trust --storage pgdata=100M
+
+	# Wait until the application is active.
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	echo "postgresql-k8s-0 storage ID: $postgresql_k8s_0_storage_id"
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
+
+	# Update the storage to 200M.
+	juju application-storage postgresql-k8s pgdata=200M
+
+	# Delete the PVC in Kubernetes.
+	pvc_name=$(pvc_name_for_storage "${model_name}" "postgresql-k8s-0" "pgdata")
+	kubectl delete pvc -n "${model_name}" "${pvc_name}" --wait=false
+	kubectl delete pod -n "${model_name}" "postgresql-k8s-0"
+
+	# The operator should recreate it with the new size.
+	wait_for_active_units "postgresql-k8s" 1
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
+		check 200
+	juju storage --format json |
+		yq -o json ".filesystems | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
+		check 200
 
 	destroy_model "${model_name}"
 }

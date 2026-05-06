@@ -1249,9 +1249,7 @@ func (f *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// If we have already recorded the provisioning info,
-		// it's an error to try and do it again.
-		_, err = vol.Info()
+		existingInfo, err := vol.Info()
 		if err != nil && !errors.IsNotProvisioned(err) {
 			return errors.Trace(err)
 		}
@@ -1264,6 +1262,19 @@ func (f *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeSta
 			})
 			if err != nil {
 				return errors.Trace(err)
+			}
+		} else {
+			updatedInfo := existingInfo
+			updatedInfo.Size = volData.size
+			updatedInfo.Persistent = volData.persistent
+			if volData.volumeId != "" {
+				updatedInfo.VolumeId = volData.volumeId
+			}
+			if updatedInfo != existingInfo {
+				err = f.storage.SetVolumeInfo(volTag, updatedInfo)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 
@@ -1322,9 +1333,7 @@ func (f *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// If we have already recorded the provisioning info,
-		// it's an error to try and do it again.
-		_, err = fs.Info()
+		existingInfo, err := fs.Info()
 		if err != nil && !errors.IsNotProvisioned(err) {
 			return errors.Trace(err)
 		}
@@ -1336,6 +1345,18 @@ func (f *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 			})
 			if err != nil {
 				return errors.Trace(err)
+			}
+		} else {
+			updatedInfo := existingInfo
+			updatedInfo.Size = fsData.size
+			if fsData.filesystemId != "" {
+				updatedInfo.FilesystemId = fsData.filesystemId
+			}
+			if updatedInfo != existingInfo {
+				err = f.storage.SetFilesystemInfo(fsTag, updatedInfo)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 
