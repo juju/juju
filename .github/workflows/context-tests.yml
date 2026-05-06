@@ -203,8 +203,10 @@ jobs:
       - snap
       - generate
       - docs
-      - terraform
+      - client
       - migrate
+      - ddl
+      - terraform
       - upgrade
       - smoke
     runs-on: ubuntu-latest
