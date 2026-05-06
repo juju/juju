@@ -32,7 +32,7 @@ test_deploy_attach_storage() {
 	# Clean up: make sure PersistentVolume is in available status
 	microk8s kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
 	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	microk8s kubectl delete pvc "${PVC}" -n "${model_name}"
+	microk8s kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found
 	microk8s kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Import filesystem as data/0 in second model.
