@@ -48,22 +48,22 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsGetter
 
-	networkService             NetworkService
-	controllerConfigService    ControllerConfigService
-	agentProvisionerService    AgentProvisionerService
-	keyUpdaterService          KeyUpdaterService
-	machineService             MachineService
-	statusService              StatusService
-	applicationService         ApplicationService
-	removalService             RemovalService
-	provisioningService        ProvisioningService
-	authorizer                 facade.Authorizer
-	getAuthFunc                common.GetAuthFunc
-	getCanModify               common.GetAuthFunc
-	toolsFinder                common.ToolsFinder
-	watcherRegistry            facade.WatcherRegistry
-	logger                     logger.Logger
-	clock                      clock.Clock
+	networkService          NetworkService
+	controllerConfigService ControllerConfigService
+	agentProvisionerService AgentProvisionerService
+	keyUpdaterService       KeyUpdaterService
+	machineService          MachineService
+	statusService           StatusService
+	applicationService      ApplicationService
+	removalService          RemovalService
+	provisioningService     ProvisioningService
+	authorizer              facade.Authorizer
+	getAuthFunc             common.GetAuthFunc
+	getCanModify            common.GetAuthFunc
+	toolsFinder             common.ToolsFinder
+	watcherRegistry         facade.WatcherRegistry
+	logger                  logger.Logger
+	clock                   clock.Clock
 
 	// Hold on to the model UUID for the ModelUUID method.
 	modelUUID         coremodel.UUID

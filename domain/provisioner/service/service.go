@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -454,9 +455,7 @@ func (s *Service) buildVolumeParams(
 
 		// Compute per-volume tags.
 		vTags := make(map[string]string, len(modelTags)+2)
-		for k, v := range modelTags {
-			vTags[k] = v
-		}
+		maps.Copy(vTags, modelTags)
 		storageInstTagVal := fmt.Sprintf("%s/%s", vp.StorageName, vp.StorageID)
 		vTags[tags.JujuStorageInstance] = storageInstTagVal
 		if vp.StorageOwnerUnitName != nil {
@@ -550,7 +549,7 @@ func parseResourceTags(raw string) (map[string]string, bool) {
 		return nil, false
 	}
 	tags := make(map[string]string)
-	for _, part := range strings.Fields(raw) {
+	for part := range strings.FieldsSeq(raw) {
 		k, v, ok := strings.Cut(part, "=")
 		if ok {
 			tags[k] = v

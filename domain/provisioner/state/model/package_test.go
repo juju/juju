@@ -52,15 +52,6 @@ func (s *modelStateSuite) addNetNode(c *tc.C) string {
 	return netNodeUUID
 }
 
-// addMachine inserts a machine and returns its UUID.
-func (s *modelStateSuite) addMachine(c *tc.C, name string) string {
-	netNodeUUID := s.addNetNode(c)
-	machineUUID := uuid.MustNewUUID().String()
-	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
-		machineUUID, name, life.Alive, netNodeUUID)
-	return machineUUID
-}
-
 // addMachineWithPlatform inserts a machine with platform (os + channel).
 func (s *modelStateSuite) addMachineWithPlatform(c *tc.C, name, osName, channel string) string {
 	netNodeUUID := s.addNetNode(c)
