@@ -976,6 +976,8 @@ func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerela
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
 //     found.
+//   - [relationerrors.AmbiguousRelation] is returned if multiple existing
+//     relations are found between the two applications.
 func (s *Service) GetRelationUUIDForRemoval(
 	ctx context.Context,
 	args relation.GetRelationUUIDForRemovalArgs,
@@ -1015,6 +1017,8 @@ func (s *Service) GetRelationUUIDForRemoval(
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
 //     found.
+//   - [relationerrors.AmbiguousRelation] is returned if multiple existing
+//     relations are found between the two applications.
 func (s *Service) inferRelationUUIDByEndpoints(ctx context.Context, ep1, ep2 string) (corerelation.UUID, error) {
 	idep1, err := relation.NewCandidateEndpointIdentifier(ep1)
 	if err != nil {

@@ -1356,7 +1356,7 @@ func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
 	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {

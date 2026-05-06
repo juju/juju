@@ -1433,7 +1433,11 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		RelationID: args.RelationId,
 	}
 	relUUID, err := api.relationService.GetRelationUUIDForRemoval(ctx, getUUIDArgs)
-	if err != nil {
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return errors.NotFoundf("relation with endpoints %v or id %d", args.Endpoints, args.RelationId)
+	} else if errors.Is(err, relationerrors.AmbiguousRelation) {
+		return errors.BadRequestf("endpoints %q are ambiguous, specify relation endpoints or id", args.Endpoints)
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 
