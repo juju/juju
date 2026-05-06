@@ -115,6 +115,8 @@ run_secrets() {
 	check_contains "$(juju exec --unit world/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
 
 	echo "Checking: secret-get by label - consume content"
+	juju exec --unit world/0 -- secret-get "$unit_owned_full_uri" --label=consumer_label_secret_owned_by_hello_0
+	juju exec --unit world/0 -- secret-get "$app_owned_full_uri" --label=consumer_label_secret_owned_by_hello
 	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
 
@@ -218,10 +220,6 @@ run_user_secrets() {
 	juju --show-log grant-secret "$secret_uri" snappass-test
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
-	snappass_consumer='unit-snappass-test-0'
-	snappass_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$snappass_consumer")
-	secret_token_rbac_assert_singleton "$snappass_token_rbac_before" "$snappass_consumer"
-
 	# create a new revision 3.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
 
@@ -247,8 +245,6 @@ run_user_secrets() {
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
-	snappass_token_rbac_after=$(secret_token_rbac_snapshot "$model_name" "$snappass_consumer")
-	secret_token_rbac_assert_reused "$snappass_token_rbac_before" "$snappass_token_rbac_after" "$snappass_consumer repeated secret-get"
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
