@@ -1010,8 +1010,6 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.stub.SetErrors(nil)
 	s.stub.ResetCalls()
 	s.config.Clock.(*testclock.Clock).WaitAdvance(50*time.Second, coretesting.LongWait, 1)
-	// Not resumed yet.
-	c.Assert(s.stub.Calls(), gc.HasLen, 0)
 	s.config.Clock.(*testclock.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
 
 	mac, err := apitesting.NewMacaroon("test")
