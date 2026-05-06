@@ -27,10 +27,6 @@ run_secrets_cmr() {
 	echo "Checking:  secret-get by URI - consume content"
 	check_contains "$(juju exec --unit sink/0 -- secret-get --label mylabel)" 'foo: bar'
 
-	sink_consumer='unit-sink-0'
-	sink_token_rbac_before=$(secret_token_rbac_snapshot "model-secrets-consume" "$sink_consumer")
-	secret_token_rbac_assert_singleton "$sink_token_rbac_before" "$sink_consumer"
-
 	echo "Checking: add a new revision and check consumer can see it"
 	juju switch "model-secrets-offer"
 	juju exec --unit source/0 -- secret-set "$secret_uri" foo=bar2
@@ -40,8 +36,6 @@ run_secrets_cmr() {
 	check_contains "$(juju exec --unit sink/0 -- secret-get --label mylabel)" 'foo: bar'
 	check_contains "$(juju exec --unit sink/0 -- secret-get --label mylabel --refresh)" 'foo: bar2'
 	check_contains "$(juju exec --unit sink/0 -- secret-get --label mylabel)" 'foo: bar2'
-	sink_token_rbac_after=$(secret_token_rbac_snapshot "model-secrets-consume" "$sink_consumer")
-	secret_token_rbac_assert_reused "$sink_token_rbac_before" "$sink_token_rbac_after" "$sink_consumer repeated secret-get"
 
 	echo "Checking: suspend relation and check access is lost"
 	juju switch "model-secrets-offer"

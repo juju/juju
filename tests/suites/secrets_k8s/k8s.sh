@@ -91,10 +91,6 @@ run_secrets() {
 	echo "Set a consumer label for the app owned secret $app_owned_full_uri."
 	juju exec --unit hello/0 -- secret-get "$app_owned_full_uri" --label=hello-app
 
-	hello_consumer='unit-hello-0'
-	hello_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$hello_consumer")
-	secret_token_rbac_assert_singleton "$hello_token_rbac_before" "$hello_consumer"
-
 	echo "Checking: secret-get by URI - content"
 	check_contains "$(juju exec --unit hello/0 -- secret-get $unit_owned_full_uri)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get $app_owned_full_uri)" 'owned-by: hello-app'
@@ -106,8 +102,6 @@ run_secrets() {
 	echo "Checking: secret-get by label or consumer label - content"
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello-app)" 'owned-by: hello-app'
-	hello_token_rbac_after=$(secret_token_rbac_snapshot "$model_name" "$hello_consumer")
-	secret_token_rbac_assert_reused "$hello_token_rbac_before" "$hello_token_rbac_after" "$hello_consumer repeated secret-get"
 
 	echo "Checking: secret-info-get by label - metadata"
 	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | yq ".${unit_owned_short_uri}.label")" hello_0
@@ -116,10 +110,6 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
 	juju exec --unit hello/0 -- secret-grant "$app_owned_full_uri" -r "$relation_id"
 
-	world_consumer='unit-world-0'
-	world_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$world_consumer")
-	secret_token_rbac_assert_singleton "$nginx_token_rbac_before" "$world_consumer"
-
 	echo "Checking: secret-get by URI - consume content"
 	check_contains "$(juju exec --unit world/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit world/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
@@ -127,8 +117,6 @@ run_secrets() {
 	echo "Checking: secret-get by label - consume content"
 	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
-	world_token_rbac_after=$(secret_token_rbac_snapshot "$model_name" "$world_consumer")
-	secret_token_rbac_assert_reused "$world_token_rbac_before" "$world_token_rbac_after" "$world_consumer repeated secret-get"
 
 	check_contains "$(kubectl -n "$model_name" get "secrets/${unit_owned_short_uri}-1" -o json | yq -r '.data["owned-by"]' | base64 -d)" "hello/0"
 	check_contains "$(kubectl -n "$model_name" get "secrets/${app_owned_short_uri}-1" -o json | yq -r '.data["owned-by"]' | base64 -d)" "hello-app"
@@ -151,6 +139,59 @@ run_secrets() {
 	juju --show-log remove-relation world hello
 	# wait for relation removed.
 	wait_for null '.applications["world"] | .relations.self-metrics-endpoint[0]'
+	destroy_model "$model_name"
+}
+
+run_secrets_token_reuse() {
+	echo
+
+	model_name='model-secrets-k8s-token-reuse'
+	juju --show-log add-model "$model_name" --config secret-backend=auto
+
+	juju --show-log deploy prometheus-k8s hello --trust
+	juju --show-log deploy prometheus-k8s world --trust
+	juju --show-log integrate world:metrics-endpoint hello:self-metrics-endpoint
+
+	wait_for "hello" "$(active_idle_condition "hello" 0 0)"
+	wait_for "world" "$(active_idle_condition "world" 1 0)"
+	wait_for "hello" '.applications["world"] | .relations.metrics-endpoint[0].related-application'
+
+	echo "Apps deployed, creating secrets"
+	unit_owned_full_uri=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
+	unit_owned_short_uri=${unit_owned_full_uri##*/}
+	app_owned_full_uri=$(juju exec --unit hello/0 -- secret-add owned-by=hello-app)
+	app_owned_short_uri=${app_owned_full_uri##*/}
+
+	# Perform one secret-get to establish the sa/role/rolebinding.
+	juju exec --unit hello/0 -- secret-get "$app_owned_full_uri" --label=hello-app
+
+	hello_consumer='unit-hello-0'
+	hello_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$hello_consumer")
+	secret_token_rbac_assert_singleton "$hello_token_rbac_before" "$hello_consumer"
+
+	check_contains "$(juju exec --unit hello/0 -- secret-get $unit_owned_full_uri)" 'owned-by: hello/0'
+	check_contains "$(juju exec --unit hello/0 -- secret-get $app_owned_full_uri)" 'owned-by: hello-app'
+
+	hello_token_rbac_after=$(secret_token_rbac_snapshot "$model_name" "$hello_consumer")
+	secret_token_rbac_assert_reused "$hello_token_rbac_before" "$hello_token_rbac_after" "$hello_consumer repeated secret-get"
+
+	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[1]."relation-id"')
+	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
+	juju exec --unit hello/0 -- secret-grant "$app_owned_full_uri" -r "$relation_id"
+
+	# Perform one secret-get to establish the sa/role/rolebinding.
+	check_contains "$(juju exec --unit world/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
+
+	world_consumer='unit-world-0'
+	world_token_rbac_before=$(secret_token_rbac_snapshot "$model_name" "$world_consumer")
+	secret_token_rbac_assert_singleton "$world_token_rbac_before" "$world_consumer"
+
+	check_contains "$(juju exec --unit world/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
+	check_contains "$(juju exec --unit world/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
+
+	world_token_rbac_after=$(secret_token_rbac_snapshot "$model_name" "$world_consumer")
+	secret_token_rbac_assert_reused "$world_token_rbac_before" "$world_token_rbac_after" "$world_consumer repeated secret-get"
+
 	destroy_model "$model_name"
 }
 
@@ -442,6 +483,21 @@ test_secrets() {
 		cd .. || exit
 
 		run "run_secrets"
+	)
+}
+
+test_secrets_token_reuse() {
+	if [ "$(skip 'test_secrets_token_reuse')" ]; then
+		echo "==> TEST SKIPPED: test_secrets_token_reuse"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_secrets_token_reuse"
 	)
 }
 

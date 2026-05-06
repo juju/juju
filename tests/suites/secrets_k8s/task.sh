@@ -25,6 +25,7 @@ test_secrets_k8s() {
 	bootstrap "test-secrets-k8s" "${file}"
 
 	test_secrets
+	test_secrets_token_reuse
 	test_secret_drain
 	test_user_secrets
 	test_user_secret_drain

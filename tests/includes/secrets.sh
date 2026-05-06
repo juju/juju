@@ -37,7 +37,7 @@ _secret_token_rbac_names() {
 	local kind=${3}
 
 	kubectl -n "$namespace" get "$kind" -l "secrets.juju.is/consumer=${consumer}" -o json |
-		yq -r '.items[].metadata.name | select(startswith("juju-secret-consumer-"))' |
+		yq -r '.items[].metadata.name | select(test("^juju-secret-consumer-"))' |
 		sort |
 		paste -sd, -
 }
@@ -63,7 +63,7 @@ secret_token_rbac_snapshot() {
 # list; empty input returns zero.
 _secret_token_rbac_csv_count() {
 	local csv=${1}
-	if [[ -z "$csv" ]]; then
+	if [[ -z $csv ]]; then
 		echo 0
 		return
 	fi
@@ -84,9 +84,9 @@ secret_token_rbac_assert_singleton() {
 	roles=$(echo "$snapshot" | awk -F= '/^roles=/{print $2}')
 	rolebindings=$(echo "$snapshot" | awk -F= '/^rolebindings=/{print $2}')
 
-	if [[ $(_secret_token_rbac_csv_count "$serviceaccounts") -ne 1 || \
-		$(_secret_token_rbac_csv_count "$roles") -ne 1 || \
-		$(_secret_token_rbac_csv_count "$rolebindings") -ne 1 ]]; then
+	if [[ $(_secret_token_rbac_csv_count "$serviceaccounts") -ne 1 ||
+	$(_secret_token_rbac_csv_count "$roles") -ne 1 ||
+	$(_secret_token_rbac_csv_count "$rolebindings") -ne 1 ]]; then
 		echo "Failed: expected exactly one token serviceaccount/role/rolebinding for $context."
 		echo "$snapshot"
 		return 1
@@ -100,7 +100,7 @@ secret_token_rbac_assert_reused() {
 	local after_snapshot=${2}
 	local context=${3}
 
-	if [[ "$before_snapshot" != "$after_snapshot" ]]; then
+	if [[ $before_snapshot != "$after_snapshot" ]]; then
 		echo "Failed: token RBAC resources changed while validating reuse for $context."
 		echo "Before:"
 		echo "$before_snapshot"
@@ -109,4 +109,3 @@ secret_token_rbac_assert_reused() {
 		return 1
 	fi
 }
-
