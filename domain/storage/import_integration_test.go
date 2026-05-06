@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -15,6 +16,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -39,15 +41,70 @@ import (
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 )
 
+// stubStorageProvider wraps a [providertracker.Provider] with a static provider
+// registry. This allows tests to supply a fixed set of storage providers.
+type stubStorageProvider struct {
+	providertracker.Provider
+	registry internalstorage.StaticProviderRegistry
+}
+
+// stubEphemeralProviderConfigGetter implements
+// [providertracker.EphemeralProviderConfigGetter].
+type stubEphemeralProviderConfigGetter struct{}
+
+// StorageProviderTypes returns the list of storage provider types available
+// in the static registry.
+func (s *stubStorageProvider) StorageProviderTypes() ([]internalstorage.ProviderType, error) {
+	return s.registry.StorageProviderTypes()
+}
+
+// StorageProvider returns the storage provider registered under the given type
+// in the static registry.
+func (s *stubStorageProvider) StorageProvider(t internalstorage.ProviderType) (internalstorage.Provider, error) {
+	return s.registry.StorageProvider(t)
+}
+
+// RecommendedPoolForKind returns the recommended storage pool configuration
+// for the given storage kind, as defined by the static registry.
+func (s *stubStorageProvider) RecommendedPoolForKind(k internalstorage.StorageKind) *internalstorage.Config {
+	return s.registry.RecommendedPoolForKind(k)
+}
+
+// stubEphemeralProviderFactory implements [providertracker.EphemeralProviderFactory].
+type stubEphemeralProviderFactory struct {
+	providers map[internalstorage.ProviderType]internalstorage.Provider
+}
+
+// EphemeralProviderFromConfig returns a stubStorageProvider wrapping the providers map.
+func (f *stubEphemeralProviderFactory) EphemeralProviderFromConfig(
+	_ context.Context,
+	_ providertracker.EphemeralProviderConfig,
+) (providertracker.Provider, error) {
+	return &stubStorageProvider{
+		registry: internalstorage.StaticProviderRegistry{
+			Providers: f.providers,
+		},
+	}, nil
+}
+
+// GetEphemeralProviderConfig returns a zero-value EphemeralProviderConfig.
+func (stubEphemeralProviderConfigGetter) GetEphemeralProviderConfig(
+	_ context.Context,
+) (providertracker.EphemeralProviderConfig, error) {
+	return providertracker.EphemeralProviderConfig{}, nil
+}
+
 type importSuite struct {
 	schematesting.ModelSuite
 
-	coordinator    *coremodelmigration.Coordinator
-	scope          coremodelmigration.Scope
-	svc            *service.Service
-	provisioning   *storageprovisioningservice.Service
-	registryGetter corestorage.ModelStorageRegistryGetter
-	logger         logger.Logger
+	coordinator           *coremodelmigration.Coordinator
+	scope                 coremodelmigration.Scope
+	svc                   *service.Service
+	provisioning          *storageprovisioningservice.Service
+	registryGetter        corestorage.ModelStorageRegistryGetter
+	ephemeralFactory      providertracker.EphemeralProviderFactory
+	ephemeralConfigGetter providertracker.EphemeralProviderConfigGetter
+	logger                logger.Logger
 }
 
 func TestImportSuite(t *testing.T) {
@@ -58,13 +115,26 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.logger = loggertesting.WrapCheckLog(c)
-	s.registryGetter = s.newStorageRegistryGetter()
+
+	storageProviders := map[internalstorage.ProviderType]internalstorage.Provider{
+		"ebs": &dummystorage.StorageProvider{
+			StorageScope: internalstorage.ScopeMachine,
+			IsDynamic:    true,
+			IsReleasable: true,
+		},
+	}
+	s.registryGetter = corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return internalstorage.StaticProviderRegistry{Providers: storageProviders}
+	})
+	s.ephemeralFactory = &stubEphemeralProviderFactory{providers: storageProviders}
+	s.ephemeralConfigGetter = stubEphemeralProviderConfigGetter{}
+
 	s.coordinator = coremodelmigration.NewCoordinator(s.logger)
 	s.scope = coremodelmigration.NewScope(
 		nil,
 		s.TxnRunnerFactory(),
 		nil,
-		nil,
+		s.ephemeralFactory,
 		model.UUID(s.ModelUUID()),
 	)
 	s.svc = service.NewService(
@@ -180,8 +250,7 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumeBackedFilesystems(c *t
 
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
-		s.registryGetter,
-		nil,
+		s.ephemeralConfigGetter,
 		s.logger,
 	)
 
@@ -429,8 +498,7 @@ func (s *importSuite) TestIAASImportStorageInstancesNonVolumeBackedFilesystems(c
 
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
-		s.registryGetter,
-		nil,
+		s.ephemeralConfigGetter,
 		s.logger,
 	)
 
@@ -673,8 +741,7 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumesOnly(c *tc.C) {
 
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
-		s.registryGetter,
-		nil,
+		s.ephemeralConfigGetter,
 		s.logger,
 	)
 
@@ -930,18 +997,4 @@ func (s *importSuite) createIAASApplication(
 		unitNames:    unitNames,
 		unitUUIDs:    unitUUIDs,
 	}
-}
-
-func (s *importSuite) newStorageRegistryGetter() corestorage.ModelStorageRegistryGetter {
-	return corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
-		return internalstorage.StaticProviderRegistry{
-			Providers: map[internalstorage.ProviderType]internalstorage.Provider{
-				"ebs": &dummystorage.StorageProvider{
-					StorageScope: internalstorage.ScopeMachine,
-					IsDynamic:    true,
-					IsReleasable: true,
-				},
-			},
-		}
-	})
 }
