@@ -649,7 +649,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 	srv.mu.Lock()
 	srv.healthStatus = "running"
 	// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
-	securitylog.LogSystem(securitylog.SystemLifecycleSecurityEvent{
+	securitylog.LogSystem(ctx, securitylog.SystemLifecycleSecurityEvent{
 		Event: securitylog.SystemLifecycleEventStartup,
 		Actor: securitylog.DefaultAdminName,
 	})
@@ -661,7 +661,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 			srv.mu.Lock()
 			srv.healthStatus = "stopping"
 			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
-			securitylog.LogSystem(securitylog.SystemLifecycleSecurityEvent{
+			securitylog.LogSystem(ctx, securitylog.SystemLifecycleSecurityEvent{
 				Event: securitylog.SystemLifecycleEventShutdown,
 				Actor: securitylog.DefaultAdminName,
 			})

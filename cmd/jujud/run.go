@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v4/exec"
@@ -339,12 +339,14 @@ type jujudWriter struct {
 	target io.Writer
 }
 
-func (w *jujudWriter) Write(entry loggo.Entry) {
+func (w *jujudWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	var err error
 	if strings.HasPrefix(entry.Module, "unit.") {
-		fmt.Fprintln(w.target, w.unitFormat(entry))
+		_, err = fmt.Fprintln(w.target, w.unitFormat(entry))
 	} else {
-		fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
+		_, err = fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
 	}
+	return err
 }
 
 func (w *jujudWriter) unitFormat(entry loggo.Entry) string {

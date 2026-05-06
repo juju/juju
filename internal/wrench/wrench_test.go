@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	coretesting "github.com/juju/juju/internal/testing"

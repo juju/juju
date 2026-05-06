@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -11,7 +12,7 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -147,15 +148,20 @@ func (w *BufferedLogWriter) loop() {
 
 // Write sends a new log message to the writer.
 // This implements the loggo.Writer interface.
-func (w *BufferedLogWriter) Write(entry loggo.Entry) {
-	w.in <- &LogRecord{
+func (w *BufferedLogWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	select {
+	case w.in <- &LogRecord{
 		Time:     entry.Timestamp,
 		Module:   entry.Module,
 		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
 		Level:    entry.Level,
 		Message:  entry.Message,
 		Labels:   entry.Labels,
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+	return nil
 }
 
 // Logs returns a channel which emits log messages that have been sent

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
@@ -246,13 +246,13 @@ func NewTaggedRedirectWriter(logSink LogSink, tag string, modelUUID string) *Tag
 
 // Write writes the log entry to the log sink. It uses the loggo.Entry
 // struct to extract the relevant information and create a LogRecord.
-func (w TaggedRedirectWriter) Write(entry loggo.Entry) {
+func (w TaggedRedirectWriter) Write(ctx context.Context, entry loggo.Entry) error {
 	var location string
 	if entry.Filename != "" {
 		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
 	}
 
-	_ = w.LogSink.Log([]LogRecord{{
+	return w.LogSink.Log([]LogRecord{{
 		Time:      entry.Timestamp,
 		Module:    entry.Module,
 		Entity:    w.Tag,

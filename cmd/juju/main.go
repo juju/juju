@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/commands"

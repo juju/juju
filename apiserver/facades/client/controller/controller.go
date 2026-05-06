@@ -667,6 +667,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 			securitylog.LogAuthz(
+				ctx,
 				securitylog.AuthzSecurityEvent{
 					Actor:  c.apiUser.Name(),
 					Target: arg.UserTag,
@@ -681,6 +682,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify controller access"))
 			// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 			securitylog.LogAuthz(
+				ctx,
 				securitylog.AuthzSecurityEvent{
 					Actor:  c.apiUser.Name(),
 					Target: arg.UserTag,
@@ -705,6 +707,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		result.Results[i].Error = apiservererrors.ServerError(err)
 		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 		securitylog.LogAuthz(
+			ctx,
 			securitylog.AuthzSecurityEvent{
 				Actor:    c.apiUser.Name(),
 				Target:   targetUserTag.Name(),
