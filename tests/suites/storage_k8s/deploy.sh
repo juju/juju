@@ -15,7 +15,7 @@ test_deploy_attach_storage() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -42,7 +42,7 @@ test_deploy_attach_storage() {
 	wait_for_storage "detached" '.storage["data/0"]["status"].current'
 
 	# Deploy with --attach-storage. The storage should be attached to the dummy-k8s-storage/0 unit.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
 		--attach-storage data/0 dummy-k8s-storage
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'

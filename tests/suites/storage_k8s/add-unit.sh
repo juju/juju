@@ -14,7 +14,7 @@ test_add_unit_attach_storage() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 -n 3 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -50,7 +50,7 @@ test_add_unit_attach_storage() {
 	done
 
 	# Deploy with --attach-storage. The storage should be attached to the dummy-k8s-storage/0 unit.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
 		--attach-storage data/0 dummy-k8s-storage
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -101,7 +101,7 @@ test_add_unit_duplicate_pvc_exists() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -164,7 +164,7 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 -n 3 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -200,7 +200,7 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	done
 
 	# Deploy with --attach-storage. The storage should be attached to the dummy-k8s-storage/0 unit.
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
 		--attach-storage data/0 dummy-k8s-storage
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'

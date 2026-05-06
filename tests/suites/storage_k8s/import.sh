@@ -14,7 +14,7 @@ test_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
@@ -76,7 +76,7 @@ test_force_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy $(pack_charm ../testcharms/charms/dummy-storage-k8s) \
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
 		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
