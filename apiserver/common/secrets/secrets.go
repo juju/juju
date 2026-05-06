@@ -350,8 +350,18 @@ func backendConfigInfo(
 			if tok.ExpireTime.Before(now) || tok.BackendID != backendID || tok.ScopeHash != scopeHash {
 				continue
 			}
-			// Keep original expiry; do not extend on reuse.
 			issuedTokenUUID = tok.UUID
+			// Refresh token expiry on reuse.
+			err = secretsState.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+				UUID:       issuedTokenUUID,
+				ExpireTime: expireTime,
+				BackendID:  backendID,
+				Consumer:   authTag,
+				ScopeHash:  scopeHash,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			logger.Tracef("reusing token=%q consumer=%q scope=%q", issuedTokenUUID, authTag.String(), scopeHash)
 			break
 		}

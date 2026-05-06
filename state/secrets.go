@@ -158,11 +158,6 @@ type SecretsStore interface {
 	// given secret backend token UUIDs.
 	RemoveSecretBackendIssuedTokens(uuids []string) error
 
-	// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
-	// sets the expire time of all currently non-expired secret backend issued
-	// tokens for the given consumer to now.
-	ExpireSecretBackendIssuedTokensForConsumer(consumer names.Tag) ModelOperation
-
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
@@ -4039,69 +4034,84 @@ func (s *secretsStore) CreateSecretBackendIssuedToken(
 	tokenColl, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
 	defer closer()
 
-	check := func() (string, string, error) {
+	check := func() (string, string, *secretIssuedTokenDoc, error) {
 		entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
 		if err != nil {
-			return "", "", errors.Annotate(err, "invalid secret token receiver")
+			return "", "", nil, errors.Annotate(err, "invalid secret token receiver")
 		}
 		if entity.Life() == Dead {
-			return "", "", errors.New(
+			return "", "", nil, errors.New(
 				"creating secret backend issued token: consumer is dead",
 			)
 		}
 		existing := secretIssuedTokenDoc{}
 		err = tokenColl.FindId(token.UUID).One(&existing)
 		if errors.Is(err, mgo.ErrNotFound) {
-			return entityC, entityDocID, nil
+			return entityC, entityDocID, nil, nil
 		} else if err != nil {
-			return "", "", errors.Annotate(
+			return "", "", nil, errors.Annotate(
 				err, "checking existing secret issued backend token",
 			)
 		}
 		if existing.ConsumerTag != token.Consumer.String() {
-			return "", "", errors.Unauthorizedf(
+			return "", "", nil, errors.Unauthorizedf(
 				"%s secret issued backend token", token.UUID,
 			)
 		}
-		return entityC, entityDocID, errors.AlreadyExists
+		return entityC, entityDocID, &existing, errors.AlreadyExists
 	}
-	entityC, entityDocID, err := check()
-	if errors.Is(err, errors.AlreadyExists) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
+	newExpire := token.ExpireTime.UTC().Truncate(time.Second)
 	doc := secretIssuedTokenDoc{
 		DocID:       token.UUID,
 		BackendID:   token.BackendID,
-		ExpireTime:  token.ExpireTime.UTC().Truncate(time.Second),
+		ExpireTime:  newExpire,
 		ConsumerTag: token.Consumer.String(),
 		ScopeHash:   token.ScopeHash,
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var err error
-		if attempt > 0 {
-			entityC, entityDocID, err = check()
-			if errors.Is(err, errors.AlreadyExists) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
+		entityC, entityDocID, existing, err := check()
+		if err != nil && !errors.Is(err, errors.AlreadyExists) {
+			return nil, errors.Trace(err)
 		}
+
 		ops := []txn.Op{{
 			C:      entityC,
 			Id:     entityDocID,
 			Assert: notDeadDoc,
-		}, {
+		}}
+
+		if errors.Is(err, errors.AlreadyExists) {
+			scopeChanged := existing.ScopeHash != token.ScopeHash
+			if !scopeChanged && !newExpire.After(existing.ExpireTime) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			toSet := bson.M{"expire-time": newExpire}
+			if scopeChanged {
+				toSet["scope-hash"] = token.ScopeHash
+			}
+			ops = append(ops, txn.Op{
+				C:  secretBackendIssuedTokensC,
+				Id: doc.DocID,
+				Assert: bson.M{
+					"consumer-tag": existing.ConsumerTag,
+					"backend-id":   existing.BackendID,
+					"scope-hash":   existing.ScopeHash,
+					"expire-time":  existing.ExpireTime,
+				},
+				Update: bson.M{"$set": toSet},
+			})
+			return ops, nil
+		}
+
+		ops = append(ops, txn.Op{
 			C:      secretBackendIssuedTokensC,
 			Id:     doc.DocID,
 			Assert: txn.DocMissing,
 			Insert: doc,
-		}}
+		})
 		return ops, nil
 	}
-	err = s.st.db().Run(buildTxn)
+	err := s.st.db().Run(buildTxn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -4334,62 +4344,4 @@ func (w *secretBackendIssuedTokenExpiryWatcher) loop() error {
 			changes = nil
 		}
 	}
-}
-
-// expireSecretBackendIssuedTokensModelOp is a model operation for expiring all
-// secret backend issued tokens for the given consumer.
-type expireSecretBackendIssuedTokensModelOp struct {
-	s        *secretsStore
-	consumer names.Tag
-}
-
-// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
-// sets the expire time of all currently non-expired secret backend issued
-// tokens for the given consumer to now.
-func (s *secretsStore) ExpireSecretBackendIssuedTokensForConsumer(
-	consumer names.Tag,
-) ModelOperation {
-	return &expireSecretBackendIssuedTokensModelOp{
-		s:        s,
-		consumer: consumer,
-	}
-}
-
-func (op *expireSecretBackendIssuedTokensModelOp) Build(
-	attempt int,
-) ([]txn.Op, error) {
-	return op.s.expireSecretBackendIssuedTokensOps(op.consumer)
-}
-
-func (op *expireSecretBackendIssuedTokensModelOp) Done(err error) error {
-	return err
-}
-
-// expireSecretBackendIssuedTokensOps returns the operations to remove all the
-// currently known secret backend issued tokens.
-func (s *secretsStore) expireSecretBackendIssuedTokensOps(
-	consumer names.Tag,
-) ([]txn.Op, error) {
-	coll, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
-	defer closer()
-
-	now := s.st.clock().Now().UTC().Truncate(time.Second)
-
-	var ops []txn.Op
-	res := coll.Find(bson.M{
-		"consumer-tag": consumer.String(),
-	}).Iter()
-	defer closer()
-	var doc secretIssuedTokenDoc
-	for res.Next(&doc) {
-		if doc.ExpireTime.Before(now) {
-			continue
-		}
-		ops = append(ops, txn.Op{
-			C:      secretBackendIssuedTokensC,
-			Id:     doc.DocID,
-			Update: bson.D{{"$set", bson.D{{"expire-time", now}}}},
-		})
-	}
-	return ops, errors.Trace(res.Close())
 }

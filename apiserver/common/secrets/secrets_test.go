@@ -1642,6 +1642,14 @@ func (s *secretsSuite) TestBackendConfigInfoReusesIssuedTokenForSameScope(c *gc.
 		Consumer:   unitTag,
 		ScopeHash:  scopeHash,
 	}}, nil)
+	secretsState.EXPECT().CreateSecretBackendIssuedToken(gomock.Any()).DoAndReturn(func(tok state.SecretBackendIssuedToken) error {
+		c.Check(tok.UUID, gc.Equals, "reused-uuid")
+		c.Check(tok.BackendID, gc.Equals, "backend-id")
+		c.Check(tok.Consumer, gc.Equals, unitTag)
+		c.Check(tok.ScopeHash, gc.Equals, scopeHash)
+		c.Check(tok.ExpireTime.After(time.Now()), jc.IsTrue)
+		return nil
+	})
 	leadershipChecker.EXPECT().LeadershipCheck("gitlab", "gitlab/0").Return(token)
 	token.EXPECT().Check().Return(nil)
 
