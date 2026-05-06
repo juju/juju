@@ -72,7 +72,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v1.0.0
+	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
 	github.com/juju/testing v1.2.0
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
@@ -321,4 +321,4 @@ replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.2
 // We just need to make sure that juju/juju uses a version of tc that does not
 // randomise the order of test cases. Pin to a specific commit until the issue
 // is resolved.
-replace github.com/juju/tc => github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
+exclude github.com/juju/tc v1.0.0
