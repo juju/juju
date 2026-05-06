@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -178,4 +179,48 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *tc.C) {
 	c.Assert(userGetter.userNames[0], tc.DeepEquals, user.NameFromTag(userTag))
 	c.Assert(userGetter.targets, tc.HasLen, 1)
 	c.Assert(userGetter.targets[0], tc.DeepEquals, permission.ID{ObjectType: permission.Model, Key: target.Id()})
+}
+
+func (r *PermissionSuite) TestUserNotFoundReturnsNoPermission(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		access: permission.NoAccess,
+		err:    accesserrors.UserNotFound,
+	}
+	hasPermission, err := common.HasPermission(c.Context(), userGetter.call, userTag, permission.ReadAccess, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
+}
+
+func (r *PermissionSuite) TestPermissionNotFoundReturnsNoPermission(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		access: permission.NoAccess,
+		err:    accesserrors.PermissionNotFound,
+	}
+	hasPermission, err := common.HasPermission(c.Context(), userGetter.call, userTag, permission.ReadAccess, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
+}
+
+func (r *PermissionSuite) TestUnexpectedErrorPropagated(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		access: permission.NoAccess,
+		err:    errors.New("database connection failed"),
+	}
+	hasPermission, err := common.HasPermission(c.Context(), userGetter.call, userTag, permission.ReadAccess, target)
+	c.Assert(err, tc.ErrorMatches, ".*database connection failed.*")
+	c.Assert(hasPermission, tc.IsFalse)
+}
+
+func (r *PermissionSuite) TestUnknownTargetKindReturnsNoPermission(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewMachineTag("0")
+	hasPermission, err := common.HasPermission(c.Context(), (&fakeUserAccess{}).call, userTag, permission.ReadAccess, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
 }

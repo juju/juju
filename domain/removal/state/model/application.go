@@ -461,8 +461,8 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application annotations: %w", err)
 		}
 
-		if err := st.deleteCloudServices(ctx, tx, aUUID); err != nil {
-			return errors.Errorf("deleting cloud services: %w", err)
+		if err := st.deleteK8sServices(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("deleting k8s services: %w", err)
 		}
 
 		if err := st.deleteDeviceConstraintAttributes(ctx, tx, aUUID); err != nil {
@@ -557,58 +557,46 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 	return nil
 }
 
-func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+func (st *State) deleteK8sServices(ctx context.Context, tx *sqlair.TX, aUUID string) error {
 	app := entityUUID{UUID: aUUID}
 
-	deleteFqdnAddressStmt, err := st.Prepare(`
-DELETE FROM net_node_fqdn_address WHERE net_node_uuid IN (
-    SELECT net_node_uuid
-    FROM k8s_service
-    WHERE application_uuid = $entityUUID.uuid
-)`, app)
+	// Capture the net node UUID before any deletions. We cannot subquery
+	// through k8s_service at delete time because k8s_service must itself be
+	// deleted before net_node (FK constraint), which would make the subquery
+	// return nothing.
+	selectNetNodeStmt, err := st.Prepare(`
+SELECT net_node_uuid AS &entityUUID.uuid
+FROM   k8s_service
+WHERE  application_uuid = $entityUUID.uuid`, app)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	deleteHostnameAddressStmt, err := st.Prepare(`
-DELETE FROM net_node_hostname_address WHERE net_node_uuid IN (
-    SELECT net_node_uuid
-    FROM k8s_service
-    WHERE application_uuid = $entityUUID.uuid
-)`, app)
-	if err != nil {
-		return errors.Capture(err)
+	var netNode entityUUID
+	if err := tx.Query(ctx, selectNetNodeStmt, app).Get(&netNode); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting net node UUID for cloud service: %w", err)
 	}
 
-	deleteNodeStmt, err := st.Prepare(`
-DELETE FROM net_node WHERE uuid IN (
-    SELECT net_node_uuid
-    FROM k8s_service
-    WHERE application_uuid = $entityUUID.uuid
-)`, app)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	deleteCloudServiceStmt, err := st.Prepare(`
+	// k8s_service holds a FK to net_node, so delete it before tearing down
+	// the net node itself.
+	deleteK8sServiceStmt, err := st.Prepare(`
 DELETE FROM k8s_service
 WHERE application_uuid = $entityUUID.uuid
 `, app)
 	if err != nil {
 		return errors.Capture(err)
 	}
-
-	if err := tx.Query(ctx, deleteCloudServiceStmt, app).Run(); err != nil {
+	if err := tx.Query(ctx, deleteK8sServiceStmt, app).Run(); err != nil {
 		return errors.Capture(err)
 	}
-	if err := tx.Query(ctx, deleteFqdnAddressStmt, app).Run(); err != nil {
-		return errors.Errorf("deleting net node fqdn address for cloud service: %w", err)
-	}
-	if err := tx.Query(ctx, deleteHostnameAddressStmt, app).Run(); err != nil {
-		return errors.Errorf("deleting net node hostname address for cloud service: %w", err)
-	}
-	if err := tx.Query(ctx, deleteNodeStmt, app).Run(); err != nil {
-		return errors.Errorf("deleting net node for cloud service: %w", err)
+
+	// The net node and all the network entities it owns (IP addresses,
+	// link-layer devices, address junctions) belong to the network domain.
+	// Use the shared helper to clean them up.
+	if err := st.removeNetNode(ctx, tx, netNode.UUID); err != nil {
+		return errors.Errorf("removing net node for cloud service: %w", err)
 	}
 	return nil
 }

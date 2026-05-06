@@ -76,11 +76,7 @@ func (s *SecretService) getRelationKeyByUUID(ctx context.Context, relUUID string
 	if err != nil {
 		return corerelation.Key{}, errors.Capture(err)
 	}
-	key, err := corerelation.NewKey(endpoints)
-	if err != nil {
-		return corerelation.Key{}, errors.Errorf("generating relation key: %w", err)
-	}
-	return key, nil
+	return corerelation.Key(endpoints), nil
 }
 
 // GetSecretAccessRelationScope returns the relation UUID of the access scope for the specified

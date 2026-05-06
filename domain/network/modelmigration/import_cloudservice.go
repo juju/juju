@@ -18,37 +18,37 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// RegisterImportCloudService registers the import operations with the given coordinator.
-// It imports CloudServices for each application from model.
-// Since a Cloud service is linked to an application and has ipaddresses to
+// RegisterImportK8sService registers the import operations with the given coordinator.
+// It imports K8sServices for each application from model.
+// Since a K8s service is linked to an application and has ipaddresses to
 // insert, we need to call it after both network and application import.
-func RegisterImportCloudService(coordinator Coordinator, logger logger.Logger) {
-	coordinator.Add(&importCloudServiceOperation{
+func RegisterImportK8sService(coordinator Coordinator, logger logger.Logger) {
+	coordinator.Add(&importK8sServiceOperation{
 		logger: logger,
 	})
 }
 
-// CloudServiceMigrationService defines methods needed to import
+// K8sServiceMigrationService defines methods needed to import
 // cloud services as part of model migration.
-type CloudServiceMigrationService interface {
-	// ImportCloudServices imports cloud service metadata into the model using the provided context and service data.
-	ImportCloudServices(ctx context.Context, services []internal.ImportCloudService) error
+type K8sServiceMigrationService interface {
+	// ImportK8sServices imports cloud service metadata into the model using the provided context and service data.
+	ImportK8sServices(ctx context.Context, services []internal.ImportK8sService) error
 }
 
-type importCloudServiceOperation struct {
+type importK8sServiceOperation struct {
 	modelmigration.BaseOperation
 
-	migrationService CloudServiceMigrationService
+	migrationService K8sServiceMigrationService
 	logger           logger.Logger
 }
 
 // Name returns the name of this operation.
-func (i *importCloudServiceOperation) Name() string {
+func (i *importK8sServiceOperation) Name() string {
 	return "import cloud services"
 }
 
 // Setup implements Operation.
-func (i *importCloudServiceOperation) Setup(scope modelmigration.Scope) error {
+func (i *importK8sServiceOperation) Setup(scope modelmigration.Scope) error {
 	st := state.NewState(scope.ModelDB(), i.logger)
 	i.migrationService = service.NewMigrationService(st, i.logger)
 	return nil
@@ -60,30 +60,30 @@ func (i *importCloudServiceOperation) Setup(scope modelmigration.Scope) error {
 // Collects cloud services from the provided model and
 // imports them using MigrationService.
 // Returns an error if the collection or import process fails.
-func (i *importCloudServiceOperation) Execute(ctx context.Context, model description.Model) error {
+func (i *importK8sServiceOperation) Execute(ctx context.Context, model description.Model) error {
 	if model.Type() != description.CAAS {
 		return nil
 	}
 
-	cloudServices, err := i.encodeCloudServices(model)
+	k8sServices, err := i.encodeK8sServices(model)
 	if err != nil {
 		return errors.Errorf("collecting services and devices: %w", err)
 	}
 
-	if err := i.migrationService.ImportCloudServices(ctx, cloudServices); err != nil {
+	if err := i.migrationService.ImportK8sServices(ctx, k8sServices); err != nil {
 		return errors.Errorf("importing cloud services: %w", err)
 	}
 
 	return nil
 }
 
-func (i *importCloudServiceOperation) encodeCloudServices(
+func (i *importK8sServiceOperation) encodeK8sServices(
 	model description.Model,
-) ([]internal.ImportCloudService, error) {
-	var cloudServices []internal.ImportCloudService
+) ([]internal.ImportK8sService, error) {
+	var k8sServices []internal.ImportK8sService
 	for _, app := range model.Applications() {
-		cloudService := app.CloudService()
-		if cloudService == nil {
+		k8sService := app.CloudService()
+		if k8sService == nil {
 			continue
 		}
 
@@ -100,14 +100,14 @@ func (i *importCloudServiceOperation) encodeCloudServices(
 			return nil, errors.Errorf("creating device uuid: %w", err)
 		}
 
-		addresses, err := transform.SliceOrErr(cloudService.Addresses(),
-			func(addr description.Address) (internal.ImportCloudServiceAddress, error) {
+		addresses, err := transform.SliceOrErr(k8sService.Addresses(),
+			func(addr description.Address) (internal.ImportK8sServiceAddress, error) {
 				addrUUID, err := uuid.NewUUID()
 				if err != nil {
-					return internal.ImportCloudServiceAddress{}, errors.Errorf("creating address uuid: %w", err)
+					return internal.ImportK8sServiceAddress{}, errors.Errorf("creating address uuid: %w", err)
 				}
 
-				return internal.ImportCloudServiceAddress{
+				return internal.ImportK8sServiceAddress{
 					UUID:    addrUUID.String(),
 					Value:   addr.Value(),
 					Type:    addr.Type(),
@@ -120,14 +120,14 @@ func (i *importCloudServiceOperation) encodeCloudServices(
 			return nil, errors.Errorf("transforming addresses: %w", err)
 		}
 
-		cloudServices = append(cloudServices, internal.ImportCloudService{
+		k8sServices = append(k8sServices, internal.ImportK8sService{
 			UUID:            serviceUUID.String(),
 			NetNodeUUID:     netNodeUUID.String(),
 			DeviceUUID:      deviceUUID.String(),
 			ApplicationName: app.Name(),
-			ProviderID:      cloudService.ProviderId(),
+			ProviderID:      k8sService.ProviderId(),
 			Addresses:       addresses,
 		})
 	}
-	return cloudServices, nil
+	return k8sServices, nil
 }

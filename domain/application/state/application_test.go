@@ -1127,9 +1127,9 @@ func (s *applicationStateSuite) TestCheckApplicationsForMigrationAliveWithDyingU
 	c.Assert(err, tc.ErrorMatches, `.*unit\(s\) "(foo/0, foo/1|foo/1, foo/0)" are not alive`)
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
+func (s *applicationStateSuite) TestUpsertK8sServiceNew(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1143,12 +1143,12 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *tc.C) {
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
+func (s *applicationStateSuite) TestUpsertK8sServiceExisting(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createSubnetForCAASModel(c)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1162,12 +1162,12 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *tc.C) {
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
+func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.UpsertCloudService(c.Context(), "foo", "another-provider-id", network.ProviderAddresses{})
+	err = s.state.UpsertK8sService(c.Context(), "foo", "another-provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	var providerIds []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1190,9 +1190,9 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *tc.C) {
 	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
 }
 
-// TestUpsertAnotherCloudServiceNotWipingIpAddresses is a regression test where
-// calling UpsertCloudService on an application would wipe out any IP address.
-func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresses(c *tc.C) {
+// TestUpsertAnotherK8sServiceNotWipingIpAddresses is a regression test where
+// calling UpsertK8sService on an application would wipe out any IP address.
+func (s *applicationStateSuite) TestUpsertAnotherK8sServiceNotWipingIpAddresses(c *tc.C) {
 	appName := "foo"
 	s.createCAASApplication(c, appName, life.Alive, application.AddCAASUnitArg{})
 	err := s.state.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)), application.UpdateCAASUnitParams{
@@ -1204,7 +1204,7 @@ func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresse
 	k8sPodInfo, err := s.state.GetUnitK8sPodInfo(c.Context(), unit.Name(fmt.Sprintf("%s/0", appName)))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(k8sPodInfo.Address, tc.Equals, "10.0.0.2")
-	err = s.state.UpsertCloudService(c.Context(), appName, "provider-id",
+	err = s.state.UpsertK8sService(c.Context(), appName, "provider-id",
 		network.ProviderAddresses{
 			{
 				MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
@@ -1218,10 +1218,10 @@ func (s *applicationStateSuite) TestUpsertAnotherCloudServiceNotWipingIpAddresse
 	c.Assert(k8sPodInfo.Address, tc.Equals, "10.0.0.2")
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *tc.C) {
+func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingEmptyAddresses(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1/8",
@@ -1272,17 +1272,17 @@ WHERE application_uuid = ?
 
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
 
-	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
+func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingWithAddresses(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1/24",
@@ -1333,7 +1333,7 @@ WHERE application_uuid = ?
 
 	checkAddresses(c, "10.0.0.1/24", "10.0.0.2/24")
 
-	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "192.168.0.0/24",
@@ -1366,7 +1366,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceWithDiscoveredSubnet(c *tc
 	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1/24",
@@ -1396,8 +1396,8 @@ WHERE k8s_service.application_uuid = ?
 	c.Assert(gotCIDR, tc.Equals, "10.0.0.0/24")
 }
 
-func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
+func (s *applicationStateSuite) TestUpsertK8sServiceNotFound(c *tc.C) {
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -3886,11 +3886,11 @@ func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *tc.C
 	c.Check(hash, tc.Equals, "5e5d6453be08912c0cb0585e9d39e6fe21e154c0495c7f05b61137e7f3eab381")
 }
 
-func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
+func (s *applicationStateSuite) TestGetAddressesHashK8sService(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	network.NewMachineAddress("10.0.0.1/24")
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
 		},
@@ -3912,9 +3912,9 @@ func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *tc.C) {
 	c.Check(hash, tc.Equals, "6e97876f0c817d2ba3b4d736f3fceb639049997e609803028673eeaeeaa01cf5")
 }
 
-func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *tc.C) {
+func (s *applicationStateSuite) TestGetAddressesHashK8sServiceWithEndpointBindings(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1/24"),
 		},
@@ -4002,7 +4002,7 @@ func (s *applicationStateSuite) TestHashAddresses(c *tc.C) {
 func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *tc.C) {
 	unitName, unitUUID := s.createNamedCAASUnit(c)
 
-	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
 		{
 			MachineAddress: network.NewMachineAddress("10.0.0.1/8"),
 		},
@@ -4360,4 +4360,73 @@ func (s *applicationStateSuite) TestGetDefaultSpaceUUIDFromModelConfig(c *tc.C) 
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.Equals, spaceUUID)
+}
+
+// TestCreateCAASApplicationResetsExistingSequence is a regression test for
+// the case where redeploying a CAAS application with the same name after
+// deletion would produce unit/1 instead of unit/0, causing RegisterCAASUnit
+// to fail because Kubernetes StatefulSet pod ordinals always start at 0.
+// CreateCAASApplication must reset the sequence counter so that unit
+// numbering restarts from zero on redeployment.
+func (s *applicationStateSuite) TestCreateCAASApplicationResetsExistingSequence(c *tc.C) {
+	// Simulates initial application deployment and deletion by inserting a sequence row for the application.
+	_, err := s.DB().Exec(
+		"INSERT INTO sequence (namespace, value) VALUES ('application_app-name', 1)",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkApplicationSequence(c, "app-name", 1)
+
+	// Create the CAAS application.
+	_, err = s.state.CreateCAASApplication(c.Context(), "app-name", application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: deployment.Platform{
+				Channel:      "22.04",
+				OSType:       deployment.Ubuntu,
+				Architecture: architecture.AMD64,
+			},
+			Charm: charm.Charm{
+				Metadata:      s.minimalMetadata(c, "app-name"),
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: "app-name",
+				Revision:      1,
+				Architecture:  architecture.AMD64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:  charm.ProvenanceDownload,
+				DownloadURL: "http://example.com/charm",
+			},
+		},
+		Scale: 0,
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that the application sequence has been reset and there is no existing sequence for the application.
+	s.checkNoApplicationSequence(c, "app-name")
+}
+
+func (s *applicationStateSuite) checkNoApplicationSequence(c *tc.C, appName string) {
+	c.Helper()
+
+	row := s.DB().QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM sequence WHERE namespace = CONCAT('application_', ?))",
+		appName,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+func (s *applicationStateSuite) checkApplicationSequence(c *tc.C, appName string, value int) {
+	c.Helper()
+
+	row := s.DB().QueryRow(
+		"SELECT value FROM sequence WHERE namespace = CONCAT('application_', ?)",
+		appName,
+	)
+	var got int
+	err := row.Scan(&got)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, value)
 }

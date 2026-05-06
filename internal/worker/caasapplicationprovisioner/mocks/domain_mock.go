@@ -592,40 +592,40 @@ func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Co
 	return c
 }
 
-// UpdateCloudService mocks base method.
-func (m *MockApplicationService) UpdateCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
+// UpdateK8sService mocks base method.
+func (m *MockApplicationService) UpdateK8sService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateCloudService", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateK8sService", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateCloudService indicates an expected call of UpdateCloudService.
-func (mr *MockApplicationServiceMockRecorder) UpdateCloudService(arg0, arg1, arg2, arg3 any) *MockApplicationServiceUpdateCloudServiceCall {
+// UpdateK8sService indicates an expected call of UpdateK8sService.
+func (mr *MockApplicationServiceMockRecorder) UpdateK8sService(arg0, arg1, arg2, arg3 any) *MockApplicationServiceUpdateK8sServiceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCloudService", reflect.TypeOf((*MockApplicationService)(nil).UpdateCloudService), arg0, arg1, arg2, arg3)
-	return &MockApplicationServiceUpdateCloudServiceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateK8sService", reflect.TypeOf((*MockApplicationService)(nil).UpdateK8sService), arg0, arg1, arg2, arg3)
+	return &MockApplicationServiceUpdateK8sServiceCall{Call: call}
 }
 
-// MockApplicationServiceUpdateCloudServiceCall wrap *gomock.Call
-type MockApplicationServiceUpdateCloudServiceCall struct {
+// MockApplicationServiceUpdateK8sServiceCall wrap *gomock.Call
+type MockApplicationServiceUpdateK8sServiceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceUpdateCloudServiceCall) Return(arg0 error) *MockApplicationServiceUpdateCloudServiceCall {
+func (c *MockApplicationServiceUpdateK8sServiceCall) Return(arg0 error) *MockApplicationServiceUpdateK8sServiceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceUpdateCloudServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+func (c *MockApplicationServiceUpdateK8sServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateK8sServiceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceUpdateCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateCloudServiceCall {
+func (c *MockApplicationServiceUpdateK8sServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockApplicationServiceUpdateK8sServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

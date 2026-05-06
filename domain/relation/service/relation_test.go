@@ -266,8 +266,10 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *tc.C) {
 		},
 	}
 
+	// The state layer is responsible for returning endpoints in canonical
+	// key order (requirer, provider), so the mock reflects that contract.
 	results := []relation.RelationUnitStatusResult{{
-		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
+		Endpoints: []relation.Endpoint{endpoint2, endpoint1},
 		InScope:   true,
 		Suspended: true,
 	}, {
@@ -1471,6 +1473,40 @@ func (s *relationServiceSuite) TestSetRelationErrorStatusStateError(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_Success(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	unitName := coreunit.Name("foo/0")
+	fakeUUIDs := []string{"rel-uuid-1", "rel-uuid-2"}
+
+	s.state.EXPECT().GetRelationUUIDsByUnitName(ctx, unitName.String()).Return(fakeUUIDs, nil)
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relUUIDs, tc.DeepEquals, []corerelation.UUID{"rel-uuid-1", "rel-uuid-2"})
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_Error(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	unitName := coreunit.Name("foo/0")
+	s.state.EXPECT().GetRelationUUIDsByUnitName(ctx, unitName.String()).Return(nil, errors.New("fail"))
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, unitName)
+	c.Assert(err, tc.ErrorMatches, "fail")
+	c.Check(relUUIDs, tc.IsNil)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDsByUnitName_InvalidUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+	invalidUnitName := coreunit.Name("")
+
+	relUUIDs, err := s.service.GetRelationUUIDsByUnitName(ctx, invalidUnitName)
+	c.Assert(err, tc.NotNil)
+	c.Check(relUUIDs, tc.IsNil)
 }
 
 type relationLeadershipServiceSuite struct {

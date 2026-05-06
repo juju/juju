@@ -200,40 +200,40 @@ func (c *MockStateAllSubnetsQueryCall) DoAndReturn(f func(context.Context, datab
 	return c
 }
 
-// CreateCloudServices mocks base method.
-func (m *MockState) CreateCloudServices(arg0 context.Context, arg1 []internal.ImportCloudService) error {
+// CreateK8sServices mocks base method.
+func (m *MockState) CreateK8sServices(arg0 context.Context, arg1 []internal.ImportK8sService) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCloudServices", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateK8sServices", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateCloudServices indicates an expected call of CreateCloudServices.
-func (mr *MockStateMockRecorder) CreateCloudServices(arg0, arg1 any) *MockStateCreateCloudServicesCall {
+// CreateK8sServices indicates an expected call of CreateK8sServices.
+func (mr *MockStateMockRecorder) CreateK8sServices(arg0, arg1 any) *MockStateCreateK8sServicesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCloudServices", reflect.TypeOf((*MockState)(nil).CreateCloudServices), arg0, arg1)
-	return &MockStateCreateCloudServicesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateK8sServices", reflect.TypeOf((*MockState)(nil).CreateK8sServices), arg0, arg1)
+	return &MockStateCreateK8sServicesCall{Call: call}
 }
 
-// MockStateCreateCloudServicesCall wrap *gomock.Call
-type MockStateCreateCloudServicesCall struct {
+// MockStateCreateK8sServicesCall wrap *gomock.Call
+type MockStateCreateK8sServicesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCreateCloudServicesCall) Return(arg0 error) *MockStateCreateCloudServicesCall {
+func (c *MockStateCreateK8sServicesCall) Return(arg0 error) *MockStateCreateK8sServicesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateCloudServicesCall) Do(f func(context.Context, []internal.ImportCloudService) error) *MockStateCreateCloudServicesCall {
+func (c *MockStateCreateK8sServicesCall) Do(f func(context.Context, []internal.ImportK8sService) error) *MockStateCreateK8sServicesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateCloudServicesCall) DoAndReturn(f func(context.Context, []internal.ImportCloudService) error) *MockStateCreateCloudServicesCall {
+func (c *MockStateCreateK8sServicesCall) DoAndReturn(f func(context.Context, []internal.ImportK8sService) error) *MockStateCreateK8sServicesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -545,6 +545,7 @@ func (s *storageStatusSuite) TestGetAllFilesystems(c *tc.C) {
 			},
 			StorageUUID: &s0,
 			StorageID:   s0id,
+			PoolName:    "fspool",
 			ProviderID:  "my-provider-id-1",
 			SizeMiB:     123,
 		},
@@ -557,11 +558,32 @@ func (s *storageStatusSuite) TestGetAllFilesystems(c *tc.C) {
 			},
 			StorageUUID: &s1,
 			StorageID:   s1id,
+			PoolName:    "fspool",
 			ProviderID:  "my-provider-id-2",
 			SizeMiB:     456,
 			VolumeID:    &v1id,
 		},
 	})
+}
+
+func (s *storageStatusSuite) TestGetFilesystemsIncludesPoolName(c *tc.C) {
+	ch0 := s.newCharm(c)
+	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
+
+	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
+	storageUUID, _ := s.newStorageInstance(
+		c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem,
+	)
+	filesystemUUID, _ := s.newFilesystem(c)
+	s.newStorageInstanceFilesystem(c, storageUUID, filesystemUUID)
+
+	st := s.NewModelState(c)
+	res, err := st.GetFilesystems(c.Context(), []storage.FilesystemUUID{
+		filesystemUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
+	c.Check(res[0].PoolName, tc.Equals, "fspool")
 }
 
 func (s *storageStatusSuite) TestGetAllFilesystemAttachmentsEmpty(c *tc.C) {
@@ -674,6 +696,7 @@ func (s *storageStatusSuite) TestGetAllVolumes(c *tc.C) {
 			},
 			StorageUUID: &s0,
 			StorageID:   s0id,
+			PoolName:    "blkpool",
 			ProviderID:  "my-provider-id-1",
 			SizeMiB:     123,
 			HardwareID:  "hw0",
@@ -689,8 +712,29 @@ func (s *storageStatusSuite) TestGetAllVolumes(c *tc.C) {
 			},
 			StorageUUID: &s1,
 			StorageID:   s1id,
+			PoolName:    "blkpool",
 		},
 	})
+}
+
+func (s *storageStatusSuite) TestGetVolumesIncludesPoolName(c *tc.C) {
+	ch0 := s.newCharm(c)
+	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
+
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	storageUUID, _ := s.newStorageInstance(
+		c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock,
+	)
+	volumeUUID, _ := s.newVolume(c)
+	s.newStorageInstanceVolume(c, storageUUID, volumeUUID)
+
+	st := s.NewModelState(c)
+	res, err := st.GetVolumes(c.Context(), []storage.VolumeUUID{
+		volumeUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
+	c.Check(res[0].PoolName, tc.Equals, "blkpool")
 }
 
 func (s *storageStatusSuite) TestGetAllVolumeAttachmentsEmpty(c *tc.C) {

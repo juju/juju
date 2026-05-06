@@ -977,6 +977,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			},
 		},
 		CharmUpgradeOnError: true,
+		ForceBase:           true,
 		EndpointBindings: map[string]network.SpaceName{
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
@@ -998,7 +999,8 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			Track:        new("1.0"),
 			Risk:         "stable",
 		},
-		Force: true,
+		Force:     true,
+		ForceBase: true,
 		EndpointBindings: map[string]string{
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
@@ -1354,7 +1356,7 @@ func (s *applicationSuite) TestDestroyRelationRelationNotFound(c *tc.C) {
 	err := s.api.DestroyRelation(c.Context(), arg)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func (s *applicationSuite) TestDestroyRelationByID(c *tc.C) {

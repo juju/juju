@@ -6,12 +6,12 @@ package common
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // UserAccessFunc represents a func that can answer the question about what
@@ -59,8 +59,12 @@ func HasPermission(
 		ObjectType: objectType,
 		Key:        target.Id(),
 	})
-	if err != nil && !(errors.Is(err, accesserrors.AccessNotFound) || errors.Is(err, accesserrors.UserNotFound)) {
-		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
+	if err != nil && !errors.IsOneOf(err,
+		accesserrors.AccessNotFound,
+		accesserrors.UserNotFound,
+		accesserrors.PermissionNotFound,
+	) {
+		return false, errors.Errorf("while obtaining %s user: %w", target.Kind(), err)
 	}
 	if userAccess == permission.NoAccess {
 		return false, nil

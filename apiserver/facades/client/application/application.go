@@ -703,6 +703,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
 		CharmOrigin:               charmOrigin,
 		CharmUpgradeOnError:       args.Force,
+		ForceBase:                 args.ForceBase,
 		EndpointBindings:          transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
 		StorageDirectiveOverrides: storageDirectiveOverrides,
 	})
@@ -762,6 +763,11 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return apiservererrors.ParamsErrorf(
 			params.CodeNotSupported,
 			"cannot set charm %q because %s", args.CharmURL, locationErr.Error(),
+		)
+	case errors.Is(err, applicationerrors.IncompatibleBase):
+		return apiservererrors.ParamsErrorf(
+			params.CodeIncompatibleBase,
+			"cannot set charm %q: %s", args.CharmURL, err.Error(),
 		)
 	case errors.HasType[applicationerrors.CharmStorageTypeChanged](err):
 		typeErr, _ := errors.AsType[applicationerrors.CharmStorageTypeChanged](err)
@@ -1427,7 +1433,11 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		RelationID: args.RelationId,
 	}
 	relUUID, err := api.relationService.GetRelationUUIDForRemoval(ctx, getUUIDArgs)
-	if err != nil {
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return errors.NotFoundf("relation with endpoints %v or id %d", args.Endpoints, args.RelationId)
+	} else if errors.Is(err, relationerrors.AmbiguousRelation) {
+		return errors.BadRequestf("endpoints %q are ambiguous, specify relation endpoints or id", args.Endpoints)
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 

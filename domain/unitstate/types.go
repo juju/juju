@@ -131,9 +131,9 @@ type CommitHookChangesArg struct {
 	// UnitName is the name of the unit these changes pertain to.
 	UnitName unit.Name
 
-	// UpdateNetworkInfo indicates that the relation network settings
-	// should be updated for this unit.
-	UpdateNetworkInfo bool
+	// UpdatedRelationNetworkInfo contain data to update relation network
+	// settings this unit.
+	UpdatedRelationNetworkInfo map[relation.UUID]Settings
 
 	// RelationUnitSettings settings for the relation unit and application
 	// which need to be updated.
@@ -185,8 +185,11 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 	if err := c.UnitName.Validate(); err != nil {
 		errs = append(errs, err)
 	}
-	hasChanges := c.UpdateNetworkInfo
+	var hasChanges bool
 	if c.CharmState != nil {
+		hasChanges = true
+	}
+	if len(c.UpdatedRelationNetworkInfo) > 0 {
 		hasChanges = true
 	}
 	for _, settings := range c.RelationSettings {

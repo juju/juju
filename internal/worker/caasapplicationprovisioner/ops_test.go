@@ -158,7 +158,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 
 	gomock.InOrder(
 		app.EXPECT().Service().Return(service, nil),
-		applicationService.EXPECT().UpdateCloudService(gomock.Any(), "test", "provider-id", network.ProviderAddresses{{
+		applicationService.EXPECT().UpdateK8sService(gomock.Any(), "test", "provider-id", network.ProviderAddresses{{
 			MachineAddress: network.NewMachineAddress("1.2.3.4"),
 			SpaceName:      "space-name",
 		}}).Return(nil),

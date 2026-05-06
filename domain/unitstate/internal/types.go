@@ -56,10 +56,6 @@ type CommitHookChangesArg struct {
 	// machine-backed.
 	MachineUUID *string
 
-	// UpdateNetworkInfo indicates that the relation network settings
-	// should be updated for this unit.
-	UpdateNetworkInfo bool
-
 	// RelationUnitSettings settings for the relation unit and application
 	// which need to be updated.
 	RelationSettings []RelationSettings
@@ -109,7 +105,6 @@ func TransformCommitHookChangesArg(
 		UnitUUID:           unitInfo.UnitUUID,
 		UnitLife:           unitInfo.UnitLife,
 		MachineUUID:        unitInfo.MachineUUID,
-		UpdateNetworkInfo:  in.UpdateNetworkInfo,
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,
 		CharmState:         in.CharmState,

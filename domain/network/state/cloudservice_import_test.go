@@ -14,25 +14,25 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-type cloudServiceImportSuite struct {
+type k8sServiceImportSuite struct {
 	linkLayerBaseSuite
 }
 
-func TestCloudServiceImportSuite(t *testing.T) {
-	tc.Run(t, &cloudServiceImportSuite{})
+func TestK8sServiceImportSuite(t *testing.T) {
+	tc.Run(t, &k8sServiceImportSuite{})
 }
 
-// TestCreateCloudServices tests the happy path for cloud service creation and deletion.
+// TestCreateK8sServices tests the happy path for cloud service creation and deletion.
 // It verifies that multiple cloud services are correctly inserted into the database
 // and then properly deleted.
-func (s *cloudServiceImportSuite) TestCreateCloudServices(c *tc.C) {
+func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 	// Arrange: Set up application for the cloud services
 	charmUUID := s.addCharm(c)
 	spaceUUID := s.addSpace(c)
 	appUUID1 := s.addApplicationWithName(c, charmUUID, spaceUUID, "super-app-1")
 	appUUID2 := s.addApplicationWithName(c, charmUUID, spaceUUID, "super-app-2")
 
-	args := []internal.ImportCloudService{
+	args := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid-1",
 			DeviceUUID:      "device-uuid-1",
@@ -50,7 +50,7 @@ func (s *cloudServiceImportSuite) TestCreateCloudServices(c *tc.C) {
 	}
 
 	// Act
-	err := s.state.CreateCloudServices(c.Context(), args)
+	err := s.state.CreateK8sServices(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -94,7 +94,7 @@ func (s *cloudServiceImportSuite) TestCreateCloudServices(c *tc.C) {
 		}})
 }
 
-func (s *cloudServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
+func (s *k8sServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
 	var nodes []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM net_node`)
