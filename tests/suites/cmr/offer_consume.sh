@@ -170,10 +170,9 @@ run_offer_find_non_admin() {
 	# JUJU_MODEL provides a controller:model qualifier so that find-offers can
 	# resolve the controller name without requiring a current model to be set
 	# (the non-admin user has no models of their own).
-
 	JUJU_MODEL="test-offer-find:admin/model-offer-find" JUJU_DATA=/tmp/offeruser \
 		juju find-offers --format=yaml |
-		yq -r 'keys | .[] | select(. == "test-offer-find:admin/model-offer-find.dummy-offer")' |
+		yq 'has("test-offer-find:admin/model-offer-find.dummy-offer")' |
 		check true
 
 	echo "Clean up"
