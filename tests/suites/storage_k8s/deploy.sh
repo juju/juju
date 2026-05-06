@@ -21,7 +21,7 @@ test_deploy_attach_storage() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | jq -r '.filesystems["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -71,7 +71,7 @@ test_deploy_attach_storage() {
 
 	# Make sure pv name have been update in volumes.
 	OUT=$(
-		juju storage --format json | jq '.volumes."0"."provider-id"'
+		juju storage --format json | jq '.filesystems."0"."provider-id"'
 	)
 	echo "${OUT}" | check "${PV}"
 

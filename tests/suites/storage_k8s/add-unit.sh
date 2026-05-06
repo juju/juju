@@ -22,9 +22,9 @@ test_add_unit_attach_storage() {
 	wait_for_storage "attached" '.storage["data/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | jq -r '.filesystems["0"]."provider-id"')
+	PV_1=$(juju storage --format json | jq -r '.filesystems["1"]."provider-id"')
+	PV_2=$(juju storage --format json | jq -r '.filesystems["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt --force
@@ -76,7 +76,7 @@ test_add_unit_attach_storage() {
 	# Verify volume provider IDs match the original PVs
 	for i in 0 1 2; do
 		eval "expected_pv=\$PV_${i}"
-		OUT=$(juju storage --format json | jq ".volumes.\"${i}\".\"provider-id\"")
+		OUT=$(juju storage --format json | jq ".filesystems.\"${i}\".\"provider-id\"")
 		# shellcheck disable=SC2154
 		echo "${OUT}" | check "${expected_pv}"
 	done
@@ -107,7 +107,7 @@ test_add_unit_duplicate_pvc_exists() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | jq -r '.filesystems["0"]."provider-id"')
 	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
 	juju remove-unit dummy-k8s-storage --num-units 1 --force
@@ -172,9 +172,9 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	wait_for_storage "attached" '.storage["data/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | jq -r '.filesystems["0"]."provider-id"')
+	PV_1=$(juju storage --format json | jq -r '.filesystems["1"]."provider-id"')
+	PV_2=$(juju storage --format json | jq -r '.filesystems["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt --force
