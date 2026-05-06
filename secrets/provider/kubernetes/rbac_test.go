@@ -152,6 +152,18 @@ func (s *rbacSuite) TestCreateRoleErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*changing rules for role "role-rules-change" not supported`)
 }
 
+func (s *rbacSuite) TestPolicyRulesForSecretAccessSortsResourceNames(c *gc.C) {
+	rules := policyRulesForSecretAccess(
+		s.k8sclient.namespace,
+		[]string{"secret-b#2", "secret-a#1", "secret-b#2", "secret-a#1"},
+		[]string{"secret-c#1", "secret-b#3", "secret-c#1"},
+	)
+
+	c.Assert(rules, gc.HasLen, 3)
+	c.Assert(rules[1].ResourceNames, jc.DeepEquals, []string{"secret-a#1", "secret-b#2"})
+	c.Assert(rules[2].ResourceNames, jc.DeepEquals, []string{"secret-b#3", "secret-c#1"})
+}
+
 func (s *rbacSuite) TestCreateRoleBindingErrors(c *gc.C) {
 	ctx := context.Background()
 

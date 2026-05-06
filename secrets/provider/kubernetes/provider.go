@@ -709,13 +709,21 @@ func (k *kubernetesClient) deleteRoleBinding(
 func policyRulesForSecretAccess(
 	namespace string, owned, read []string,
 ) []rbacv1.PolicyRule {
+	sortedOwned := append([]string(nil), owned...)
+	slices.Sort(sortedOwned)
+	sortedOwned = slices.Compact(sortedOwned)
+
+	sortedRead := append([]string(nil), read...)
+	slices.Sort(sortedRead)
+	sortedRead = slices.Compact(sortedRead)
+
 	rules := []rbacv1.PolicyRule{{
 		APIGroups:     []string{rbacv1.APIGroupAll},
 		Resources:     []string{"namespaces"},
 		Verbs:         []string{"get", "list"},
 		ResourceNames: []string{namespace},
 	}}
-	if len(owned) > 0 {
+	if len(sortedOwned) > 0 {
 		// owned cannot be empty, otherwise this policy rule grants access to
 		// all secrets.
 		rules = append(rules, rbacv1.PolicyRule{
@@ -726,17 +734,17 @@ func policyRulesForSecretAccess(
 				// to kubernetes rbac limitation.
 				"get", "patch", "update", "replace", "delete",
 			},
-			ResourceNames: owned,
+			ResourceNames: sortedOwned,
 		})
 	}
-	if len(read) > 0 {
+	if len(sortedRead) > 0 {
 		// read cannot be empty, otherwise this policy rule grants access to
 		// all secrets.
 		rules = append(rules, rbacv1.PolicyRule{
 			APIGroups:     []string{rbacv1.APIGroupAll},
 			Resources:     []string{"secrets"},
 			Verbs:         []string{"get"},
-			ResourceNames: read,
+			ResourceNames: sortedRead,
 		})
 	}
 	return rules
