@@ -5,8 +5,10 @@ run_postgresql_deploy() {
 
     ensure "test-postgresql-deploy" "${file}"
 
-    # Deploy the postgresql-k8s charm
-    juju deploy postgresql-k8s --trust --channel 16/edge
+    # 14/edge/juju4 is a Juju 4.x compatible branch of postgresql-k8s.
+    # The stable/edge channels declare "assumes: juju < 3", so they cannot
+    # be deployed on Juju 4.x without --force and a juju4-specific branch.
+    juju deploy postgresql-k8s --trust --channel 14/edge/juju4 --base ubuntu@22.04 --force
 
     # Deploy the postgresql-test-app charm
     juju deploy postgresql-test-app --channel latest/edge --base ubuntu@22.04
