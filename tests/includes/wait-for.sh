@@ -49,25 +49,25 @@ wait_for() {
 }
 
 idle_condition() {
-	local name app_index unit_index
+	local name unit_index
 
 	name=${1}
 	unit_index=${2:-0}
 
-	path=".units | .[\"$name/$unit_index\"]"
+	path=".value.units[\"$name/$unit_index\"]"
 
-	echo ".applications | to_entries[] | select(.value | ($path | .[\"juju-status\"].current == \"idle\") and ($path | .[\"workload-status\"].current != \"error\")) | .key"
+	echo ".applications | to_entries[] | select((${path}[\"juju-status\"].current == \"idle\") and (${path}[\"workload-status\"].current != \"error\")) | .key"
 }
 
 active_idle_condition() {
-	local name app_index unit_index
+	local name unit_index
 
 	name=${1}
 	unit_index=${2:-0}
 
-	path=".units | .[\"$name/$unit_index\"]"
+	path=".value.units[\"$name/$unit_index\"]"
 
-	echo ".applications | to_entries[] | select(.value | ($path | .[\"juju-status\"].current == \"idle\") and ($path | .[\"workload-status\"].current == \"active\")) | .key"
+	echo ".applications | to_entries[] | select((${path}[\"juju-status\"].current == \"idle\") and (${path}[\"workload-status\"].current == \"active\")) | .key"
 }
 
 idle_subordinate_condition() {
