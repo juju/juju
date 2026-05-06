@@ -15,71 +15,71 @@ run_actions_params() {
 	# Run a valid action.
 	juju run juju-qa-action/0 fortune length="long"
 	# Check the the task succeeded.
-	juju show-operation 0 --format=json | yq '.status' | check 'completed'
+	juju show-operation 0 --format=json | yq -r '.status' | check 'completed'
 	# Check the action succeeded.
-	juju show-task 1 --format=json | yq '.status' | check 'completed'
+	juju show-task 1 --format=json | yq -r '.status' | check 'completed'
 
 	# Run an action that will return failed status.
 	juju run juju-qa-action/0 fortune length="long" fail="fail with this string"
 	# Check the the task failed as expected.
-	juju show-operation 2 --format=json | yq '.status' | check 'failed'
+	juju show-operation 2 --format=json | yq -r '.status' | check 'failed'
 	# Check the action failed as expected.
-	juju show-task 3 --format=json | yq '.status' | check 'failed'
+	juju show-task 3 --format=json | yq -r '.status' | check 'failed'
 
 	# Run an action with misspelled parameters.
 	juju run juju-qa-action/0 fortune length="long" misspelledparam="ok" |
 	  check 'additional property \"misspelledparam\" is not allowed'
 	# Check the action was rejected.
-	juju show-operation 4 --format=json | yq '.status' | check 'error'
-	juju show-operation 4 --format=json | yq '.tasks."5".message' |
-	 check 'additional property \\"misspelledparam\\" is not allowed'
+	juju show-operation 4 --format=json | yq -r '.status' | check 'error'
+	juju show-operation 4 --format=json | yq -r '.tasks."5".message' |
+	 check 'additional property \"misspelledparam\" is not allowed'
 	# Check the task did not run and has status error.
-	juju show-task 5 --format=json | yq '.status' | check 'error'
-	juju show-task 5 --format=json | yq '.message' |
-	  check 'additional property \\"misspelledparam\\" is not allowed'
+	juju show-task 5 --format=json | yq -r '.status' | check 'error'
+	juju show-task 5 --format=json | yq -r '.message' |
+	  check 'additional property \"misspelledparam\" is not allowed'
 
 	# Run an action that returns all the parameters passed to it.
 	juju run juju-qa-action/0 list-my-params string="my string" array="[1,2]" bool=true
 	# Check the the task succeeded.
-	juju show-operation 6 --format=json | yq '.status' | check 'completed'
+	juju show-operation 6 --format=json | yq -r '.status' | check 'completed'
 	# Check the params were returned in the results.
-	juju show-task 7 --format=json | yq '.results | .["string"]' | check 'my string'
-	juju show-task 7 --format=json | yq '.results | .["array"]' | check '[1, 2]'
-	juju show-task 7 --format=json | yq '.results | .["bool"]' | check 'True'
+	juju show-task 7 --format=json | yq -r '.results | .["string"]' | check 'my string'
+	juju show-task 7 --format=json | yq -r '.results | .["array"]' | check '[1, 2]'
+	juju show-task 7 --format=json | yq -r '.results | .["bool"]' | check 'True'
 
   # Run an action that will return error status.
 	juju run juju-qa-action/0 fortune length=false |
 	  check 'validation failed: \(root\).length : must be of type string, given false'
 	# Check the the operation failed as expected.
-	juju show-operation 8 --format=json | yq '.status' | check 'error'
-	juju show-operation 8 --format=json | yq '.tasks."9".message' |
+	juju show-operation 8 --format=json | yq -r '.status' | check 'error'
+	juju show-operation 8 --format=json | yq -r '.tasks."9".message' |
 	  check 'validation failed: \(root\).length : must be of type string, given false'
 	# Check the task failed as expected.
-	juju show-task 9 --format=json | yq '.status' | check 'error'
-	juju show-task 9 --format=json | yq '.message' |
+	juju show-task 9 --format=json | yq -r '.status' | check 'error'
+	juju show-task 9 --format=json | yq -r '.message' |
 	  check 'validation failed: \(root\).length : must be of type string, given false'
 
 	# Test juju operations command with basic filters
-	ops_count=$(juju operations --format=json | yq 'length')
+	ops_count=$(juju operations --format=json | yq -r 'length')
 	check_ge "${ops_count}" 5
 	
 	# Test filtering by action and status - verify correct action name appears
 	fortune_ops=$(juju operations --actions fortune --status completed --format=json)
-	echo "${fortune_ops}" | yq 'length' | check '[1-9]'
-	echo "${fortune_ops}" | yq '.[keys[0]].action.name' | check 'fortune'
-	echo "${fortune_ops}" | yq '.[keys[0]].status' | check 'completed'
+	echo "${fortune_ops}" | yq -r 'length' | check '[1-9]'
+	echo "${fortune_ops}" | yq -r '.[keys[0]].action.name' | check 'fortune'
+	echo "${fortune_ops}" | yq -r '.[keys[0]].status' | check 'completed'
 
 	# Test filtering by app - verify the results contain the correct app
 	app_ops=$(juju operations --apps juju-qa-action --format=json)
-	app_ops_count=$(echo "${app_ops}" | yq 'length')
+	app_ops_count=$(echo "${app_ops}" | yq -r 'length')
 	check_ge "${app_ops_count}" 5
-	echo "${app_ops}" | yq '.[keys[0]] | has("summary")' | check 'true'
+	echo "${app_ops}" | yq -r '.[keys[0]] | has("summary")' | check 'true'
 
 	# Test filtering by units - verify unit reference exists in results
 	unit_ops=$(juju operations --units juju-qa-action/0 --format=json)
-	unit_ops_count=$(echo "${unit_ops}" | yq 'length')
+	unit_ops_count=$(echo "${unit_ops}" | yq -r 'length')
 	check_ge "${unit_ops_count}" 5
-	echo "${unit_ops}" | yq '.[keys[0]].tasks | to_entries[0].value.host' | check 'juju-qa-action/0'
+	echo "${unit_ops}" | yq -r '.[keys[0]].tasks | to_entries[0].value.host' | check 'juju-qa-action/0'
 	
 	destroy_model "actions_test"
 }
