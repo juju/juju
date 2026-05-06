@@ -187,6 +187,9 @@ func (st *State) CreateCAASApplication(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.deleteApplicationSequence(ctx, tx, name); err != nil {
+			return errors.Errorf("deleting CAAS application sequence: %w", err)
+		}
 		if err := st.insertApplication(ctx, tx, name, appUUIDStr, args.BaseAddApplicationArg); err != nil {
 			return errors.Errorf("inserting CAAS application %q: %w", name, err)
 		}
@@ -3944,4 +3947,41 @@ FROM   model m
 		return "", errors.Capture(err)
 	}
 	return m.Type, nil
+}
+
+// deleteApplicationSequence deletes the unit sequence counter for the application
+// with the given name.
+//
+// This allows unit numbering to restart from zero when a CAAS application with
+// the same name is redeployed after deletion. This is required to preserve Juju
+// 3.6 compatibility and keep Juju unit numbers aligned with Kubernetes
+// StatefulSet pod ordinals, which start from 0 for a newly created StatefulSet.
+//
+// This matters because CAAS unit registration is tied to the Kubernetes pod
+// identity. The provider ID contains the pod ordinal, and RegisterCAASUnit uses
+// that information when registering the corresponding Juju unit. If the Juju
+// unit sequence has advanced but the recreated StatefulSet starts again at
+// ordinal 0, Juju unit names and Kubernetes pod identities can diverge. This can
+// cause recreated pods such as ordinal 0 to be treated as not assigned.
+func (st *State) deleteApplicationSequence(ctx context.Context, tx *sqlair.TX, appName string) error {
+	type sequenceNamespace struct {
+		Namespace string `db:"namespace"`
+	}
+
+	deleteSequenceStmt, err := st.Prepare(`
+DELETE FROM sequence WHERE namespace = $sequenceNamespace.namespace
+`, sequenceNamespace{})
+	if err != nil {
+		return errors.Errorf("preparing sequence delete: %w", err)
+	}
+
+	ns := sequenceNamespace{
+		Namespace: domainsequence.MakePrefixNamespace(
+			application.ApplicationSequenceNamespace, appName,
+		).String(),
+	}
+	if err := tx.Query(ctx, deleteSequenceStmt, ns).Run(); err != nil {
+		return errors.Errorf("deleting sequence for application %q: %w", appName, err)
+	}
+	return nil
 }
