@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -261,18 +262,22 @@ func (p vaultProvider) RestrictedConfig(
 
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
-	for _, id := range owned {
+	for _, id := range set.NewStrings(owned...).SortedValues() {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
 		rules = append(rules, rule)
 	}
 
 	// Any secrets consumed by the agent can be read etc.
 	logger.Debugf("consumed secret revisions: %#v", readRevs)
+	readRevIDs := set.NewStrings()
 	for _, revs := range readRevs {
-		for _, revId := range revs.Values() {
-			rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revId)
-			rules = append(rules, rule)
+		for _, revID := range revs.Values() {
+			readRevIDs.Add(revID)
 		}
+	}
+	for _, revID := range readRevIDs.SortedValues() {
+		rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revID)
+		rules = append(rules, rule)
 	}
 
 	policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
@@ -333,12 +338,17 @@ func (p vaultProvider) ensureSecretAccessPolicy(
 
 func normalizePolicyRules(rules string) string {
 	lines := strings.Split(rules, "\n")
+	seen := set.NewStrings()
 	out := make([]string, 0, len(lines))
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
+		if seen.Contains(line) {
+			continue
+		}
+		seen.Add(line)
 		out = append(out, line)
 	}
 	sort.Strings(out)

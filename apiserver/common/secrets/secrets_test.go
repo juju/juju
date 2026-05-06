@@ -1384,7 +1384,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesToken(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
-	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+	scopeHash := issuedTokenScopeHash(false, ownedIDs, ownedRevs, readRevs)
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
@@ -1508,7 +1508,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesTokenWithReservedSecrets(c *gc
 	ownedRevs := map[string]set.Strings{}
 	read := []*coresecrets.SecretMetadata{}
 	readRevs := map[string]set.Strings{}
-	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+	scopeHash := issuedTokenScopeHash(false, ownedIDs, ownedRevs, readRevs)
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"secret-backend": "backend-name",
 	})
@@ -1613,7 +1613,7 @@ func (s *secretsSuite) TestBackendConfigInfoReusesIssuedTokenForSameScope(c *gc.
 	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
 	read := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "read-1"}}}
 	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
-	scopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+	scopeHash := issuedTokenScopeHash(false, ownedIDs, ownedRevs, readRevs)
 
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": "backend-name"})
 	adminCfg := provider.ModelBackendConfig{
@@ -1714,7 +1714,7 @@ func (s *secretsSuite) TestBackendConfigInfoDoesNotReuseIssuedTokenForDifferentS
 	ownedRevs := map[string]set.Strings{"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2")}
 	read := []*coresecrets.SecretMetadata{{URI: &coresecrets.URI{ID: "read-1"}}}
 	readRevs := map[string]set.Strings{"read-1": set.NewStrings("read-rev-1")}
-	newScopeHash := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+	newScopeHash := issuedTokenScopeHash(false, ownedIDs, ownedRevs, readRevs)
 
 	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": "backend-name"})
 	adminCfg := provider.ModelBackendConfig{
@@ -1796,15 +1796,97 @@ func (s *secretsSuite) TestBackendConfigInfoDoesNotReuseIssuedTokenForDifferentS
 	})
 }
 
-func issuedTokenScopeHash(ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) string {
+func (s *secretsSuite) TestDrainBackendConfigInfoDoesNotReuseIssuedTokenForNonDrainScope(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelTag := names.NewModelTag(coretesting.ModelTag.Id())
+	model := mocks.NewMockModel(ctrl)
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	secretProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
+	secretsState := mocks.NewMockSecretsStore(ctrl)
+
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return secretProvider, nil })
+	s.PatchValue(&secrets.GetSecretsState, func(secrets.Model) state.SecretsStore { return secretsState })
+	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
+
+	modelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{"secret-backend": "backend-name"})
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+	}
+	ownedRevs := provider.SecretRevisions{}
+	readRevs := provider.SecretRevisions{}
+	nonDrainScopeHash := issuedTokenScopeHash(false, nil, ownedRevs, readRevs)
+	drainScopeHash := issuedTokenScopeHash(true, nil, ownedRevs, readRevs)
+
+	model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id()).AnyTimes()
+	model.EXPECT().UUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+	model.EXPECT().Name().Return("fred").AnyTimes()
+	model.EXPECT().Config().Return(modelCfg, nil)
+	model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend-name",
+		BackendType: "some-backend",
+	}}, nil)
+	secretProvider.EXPECT().Initialise(gomock.Any()).Return(nil)
+	secretProvider.EXPECT().IssuesTokens().Return(true)
+	secretsState.EXPECT().ListReservedSecrets([]names.Tag{modelTag}).Return(nil, nil)
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{OwnerTags: []names.Tag{modelTag}}).Return(nil, nil)
+	secretsState.EXPECT().ListSecrets(state.SecretsFilter{ConsumerTags: []names.Tag{modelTag}}).Return(nil, nil)
+	secretsState.EXPECT().ListSecretBackendIssuedTokenUntilForConsumer(gomock.Any(), modelTag).Return([]state.SecretBackendIssuedToken{{
+		UUID:       "old-uuid",
+		ExpireTime: time.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   modelTag,
+		ScopeHash:  nonDrainScopeHash,
+	}}, nil)
+	createdTokenUUID := ""
+	secretsState.EXPECT().CreateSecretBackendIssuedToken(gomock.Any()).DoAndReturn(func(tok state.SecretBackendIssuedToken) error {
+		createdTokenUUID = tok.UUID
+		c.Check(tok.ScopeHash, gc.Equals, drainScopeHash)
+		c.Check(tok.UUID, gc.Not(gc.Equals), "old-uuid")
+		return nil
+	})
+	secretProvider.EXPECT().RestrictedConfig(
+		&adminCfg, true, true, gomock.Any(), modelTag,
+		[]string{}, ownedRevs, readRevs,
+	).DoAndReturn(func(_ *provider.ModelBackendConfig, _, _ bool, gotIssuedTokenUUID string, _ names.Tag, _ []string, _, _ provider.SecretRevisions) (*provider.BackendConfig, error) {
+		c.Check(gotIssuedTokenUUID, gc.Equals, createdTokenUUID)
+		c.Check(gotIssuedTokenUUID, gc.Not(gc.Equals), "old-uuid")
+		return &adminCfg.BackendConfig, nil
+	})
+
+	info, err := secrets.DrainBackendConfigInfo("backend-id", model, modelTag, leadershipChecker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig:  provider.BackendConfig{BackendType: "some-backend"},
+			},
+		},
+	})
+}
+
+func issuedTokenScopeHash(forDrain bool, ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) string {
 	canonicalOwnedIDs := append([]string(nil), ownedIDs...)
 	slices.Sort(canonicalOwnedIDs)
 	canonicalOwnedIDs = slices.Compact(canonicalOwnedIDs)
 	payload := struct {
+		ForDrain  bool     `json:"for-drain"`
 		OwnedIDs  []string `json:"owned-ids"`
 		OwnedRevs []string `json:"owned-revs"`
 		ReadRevs  []string `json:"read-revs"`
 	}{
+		ForDrain:  forDrain,
 		OwnedIDs:  canonicalOwnedIDs,
 		OwnedRevs: ownedRevs.RevisionIDs(),
 		ReadRevs:  readRevs.RevisionIDs(),

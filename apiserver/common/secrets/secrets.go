@@ -335,7 +335,7 @@ func backendConfigInfo(
 
 	issuedTokenUUID := ""
 	if p.IssuesTokens() {
-		scopeHash, err := issuedTokenScopeHash(ownedIDs, ownedRevs, readRevs)
+		scopeHash, err := issuedTokenScopeHash(forDrain, ownedIDs, ownedRevs, readRevs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -404,16 +404,18 @@ func backendConfigInfo(
 	return info, nil
 }
 
-func issuedTokenScopeHash(ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) (string, error) {
+func issuedTokenScopeHash(forDrain bool, ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) (string, error) {
 	canonicalOwnedIDs := append([]string(nil), ownedIDs...)
 	slices.Sort(canonicalOwnedIDs)
 	canonicalOwnedIDs = slices.Compact(canonicalOwnedIDs)
 
 	payload := struct {
+		ForDrain  bool     `json:"for-drain"`
 		OwnedIDs  []string `json:"owned-ids"`
 		OwnedRevs []string `json:"owned-revs"`
 		ReadRevs  []string `json:"read-revs"`
 	}{
+		ForDrain:  forDrain,
 		OwnedIDs:  canonicalOwnedIDs,
 		OwnedRevs: ownedRevs.RevisionIDs(),
 		ReadRevs:  readRevs.RevisionIDs(),
