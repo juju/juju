@@ -314,3 +314,11 @@ replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20260112233
 replace github.com/juju/testing => ./internal/testhelpers/compat
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
+
+// github.com/juju/tc version v1.0.0 randomises the order of test cases, which
+// causes a lot of tests suites to fail. We need to fix this, but libraries that
+// depend on tc, should not be prohibited from using the latest version of tc.
+// We just need to make sure that juju/juju uses a version of tc that does not
+// randomise the order of test cases. Pin to a specific commit until the issue
+// is resolved.
+replace github.com/juju/tc => github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
