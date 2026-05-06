@@ -119,7 +119,7 @@ run_controller_clouds() {
 
 	## starting from Juju 4 we use user UUID instead of user name, not to overheat the test, we will just replace
 	## the user UUID with "admin-uuid" value in the output to make the test output easier to compare.
-	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json | yq -o=json '."my-ec2" | .users |= with_entries(if .key != "admin-uuid" then .key = "admin-uuid" else . end)')
+	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json | yq -o=json '."my-ec2" | .users |= with_entries(.key = "admin-uuid")')
 
 	EXPECTED=$(
 		yq -o=json <<'EOF'
