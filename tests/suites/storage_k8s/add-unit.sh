@@ -14,7 +14,7 @@ test_add_unit_attach_storage() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
+	juju deploy postgresql-k8s --channel 16/edge --trust -n 3
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
@@ -49,7 +49,7 @@ test_add_unit_attach_storage() {
 	done
 
 	# Deploy with --attach-storage. The storage should be attached to the psql-k8s/0 unit.
-	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
+	juju deploy postgresql-k8s --channel 16/edge --trust --attach-storage pgdata/0 psql-k8s
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	juju add-unit psql-k8s --attach-storage pgdata/1
@@ -98,7 +98,7 @@ test_add_unit_duplicate_pvc_exists() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
@@ -160,7 +160,7 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
+	juju deploy postgresql-k8s --channel 16/edge --trust -n 3
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
@@ -195,7 +195,7 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	done
 
 	# Deploy with --attach-storage. The storage should be attached to the psql-k8s/0 unit.
-	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
+	juju deploy postgresql-k8s --channel 16/edge --trust --attach-storage pgdata/0 psql-k8s
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	# Add unit and remove them immediately to make sure it wouldn't break the juju.

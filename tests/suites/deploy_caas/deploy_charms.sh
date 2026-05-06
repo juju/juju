@@ -9,7 +9,7 @@ run_deploy_charm() {
 
 	echo "Deploy some charms"
 	juju deploy discourse-k8s
-	juju deploy postgresql-k8s
+	juju deploy postgresql-k8s --trust --channel 16/edge
 	juju deploy redis-k8s --channel edge # stable redis is too old
 	juju deploy nginx-ingress-integrator
 	juju trust nginx-ingress-integrator --scope=cluster

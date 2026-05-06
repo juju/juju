@@ -15,7 +15,7 @@ test_deploy_attach_storage() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
@@ -41,7 +41,7 @@ test_deploy_attach_storage() {
 	wait_for_storage "detached" '.storage["pgdata/0"]["status"].current'
 
 	# Deploy with --attach-storage. The storage should be attached to the psql-k8s/0 unit.
-	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
+	juju deploy postgresql-k8s --channel 16/edge --trust --attach-storage pgdata/0 psql-k8s
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	OUT=$(kubectl get pv "${PV}" -o json | yq '.status.phase')

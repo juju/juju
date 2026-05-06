@@ -101,7 +101,7 @@ test_scale_and_update_storage() {
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
 
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 
 	# Wait until the application is active.
 	wait_for_active_units "postgresql-k8s" 1
@@ -161,7 +161,7 @@ test_scale_and_update_storage_successive() {
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
 
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	wait_for_active_units "postgresql-k8s" 1
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
@@ -268,7 +268,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	cleanup_deny_postgresql_sts_policy
 
 	# Wait until the application is active.
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	wait_for_active_units "postgresql-k8s" 1
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
@@ -339,7 +339,7 @@ test_scale_after_storage_update_crash() {
 	ensure "${model_name}" "${file}"
 	add_clean_func "cleanup_wrench_application_storage"
 
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	wait_for_active_units "postgresql-k8s" 1
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
@@ -404,7 +404,7 @@ test_scale_resumes_after_storage_update_missing_sts() {
 
 	cleanup_deny_postgresql_sts_policy
 
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	wait_for_active_units "postgresql-k8s" 1
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
@@ -491,7 +491,7 @@ test_storage_update_after_scale_crash() {
 	ensure "${model_name}" "${file}"
 	add_clean_func "cleanup_wrench_scale_application"
 
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	wait_for_active_units "postgresql-k8s" 1
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
@@ -567,7 +567,7 @@ test_remove_app_while_storage_update_stuck() {
 	cleanup_deny_postgresql_sts_policy
 
 	# Start with 3 replicas.
-	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
+	juju deploy postgresql-k8s --channel 16/edge --trust -n 3
 	wait_for_active_units "postgresql-k8s" 3
 	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
 	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"

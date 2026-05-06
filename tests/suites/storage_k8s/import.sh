@@ -14,7 +14,7 @@ test_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
@@ -75,7 +75,7 @@ test_force_import_filesystem() {
 
 	# Create a PersistentVolume by deploying and deleting an application.
 	echo "Create persistent volume to be imported"
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy postgresql-k8s --channel 16/edge --trust
 	# Ensure the storage is attached without waiting for the application to reach the active status.
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
