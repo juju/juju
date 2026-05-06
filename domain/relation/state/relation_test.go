@@ -4171,6 +4171,134 @@ func (s *relationSuite) TestInferRelationUUIDByEndpointsFailGetUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+// TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRelation tests that
+// when charm metadata has multiple compatible endpoint pairs (causing
+// ambiguity in inference), but only ONE relation actually exists between the
+// two applications, InferRelationUUIDByEndpoints successfully falls back to
+// finding the existing relation.
+func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousCharmSingleRelation(c *tc.C) {
+	// Arrange: Create two endpoints on app1 that can both relate to app2's
+	// endpoint (same interface, provider/requirer pair). This causes
+	// ambiguity during inference from charm metadata.
+	relation1a := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+	relation1b := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+	relation2a := charm.Relation{
+		Name:      "database",
+		Role:      charm.RoleRequirer,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+
+	charmRelUUID1a := s.addCharmRelation(c, s.fakeCharmUUID1, relation1a)
+	charmRelUUID1b := s.addCharmRelation(c, s.fakeCharmUUID1, relation1b)
+	_ = charmRelUUID1b // used only to create ambiguity in charm metadata
+	charmRelUUID2a := s.addCharmRelation(c, s.fakeCharmUUID2, relation2a)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	// Create application endpoints and a single actual relation between
+	// app1:db and app2:database.
+	appEndpointUUID1a := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1a)
+	s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1b)
+	appEndpointUUID2a := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelUUID2a)
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID, appEndpointUUID1a)
+	s.addRelationEndpoint(c, relUUID, appEndpointUUID2a)
+
+	candidate1 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	obtainedUUID, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
+
+	// Assert: despite ambiguity in charm metadata, falls back to the single
+	// existing relation.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedUUID, tc.Equals, relUUID)
+}
+
+// TestInferRelationUUIDByEndpointsAmbiguousMultipleExisting tests that when
+// charm metadata is ambiguous AND multiple relations actually exist between
+// the two applications, AmbiguousRelation is returned.
+func (s *relationSuite) TestInferRelationUUIDByEndpointsAmbiguousMultipleExisting(c *tc.C) {
+	// Arrange: Create two endpoints on app1 that can relate to two
+	// endpoints on app2.
+	relation1a := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+	relation1b := charm.Relation{
+		Name:      "db-admin",
+		Role:      charm.RoleProvider,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+	relation2a := charm.Relation{
+		Name:      "database",
+		Role:      charm.RoleRequirer,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+	relation2b := charm.Relation{
+		Name:      "first-database",
+		Role:      charm.RoleRequirer,
+		Interface: "postgresql_client",
+		Scope:     charm.ScopeGlobal,
+	}
+
+	charmRelUUID1a := s.addCharmRelation(c, s.fakeCharmUUID1, relation1a)
+	charmRelUUID1b := s.addCharmRelation(c, s.fakeCharmUUID1, relation1b)
+	charmRelUUID2a := s.addCharmRelation(c, s.fakeCharmUUID2, relation2a)
+	charmRelUUID2b := s.addCharmRelation(c, s.fakeCharmUUID2, relation2b)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	// Create application endpoints for both pairs.
+	appEndpointUUID1a := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1a)
+	appEndpointUUID1b := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelUUID1b)
+	appEndpointUUID2a := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelUUID2a)
+	appEndpointUUID2b := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelUUID2b)
+
+	// Create TWO actual relations.
+	relUUID1 := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID1, appEndpointUUID1a)
+	s.addRelationEndpoint(c, relUUID1, appEndpointUUID2a)
+
+	relUUID2 := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID2, appEndpointUUID1b)
+	s.addRelationEndpoint(c, relUUID2, appEndpointUUID2b)
+
+	candidate1 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName1,
+	}
+	candidate2 := domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: s.fakeApplicationName2,
+	}
+
+	// Act
+	_, err := s.state.InferRelationUUIDByEndpoints(c.Context(), candidate1, candidate2)
+
+	// Assert: multiple existing relations → ambiguous.
+	c.Assert(err, tc.ErrorIs, relationerrors.AmbiguousRelation)
+}
+
 func (s *relationSuite) TestInsertRelationUnitHappyPath(c *tc.C) {
 	// Arrange: Add a relation with endpoints
 	relationUUID := s.addRelation(c)
