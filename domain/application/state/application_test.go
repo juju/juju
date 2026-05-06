@@ -4322,3 +4322,72 @@ func (s *applicationStateSuite) TestGetDefaultSpaceUUIDFromModelConfig(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.Equals, spaceUUID)
 }
+
+// TestCreateCAASApplicationResetsExistingSequence is a regression test for
+// the case where redeploying a CAAS application with the same name after
+// deletion would produce unit/1 instead of unit/0, causing RegisterCAASUnit
+// to fail because Kubernetes StatefulSet pod ordinals always start at 0.
+// CreateCAASApplication must reset the sequence counter so that unit
+// numbering restarts from zero on redeployment.
+func (s *applicationStateSuite) TestCreateCAASApplicationResetsExistingSequence(c *tc.C) {
+	// Simulates initial application deployment and deletion by inserting a sequence row for the application.
+	_, err := s.DB().Exec(
+		"INSERT INTO sequence (namespace, value) VALUES ('application_app-name', 1)",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkApplicationSequence(c, "app-name", 1)
+
+	// Create the CAAS application.
+	_, err = s.state.CreateCAASApplication(c.Context(), "app-name", application.AddCAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: deployment.Platform{
+				Channel:      "22.04",
+				OSType:       deployment.Ubuntu,
+				Architecture: architecture.AMD64,
+			},
+			Charm: charm.Charm{
+				Metadata:      s.minimalMetadata(c, "app-name"),
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: "app-name",
+				Revision:      1,
+				Architecture:  architecture.AMD64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:  charm.ProvenanceDownload,
+				DownloadURL: "http://example.com/charm",
+			},
+		},
+		Scale: 0,
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure that the application sequence has been reset and there is no existing sequence for the application.
+	s.checkNoApplicationSequence(c, "app-name")
+}
+
+func (s *applicationStateSuite) checkNoApplicationSequence(c *tc.C, appName string) {
+	c.Helper()
+
+	row := s.DB().QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM sequence WHERE namespace = CONCAT('application_', ?))",
+		appName,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+func (s *applicationStateSuite) checkApplicationSequence(c *tc.C, appName string, value int) {
+	c.Helper()
+
+	row := s.DB().QueryRow(
+		"SELECT value FROM sequence WHERE namespace = CONCAT('application_', ?)",
+		appName,
+	)
+	var got int
+	err := row.Scan(&got)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, value)
+}
