@@ -49,9 +49,9 @@ type imageMetadataFilter struct {
 
 // imageMetadataFlags holds boolean flags for conditional filtering.
 type imageMetadataFlags struct {
-	HasVersion  int `db:"has_version"`
-	HasArch     int `db:"has_arch"`
-	HasRegion   int `db:"has_region"`
-	HasStream   int `db:"has_stream"`
-	HasImageID  int `db:"has_image_id"`
+	HasVersion int `db:"has_version"`
+	HasArch    int `db:"has_arch"`
+	HasRegion  int `db:"has_region"`
+	HasStream  int `db:"has_stream"`
+	HasImageID int `db:"has_image_id"`
 }

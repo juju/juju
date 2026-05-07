@@ -143,7 +143,9 @@ func (s *serviceSuite) TestGetProvisioningInfoMinimal(c *tc.C) {
 	}, nil)
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) { s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-uuid-1"} }))
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) {
+		s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-uuid-1"}
+	}))
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.MachineUUID, tc.Equals, coremachine.UUID("machine-uuid-1"))
@@ -749,7 +751,9 @@ func (s *serviceSuite) TestGetProvisioningInfoVolumes(c *tc.C) {
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("5"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) { s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-uuid-abc"} }))
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("5"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) {
+		s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-uuid-abc"}
+	}))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Volume has its attachment associated (same VolumeUUID).
@@ -860,8 +864,8 @@ func (s *serviceSuite) TestGetProvisioningInfoCloudInitUserData(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	stateInfo := provisioner.ProvisioningInfoState{
-		MachineUUID:       "machine-uuid-1",
-		Base:              corebase.MustParseBaseFromString("ubuntu@22.04"),
+		MachineUUID: "machine-uuid-1",
+		Base:        corebase.MustParseBaseFromString("ubuntu@22.04"),
 	}
 	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
 
@@ -958,7 +962,9 @@ func (s *serviceSuite) TestGetProvisioningInfoResourceTagsNotFound(c *tc.C) {
 	s.expectControllerDefaults()
 
 	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) { s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-1"} }))
+	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testSharedInfoWith(func(s *provisioner.SharedProvisioningInfo) {
+		s.ControllerConfig = map[string]any{"controller-uuid": "ctrl-1"}
+	}))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Standard tags are present.
