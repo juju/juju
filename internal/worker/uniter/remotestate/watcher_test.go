@@ -121,7 +121,8 @@ func (s *WatcherSuite) SetUpTest(c *tc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
-	s.rotateSecretWatcherEvent = make(chan string)
+	s.rotateSecretWatcherEvent = make(chan string, 1)
+	s.expireRevisionWatcherEvent = make(chan string, 1)
 	s.secretsClient = &mockSecretsClient{
 		secretsWatcher:           newMockStringsWatcher(),
 		obsoleteRevisionsWatcher: newMockStringsWatcher(),
@@ -132,6 +133,19 @@ func (s *WatcherSuite) SetUpTest(c *tc.C) {
 
 	s.workloadEventChannel = make(chan string)
 	s.shutdownChannel = make(chan bool)
+
+	c.Cleanup(func() {
+		s.uniterClient = nil
+		s.leadership = nil
+		s.watcher = nil
+		s.clock = nil
+		s.secretsClient = nil
+		s.rotateSecretWatcherEvent = nil
+		s.expireRevisionWatcherEvent = nil
+		s.applicationWatcher = nil
+		s.workloadEventChannel = nil
+		s.shutdownChannel = nil
+	})
 }
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *tc.C) {
