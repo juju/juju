@@ -1075,17 +1075,17 @@ func (c *MockDrainingStateRemoveMetadataCall) DoAndReturn(f func(context.Context
 }
 
 // TransitionBackendToS3 mocks base method.
-func (m *MockDrainingState) TransitionBackendToS3(arg0 context.Context, arg1 string, arg2 objectstore0.S3Credentials) error {
+func (m *MockDrainingState) TransitionBackendToS3(arg0 context.Context, arg1, arg2 string, arg3 objectstore0.S3Credentials) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransitionBackendToS3", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "TransitionBackendToS3", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // TransitionBackendToS3 indicates an expected call of TransitionBackendToS3.
-func (mr *MockDrainingStateMockRecorder) TransitionBackendToS3(arg0, arg1, arg2 any) *MockDrainingStateTransitionBackendToS3Call {
+func (mr *MockDrainingStateMockRecorder) TransitionBackendToS3(arg0, arg1, arg2, arg3 any) *MockDrainingStateTransitionBackendToS3Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransitionBackendToS3", reflect.TypeOf((*MockDrainingState)(nil).TransitionBackendToS3), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransitionBackendToS3", reflect.TypeOf((*MockDrainingState)(nil).TransitionBackendToS3), arg0, arg1, arg2, arg3)
 	return &MockDrainingStateTransitionBackendToS3Call{Call: call}
 }
 
@@ -1101,13 +1101,13 @@ func (c *MockDrainingStateTransitionBackendToS3Call) Return(arg0 error) *MockDra
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDrainingStateTransitionBackendToS3Call) Do(f func(context.Context, string, objectstore0.S3Credentials) error) *MockDrainingStateTransitionBackendToS3Call {
+func (c *MockDrainingStateTransitionBackendToS3Call) Do(f func(context.Context, string, string, objectstore0.S3Credentials) error) *MockDrainingStateTransitionBackendToS3Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDrainingStateTransitionBackendToS3Call) DoAndReturn(f func(context.Context, string, objectstore0.S3Credentials) error) *MockDrainingStateTransitionBackendToS3Call {
+func (c *MockDrainingStateTransitionBackendToS3Call) DoAndReturn(f func(context.Context, string, string, objectstore0.S3Credentials) error) *MockDrainingStateTransitionBackendToS3Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

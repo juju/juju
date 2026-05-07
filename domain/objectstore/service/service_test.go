@@ -606,7 +606,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 		SecretKey: "secret-key",
 	}
 
-	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), creds).Return(nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
@@ -621,7 +621,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3StateError(c *tc.C) {
 		SecretKey: "secret-key",
 	}
 
-	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorMatches, ".*boom.*")

@@ -118,7 +118,7 @@ type DrainingState interface {
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
-	TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
+	TransitionBackendToS3(ctx context.Context, backendUUID, drainUUID string, credential domainobjectstore.S3Credentials) error
 
 	// InitialWatchBackendTable returns the table for the object store backend.
 	InitialWatchBackendTable() (string, string)
@@ -622,8 +622,9 @@ func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.C
 }
 
 // TransitionBackendToS3 sets the object store to use S3 with the provided
-// credentials. This is used to update the object store information when the
-// object store is set to use S3 as the backend.
+// credentials. This atomically marks the current backend as dying, activates
+// the new S3 backend, and initiates the draining phase so the drainer worker
+// can begin migrating blobs.
 func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -632,12 +633,17 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 		return errors.Errorf("validating S3 credentials: %w", err)
 	}
 
-	uuid, err := objectstore.NewUUID()
+	backendUUID, err := objectstore.NewUUID()
 	if err != nil {
-		return errors.Errorf("creating new uuid: %w", err)
+		return errors.Errorf("creating new backend uuid: %w", err)
 	}
 
-	if err := s.st.TransitionBackendToS3(ctx, uuid.String(), credential); err != nil {
+	drainUUID, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new drain uuid: %w", err)
+	}
+
+	if err := s.st.TransitionBackendToS3(ctx, backendUUID.String(), drainUUID.String(), credential); err != nil {
 		return errors.Errorf("transitioning backend to S3: %w", err)
 	}
 	return nil

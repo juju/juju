@@ -849,8 +849,14 @@ WHERE life_id = 0`, backendInfo{})
 }
 
 // TransitionBackendToS3 sets the object store to use S3 with the provided
-// credentials. This is used to update the object store information when the
-// object store is set to use S3 as the backend.
+// credentials. This atomically performs all of:
+//   - Marks the current active backend as dying
+//   - Inserts the new S3 backend as active
+//   - Inserts S3 credentials
+//   - Initiates draining by inserting a drain info record
+//
+// The drain info record triggers the drainer worker (via changestream) to
+// begin migrating blobs from the old backend to the new S3 backend.
 //
 // This method returns the following errors:
 //   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
@@ -858,7 +864,7 @@ WHERE life_id = 0`, backendInfo{})
 //     while we're in the middle of a draining process.
 //   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a backend
 //     with the specified uuid.
-func (s *State) TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error {
+func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, credential domainobjectstore.S3Credentials) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -879,13 +885,13 @@ func (s *State) TransitionBackendToS3(ctx context.Context, uuid string, credenti
 	}
 
 	s3Creds := s3Credentials{
-		UUID:      uuid,
+		UUID:      bUUID,
 		Endpoint:  credential.Endpoint,
 		AccessKey: credential.AccessKey,
 		SecretKey: credential.SecretKey,
 	}
 	backend := newBackend{
-		UUID:      uuid,
+		UUID:      bUUID,
 		UpdatedAt: s.clock.Now().UTC(),
 	}
 
@@ -939,6 +945,26 @@ WHERE life_id = 1`, count{})
 		return errors.Errorf("preparing select dying backends statement: %w", err)
 	}
 
+	// Insert the draining phase record atomically with the backend
+	// transition. This ensures the drainer worker is notified immediately
+	// that draining has started.
+	insertDrainInfoStmt, err := s.Prepare(`
+INSERT INTO object_store_drain_info (uuid, phase_type_id, from_backend_uuid, to_backend_uuid)
+VALUES ($dbSetPhaseInfo.*)
+`, dbSetPhaseInfo{})
+	if err != nil {
+		return errors.Errorf("preparing insert drain info statement: %w", err)
+	}
+
+	// Get the current active backend UUID before marking it as dying.
+	getActiveBackendStmt, err := s.Prepare(`
+SELECT b.uuid AS &backendUUID.uuid
+FROM object_store_backend AS b
+WHERE b.life_id = 0`, backendUUID{})
+	if err != nil {
+		return errors.Errorf("preparing select active backend statement: %w", err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Ensure that we're not currently in a draining phase, as we don't want
 		// to update the backend information while we're in the middle of a
@@ -958,6 +984,15 @@ WHERE life_id = 1`, count{})
 			return errors.Errorf("checking dying backends: %w", err)
 		} else if dyingCount.Count > 0 {
 			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		}
+
+		// Capture the current active backend UUID before marking it as dying,
+		// as we need it for the drain info record.
+		var fromBackend backendUUID
+		if err := tx.Query(ctx, getActiveBackendStmt).Get(&fromBackend); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("no object store backend active")
+		} else if err != nil {
+			return errors.Errorf("getting active backend for drain: %w", err)
 		}
 
 		var outcome sqlair.Outcome
@@ -988,6 +1023,20 @@ WHERE life_id = 1`, count{})
 		if err := tx.Query(ctx, s3InsertStmt, s3Creds).Run(); err != nil {
 			return errors.Errorf("inserting object store information: %w", err)
 		}
+
+		// Atomically initiate the draining phase. The drainer worker watches
+		// object_store_drain_info and will begin draining blobs from the old
+		// backend to the new S3 backend once this row is visible.
+		drainInfo := dbSetPhaseInfo{
+			UUID:            dUUID,
+			PhaseTypeID:     1, // PhaseDraining
+			FromBackendUUID: fromBackend.UUID,
+			ToBackendUUID:   bUUID,
+		}
+		if err := tx.Query(ctx, insertDrainInfoStmt, drainInfo).Run(); err != nil {
+			return errors.Errorf("inserting drain info: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
