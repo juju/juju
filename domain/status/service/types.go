@@ -125,6 +125,7 @@ type Filesystem struct {
 	Life               life.Value
 	Status             status.StatusInfo
 	StorageID          string
+	PoolName           string
 	VolumeID           *string
 	ProviderID         string
 	SizeMiB            uint64
@@ -140,6 +141,7 @@ type Volume struct {
 	Life               life.Value
 	Status             status.StatusInfo
 	StorageID          string
+	PoolName           string
 	ProviderID         string
 	HardwareID         string
 	WWN                string

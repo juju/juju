@@ -38,7 +38,6 @@ func (s *commitHookSuite) TestCommitHookChanges(c *tc.C) {
 	// Arrange
 	arg := internal.CommitHookChangesArg{
 		UnitUUID:           s.unitUUID,
-		UpdateNetworkInfo:  true,
 		RelationSettings:   nil,
 		OpenPorts:          nil,
 		ClosePorts:         nil,
@@ -133,7 +132,7 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 
 	// Arrange: Add a unit to the relation.
 	unitName := coreunittesting.GenNewName(c, "app/7")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Arrange: setup the method input
@@ -368,7 +367,7 @@ func (s *commitHookSuite) TestCommitHookAddStorageVolumeBackedFilesystem(c *tc.C
 func (s *commitHookSuite) TestCommitHookAddStorageWithoutMachineOwnership(c *tc.C) {
 	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
 	unitName := coreunittesting.GenNewName(c, "app/8")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	netNodeUUID := s.getUnitNetNodeUUID(c, unitUUID.String())
 
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
@@ -561,9 +560,9 @@ func (s *commitHookSuite) TestGetCommitHookUnitInfoNotFound(c *tc.C) {
 func (s *commitHookSuite) TestEnsureCheckRelationExistsNotFound(c *tc.C) {
 	// Arrange: add a unit
 	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, "testname", network.AlphaSpaceId.String())
+	appUUID := s.addApplicationWithName(c, charmUUID, "testname", network.AlphaSpaceId.String())
 	unitName := coreunit.Name("testname/0")
-	unitUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+	unitUUID := s.addUnitAndNetNode(c, unitName, appUUID, charmUUID)
 
 	// Arrange: setup the method input with a non-existent relation uuid
 	arg := internal.CommitHookChangesArg{

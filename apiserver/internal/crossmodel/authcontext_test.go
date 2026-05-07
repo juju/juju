@@ -311,7 +311,7 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *tc.C) {
 		gomock.Any(),
 		bakery.LatestVersion,
 		s.caveatWithRelation(now),
-		crossModelRelateOp(relationTag.String()),
+		crossModelRelateOp(relationTag.Id()),
 	).Return(expected, nil)
 
 	authContext := s.newAuthContext(c)

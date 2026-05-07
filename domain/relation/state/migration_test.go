@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/juju/tc"
@@ -455,9 +456,23 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
+	// Endpoints are returned in canonical key order: requirer first, then
+	// provider for regular relations.
 	c.Check(exported, tc.SameContents, []domainrelation.ExportRelation{{
 		ID: 0,
 		Endpoints: []domainrelation.ExportEndpoint{{
+			ApplicationName: s.fakeApplicationName2,
+			Name:            endpoint2.Name,
+			Role:            endpoint2.Role,
+			Interface:       endpoint2.Interface,
+			Optional:        endpoint2.Optional,
+			Limit:           endpoint2.Limit,
+			Scope:           relationScope,
+			ApplicationSettings: map[string]any{
+				"app-foo": "app-bar",
+			},
+			AllUnitSettings: make(map[string]map[string]any),
+		}, {
 			ApplicationName: s.fakeApplicationName1,
 			Name:            endpoint1.Name,
 			Role:            endpoint1.Role,
@@ -474,18 +489,6 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 				},
 			},
 			ApplicationSettings: make(map[string]any),
-		}, {
-			ApplicationName: s.fakeApplicationName2,
-			Name:            endpoint2.Name,
-			Role:            endpoint2.Role,
-			Interface:       endpoint2.Interface,
-			Optional:        endpoint2.Optional,
-			Limit:           endpoint2.Limit,
-			Scope:           relationScope,
-			ApplicationSettings: map[string]any{
-				"app-foo": "app-bar",
-			},
-			AllUnitSettings: make(map[string]map[string]any),
 		}},
 	}, {
 		ID: 1,
@@ -501,6 +504,81 @@ func (s *migrationSuite) TestExportRelations(c *tc.C) {
 			ApplicationSettings: make(map[string]any),
 		}},
 	}})
+}
+
+// TestExportRelationsCanonicalOrder verifies that ExportRelations returns
+// endpoints in canonical key order (requirer first, provider second, peer last)
+// regardless of insertion order. All permutations of the SQL ORDER BY CASE role
+// block are exercised.
+func (s *migrationSuite) TestExportRelationsCanonicalOrder(c *tc.C) {
+	tests := []struct {
+		description    string
+		insertionRoles []charm.RelationRole
+		wantRoles      []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
+		},
+	}
+
+	// wantRolesByRelID maps relation_id → expected canonical role order.
+	wantRolesByRelID := make(map[int][]charm.RelationRole)
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Create fresh charms and apps per iteration to avoid UNIQUE
+		// constraint violations on (charm_uuid, name) in charm_relation.
+		charmUUIDs := make([]corecharm.ID, len(tt.insertionRoles))
+		appUUIDs := make([]coreapplication.UUID, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			charmUUIDs[j] = s.addCharm(c)
+			appUUIDs[j] = s.addApplication(c, charmUUIDs[j],
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relID := s.relationCount
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID, appEpUUID)
+		}
+		wantRolesByRelID[relID] = tt.wantRoles
+	}
+
+	exported, err := s.state.ExportRelations(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exported, tc.HasLen, len(tests))
+
+	for _, rel := range exported {
+		wantRoles, ok := wantRolesByRelID[rel.ID]
+		c.Assert(ok, tc.IsTrue, tc.Commentf("unexpected relation ID %d", rel.ID))
+		c.Assert(rel.Endpoints, tc.HasLen, len(wantRoles),
+			tc.Commentf("relation %d", rel.ID))
+		for j, wantRole := range wantRoles {
+			c.Check(rel.Endpoints[j].Role, tc.Equals, wantRole,
+				tc.Commentf("relation %d endpoint[%d]", rel.ID, j))
+		}
+	}
 }
 
 // addApplicationEndpointFromRelation creates and associates a new application

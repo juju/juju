@@ -157,9 +157,19 @@ func (st *State) AddRelation(
 
 // InferRelationUUIDByEndpoints infers the relation based on two endpoints.
 //
+// When the endpoint identifiers are not fully qualified (i.e., no endpoint
+// name is specified), this method first attempts to infer the relation from
+// charm metadata. If this results in ambiguity (multiple possible endpoint
+// pairs), it falls back to querying existing relations between the two
+// applications directly. This handles the common case where a user specifies
+// only application names for removal and there is a single existing relation
+// between them.
+//
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
 //     found.
+//   - [relationerrors.AmbiguousRelation] is returned if multiple existing
+//     relations are found between the two applications.
 func (st *State) InferRelationUUIDByEndpoints(
 	ctx context.Context,
 	epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier,
@@ -172,10 +182,21 @@ func (st *State) InferRelationUUIDByEndpoints(
 	var potentialUUIDs []relationUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
-		if errors.Is(err, relationerrors.CompatibleEndpointsNotFound) ||
-			errors.Is(err, relationerrors.RelationEndpointNotFound) ||
-			errors.Is(err, relationerrors.AmbiguousRelation) {
+		if errors.IsOneOf(err,
+			relationerrors.CompatibleEndpointsNotFound,
+			relationerrors.RelationEndpointNotFound,
+		) {
 			return relationerrors.RelationNotFound
+		} else if errors.Is(err, relationerrors.AmbiguousRelation) {
+			// Charm metadata yields multiple compatible endpoint pairs.
+			// Fall back to checking which relations actually exist between
+			// the two applications.
+			potentialUUIDs, err = st.getExistingRegularRelationUUIDBetweenApplications(
+				ctx, tx,
+				epIdentifier1.ApplicationName,
+				epIdentifier2.ApplicationName,
+			)
+			return err
 		} else if err != nil {
 			return errors.Errorf("inferring endpoints: %w", err)
 		}
@@ -196,12 +217,19 @@ func (st *State) InferRelationUUIDByEndpoints(
 		return "", errors.Capture(err)
 	}
 
-	if len(potentialUUIDs) > 1 {
-		// This should never happen.
-		return "", errors.Errorf("found multiple relations for endpoint pair")
+	switch len(potentialUUIDs) {
+	case 0:
+		return "", relationerrors.RelationNotFound
+	case 1:
+		return corerelation.UUID(potentialUUIDs[0].UUID), nil
+	default:
+		return "", errors.Errorf(
+			"%w: multiple relations exist between %q and %q",
+			relationerrors.AmbiguousRelation,
+			epIdentifier1.ApplicationName,
+			epIdentifier2.ApplicationName,
+		)
 	}
-
-	return corerelation.UUID(potentialUUIDs[0].UUID), nil
 }
 
 func (st *State) addRelation(
@@ -923,10 +951,19 @@ func (st *State) getRelationEndpoints(
 		UUID: uuid,
 	}
 
+	// Endpoints are ordered canonically: requirer first, then provider for
+	// regular relations, peer for peer relations. This guarantees that the
+	// resulting relation key is stable across calls and matches the form used
+	// elsewhere (e.g. names.RelationTag) without further reordering in Go.
 	stmt, err := st.Prepare(`
 SELECT &Endpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
+ORDER BY CASE role
+    WHEN 'requirer' THEN 0
+    WHEN 'provider' THEN 1
+    ELSE 2
+END
 `, id, Endpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -966,7 +1003,11 @@ func (st *State) exportRelationEndpoints(
 SELECT &exportEndpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
-ORDER BY endpoint_name
+ORDER BY CASE role
+    WHEN 'requirer' THEN 0
+    WHEN 'provider' THEN 1
+    ELSE 2
+END
 `, id, exportEndpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1052,6 +1093,57 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 		return uuid, relationerrors.RelationNotFound
 	}
 	return uuid, errors.Capture(err)
+}
+
+// getExistingRegularRelationUUIDBetweenApplications queries for all existing
+// non-peer relations between two applications identified by name. A non-peer
+// relation is one that has endpoints from two distinct applications. This is
+// used as a fallback when endpoint inference from charm metadata is ambiguous
+// but the user has specified only application names for relation removal.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if no existing relation
+//     is found between the two applications.
+func (st *State) getExistingRegularRelationUUIDBetweenApplications(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appName1, appName2 string,
+) ([]relationUUID, error) {
+	type applicationName1 struct {
+		Name string `db:"application_name"`
+	}
+	type applicationName2 struct {
+		Name string `db:"application_name"`
+	}
+	a1 := applicationName1{Name: appName1}
+	a2 := applicationName2{Name: appName2}
+
+	// Find relations that have endpoints from both applications. The INNER
+	// JOIN on two distinct endpoints of the same relation guarantees we only
+	// return regular (non-peer) relations, since peer relations have a
+	// single endpoint.
+	stmt, err := st.Prepare(`
+SELECT DISTINCT r.uuid AS &relationUUID.uuid
+FROM   relation r
+JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
+JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
+WHERE  e1.application_name = $applicationName1.application_name
+AND    e2.application_name = $applicationName2.application_name
+AND    e1.application_name != e2.application_name
+`, relationUUID{}, a1, a2)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var uuids []relationUUID
+	err = tx.Query(ctx, stmt, a1, a2).GetAll(&uuids)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, relationerrors.RelationNotFound
+	}
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return uuids, nil
 }
 
 // GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
@@ -2571,6 +2663,54 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	return endpointUUID.UUID, nil
 }
 
+// GetRelationUUIDsByUnitUUID retrieves the UUIDs of all in scope relations
+// for the specified unit.
+func (st *State) GetRelationUUIDsByUnitName(
+	ctx context.Context, unitName string,
+) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type relationUUIDRow struct {
+		RelationUUID string `db:"relation_uuid"`
+	}
+
+	ident := name{Name: unitName}
+	stmt, err := st.Prepare(`
+SELECT DISTINCT r.uuid AS &relationUUIDRow.relation_uuid
+FROM   relation AS r
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  u.name = $name.name
+`, relationUUIDRow{}, name{})
+	if err != nil {
+		return nil, errors.Errorf("preparing select unit relation uuids statement: %w", err)
+	}
+
+	var rows []relationUUIDRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit relation uuids: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	return transform.Slice(rows, func(row relationUUIDRow) string {
+		return row.RelationUUID
+	}), nil
+}
+
 // GetPrincipalSubordinateApplicationUUIDs returns the Principal and Subordinate
 // application UUIDs for the given unit. The principal will be the first UUID
 // returned and the subordinate will be the second. If the unit is not a
@@ -3198,6 +3338,12 @@ func (st *State) getRelationEndpointsByRelationUUIDs(ctx context.Context, tx *sq
 SELECT &endpointWithRelationUUID.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid IN ($relationUUIDsInput[:])
+ORDER BY relation_uuid,
+    CASE role
+        WHEN 'requirer' THEN 0
+        WHEN 'provider' THEN 1
+        ELSE 2
+    END
 `, relationUUIDsInput{}, endpointWithRelationUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)

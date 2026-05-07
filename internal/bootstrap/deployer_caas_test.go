@@ -73,7 +73,7 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 		},
 	}
 
-	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
+	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
 	})

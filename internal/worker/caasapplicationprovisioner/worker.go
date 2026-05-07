@@ -92,8 +92,8 @@ type ApplicationService interface {
 	// WatchApplications returns a watcher that observes changes to applications.
 	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
 
-	// UpsertCloudService updates the cloud service for the specified application.
-	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+	// UpdateK8sService updates the k8s service for the specified application.
+	UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application.

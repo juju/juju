@@ -430,11 +430,8 @@ func (c *precheckModel) checkRelations(ctx context.Context) error {
 				}
 				if !ok {
 					// means the unit is not in scope
-					key, err := relation.NewKey(transform.Slice(rel.Endpoints,
+					key := relation.Key(transform.Slice(rel.Endpoints,
 						domainrelation.Endpoint.EndpointIdentifier))
-					if err != nil {
-						return errors.Trace(err)
-					}
 					return errors.Errorf("unit %s hasn't joined relation %q yet", unitName, key)
 				}
 			}

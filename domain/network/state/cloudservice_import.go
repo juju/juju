@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// CreateCloudServices creates cloud service in state.
+// CreateK8sServices creates cloud service in state.
 // It creates the associated net node uuid and links it to the application
 // through the provided application name.
-func (st *State) CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error {
+func (st *State) CreateK8sServices(ctx context.Context, k8sServices []internal.ImportK8sService) error {
 
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -50,7 +50,7 @@ WHERE a.name = $service.application_name
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, svc := range cloudservices {
+		for _, svc := range k8sServices {
 			var outcome sqlair.Outcome
 			input := service{
 				UUID:            svc.UUID,

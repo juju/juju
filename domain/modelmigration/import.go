@@ -89,7 +89,7 @@ func ImportOperations(
 	storage.RegisterImport(
 		coordinator, storageRegistryGetter, configGetter, logger.Child("storage"),
 	)
-	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
+	network.RegisterImportK8sService(coordinator, logger.Child("k8sservice"))
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))

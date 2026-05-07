@@ -6046,40 +6046,40 @@ func (c *MockStateUpdateUnitCharmCall) DoAndReturn(f func(context.Context, inter
 	return c
 }
 
-// UpsertCloudService mocks base method.
-func (m *MockState) UpsertCloudService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
+// UpsertK8sService mocks base method.
+func (m *MockState) UpsertK8sService(arg0 context.Context, arg1, arg2 string, arg3 network.ProviderAddresses) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertCloudService", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpsertK8sService", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpsertCloudService indicates an expected call of UpsertCloudService.
-func (mr *MockStateMockRecorder) UpsertCloudService(arg0, arg1, arg2, arg3 any) *MockStateUpsertCloudServiceCall {
+// UpsertK8sService indicates an expected call of UpsertK8sService.
+func (mr *MockStateMockRecorder) UpsertK8sService(arg0, arg1, arg2, arg3 any) *MockStateUpsertK8sServiceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloudService", reflect.TypeOf((*MockState)(nil).UpsertCloudService), arg0, arg1, arg2, arg3)
-	return &MockStateUpsertCloudServiceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertK8sService", reflect.TypeOf((*MockState)(nil).UpsertK8sService), arg0, arg1, arg2, arg3)
+	return &MockStateUpsertK8sServiceCall{Call: call}
 }
 
-// MockStateUpsertCloudServiceCall wrap *gomock.Call
-type MockStateUpsertCloudServiceCall struct {
+// MockStateUpsertK8sServiceCall wrap *gomock.Call
+type MockStateUpsertK8sServiceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpsertCloudServiceCall) Return(arg0 error) *MockStateUpsertCloudServiceCall {
+func (c *MockStateUpsertK8sServiceCall) Return(arg0 error) *MockStateUpsertK8sServiceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertCloudServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertCloudServiceCall {
+func (c *MockStateUpsertK8sServiceCall) Do(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertK8sServiceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertCloudServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertCloudServiceCall {
+func (c *MockStateUpsertK8sServiceCall) DoAndReturn(f func(context.Context, string, string, network.ProviderAddresses) error) *MockStateUpsertK8sServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

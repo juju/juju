@@ -3110,6 +3110,68 @@ func (s *stateSuite) TestGetRelationEndpoint(c *tc.C) {
 	})
 }
 
+// TestGetRelationEndpointsCanonicalOrder verifies that GetRelationEndpoints
+// returns endpoints in canonical key order (requirer first, provider second,
+// peer last) regardless of insertion order. All permutations of the SQL
+// ORDER BY CASE role block are exercised.
+func (s *stateSuite) TestGetRelationEndpointsCanonicalOrder(c *tc.C) {
+	tests := []struct {
+		description    string
+		insertionRoles []charm.RelationRole
+		wantRoles      []charm.RelationRole
+	}{
+		{
+			description:    "provider inserted first, requirer second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleProvider, charm.RoleRequirer},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "requirer inserted first, provider second → canonical: requirer first",
+			insertionRoles: []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+			wantRoles:      []charm.RelationRole{charm.RoleRequirer, charm.RoleProvider},
+		},
+		{
+			description:    "peer relation (single endpoint) → canonical: peer",
+			insertionRoles: []charm.RelationRole{charm.RolePeer},
+			wantRoles:      []charm.RelationRole{charm.RolePeer},
+		},
+	}
+
+	for i, tt := range tests {
+		c.Log(tt.description)
+
+		// Create fresh apps per iteration to avoid UNIQUE constraint
+		// violations on (charm_uuid, name) in charm_relation.
+		appUUIDs := make([]string, len(tt.insertionRoles))
+		charmUUIDs := make([]string, len(tt.insertionRoles))
+		for j := range tt.insertionRoles {
+			appUUIDs[j], charmUUIDs[j] = s.setupApplication(c,
+				fmt.Sprintf("app-%d-%d", i, j))
+		}
+
+		relationUUID := s.addRelation(c)
+		for j, role := range tt.insertionRoles {
+			rel := charm.Relation{
+				Name:      fmt.Sprintf("ep-%d-%d", i, j),
+				Role:      role,
+				Interface: "database",
+				Scope:     charm.ScopeGlobal,
+			}
+			charmRelUUID := s.addCharmRelation(c, charmUUIDs[j], rel)
+			appEpUUID := s.addApplicationEndpoint(c, appUUIDs[j], charmRelUUID)
+			s.addRelationEndpoint(c, relationUUID.String(), appEpUUID)
+		}
+
+		obtained, err := s.state.GetRelationEndpoints(c.Context(), relationUUID.String())
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("%s", tt.description))
+		c.Assert(obtained, tc.HasLen, len(tt.wantRoles), tc.Commentf("%s", tt.description))
+		for j, wantRole := range tt.wantRoles {
+			c.Check(string(obtained[j].Role), tc.Equals, string(wantRole),
+				tc.Commentf("%s: endpoint[%d]", tt.description, j))
+		}
+	}
+}
+
 func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 
 	appUUID, charmUUID := s.setupApplication(c, "mysql")

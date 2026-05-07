@@ -77,9 +77,9 @@ type ApplicationService interface {
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
 
-	// UpdateCloudService updates the cloud service for the specified application, returning an error
+	// UpdateK8sService updates the cloud service for the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+	UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 }
 
 // BakeryConfigService describes the service used to initialise the

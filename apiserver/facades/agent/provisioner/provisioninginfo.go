@@ -98,6 +98,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 
 		// Attach the required controller config to the provisioning info,

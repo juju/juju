@@ -6,12 +6,15 @@ package bakery
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
@@ -47,11 +50,15 @@ func NewJAASOfferBakery(
 	logger logger.Logger,
 ) (*JAASOfferBakery, error) {
 	store := apimacaroon.NewRootKeyStore(backingStore, apimacaroon.DefaultPolicy, clock)
-
-	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
+	cleanedEndpoint, err := cleanDischargeURL(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	externalKeyLocator := newExternalPublicKeyLocator(cleanedEndpoint, httpClient, logger)
 	bakery := &bakeryutil.StorageBakery{
 		Bakery: bakery.New(bakery.BakeryParams{
 			Location:      location,
+			Key:           keyPair,
 			Locator:       externalKeyLocator,
 			RootKeyStore:  store,
 			Checker:       checker,
@@ -62,10 +69,31 @@ func NewJAASOfferBakery(
 	return &JAASOfferBakery{
 		baseBakery: baseBakery{checker: bakery.Checker},
 		oven:       bakery,
-		endpoint:   endpoint,
+		endpoint:   cleanedEndpoint,
 		clock:      clock,
 		logger:     logger,
 	}, nil
+}
+
+// cleanDischargeURL expects an address to JIMM's login-token-refresh-url,
+// and attempts to remove the .well-known/jwks.json path segments,
+// whilst preserving any pre-existing prefixes.
+//
+// For example:
+//   - jimm.com/.well-known/jwks.json -> jimm.com/macaroons
+//   - jimm.com/myprefix/.well-known/jwks.json -> jimm.com/myprefix/macaroons
+func cleanDischargeURL(addr string) (string, error) {
+	refreshURL, err := url.Parse(addr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	cleanedPath, ok := strings.CutSuffix(refreshURL.Path, "/.well-known/jwks.json")
+	if !ok {
+		return "", errors.Trace(errors.New("failed to cut .well-known"))
+	}
+	refreshURL.Path = path.Join(cleanedPath, "macaroons")
+
+	return refreshURL.String(), nil
 }
 
 // GetConsumeOfferCaveats returns the caveats for consuming an offer.
