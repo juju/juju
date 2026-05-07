@@ -3839,8 +3839,10 @@ SELECT r.uuid AS &relationIDUUIDAppName.uuid,
 FROM   relation AS r
 JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 WHERE  a.uuid = $entityUUID.uuid
+ORDER BY cr.role_id, r.relation_id
 `, relationIDUUIDAppName{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
