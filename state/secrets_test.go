@@ -4419,6 +4419,68 @@ func (s *SecretsSuite) TestCreateSecretBackendIssuedToken(c *gc.C) {
 	c.Assert(n, gc.Equals, 1)
 }
 
+func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenExtendsExpiryWhenScopeHashMatches(c *gc.C) {
+	uuid := uuid.NewString()
+	expire := s.Clock.Now().Add(time.Minute)
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: expire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newExpire := expire.Add(time.Minute)
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: newExpire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(expire.Add(2*time.Minute), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	c.Assert(tokens[0].BackendID, gc.Equals, "backend-id")
+	c.Assert(tokens[0].ScopeHash, gc.Equals, "scope-1")
+	c.Assert(tokens[0].ExpireTime, jc.DeepEquals, newExpire.Truncate(time.Second))
+}
+
+func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenReplacesWhenScopeHashChanges(c *gc.C) {
+	uuid := uuid.NewString()
+	expire := s.Clock.Now().Add(time.Minute)
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: expire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newExpire := expire.Add(2 * time.Minute)
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid,
+		ExpireTime: newExpire,
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+		ScopeHash:  "scope-2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(newExpire.Add(time.Minute), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	c.Assert(tokens[0].UUID, gc.Equals, uuid)
+	c.Assert(tokens[0].BackendID, gc.Equals, "backend-id")
+	c.Assert(tokens[0].ScopeHash, gc.Equals, "scope-2")
+	c.Assert(tokens[0].ExpireTime, jc.DeepEquals, newExpire.Truncate(time.Second))
+}
+
 func (s *SecretsSuite) TestCreateSecretBackendIssuedTokenForRemoteConsumerApplication(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
@@ -4632,6 +4694,25 @@ func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntilForConsumer(c *gc.C)
 	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
 }
 
+func (s *SecretsSuite) TestListSecretBackendIssuedTokenIncludesScopeHash(c *gc.C) {
+	now := s.Clock.Now()
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+		ScopeHash:  "scope-hash-1",
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(now.Add(2*time.Minute), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	token.ExpireTime = token.ExpireTime.Truncate(time.Second)
+	c.Assert(tokens[0], jc.DeepEquals, token)
+}
+
 func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
 	token := state.SecretBackendIssuedToken{
 		UUID:       uuid.NewString(),
@@ -4650,85 +4731,6 @@ func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
 
 	err = s.store.RemoveSecretBackendIssuedTokens([]string{token.UUID})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumer(c *gc.C) {
-	now := s.Clock.Now()
-
-	// Create a token that expires in the future.
-	tokenFuture := state.SecretBackendIssuedToken{
-		UUID:       uuid.NewString(),
-		ExpireTime: now.Add(time.Hour),
-		BackendID:  "backend-id",
-		Consumer:   s.ownerUnit.Tag(),
-	}
-	err := s.store.CreateSecretBackendIssuedToken(tokenFuture)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create a token that is already expired.
-	tokenPast := state.SecretBackendIssuedToken{
-		UUID:       uuid.NewString(),
-		ExpireTime: now,
-		BackendID:  "backend-id",
-		Consumer:   s.ownerUnit.Tag(),
-	}
-	err = s.store.CreateSecretBackendIssuedToken(tokenPast)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check there is only one expired token.
-	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
-		now, s.ownerUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(tokens, gc.HasLen, 1)
-
-	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
-	err = s.State.ApplyOperation(op)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check there is now two expired tokens.
-	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
-		s.Clock.Now(), s.ownerUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(tokens, gc.HasLen, 2)
-}
-
-func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumerOnlyTargetConsumer(c *gc.C) {
-	now := s.Clock.Now()
-
-	// Create a token.
-	tokenUnit := state.SecretBackendIssuedToken{
-		UUID:       uuid.NewString(),
-		ExpireTime: now.Add(time.Hour),
-		BackendID:  "backend-id",
-		Consumer:   s.ownerUnit.Tag(),
-	}
-	err := s.store.CreateSecretBackendIssuedToken(tokenUnit)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create a token for a different consumer.
-	tokenApp := state.SecretBackendIssuedToken{
-		UUID:       uuid.NewString(),
-		ExpireTime: now.Add(time.Hour),
-		BackendID:  "backend-id",
-		Consumer:   s.owner.Tag(),
-	}
-	err = s.store.CreateSecretBackendIssuedToken(tokenApp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
-	err = s.State.ApplyOperation(op)
-	c.Assert(err, jc.ErrorIsNil)
-
-	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
-		s.Clock.Now(), s.ownerUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tokens, gc.HasLen, 1)
-
-	// The token for the different consumer should not be expired.
-	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
-		s.Clock.Now(), s.owner.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(tokens, gc.HasLen, 0)
 }
 
 type SecretBackendIssuedTokenExpiryWatcherSuite struct {

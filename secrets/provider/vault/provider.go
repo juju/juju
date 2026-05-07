@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -260,24 +262,28 @@ func (p vaultProvider) RestrictedConfig(
 
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
-	for _, id := range owned {
+	for _, id := range set.NewStrings(owned...).SortedValues() {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
 		rules = append(rules, rule)
 	}
 
 	// Any secrets consumed by the agent can be read etc.
 	logger.Debugf("consumed secret revisions: %#v", readRevs)
+	readRevIDs := set.NewStrings()
 	for _, revs := range readRevs {
-		for _, revId := range revs.Values() {
-			rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revId)
-			rules = append(rules, rule)
+		for _, revID := range revs.Values() {
+			readRevIDs.Add(revID)
 		}
+	}
+	for _, revID := range readRevIDs.SortedValues() {
+		rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revID)
+		rules = append(rules, rule)
 	}
 
 	policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
-	err = sys.PutPolicyWithContext(ctx, policyName, strings.Join(rules, "\n"))
+	err = p.ensureSecretAccessPolicy(ctx, sys, policyName, rules)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating policy %q", policyName)
+		return nil, errors.Trace(err)
 	}
 	logger.Tracef("policy rules for %q: %#v", policyName, rules)
 
@@ -297,8 +303,56 @@ func (p vaultProvider) RestrictedConfig(
 	}
 
 	cfg := adminCfg.BackendConfig
+	cfg.Config = map[string]interface{}{}
+	for k, v := range adminCfg.BackendConfig.Config {
+		cfg.Config[k] = v
+	}
 	cfg.Config[TokenKey] = s.Auth.ClientToken
 	return &cfg, nil
+}
+
+func (p vaultProvider) ensureSecretAccessPolicy(
+	ctx context.Context,
+	sys *api.Sys,
+	policyName string,
+	rules []string,
+) error {
+	policyRules := strings.Join(rules, "\n")
+	existingRules, err := sys.GetPolicyWithContext(ctx, policyName)
+	if err != nil {
+		return errors.Annotatef(err, "getting policy %q", policyName)
+	}
+	// Should never happen.
+	if existingRules != "" {
+		if normalizePolicyRules(existingRules) != normalizePolicyRules(policyRules) {
+			return errors.NotSupportedf("changing rules for policy %q", policyName)
+		}
+		return nil
+	}
+	err = sys.PutPolicyWithContext(ctx, policyName, policyRules)
+	if err != nil {
+		return errors.Annotatef(err, "creating policy %q", policyName)
+	}
+	return nil
+}
+
+func normalizePolicyRules(rules string) string {
+	lines := strings.Split(rules, "\n")
+	seen := set.NewStrings()
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if seen.Contains(line) {
+			continue
+		}
+		seen.Add(line)
+		out = append(out, line)
+	}
+	sort.Strings(out)
+	return strings.Join(out, "\n")
 }
 
 // NewVaultClient is patched for testing.

@@ -5,7 +5,10 @@ package secrets
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"slices"
 	"sort"
 	"time"
 
@@ -332,21 +335,54 @@ func backendConfigInfo(
 
 	issuedTokenUUID := ""
 	if p.IssuesTokens() {
-		v, err := uuid.NewRandom()
+		scopeHash, err := issuedTokenScopeHash(forDrain, ownedIDs, ownedRevs, readRevs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		issuedTokenUUID = v.String()
 
-		args := state.SecretBackendIssuedToken{
-			UUID:       issuedTokenUUID,
-			ExpireTime: time.Now().Add(coresecrets.IssuedTokenValidity),
-			BackendID:  backendID,
-			Consumer:   authTag,
-		}
-		err = secretsState.CreateSecretBackendIssuedToken(args)
+		now := time.Now().UTC().Truncate(time.Second)
+		expireTime := now.Add(coresecrets.IssuedTokenValidity)
+		existing, err := secretsState.ListSecretBackendIssuedTokenUntilForConsumer(expireTime, authTag)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		for _, tok := range existing {
+			if tok.ExpireTime.Before(now) || tok.BackendID != backendID || tok.ScopeHash != scopeHash {
+				continue
+			}
+			issuedTokenUUID = tok.UUID
+			// Refresh token expiry on reuse.
+			err = secretsState.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+				UUID:       issuedTokenUUID,
+				ExpireTime: expireTime,
+				BackendID:  backendID,
+				Consumer:   authTag,
+				ScopeHash:  scopeHash,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger.Tracef("reusing token=%q consumer=%q scope=%q", issuedTokenUUID, authTag.String(), scopeHash)
+			break
+		}
+		if issuedTokenUUID == "" {
+			v, err := uuid.NewRandom()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			issuedTokenUUID = v.String()
+
+			args := state.SecretBackendIssuedToken{
+				UUID:       issuedTokenUUID,
+				ExpireTime: expireTime,
+				BackendID:  backendID,
+				Consumer:   authTag,
+				ScopeHash:  scopeHash,
+			}
+			err = secretsState.CreateSecretBackendIssuedToken(args)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 
@@ -366,6 +402,31 @@ func backendConfigInfo(
 		BackendConfig:  *cfg,
 	}
 	return info, nil
+}
+
+func issuedTokenScopeHash(forDrain bool, ownedIDs []string, ownedRevs, readRevs provider.SecretRevisions) (string, error) {
+	canonicalOwnedIDs := append([]string(nil), ownedIDs...)
+	slices.Sort(canonicalOwnedIDs)
+	canonicalOwnedIDs = slices.Compact(canonicalOwnedIDs)
+
+	payload := struct {
+		ForDrain  bool     `json:"for-drain"`
+		OwnedIDs  []string `json:"owned-ids"`
+		OwnedRevs []string `json:"owned-revs"`
+		ReadRevs  []string `json:"read-revs"`
+	}{
+		ForDrain:  forDrain,
+		OwnedIDs:  canonicalOwnedIDs,
+		OwnedRevs: ownedRevs.RevisionIDs(),
+		ReadRevs:  readRevs.RevisionIDs(),
+	}
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
 }
 
 func getExternalRevisions(
