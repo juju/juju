@@ -33,6 +33,15 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Errorf("getting controller config: %w", err)
 	}
 
+	// Fetch initial provisioning data once for all machines.
+	shared, err := api.provisioningService.GetPreludeProvisioningInfo(ctx)
+	if err != nil {
+		return result, errors.Errorf("getting shared provisioning info: %w", err)
+	}
+
+	// Add controller config to shared info so it's available to all machines.
+	shared.ControllerConfig = controllerConfig
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil || !canAccess(tag) {
@@ -41,7 +50,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		}
 		machineName := coremachine.Name(tag.Id())
 
-		info, err := api.provisioningService.GetProvisioningInfo(ctx, machineName, api.isControllerModel, controllerConfig)
+		info, err := api.provisioningService.GetProvisioningInfo(ctx, machineName, api.isControllerModel, shared)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %s", machineName))
 			continue

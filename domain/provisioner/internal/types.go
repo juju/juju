@@ -30,9 +30,6 @@ type ProvisioningInfoState struct {
 	// IsController indicates whether the machine is a controller machine.
 	IsController bool
 
-	// ModelName is the name of the model this machine belongs to.
-	ModelName string
-
 	// UnitNames holds the unit names assigned to this machine with
 	// their principal info.
 	UnitNames []coreunit.NameWithPrincipal
@@ -49,9 +46,16 @@ type ProvisioningInfoState struct {
 	// RootDiskStoragePool holds the storage pool for the root disk,
 	// or nil if no root-disk-source constraint was specified.
 	RootDiskStoragePool *StoragePool
+}
 
+// SharedProvisioningInfoState holds model-wide data that is the same for
+// all machines and can be fetched once per batch request.
+type SharedProvisioningInfoState struct {
 	// Spaces holds all spaces with their subnets and availability zones.
 	Spaces network.SpaceInfos
+
+	// ModelName is the name of the model.
+	ModelName string
 
 	// CloudInitUserData holds the raw cloud-init user data YAML string
 	// from model config.

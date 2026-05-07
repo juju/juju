@@ -1322,8 +1322,47 @@ func (m *MockProvisioningService) EXPECT() *MockProvisioningServiceMockRecorder 
 	return m.recorder
 }
 
+// GetPreludeProvisioningInfo mocks base method.
+func (m *MockProvisioningService) GetPreludeProvisioningInfo(arg0 context.Context) (provisioner.SharedProvisioningInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPreludeProvisioningInfo", arg0)
+	ret0, _ := ret[0].(provisioner.SharedProvisioningInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPreludeProvisioningInfo indicates an expected call of GetPreludeProvisioningInfo.
+func (mr *MockProvisioningServiceMockRecorder) GetPreludeProvisioningInfo(arg0 any) *MockProvisioningServiceGetPreludeProvisioningInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPreludeProvisioningInfo", reflect.TypeOf((*MockProvisioningService)(nil).GetPreludeProvisioningInfo), arg0)
+	return &MockProvisioningServiceGetPreludeProvisioningInfoCall{Call: call}
+}
+
+// MockProvisioningServiceGetPreludeProvisioningInfoCall wrap *gomock.Call
+type MockProvisioningServiceGetPreludeProvisioningInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProvisioningServiceGetPreludeProvisioningInfoCall) Return(arg0 provisioner.SharedProvisioningInfo, arg1 error) *MockProvisioningServiceGetPreludeProvisioningInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProvisioningServiceGetPreludeProvisioningInfoCall) Do(f func(context.Context) (provisioner.SharedProvisioningInfo, error)) *MockProvisioningServiceGetPreludeProvisioningInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProvisioningServiceGetPreludeProvisioningInfoCall) DoAndReturn(f func(context.Context) (provisioner.SharedProvisioningInfo, error)) *MockProvisioningServiceGetPreludeProvisioningInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetProvisioningInfo mocks base method.
-func (m *MockProvisioningService) GetProvisioningInfo(arg0 context.Context, arg1 machine.Name, arg2 bool, arg3 controller.Config) (provisioner.ProvisioningInfo, error) {
+func (m *MockProvisioningService) GetProvisioningInfo(arg0 context.Context, arg1 machine.Name, arg2 bool, arg3 provisioner.SharedProvisioningInfo) (provisioner.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProvisioningInfo", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(provisioner.ProvisioningInfo)
@@ -1350,13 +1389,13 @@ func (c *MockProvisioningServiceGetProvisioningInfoCall) Return(arg0 provisioner
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProvisioningServiceGetProvisioningInfoCall) Do(f func(context.Context, machine.Name, bool, controller.Config) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
+func (c *MockProvisioningServiceGetProvisioningInfoCall) Do(f func(context.Context, machine.Name, bool, provisioner.SharedProvisioningInfo) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProvisioningServiceGetProvisioningInfoCall) DoAndReturn(f func(context.Context, machine.Name, bool, controller.Config) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
+func (c *MockProvisioningServiceGetProvisioningInfoCall) DoAndReturn(f func(context.Context, machine.Name, bool, provisioner.SharedProvisioningInfo) (provisioner.ProvisioningInfo, error)) *MockProvisioningServiceGetProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

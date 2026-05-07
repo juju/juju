@@ -622,10 +622,6 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.provisioningService = NewMockProvisioningService(ctrl)
 
-	// ControllerConfig is fetched once per ProvisioningInfo call (before the loop).
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
-		Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
-
 	s.api = &ProvisionerAPI{
 		applicationService:      s.applicationService,
 		machineService:          s.machineService,
@@ -661,60 +657,14 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func TestWithControllerSuite(t *testing.T) {
-	tc.Run(t, &withControllerSuite{})
-}
-
-type withControllerSuite struct {
-	apiAddressAccessor      *MockAPIAddressAccessor
-	controllerConfigService *MockControllerConfigService
-}
-
-func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	addrs := []string{"0.1.2.3:1234"}
-	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
-	provisioner := &ProvisionerAPI{APIAddresser: common.NewAPIAddresser(s.apiAddressAccessor, nil)}
-
-	// Act
-	result, err := provisioner.APIAddresses(c.Context())
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.StringsResult{
-		Result: []string{"0.1.2.3:1234"},
-	})
-}
-
-func (s *withControllerSuite) TestCACert(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	// Arrange
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
-	provisioner := &ProvisionerAPI{controllerConfigService: s.controllerConfigService}
-
-	// Act
-	result, err := provisioner.CACert(c.Context())
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.BytesResult{
-		Result: []byte(coretesting.CACert),
-	})
-}
-
-func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.apiAddressAccessor = NewMockAPIAddressAccessor(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-
-	c.Cleanup(func() {
-		s.apiAddressAccessor = nil
-		s.controllerConfigService = nil
-	})
-
-	return ctrl
+// expectSharedProvisioningInfo sets up expectations for ControllerConfig and
+// GetPreludeProvisioningInfo which are called once per ProvisioningInfo batch
+// request, before the per-machine loop.
+func (s *provisionerMockSuite) expectSharedProvisioningInfo() {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
+		Return(coretesting.FakeControllerConfig(), nil)
+	s.provisioningService.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
+		Return(domainprovisioner.SharedProvisioningInfo{}, nil)
 }
 
 // TestProvisioningInfoErrorContinues verifies that when GetProvisioningInfo
@@ -722,6 +672,8 @@ func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 // continues processing subsequent machines (the continue statement).
 func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	// Machine-0: provisioning service returns MachineNotFound.
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
@@ -754,6 +706,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 // access denial results in ErrPerm and does not panic.
 func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	// Override the auth function to deny access to machine-0.
 	s.api.getAuthFunc = func(context.Context) (common.AuthFunc, error) {
@@ -790,6 +744,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
 			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
@@ -818,6 +774,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 // populated in the provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
@@ -863,6 +821,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {
 func (s *provisionerMockSuite) TestProvisioningInfoWithRootDisk(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
@@ -894,6 +854,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithRootDisk(c *tc.C) {
 func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	cloudInitData := map[string]any{
 		"packages":        []any{"python3-pip", "curl"},
 		"package_upgrade": true,
@@ -922,6 +884,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoCloudInitUserData(c *tc.C) {
 // are correctly mapped to the API result.
 func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
@@ -960,6 +924,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithEndpointBindings(c *tc.C)
 func (s *provisionerMockSuite) TestProvisioningInfoWithNetworkTopology(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
@@ -997,6 +963,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithNetworkTopology(c *tc.C) 
 func (s *provisionerMockSuite) TestProvisioningInfoServiceError(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("99"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{}, machineerrors.MachineNotFound)
 
@@ -1014,6 +982,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoServiceError(c *tc.C) {
 // from the machine is included in provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	placement := "zone=us-east-1a"
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
@@ -1039,6 +1009,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithPlacement(c *tc.C) {
 func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	cons := constraints.MustParse("cores=4 mem=8G")
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
@@ -1063,6 +1035,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithConstraints(c *tc.C) {
 // Other machines and non-machine tags are denied.
 func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c *tc.C) {
 	defer s.setup(c).Finish()
+
+	s.expectSharedProvisioningInfo()
 
 	// Only machine-0 and its containers are accessible.
 	s.api.getAuthFunc = func(context.Context) (common.AuthFunc, error) {
@@ -1116,6 +1090,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionsMultipleMachines(c
 func (s *provisionerMockSuite) TestProvisioningInfoInvalidTag(c *tc.C) {
 	defer s.setup(c).Finish()
 
+	s.expectSharedProvisioningInfo()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-foo"},
 	}}
@@ -1124,4 +1100,60 @@ func (s *provisionerMockSuite) TestProvisioningInfoInvalidTag(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
 	c.Check(result.Results[0].Error.Message, tc.Equals, "permission denied")
+}
+
+type withControllerSuite struct {
+	apiAddressAccessor      *MockAPIAddressAccessor
+	controllerConfigService *MockControllerConfigService
+}
+
+func TestWithControllerSuite(t *testing.T) {
+	tc.Run(t, new(withControllerSuite))
+}
+
+func (s *withControllerSuite) TestAPIAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	addrs := []string{"0.1.2.3:1234"}
+	s.apiAddressAccessor.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
+	provisioner := &ProvisionerAPI{APIAddresser: common.NewAPIAddresser(s.apiAddressAccessor, nil)}
+
+	// Act
+	result, err := provisioner.APIAddresses(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsResult{
+		Result: []string{"0.1.2.3:1234"},
+	})
+}
+
+func (s *withControllerSuite) TestCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+	provisioner := &ProvisionerAPI{controllerConfigService: s.controllerConfigService}
+
+	// Act
+	result, err := provisioner.CACert(c.Context())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BytesResult{
+		Result: []byte(coretesting.CACert),
+	})
+}
+
+func (s *withControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.apiAddressAccessor = NewMockAPIAddressAccessor(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+
+	c.Cleanup(func() {
+		s.apiAddressAccessor = nil
+		s.controllerConfigService = nil
+	})
+
+	return ctrl
 }

@@ -184,13 +184,20 @@ type RemovalService interface {
 // for a machine. This replaces the multiple per-machine service calls with
 // a single domain-level aggregation.
 type ProvisioningService interface {
+	// GetPreludeProvisioningInfo retrieves model-wide provisioning data that
+	// is the same for all machines. This should be called once per batch
+	// request and the result passed to each per-machine GetProvisioningInfo.
+	GetPreludeProvisioningInfo(
+		ctx context.Context,
+	) (domainprovisioner.SharedProvisioningInfo, error)
+
 	// GetProvisioningInfo returns the complete provisioning information for a
-	// machine, consolidating all data from the model and controller databases
-	// into a single call.
+	// machine. The shared parameter holds model-wide data fetched once per
+	// batch; pass it from GetPreludeProvisioningInfo.
 	GetProvisioningInfo(
 		ctx context.Context,
 		machineName coremachine.Name,
 		isControllerModel bool,
-		controllerConfig controller.Config,
+		shared domainprovisioner.SharedProvisioningInfo,
 	) (domainprovisioner.ProvisioningInfo, error)
 }

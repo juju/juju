@@ -9,12 +9,17 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/provisioner/internal"
 )
 
 // ProvisioningInfoState is the raw data gathered from the model DB in a
 // single transaction. The service transforms this into ProvisioningInfo.
 type ProvisioningInfoState = internal.ProvisioningInfoState
+
+// SharedProvisioningInfoState holds model-wide data that is the same for
+// all machines and can be fetched once per batch request.
+type SharedProvisioningInfoState = internal.SharedProvisioningInfoState
 
 // VolumeProvisioningParams holds raw volume provisioning data from the
 // state layer.
@@ -32,6 +37,43 @@ type CloudImageMetadata = internal.CloudImageMetadata
 
 // ImageConstraint holds the parameters for an image metadata search.
 type ImageConstraint = internal.ImageConstraint
+
+// SharedProvisioningInfo holds model-wide and controller-wide data that
+// is the same for all machines. This is fetched once per batch request by
+// GetPreludeProvisioningInfo and passed into each per-machine
+// GetProvisioningInfo call.
+type SharedProvisioningInfo struct {
+	// Spaces holds all spaces with their subnets and availability zones.
+	Spaces network.SpaceInfos
+
+	// ModelName is the name of the model.
+	ModelName string
+
+	// CloudInitUserData holds the raw cloud-init user data YAML string.
+	CloudInitUserData string
+
+	// ImageStream is the image stream from model config.
+	ImageStream string
+
+	// ResourceTags holds the raw resource tags string from model config.
+	ResourceTags string
+
+	// CloudType is the cloud type (e.g. "ec2", "azure", "openstack").
+	CloudType string
+
+	// CloudRegion is the cloud region name.
+	CloudRegion string
+
+	// CloudName is the name of the cloud.
+	CloudName string
+
+	// CloudEndpoint is the cloud endpoint URL (from controller DB).
+	CloudEndpoint string
+
+	// ControllerConfig holds the controller configuration (from
+	// controller DB).
+	ControllerConfig controller.Config
+}
 
 // ProvisioningInfo holds the complete set of information required to
 // provision a machine instance. This is the final output of the

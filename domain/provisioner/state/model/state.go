@@ -38,12 +38,53 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 	}
 }
 
-// GetProvisioningInfo retrieves all provisioning data for a machine in a
+// GetPreludeProvisioningInfo retrieves model-wide provisioning data that is
+// the same for all machines. This should be called once per batch request.
+func (st *State) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfoState, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return provisioner.SharedProvisioningInfoState{}, errors.Capture(err)
+	}
+
+	var result provisioner.SharedProvisioningInfoState
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var txErr error
+
+		// Query 1: All spaces with subnets and AZs.
+		result.Spaces, txErr = st.getAllSpaces(ctx, tx)
+		if txErr != nil {
+			return txErr
+		}
+
+		// Query 2: Model config values for provisioner.
+		result.CloudInitUserData, result.ImageStream, result.ResourceTags, txErr = st.getModelConfigValues(ctx, tx)
+		if txErr != nil {
+			return txErr
+		}
+
+		// Query 3: Model identity info (name, cloud type, region, cloud name).
+		result.ModelName, result.CloudType, result.CloudRegion, result.CloudName, txErr = st.getModelInfo(ctx, tx)
+		if txErr != nil {
+			return txErr
+		}
+
+		return nil
+	})
+	if err != nil {
+		return provisioner.SharedProvisioningInfoState{}, errors.Capture(err)
+	}
+
+	return result, nil
+}
+
+// GetMachineProvisioningInfo retrieves per-machine provisioning data in a
 // single transaction from the model database.
 //
 // The following errors may be returned:
-//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the machine does not exist.
-func (st *State) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
+//   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the
+//     machine does not exist.
+func (st *State) GetMachineProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return provisioner.ProvisioningInfoState{}, errors.Capture(err)
@@ -81,24 +122,6 @@ func (st *State) GetProvisioningInfo(ctx context.Context, machineName string, is
 
 		// Query 5: Root disk storage pool.
 		result.RootDiskStoragePool, txErr = st.getRootDiskStoragePool(ctx, tx, result.Constraints)
-		if txErr != nil {
-			return txErr
-		}
-
-		// Query 6: All spaces with subnets and AZs.
-		result.Spaces, txErr = st.getAllSpaces(ctx, tx)
-		if txErr != nil {
-			return txErr
-		}
-
-		// Query 7: Model config values for provisioner.
-		result.CloudInitUserData, result.ImageStream, result.ResourceTags, txErr = st.getModelConfigValues(ctx, tx)
-		if txErr != nil {
-			return txErr
-		}
-
-		// Query 8: Model identity info (name, cloud type, region, cloud name).
-		result.ModelName, result.CloudType, result.CloudRegion, result.CloudName, txErr = st.getModelInfo(ctx, tx)
 		if txErr != nil {
 			return txErr
 		}

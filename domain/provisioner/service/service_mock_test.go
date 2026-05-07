@@ -40,41 +40,80 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
-// GetProvisioningInfo mocks base method.
-func (m *MockModelState) GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
+// GetMachineProvisioningInfo mocks base method.
+func (m *MockModelState) GetMachineProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProvisioningInfo", ctx, machineName, isControllerModel)
+	ret := m.ctrl.Call(m, "GetMachineProvisioningInfo", ctx, machineName, isControllerModel)
 	ret0, _ := ret[0].(provisioner.ProvisioningInfoState)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetProvisioningInfo indicates an expected call of GetProvisioningInfo.
-func (mr *MockModelStateMockRecorder) GetProvisioningInfo(ctx, machineName, isControllerModel any) *MockModelStateGetProvisioningInfoCall {
+// GetMachineProvisioningInfo indicates an expected call of GetMachineProvisioningInfo.
+func (mr *MockModelStateMockRecorder) GetMachineProvisioningInfo(ctx, machineName, isControllerModel any) *MockModelStateGetMachineProvisioningInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProvisioningInfo", reflect.TypeOf((*MockModelState)(nil).GetProvisioningInfo), ctx, machineName, isControllerModel)
-	return &MockModelStateGetProvisioningInfoCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineProvisioningInfo", reflect.TypeOf((*MockModelState)(nil).GetMachineProvisioningInfo), ctx, machineName, isControllerModel)
+	return &MockModelStateGetMachineProvisioningInfoCall{Call: call}
 }
 
-// MockModelStateGetProvisioningInfoCall wrap *gomock.Call
-type MockModelStateGetProvisioningInfoCall struct {
+// MockModelStateGetMachineProvisioningInfoCall wrap *gomock.Call
+type MockModelStateGetMachineProvisioningInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetProvisioningInfoCall) Return(arg0 provisioner.ProvisioningInfoState, arg1 error) *MockModelStateGetProvisioningInfoCall {
+func (c *MockModelStateGetMachineProvisioningInfoCall) Return(arg0 provisioner.ProvisioningInfoState, arg1 error) *MockModelStateGetMachineProvisioningInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetProvisioningInfoCall) Do(f func(context.Context, string, bool) (provisioner.ProvisioningInfoState, error)) *MockModelStateGetProvisioningInfoCall {
+func (c *MockModelStateGetMachineProvisioningInfoCall) Do(f func(context.Context, string, bool) (provisioner.ProvisioningInfoState, error)) *MockModelStateGetMachineProvisioningInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetProvisioningInfoCall) DoAndReturn(f func(context.Context, string, bool) (provisioner.ProvisioningInfoState, error)) *MockModelStateGetProvisioningInfoCall {
+func (c *MockModelStateGetMachineProvisioningInfoCall) DoAndReturn(f func(context.Context, string, bool) (provisioner.ProvisioningInfoState, error)) *MockModelStateGetMachineProvisioningInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetPreludeProvisioningInfo mocks base method.
+func (m *MockModelState) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfoState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPreludeProvisioningInfo", ctx)
+	ret0, _ := ret[0].(provisioner.SharedProvisioningInfoState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPreludeProvisioningInfo indicates an expected call of GetPreludeProvisioningInfo.
+func (mr *MockModelStateMockRecorder) GetPreludeProvisioningInfo(ctx any) *MockModelStateGetPreludeProvisioningInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPreludeProvisioningInfo", reflect.TypeOf((*MockModelState)(nil).GetPreludeProvisioningInfo), ctx)
+	return &MockModelStateGetPreludeProvisioningInfoCall{Call: call}
+}
+
+// MockModelStateGetPreludeProvisioningInfoCall wrap *gomock.Call
+type MockModelStateGetPreludeProvisioningInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetPreludeProvisioningInfoCall) Return(arg0 provisioner.SharedProvisioningInfoState, arg1 error) *MockModelStateGetPreludeProvisioningInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetPreludeProvisioningInfoCall) Do(f func(context.Context) (provisioner.SharedProvisioningInfoState, error)) *MockModelStateGetPreludeProvisioningInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetPreludeProvisioningInfoCall) DoAndReturn(f func(context.Context) (provisioner.SharedProvisioningInfoState, error)) *MockModelStateGetPreludeProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

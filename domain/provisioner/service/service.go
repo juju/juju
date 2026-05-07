@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
@@ -35,9 +34,14 @@ const ControllerUUIDKey = "controller-uuid"
 // provisioning info retrieval. All methods execute within a single
 // transaction.
 type ModelState interface {
-	// GetProvisioningInfo retrieves all provisioning data for a machine
+	// GetPreludeProvisioningInfo retrieves model-wide provisioning data
+	// that is the same for all machines. This should be called once
+	// per batch request.
+	GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfoState, error)
+
+	// GetMachineProvisioningInfo retrieves per-machine provisioning data
 	// in a single transaction from the model database.
-	GetProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error)
+	GetMachineProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error)
 }
 
 // ControllerState provides direct database access to the controller
@@ -90,9 +94,43 @@ func NewService(
 	}
 }
 
+// GetPreludeProvisioningInfo retrieves model-wide provisioning data that is
+// the same for all machines. This should be called once per batch request,
+// then passed into each per-machine GetProvisioningInfo call.
+func (s *Service) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfo, error) {
+	// Step 1: Fetch shared model-DB data.
+	sharedState, err := s.modelSt.GetPreludeProvisioningInfo(ctx)
+	if err != nil {
+		return provisioner.SharedProvisioningInfo{}, errors.Errorf(
+			"getting shared provisioning info: %w", err,
+		)
+	}
+
+	// Step 2: Fetch cloud endpoint from controller DB.
+	cloudEndpoint, err := s.controllerSt.GetCloudEndpoint(ctx, sharedState.CloudName, sharedState.CloudRegion)
+	if err != nil {
+		return provisioner.SharedProvisioningInfo{}, errors.Errorf(
+			"getting cloud endpoint: %w", err,
+		)
+	}
+
+	return provisioner.SharedProvisioningInfo{
+		Spaces:            sharedState.Spaces,
+		ModelName:         sharedState.ModelName,
+		CloudInitUserData: sharedState.CloudInitUserData,
+		ImageStream:       sharedState.ImageStream,
+		ResourceTags:      sharedState.ResourceTags,
+		CloudType:         sharedState.CloudType,
+		CloudRegion:       sharedState.CloudRegion,
+		CloudName:         sharedState.CloudName,
+		CloudEndpoint:     cloudEndpoint,
+	}, nil
+}
+
 // GetProvisioningInfo returns the complete provisioning information for a
 // machine, consolidating all data from the model and controller databases into
-// a single call.
+// a single call. The shared parameter holds model-wide data fetched once per
+// batch; pass it from GetPreludeProvisioningInfo.
 //
 // The following errors may be returned:
 //   - [github.com/juju/juju/domain/machine/errors.MachineNotFound] if the
@@ -101,7 +139,7 @@ func (s *Service) GetProvisioningInfo(
 	ctx context.Context,
 	machineName coremachine.Name,
 	isControllerModel bool,
-	controllerConfig controller.Config,
+	shared provisioner.SharedProvisioningInfo,
 ) (provisioner.ProvisioningInfo, error) {
 	if err := machineName.Validate(); err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
@@ -109,8 +147,8 @@ func (s *Service) GetProvisioningInfo(
 		)
 	}
 
-	// Step 1: Fetch all model-DB data in a single transaction.
-	stateInfo, err := s.modelSt.GetProvisioningInfo(ctx, machineName.String(), isControllerModel)
+	// Step 1: Fetch per-machine model-DB data in a single transaction.
+	stateInfo, err := s.modelSt.GetMachineProvisioningInfo(ctx, machineName.String(), isControllerModel)
 	if err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"getting provisioning info for machine %q: %w", machineName, err,
@@ -118,17 +156,9 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Extract controller UUID from the config.
-	controllerUUID := controllerConfig.ControllerUUID()
+	controllerUUID := shared.ControllerConfig.ControllerUUID()
 
-	// Step 2b: Fetch cloud endpoint from controller DB.
-	cloudEndpoint, err := s.controllerSt.GetCloudEndpoint(ctx, stateInfo.CloudName, stateInfo.CloudRegion)
-	if err != nil {
-		return provisioner.ProvisioningInfo{}, errors.Errorf(
-			"getting cloud endpoint: %w", err,
-		)
-	}
-
-	// Step 2c: Fetch cached image metadata from controller DB.
+	// Step 2: Fetch cached image metadata from controller DB.
 	var version string
 	if stateInfo.Base.Channel.Track != "" {
 		version = stateInfo.Base.Channel.Track
@@ -141,8 +171,8 @@ func (s *Service) GetProvisioningInfo(
 	if stateInfo.Constraints.ImageID != nil {
 		imageID = *stateInfo.Constraints.ImageID
 	}
-	stream := imageStream(stateInfo.ImageStream)
-	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch, stateInfo.CloudRegion, stream, imageID)
+	stream := imageStream(shared.ImageStream)
+	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch, shared.CloudRegion, stream, imageID)
 	if err != nil {
 		// Log and continue — fall through to external datasources if cache
 		// lookup fails (matches original graceful-degradation behaviour).
@@ -150,7 +180,7 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 3: Resolve endpoint bindings to space provider IDs/names.
-	endpointBindings, boundSpaceNames := s.resolveEndpointBindings(stateInfo.EndpointBindings, stateInfo.Spaces)
+	endpointBindings, boundSpaceNames := s.resolveEndpointBindings(stateInfo.EndpointBindings, shared.Spaces)
 
 	// Step 4: Validate space constraints against bindings.
 	machineSpaces, err := s.machineSpaces(stateInfo.Constraints, boundSpaceNames)
@@ -164,8 +194,8 @@ func (s *Service) GetProvisioningInfo(
 		machineName.String(),
 		stateInfo.Constraints,
 		machineSpaces,
-		stateInfo.Spaces,
-		stateInfo.CloudType,
+		shared.Spaces,
+		shared.CloudType,
 	)
 	if err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
@@ -174,7 +204,7 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 6: Resolve image metadata (cached or fallback to external).
-	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo, cachedImageMetadata, cloudEndpoint)
+	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo, shared, cachedImageMetadata)
 	if err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"resolving image metadata: %w", err,
@@ -182,7 +212,7 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 7: Compute instance tags.
-	resourceTags, resourceTagsFound := parseResourceTags(stateInfo.ResourceTags)
+	resourceTags, resourceTagsFound := parseResourceTags(shared.ResourceTags)
 	machineTags := s.computeTags(
 		stateInfo.UnitNames,
 		machineName,
@@ -190,7 +220,7 @@ func (s *Service) GetProvisioningInfo(
 		resourceTags,
 		resourceTagsFound,
 		controllerUUID,
-		stateInfo.ModelName,
+		shared.ModelName,
 	)
 
 	// Step 8: Determine machine jobs.
@@ -216,8 +246,8 @@ func (s *Service) GetProvisioningInfo(
 		Tags:               machineTags,
 		SpaceSubnets:       spaceSubnets,
 		SubnetAZs:          subnetAZs,
-		CloudInitUserData:  parseCloudInitUserData(stateInfo.CloudInitUserData),
-		ControllerConfig:   controllerConfig,
+		CloudInitUserData:  parseCloudInitUserData(shared.CloudInitUserData),
+		ControllerConfig:   shared.ControllerConfig,
 	}, nil
 }
 
@@ -339,8 +369,8 @@ func (s *Service) buildNetworkTopology(
 func (s *Service) resolveImageMetadata(
 	ctx context.Context,
 	stateInfo provisioner.ProvisioningInfoState,
+	shared provisioner.SharedProvisioningInfo,
 	cachedImageMetadata []provisioner.CloudImageMetadata,
-	cloudEndpoint string,
 ) ([]provisioner.CloudImageMetadata, error) {
 	if len(cachedImageMetadata) > 0 {
 		// Sort by priority.
@@ -365,9 +395,9 @@ func (s *Service) resolveImageMetadata(
 	constraint := provisioner.ImageConstraint{
 		Releases: []string{base.Channel.Track},
 		Arches:   arches,
-		Stream:   imageStream(stateInfo.ImageStream),
-		Region:   stateInfo.CloudRegion,
-		Endpoint: cloudEndpoint,
+		Stream:   imageStream(shared.ImageStream),
+		Region:   shared.CloudRegion,
+		Endpoint: shared.CloudEndpoint,
 	}
 	if stateInfo.Constraints.ImageID != nil {
 		constraint.ImageID = stateInfo.Constraints.ImageID

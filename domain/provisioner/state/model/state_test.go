@@ -16,7 +16,7 @@ import (
 func (s *modelStateSuite) TestGetProvisioningInfoMachineNotFound(c *tc.C) {
 	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
 
-	_, err := s.state.GetProvisioningInfo(c.Context(), "nonexistent", false)
+	_, err := s.state.GetMachineProvisioningInfo(c.Context(), "nonexistent", false)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -26,14 +26,17 @@ func (s *modelStateSuite) TestGetProvisioningInfoMinimal(c *tc.C) {
 	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
 	s.addMachineWithPlatform(c, "0", "ubuntu", "22.04/stable")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "0", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "0", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	shared, err := s.state.GetPreludeProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.Base.OS, tc.Equals, "ubuntu")
 	c.Check(info.Base.Channel.Track, tc.Equals, "22.04")
-	c.Check(info.ModelName, tc.Equals, "mymodel")
-	c.Check(info.CloudType, tc.Equals, "ec2")
-	c.Check(info.CloudRegion, tc.Equals, "us-east-1")
+	c.Check(shared.ModelName, tc.Equals, "mymodel")
+	c.Check(shared.CloudType, tc.Equals, "ec2")
+	c.Check(shared.CloudRegion, tc.Equals, "us-east-1")
 	c.Check(info.IsController, tc.IsFalse)
 	c.Check(info.PlacementDirective, tc.IsNil)
 	c.Check(info.UnitNames, tc.HasLen, 0)
@@ -47,7 +50,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoWithPlacement(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "1", "ubuntu", "24.04/stable")
 	s.addMachinePlacement(c, machineUUID, "zone=us-east-1a")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "1", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "1", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.PlacementDirective, tc.Not(tc.IsNil))
@@ -61,7 +64,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoWithConstraints(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "2", "ubuntu", "22.04/stable")
 	s.addConstraint(c, machineUUID, "amd64", 4096)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "2", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "2", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.Constraints.HasArch(), tc.IsTrue)
@@ -88,7 +91,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoWithUnits(c *tc.C) {
 	appUUID := s.addApplication(c, "ubuntu", charmUUID, spaceUUID)
 	s.addUnit(c, "ubuntu/0", appUUID, charmUUID, netNodeUUID)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "3", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "3", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.UnitNames, tc.HasLen, 1)
@@ -119,7 +122,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoWithEndpointBindings(c *tc.C) {
 	relUUID := s.addCharmRelation(c, charmUUID, "db")
 	s.addApplicationEndpoint(c, appUUID, relUUID, &dataSpace)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "4", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "4", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.EndpointBindings, tc.HasLen, 1)
@@ -144,12 +147,12 @@ func (s *modelStateSuite) TestGetProvisioningInfoWithSpaces(c *tc.C) {
 	s.addProviderSubnet(c, subnetUUID, "subnet-abc123")
 	s.addAvailabilityZone(c, subnetUUID, "us-east-1a")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "5", false)
+	shared, err := s.state.GetPreludeProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Should have at least the "production" space.
 	var found bool
-	for _, sp := range info.Spaces {
+	for _, sp := range shared.Spaces {
 		if string(sp.Name) == "production" {
 			found = true
 			c.Check(string(sp.ProviderId), tc.Equals, "provider-space-1")
@@ -183,7 +186,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoRootDiskStoragePool(c *tc.C) {
 		"iops":        "3000",
 	})
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "6", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "6", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.RootDiskStoragePool, tc.Not(tc.IsNil))
@@ -198,7 +201,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoRootDiskNoConstraint(c *tc.C) {
 	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
 	s.addMachineWithPlatform(c, "7", "ubuntu", "22.04/stable")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "7", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "7", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.RootDiskStoragePool, tc.IsNil)
@@ -223,7 +226,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoControllerMachine(c *tc.C) {
 	s.addApplicationController(c, appUUID)
 	s.addUnit(c, "controller/0", appUUID, charmUUID, netNodeUUID)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "0", true)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "0", true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.IsController, tc.IsTrue)
@@ -235,7 +238,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoNotControllerMachineInControlle
 	s.addModelInfo(c, "controller", "ec2", "us-east-1")
 	s.addMachineWithPlatform(c, "1", "ubuntu", "22.04/stable")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "1", true)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "1", true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.IsController, tc.IsFalse)
@@ -260,7 +263,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoNotControllerModel(c *tc.C) {
 	s.addUnit(c, "controller/0", appUUID, charmUUID, netNodeUUID)
 
 	// isControllerModel=false, so we don't even check.
-	info, err := s.state.GetProvisioningInfo(c.Context(), "0", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "0", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.IsController, tc.IsFalse)
@@ -272,12 +275,12 @@ func (s *modelStateSuite) TestGetProvisioningInfoImageStream(c *tc.C) {
 	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
 	s.addMachineWithPlatform(c, "8", "ubuntu", "22.04/stable")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "8", false)
+	shared, err := s.state.GetPreludeProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// State returns raw value; empty string when model_config has no
 	// image-stream key. The service layer applies the "released" default.
-	c.Check(info.ImageStream, tc.Equals, "")
+	c.Check(shared.ImageStream, tc.Equals, "")
 }
 
 // TestGetProvisioningInfoSpaceWithMultipleSubnets verifies spaces
@@ -293,11 +296,11 @@ func (s *modelStateSuite) TestGetProvisioningInfoSpaceWithMultipleSubnets(c *tc.
 	s.addProviderSubnet(c, sub1, "subnet-1")
 	s.addProviderSubnet(c, sub2, "subnet-2")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "9", false)
+	shared, err := s.state.GetPreludeProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var found bool
-	for _, sp := range info.Spaces {
+	for _, sp := range shared.Spaces {
 		if string(sp.Name) == "internal" {
 			found = true
 			c.Check(sp.Subnets, tc.HasLen, 2)
@@ -337,7 +340,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoSubordinateUnit(c *tc.C) {
 	s.runQuery(c, `INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?,?)`,
 		subUnitUUID, principalUUID)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "10", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "10", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(info.UnitNames, tc.HasLen, 2)
@@ -379,7 +382,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoConstraintsAllFields(c *tc.C) {
 	s.runQuery(c, `INSERT INTO constraint_zone (constraint_uuid, zone) VALUES (?,?)`,
 		consUUID, "us-east-1b")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "11", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "11", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := info.Constraints
@@ -424,7 +427,7 @@ func (s *modelStateSuite) TestGetProvisioningInfoEndpointNullSpace(c *tc.C) {
 	relUUID := s.addCharmRelation(c, charmUUID, "server")
 	s.addApplicationEndpoint(c, appUUID, relUUID, nil)
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "12", false)
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "12", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	bindings := info.EndpointBindings["mysql"]
@@ -446,11 +449,11 @@ func (s *modelStateSuite) TestGetProvisioningInfoSubnetMultiAZ(c *tc.C) {
 	s.addAvailabilityZone(c, subnetUUID, "us-east-1a")
 	s.addAvailabilityZone(c, subnetUUID, "us-east-1b")
 
-	info, err := s.state.GetProvisioningInfo(c.Context(), "13", false)
+	shared, err := s.state.GetPreludeProvisioningInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var found bool
-	for _, sp := range info.Spaces {
+	for _, sp := range shared.Spaces {
 		if string(sp.Name) == "multiaz" {
 			found = true
 			c.Assert(sp.Subnets, tc.HasLen, 1)
