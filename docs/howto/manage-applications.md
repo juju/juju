@@ -357,6 +357,21 @@ juju deploy redis -n 2 --constraints zones=us-east-1a,us-east-1d
 ````
 
 ```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
+
+<!--CLARIFY:
+--base on its own does two things: (1) it determines the OS to be used on the provisioned machines; (2) it determines the charm revision to be deployed on the provisioned machines. In conjunction with `image-id`, though, it only does (2) -- part (1) is overridden by the (unknown) OS specified in the image chosen via `image-id`.
+-->
+
+- To set constraints for an application after deployment, run the `set-constraints` command followed by the desired ("-enclosed list of) key-value pair(s), as below. This will affect any future units you may add to the application.
+
+``` text
+juju set-constraints mariadb cores=2
+```
+
+
+```{ibnote}
 See more: {ref}`command-juju-set-constraints`
 ```
 
@@ -469,5 +484,3 @@ See more: {ref}`mark-unit-errors-as-resolved`
 
 ````
 `````
-
-
