@@ -98,7 +98,6 @@ func (w *MigrationStatusWatcherAPI) Next(ctx context.Context) (params.MigrationS
 
 	return params.MigrationStatus{
 		MigrationId:    mig.UUID,
-		Attempt:        mig.Attempt,
 		Phase:          mig.Phase.String(),
 		SourceAPIAddrs: sourceAddrs,
 		SourceCACert:   sourceCACert,

@@ -142,11 +142,12 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"controller_api_address",
 
 		// Model migration
-		"model_migration",
-		"model_migration_direction",
 		"model_migration_phase",
-		"model_migration_status",
-		"model_migration_target",
+		"model_migration_export",
+		"model_migration_export_target_auth",
+		"model_migration_export_phase",
+		"model_migration_export_status",
+		"model_migration_export_minion_sync",
 		"model_authorized_keys",
 		"model_migration_import",
 

@@ -45,7 +45,6 @@ const (
 
 type Migration struct {
 	UUID             string
-	Attempt          int
 	Phase            migration.Phase
 	PhaseChangedTime time.Time
 	Target           migration.TargetInfo
