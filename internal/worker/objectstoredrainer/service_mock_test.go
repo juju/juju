@@ -323,44 +323,6 @@ func (c *MockDrainingServiceGetObjectStoreBackendCall) DoAndReturn(f func(contex
 	return c
 }
 
-// MarkObjectStoreBackendAsDrained mocks base method.
-func (m *MockDrainingService) MarkObjectStoreBackendAsDrained(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkObjectStoreBackendAsDrained", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MarkObjectStoreBackendAsDrained indicates an expected call of MarkObjectStoreBackendAsDrained.
-func (mr *MockDrainingServiceMockRecorder) MarkObjectStoreBackendAsDrained(arg0 any) *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkObjectStoreBackendAsDrained", reflect.TypeOf((*MockDrainingService)(nil).MarkObjectStoreBackendAsDrained), arg0)
-	return &MockDrainingServiceMarkObjectStoreBackendAsDrainedCall{Call: call}
-}
-
-// MockDrainingServiceMarkObjectStoreBackendAsDrainedCall wrap *gomock.Call
-type MockDrainingServiceMarkObjectStoreBackendAsDrainedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall) Return(arg0 error) *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall) Do(f func(context.Context) error) *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall) DoAndReturn(f func(context.Context) error) *MockDrainingServiceMarkObjectStoreBackendAsDrainedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetDrainingPhase mocks base method.
 func (m *MockDrainingService) SetDrainingPhase(arg0 context.Context, arg1 objectstore.Phase) error {
 	m.ctrl.T.Helper()

@@ -252,7 +252,8 @@ func (s *integrationSuite) TestTransitionBackendToS3InvalidCredentials(c *tc.C) 
 }
 
 // TestDrainingLifecycleCompleted verifies the full drain lifecycle from
-// initiation through completion and marking the backend as drained.
+// initiation through completion. SetDrainingPhase(PhaseCompleted) atomically
+// marks the from-backend as dead and transitions the phase.
 func (s *integrationSuite) TestDrainingLifecycleCompleted(c *tc.C) {
 	svc := s.newDrainingService()
 
@@ -268,18 +269,11 @@ func (s *integrationSuite) TestDrainingLifecycleCompleted(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(phase, tc.Equals, objectstore.PhaseDraining)
 
-	// 2. Mark the old backend as drained while still in PhaseDraining.
-	// This is the correct order: mark backend dead THEN set phase to
-	// completed. MarkObjectStoreBackendAsDrained requires PhaseDraining.
-	err = svc.MarkObjectStoreBackendAsDrained(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// 3. Complete the drain phase.
+	// 2. Complete the drain. This atomically marks the from-backend as dead.
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// After transitioning to completed, the drain is no longer "active"
-	// (phase_type_id > 1), so GetDrainingPhase returns PhaseUnknown.
+	// After completing, the drain is no longer "active".
 	phase, err = svc.GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(phase, tc.Equals, objectstore.PhaseUnknown)
@@ -347,14 +341,13 @@ func (s *integrationSuite) TestGetObjectStoreBackend(c *tc.C) {
 	c.Check(backend.Type, tc.Equals, active.Type)
 }
 
-// TestMarkObjectStoreBackendAsDrainedWithoutDrainingPhase verifies that
-// calling MarkObjectStoreBackendAsDrained when there is no active drain
-// returns an error.
-func (s *integrationSuite) TestMarkObjectStoreBackendAsDrainedWithoutDrainingPhase(c *tc.C) {
+// TestSetDrainingPhaseCompletedWithoutDrainIsNoop verifies that calling
+// SetDrainingPhase(PhaseCompleted) when there is no active drain is a no-op.
+func (s *integrationSuite) TestSetDrainingPhaseCompletedWithoutDrainIsNoop(c *tc.C) {
 	svc := s.newDrainingService()
 
-	err := svc.MarkObjectStoreBackendAsDrained(c.Context())
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
+	err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestPutMetadataWithControllerIDHint verifies storing metadata with a
@@ -413,9 +406,7 @@ func (s *integrationSuite) TestMultipleDrainCycles(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Mark drained and complete (correct order: mark while draining, then complete).
-	err = svc.MarkObjectStoreBackendAsDrained(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
+	// Complete the drain (atomically marks old backend dead).
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -438,8 +429,6 @@ func (s *integrationSuite) TestMultipleDrainCycles(c *tc.C) {
 	c.Check(*phaseInfo.FromBackendUUID, tc.Equals, firstBackend.UUID)
 
 	// Complete second cycle.
-	err = svc.MarkObjectStoreBackendAsDrained(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 

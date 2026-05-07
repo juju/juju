@@ -107,14 +107,6 @@ type DrainingState interface {
 	// information.
 	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
 
-	// MarkObjectStoreBackendAsDrained atomically validates the draining phase,
-	// identifies the source backend, and marks it as drained.
-	//
-	// Note: this pushes phase validation and backend lookup into the state
-	// layer to prevent a TOCTOU race where the drain record could be
-	// modified between reading and acting on it.
-	MarkObjectStoreBackendAsDrained(ctx context.Context) error
-
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
@@ -603,22 +595,6 @@ func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uu
 		AccessKey: backendInfo.AccessKey,
 		SecretKey: backendInfo.SecretKey,
 	}, nil
-}
-
-// MarkObjectStoreBackendAsDrained marks the object store backend as drained.
-// This is used to mark the object store backend as drained after the draining
-// process has completed. If the s3 backend has been drained, then this will
-// remove the credentials.
-func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// The state method atomically validates the draining phase, finds the
-	// source backend, and marks it as drained in a single transaction.
-	if err := s.st.MarkObjectStoreBackendAsDrained(ctx); err != nil {
-		return errors.Errorf("marking object store backend as drained: %w", err)
-	}
-	return nil
 }
 
 // TransitionBackendToS3 sets the object store to use S3 with the provided

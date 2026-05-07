@@ -82,12 +82,6 @@ type DrainingService interface {
 	// uuid.
 	GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (objectstoreservice.BackendInfo, error)
 
-	// MarkObjectStoreBackendAsDrained marks the object store backend as
-	// drained, which will cause the controller to switch to the new backend
-	// and update the agent configuration. This should only be called once the
-	// draining process has completed successfully.
-	MarkObjectStoreBackendAsDrained(ctx context.Context) error
-
 	// WatchObjectStoreBackend returns a watcher that watches the object store
 	// backend. The watcher emits the backend changes that either have been
 	// added or removed.

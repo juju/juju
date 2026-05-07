@@ -961,7 +961,7 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 	c.Check(secretKey, tc.Equals, creds.SecretKey)
 }
 
-func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseCompletedMarksBackendDead(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	activeUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -977,8 +977,9 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), activeUUID, "drain-uuid", creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Mark the backend as drained (simulates completing the drain).
-	err = st.MarkObjectStoreBackendAsDrained(c.Context())
+	// Transition to PhaseCompleted should also mark the from-backend as dead.
+	drainUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.TransitionDrainingPhase(c.Context(), drainUUID, coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	seedBackendUUID := "653813f9-2896-5332-8cbe-629a337a56a3"
@@ -1015,7 +1016,7 @@ WHERE uuid = ?`, activeUUID)
 	c.Check(activeLifeID, tc.Equals, 0)
 }
 
-func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
+func (s *stateSuite) TestTransitionDrainingPhaseCompletedIdempotent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	activeUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -1030,12 +1031,13 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), activeUUID, "drain-uuid", creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// First call should mark the draining backend dead.
-	err = st.MarkObjectStoreBackendAsDrained(c.Context())
+	// First call: mark completed (which also marks the from-backend as dead).
+	drainUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.TransitionDrainingPhase(c.Context(), drainUUID, coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call should be idempotent (backend already dead).
-	err = st.MarkObjectStoreBackendAsDrained(c.Context())
+	// Second call should be a no-op (already terminal).
+	err = st.TransitionDrainingPhase(c.Context(), drainUUID, coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	seedBackendUUID := "653813f9-2896-5332-8cbe-629a337a56a3"

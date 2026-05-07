@@ -268,18 +268,10 @@ func (s *watcherSuite) TestWatchDrainingFullLifecycle(c *tc.C) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
-	// Stage 2: Mark the backend as drained and then complete the drain.
-	// MarkObjectStoreBackendAsDrained modifies object_store_backend (not
-	// object_store_drain_info), so it doesn't trigger the drain watcher.
-	// SetDrainingPhase modifies object_store_drain_info and triggers the
-	// watcher.
+	// Stage 2: Complete the drain phase. This atomically marks the from-backend
+	// as dead and transitions the phase to completed.
 	harness.AddTest(c, func(c *tc.C) {
-		// Mark the old backend as dead while still in PhaseDraining.
-		err := svc.MarkObjectStoreBackendAsDrained(c.Context())
-		c.Assert(err, tc.ErrorIsNil)
-
-		// Complete the drain phase — this triggers the watcher.
-		err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
+		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
 		c.Assert(err, tc.ErrorIsNil)
 
 		// After completing, the drain is no longer "active", so
