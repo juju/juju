@@ -328,4 +328,4 @@ replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
 
-replace github.com/juju/gomaasapi/v2 => github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72
+replace github.com/juju/gomaasapi/v2 => github.com/wallyworld/gomaasapi/v2 v2.0.0-20260507000738-f2c8a7a825da

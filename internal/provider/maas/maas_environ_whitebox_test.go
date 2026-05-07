@@ -649,6 +649,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 		composeMachineArgsCheck: func(args gomaasapi.ComposeMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.ComposeMachineArgs{
 				Hostname:    "vm-1",
+				Zone:        "mossack",
 				MinCPUCount: 2,
 				MinMemory:   4096,
 				Storage: []gomaasapi.StorageSpec{{
@@ -752,7 +753,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchAllPod
 	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
 }
 
-func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchNextPodSkipped(c *gc.C) {
+func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchPodsSkipped(c *gc.C) {
 	controller := &fakeController{
 		Stub: &testing.Stub{},
 		pods: []gomaasapi.Pod{
@@ -762,8 +763,9 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchNextPo
 				composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources"),
 			},
 			&fakePod{
-				name: "pod-b",
-				zone: &fakeZone{name: "fonseca"},
+				name:              "pod-b",
+				zone:              &fakeZone{name: "fonseca"},
+				composeMachineErr: gomaasapi.NewCannotCompleteError("no available machines"),
 			},
 		},
 	}
@@ -779,7 +781,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchNextPo
 		nil,
 		nil,
 	)
-	c.Assert(err, gc.ErrorMatches, "composing virtual machine: composing machine: insufficient resources")
+	c.Assert(err, gc.ErrorMatches, "composing virtual machine: composing machine: no available machines")
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineAllocateFailureCleansUnusedComposedNode(c *gc.C) {

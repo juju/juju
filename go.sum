@@ -775,8 +775,8 @@ github.com/vishvananda/netns v0.0.5 h1:DfiHV+j8bA32MFM7bfEunvT8IAqQ/NzSJHtcmW5zd
 github.com/vishvananda/netns v0.0.5/go.mod h1:SpkAiCQRtJ6TvvxPnOSyH3BMl6unz3xZlaprSwhNNJM=
 github.com/vmware/govmomi v0.34.1 h1:Hqu2Uke2itC+cNoIcFQBLEZvX9wBRTTOP04J7V1fqRw=
 github.com/vmware/govmomi v0.34.1/go.mod h1:qWWT6n9mdCr/T9vySsoUqcI04sSEj4CqHXxtk/Y+Los=
-github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72 h1:4ASrUvpf4CDjA6QvYJcvYUZQcxITjiDxL6wdh/KW2qM=
-github.com/wallyworld/gomaasapi/v2 v2.0.0-20260421043303-d216ef077b72/go.mod h1:BJdYcbOpk1aOjsvgu3qNCty4mMrmtjbSAW4bfxMcf7s=
+github.com/wallyworld/gomaasapi/v2 v2.0.0-20260507000738-f2c8a7a825da h1:Rc1IcFjFgLRW6hV2OJ9wvaPuKDwoSUTzCWRJVJncObs=
+github.com/wallyworld/gomaasapi/v2 v2.0.0-20260507000738-f2c8a7a825da/go.mod h1:BJdYcbOpk1aOjsvgu3qNCty4mMrmtjbSAW4bfxMcf7s=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xdg-go/stringprep v1.0.2/go.mod h1:8F9zXuvzgwmyT5DUm4GUfZGDdT3W+LCvS6+da4O5kxM=

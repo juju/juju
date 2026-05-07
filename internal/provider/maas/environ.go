@@ -707,6 +707,7 @@ func (env *maasEnviron) composeNode(
 
 	composeArgs := gomaasapi.ComposeMachineArgs{
 		Hostname: nodeName,
+		Zone:     zoneName,
 	}
 	if cons.CpuCores != nil {
 		composeArgs.MinCPUCount = int(*cons.CpuCores)
@@ -740,10 +741,6 @@ func (env *maasEnviron) composeNode(
 	// Use the first pod that can commission the machine.
 	var lastComposeErr error
 	for _, pod := range pods {
-		// Filter by zone if specified.
-		if zoneName != "" && pod.Zone() != nil && pod.Zone().Name() != zoneName {
-			continue
-		}
 		machine, err := pod.ComposeMachine(composeArgs)
 		if err != nil {
 			if gomaasapi.IsNoMatchError(err) || gomaasapi.IsCannotCompleteError(err) {
