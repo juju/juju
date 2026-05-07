@@ -86,6 +86,13 @@ docs: add CLA requirements to contributing guidelines
 - **PRs with non-compliant commits will be blocked** by commitlint in CI
 - Validation runs automatically via `.github/commitlint.config.mjs`
 
+## Pull Request Description
+
+When creating a pull request, you MUST read `PULL_REQUEST_TEMPLATE.md` at the
+repository root and use it as the structure for the PR description. Fill in
+each section according to the changes being made. Do not omit sections; use
+strikethrough (`~text~`) for items that are not applicable.
+
 ## References
 
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
