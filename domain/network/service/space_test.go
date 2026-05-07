@@ -67,7 +67,7 @@ func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *tc.C) {
 
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
 		c.Context(),
-		network.SpaceInfo{})
+		domainnetwork.AddSpaceArgs{})
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
 }
 
@@ -79,31 +79,66 @@ func (s *spaceSuite) TestAddSpaceInvalidName(c *tc.C) {
 
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
 		c.Context(),
-		network.SpaceInfo{
+		domainnetwork.AddSpaceArgs{
 			Name:       "-bad name-",
-			ProviderId: "provider-id",
+			ProviderID: "provider-id",
 		})
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
+}
+
+// TestAddSpaceInvalidCIDR asserts that the service rejects an
+// unparseable CIDR before reaching the state layer, and that the error
+// is typed as SubnetCIDRNotValid so callers (e.g. the API facade) can
+// branch on it.
+func (s *spaceSuite) TestAddSpaceInvalidCIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Make sure no calls to state are done.
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
+		c.Context(),
+		domainnetwork.AddSpaceArgs{
+			Name:       "space0",
+			ProviderID: "provider-id",
+			CIDRs:      []string{"256.0.0.0/24"},
+		})
+	c.Assert(err, tc.ErrorIs, networkerrors.SubnetCIDRNotValid)
+	c.Assert(err, tc.ErrorMatches, `"256.0.0.0/24" is not a valid CIDR`)
+}
+
+// TestAddSpaceInvalidCIDRSecondInList asserts that any invalid CIDR in
+// the list is rejected (not just the first), and that no state call is
+// made when the list contains a bad value.
+func (s *spaceSuite) TestAddSpaceInvalidCIDRSecondInList(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
+		c.Context(),
+		domainnetwork.AddSpaceArgs{
+			Name:       "space0",
+			ProviderID: "provider-id",
+			CIDRs:      []string{"10.0.0.0/24", "not-a-cidr"},
+		})
+	c.Assert(err, tc.ErrorIs, networkerrors.SubnetCIDRNotValid)
 }
 
 func (s *spaceSuite) TestAddSpaceErrorAdding(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("0"), network.Id("provider-id"), []string{"0"}).
-		Return(errors.Errorf("updating subnet %q using space uuid \"space0\"", "0"))
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string{"10.0.0.0/24"}).
+		Return(errors.Errorf("boom"))
 
 	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
 		c.Context(),
-		network.SpaceInfo{
-			Name:       "0",
-			ProviderId: "provider-id",
-			Subnets: network.SubnetInfos{
-				{
-					ID: network.Id("0"),
-				},
-			},
+		domainnetwork.AddSpaceArgs{
+			Name:       "space0",
+			ProviderID: "provider-id",
+			CIDRs:      []string{"10.0.0.0/24"},
 		})
-	c.Assert(err, tc.ErrorMatches, "updating subnet \"0\" using space uuid \"space0\"")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *spaceSuite) TestAddSpace(c *tc.C) {
@@ -111,14 +146,14 @@ func (s *spaceSuite) TestAddSpace(c *tc.C) {
 
 	var expectedUUID network.SpaceUUID
 	// Verify that the passed UUID is also returned.
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string(nil)).
 		Do(
 			func(
 				ctx context.Context,
 				uuid network.SpaceUUID,
 				name network.SpaceName,
 				providerID network.Id,
-				subnetIDs []string,
+				cidrs []string,
 			) error {
 				expectedUUID = uuid
 				return nil
@@ -126,13 +161,34 @@ func (s *spaceSuite) TestAddSpace(c *tc.C) {
 
 	returnedUUID, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
 		c.Context(),
-		network.SpaceInfo{
+		domainnetwork.AddSpaceArgs{
 			Name:       "space0",
-			ProviderId: "provider-id",
+			ProviderID: "provider-id",
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(returnedUUID, tc.Not(tc.Equals), "")
 	c.Check(returnedUUID, tc.Equals, expectedUUID)
+}
+
+// TestAddSpaceWithCIDRs asserts that the service forwards the supplied
+// CIDRs to the state layer.
+func (s *spaceSuite) TestAddSpaceWithCIDRs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().AddSpace(
+		gomock.Any(), gomock.Any(),
+		network.SpaceName("space0"), network.Id("provider-id"),
+		[]string{"10.0.0.0/24", "192.168.0.0/24"},
+	).Return(nil)
+
+	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).AddSpace(
+		c.Context(),
+		domainnetwork.AddSpaceArgs{
+			Name:       "space0",
+			ProviderID: "provider-id",
+			CIDRs:      []string{"10.0.0.0/24", "192.168.0.0/24"},
+		})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestUpdateSpaceName(c *tc.C) {
@@ -510,12 +566,12 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
 	var (
 		spUUID0, spUUID1 network.SpaceUUID
 	)
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[0].Name, twoSpaces[0].ProviderId, []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[0].Name, twoSpaces[0].ProviderId, []string(nil)).
 		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			spUUID0 = uuid
 			return nil
 		})
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[1].Name, twoSpaces[1].ProviderId, []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[1].Name, twoSpaces[1].ProviderId, []string(nil)).
 		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			spUUID1 = uuid
 			return nil
@@ -669,7 +725,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *tc.C) {
 	}
 
 	var receivedSpaceID network.SpaceUUID
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
 		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			receivedSpaceID = uuid
 			return nil
@@ -727,7 +783,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *tc.C) {
 		{ProviderId: network.Id("2"), Subnets: oneSubnet},
 	}
 
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
 		Return(nil)
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
@@ -861,7 +917,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 	}
 
 	var receivedSpaceID network.SpaceUUID
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string{}).
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
 		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			receivedSpaceID = uuid
 			return nil

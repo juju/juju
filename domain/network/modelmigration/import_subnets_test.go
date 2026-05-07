@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -129,11 +130,10 @@ func (s *importSubnetsSuite) TestImportIAASSubnetAndSpaceNotLinked(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	spaceInfo := network.SpaceInfo{
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
+		ProviderID: "space-provider-id",
+	})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -154,12 +154,10 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	spaceInfo := network.SpaceInfo{
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
-		Return(spUUID, nil)
+		ProviderID: "space-provider-id",
+	}).Return(spUUID, nil)
 	s.importService.EXPECT().Space(gomock.Any(), spUUID).
 		Return(&network.SpaceInfo{
 			ID:         spUUID,
@@ -211,13 +209,11 @@ func (s *importSubnetsSuite) TestImportSpaces(c *tc.C) {
 		ProviderID: "space-provider-id",
 	})
 
-	spaceInfo := network.SpaceInfo{
-		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
 	// don't import the alpha space
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
-		Return(spUUID, nil)
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
+		Name:       "space-name",
+		ProviderID: "space-provider-id",
+	}).Return(spUUID, nil)
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)

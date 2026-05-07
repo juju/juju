@@ -151,6 +151,27 @@ type AddressInfo struct {
 	CIDR string
 }
 
+// AddSpaceArgs is the input required to create a new space. Unlike
+// [network.SpaceInfo] (which describes a *retrieved* space, complete with its
+// subnets), this type carries only what the caller needs to provide when
+// asking the network domain to add a space.
+type AddSpaceArgs struct {
+	// ID is optional. If empty a new UUID is generated. It exists so the
+	// model migration importer can preserve the UUID from the source model.
+	ID network.SpaceUUID
+
+	// Name is the name of the new space.
+	Name network.SpaceName
+
+	// ProviderID is an optional provider-specific identifier.
+	ProviderID network.Id
+
+	// CIDRs lists the CIDRs of existing subnets that should be assigned to
+	// the new space. Each CIDR must match an existing subnet exactly;
+	// containment is not considered.
+	CIDRs []string
+}
+
 // MovedSubnets represents a subnet that has been moved from one network space
 // to another.
 type MovedSubnets struct {

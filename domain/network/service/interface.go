@@ -43,9 +43,14 @@ type State interface {
 
 // SpaceState describes persistence layer methods for the space (sub-) domain.
 type SpaceState interface {
-	// AddSpace creates a space.
+	// AddSpace creates a space and atomically associates any subnets
+	// matching the supplied CIDRs with the new space. The CIDR-to-subnet
+	// resolution and existence check happen inside the same transaction.
+	// If any CIDR has no matching subnet an error matching
+	// [github.com/juju/juju/domain/network/errors.SubnetNotFound] is
+	// returned and no rows are written.
 	AddSpace(
-		ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string,
+		ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, cidrs []string,
 	) error
 	// GetSpace returns the space by UUID. If the space is not found, an error
 	// is returned matching

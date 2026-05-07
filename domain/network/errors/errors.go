@@ -25,6 +25,10 @@ const (
 	// SpaceNameNotValid is returned when a space name is not valid.
 	SpaceNameNotValid = errors.ConstError("space name is not valid")
 
+	// SubnetCIDRNotValid is returned when a CIDR string supplied to the
+	// network domain cannot be parsed.
+	SubnetCIDRNotValid = errors.ConstError("subnet CIDR is not valid")
+
 	// AvailabilityZoneNotFound is returned when an availability zone is
 	// not found.
 	AvailabilityZoneNotFound = errors.ConstError("availability zone not found")

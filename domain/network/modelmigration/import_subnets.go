@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	corenetwork "github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/service"
 	"github.com/juju/juju/domain/network/state"
 	"github.com/juju/juju/internal/errors"
@@ -28,7 +29,7 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 // methods needed for spaces and subnets import.
 type SubnetsImportService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
+	AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs) (corenetwork.SpaceUUID, error)
 	// AddSubnet creates and returns a new subnet.
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 	// GetModelCloudType returns the type of the cloud that is in use by this model.
@@ -85,12 +86,11 @@ func (i *importSubnetsOperation) importSpaces(ctx context.Context, modelSpaces [
 		if space.Name() == corenetwork.AlphaSpaceName.String() {
 			continue
 		}
-		spaceInfo := corenetwork.SpaceInfo{
+		spaceID, err := i.importService.AddSpace(ctx, domainnetwork.AddSpaceArgs{
 			ID:         corenetwork.SpaceUUID(space.UUID()),
 			Name:       corenetwork.SpaceName(space.Name()),
-			ProviderId: corenetwork.Id(space.ProviderID()),
-		}
-		spaceID, err := i.importService.AddSpace(ctx, spaceInfo)
+			ProviderID: corenetwork.Id(space.ProviderID()),
+		})
 		if err != nil {
 			return nil, errors.Errorf("creating space %s: %w", space.Name(), err)
 		}
