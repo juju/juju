@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
@@ -207,6 +207,6 @@ func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
-	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
+	expectedScript := removeLogFile + common.DumpOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
 	c.Assert(script, tc.Equals, expectedScript)
 }

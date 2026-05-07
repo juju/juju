@@ -9,7 +9,7 @@ assert_machine_ip_is_in_cidrs() {
 	fi
 
 	for cidr in $cidrs; do
-		machine_ip_in_cidr=$(juju machines --format json | jq -r ".machines[\"${machine_index}\"][\"ip-addresses\"][]" | grepcidr "${cidr}" || echo "")
+		machine_ip_in_cidr=$(juju machines --format json | yq -r ".machines[\"${machine_index}\"][\"ip-addresses\"][]" | grepcidr "${cidr}" || echo "")
 		if [ -n "${machine_ip_in_cidr}" ]; then
 			echo "${machine_ip_in_cidr}"
 			return
@@ -53,7 +53,7 @@ assert_endpoint_binding_matches() {
 	exp_space_name=${3}
 
 	# shellcheck disable=SC2086,SC2016
-	got=$(juju show-application ${app_name} --format json | jq -r ".[\"${app_name}\"] | .[\"endpoint-bindings\"] | .[\"${endpoint_name}\"]" || echo "")
+	got=$(juju show-application ${app_name} --format json | yq -r ".[\"${app_name}\"] | .[\"endpoint-bindings\"] | .[\"${endpoint_name}\"]" || echo "")
 	if [ "$got" != "$exp_space_name" ]; then
 		# shellcheck disable=SC2086,SC2016,SC2046
 		echo $(red "Expected endpoint ${endpoint_name} in juju show-application ${app_name} to be ${exp_space_name}; got ${got}")

@@ -6,12 +6,14 @@ test_secrets_k8s() {
 
 	set_verbosity
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"k8s")
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+		echo "==> TEST SKIPPED: test_secrets_k8s test runs on k8s only"
+		return
+	fi
+
+	case "${BOOTSTRAP_CLOUD:-}" in
+	"microk8s")
 		microk8s enable ingress >/dev/null 2>&1 || true
-		;;
-	*)
-		echo "==> TEST SKIPPED: caas secrets tests, not a k8s provider"
 		;;
 	esac
 
@@ -27,6 +29,7 @@ test_secrets_k8s() {
 	test_user_secrets
 	test_user_secret_drain
 	test_add_multiple_secrets_parallel
+	test_secrets_cmr
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

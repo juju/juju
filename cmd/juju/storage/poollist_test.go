@@ -122,7 +122,7 @@ func (s *poolListSuite) assertUnmarshalledOutput(c *tc.C, unmarshall unmarshalle
 	expected := s.expect(c,
 		[]string{providerA, providerB},
 		[]string{nameABC, nameXYZ})
-	// This comparison cannot rely on gc.DeepEquals as
+	// This comparison cannot rely on tc.DeepEquals as
 	// json.Unmarshal unmarshalls the number as a float64,
 	// rather than an int
 	s.assertSamePoolInfos(c, result, expected)

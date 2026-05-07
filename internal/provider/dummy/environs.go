@@ -630,12 +630,13 @@ func (e *environ) StartInstance(ctx context.Context, args environs.StartInstance
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     args.Constraints.Arch,
-			Mem:      args.Constraints.Mem,
-			RootDisk: args.Constraints.RootDisk,
-			CpuCores: args.Constraints.CpuCores,
-			CpuPower: args.Constraints.CpuPower,
-			Tags:     args.Constraints.Tags,
+			Arch:           args.Constraints.Arch,
+			Mem:            args.Constraints.Mem,
+			RootDisk:       args.Constraints.RootDisk,
+			CpuCores:       args.Constraints.CpuCores,
+			CpuPower:       args.Constraints.CpuPower,
+			Tags:           args.Constraints.Tags,
+			RootDiskSource: args.Constraints.RootDiskSource,
 		}
 		if zone != "" {
 			hc.AvailabilityZone = &zone

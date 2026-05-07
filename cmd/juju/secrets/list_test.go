@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -84,13 +85,17 @@ ID                    Name       Owner    Rotation  Revision  Last updated
 func (s *ListSuite) TestListYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	uri := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
+	// Sorted list for test output stability.
+	uris := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+	slices.SortFunc(uris, coresecrets.CompareURI)
 	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri, RotatePolicy: coresecrets.RotateHourly,
+				URI: uris[0], RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
 				Description: "my secret",
 				Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
@@ -99,12 +104,12 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri2, Version: 1, LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+				URI: uris[1], Version: 1, LatestRevision: 1, Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
 			},
 			Error: "boom",
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri3, Version: 1, LatestRevision: 1,
+				URI: uris[2], Version: 1, LatestRevision: 1,
 				Label: "my-secret", Owner: coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
 			},
 		}}, nil)
@@ -113,7 +118,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, tc.Equals, fmt.Sprintf(`
+	c.Assert(out, tc.Contains, fmt.Sprintf(`
 %s:
   revision: 2
   rotation: hourly
@@ -122,19 +127,25 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
   label: foobar
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
+`[1:], uris[0].ID))
+
+	c.Assert(out, tc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: mariadb
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
   error: boom
+`[1:], uris[1].ID))
+
+	c.Assert(out, tc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: <model>
   name: my-secret
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
-`[1:], uri.ID, uri2.ID, uri3.ID))
+`[1:], uris[2].ID))
 }
 
 func (s *ListSuite) TestListJSON(c *tc.C) {
@@ -162,8 +173,8 @@ func (s *ListSuite) TestListJSON(c *tc.C) {
 func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
 	backend := "alvinmini410model3-local"
 
 	s.secretsAPI.EXPECT().ListSecrets(
@@ -173,7 +184,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	).Return([]apisecrets.SecretDetails{
 		{
 			Metadata: coresecrets.SecretMetadata{
-				URI:            uri1,
+				URI:            uris[0],
 				LatestRevision: 1,
 				RotatePolicy:   coresecrets.RotateNever,
 				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"},
@@ -188,7 +199,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 		},
 		{
 			Metadata: coresecrets.SecretMetadata{
-				URI:            uri2,
+				URI:            uris[1],
 				LatestRevision: 1,
 				RotatePolicy:   coresecrets.RotateNever,
 				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/1"},
@@ -231,14 +242,14 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
     backend: alvinmini410model3-local
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
-`, uri1.ID, uri2.ID))
+`, uris[0].ID, uris[1].ID))
 }
 
 func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 	defer s.setup(c).Finish()
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
 	backend := "testmodel-local"
 
 	s.secretsAPI.EXPECT().ListSecrets(
@@ -248,7 +259,7 @@ func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 	).Return([]apisecrets.SecretDetails{
 		{
 			Metadata: coresecrets.SecretMetadata{
-				URI:            uri1,
+				URI:            uris[0],
 				LatestRevision: 1,
 				RotatePolicy:   coresecrets.RotateNever,
 				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"},
@@ -262,7 +273,7 @@ func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 		},
 		{
 			Metadata: coresecrets.SecretMetadata{
-				URI:            uri2,
+				URI:            uris[1],
 				LatestRevision: 1,
 				RotatePolicy:   coresecrets.RotateNever,
 				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "not-dummy-source"},
@@ -283,8 +294,8 @@ func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 	c.Assert(out, tc.Equals, fmt.Sprintf(
 		`{"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]},"%s":{"revision":1,"rotation":"never","owner":"not-dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
 `,
-		uri1.ID,
-		uri2.ID,
+		uris[0].ID,
+		uris[1].ID,
 	))
 }
 

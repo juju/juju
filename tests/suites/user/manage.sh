@@ -8,7 +8,7 @@ run_user_grant_revoke() {
 	ensure "user-grant-revoke" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Add user with read rights"
 	juju show-user readuser 2>/dev/null || juju add-user readuser
@@ -23,9 +23,9 @@ run_user_grant_revoke() {
 	juju grant adminuser admin "user-grant-revoke"
 
 	echo "Check rights for added users"
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."readuser"."access"' | check "read"
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "write"
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "admin"
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."readuser"."access"' | check "read"
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "write"
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "admin"
 
 	echo "Revoke rights"
 	juju revoke readuser read "user-grant-revoke"
@@ -33,9 +33,9 @@ run_user_grant_revoke() {
 	juju revoke adminuser admin "user-grant-revoke"
 
 	echo "Check rights for added users after revoke"
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."readuser"."access"' | check null
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "read"
-	juju show-model "user-grant-revoke" --format=json | jq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "write"
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."readuser"."access"' | check null
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."writeuser"."access"' | check "read"
+	juju show-model "user-grant-revoke" --format=json | yq -r '."user-grant-revoke"."users"."adminuser"."access"' | check "write"
 
 	destroy_model "user-grant-revoke"
 }
@@ -51,12 +51,12 @@ run_user_grant_revoke_external() {
 	ensure "user-grant-revoke-external" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Check that the everyone@external user has been created on bootstrap"
-	juju show-user everyone@external --format=json | jq -r '."user-name"' | check "everyone@external"
+	juju show-user everyone@external --format=json | yq -r '."user-name"' | check "everyone@external"
 	echo "Check that the everyone@external user has no permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
 
 	echo "Add an external user with no permission"
 	# Grant the user login permissions and immediately revoke them. Granting an
@@ -69,27 +69,27 @@ run_user_grant_revoke_external() {
 	juju grant superuser@external superuser
 
 	echo "Check rights for added users"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Grant everyone@external login permissions"
 	juju grant everyone@external "login"
 
 	echo "Check that external users inherit the permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Revoke login permission of everyone@external"
 	juju revoke everyone@external login
 
 	echo "Check that external users have their original permissions"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="everyone@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="nopermuser@external") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="loginuser@external") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="superuser@external") | ."access"' | check "superuser"
 
 	echo "Remove added users"
 	juju remove-user -y nopermuser@external
@@ -109,7 +109,7 @@ run_user_disable_enable() {
 	ensure "user-disable-enable" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Add testuser"
 	juju show-user testuser 2>/dev/null || juju add-user testuser
@@ -119,13 +119,13 @@ run_user_disable_enable() {
 	juju disable-user testuser
 
 	echo "Check testuser is disabled"
-	juju show-user testuser --format=json | jq -r '."disabled"' | check true
+	juju show-user testuser --format=json | yq -r '."disabled"' | check true
 
 	echo "Enable testuser"
 	juju enable-user testuser
 
 	echo "Check testuser is enabled"
-	juju show-user testuser --format=json | jq -r '."disabled"' | check null
+	juju show-user testuser --format=json | yq -r '."disabled"' | check null
 
 	destroy_model "user-disable-enable"
 }
@@ -140,7 +140,7 @@ run_user_controller_access() {
 	ensure "user-controller-access" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Add user with login rights"
 	juju show-user junioradmin 2>/dev/null || juju add-user junioradmin
@@ -150,16 +150,16 @@ run_user_controller_access() {
 	juju grant senioradmin superuser
 
 	echo "Check rights for added users"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check "login"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "superuser"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "superuser"
 
 	echo "Revoke rights"
 	juju revoke junioradmin login
 	juju revoke senioradmin superuser
 
 	echo "Check rights for added users after revoke"
-	juju users --format=json | jq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check ""
-	juju users --format=json | jq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "login"
+	juju users --format=json | yq -r '.[] | select(."user-name"=="junioradmin") | ."access"' | check ""
+	juju users --format=json | yq -r '.[] | select(."user-name"=="senioradmin") | ."access"' | check "login"
 
 	destroy_model "user-controller-access"
 }
@@ -174,7 +174,7 @@ run_user_remove() {
 	ensure "user-remove" "${file}"
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Add testuser2"
 	juju show-user testuser2 2>/dev/null || juju add-user testuser2

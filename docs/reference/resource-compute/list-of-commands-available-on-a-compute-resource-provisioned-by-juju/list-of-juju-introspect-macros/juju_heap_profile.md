@@ -9,8 +9,6 @@ myst:
 
 The heap profile provides memory allocation samples. Helpful to monitor current memory usage and find memory leaks. This is primarily useful to developers to help debug problems that may be occurring in deployed systems.
 
-
-
 ## Usage
 Can be run on any Juju machine. Suggest putting the output in a file, so it can be compared at different points in time.
 

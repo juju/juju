@@ -21,12 +21,6 @@ Clouds can have one or more sets of credentials associated with them.
 
 When you create a  {ref}`model <model>` in Juju it must always be associated with a cloud/credential pair -- the model needs that to create resources on the underlying cloud.
 
-<!--DOUBLE-CHECK: Credentials are stored in .local/share/juju/credentials.yaml. You can verify this by running
-```text
-cat .local/share/juju/credentials.yaml
-```
--->
-
 ## Client vs. controller credential
 
 Juju credentials can be created for either the Juju client or the Juju controller or both -- where a **client credential** (previously known as a 'local credential') denotes a credential that the client is aware of and a **controller credential** (previously known as a 'remote credential') denotes a credential that a controller is aware of. When you bootstrap a controller and use a client credential, this credential gets automatically uploaded to the controller, so it becomes a controller credential also.
@@ -53,7 +47,6 @@ Credential environment variables are not available for all the clouds and, when 
 The `credentials.yaml` file is the file in your Juju installation where Juju stores your cloud credential definitions.
 
 This includes definitions that Juju has created for your (e.g., for the built-in `localhost` (LXD) and `microk8s` clouds) as well as any definitions you have provided yourself, whatever the chosen method.
-
 
 This file (on Linux usually located at `~/.local/share/juju/credentials.yaml`) has the following keys:
 
@@ -119,7 +112,6 @@ credentials:
 
 #### `credentials`
 
-
 **Status:** Required.
 
 **Purpose:** Holds the credentials for every cloud.
@@ -127,7 +119,6 @@ credentials:
 **Value:** Map from clouds to their associated credentials.
 
 #### `credentials.<cloud>`
-
 
 **Status:** Required.
 
@@ -145,13 +136,7 @@ credentials:
 
 **Name:** The credential name, as defined by Juju (built-in clouds) or by you. Must be unique within the cloud. :warning: Because there is no central way to constrain what credential names get used nor oversee what authentication material they represent, different devices can associate the same name with different material, or different names with the same material. This is something to keep in mind, especially in a multi-user context.
 
-
 **Value:** Map from credential attributes (e.g., `auth-type`) to their values.
-
-<!--
-Every credential is born (created) from a specific Juju client, which, in turn, is bound to an independent computer host (“device”). There is thus no central way to constrain what credential names get used nor oversee what authentication material they represent. Because of this, different devices can associate the same name with different material, or the opposite, a different name with the same material. This is something to keep in mind, especially in a multi-user context.
--->
-
 
 #### `credentials.<cloud>.<credential>.auth-type`
 

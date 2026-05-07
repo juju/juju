@@ -256,20 +256,10 @@ func (s *SecretsAPI) createSecret(ctx context.Context, arg params.CreateSecretAr
 		return "", errors.NotValidf("empty secret value")
 	}
 
-	var uri *coresecrets.URI
-	var err error
-	if arg.URI != nil {
-		uri, err = coresecrets.ParseURI(*arg.URI)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	} else {
-		uri = coresecrets.NewURI()
-	}
+	// TODO(secrets): The service must generate this, reserve it, set the content
+	// then convert the reserved secret into a secret.
+	uri := coresecrets.NewURI()
 
-	if len(arg.Content.Data) == 0 {
-		return "", errors.NotValidf("empty secret value")
-	}
 	v := coresecrets.NewSecretValue(arg.Content.Data)
 	checksum, err := v.Checksum()
 	if err != nil {

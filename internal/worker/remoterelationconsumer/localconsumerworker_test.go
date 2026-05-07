@@ -3088,6 +3088,33 @@ func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenRunnerDeadAndWork
 	c.Assert(dead, tc.IsTrue)
 }
 
+// TestIsRelationWorkerDeadWhenContextCancelled verifies that
+// isRelationWorkerDead returns true when the supplied context is cancelled
+// before the runner can return the worker (ErrAborted path). This covers the
+// race where CleanKill cancels the context while the loop is mid-way through
+// handleRelationRemoved.
+func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenContextCancelled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	cancelledCtx, cancel := context.WithCancel(c.Context())
+	cancel()
+
+	dead, err := w.isRelationWorkerDead(cancelledCtx, tc.Must(c, relation.NewUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(dead, tc.IsTrue)
+}
+
 // TestRelationRemovedWithoutOffererUnitWorker tests that when a relation is
 // removed and no offerer unit relation worker exists (e.g. worker restarted),
 // the worker gracefully handles the situation without trying to notify the

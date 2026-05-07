@@ -8,7 +8,6 @@ configuration/list-of-controller-configuration-keys
 configuration/list-of-model-configuration-keys
 ```
 
-
 In Juju, a **configuration** is a rule or a set of rules that define the behavior of your controller, model, or application.
 
 (controller-configuration)=
@@ -50,14 +49,3 @@ However, there is also a generic key, `trust`, that can be changed via `juju tru
 See more: {ref}`trust-an-application-with-a-credential`
 ```
 
-<!-- Heather and I decided to include `trust` under application configuration keys because, if you run, e.g., `$ juju config juju-qa-test`, you'll find something like:
-
-```
-$ juju config juju-qa-test
-application: juju-qa-test
-application-config:
-  trust:
-```
-
-with `trust` being listed there (even if it's not in the config of the charm).
--->

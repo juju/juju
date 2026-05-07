@@ -55,7 +55,6 @@ following structure:
     - The trailer `<sep>` must be one of `:<space>` or `<space>#`, supporting both `Co-Authored-By: Thomas Miller <thomas.miller@canonical.com>` and `Fixes #999`.
     - The trailer `<value>` must be present and can contain any characters, either on a single line, split over multiple lines, or split over multiple paragraphs.
 
-
 Here is the reference example of a conventional commit message:
 
 ```

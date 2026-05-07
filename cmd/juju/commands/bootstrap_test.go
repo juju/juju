@@ -139,7 +139,7 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
+	// NOTE(axw) we cannot patch BundleTools here, as the "tc.C" argument
 	// is invalidated once this method returns.
 	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, func(semversion.Number) semversion.Number) (semversion.Binary, semversion.Number, bool, string, error) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
