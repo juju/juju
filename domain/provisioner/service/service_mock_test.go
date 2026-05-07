@@ -103,18 +103,18 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 }
 
 // GetCachedImageMetadata mocks base method.
-func (m *MockControllerState) GetCachedImageMetadata(ctx context.Context, version, arch, region, stream string) ([]provisioner.CloudImageMetadata, error) {
+func (m *MockControllerState) GetCachedImageMetadata(ctx context.Context, version, arch, region, stream, imageID string) ([]provisioner.CloudImageMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCachedImageMetadata", ctx, version, arch, region, stream)
+	ret := m.ctrl.Call(m, "GetCachedImageMetadata", ctx, version, arch, region, stream, imageID)
 	ret0, _ := ret[0].([]provisioner.CloudImageMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetCachedImageMetadata indicates an expected call of GetCachedImageMetadata.
-func (mr *MockControllerStateMockRecorder) GetCachedImageMetadata(ctx, version, arch, region, stream any) *MockControllerStateGetCachedImageMetadataCall {
+func (mr *MockControllerStateMockRecorder) GetCachedImageMetadata(ctx, version, arch, region, stream, imageID any) *MockControllerStateGetCachedImageMetadataCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedImageMetadata", reflect.TypeOf((*MockControllerState)(nil).GetCachedImageMetadata), ctx, version, arch, region, stream)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedImageMetadata", reflect.TypeOf((*MockControllerState)(nil).GetCachedImageMetadata), ctx, version, arch, region, stream, imageID)
 	return &MockControllerStateGetCachedImageMetadataCall{Call: call}
 }
 
@@ -130,13 +130,13 @@ func (c *MockControllerStateGetCachedImageMetadataCall) Return(arg0 []provisione
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetCachedImageMetadataCall) Do(f func(context.Context, string, string, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
+func (c *MockControllerStateGetCachedImageMetadataCall) Do(f func(context.Context, string, string, string, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetCachedImageMetadataCall) DoAndReturn(f func(context.Context, string, string, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
+func (c *MockControllerStateGetCachedImageMetadataCall) DoAndReturn(f func(context.Context, string, string, string, string, string) ([]provisioner.CloudImageMetadata, error)) *MockControllerStateGetCachedImageMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

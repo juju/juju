@@ -50,8 +50,8 @@ type ControllerState interface {
 
 	// GetCachedImageMetadata retrieves cached image metadata from the
 	// controller database matching the given version, architecture, region,
-	// and stream. Empty string parameters are treated as wildcards.
-	GetCachedImageMetadata(ctx context.Context, version, arch, region, stream string) ([]provisioner.CloudImageMetadata, error)
+	// stream, and image ID. Empty string parameters are treated as wildcards.
+	GetCachedImageMetadata(ctx context.Context, version, arch, region, stream, imageID string) ([]provisioner.CloudImageMetadata, error)
 }
 
 // ImageMetadataFetcher fetches image metadata from external sources
@@ -137,8 +137,12 @@ func (s *Service) GetProvisioningInfo(
 	if stateInfo.Constraints.HasArch() {
 		arch = *stateInfo.Constraints.Arch
 	}
+	var imageID string
+	if stateInfo.Constraints.ImageID != nil {
+		imageID = *stateInfo.Constraints.ImageID
+	}
 	stream := imageStream(stateInfo.ImageStream)
-	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch, stateInfo.CloudRegion, stream)
+	cachedImageMetadata, err := s.controllerSt.GetCachedImageMetadata(ctx, version, arch, stateInfo.CloudRegion, stream, imageID)
 	if err != nil {
 		// Log and continue — fall through to external datasources if cache
 		// lookup fails (matches original graceful-degradation behaviour).
@@ -155,7 +159,7 @@ func (s *Service) GetProvisioningInfo(
 	}
 
 	// Step 5: Construct network topology.
-	spaceSubnets, subnetAZs := s.buildNetworkTopology(
+	spaceSubnets, subnetAZs, err := s.buildNetworkTopology(
 		ctx,
 		machineName.String(),
 		stateInfo.Constraints,
@@ -163,6 +167,11 @@ func (s *Service) GetProvisioningInfo(
 		stateInfo.Spaces,
 		stateInfo.CloudType,
 	)
+	if err != nil {
+		return provisioner.ProvisioningInfo{}, errors.Errorf(
+			"building network topology for machine %q: %w", machineName, err,
+		)
+	}
 
 	// Step 6: Resolve image metadata (cached or fallback to external).
 	imageMetadata, err := s.resolveImageMetadata(ctx, stateInfo, cachedImageMetadata, cloudEndpoint)
@@ -264,7 +273,8 @@ func (s *Service) machineSpaces(
 }
 
 // buildNetworkTopology constructs the space-subnet-AZ topology needed
-// by the provider for provisioner.
+// by the provider for provisioner. Returns an error if a required space
+// is not found or has no usable subnets.
 func (s *Service) buildNetworkTopology(
 	ctx context.Context,
 	machineID string,
@@ -272,13 +282,13 @@ func (s *Service) buildNetworkTopology(
 	spaceNames []network.SpaceName,
 	allSpaces network.SpaceInfos,
 	cloudType string,
-) (map[string][]string, map[string][]string) {
+) (map[string][]string, map[string][]string, error) {
 	// If there are no space names, or the only space is alpha and it
 	// wasn't explicitly constrained, return empty topology.
 	consHasOnlyAlpha := len(cons.IncludeSpaces()) == 1 && cons.IncludeSpaces()[0] == network.AlphaSpaceName.String()
 	if len(spaceNames) < 1 ||
 		((len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) && !consHasOnlyAlpha) {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	subnetAZs := make(map[string][]string)
@@ -287,14 +297,14 @@ func (s *Service) buildNetworkTopology(
 	for _, spaceName := range spaceNames {
 		space := allSpaces.GetByName(spaceName)
 		if space == nil {
-			s.logger.Warningf(ctx, "space %q not found in model spaces", spaceName)
-			continue
+			return nil, nil, errors.Errorf(
+				"space %q not found", spaceName)
 		}
 
 		subnets := space.Subnets
 		if len(subnets) == 0 {
-			s.logger.Warningf(ctx, "cannot use space %q as deployment target: no subnets", spaceName)
-			continue
+			return nil, nil, errors.Errorf(
+				"cannot use space %q as deployment target: no subnets", spaceName)
 		}
 
 		subnetIDs := make([]string, 0, len(subnets))
@@ -321,7 +331,7 @@ func (s *Service) buildNetworkTopology(
 		spaceSubnets[spaceName.String()] = subnetIDs
 	}
 
-	return spaceSubnets, subnetAZs
+	return spaceSubnets, subnetAZs, nil
 }
 
 // resolveImageMetadata returns image metadata from cache or falls back

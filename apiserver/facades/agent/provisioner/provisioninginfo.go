@@ -6,10 +6,12 @@ package provisioner
 import (
 	"context"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremachine "github.com/juju/juju/core/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	provisioning "github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -40,6 +42,10 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		machineName := coremachine.Name(tag.Id())
 
 		info, err := api.provisioningService.GetProvisioningInfo(ctx, machineName, api.isControllerModel, controllerConfig)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("machine %s", machineName))
+			continue
+		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

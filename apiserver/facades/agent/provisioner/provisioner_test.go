@@ -739,12 +739,14 @@ func (s *provisionerMockSuite) TestProvisioningInfoErrorContinues(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 2)
 
-	// Machine-0: should have a not-found error.
+	// Machine-0: should have a not-found error with correct code.
 	c.Check(result.Results[0].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
 	c.Check(result.Results[0].Result, tc.IsNil)
 
 	// Machine-1: should have an error too, but processing was not skipped.
 	c.Check(result.Results[1].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[1].Error.Code, tc.Not(tc.Equals), params.CodeNotFound)
 	c.Check(result.Results[1].Result, tc.IsNil)
 }
 
@@ -779,6 +781,7 @@ func (s *provisionerMockSuite) TestProvisioningInfoPermissionDenied(c *tc.C) {
 
 	// Machine-1: not found error (proves we continued past machine-0).
 	c.Check(result.Results[1].Error, tc.Not(tc.IsNil))
+	c.Check(result.Results[1].Error.Code, tc.Equals, params.CodeNotFound)
 	c.Check(result.Results[1].Result, tc.IsNil)
 }
 
