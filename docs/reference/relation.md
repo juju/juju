@@ -74,8 +74,8 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 
 A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
-(implicit-juju-info-relation)=
-## The implicit `juju-info` relation
+(the-implicit-juju-info-relation-endpoint)=
+## The implicit `juju-info` relation endpoint
 
 Every application in a model implicitly provides an extra endpoint named `juju-info`, with role `provides`, interface `juju-info`, and global scope. The endpoint is supplied by Juju itself: it does not need to be (and cannot be) declared in the charm's `metadata.yaml` / `charmcraft.yaml`, and it does not appear in `juju info <charm>` or on the charm's Charmhub page. It is supported on every kind of charm, but is only useful for {ref}`machine charms <machine-charm>`, since it exists to allow {ref}`subordinate charms <subordinate-charm>` to attach to a principal that does not otherwise expose a suitable interface.
 
