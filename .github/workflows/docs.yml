@@ -11,7 +11,7 @@ jobs:
       - linux
       - self-hosted
       - x64
-      - large
+      - xlarge
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
     steps:
       - name: Checkout code
