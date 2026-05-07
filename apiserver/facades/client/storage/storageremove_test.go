@@ -10,6 +10,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/rpc/params"
@@ -190,4 +192,53 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+// TestRemoveWithStorageAttachmentErrorIncludesCause checks that
+// removeStorageInstance preserves the reason for an attachment removal failure.
+// The regression returned only the outer context with a trailing colon.
+func (s *storageRemoveSuite) TestRemoveWithStorageAttachmentErrorIncludesCause(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	storageExp := s.storageService.EXPECT()
+	storageExp.GetStorageInstanceUUIDForID(
+		gomock.Any(), "data/1",
+	).Return(storageInstanceUUID, nil)
+	storageExp.GetStorageInstanceAttachments(
+		gomock.Any(),
+		storageInstanceUUID,
+	).Return([]domainstorage.StorageAttachmentUUID{
+		attachmentUUID,
+	}, nil)
+
+	removalExp := s.removalService.EXPECT()
+	removalExp.RemoveStorageAttachment(
+		gomock.Any(), attachmentUUID, true, time.Duration(0),
+	).Return("", applicationerrors.UnitStorageMinViolation{
+		CharmStorageName: "data",
+		RequiredMinimum:  1,
+		UnitUUID:         unitUUID.String(),
+	})
+
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
+		Storage: []params.RemoveStorageInstance{
+			{
+				Tag:                "storage-data/1",
+				DestroyAttachments: true,
+				Force:              new(true),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.DeepEquals, &params.Error{
+		Code: params.CodeNotValid,
+		Message: `removing storage attachment "` + attachmentUUID.String() +
+			`" for storage "data/1": removing storage from unit would violate charm storage "data" requirements of having minimum 1 storage instances`,
+	})
 }

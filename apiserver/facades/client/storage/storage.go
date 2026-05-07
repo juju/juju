@@ -1310,8 +1310,8 @@ func (a *StorageAPI) removeStorageInstance(
 			err := a.detachStorageAttachment(ctx, saUUID, force, wait)
 			if err != nil {
 				return errors.Errorf(
-					"removing storage attachment %q for storage %q:",
-					saUUID, tag.Id(),
+					"removing storage attachment %q for storage %q: %w",
+					saUUID, tag.Id(), err,
 				)
 			}
 		}
