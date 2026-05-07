@@ -9,7 +9,6 @@ myst:
 
 Discussion and clarification of key topics, providing background information and context.
 
-
 ```{toctree}
 :maxdepth: 2
 :hidden:
@@ -28,7 +27,6 @@ About charming history <charming-history>
 - {ref}`Architecture <juju-architecture>`
 - {ref}`Security <juju-security>`
 - {ref}`Performance <performance-with-juju>`
-
 
 ## Juju vs. other operations solutions
 

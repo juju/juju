@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // SecretProviderRegistry is a function that returns a secret backend provider for the given backend type.
@@ -206,6 +207,7 @@ func (s *Service) backendConfigInfo(
 		return nil, errors.Errorf("initialising secrets provider: %w", err)
 	}
 
+	owned := set.NewStrings()
 	ownedRevisions := provider.SecretRevisions{}
 	readRevisions := provider.SecretRevisions{}
 
@@ -260,6 +262,7 @@ func (s *Service) backendConfigInfo(
 		}
 		for _, r := range revInfo {
 			ownedRevisions.Add(r.URI, r.RevisionID)
+			owned.Add(r.URI.ID)
 		}
 
 		// Granted secretService can be consumed in application level for all units.
@@ -289,13 +292,29 @@ func (s *Service) backendConfigInfo(
 		}
 		for _, r := range revInfo {
 			ownedRevisions.Add(r.URI, r.RevisionID)
+			owned.Add(r.URI.ID)
 		}
 	default:
 		return nil, errors.Errorf("secret accessor kind %q %w", accessor.Kind, coreerrors.NotSupported)
 	}
 
+	issuedTokenUUID := ""
+	if p.IssuesTokens() {
+		// TODO(secrets): call state to save an issued token uuid.
+		u, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating issued token uuid: %w", err,
+			)
+		}
+		issuedTokenUUID = u.String()
+	}
+
 	s.logger.Debugf(ctx, "secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
-	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, sameController, forDrain, coreAccessor, ownedRevisions, readRevisions)
+	restrictedConfig, err := p.RestrictedConfig(
+		ctx, cfg, sameController, forDrain, issuedTokenUUID, coreAccessor,
+		owned.SortedValues(), ownedRevisions, readRevisions,
+	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

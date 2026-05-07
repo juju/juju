@@ -48,12 +48,14 @@ open_dashboard() {
 	# needs to be reimplemented in the controller charm.
 	# TODO update test once a solution is available.
 	#
-	juju dashboard &
-	PID=$!
+	push_daemon_scope
+	local expected_scope_depth
+	expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	# shellcheck disable=SC2064
+	trap "pop_daemon_scope ${expected_scope_depth}" RETURN
+
+	daemon juju dashboard
 	sleep 10
 	# TODO: capture url from dashboard output
 	curl -L http://localhost:31666 | grep "Juju Dashboard"
-	kill -SIGINT "$PID"
-	# TODO: why isn't this killing the child ssh process?
-	#   lsof -n -i | grep 31666
 }

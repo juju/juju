@@ -6,7 +6,6 @@ myst:
 
 (worker-cont)=
 # Worker
-<!---To see previous major version of this doc, see version 13.-->
 
 > See first: {ref}`User docs | Worker <worker>`
 

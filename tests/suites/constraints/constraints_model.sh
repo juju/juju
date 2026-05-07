@@ -15,7 +15,7 @@ run_constraints_model_bootstrap() {
 		check_contains "$(juju model-constraints)" "mem=1024M"
 		check_contains "$(juju constraints controller)" "mem=1024M"
 
-		case "${BOOTSTRAP_PROVIDER:-}" in
+		case "${BOOTSTRAP_CLOUD:-}" in
 		"microk8s") ;;
 		*)
 			check_contains "$(juju show-machine 0)" "mem.*1024M"

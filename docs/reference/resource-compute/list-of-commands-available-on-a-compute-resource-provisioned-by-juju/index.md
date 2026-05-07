@@ -17,7 +17,6 @@ You can always view the help by SSHing into the machine / container and running 
 The `juju-dumplogs` command is only available for a controller machine / container.
 ```
 
-
 ```{toctree}
 :titlesonly:
 :glob:

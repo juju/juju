@@ -7,7 +7,6 @@ myst:
 (juju_metrics)=
 # `juju_metrics`
 
-
 The Juju metrics introspection tool provides the current values of metrics which Juju tracking. Some of these are more interesting over time using a tool such as grafana.
 
 This is primarily useful to developers to help debug problems that may be occurring in deployed systems. Advance admins can use the data to see when investigation is required, or an error is hidden.

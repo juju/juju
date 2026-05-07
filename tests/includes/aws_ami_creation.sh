@@ -63,7 +63,7 @@ create_ami_and_wait_available() {
 	image_id="${OUT}"
 
 	# Retrieve the subnet id
-	sub1=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
+	sub1=$(aws ec2 describe-subnets | yq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
 
 	# Launch an ec2 instance using the retrieved jammy image id
 	local instance_id_ami_builder
@@ -95,7 +95,7 @@ run_cleanup_ami() {
 	if [[ -f "${TEST_DIR}/ec2-amis" ]]; then
 		echo "====> Cleaning up EC2 AMIs"
 		while read -r ec2_ami; do
-			snapshot_ids=$(aws ec2 describe-images --image-ids="${ec2_ami}" | jq -r ".Images[0].BlockDeviceMappings | .[] .Ebs.SnapshotId | select(. != null)")
+			snapshot_ids=$(aws ec2 describe-images --image-ids="${ec2_ami}" | yq -r ".Images[0].BlockDeviceMappings | .[] .Ebs.SnapshotId | select(. != null)")
 			aws ec2 deregister-image --image-id="${ec2_ami}" >>"${TEST_DIR}/aws_cleanup"
 			echo ${snapshot_ids} | xargs -L 1 aws ec2 delete-snapshot --snapshot-id >>"${TEST_DIR}/aws_cleanup"
 		done <"${TEST_DIR}/ec2-amis"

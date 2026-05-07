@@ -16,6 +16,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/errgo.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
@@ -138,6 +139,30 @@ func (s *UploadSuite) TestUploadFailed(c *tc.C) {
 	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *UploadSuite) TestUploadAuthError(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	data := "<data>"
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
+	c.Assert(err, tc.ErrorIsNil)
+	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", strings.NewReader(data))
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
+	req.ContentLength = int64(len(data))
+
+	ctx := c.Context()
+	authErr := errgo.Mask(params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "user unauthorized",
+	})
+	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(authErr)
+	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
 func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
@@ -264,6 +289,42 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *tc.C) {
 	uploadArgs := newUploadPendingResourceArgs(res, data)
 	_, err = s.client.UploadPendingResource(ctx, uploadArgs)
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *UploadSuite) TestUploadPendingResourceAuthError(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	res, apiResult := newResourceResult(c, "spam")
+	addArgs := newAddPendingResourcesArgsV2(apiResult)
+	uuid, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	expected := uuid.String()
+	results := params.AddPendingResourcesResult{
+		PendingIDs: []string{expected},
+	}
+	data := "<data>"
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
+	c.Assert(err, tc.ErrorIsNil)
+	url := fmt.Sprintf("/applications/a-application/resources/spam?pendingid=%v", expected)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(data))
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.ContentLength = int64(len(data))
+	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
+
+	ctx := c.Context()
+	authErr := errgo.Mask(params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "user unauthorized",
+	})
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(authErr)
+
+	uploadArgs := newUploadPendingResourceArgs(res, data)
+	_, err = s.client.UploadPendingResource(ctx, uploadArgs)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
 func newAddPendingResourcesArgsV2(apiResult params.ResourcesResult) params.AddPendingResourcesArgsV2 {

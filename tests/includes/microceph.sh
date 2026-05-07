@@ -22,11 +22,11 @@ enable_microceph_backed_storage() {
 	# NOTE: This can sometimes take surprisigly long
 	wait_for "ceph-radosgw" "$(active_idle_condition "ceph-radosgw")"
 
-	gw_ip=$(juju status --format json | jq -r '.applications["ceph-radosgw"].units["ceph-radosgw/0"]["public-address"]')
-	key=$(juju ssh microceph/0 "sudo radosgw-admin user create --uid juju --display-name Juju" | jq -r ".keys[0]")
+	gw_ip=$(juju status --format json | yq -r '.applications["ceph-radosgw"].units["ceph-radosgw/0"]["public-address"]')
+	key=$(juju ssh microceph/0 "sudo radosgw-admin user create --uid juju --display-name Juju" | yq -r ".keys[0]")
 	juju controller-config \
 		"object-store-type=s3" \
 		"object-store-s3-endpoint=http://${gw_ip}:80" \
-		"object-store-s3-static-key=$(echo "$key" | jq -r ".access_key")" \
-		"object-store-s3-static-secret=$(echo "$key" | jq -r ".secret_key")"
+		"object-store-s3-static-key=$(echo "$key" | yq -r ".access_key")" \
+		"object-store-s3-static-secret=$(echo "$key" | yq -r ".secret_key")"
 }

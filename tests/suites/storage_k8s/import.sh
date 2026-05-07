@@ -20,7 +20,7 @@ test_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -36,7 +36,7 @@ test_import_filesystem() {
 		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
 
 	# Fix: update the PersistentVolume's reclaim policy to 'Retain'.
-	microk8s kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+	kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
 
 	# Attempt to import the PersistentVolume: expect failure due to existing claimRef.
 	set +e
@@ -46,9 +46,9 @@ test_import_filesystem() {
 		"importing volume \"${PV}\" already bound to a claim not supported"
 
 	# Fix: delete the PVC and remove the claimRef from the PersistentVolume.
-	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	microk8s kubectl delete pvc "${PVC}" -n "${model_name}"
-	microk8s kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
+	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	kubectl delete pvc "${PVC}" -n "${model_name}"
+	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
 	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
@@ -82,7 +82,7 @@ test_force_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -98,9 +98,9 @@ test_force_import_filesystem() {
 		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
 
 	# Test import PV which PVC not managed by juju.
-	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	ORIGINAL_LABEL=$(microk8s kubectl get pvc "${PVC}" -n "${model_name}" -o json | jq -r '.metadata.labels["app.kubernetes.io/managed-by"]')
-	microk8s kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by=not-juju --overwrite
+	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	ORIGINAL_LABEL=$(kubectl get pvc "${PVC}" -n "${model_name}" -o json | yq -r '.metadata.labels["app.kubernetes.io/managed-by"]')
+	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by=not-juju --overwrite
 
 	set +e
 	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
@@ -109,7 +109,7 @@ test_force_import_filesystem() {
 	echo "${OUT}" | check \
 		"importing volume: importing PersistentVolume \"${PV}\" whose PersistentVolumeClaim is not managed by juju: unexpected storage labels"
 
-	microk8s kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
+	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
 
 	# Final attempt: import the PersistentVolume successfully.
 	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
@@ -117,9 +117,9 @@ test_force_import_filesystem() {
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
 	# Ensure pv imported & status is available.
-	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 	echo "${PVC}" | check ""
-	RECLAIM_POLICY=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
+	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
 	echo "${RECLAIM_POLICY}" | check "Retain"
 
 	# Destroy the test model.

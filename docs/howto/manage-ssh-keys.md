@@ -35,11 +35,6 @@ juju add-ssh-key "$(cat ~/mykey.pub)"
 
 ```
 
-<!--SAW THIS SOMEWHERE ELSE. THIS IS SUPPOSED TO BE THE DEFAULT USER FOR A JUJU MACHINE. BUT WHICH JUJU MACHINE ARE WE TALKING ABOUT NOW? WE JUST SAID WE'RE ADDING THIS TO THE MODEL.
-
-This will add the SSH key to the default user account named 'ubuntu'.
--->
-
 ```{ibnote}
 See more: {ref}`command-juju-add-ssh-key`
 ```
@@ -51,11 +46,6 @@ To import a public SSH key from Launchpad / Github to a model, use the `import-s
 ```text
 juju import-ssh-key gh:phamilton
 ```
-
-<!--SAW THIS SOMEWHERE ELSE. THIS IS SUPPOSED TO BE THE DEFAULT USER FOR A JUJU MACHINE. BUT WHICH JUJU MACHINE ARE WE TALKING ABOUT NOW? WE JUST SAID WE'RE ADDING THIS TO THE MODEL.
-
-This will add the SSH key to the default user account named 'ubuntu'.
--->
 
 ```{ibnote}
 See more: {ref}`command-juju-import-ssh-key`
@@ -70,10 +60,6 @@ juju ssh-keys
 ```
 
 If you want to get more details, or get this information for a different model, use the `--full` or the `--model / -m <model name>` option.
-
-<!--# List the keys known in the 'jujutest' model
-juju ssh-keys -m jujutest --full
--->
 
 ```{ibnote}
 See more: {ref}`command-juju-ssh-keys`

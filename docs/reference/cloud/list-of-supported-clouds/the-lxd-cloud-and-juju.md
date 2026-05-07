@@ -7,14 +7,7 @@ myst:
 (cloud-lxd)=
 # The LXD cloud and Juju
 
-<!--To see the older HTG-style doc, see version 39. Note that it may be out-of-date. -->
-
-<!--
-LXD is a hypervisor that provides system containers that are secure, lightweight, and easy to use. When your computer has LXD installed, Juju can operate the `localhost` cloud.
--->
-
 This document describes details specific to using your existing LXD cloud with Juju.
-
 
 ````{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
 
@@ -75,7 +68,6 @@ Attributes:
 <br>This is the recommended method for authenticating with a remote LXD server (see [LXD \| Adding client certificates using tokens](https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens)).
 <br>(Added in Juju 3.6.4)
 - `trust-password`: the LXD server trust password (optional, required if trust-token is not set)
-
 
 ## Notes on `juju bootstrap`
 
