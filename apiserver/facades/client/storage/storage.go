@@ -1328,6 +1328,3 @@ func (a *StorageAPI) removeStorageInstance(
 
 	return nil
 }
-
-// Attach attaches existing storage instances to units.
-// A "CHANGE" block can block this operation.
