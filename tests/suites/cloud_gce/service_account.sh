@@ -28,7 +28,7 @@ run_serviceaccount_credential() {
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
 	juju switch controller
-	juju enable-ha
+	juju add-unit -m controller controller -n 2
 	wait_for_controller_machines 3
 	wait_for_ha 3
 
