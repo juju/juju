@@ -105,12 +105,23 @@ type TracingService interface {
 	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
 }
 
+// LoggingService is the interface for the logging service.
+type LoggingService interface {
+	// SetLokiEndpoint sets the Loki push API endpoint.
+	SetLokiEndpoint(ctx context.Context, endpoint string) error
+
+	// DeleteLokiEndpoint removes the configured Loki push API endpoint.
+	DeleteLokiEndpoint(ctx context.Context) error
+}
+
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// AccessService is the user access service for the model.
 	AccessService AccessService
 	// TracingService is the tracing service for the model.
 	TracingService TracingService
+	// LoggingService is the logging service for the controller.
+	LoggingService LoggingService
 	// ObjectStoreService is the object store service for the controller.
 	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
@@ -152,6 +163,7 @@ type Worker struct {
 
 	accessService      AccessService
 	tracingService     TracingService
+	loggingService     LoggingService
 	objectStoreService ControllerObjectStoreService
 
 	controllerModelUUID model.UUID
@@ -174,6 +186,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		accessService:       config.AccessService,
 		tracingService:      config.TracingService,
+		loggingService:      config.LoggingService,
 		objectStoreService:  config.ObjectStoreService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
@@ -272,6 +285,20 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
 		Methods(http.MethodPost)
 	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+		Methods(http.MethodDelete)
+
+	// loki-endpoint endpoint for managing the Loki push API endpoint. This
+	// is a POST endpoint that accepts a JSON body with the following format:
+	//
+	// {
+	//   "url": <string>,
+	// }
+	//
+	// The worker will persist the Loki endpoint in the controller database
+	// so it can be distributed to agents for direct log shipping.
+	r.Handle("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint)).
+		Methods(http.MethodPost)
+	r.HandleFunc("/loki-endpoint", w.handleRemoveLokiEndpoint).
 		Methods(http.MethodDelete)
 }
 
@@ -497,6 +524,52 @@ func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.R
 	// be fixed in future requests.
 	w.writeErrorResponse(req.Context(), resp, http.StatusNotImplemented,
 		internalerrors.New("removing s3 credentials is not supported at this time"))
+}
+
+type lokiEndpointRequest struct {
+	URL string `json:"url"`
+}
+
+func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody lokiEndpointRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if err := w.loggingService.SetLokiEndpoint(ctx, parsedBody.URL); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated loki endpoint"))
+}
+
+func (w *Worker) handleRemoveLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	if err := w.loggingService.DeleteLokiEndpoint(ctx); err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("removing loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("removed loki endpoint"))
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {

@@ -35,6 +35,8 @@ import (
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	flagservice "github.com/juju/juju/domain/flag/service"
 	flagstate "github.com/juju/juju/domain/flag/state"
+	loggingservice "github.com/juju/juju/domain/logging/service"
+	loggingstate "github.com/juju/juju/domain/logging/state"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	macaroonstate "github.com/juju/juju/domain/macaroon/state"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -224,6 +226,16 @@ func (s *ControllerServices) ControllerChangeStream() *changestreamservice.Servi
 func (s *ControllerServices) Tracing() *tracingservice.Service {
 	return tracingservice.NewService(
 		tracingstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
+	)
+}
+
+// Logging returns the logging service which provides access to logging
+// configuration such as the Loki push API endpoint.
+func (s *ControllerServices) Logging() *loggingservice.Service {
+	return loggingservice.NewService(
+		loggingstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
 	)

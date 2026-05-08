@@ -113,6 +113,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	w, err = cfg.NewWorker(Config{
 		AccessService:       domainServices.Access(),
 		TracingService:      domainServices.Tracing(),
+		LoggingService:      domainServices.Logging(),
 		ObjectStoreService:  controllerObjectStoreService,
 		Logger:              cfg.Logger,
 		SocketName:          cfg.SocketName,
