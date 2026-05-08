@@ -6,8 +6,11 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,6 +28,25 @@ type State interface {
 	// DeleteLokiEndpoint removes the configured Loki push API endpoint. If
 	// no endpoint is configured, this is a no-op.
 	DeleteLokiEndpoint(ctx context.Context) error
+
+	// NamespaceForWatchLokiEndpoint returns the namespace identifier used
+	// for watching Loki endpoint changes.
+	NamespaceForWatchLokiEndpoint() string
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted
+	// only if the filter accepts them, and dispatching the notifications
+	// via the Changes channel. A filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -36,6 +58,24 @@ type Service struct {
 func NewService(st State) *Service {
 	return &Service{
 		st: st,
+	}
+}
+
+// WatchableService defines a service for interacting with the underlying
+// state and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new Service for interacting with the
+// underlying state and the ability to create watchers.
+func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: wf,
 	}
 }
 
@@ -69,4 +109,19 @@ func (s *Service) DeleteLokiEndpoint(ctx context.Context) error {
 	defer span.End()
 
 	return s.st.DeleteLokiEndpoint(ctx)
+}
+
+// WatchLokiEndpoint returns a watcher that emits notifications when the
+// Loki push API endpoint configuration changes.
+func (s *WatchableService) WatchLokiEndpoint(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	namespace := s.st.NamespaceForWatchLokiEndpoint()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"loki endpoint watcher",
+		eventsource.NamespaceFilter(namespace, changestream.All),
+	)
 }

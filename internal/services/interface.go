@@ -100,7 +100,7 @@ type ControllerDomainServices interface {
 	// Tracing returns the service for accessing tracing configuration.
 	Tracing() *tracingservice.Service
 	// Logging returns the service for accessing logging configuration.
-	Logging() *loggingservice.Service
+	Logging() *loggingservice.WatchableService
 }
 
 // ModelDomainServices provides access to the services required by the

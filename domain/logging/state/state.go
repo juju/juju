@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
@@ -125,4 +126,10 @@ func (st *State) DeleteLokiEndpoint(ctx context.Context) error {
 type lokiConfig struct {
 	UUID     string `db:"uuid"`
 	Endpoint string `db:"endpoint"`
+}
+
+// NamespaceForWatchLokiEndpoint returns the namespace identifier used for
+// watching Loki endpoint changes.
+func (*State) NamespaceForWatchLokiEndpoint() string {
+	return "logging_loki_config"
 }

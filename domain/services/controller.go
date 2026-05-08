@@ -233,11 +233,12 @@ func (s *ControllerServices) Tracing() *tracingservice.Service {
 
 // Logging returns the logging service which provides access to logging
 // configuration such as the Loki push API endpoint.
-func (s *ControllerServices) Logging() *loggingservice.Service {
-	return loggingservice.NewService(
+func (s *ControllerServices) Logging() *loggingservice.WatchableService {
+	return loggingservice.NewWatchableService(
 		loggingstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
+		s.controllerWatcherFactory("logging"),
 	)
 }
 
