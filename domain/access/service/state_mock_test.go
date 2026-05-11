@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	credential "github.com/juju/juju/core/credential"
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
@@ -199,41 +198,41 @@ func (c *MockStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// AllModelAccessForCloudCredential mocks base method.
-func (m *MockState) AllModelAccessForCloudCredential(arg0 context.Context, arg1 credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+// AllModelAccessForOwner mocks base method.
+func (m *MockState) AllModelAccessForOwner(arg0 context.Context, arg1 user.Name) ([]access.OwnerModelAccessByCredential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelAccessForCloudCredential", arg0, arg1)
-	ret0, _ := ret[0].([]access.CredentialOwnerModelAccess)
+	ret := m.ctrl.Call(m, "AllModelAccessForOwner", arg0, arg1)
+	ret0, _ := ret[0].([]access.OwnerModelAccessByCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllModelAccessForCloudCredential indicates an expected call of AllModelAccessForCloudCredential.
-func (mr *MockStateMockRecorder) AllModelAccessForCloudCredential(arg0, arg1 any) *MockStateAllModelAccessForCloudCredentialCall {
+// AllModelAccessForOwner indicates an expected call of AllModelAccessForOwner.
+func (mr *MockStateMockRecorder) AllModelAccessForOwner(arg0, arg1 any) *MockStateAllModelAccessForOwnerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForCloudCredential", reflect.TypeOf((*MockState)(nil).AllModelAccessForCloudCredential), arg0, arg1)
-	return &MockStateAllModelAccessForCloudCredentialCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelAccessForOwner", reflect.TypeOf((*MockState)(nil).AllModelAccessForOwner), arg0, arg1)
+	return &MockStateAllModelAccessForOwnerCall{Call: call}
 }
 
-// MockStateAllModelAccessForCloudCredentialCall wrap *gomock.Call
-type MockStateAllModelAccessForCloudCredentialCall struct {
+// MockStateAllModelAccessForOwnerCall wrap *gomock.Call
+type MockStateAllModelAccessForOwnerCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateAllModelAccessForCloudCredentialCall) Return(arg0 []access.CredentialOwnerModelAccess, arg1 error) *MockStateAllModelAccessForCloudCredentialCall {
+func (c *MockStateAllModelAccessForOwnerCall) Return(arg0 []access.OwnerModelAccessByCredential, arg1 error) *MockStateAllModelAccessForOwnerCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAllModelAccessForCloudCredentialCall) Do(f func(context.Context, credential.Key) ([]access.CredentialOwnerModelAccess, error)) *MockStateAllModelAccessForCloudCredentialCall {
+func (c *MockStateAllModelAccessForOwnerCall) Do(f func(context.Context, user.Name) ([]access.OwnerModelAccessByCredential, error)) *MockStateAllModelAccessForOwnerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllModelAccessForCloudCredentialCall) DoAndReturn(f func(context.Context, credential.Key) ([]access.CredentialOwnerModelAccess, error)) *MockStateAllModelAccessForCloudCredentialCall {
+func (c *MockStateAllModelAccessForOwnerCall) DoAndReturn(f func(context.Context, user.Name) ([]access.OwnerModelAccessByCredential, error)) *MockStateAllModelAccessForOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

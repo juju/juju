@@ -131,6 +131,12 @@ func (q Qualifier) String() string {
 	return string(q)
 }
 
+// QualifyName returns the fully qualified model name in the form
+// "qualifier/name".
+func (q Qualifier) QualifyName(name string) string {
+	return q.String() + "/" + name
+}
+
 // Validate returns an error if the model qualifier is not valid.
 // The qualifier is expected to be a valid user identifier
 // (e.g. "admin", "alice@external").

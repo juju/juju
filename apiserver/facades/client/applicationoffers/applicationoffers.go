@@ -790,7 +790,7 @@ func (api *OffersAPI) getModelsFromOffers(ctx context.Context, user names.UserTa
 
 		qualifier := constructModelQualifier(url.ModelQualifier, user)
 		url.ModelQualifier = qualifier.String()
-		modelPath := fmt.Sprintf("%s/%s", url.ModelQualifier, url.ModelName)
+		modelPath := qualifier.QualifyName(url.ModelName)
 		if foundModel, ok := modelsCache[modelPath]; ok {
 			return url, foundModel, nil
 		}
