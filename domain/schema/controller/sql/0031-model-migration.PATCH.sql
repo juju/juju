@@ -171,3 +171,142 @@ CREATE TABLE model_migration_export_minion_sync (
     FOREIGN KEY (phase_id)
     REFERENCES model_migration_phase (id)
 );
+
+-- Add changelog triggers for the replacement export-side migration tables in
+-- this post-patch. The legacy migration trigger functions are still applied
+-- before this patch so the old triggers can be dropped above.
+-- 
+-- sqlfluff doesn't support TRIGGER statements
+-- noqa: disable=all
+
+-- insert namespace for ModelMigrationExport
+INSERT INTO change_log_namespace VALUES (10019, 'model_migration_export', 'ModelMigrationExport changes based on model_uuid');
+
+-- insert trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_insert
+AFTER INSERT ON model_migration_export FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, 10019, NEW.model_uuid, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_update
+AFTER UPDATE ON model_migration_export FOR EACH ROW
+WHEN
+    NEW.uuid != OLD.uuid OR
+    NEW.model_uuid != OLD.model_uuid OR
+    NEW.target_controller_uuid != OLD.target_controller_uuid OR
+    NEW.current_phase_id != OLD.current_phase_id OR
+    NEW.phase_changed_at != OLD.phase_changed_at OR
+    NEW.start_time != OLD.start_time OR
+    (NEW.end_time != OLD.end_time OR (NEW.end_time IS NOT NULL AND OLD.end_time IS NULL) OR (NEW.end_time IS NULL AND OLD.end_time IS NOT NULL))
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10019, OLD.model_uuid, DATETIME('now', 'utc'));
+END;
+
+-- delete trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_delete
+AFTER DELETE ON model_migration_export FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, 10019, OLD.model_uuid, DATETIME('now', 'utc'));
+END;
+
+-- insert namespace for ModelMigrationExportPhase
+INSERT INTO change_log_namespace VALUES (10020, 'model_migration_export_phase', 'ModelMigrationExportPhase changes based on migration_uuid');
+
+-- insert trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_insert
+AFTER INSERT ON model_migration_export_phase FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, 10020, NEW.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_update
+AFTER UPDATE ON model_migration_export_phase FOR EACH ROW
+WHEN
+    NEW.migration_uuid != OLD.migration_uuid OR
+    NEW.phase_id != OLD.phase_id OR
+    NEW.changed_at != OLD.changed_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10020, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- delete trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_delete
+AFTER DELETE ON model_migration_export_phase FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, 10020, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- insert namespace for ModelMigrationExportStatus
+INSERT INTO change_log_namespace VALUES (10021, 'model_migration_export_status', 'ModelMigrationExportStatus changes based on migration_uuid');
+
+-- insert trigger for ModelMigrationExportStatus
+CREATE TRIGGER trg_log_model_migration_export_status_insert
+AFTER INSERT ON model_migration_export_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, 10021, NEW.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationExportStatus
+CREATE TRIGGER trg_log_model_migration_export_status_update
+AFTER UPDATE ON model_migration_export_status FOR EACH ROW
+WHEN
+    NEW.uuid != OLD.uuid OR
+    NEW.migration_uuid != OLD.migration_uuid OR
+    NEW.message != OLD.message OR
+    NEW.recorded_at != OLD.recorded_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10021, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- delete trigger for ModelMigrationExportStatus
+CREATE TRIGGER trg_log_model_migration_export_status_delete
+AFTER DELETE ON model_migration_export_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, 10021, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- insert namespace for ModelMigrationExportMinionSync
+INSERT INTO change_log_namespace VALUES (10022, 'model_migration_export_minion_sync', 'ModelMigrationExportMinionSync changes based on migration_uuid');
+
+-- insert trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_insert
+AFTER INSERT ON model_migration_export_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, 10022, NEW.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_update
+AFTER UPDATE ON model_migration_export_minion_sync FOR EACH ROW
+WHEN
+    NEW.migration_uuid != OLD.migration_uuid OR
+    NEW.phase_id != OLD.phase_id OR
+    NEW.entity_key != OLD.entity_key OR
+    NEW.success != OLD.success OR
+    NEW.reported_at != OLD.reported_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10022, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+
+-- delete trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_delete
+AFTER DELETE ON model_migration_export_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, 10022, OLD.migration_uuid, DATETIME('now', 'utc'));
+END;
+-- noqa: enable=all
