@@ -193,7 +193,10 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	updWorker := w.(*updaterWorker)
 
 	machineName := machine.Name("0")
-	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
+	gomock.InOrder(
+		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
+		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
+	)
 	updWorker.appendToShortPollGroup(machineName)
 
 	// Manually move entry to long poll group.
@@ -208,6 +211,92 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
 	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll, tc.Commentf("poll interval was not reset"))
+}
+
+func (s *workerSuite) TestQueueingExistingMachineThatBecomesManualRemovesItFromPollGroup(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	now := mocked.clock.Now()
+	gomock.InOrder(
+		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
+		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
+		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(true, nil),
+		mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Provisioning}, nil),
+		mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
+			Status:  status.Running,
+			Message: "Manually provisioned machine",
+			Since:   &now,
+		}).Return(nil),
+	)
+
+	err := updWorker.queueMachineForPolling(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = updWorker.queueMachineForPolling(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	entry, groupType := updWorker.lookupPolledMachine(machineName)
+	c.Check(entry, tc.IsNil)
+	c.Check(groupType, tc.Equals, invalidPollGroup)
+	c.Check(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
+	c.Check(updWorker.pollGroup[longPollGroup], tc.HasLen, 0)
+}
+
+// TestMachineNotFoundDuringManualCheckRemovesEntry verifies that if a machine
+// disappears (MachineNotFound) when we re-check its manual status in branch
+// (b), it is cleanly removed from the poll group.
+func (s *workerSuite) TestMachineNotFoundDuringManualCheckRemovesEntry(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	gomock.InOrder(
+		// First call: machine is alive and not manual → added to short poll group.
+		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
+		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
+		// Second call (branch b): machine has since disappeared.
+		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, machineerrors.MachineNotFound),
+	)
+
+	err := updWorker.queueMachineForPolling(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = updWorker.queueMachineForPolling(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	entry, groupType := updWorker.lookupPolledMachine(machineName)
+	c.Check(entry, tc.IsNil)
+	c.Check(groupType, tc.Equals, invalidPollGroup)
+}
+
+// TestSetManualMachineRunningSkipsUpdateWhenMachineNotFound verifies that
+// setManualMachineRunning does not error when the machine has been removed
+// concurrently (MachineNotFound from GetInstanceStatus).
+func (s *workerSuite) TestSetManualMachineRunningSkipsUpdateWhenMachineNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(
+		status.StatusInfo{}, machineerrors.MachineNotFound,
+	)
+
+	err := updWorker.setManualMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
@@ -543,6 +632,40 @@ func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *
 	s.assertWorkerCompletesLoop(c, updWorker, func() {
 		mocked.clock.Advance(ShortPoll)
 	})
+}
+
+func (s *workerSuite) TestPollGroupMembersSkipsNetworkInterfacesForNoDeviceInstances(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
+	updWorker.appendToShortPollGroup(machineName)
+	entry, _ := updWorker.lookupPolledMachine(machineName)
+	entry.shortPollAt = mocked.clock.Now()
+
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.PollingInfos{
+		{
+			MachineUUID:         machineUUID,
+			MachineName:         machineName,
+			InstanceID:          "no-devices",
+			ExistingDeviceCount: 0,
+		},
+	}, nil)
+
+	machineInfo := mocks.NewMockInstance(ctrl)
+	machineInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"no-devices"}).Return([]instances.Instance{machineInfo}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Running}, nil)
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Started}, nil)
+
+	err := updWorker.pollGroupMembers(c.Context(), shortPollGroup)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *tc.C) {

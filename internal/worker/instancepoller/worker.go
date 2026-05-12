@@ -281,6 +281,22 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 			return errors.Trace(err)
 		}
 
+		isManual, err := u.config.MachineService.IsMachineManuallyProvisioned(ctx, machineName)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			// Machine was removed between the life check and manual check;
+			// treat it the same as a dead machine.
+			u.config.Logger.Debugf(ctx, "removing disappeared machine %q from poll group", entry.machineName)
+			delete(u.pollGroup[groupType], machineName)
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if isManual {
+			u.config.Logger.Debugf(ctx, "machine %q is now manually provisioned, removing from poll group", entry.machineName)
+			delete(u.pollGroup[groupType], machineName)
+			return u.setManualMachineRunning(ctx, machineName)
+		}
+
 		// Something has changed with the machine state. Reset short
 		// poll interval for the machine and move it to the short poll
 		// group (if not already there) so we immediately poll its
@@ -310,8 +326,15 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		return nil
 	}
 
+	return u.setManualMachineRunning(ctx, machineName)
+}
+
+func (u *updaterWorker) setManualMachineRunning(ctx context.Context, machineName machine.Name) error {
 	machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
-	if err != nil {
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		// Machine was removed concurrently; nothing to update.
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	if machineStatus.Status != status.Running {
@@ -320,9 +343,12 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 			Status:  status.Running,
 			Message: "Manually provisioned machine",
 			Since:   &now,
-		}); err != nil {
+		}); errors.Is(err, machineerrors.MachineNotFound) {
+			// Machine was removed concurrently; nothing to update.
+			return nil
+		} else if err != nil {
 			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -451,19 +477,23 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
-	netList, err := u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
-	if err != nil && !isPartialOrNoInstancesError(err) {
-		// NOTE(achilleasa): 2022-01-24: all existing providers (with the
-		// exception of "manual" which we don't care about in this context)
-		// implement the NetworkInterfaces method.
-		//
-		// This error is meant as a hint to folks working on new providers
-		// in the future to ensure that they implement this method.
-		if errors.Is(err, errors.NotSupported) {
-			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
-		}
+	var netList []network.InterfaceInfos
+	if len(instanceWithDevices) > 0 {
+		var err error
+		netList, err = u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
+		if err != nil && !isPartialOrNoInstancesError(err) {
+			// NOTE(achilleasa): 2022-01-24: all existing providers (with the
+			// exception of "manual" which we don't care about in this context)
+			// implement the NetworkInterfaces method.
+			//
+			// This error is meant as a hint to folks working on new providers
+			// in the future to ensure that they implement this method.
+			if errors.Is(err, errors.NotSupported) {
+				return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
+			}
 
-		return errors.Annotate(err, "enumerating network interface list for instances")
+			return errors.Annotate(err, "enumerating network interface list for instances")
+		}
 	}
 
 	for idx, info := range infoList {
