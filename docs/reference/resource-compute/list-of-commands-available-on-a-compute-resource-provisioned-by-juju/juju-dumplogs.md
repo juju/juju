@@ -19,7 +19,6 @@ Output the logs that are stored in the local Juju database.
 juju-dumplogs [options]
 ```
 
-
 ### Options
 
 ```text
@@ -45,5 +44,4 @@ In order to connect to the database, the local machine agent's
 configuration is needed. In most circumstances the configuration will
 be found automatically. The `--data-dir` and/or `--machine-id` options may
 be required if the agent configuration can't be found automatically.
-
 

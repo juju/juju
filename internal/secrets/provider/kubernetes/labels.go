@@ -6,6 +6,7 @@ package kubernetes
 import (
 	"k8s.io/apimachinery/pkg/labels"
 
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
@@ -13,6 +14,11 @@ import (
 const (
 	labelJujuSecretModelName = "secrets.juju.is/model-name"
 	labelJujuSecretModelUUID = "secrets.juju.is/model-id"
+	labelJujuSecretConsumer  = "secrets.juju.is/consumer"
+)
+
+const (
+	annotationJujuSecretExpireAt = "secrets.juju.is/expire-at"
 )
 
 func labelsForSecretRevision(modelName string, modelUUID string) labels.Set {
@@ -24,11 +30,16 @@ func labelsForSecretRevision(modelName string, modelUUID string) labels.Set {
 	return utils.LabelsMerge(utils.LabelsJuju, secretLabels)
 }
 
-func labelsForServiceAccount(modelName string, modelUUID string) labels.Set {
+func labelsForServiceAccount(
+	modelName string, modelUUID string, accessor *coresecrets.Accessor,
+) labels.Set {
 	secretLabels := map[string]string{
 		constants.LabelJujuModelName: modelName,
 		labelJujuSecretModelName:     modelName,
 		labelJujuSecretModelUUID:     modelUUID,
+	}
+	if accessor != nil {
+		secretLabels[labelJujuSecretConsumer] = accessor.String()
 	}
 	return utils.LabelsMerge(utils.LabelsJuju, secretLabels)
 }

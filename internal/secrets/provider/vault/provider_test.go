@@ -4,7 +4,9 @@
 package vault_test
 
 import (
+	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -108,7 +110,8 @@ func (s *providerSuite) TestBackendConfigBadClient(c *tc.C) {
 		Kind: secrets.UnitAccessor,
 		ID:   "gitlab/0",
 	}
-	_, err = p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
+	issuedTokenUUID := "some-uuid"
+	_, err = p.RestrictedConfig(c.Context(), adminCfg, true, false, issuedTokenUUID, accessor, nil, nil, nil)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -116,95 +119,18 @@ func (s *providerSuite) TestBackendConfigAdmin(c *tc.C) {
 	ctrl, newVaultClient := s.newVaultClient(c, nil)
 	defer ctrl.Finish()
 
-	gomock.InOrder(
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-read`)
-				return &http.Response{
-					Request:    req,
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(nil),
-				}, nil
-			},
-		),
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-create`)
-				return &http.Response{
-					Request:    req,
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(nil),
-				}, nil
-			},
-		),
-		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
-				return &http.Response{
-					Request:    req,
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo"}}`)),
-				}, nil
-			},
-		),
-	)
-
-	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
-	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, tc.ErrorIsNil)
-
-	adminCfg := &provider.ModelBackendConfig{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		BackendConfig: provider.BackendConfig{
-			BackendType: "vault",
-			Config: map[string]any{
-				"endpoint":        "http://vault-ip:8200/",
-				"namespace":       "ns",
-				"token":           "vault-token",
-				"ca-cert":         coretesting.CACert,
-				"tls-server-name": "tls-server",
-			},
-		},
-	}
-
-	accessor := secrets.Accessor{
-		Kind: secrets.ModelAccessor,
-		ID:   coretesting.ModelTag.Id(),
-	}
-	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, nil, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.Config["token"], tc.Equals, "foo")
-}
-
-func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
-	ctrl, newVaultClient := s.newVaultClient(c, nil)
-	defer ctrl.Finish()
-
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-create`)
-			return &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(nil),
-			}, nil
-		},
-	)
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-owned-1-owner`)
-			return &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(nil),
-			}, nil
-		},
-	)
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-read-1-read`)
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, tc.Equals, strings.Join([]string{
+				`path "fred-06f00d/*" {capabilities = ["read"]}`,
+			}, "\n"))
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -215,6 +141,16 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, tc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -242,6 +178,82 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 			},
 		},
 	}
+
+	accessor := secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, issuedTokenUUID, accessor, nil, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], tc.Equals, "foo")
+}
+
+func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, tc.Equals, strings.Join([]string{
+				`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+				`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+			}, "\n"))
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(nil),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, tc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo"}}`)),
+			}, nil
+		},
+	)
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, tc.ErrorIsNil)
+
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	ownedNames := []string{"owned-1"}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
@@ -253,48 +265,29 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *tc.C) {
 		Kind: secrets.UnitAccessor,
 		ID:   "ubuntu/0",
 	}
-	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, accessor, ownedRevs, readRevs)
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, false, issuedTokenUUID, accessor, ownedNames, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }
 
-func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
+func (s *providerSuite) TestBackendConfigForDrainController(c *tc.C) {
 	ctrl, newVaultClient := s.newVaultClient(c, nil)
 	defer ctrl.Finish()
 
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-update`)
-			return &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(nil),
-			}, nil
-		},
-	)
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-create`)
-			return &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(nil),
-			}, nil
-		},
-	)
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-owned-1-owner`)
-			return &http.Response{
-				Request:    req,
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(nil),
-			}, nil
-		},
-	)
-	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-		func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-read-1-read`)
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, tc.Equals, strings.Join([]string{
+				`path "fred-06f00d/*" {capabilities = ["update"]}`,
+				`path "fred-06f00d/*" {capabilities = ["read"]}`,
+			}, "\n"))
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -305,6 +298,16 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, tc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -332,6 +335,82 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 			},
 		},
 	}
+
+	accessor := secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, true, issuedTokenUUID, accessor, nil, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], tc.Equals, "foo")
+}
+
+func (s *providerSuite) TestBackendConfigForDrainUnit(c *tc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, tc.Equals, strings.Join([]string{
+				`path "fred-06f00d/owned-1-*" {capabilities = ["create", "read", "update", "delete", "list"]}`,
+				`path "fred-06f00d/read-rev-1" {capabilities = ["read"]}`,
+			}, "\n"))
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(nil),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), tc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, tc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo"}}`)),
+			}, nil
+		},
+	)
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, tc.ErrorIsNil)
+
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	ownedNames := []string{"owned-1"}
 	ownedRevs := map[string]set.Strings{
 		"owned-1": set.NewStrings("owned-rev-1", "owned-rev-2"),
 	}
@@ -340,10 +419,11 @@ func (s *providerSuite) TestBackendConfigForDrain(c *tc.C) {
 	}
 
 	accessor := secrets.Accessor{
-		Kind: secrets.ModelAccessor,
-		ID:   coretesting.ModelTag.Id(),
+		Kind: secrets.UnitAccessor,
+		ID:   "ubuntu/0",
 	}
-	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, true, accessor, ownedRevs, readRevs)
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(c.Context(), adminCfg, true, true, issuedTokenUUID, accessor, ownedNames, ownedRevs, readRevs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], tc.Equals, "foo")
 }

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v12"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/providertracker"
-	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
@@ -30,13 +30,11 @@ type Coordinator interface {
 // RegisterImport registers the import operations with the given coordinator.
 func RegisterImport(
 	coordinator Coordinator,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter,
 	logger logger.Logger,
 ) {
 	coordinator.Add(&importOperation{
 		ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
-		storageRegistryGetter:         storageRegistryGetter,
 		logger:                        logger,
 	})
 }
@@ -76,11 +74,47 @@ type ImportService interface {
 	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 }
 
+// ephemeralStorageRegistryGetter creates a storage registry from an ephemeral
+// provider. This is used during model import where the model doesn't yet
+// have a running provider tracker. The ephemeral provider is constructed
+// from the model description's cloud, credentials and model type, ensuring
+// the registry matches the model being imported rather than the controller.
+type ephemeralStorageRegistryGetter struct {
+	factory      providertracker.EphemeralProviderFactory
+	configGetter providertracker.EphemeralProviderConfigGetter
+}
+
+// GetStorageRegistry returns a storage provider registry by creating an
+// ephemeral provider and type-asserting it to ProviderRegistry.
+func (g *ephemeralStorageRegistryGetter) GetStorageRegistry(
+	ctx context.Context,
+) (internalstorage.ProviderRegistry, error) {
+	cfg, err := g.configGetter.GetEphemeralProviderConfig(ctx)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting ephemeral provider config for storage registry: %w", err,
+		)
+	}
+	provider, err := g.factory.EphemeralProviderFromConfig(ctx, cfg)
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating ephemeral provider for storage registry: %w", err,
+		)
+	}
+	registry, ok := provider.(internalstorage.ProviderRegistry)
+	if !ok {
+		return nil, errors.Errorf(
+			"provider type %T does not implement storage.ProviderRegistry",
+			provider,
+		).Add(coreerrors.NotSupported)
+	}
+	return registry, nil
+}
+
 type importOperation struct {
 	modelmigration.BaseOperation
 
 	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter
-	storageRegistryGetter         corestorage.ModelStorageRegistryGetter
 
 	service ImportService
 	logger  logger.Logger
@@ -93,10 +127,19 @@ func (i *importOperation) Name() string {
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
+	// Create a storage registry getter from the ephemeral provider.
+	// This ensures the registry matches the model being imported, rather than matching
+	// by the controller model's cloud type. For example, this is useful when importing
+	// a CAAS model to an IAAS controller.
+	registryGetter := &ephemeralStorageRegistryGetter{
+		factory:      scope.EphemeralProviderFactory(),
+		configGetter: i.ephemeralProviderConfigGetter,
+	}
+
 	i.service = service.NewImportService(
 		state.NewState(scope.ModelDB()),
 		i.logger,
-		i.storageRegistryGetter,
+		registryGetter,
 		providertracker.EphemeralProviderRunnerFromConfig[internalstorage.FilesystemModelMigration](
 			scope.EphemeralProviderFactory(), i.ephemeralProviderConfigGetter),
 	)

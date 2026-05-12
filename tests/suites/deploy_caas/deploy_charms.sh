@@ -9,7 +9,10 @@ run_deploy_charm() {
 
 	echo "Deploy some charms"
 	juju deploy discourse-k8s
-	juju deploy postgresql-k8s
+	# 14/edge/juju4 is a Juju 4.x compatible branch of postgresql-k8s.
+	# The stable/edge channels declare "assumes: juju < 3", so they cannot
+	# be deployed on Juju 4.x without --force and a juju4-specific branch.
+	juju deploy postgresql-k8s --channel 14/edge/juju4 --trust --base ubuntu@22.04 --force
 	juju deploy redis-k8s --channel edge # stable redis is too old
 	juju deploy nginx-ingress-integrator
 	juju trust nginx-ingress-integrator --scope=cluster

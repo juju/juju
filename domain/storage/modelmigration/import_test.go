@@ -13,18 +13,15 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
 )
 
 type importSuite struct {
 	coordinator             *MockCoordinator
 	service                 *MockImportService
 	storageProviderRegistry *MockProviderRegistry
-	storageRegistryGetter   *MockModelStorageRegistryGetter
 	storageProvider         *MockProvider
 }
 
@@ -38,14 +35,12 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.service = NewMockImportService(ctrl)
 	s.storageProviderRegistry = NewMockProviderRegistry(ctrl)
-	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
 	s.storageProvider = NewMockProvider(ctrl)
 
 	c.Cleanup(func() {
 		s.coordinator = nil
 		s.service = nil
 		s.storageProviderRegistry = nil
-		s.storageRegistryGetter = nil
 		s.storageProvider = nil
 	})
 
@@ -54,8 +49,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *importSuite) newImportOperation() *importOperation {
 	return &importOperation{
-		storageRegistryGetter: s.storageRegistryGetter,
-		service:               s.service,
+		service: s.service,
 	}
 }
 
@@ -66,9 +60,6 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 
 	RegisterImport(
 		s.coordinator,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return s.storageProviderRegistry
-		}),
 		nil,
 		loggertesting.WrapCheckLog(c),
 	)

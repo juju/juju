@@ -66,7 +66,6 @@ The OCID of the compartment in which juju has access to create resources.
 | immutable | `false` |
 | mandatory | `false` |
 
-
 ## Supported constraints
 
 | {ref}`CONSTRAINT <constraint>`         |                                               |
@@ -87,7 +86,6 @@ The OCID of the compartment in which juju has access to create resources.
 | - {ref}`constraint-tags`               | &#10005;                                      |
 | - {ref}`constraint-virt-type`          | &#10005;                                      |
 | - {ref}`constraint-zones`              | &#10003;                                      |
-
 
 ## Supported placement directives
 

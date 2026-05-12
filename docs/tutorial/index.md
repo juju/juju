@@ -109,8 +109,6 @@ This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azur
 
 In this tutorial we will use MicroK8s, a lightweight Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. Let's set it up on your VM:
 
-<!-- # Install the MicroK8s package: -->
-
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -122,7 +120,6 @@ microk8s (1.28-strict/stable) v1.28.15 from Canonical✓ installed
 
 ```
 
-<!-- # Add your user to the `microk8s` group for unprivileged access: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -133,7 +130,6 @@ info: Adding user `ubuntu' to group `snap_microk8s' ...
 
 ```
 
-<!-- # Give your user permissions to read the ~/.kube directory: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -142,7 +138,6 @@ sudo chown -f -R $USER ~/.kube
 
 ```
 
-<!-- # Wait for MicroK8s to finish initialising: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -180,7 +175,6 @@ addons:
 
 ```
 
-<!-- # Enable the 'storage' and 'dns' addons (required for the Juju controller): -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -206,7 +200,6 @@ Addon core/dns is already enabled
 
 ```
 
-<!-- # Alias kubectl so it interacts with MicroK8s by default: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -218,8 +211,6 @@ Added:
 
 ```
 
-<!-- # Ensure your new group membership is apparent in the current terminal: -->
-<!-- # (Not required once you have logged out and back in again) -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -228,7 +219,6 @@ newgrp snap_microk8s
 
 ```
 
-<!-- # Since the juju package is strictly confined, you also need to manually create a path: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -460,9 +450,6 @@ Deployed "self-signed-certificates" from charm-hub charm "self-signed-certificat
 
 ```
 
-<!-- # Two charmed applications can be integrated with one another if they have endpoints that
-# support the same interface (e.g., 'tls-certificates') and
-# have opposite endpoint roles ('requires' vs. 'provides'). -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -534,9 +521,6 @@ To tear everything down at once, skip to the step where you delete your Multipas
 
 Tear down your Juju deployment:
 
-<!-- # Destroy any models you've created
-# (this will also remove applications along with their configs, relations, etc.,
-# and the cloud resources associated with them): -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -561,7 +545,6 @@ Waiting for model to be removed........
 Model destroyed.
 ```
 
-<!-- # Destroy any controllers you've created: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -578,7 +561,6 @@ All models reclaimed, cleaning up controller machines
 
 ```
 
-<!-- # Uninstall the juju client: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -589,7 +571,6 @@ juju removed
 
 ```
 
-<!-- # Reset Microk8s: -->
 ```{terminal}
 :copy:
 :user: ubuntu
@@ -630,7 +611,6 @@ Setting up the CNI
 
 ```
 
-<!-- # Uninstall Microk8s: -->
 ```{terminal}
 :copy:
 :user: ubuntu

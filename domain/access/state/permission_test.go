@@ -1223,22 +1223,117 @@ func (s *permissionStateSuite) TestUpdatePermissionRevokeLastAdmin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
+func (s *permissionStateSuite) TestAllModelAccessForOwner(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	ctx := c.Context()
 
-	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
-	key := credential.Key{
-		Cloud: "model-access",
-		Owner: usertesting.GenNewName(c, "test-usermodel-access"),
+	// Create first credential+model for the owner.
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "owner-a-first")
+	ownerName := usertesting.GenNewName(c, "test-userowner-a-first")
+	keyFirst := credential.Key{
+		Cloud: "owner-a-first",
+		Owner: ownerName,
 		Name:  "foobar",
 	}
 
-	obtained, err := st.AllModelAccessForCloudCredential(ctx, key)
+	// Add a second cloud+credential+model for the same owner, referencing a
+	// different cloud.  This tests that AllModelAccessForOwner groups results
+	// by credential key correctly when an owner has more than one credential.
+	secondCloudUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.HasLen, 1)
-	c.Check(obtained[0].ModelName, tc.DeepEquals, "model-access")
-	c.Check(obtained[0].OwnerAccess, tc.DeepEquals, corepermission.AdminAccess)
+	secondCredUUID, err := credential.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	secondModelUUID, err := coremodel.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	keySecond := credential.Key{
+		Cloud: "owner-a-second",
+		Owner: ownerName,
+		Name:  "foobar",
+	}
+
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var ownerUUID string
+		if err := tx.QueryRowContext(ctx, `SELECT uuid FROM user WHERE name = ?`,
+			ownerName.Name()).Scan(&ownerUUID); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+			VALUES (?, 'owner-a-second', -1, '', true)
+		`, secondCloudUUID.String()); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
+			VALUES (?, ?, 0, ?, 'foobar', false, false)
+		`, secondCredUUID, secondCloudUUID.String(), ownerUUID); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO model
+			    (uuid, name, qualifier, cloud_uuid, cloud_credential_uuid,
+			     model_type_id, life_id, activated)
+			VALUES (?, 'owner-a-second', 'prod', ?, ?, 0, 0, true)
+		`, secondModelUUID.String(), secondCloudUUID.String(), secondCredUUID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Grant the owner admin access to the second model.
+	_, err = st.CreatePermission(ctx, uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: ownerName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: corepermission.ID{
+				Key:        secondModelUUID.String(),
+				ObjectType: corepermission.Model,
+			},
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create an unrelated owner + credential to verify isolation.
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "owner-b-only")
+
+	// AllModelAccessForOwner must return both of the first owner's credentials
+	// and none of the unrelated owner's credentials.
+	result, err := st.AllModelAccessForOwner(ctx, ownerName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2,
+		tc.Commentf("expected two credential keys in result"))
+
+	// Build a lookup map to assert both keys are present regardless of order.
+	byKey := make(map[credential.Key][]access.OwnerModelAccess, len(result))
+	for _, entry := range result {
+		byKey[entry.CredentialKey] = entry.Models
+	}
+
+	firstModels, ok := byKey[keyFirst]
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected key %v in result", keyFirst))
+	c.Assert(firstModels, tc.HasLen, 1)
+	c.Check(firstModels[0].ModelName, tc.Equals, "owner-a-first")
+
+	secondModels, ok := byKey[keySecond]
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected key %v in result", keySecond))
+	c.Assert(secondModels, tc.HasLen, 1)
+	c.Check(secondModels[0].ModelName, tc.Equals, "owner-a-second")
+}
+
+func (s *permissionStateSuite) TestAllModelAccessForOwnerNoCredentials(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// An owner with no credentials returns an empty slice, not an error.
+	result, err := st.AllModelAccessForOwner(c.Context(),
+		usertesting.GenNewName(c, "ghost-user"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
 }
 
 func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {

@@ -22,11 +22,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
-	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/unmanaged"
-	"github.com/juju/juju/internal/storage"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -517,9 +515,6 @@ func (s *Suite) expectImportModel(c *tc.C) {
 		return migration.NewModelImporter(
 			scope,
 			s.domainServicesGetter,
-			corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-				return nil
-			}),
 			"",
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,

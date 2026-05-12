@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	stdtesting "testing"
 	"time"
 
@@ -77,10 +78,12 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(wikiUnitUUID, tc.HasLen, 1)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
-	uri4 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI(), coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
+	uri3 := uris[2]
+	uri4 := uris[3]
 
 	// Create an initial secret to ensure it is not picked up
 	// when the watcher is created.
@@ -160,8 +163,10 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mysqlUnitUUID, tc.HasLen, 1)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -216,8 +221,10 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(mysqlUnitUUID, tc.HasLen, 1)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -262,8 +269,10 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	svc, st := s.setupServiceAndState(c)
 
 	data := coresecrets.SecretData{"foo": "bar", "hello": "world"}
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
 	w, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
@@ -334,9 +343,11 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
+	uri3 := uris[2]
 
 	// Create an initial secret to ensure it is not picked up
 	// when the watcher is created.
@@ -418,8 +429,10 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -500,8 +513,10 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 	ctx := c.Context()
 	svc, st := s.setupServiceAndState(c)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -574,8 +589,10 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -693,10 +710,12 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 	}
 
 	sourceModelUUID := uuid.MustNewUUID()
-	uri1 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
 	uri1.SourceUUID = sourceModelUUID.String()
 
-	uri2 := coresecrets.NewURI()
+	uri2 := uris[1]
 	uri2.SourceUUID = sourceModelUUID.String()
 
 	s.AssertChangeStreamIdle(c)
@@ -755,8 +774,10 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(wikiUnitUUIDs, tc.HasLen, 1)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	uri1 := uris[0]
+	uri2 := uris[1]
 
 	s.AssertChangeStreamIdle(c)
 
@@ -867,9 +888,9 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(wikiUnitUUIDs, tc.HasLen, 1)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
+	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
+	slices.SortFunc(uris, coresecrets.CompareURI)
+	c.Logf("uri1: %v, uri2: %v", uris[0], uris[1])
 
 	s.AssertChangeStreamIdle(c)
 
@@ -889,7 +910,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
-		err := st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(wikiUnitUUIDs[0]), secret.UpsertSecretParams{
+		err := st.CreateCharmUnitSecret(ctx, 1, uris[1], coreunit.UUID(wikiUnitUUIDs[0]), secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			RevisionID: new(uuid.MustNewUUID().String()),
 			CreateTime: time.Now(),
@@ -902,7 +923,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 
 	now := time.Now()
 	harness.AddTest(c, func(c *tc.C) {
-		err = st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlAppUUID), secret.UpsertSecretParams{
+		err = st.CreateCharmApplicationSecret(ctx, 1, uris[0], coreapplication.UUID(mysqlAppUUID), secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			ExpireTime: new(now.Add(1 * time.Hour)),
 			RevisionID: new(uuid.MustNewUUID().String()),
@@ -911,7 +932,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
-		err = st.UpdateSecret(c.Context(), uri2, secret.UpsertSecretParams{
+		err = st.UpdateSecret(c.Context(), uris[1], secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 			ExpireTime: new(now.Add(2 * time.Hour)),
 			RevisionID: new(uuid.MustNewUUID().String()),
@@ -923,12 +944,12 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{
-					URI:             uri1,
+					URI:             uris[0],
 					Revision:        1,
 					NextTriggerTime: now.Add(1 * time.Hour),
 				},
 				corewatcher.SecretTriggerChange{
-					URI:             uri2,
+					URI:             uris[1],
 					Revision:        2,
 					NextTriggerTime: now.Add(2 * time.Hour),
 				},
@@ -958,12 +979,12 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 		w.Check(
 			watchertest.SecretTriggerSliceAssert(
 				corewatcher.SecretTriggerChange{
-					URI:             uri1,
+					URI:             uris[0],
 					Revision:        1,
 					NextTriggerTime: now.Add(1 * time.Hour),
 				},
 				corewatcher.SecretTriggerChange{
-					URI:             uri2,
+					URI:             uris[1],
 					Revision:        2,
 					NextTriggerTime: now.Add(2 * time.Hour),
 				},

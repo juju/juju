@@ -1,0 +1,50 @@
+# Commands used for uploading this to Charmhub:
+#
+# charmcraft pack
+# charmcraft register dummy-storage-k8s
+# charmcraft upload dummy-storage-k8s_ubuntu-24.04-amd64.charm
+#
+# $ docker pull ubuntu:24.04
+# Digest: sha256:<digest>
+# charmcraft upload-resource juju-qa-dummy-storage-k8s ubuntu-image --image sha256:<digest>
+# charmcraft release juju-qa-dummy-storage-k8s --revision=1 --resource=ubuntu-image:1 --channel=stable
+
+type: charm
+name: dummy-storage-k8s
+title: Juju QA Dummy Storage K8s
+summary: Test charm for integration-testing K8s persistent storage.
+description: >
+  A minimal k8s sidecar charm used to exercise Juju k8s storage features
+  (PersistentVolumes, import-filesystem, attach-storage) in integration tests,
+  without relying on a production charm.
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+assumes:
+  - k8s-api
+
+containers:
+  workload:
+    resource: ubuntu-image
+    mounts:
+      - storage: data
+        location: /data
+
+resources:
+  ubuntu-image:
+    type: oci-image
+    description: OCI image for the workload container.
+    upstream-source: public.ecr.aws/ubuntu/ubuntu:24.04
+
+storage:
+  data:
+    type: filesystem
+    description: Persistent data storage.
+    minimum-size: 1M
+
+parts:
+  charm:
+    plugin: charm
+    source: .

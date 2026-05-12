@@ -58,7 +58,6 @@ exec_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/upgrade/streams/"
 
-	add_clean_func "kill_server"
 	start_server "./tests/suites/upgrade/streams/tools"
 
 	# Find a routable address to the server that isn't the loopback address.
@@ -87,14 +86,14 @@ exec_simplestream_metadata() {
 
 	local CURRENT UPDATED
 
-	CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
+	CURRENT=$(juju machines -m controller --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version')
 	echo "==> Current juju version ${CURRENT}"
 
 	juju upgrade-controller --agent-version="${jujud_version}"
 
 	attempt=0
 	while true; do
-		UPDATED=$(timeout 30 juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines -m controller --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi
@@ -112,7 +111,7 @@ exec_simplestream_metadata() {
 	juju switch test-upgrade-"${test_name}"
 	juju upgrade-model
 	while true; do
-		UPDATED=$(timeout 30 juju machines --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi

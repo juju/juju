@@ -14,66 +14,69 @@ test_add_unit_attach_storage() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 -n 3 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/1"]["status"].current'
+	wait_for_storage "attached" '.storage["data/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
+	PV_1=$(juju storage --format json | yq -r '.filesystems["1"]."provider-id"')
+	PV_2=$(juju storage --format json | yq -r '.filesystems["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application postgresql-k8s --no-prompt --force
+	juju remove-application dummy-k8s-storage --no-prompt --force
 	wait_for "{}" ".applications"
-	juju remove-storage pgdata/0 --no-destroy
-	juju remove-storage pgdata/1 --no-destroy
-	juju remove-storage pgdata/2 --no-destroy
+	juju remove-storage data/0 --no-destroy
+	juju remove-storage data/1 --no-destroy
+	juju remove-storage data/2 --no-destroy
 	wait_for "{}" ".storage"
 
 	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		microk8s kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-		PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		microk8s kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
-		microk8s kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
+		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
 	juju add-model "${second_model_name}"
 	juju switch "${second_model_name}"
 
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		juju import-filesystem kubernetes "${pv}" pgdata
+		juju import-filesystem kubernetes "${pv}" data
 	done
 
-	# Deploy with --attach-storage. The storage should be attached to the psql-k8s/0 unit.
-	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	# Deploy with --attach-storage. The storage should be attached to the dummy-k8s-storage/0 unit.
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
+		--attach-storage data/0 dummy-k8s-storage
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
-	juju add-unit psql-k8s --attach-storage pgdata/1
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	juju add-unit psql-k8s --attach-storage pgdata/2
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	juju add-unit dummy-k8s-storage --attach-storage data/1
+	wait_for_storage "attached" '.storage["data/1"]["status"].current'
+	juju add-unit dummy-k8s-storage --attach-storage data/2
+	wait_for_storage "attached" '.storage["data/2"]["status"].current'
 
 	# Verify PVs are bound and PVCs have correct labels
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		OUT=$(microk8s kubectl get pv "${pv}" -o json | jq '.status.phase')
+		OUT=$(kubectl get pv "${pv}" -o json | yq '.status.phase')
 		echo "${OUT}" | check "Bound"
 
-		NEW_PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		PVC_JSON=$(microk8s kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json)
+		NEW_PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		PVC_JSON=$(kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json)
 
-		echo "${PVC_JSON}" | jq '.metadata.labels."storage.juju.is/name"' | check "pgdata"
-		echo "${PVC_JSON}" | jq '.metadata.labels."app.kubernetes.io/managed-by"' | check "juju"
-		echo "${PVC_JSON}" | jq '.metadata.annotations."juju-storage-owner"' | check "psql-k8s"
+		echo "${PVC_JSON}" | yq -r '.metadata.labels."storage.juju.is/name"' | check "data"
+		echo "${PVC_JSON}" | yq -r '.metadata.labels."app.kubernetes.io/managed-by"' | check "juju"
+		echo "${PVC_JSON}" | yq -r '.metadata.annotations."juju-storage-owner"' | check "dummy-k8s-storage"
 	done
 
 	# Verify volume provider IDs match the original PVs
 	for i in 0 1 2; do
 		eval "expected_pv=\$PV_${i}"
-		OUT=$(juju storage --format json | jq ".volumes.\"${i}\".\"provider-id\"")
+		OUT=$(juju storage --format json | yq -r ".filesystems.\"${i}\".\"provider-id\"")
 		# shellcheck disable=SC2154
 		echo "${OUT}" | check "${expected_pv}"
 	done
@@ -98,25 +101,26 @@ test_add_unit_duplicate_pvc_exists() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PVC=$(microk8s kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
+	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
-	juju remove-unit postgresql-k8s --num-units 1 --force
-	wait_for "null" '.applications."postgresql-k8s".units'
+	juju remove-unit dummy-k8s-storage --num-units 1 --force
+	wait_for "null" '.applications."dummy-k8s-storage".units'
 
 	# Patch PVC to have incorrect label to simulate duplicate PVC scenario
-	microk8s kubectl patch pvc "${PVC}" \
+	kubectl patch pvc "${PVC}" \
 		-n "${model_name}" \
-		-p '{"metadata":{"labels":{"storage.juju.is/name":"not-pgdata"}}}'
+		-p '{"metadata":{"labels":{"storage.juju.is/name":"not-data"}}}'
 
-	# Avoid race condition of attaching storage before microk8s kubectl patching completes
+	# Avoid race condition of attaching storage before kubectl patching completes
 	attempt=0
-	until microk8s kubectl get pvc "${PVC}" -n "${model_name}" -o json | jq -r '.metadata.labels."storage.juju.is/name"' | grep -q "not-pgdata"; do
+	until kubectl get pvc "${PVC}" -n "${model_name}" -o json | yq -r '.metadata.labels."storage.juju.is/name"' | grep -q "not-data"; do
 		echo "[+] (attempt ${attempt}) waiting for PVC patch to complete"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
@@ -128,17 +132,17 @@ test_add_unit_duplicate_pvc_exists() {
 	done
 
 	# Should not scale due to wrong label value
-	juju add-unit postgresql-k8s --attach-storage pgdata/0
+	juju add-unit dummy-k8s-storage --attach-storage data/0
 	sleep "${SHORT_TIMEOUT}"
-	OUT=$(microk8s kubectl get statefulset -n "${model_name}" postgresql-k8s -o jsonpath='{.spec.replicas}')
+	OUT=$(kubectl get statefulset -n "${model_name}" dummy-k8s-storage -o jsonpath='{.spec.replicas}')
 	echo "${OUT}" | check 0
 
 	# Fix the PVC label to allow successful attachment
-	microk8s kubectl patch pvc "${PVC}" \
+	kubectl patch pvc "${PVC}" \
 		-n "${model_name}" \
-		-p '{"metadata":{"labels":{"storage.juju.is/name":"pgdata"}}}'
+		-p '{"metadata":{"labels":{"storage.juju.is/name":"data"}}}'
 
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Destroy the test model.
 	destroy_model "${model_name}"
@@ -160,52 +164,55 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	ensure "${model_name}" "${file}"
 
 	# Create a PersistentVolume by deploying and deleting an application.
-	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 -n 3 dummy-k8s-storage
 	# Ensure the storage is attached without waiting for the application to reach the active status.
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
+	wait_for_storage "attached" '.storage["data/1"]["status"].current'
+	wait_for_storage "attached" '.storage["data/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
+	PV_1=$(juju storage --format json | yq -r '.filesystems["1"]."provider-id"')
+	PV_2=$(juju storage --format json | yq -r '.filesystems["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application postgresql-k8s --no-prompt --force
+	juju remove-application dummy-k8s-storage --no-prompt --force
 	wait_for "{}" ".applications"
-	juju remove-storage pgdata/0 --no-destroy
-	juju remove-storage pgdata/1 --no-destroy
-	juju remove-storage pgdata/2 --no-destroy
+	juju remove-storage data/0 --no-destroy
+	juju remove-storage data/1 --no-destroy
+	juju remove-storage data/2 --no-destroy
 	wait_for "{}" ".storage"
 
 	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		microk8s kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-		PVC=$(microk8s kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		microk8s kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
-		microk8s kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
+		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
 	juju add-model "${second_model_name}"
 	juju switch "${second_model_name}"
 
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		juju import-filesystem kubernetes "${pv}" pgdata
+		juju import-filesystem kubernetes "${pv}" data
 	done
 
-	# Deploy with --attach-storage. The storage should be attached to the psql-k8s/0 unit.
-	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	# Deploy with --attach-storage. The storage should be attached to the dummy-k8s-storage/0 unit.
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 \
+		--attach-storage data/0 dummy-k8s-storage
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Add unit and remove them immediately to make sure it wouldn't break the juju.
-	juju add-unit psql-k8s --attach-storage pgdata/1
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	juju add-unit psql-k8s --attach-storage pgdata/2
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
-	juju remove-unit psql-k8s --num-units 2 && juju remove-unit psql-k8s --num-units 1
-	wait_for_storage "detached" '.storage["pgdata/0"]["status"].current'
-	wait_for "null" '.applications."psql-k8s".units'
+	juju add-unit dummy-k8s-storage --attach-storage data/1
+	wait_for_storage "attached" '.storage["data/1"]["status"].current'
+	juju add-unit dummy-k8s-storage --attach-storage data/2
+	wait_for_storage "attached" '.storage["data/2"]["status"].current'
+	juju remove-unit dummy-k8s-storage --num-units 2 && juju remove-unit dummy-k8s-storage --num-units 1
+	wait_for_storage "detached" '.storage["data/0"]["status"].current'
+	wait_for "null" '.applications."dummy-k8s-storage".units'
 
 	# Destroy the test model.
 	destroy_model "${model_name}"

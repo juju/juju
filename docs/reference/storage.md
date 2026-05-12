@@ -42,7 +42,7 @@ If at least one storage directive component is specified, the following default 
 * `<count>`: the minimum number required by the charm, or '1' if the storage is optional
 * `<size>`: determined from the charm's minimum storage size, or 1GiB if the charm does not specify a minimum
 
-In the absence of any explicit storage directive, the storage will be put on the root filesystem (`rootfs`). <!--I'm guessing this takes care of `<pool>`. What about the other values?-->
+In the absence of any explicit storage directive, the storage will be put on the root filesystem (`rootfs`).
 
 (storage-pool)=
 ## Storage pool
@@ -50,8 +50,6 @@ In the absence of any explicit storage directive, the storage will be put on the
 ```{ibnote}
 See also: {ref}`manage-storage-pools`
 ```
-
-<!-- A storage pool is the aggregate storage capacity available for the provider to partition and assign to individual units. -->
 
 A **storage pool** is a mechanism for administrators to define sources of storage that they will use to satisfy application storage requirements.
 
@@ -62,7 +60,6 @@ A pool describes {ref}`storage provider <storage-provider>`-specific parameters 
 For many providers, there will be a shared resource where storage can be requested (e.g. for Amazon EC2, `ebs`). Creating pools there maps provider specific settings into named resources that can be used during deployment.
 
 Pools defined at the model level are easily reused across applications. Pool creation requires a pool name, the provider type and attributes for configuration as space-separated pairs, e.g. tags, size, path, etc.
-
 
 (storage-provider)=
 ## Storage provider
@@ -76,7 +73,6 @@ There are three storage providers you can use with all clouds: `loop`, `rootfs`,
 #### `<cloud-specific storage provider>`
 
 See {ref}`list-of-supported-clouds` > `<cloud name>` > Storage providers.
-
 
 #### `loop`
 ```{ibnote}
@@ -102,7 +98,4 @@ See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
 ```
 
 Filesystem-type. Creates a temporary file storage facility that appears as a mounted file system but is stored in volatile memory.
-
-
-
 

@@ -34,7 +34,6 @@ import (
 )
 ```
 
-
 ## Setting up tests for new packages
 
 Let's say we are creating a new provider for "magic" cloud, and we have a package
@@ -187,7 +186,6 @@ network access in it, it is a good idea to use the BaseSuite as a base:
  * if someone does add logging later, it is captured and doesn't pollute
    the logging output
 
-
 ## Patching variables and the environment
 
 Inside a test, and assuming that the Suite has a CleanupSuite somewhere
@@ -208,7 +206,6 @@ func (s *someTest) TestFubar(c *tc.C) {
 ```
 
 PatchValue works with any matching type. This includes function variables.
-
 
 ## Checkers
 
@@ -265,8 +262,6 @@ The key checkers in the `tc` module that juju uses most frequently are:
 	  the path element is a directory
 	* `DoesNotExist` - also works with a string or `Stringer`, and passes if
 	  the path element does not exist
-
-
 
 ## Good tests
 

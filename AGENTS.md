@@ -50,6 +50,20 @@ robustness.
   with `k8s.io/client-go/kubernetes/fake.NewClientset` and reactors over ad hoc
   function injection when exercising Kubernetes API interactions.
 
+## Code Formatting
+
+After editing any Go file, MUST run `gci` to fix import ordering before
+committing. The project uses three import stanzas: stdlib, external, then
+`github.com/juju/juju` — each separated by a blank line.
+
+```
+gci write --section standard --section default --section "Prefix(github.com/juju/juju)" <file>
+```
+
+Run on every `.go` file touched in the change, excluding generated files
+(mocks, `*_mock_test.go`, etc.). Failing to do so will cause the `gci`
+linter to fail in CI.
+
 ### Running `stress` Tests
 
 Compile the go package into a binary and run the test through stress.

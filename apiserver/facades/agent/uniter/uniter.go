@@ -3066,6 +3066,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
+
+	err = u.secretService.RemoveUnitReservationsAndTokens(ctx, unitName)
+	if err != nil {
+		return errors.Annotate(err, "cleanup unit secret reservations and tokens")
+	}
+
 	return nil
 }
 

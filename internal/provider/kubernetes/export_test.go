@@ -7,10 +7,12 @@ import (
 	"context"
 	"sync"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/tc"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -28,6 +30,7 @@ var (
 	NewK8sBroker            = newK8sBroker
 	ProcessSecretData       = processSecretData
 
+	LabelSetToRequirements                = labelSetToRequirements
 	CompileK8sCloudCheckers               = compileK8sCloudCheckers
 	CompileLifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector
 
@@ -117,6 +120,10 @@ func NewProviderCredentials(
 
 func (k *kubernetesClient) DeleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	k.deleteClusterScopeResourcesModelTeardown(ctx, wg, errChan)
+}
+
+func (k *kubernetesClient) DeleteClusterScopeAPIExtensionResourcesModelTeardown(ctx context.Context, selector k8slabels.Selector, clk jujuclock.Clock, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteClusterScopeAPIExtensionResourcesModelTeardown(ctx, selector, clk, wg, errChan)
 }
 
 func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
