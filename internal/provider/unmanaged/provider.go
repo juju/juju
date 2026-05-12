@@ -27,8 +27,9 @@ type UnmanagedProvider struct {
 	ping func(endpoint string) error
 }
 
-// Verify that we conform to the interface.
+// Verify that we conform to the interfaces.
 var _ environs.EnvironProvider = (*UnmanagedProvider)(nil)
+var _ environs.ProviderSchema = (*UnmanagedProvider)(nil)
 
 var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
