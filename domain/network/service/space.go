@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -30,8 +29,8 @@ func (s *Service) AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs)
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !names.IsValidSpace(string(args.Name)) {
-		return "", errors.Errorf("space name %q not valid", args.Name).Add(networkerrors.SpaceNameNotValid)
+	if err := args.Name.Validate(); err != nil {
+		return "", errors.Errorf("%w", err).Add(networkerrors.SpaceNameNotValid)
 	}
 	for _, cidr := range args.CIDRs {
 		if !network.IsValidCIDR(cidr) {
@@ -39,19 +38,19 @@ func (s *Service) AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs)
 		}
 	}
 
-	spaceID := args.ID
-	if spaceID == "" {
+	spaceUUID := args.UUID
+	if spaceUUID == "" {
 		var err error
-		spaceID, err = network.NewSpaceUUID()
+		spaceUUID, err = network.NewSpaceUUID()
 		if err != nil {
 			return "", errors.Errorf("creating uuid for new space %q: %w", args.Name, err)
 		}
 	}
 
-	if err := s.st.AddSpace(ctx, spaceID, args.Name, args.ProviderID, args.CIDRs); err != nil {
+	if err := s.st.AddSpace(ctx, spaceUUID, args.Name, args.ProviderID, args.CIDRs); err != nil {
 		return "", errors.Capture(err)
 	}
-	return spaceID, nil
+	return spaceUUID, nil
 }
 
 // UpdateSpace updates the space name identified by the passed uuid. If the

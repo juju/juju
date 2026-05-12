@@ -156,9 +156,9 @@ type AddressInfo struct {
 // subnets), this type carries only what the caller needs to provide when
 // asking the network domain to add a space.
 type AddSpaceArgs struct {
-	// ID is optional. If empty a new UUID is generated. It exists so the
+	// UUID is optional. If empty a new UUID is generated. It exists so the
 	// model migration importer can preserve the UUID from the source model.
-	ID network.SpaceUUID
+	UUID network.SpaceUUID
 
 	// Name is the name of the new space.
 	Name network.SpaceName

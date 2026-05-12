@@ -69,6 +69,7 @@ func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *tc.C) {
 		c.Context(),
 		domainnetwork.AddSpaceArgs{})
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *spaceSuite) TestAddSpaceInvalidName(c *tc.C) {
@@ -84,6 +85,7 @@ func (s *spaceSuite) TestAddSpaceInvalidName(c *tc.C) {
 			ProviderID: "provider-id",
 		})
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNameNotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestAddSpaceInvalidCIDR asserts that the service rejects an

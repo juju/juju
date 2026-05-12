@@ -158,12 +158,6 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	}).Return(spUUID, nil)
-	s.importService.EXPECT().Space(gomock.Any(), spUUID).
-		Return(&network.SpaceInfo{
-			ID:         spUUID,
-			Name:       "space-name",
-			ProviderId: network.Id("space-provider-id"),
-		}, nil)
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previous-subnet-id",
 		CIDR:              "192.0.2.0/24",
@@ -172,8 +166,6 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 		SpaceID:           "previous-space-id",
-		SpaceName:         "space-name",
-		ProviderSpaceId:   "space-provider-id",
 	})
 	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "192.0.2.0/24",
@@ -182,8 +174,6 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 		SpaceID:           spUUID,
-		SpaceName:         "space-name",
-		ProviderSpaceId:   "space-provider-id",
 	})
 
 	op := s.newImportOperation(c)

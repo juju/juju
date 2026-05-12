@@ -166,6 +166,54 @@ func (s *stateSuite) TestAddSpaceMultipleCIDRs(c *tc.C) {
 	c.Check(got, tc.SameContents, []string{subnetUUID0.String(), subnetUUID1.String()})
 }
 
+// TestAddSpaceCIDRMatchesMultipleSubnets asserts that when a single CIDR maps
+// to more than one subnet row (e.g. distinct provider networks presenting the
+// same IP range), AddSpace assigns all of them to the new space.
+func (s *stateSuite) TestAddSpaceCIDRMatchesMultipleSubnets(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	db := s.DB()
+
+	// Two subnets share the same CIDR (distinct provider networks).
+	subnetUUID0, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:                network.Id(subnetUUID0.String()),
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "provider-id-0",
+		ProviderNetworkId: "provider-network-id-0",
+		AvailabilityZones: []string{"az0"},
+	}), tc.ErrorIsNil)
+
+	subnetUUID1, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
+		ID:                network.Id(subnetUUID1.String()),
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "provider-id-1",
+		ProviderNetworkId: "provider-network-id-1",
+		AvailabilityZones: []string{"az0"},
+	}), tc.ErrorIsNil)
+
+	spaceUUID := networktesting.GenSpaceUUID(c)
+	err = st.AddSpace(c.Context(), spaceUUID, "space0", "foo", []string{"10.0.0.0/24"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows, err := db.Query(
+		"SELECT uuid FROM subnet WHERE space_uuid = ? ORDER BY uuid",
+		spaceUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+
+	var got []string
+	for rows.Next() {
+		var u string
+		c.Assert(rows.Scan(&u), tc.ErrorIsNil)
+		got = append(got, u)
+	}
+	c.Check(got, tc.SameContents, []string{subnetUUID0.String(), subnetUUID1.String()})
+}
+
 func (s *stateSuite) TestAddSpaceFailDuplicateName(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
