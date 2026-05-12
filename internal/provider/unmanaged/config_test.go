@@ -50,3 +50,15 @@ func MinimalConfig(c *tc.C) *config.Config {
 	c.Assert(err, tc.ErrorIsNil)
 	return testConfig
 }
+
+// TestSchema verifies that Schema() returns all standard model config fields,
+// satisfying the ModelConfigProvider interface used by ProviderModelConfigGetter.
+func (s *configSuite) TestSchema(c *tc.C) {
+	fields := UnmanagedProvider{}.Schema()
+
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], tc.DeepEquals, field)
+	}
+}
