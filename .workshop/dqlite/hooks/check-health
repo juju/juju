@@ -1,0 +1,17 @@
+cd /project
+
+# Verify musl-gcc is available.
+MUSL_BIN_PATH="./_deps/musl-$(go env GOARCH)/output/bin"
+if ! PATH="${MUSL_BIN_PATH}:${PATH}" which musl-gcc >/dev/null 2>&1; then
+  workshopctl set-health --code="musl-not-installed" error "musl-gcc not found."
+  exit 0
+fi
+
+# Verify dqlite static libs are present.
+DQLITE_PATH="./_deps/dqlite-deps-4.0-$(go env GOARCH)"
+if [ ! -d "${DQLITE_PATH}" ]; then
+  workshopctl set-health --code="dqlite-not-installed" error "dqlite static libs not found."
+  exit 0
+fi
+
+workshopctl set-health okay

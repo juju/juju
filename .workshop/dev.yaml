@@ -1,0 +1,26 @@
+name: dev
+base: ubuntu@24.04
+sdks:
+  - name: go
+    channel: 1.26/stable
+  - name: project-toolchain
+  - name: project-dqlite
+  - name: project-lxd
+  - name: opencode
+  - name: direnvrc
+
+actions:
+  opencode: |
+    direnv exec /project opencode "$@"
+  test: |
+    make run-tests TEST_ARGS="$*"
+  build: |
+    make go-build
+  build-juju: |
+    make juju
+  build-controller: |
+    make jujud-controller
+  lint: |
+    make pre-check
+  bootstrap: |
+    .workshop/lxd/hooks/bootstrap

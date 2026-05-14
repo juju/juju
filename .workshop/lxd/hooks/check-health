@@ -1,0 +1,3 @@
+#!/bin/bash
+# LXD health check skipped — tunnel requires manual `workshop connect` after refresh.
+workshopctl set-health okay

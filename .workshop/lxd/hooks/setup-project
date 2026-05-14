@@ -1,0 +1,19 @@
+#!/bin/bash
+set -eu
+
+CERT_DIR="/home/workshop/.config/lxc"
+JUJU_DATA="/home/workshop/.local/share/juju"
+
+# Generate a client certificate for authenticating with LXD over HTTPS.
+mkdir -p "${CERT_DIR}"
+
+if [ ! -f "${CERT_DIR}/client.crt" ]; then
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 \
+    -sha384 -keyout "${CERT_DIR}/client.key" \
+    -out "${CERT_DIR}/client.crt" -nodes -days 3650 \
+    -subj "/CN=workshop" 2>/dev/null
+  chmod 600 "${CERT_DIR}/client.key"
+fi
+
+# Pre-create juju data directory.
+mkdir -p "${JUJU_DATA}"

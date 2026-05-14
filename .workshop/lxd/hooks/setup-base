@@ -1,0 +1,6 @@
+#!/bin/bash
+set -eu
+
+# Install packages needed for LXD HTTPS communication and host IP discovery.
+apt-get update -qq
+apt-get install -y -qq ca-certificates curl openssl yq

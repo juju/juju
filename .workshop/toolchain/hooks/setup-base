@@ -1,0 +1,4 @@
+cat <<'EOF' >/etc/profile.d/gotoolchain.sh
+export GOTOOLCHAIN=go1.26.0+auto
+export PATH="${GOBIN:-$(go env GOPATH)/bin}:${PATH}"
+EOF
