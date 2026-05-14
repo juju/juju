@@ -1,3 +1,8 @@
+#!/bin/bash
+# Health check for the dqlite SDK.
+# Verifies that musl-gcc and the pre-compiled dqlite static libraries are
+# present in the project _deps directory.
+
 cd /project
 
 # Verify musl-gcc is available.

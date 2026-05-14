@@ -1,3 +1,6 @@
+# SDK definition for LXD integration.
+# Generates client certificates and configures juju to use the host LXD.
+# The setup-base hook runs as privileged to install system packages.
 name: lxd
 
 hooks:

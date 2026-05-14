@@ -1,0 +1,18 @@
+#!/bin/bash
+# Verify that the juju and jujud-controller binaries are present.
+# NOTE: check-health runs as root, but binaries are built by setup-project
+# which runs as the workshop user. Reference the workshop user's GOBIN.
+
+GOBIN="/home/workshop/go/bin"
+
+if [ ! -x "${GOBIN}/juju" ]; then
+  workshopctl set-health --code="juju-not-built" error "juju binary not found."
+  exit 0
+fi
+
+if [ ! -x "${GOBIN}/jujud" ]; then
+  workshopctl set-health --code="controller-not-built" error "jujud binary not found."
+  exit 0
+fi
+
+workshopctl set-health okay

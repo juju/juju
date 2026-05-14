@@ -1,0 +1,7 @@
+#!/bin/bash
+# Build the juju CLI and jujud-controller binaries from source.
+# Runs after all other SDKs (Go, dqlite) have been set up.
+set -eu
+
+cd /project
+make juju jujud-controller

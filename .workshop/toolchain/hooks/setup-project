@@ -1,2 +1,5 @@
+#!/bin/bash
 # Export GOTOOLCHAIN so the Go SDK auto-downloads the version from go.mod.
+set -eu
+
 go env -w GOTOOLCHAIN=go1.26.0+auto

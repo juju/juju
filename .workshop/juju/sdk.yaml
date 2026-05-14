@@ -1,0 +1,5 @@
+# SDK definition for juju.
+# Builds the juju CLI and jujud-controller binaries from source.
+# This SDK should be listed last in the workspace definition so that all
+# build dependencies (Go toolchain, dqlite) are available.
+name: juju

@@ -1,3 +1,6 @@
+#!/bin/bash
 # Download pre-compiled musl and dqlite static libraries from S3 (if missing).
+set -eu
+
 ./scripts/dqlite/scripts/musl/install-if-missing.sh
 ./scripts/dqlite/scripts/dqlite/install-if-missing.sh

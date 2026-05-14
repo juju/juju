@@ -1,1 +1,3 @@
+# SDK definition for dqlite.
+# Provides musl-gcc and pre-compiled dqlite static libraries for CGo builds.
 name: dqlite

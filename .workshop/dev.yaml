@@ -1,3 +1,6 @@
+# Primary workshop workspace for Juju development.
+# Provides Go, dqlite, LXD integration, and development tooling.
+# The juju SDK is listed last so all build deps are ready before compiling.
 name: dev
 base: ubuntu@24.04
 sdks:
@@ -6,21 +9,20 @@ sdks:
   - name: project-toolchain
   - name: project-dqlite
   - name: project-lxd
+  - name: project-juju
   - name: opencode
   - name: direnvrc
 
 actions:
+  # Launch opencode within a direnv-managed environment.
   opencode: |
     direnv exec /project opencode "$@"
+  # Run the project test suite with optional arguments.
   test: |
     make run-tests TEST_ARGS="$*"
-  build: |
-    make go-build
+  # Build the juju CLI binary.
   build-juju: |
     make juju
+  # Build the jujud-controller binary (includes domain services, dqlite).
   build-controller: |
     make jujud-controller
-  lint: |
-    make pre-check
-  bootstrap: |
-    .workshop/lxd/hooks/bootstrap

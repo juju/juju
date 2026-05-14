@@ -7,6 +7,7 @@ help:
 export CGO_ENABLED=0
 
 include scripts/dqlite/Makefile
+include .workshop/Makefile
 
 #
 # Makefile for juju-core.

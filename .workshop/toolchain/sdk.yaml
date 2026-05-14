@@ -1,1 +1,3 @@
+# SDK definition for the Go toolchain.
+# Pins GOTOOLCHAIN so the correct version is auto-downloaded from go.mod.
 name: toolchain

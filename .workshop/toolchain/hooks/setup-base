@@ -1,3 +1,8 @@
+#!/bin/bash
+# Write a profile script that pins GOTOOLCHAIN and adds GOBIN to PATH for all
+# login shells. This ensures the correct Go version is used system-wide.
+set -eu
+
 cat <<'EOF' >/etc/profile.d/gotoolchain.sh
 export GOTOOLCHAIN=go1.26.0+auto
 export PATH="${GOBIN:-$(go env GOPATH)/bin}:${PATH}"
