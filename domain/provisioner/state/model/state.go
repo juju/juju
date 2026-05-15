@@ -49,6 +49,9 @@ func (st *State) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.Sh
 	var result provisioner.SharedProvisioningInfoState
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Reset on txn retry.
+		result = provisioner.SharedProvisioningInfoState{}
+
 		var txErr error
 
 		// Query 1: All spaces with subnets and AZs.
@@ -93,6 +96,9 @@ func (st *State) GetMachineProvisioningInfo(ctx context.Context, machineName str
 	var result provisioner.ProvisioningInfoState
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Reset on txn retry.
+		result = provisioner.ProvisioningInfoState{}
+
 		var txErr error
 
 		// Query 1: Machine base info (UUID, base, placement, constraints,
@@ -403,6 +409,29 @@ WHERE u.name IN ($S[:])
 
 	result := make(map[string]map[string]network.SpaceUUID, len(apps))
 
+	// Prepare statements outside the loop — they are loop-invariant.
+	relStmt, err := st.Prepare(`
+SELECT ae.space_uuid AS &endpointBindingRow.space_uuid,
+       cr.name AS &endpointBindingRow.endpoint
+FROM application_endpoint AS ae
+JOIN charm_relation AS cr ON cr.uuid = ae.charm_relation_uuid
+WHERE ae.application_uuid = $appUUIDParam.uuid
+`, endpointBindingRow{}, appUUIDParam{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	extraStmt, err := st.Prepare(`
+SELECT aee.space_uuid AS &endpointBindingRow.space_uuid,
+       ceb.name AS &endpointBindingRow.endpoint
+FROM application_extra_endpoint AS aee
+JOIN charm_extra_binding AS ceb ON ceb.uuid = aee.charm_extra_binding_uuid
+WHERE aee.application_uuid = $appUUIDParam.uuid
+`, endpointBindingRow{}, appUUIDParam{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	for _, app := range apps {
 		bindings := make(map[string]network.SpaceUUID)
 
@@ -411,17 +440,6 @@ WHERE u.name IN ($S[:])
 		bindings[""] = defaultSpace
 
 		// Get relation endpoint bindings.
-		relStmt, err := st.Prepare(`
-SELECT ae.space_uuid AS &endpointBindingRow.space_uuid,
-       cr.name AS &endpointBindingRow.endpoint
-FROM application_endpoint AS ae
-JOIN charm_relation AS cr ON cr.uuid = ae.charm_relation_uuid
-WHERE ae.application_uuid = $appUUIDParam.uuid
-`, endpointBindingRow{}, appUUIDParam{})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
 		var relBindings []endpointBindingRow
 		err = tx.Query(ctx, relStmt, appUUIDParam{UUID: app.UUID}).GetAll(&relBindings)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -437,17 +455,6 @@ WHERE ae.application_uuid = $appUUIDParam.uuid
 		}
 
 		// Get extra endpoint bindings.
-		extraStmt, err := st.Prepare(`
-SELECT aee.space_uuid AS &endpointBindingRow.space_uuid,
-       ceb.name AS &endpointBindingRow.endpoint
-FROM application_extra_endpoint AS aee
-JOIN charm_extra_binding AS ceb ON ceb.uuid = aee.charm_extra_binding_uuid
-WHERE aee.application_uuid = $appUUIDParam.uuid
-`, endpointBindingRow{}, appUUIDParam{})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-
 		var extraBindings []endpointBindingRow
 		err = tx.Query(ctx, extraStmt, appUUIDParam{UUID: app.UUID}).GetAll(&extraBindings)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {

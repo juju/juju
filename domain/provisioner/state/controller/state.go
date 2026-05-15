@@ -77,6 +77,9 @@ func (st *State) GetCloudEndpoint(ctx context.Context, cloudName, regionName str
 
 	var endpoint string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Reset on txn retry.
+		endpoint = ""
+
 		// If a region is specified, try the region endpoint first.
 		if regionName != "" {
 			regionStmt, err := st.Prepare(`
