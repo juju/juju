@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/providertracker"
-	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	agentpassword "github.com/juju/juju/domain/agentpassword/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
@@ -50,7 +49,6 @@ type Coordinator interface {
 func ImportOperations(
 	coordinator Coordinator,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	configGetter providertracker.EphemeralProviderConfigGetter,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -87,7 +85,7 @@ func ImportOperations(
 	// Storage requires the following domains be imported first:
 	// block devices, machines, application (for units), and model config.
 	storage.RegisterImport(
-		coordinator, storageRegistryGetter, configGetter, logger.Child("storage"),
+		coordinator, configGetter, logger.Child("storage"),
 	)
 	network.RegisterImportK8sService(coordinator, logger.Child("k8sservice"))
 	agentpassword.RegisterImport(coordinator)

@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
@@ -190,11 +189,11 @@ func (s *PermissionService) UpdatePermission(ctx context.Context, args access.Up
 	return errors.Capture(s.st.UpdatePermission(ctx, args))
 }
 
-// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
-// model name and model access level combinations.
-func (s *PermissionService) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+// AllModelAccessForOwner returns the model access for all activated models
+// across every cloud credential owned by owner, grouped by credential key.
+func (s *PermissionService) AllModelAccessForOwner(ctx context.Context, owner user.Name) ([]access.OwnerModelAccessByCredential, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	results, err := s.st.AllModelAccessForCloudCredential(ctx, key)
+	results, err := s.st.AllModelAccessForOwner(ctx, owner)
 	return results, errors.Capture(err)
 }

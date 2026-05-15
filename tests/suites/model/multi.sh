@@ -48,7 +48,7 @@ check_services() {
 	juju config dummy-source token="${token}"
 
 	attempt=0
-	until [[ $(juju status --format json | jq -er ".applications | .[\"dummy-source\"] | .units | .[\"dummy-source/0\"] | .[\"workload-status\"] | select(.[\"message\"] == \"Token is ${token}\") | .message") ]]; do
+	until [[ $(juju status --format json | yq -er ".applications | .[\"dummy-source\"] | .units | .[\"dummy-source/0\"] | .[\"workload-status\"] | select(.[\"message\"] == \"Token is ${token}\") | .message") ]]; do
 		echo "[+] (attempt ${attempt}) polling status"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))

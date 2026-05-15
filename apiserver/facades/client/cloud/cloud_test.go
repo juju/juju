@@ -1165,24 +1165,13 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *tc.C) {
 	bruceTag := names.NewUserTag("bruce")
 	defer s.setup(c, bruceTag).Finish()
 
-	credentialOne, tagOne := cloudCredentialTag(credParams{name: "one", owner: "bruce", cloudName: "meep", authType: jujucloud.EmptyAuthType,
+	credentialOne, _ := cloudCredentialTag(credParams{name: "one", owner: "bruce", cloudName: "meep", authType: jujucloud.EmptyAuthType,
 		attrs: map[string]string{}})
 
-	credentialTwo, tagTwo := cloudCredentialTag(credParams{name: "two", owner: "bruce", cloudName: "meep", authType: jujucloud.UserPassAuthType,
+	credentialTwo, _ := cloudCredentialTag(credParams{name: "two", owner: "bruce", cloudName: "meep", authType: jujucloud.UserPassAuthType,
 		attrs: map[string]string{
 			"username": "admin",
 		}})
-	keyOne := credential.Key{
-		Cloud: tagOne.Cloud().Id(),
-		Owner: user.NameFromTag(tagOne.Owner()),
-		Name:  tagOne.Name(),
-	}
-	keyTwo := credential.Key{
-		Cloud: tagTwo.Cloud().Id(),
-		Owner: user.NameFromTag(tagTwo.Owner()),
-		Name:  tagTwo.Name(),
-	}
-
 	credentialTwo.Invalid = true
 	creds := map[credential.Key]jujucloud.Credential{
 		{Cloud: "meep", Owner: usertesting.GenNewName(c, "bruce"), Name: "one"}: credentialOne,
@@ -1195,15 +1184,12 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
-	ctx := c.Context()
 	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag)).Return(creds, nil)
-
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&cloud, nil)
-	modelCredentialService := s.cloudAccessService.EXPECT()
-	modelCredentialService.AllModelAccessForCloudCredential(ctx, keyOne).Return([]access.CredentialOwnerModelAccess{}, nil)
-	modelCredentialService.AllModelAccessForCloudCredential(ctx, keyTwo).Return([]access.CredentialOwnerModelAccess{}, nil)
+	s.cloudAccessService.EXPECT().AllModelAccessForOwner(gomock.Any(), user.NameFromTag(bruceTag)).
+		Return([]access.OwnerModelAccessByCredential{}, nil)
 
-	results, err := s.api.CredentialContents(ctx, params.CloudCredentialArgs{})
+	results, err := s.api.CredentialContents(c.Context(), params.CloudCredentialArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_true := true
@@ -1245,12 +1231,54 @@ func (s *cloudSuite) TestCredentialContentsCloudNotFound(c *tc.C) {
 	}
 
 	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag)).Return(creds, nil)
+	s.cloudAccessService.EXPECT().AllModelAccessForOwner(gomock.Any(), user.NameFromTag(bruceTag)).
+		Return([]access.OwnerModelAccessByCredential{}, nil)
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&jujucloud.Cloud{}, fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
 
 	results, err := s.api.CredentialContents(c.Context(), params.CloudCredentialArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+}
+
+func (s *cloudSuite) TestCredentialContentsFilteredByArgs(c *tc.C) {
+	bruceTag := names.NewUserTag("bruce")
+	defer s.setup(c, bruceTag).Finish()
+
+	owner := usertesting.GenNewName(c, "bruce")
+	credOne, _ := cloudCredentialTag(credParams{name: "one", owner: "bruce", cloudName: "meep",
+		authType: jujucloud.EmptyAuthType, attrs: map[string]string{}})
+	credTwo, _ := cloudCredentialTag(credParams{name: "two", owner: "bruce", cloudName: "meep",
+		authType: jujucloud.UserPassAuthType, attrs: map[string]string{"username": "admin"}})
+	creds := map[credential.Key]jujucloud.Credential{
+		{Cloud: "meep", Owner: owner, Name: "one"}: credOne,
+		{Cloud: "meep", Owner: owner, Name: "two"}: credTwo,
+	}
+	aCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+	}
+
+	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), user.NameFromTag(bruceTag)).Return(creds, nil)
+	s.cloudAccessService.EXPECT().AllModelAccessForOwner(gomock.Any(), user.NameFromTag(bruceTag)).
+		Return([]access.OwnerModelAccessByCredential{}, nil)
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&aCloud, nil)
+
+	// Request only "one"; "two" and a non-existent "three" are also tested.
+	results, err := s.api.CredentialContents(c.Context(), params.CloudCredentialArgs{
+		Credentials: []params.CloudCredentialArg{
+			{CloudName: "meep", CredentialName: "one"},
+			{CloudName: "meep", CredentialName: "three"},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	// First result: "one" found.
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].Result.Content.Name, tc.Equals, "one")
+	// Second result: "three" not found.
+	c.Check(params.IsCodeNotFound(results.Results[1].Error), tc.IsTrue)
 }
 
 func cloudCredentialTag(params credParams) (jujucloud.Credential, names.CloudCredentialTag) {

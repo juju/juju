@@ -99,3 +99,9 @@ func DeletePropagationBackground() *metav1.DeletionPropagation {
 	v := metav1.DeletePropagationBackground
 	return &v
 }
+
+// DeletePropagationOrphan returns the orphan propagation policy.
+func DeletePropagationOrphan() *metav1.DeletionPropagation {
+	v := metav1.DeletePropagationOrphan
+	return &v
+}

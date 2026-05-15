@@ -1,7 +1,7 @@
 (list-of-hook-commands)=
 <!---
 This stub is the index file for the hook command reference, the contents table below is
-populated by the code in conf.py on make doc-build
+populated by the autogenerate-docs.py script
 -->
 # List of hook commands
 

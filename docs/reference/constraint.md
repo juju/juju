@@ -21,31 +21,8 @@ Some of these keys -- their availability and their meaning -- vary from one clou
 
 ```
 
-<!--
-A constraint is a specification that operators indicate to Juju. When adding units, Juju attempts to use the smallest instance type on the cloud that satisfies all of the constraints.
-
-Constraints are not specific to individual machines, but the whole application. Constraints can also be applied during the bootstrap process.
--->
-
-
-<!--FROM THE ABOUT DOC. TODO: INTEGRATE ABOVE.
-<a href="#heading--introduction"><h2 id="heading--introduction">Introduction</h2></a>
-
-A *constraint* is a user-defined hardware specification for a machine that is spawned by Juju. There are  in all ten types of constraints, with the most common ones being `mem`, `cores`, `root-disk`, and `arch`. The definitive constraint resource is found on the https://juju.is/docs/olm/constraints-reference page.
-
-Several noteworthy constraint characteristics:
-
--   A constraint can be specified whenever a new machine is spawned with the command `bootstrap`, `deploy`, or `add-machine`.
--   Some constraints are only supported by certain clouds.
--   When used with `deploy`, the constraint becomes the application's default constraint.
--   Multiple constraints are logically ANDs (i.e., the machine must satisfy all constraints).
--   When used in conjunction with a placement directive (the `--to` option), the placement directive takes precedence.
--->
-
 (list-of-constraints)=
 ## List of constraints
-
-<!--Source: https://github.com/juju/juju/blob/develop/core/constraints/constraints.go#L23 -->
 
 (constraint-allocate-public-ip)=
 ### `allocate-public-ip`

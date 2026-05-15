@@ -3817,7 +3817,7 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(results, tc.HasLen, 2)
-	c.Assert(results, tc.SameContents, expectedData)
+	c.Assert(results, tc.DeepEquals, expectedData)
 }
 
 // TestApplicationRelationsInfo tests getting ApplicationRelationsInfo for
@@ -3869,7 +3869,95 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *tc.C) {
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.SameContents, expectedData)
+	c.Assert(results, tc.DeepEquals, expectedData)
+}
+
+// TestApplicationRelationsInfoPeerRelationLast verifies that a peer relation
+// is ordered after a regular relation for the same application.
+func (s *relationSuite) TestApplicationRelationsInfoPeerRelationLast(c *tc.C) {
+	// Arrange: add application endpoints for the 2 default applications.
+	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+
+	// Add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	app3 := s.addApplication(c, charm3, "three")
+	charm3RegularUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:      "relation",
+		Role:      charm.RoleRequirer,
+		Interface: "fake-provides",
+		Scope:     charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RegularUUID)
+	charm3PeerUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  "peer-relation",
+		Role:  charm.RolePeer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpointPeer := s.addApplicationEndpoint(c, app3, charm3PeerUUID)
+	unit1 := s.addUnit(c, "three/0", app3, charm3)
+	unit2 := s.addUnit(c, "three/1", app3, charm3)
+
+	// Add a peer relation first, then a regular relation. The result should
+	// still be ordered with the regular relation first and the peer last.
+	relIDPeer := 3
+	relUUIDPeer := s.addRelationWithID(c, relIDPeer)
+	relEndpointPeer := s.addRelationEndpoint(c, relUUIDPeer, appEndpointPeer)
+	_ = s.addRelationUnit(c, unit1, relEndpointPeer)
+	relPeerUnit2 := s.addRelationUnit(c, unit2, relEndpointPeer)
+	s.addRelationUnitSetting(c, relPeerUnit2, "foo", "baz")
+	relPeerData := domainrelation.EndpointRelationData{
+		RelationID:      3,
+		Endpoint:        "peer-relation",
+		RelatedEndpoint: "peer-relation",
+		ApplicationData: map[string]string{},
+		UnitRelationData: map[string]domainrelation.RelationData{
+			"three/0": {
+				InScope:  true,
+				UnitData: map[string]string{},
+			},
+			"three/1": {
+				InScope:  true,
+				UnitData: map[string]string{"foo": "baz"},
+			},
+		},
+	}
+
+	relIDRegular := 4
+	relUUIDRegular := s.addRelationWithID(c, relIDRegular)
+	_ = s.addRelationEndpoint(c, relUUIDRegular, appEndpoint1)
+	relEndpointRegular := s.addRelationEndpoint(c, relUUIDRegular, appEndpoint3)
+	relRegularUnit1 := s.addRelationUnit(c, unit1, relEndpointRegular)
+	relRegularUnit2 := s.addRelationUnit(c, unit2, relEndpointRegular)
+	s.addRelationUnitSetting(c, relRegularUnit1, "foo", "bar")
+	s.addRelationUnitSetting(c, relRegularUnit2, "foo", "baz")
+	relRegularData := domainrelation.EndpointRelationData{
+		RelationID:      4,
+		Endpoint:        "relation",
+		RelatedEndpoint: "fake-provides",
+		ApplicationData: map[string]string{},
+		UnitRelationData: map[string]domainrelation.RelationData{
+			"three/0": {
+				InScope:  true,
+				UnitData: map[string]string{"foo": "bar"},
+			},
+			"three/1": {
+				InScope:  true,
+				UnitData: map[string]string{"foo": "baz"},
+			},
+		},
+	}
+
+	expectedData := []domainrelation.EndpointRelationData{
+		relRegularData,
+		relPeerData,
+	}
+
+	// Act:
+	results, err := s.state.ApplicationRelationsInfo(c.Context(), app3)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, expectedData)
 }
 
 func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *tc.C) {

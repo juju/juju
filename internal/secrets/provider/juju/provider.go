@@ -6,7 +6,7 @@ package juju
 import (
 	"context"
 
-	"github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -31,26 +31,52 @@ func (p jujuProvider) Type() string {
 	return BackendType
 }
 
-// Initialise is not used.
+// Initialise is not used because this provider does not have any external
+// interactions outside the model.
 func (p jujuProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupModel is not used.
+// CleanupModel is not used because this provider does not have any resources
+// that exist outside of the model.
 func (p jujuProvider) CleanupModel(context.Context, *provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(_ context.Context, _ *provider.ModelBackendConfig, _ secrets.Accessor, _ provider.SecretRevisions) error {
+// CleanupSecrets is not used because this provider does not store secrets
+// externally to the model.
+func (p jujuProvider) CleanupSecrets(context.Context, *provider.ModelBackendConfig, coresecrets.Accessor, provider.SecretRevisions) error {
 	return nil
+}
+
+// CleanupIssuedTokens is not used because this provider does not issue backend
+// tokens.
+func (p jujuProvider) CleanupIssuedTokens(
+	ctx context.Context,
+	adminCfg *provider.ModelBackendConfig,
+	issuedTokenUUIDs []string,
+) ([]string, error) {
+	return issuedTokenUUIDs, nil
+}
+
+// BuiltInConfig returns a minimal config for the Juju backend.
+func BuiltInConfig() provider.BackendConfig {
+	return provider.BackendConfig{BackendType: BackendType}
+}
+
+// IssuesTokens returns false since this provider does not create tokens.
+func (p jujuProvider) IssuesTokens() bool {
+	return false
 }
 
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p jujuProvider) RestrictedConfig(
-	_ context.Context, _ *provider.ModelBackendConfig, _, _ bool, _ secrets.Accessor, _ provider.SecretRevisions, _ provider.SecretRevisions,
+	context.Context,
+	*provider.ModelBackendConfig,
+	bool, bool, string, coresecrets.Accessor,
+	[]string, provider.SecretRevisions, provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,

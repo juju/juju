@@ -1,4 +1,11 @@
 test_kubeflow() {
+	# The kubeflow bundle includes charms that declare "assumes: juju < 4.0.0"
+	# and cannot be deployed on Juju 4.x. Fixing this requires a kubeflow bundle
+	# update which is out of scope for Juju's own CI. Skipping until the bundle
+	# is updated to support Juju 4.x (see JUJU-9794).
+	echo "==> TEST SKIPPED: kubeflow tests (kubeflow bundle incompatible with Juju 4.x, see JUJU-9794)"
+	return
+
 	if [ "$(skip 'test_kubeflow')" ]; then
 		echo "==> TEST SKIPPED: kubeflow tests"
 		return

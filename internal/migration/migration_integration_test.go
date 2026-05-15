@@ -12,10 +12,8 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/storage"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -52,9 +50,6 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 	}
 	importer := migration.NewModelImporter(
 		scope, s.domainServicesGetter,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return &storage.StaticProviderRegistry{}
-		}),
 		"controller-uuid",
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,

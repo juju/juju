@@ -7,7 +7,6 @@ myst:
 (cloud-vsphere)=
 # The VMware vSphere cloud and Juju
 
-
 This document describes details specific to using your existing VMware vSphere cloud with Juju.
 
 ```{ibnote}
@@ -108,7 +107,6 @@ An external network that VMs will be connected to. The resulting IP address for 
 | default value | "" |
 | immutable | false |
 | mandatory | false |
-
 
 ## Supported constraints
 

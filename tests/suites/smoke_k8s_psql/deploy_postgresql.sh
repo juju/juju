@@ -5,8 +5,10 @@ run_postgresql_deploy() {
 
     ensure "test-postgresql-deploy" "${file}"
 
-    # Deploy the postgresql-k8s charm
-    juju deploy postgresql-k8s --trust --channel 16/edge
+    # 14/edge/juju4 is a Juju 4.x compatible branch of postgresql-k8s.
+    # The stable/edge channels declare "assumes: juju < 3", so they cannot
+    # be deployed on Juju 4.x without --force and a juju4-specific branch.
+    juju deploy postgresql-k8s --trust --channel 14/edge/juju4 --base ubuntu@22.04 --force
 
     # Deploy the postgresql-test-app charm
     juju deploy postgresql-test-app --channel latest/edge --base ubuntu@22.04
@@ -20,7 +22,7 @@ run_postgresql_deploy() {
     wait_for "received database credentials of the first database" "$(workload_status postgresql-test-app 0).message"
 
     action_status=$(juju run --format json postgresql-test-app/0 start-continuous-writes \
-        | jq -r '."postgresql-test-app/0".status')
+        | yq -r '."postgresql-test-app/0".status')
     if [ "completed" != "$action_status" ]; then
         echo "ERROR: start-continous-writes action did not complete successfully"
         exit 1
@@ -30,14 +32,14 @@ run_postgresql_deploy() {
     sleep 3
 
     action_json=$(juju run --format json postgresql-test-app/0 stop-continuous-writes \
-        | jq .)
-    action_status=$(echo "$action_json" | jq -r '."postgresql-test-app/0".status')
+        | yq .)
+    action_status=$(echo "$action_json" | yq -r '."postgresql-test-app/0".status')
     if [ "completed" != "$action_status" ]; then
         echo "ERROR: stop-continous-writes action did not complete successfully"
         exit 1
     fi
 
-    action_writes=$(echo "$action_json" | jq -r '."postgresql-test-app/0".results.writes')
+    action_writes=$(echo "$action_json" | yq -r '."postgresql-test-app/0".results.writes')
     if [ $action_writes -le 3 ]; then
         echo "ERROR: continous write did not perform expected minimum of 3 writes"
         exit 1

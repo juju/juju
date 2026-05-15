@@ -10,5 +10,4 @@ In Juju, the **`worker` interface** is a Go interface in {ref}`the Go worker pac
 `Kill()` and
 `Wait()` methods implemented by any Juju {ref}`worker <worker>`.
 
-
 > See more: [Go packages | `worker` > `worker.go`](https://github.com/juju/worker/blob/HEAD/worker.go)

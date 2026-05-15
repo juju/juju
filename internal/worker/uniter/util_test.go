@@ -655,6 +655,22 @@ func (w *unitWatcher) Kill() {
 
 func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	ctx.sendEvents = true
+	// Drain stale events from shared channels. When a previous RSW is
+	// stopped (e.g. after ErrRestart or stopUniter), its setup goroutine
+	// may have sent an initial event before the RSW's select loop started
+	// reading. That event stays buffered and would block the next RSW's
+	// setup DoAndReturn, causing a flaky hang.
+	drainNotify := func(ch chan struct{}) {
+		for {
+			select {
+			case <-ch:
+			default:
+				return
+			}
+		}
+	}
+	drainNotify(ctx.unitResolveCh)
+	drainNotify(ctx.applicationCh)
 	ctx.unit.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		num := int(ctx.unitWatchCounter.Add(1))
 		ch := make(chan struct{}, 3)

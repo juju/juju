@@ -23,12 +23,10 @@ import (
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
-	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/tools"
 )
@@ -59,9 +57,6 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	}
 	importer := migration.NewModelImporter(
 		scope, nil,
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return nil
-		}),
 		"controller-uuid",
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,

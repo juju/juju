@@ -1100,10 +1100,17 @@ func (w *localConsumerWorker) processDischargeRequiredError(ctx context.Context,
 
 func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
 	_, err := w.runner.Worker(offererRelationWorkerName(relationUUID), ctx.Done())
-	if errors.Is(err, errors.NotFound) || errors.Is(err, worker.ErrDead) {
+	if errors.Is(err, errors.NotFound) ||
+		errors.Is(err, worker.ErrDead) ||
+		// ErrAborted means ctx.Done() was closed before the worker was
+		// found. Since ctx comes from the catacomb, the catacomb is dying
+		// and all sub-workers are being torn down, treat it as dead.
+		errors.Is(err, worker.ErrAborted) {
 		return true, nil
 	} else if err != nil {
-		return false, errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
+		return false, errors.Annotatef(
+			err, "querying offerer relation worker for %q", relationUUID,
+		)
 	}
 	return false, nil
 }

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -861,13 +860,6 @@ func (ctx *facadeContext) HTTPClient(purpose corehttp.Purpose) (facade.HTTPClien
 	return client, nil
 }
 
-type modelStorageRegistry func(context.Context) (storage.ProviderRegistry, error)
-
-// GetStorageRegistry returns a storage registry for the given namespace.
-func (c modelStorageRegistry) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
-	return c(ctx)
-}
-
 type modelObjectStore func(context.Context) (objectstore.ObjectStore, error)
 
 // GetObjectStore returns the object store for the current model.
@@ -877,15 +869,9 @@ func (c modelObjectStore) GetObjectStore(ctx context.Context) (objectstore.Objec
 
 // ModelImporter returns a model importer.
 func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
-	domainServices := ctx.DomainServices()
-
 	return migration.NewModelImporter(
 		ctx.migrationScope,
 		ctx.r.domainServicesGetter,
-		modelStorageRegistry(func(ctx context.Context) (storage.ProviderRegistry, error) {
-			storageService := domainServices.Storage()
-			return storageService.GetStorageRegistry(ctx)
-		}),
 		ctx.ControllerUUID(),
 		ctx.Logger(),
 		ctx.r.clock,

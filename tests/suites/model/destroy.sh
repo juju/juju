@@ -12,19 +12,19 @@ run_model_destroy() {
 	ensure "model-destroy" "${file}"
 
 	echo "Ensure current model is 'model-destroy'"
-	juju models --format json | jq -r '."current-model"' | check 'model-destroy'
+	juju models --format json | yq -r '."current-model"' | check 'model-destroy'
 
 	echo "Add new model 'model-new'"
 	juju add-model model-new
 
 	echo "Ensure current model is 'model-new'"
-	juju models --format json | jq -r '."current-model"' | check 'model-new'
+	juju models --format json | yq -r '."current-model"' | check 'model-new'
 
 	echo "Destroy model 'model-new'"
 	juju destroy-model --no-prompt 'model-new'
 
 	echo "Ensure model 'model-new' is destroyed"
-	is_destroyed=$(juju models --format json | jq -r '.models[] | select(."short-name" == "model-new")')
+	is_destroyed=$(juju models --format json | yq -r '.models[] | select(."short-name" == "model-new")')
 	if [[ -z ${is_destroyed} ]]; then is_destroyed=true; fi
 	check_contains "${is_destroyed}" true
 
@@ -32,7 +32,7 @@ run_model_destroy() {
 	juju switch model-destroy
 
 	echo "Ensure current model is 'model-destroy'"
-	juju models --format json | jq -r '."current-model"' | check 'model-destroy'
+	juju models --format json | yq -r '."current-model"' | check 'model-destroy'
 
 	destroy_model "model-destroy"
 }

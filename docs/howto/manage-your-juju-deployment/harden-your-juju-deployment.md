@@ -59,14 +59,6 @@ See more: [Wikipedia | TLS](https://en.wikipedia.org/wiki/Transport_Layer_Securi
 
 
 
-<!--
-```{caution}
-
-On a MAAS cloud there is no MAAS-based firewall. In that case it is better to have your controller
-
-```
--->
-
 ## Harden the user(s)
 
 When you bootstrap a controller into a cloud, you automatically become a user with controller admin access. Make sure to change your password, and choose a strong password.

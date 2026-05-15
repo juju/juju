@@ -20,7 +20,6 @@ Examples of this would be:
 Doing this has been difficult in the past but with changes to the juju `Makefile`
 we can now build simple streams for multiple platforms and versions.
 
-
 ## Create a local development simplestreams repository
 
 We start by telling the Juju build systems that we would like a local simple

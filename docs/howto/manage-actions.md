@@ -7,12 +7,6 @@ myst:
 (manage-actions)=
 # How to manage actions
 
-<!--
-SOURCE: https://discourse.charmhub.io/t/juju-actions-opt-in-to-new-behaviour-from-juju-2-8/2255
-TODO: Add more example outputs. (The doc above has many but they're from 2020, so they might not be the latest. And I don't quite get the first bit about the custom-defined action -- how does it get attached to the charm?
--->
-
-
 ```{ibnote}
 See also: {ref}`action`
 ```
@@ -84,8 +78,6 @@ To see detailed information about an application action, use the `show-action` c
 ```text
 juju show-action postgresql backup
 ```
-
-<!--add sample output-->
 
 ```{ibnote}
 See more: {ref}`command-juju-show-action`
