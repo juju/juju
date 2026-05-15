@@ -17,10 +17,7 @@ If guidance conflicts, architectural rules take precedence.
 - `make install` — Full build including schema regeneration.
 - `make go-build` — Build without schema rebuild.
 - `make juju` — Build the CLI client only.
-- `make jujud-controller` — Build the controller binary (includes domain services, dqlite).
-  - WARNING: `go build ./cmd/jujud` builds the *agent* binary, NOT the controller.
-    This is a common mistake. The agent binary lacks domain services and will
-    not function as a controller.
+- `make jujud` — Build the controller binary (includes domain services, dqlite).
 
 ## Unit Test Conventions
 
@@ -34,9 +31,6 @@ Tests use `gopkg.in/check.v1` (aliased `gc`) with checkers from
 - Use `c.Assert(err, jc.ErrorIs, MySentinelErr)` instead of pairing `errors.Is`
   with `jc.IsTrue`.
 - Use `c.Check(booleanExpr, jc.IsTrue)` instead of `c.Check(booleanExpr, gc.Equals, true)`.
-- For `select` cases, use `c.Context` (from `gopkg.in/check.v1`) instead of timeouts.
-- If a test event must occur, block on it and rely on the native test timeout
-  instead of adding an explicit timeout branch.
 
 Every test package must have a `package_test.go` wired to `testing.MgoTestPackage`
 or `gc.TestingT` (checked by `scripts/checktesting.bash`).

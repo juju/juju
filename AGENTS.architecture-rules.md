@@ -24,8 +24,8 @@ Respect Juju layering. Never create new cross-layer dependencies.
 ## Import Rules
 
 - `apiserver` -> may import `state` and `core`; must not depend on `cmd`.
-- `internal/worker` -> may import `domain` and `api`; must not depend on `cmd`.
-- `domain` -> must not import `apiserver`, `cmd`, or `internal/worker`.
+- `internal/worker` -> may import `state` and `api`; must not depend on `cmd`.
+- `state` -> must not import `apiserver`, `cmd`, or `internal/worker`.
 - `core` -> should only import other `core` sub-packages or external packages; not other Juju packages.
 
 ## Concurrency and Goroutine Rules
