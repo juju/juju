@@ -3131,7 +3131,7 @@ func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (
 	}, nil
 }
 
-func (api *APIBase) getOneApplicationStorageDirective(entity params.Entity) (map[string]params.StorageConstraints, error) {
+func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageConstraints, error) {
 	appTag, err := names.ParseTag(entity.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3140,24 +3140,24 @@ func (api *APIBase) getOneApplicationStorageDirective(entity params.Entity) (map
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageDirectives, err := app.StorageConstraints()
+	storageConstraints, err := app.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	sd := make(map[string]params.StorageConstraints)
-	for key, cons := range storageDirectives {
-		sd[key] = params.StorageConstraints{
+	sc := make(map[string]params.StorageConstraints)
+	for key, cons := range storageConstraints {
+		sc[key] = params.StorageConstraints{
 			Pool:  cons.Pool,
 			Size:  &cons.Size,
 			Count: &cons.Count,
 		}
 	}
-	return sd, nil
+	return sc, nil
 }
 
-// GetApplicationStorageDirectives returns the current storage constraints for the specified applications in bulk.
-func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (params.ApplicationStorageGetResults, error) {
+// GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
+func (api *APIBase) GetApplicationStorage(args params.Entities) (params.ApplicationStorageGetResults, error) {
 	resp := params.ApplicationStorageGetResults{
 		Results: make([]params.ApplicationStorageGetResult, len(args.Entities)),
 	}
@@ -3165,20 +3165,20 @@ func (api *APIBase) GetApplicationStorageDirectives(args params.Entities) (param
 		return resp, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		sd, err := api.getOneApplicationStorageDirective(entity)
+		sc, err := api.getOneApplicationStorage(entity)
 		if err != nil {
 			resp.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		resp.Results[i].StorageConstraints = sd
+		resp.Results[i].StorageConstraints = sc
 	}
 	return resp, nil
 }
 
-// GetApplicationStorageDirectives isn't on the v21 API.
-func (api *APIv21) GetApplicationStorageDirectives(_ struct{}) {}
+// GetApplicationStorage isn't on the v21 API.
+func (api *APIv21) GetApplicationStorage(_ struct{}) {}
 
-func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.ApplicationStorageUpdate) error {
+func (api *APIBase) updateOneApplicationStorage(storageUpdate params.ApplicationStorageUpdate) error {
 	appTag, err := names.ParseTag(storageUpdate.ApplicationTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -3189,15 +3189,15 @@ func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.Ap
 	}
 
 	storageDirectivesUpdate := make(map[string]state.StorageDirectivesUpdate)
-	for storageName, directive := range storageUpdate.StorageDirectives {
+	for storageName, con := range storageUpdate.StorageConstraints {
 		sd := state.StorageDirectivesUpdate{
-			Pool: directive.Pool,
+			Pool: con.Pool,
 		}
-		if directive.Size != nil {
-			sd.Size = directive.Size
+		if con.Size != nil {
+			sd.Size = con.Size
 		}
-		if directive.Count != nil {
-			sd.Count = directive.Count
+		if con.Count != nil {
+			sd.Count = con.Count
 		}
 		storageDirectivesUpdate[storageName] = sd
 	}
@@ -3205,12 +3205,12 @@ func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.Ap
 	return app.UpdateStorageConstraints(storageDirectivesUpdate)
 }
 
-// UpdateApplicationStorageDirectives updates the storage directives for multiple existing applications in bulk.
+// UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned in each ErrorResult:
 //   - [params.CodeNotSupported]: If the update request includes a storage name not supported by the charm.
-func (api *APIBase) UpdateApplicationStorageDirectives(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationStorage(args params.ApplicationStorageUpdateRequest) (params.ErrorResults, error) {
 	resp := params.ErrorResults{}
 	if err := api.checkCanWrite(); err != nil {
 		return resp, errors.Trace(err)
@@ -3220,12 +3220,12 @@ func (api *APIBase) UpdateApplicationStorageDirectives(args params.ApplicationSt
 	resp.Results = res
 
 	for i, storageUpdate := range args.ApplicationStorageUpdates {
-		err := api.updateOneApplicationStorageDirective(storageUpdate)
+		err := api.updateOneApplicationStorage(storageUpdate)
 		res[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return resp, nil
 }
 
-// UpdateApplicationStorageDirectives isn't on the v21 API.
-func (api *APIv21) UpdateApplicationStorageDirectives(_ struct{}) {}
+// UpdateApplicationStorage isn't on the v21 API.
+func (api *APIv21) UpdateApplicationStorage(_ struct{}) {}

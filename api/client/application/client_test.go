@@ -1551,13 +1551,13 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	info, err := client.GetApplicationStorageDirectives("storage-block")
+	info, err := client.GetApplicationStorage("storage-block")
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.StorageDirectives, gc.DeepEquals, map[string]storage.Constraints{
+	c.Assert(info.StorageConstraints, gc.DeepEquals, map[string]storage.Constraints{
 		"storage-block": {
 			Pool:  "loop",
 			Size:  uint64(5),
@@ -1587,10 +1587,10 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("GetApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.GetApplicationStorageDirectives("storage-block")
+	_, err := client.GetApplicationStorage("storage-block")
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -1604,7 +1604,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageConstraints{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
 				"storage-block": {
 					Pool:  "loop",
 					Size:  &sbSize,
@@ -1622,19 +1622,19 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directives{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
-				Size:  toUint64Ptr(5),
-				Count: toUint64Ptr(1),
+				Size:  uint64(5),
+				Count: uint64(1),
 			},
 		},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UpdateApplicationStorageDirectives(applicationStorageUpdate)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
 	c.Assert(err, gc.IsNil)
 }
@@ -1648,7 +1648,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageConstraints{
+			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageConstraints{
 				"storage-block": {
 					Pool:  "loop",
 					Size:  &sbSize,
@@ -1666,25 +1666,21 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorageDirectives", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("UpdateApplicationStorage", args, result).SetArg(2, results).Return(nil)
 
 	applicationStorageUpdate := application.ApplicationStorageUpdate{
-		ApplicationTag: names.NewApplicationTag("storage-block"), StorageDirectives: map[string]storage.Directives{
+		ApplicationTag: names.NewApplicationTag("storage-block"), StorageConstraints: map[string]storage.Constraints{
 			"storage-block": {
 				Pool:  "loop",
-				Size:  toUint64Ptr(5),
-				Count: toUint64Ptr(1),
+				Size:  uint64(5),
+				Count: uint64(1),
 			},
 		},
 	}
 
 	client := application.NewClientFromCaller(mockFacadeCaller)
-	err := client.UpdateApplicationStorageDirectives(applicationStorageUpdate)
+	err := client.UpdateApplicationStorage(applicationStorageUpdate)
 
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.DeepEquals, "test error1")
-}
-
-func toUint64Ptr(i uint64) *uint64 {
-	return &i
 }
