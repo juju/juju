@@ -47,7 +47,7 @@ run_provisioning_with_constraints() {
 	wait_for_machine_agent_status "0" "started"
 
 	echo "Verify machine has amd64 architecture"
-	machine_hardware=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["hardware"]')
+	machine_hardware=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["hardware"]')
 	check_contains "${machine_hardware}" "arch=amd64"
 
 	echo "Add machine with multiple constraints"
@@ -56,14 +56,14 @@ run_provisioning_with_constraints() {
 	wait_for_machine_agent_status "1" "started"
 
 	echo "Verify machine has correct constraints"
-	machine1_constraints=$(juju show-machine 1 --format json | jq -r '.["machines"]["1"]["constraints"]')
+	machine1_constraints=$(juju show-machine 1 --format json | yq -r '.["machines"]["1"]["constraints"]')
 	check_contains "${machine1_constraints}" "arch=amd64"
 	check_contains "${machine1_constraints}" "cores=2"
 	check_contains "${machine1_constraints}" "mem=4096M"
 	check_contains "${machine1_constraints}" "root-disk=20480M"
 
 	echo "Verify machine has correct hardware characteristics"
-	machine1_hardware=$(juju show-machine 1 --format json | jq -r '.["machines"]["1"]["hardware"]')
+	machine1_hardware=$(juju show-machine 1 --format json | yq -r '.["machines"]["1"]["hardware"]')
 	check_contains "${machine1_hardware}" "arch=amd64"
 	check_contains "${machine1_hardware}" "cores="
 	check_contains "${machine1_hardware}" "mem="
@@ -106,7 +106,7 @@ run_provisioning_with_resource_tags() {
 	wait_for_machine_agent_status "0" "started"
 
 	echo "Verify machine was provisioned successfully"
-	machine_status=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["juju-status"]["current"]')
+	machine_status=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["juju-status"]["current"]')
 	check_contains "${machine_status}" "started"
 
 	destroy_model "provisioning-tags"
@@ -134,11 +134,11 @@ run_provisioning_with_image_stream() {
 	wait_for_machine_agent_status "0" "started"
 
 	echo "Verify machine was provisioned successfully with released images"
-	machine_status=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["juju-status"]["current"]')
+	machine_status=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["juju-status"]["current"]')
 	check_contains "${machine_status}" "started"
 
 	# Verify the machine's instance ID exists (proves provisioning completed).
-	instance_id=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["instance-id"]')
+	instance_id=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["instance-id"]')
 	if [[ -z "${instance_id}" ]] || [[ "${instance_id}" == "null" ]]; then
 		echo "ERROR: Machine 0 has no instance-id — provisioning may have failed" >&2
 		return 1
@@ -223,10 +223,10 @@ run_provisioning_with_proposed_agent_stream() {
 	wait_for_machine_agent_status "0" "started"
 
 	echo "Verify machine was provisioned successfully"
-	machine_status=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["juju-status"]["current"]')
+	machine_status=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["juju-status"]["current"]')
 	check_contains "${machine_status}" "started"
 
-	instance_id=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["instance-id"]')
+	instance_id=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["instance-id"]')
 	if [[ -z "${instance_id}" ]] || [[ "${instance_id}" == "null" ]]; then
 		echo "ERROR: Machine 0 has no instance-id — proposed stream provisioning failed" >&2
 		kill "$(cat "${TEST_DIR}/proposed-server.pid")" 2>/dev/null || true
@@ -256,11 +256,11 @@ run_provisioning_with_storage() {
 	wait_for_machine_agent_status "0" "started"
 
 	echo "Verify machine started successfully with storage"
-	machine_status=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["juju-status"]["current"]')
+	machine_status=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["juju-status"]["current"]')
 	check_contains "${machine_status}" "started"
 
 	echo "Verify instance-id is populated (provisioning completed)"
-	instance_id=$(juju show-machine 0 --format json | jq -r '.["machines"]["0"]["instance-id"]')
+	instance_id=$(juju show-machine 0 --format json | yq -r '.["machines"]["0"]["instance-id"]')
 	if [[ -z "${instance_id}" ]] || [[ "${instance_id}" == "null" ]]; then
 		echo "ERROR: Machine 0 has no instance-id — provisioning with storage failed" >&2
 		return 1
@@ -288,11 +288,11 @@ run_provisioning_controller_model() {
 	wait_for_machine_agent_status "1" "started"
 
 	echo "Verify machine in controller model started successfully"
-	machine_status=$(juju show-machine 1 --format json | jq -r '.["machines"]["1"]["juju-status"]["current"]')
+	machine_status=$(juju show-machine 1 --format json | yq -r '.["machines"]["1"]["juju-status"]["current"]')
 	check_contains "${machine_status}" "started"
 
 	echo "Verify instance-id is populated"
-	instance_id=$(juju show-machine 1 --format json | jq -r '.["machines"]["1"]["instance-id"]')
+	instance_id=$(juju show-machine 1 --format json | yq -r '.["machines"]["1"]["instance-id"]')
 	if [[ -z "${instance_id}" ]] || [[ "${instance_id}" == "null" ]]; then
 		echo "ERROR: Machine 1 in controller model has no instance-id" >&2
 		return 1
@@ -322,7 +322,7 @@ run_provisioning_parallel_machines() {
 	done
 
 	echo "Verify all 5 machines have instance IDs"
-	started_count=$(juju show-machine 0 1 2 3 4 --format json | jq '[.machines | to_entries[] | select(.value["instance-id"] != null and .value["instance-id"] != "")] | length')
+	started_count=$(juju show-machine 0 1 2 3 4 --format json | yq '[.machines | to_entries[] | select(.value["instance-id"] != null and .value["instance-id"] != "")] | length')
 	if [[ "${started_count}" -ne 5 ]]; then
 		echo "ERROR: Expected 5 provisioned machines, got ${started_count}" >&2
 		juju machines
@@ -353,10 +353,10 @@ run_provisioning_no_error_state() {
 	done
 
 	echo "Verify no machines are in error state"
-	error_machines=$(juju status --format json | jq '[.machines | to_entries[] | select(.value["juju-status"].current == "error")] | length')
+	error_machines=$(juju status --format json | yq '[.machines | to_entries[] | select(.value["juju-status"].current == "error")] | length')
 	if [[ "${error_machines}" -ne 0 ]]; then
 		echo "ERROR: Found ${error_machines} machine(s) in error state:" >&2
-		juju status --format json | jq '.machines | to_entries[] | select(.value["juju-status"].current == "error") | {id: .key, status: .value["juju-status"]}' >&2
+		juju status --format json | yq '.machines | to_entries[] | select(.value["juju-status"].current == "error") | {id: .key, status: .value["juju-status"]}' >&2
 		return 1
 	fi
 	echo "No machines in error state — provisioning healthy"
