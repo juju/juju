@@ -39,6 +39,7 @@ dqlite-deps.tar.bz2
 .direnv/
 .codex
 .workshop.lock
+.spread-reuse*
 *.bin
 .cache
 .hermes

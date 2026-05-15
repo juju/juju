@@ -1,0 +1,16 @@
+summary: Deploy a bundle with overlays
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-bundles-deploy-overlay" "${TEST_DIR}/test-bundles-deploy-overlay.log"
+
+    bundle="$SPREAD_PATH/tests/spread/deploy/bundles/overlay_bundle.yaml"
+    juju deploy ${bundle}
+
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-bundles-deploy-overlay" || true

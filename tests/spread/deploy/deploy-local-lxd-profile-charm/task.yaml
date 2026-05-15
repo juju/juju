@@ -1,0 +1,37 @@
+summary: Deploy a local charm with LXD profile and subordinate
+
+# LXD profile tests are currently skipped when BOOTSTRAP_PROVIDER=lxd.
+manual: true
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+    . "$TESTSLIB/charmcraft.sh"
+
+    model_name="test-deploy-local-lxd-profile"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    # shellcheck disable=SC2046
+    juju deploy $(pack_charm "$SPREAD_PATH/testcharms/charms/lxd-profile")
+    # shellcheck disable=SC2046
+    juju deploy $(pack_charm "$SPREAD_PATH/testcharms/charms/lxd-profile-subordinate")
+    juju integrate lxd-profile-subordinate lxd-profile
+
+    wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
+    wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
+
+    full_uuid=$(juju models --format json |
+        name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+    short_uuid="${full_uuid:0:6}"
+
+    lxd_profile_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile"
+    lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile-subordinate"
+
+    machine_0="$(machine_path 0)"
+    wait_for "${lxd_profile_sub_name}" "${machine_0}"
+
+    juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
+    juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-local-lxd-profile" || true

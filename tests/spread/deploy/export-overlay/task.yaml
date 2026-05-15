@@ -1,0 +1,8 @@
+summary: CMR bundle export overlay tests
+
+# Currently skipped: 'export-bundle' command is not supported in this
+# Juju major version.
+manual: true
+
+execute: |
+    echo "TEST SKIPPED: CMR bundle deploy tests - export-bundle not supported"

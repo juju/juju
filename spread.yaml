@@ -1,0 +1,189 @@
+project: juju
+kill-timeout: 3h
+workers: 1
+
+environment:
+    CI: "$(HOST: echo $CI)"
+
+    # Bootstrap configuration — overridable from the host environment.
+    BOOTSTRAP_PROVIDER: '$(HOST: echo "${BOOTSTRAP_PROVIDER:-lxd}")'
+    BOOTSTRAP_CLOUD: '$(HOST: echo "${BOOTSTRAP_CLOUD:-}")'
+    BOOTSTRAP_BASE: '$(HOST: echo "${BOOTSTRAP_BASE:-}")'
+    BOOTSTRAP_ARCH: '$(HOST: echo "${BOOTSTRAP_ARCH:-}")'
+    BOOTSTRAP_REGION: '$(HOST: echo "${BOOTSTRAP_REGION:-}")'
+    BOOTSTRAP_REUSE: '$(HOST: echo "${BOOTSTRAP_REUSE:-true}")'
+    BOOTSTRAP_REUSE_LOCAL: '$(HOST: echo "${BOOTSTRAP_REUSE_LOCAL:-}")'
+    BUILD_ARCH: '$(HOST: echo "${BUILD_ARCH:-}")'
+    MODEL_ARCH: '$(HOST: echo "${MODEL_ARCH:-}")'
+    BUILD_AGENT: '$(HOST: echo "${BUILD_AGENT:-false}")'
+    CURRENT_LTS: "ubuntu@22.04"
+    DESTROY_TIMEOUT: '$(HOST: echo "${DESTROY_TIMEOUT:-15m}")'
+
+    # Cloud credentials — passed through from host for non-LXD providers.
+    AWS_ACCESS_KEY_ID: '$(HOST: echo "${AWS_ACCESS_KEY_ID:-}")'
+    AWS_SECRET_ACCESS_KEY: '$(HOST: echo "${AWS_SECRET_ACCESS_KEY:-}")'
+    AWS_DEFAULT_REGION: '$(HOST: echo "${AWS_DEFAULT_REGION:-}")'
+    AZURE_SUBSCRIPTION_ID: '$(HOST: echo "${AZURE_SUBSCRIPTION_ID:-}")'
+    AZURE_CLIENT_ID: '$(HOST: echo "${AZURE_CLIENT_ID:-}")'
+    AZURE_CLIENT_SECRET: '$(HOST: echo "${AZURE_CLIENT_SECRET:-}")'
+    AZURE_TENANT_ID: '$(HOST: echo "${AZURE_TENANT_ID:-}")'
+    GOOGLE_APPLICATION_CREDENTIALS: '$(HOST: echo "${GOOGLE_APPLICATION_CREDENTIALS:-}")'
+    CLOUDSDK_COMPUTE_REGION: '$(HOST: echo "${CLOUDSDK_COMPUTE_REGION:-}")'
+
+    # Path helpers for sourcing libraries.
+    TESTSLIB: $SPREAD_PATH/tests/lib
+
+backends:
+    lxd:
+        type: adhoc
+        allocate: |
+            export PATH="/snap/bin:$PATH"
+
+            BASE="${BASE:-noble}"
+            VM_NAME="${VM_NAME:-juju-ubuntu-${BASE}-${RANDOM}}"
+            DISK="${DISK:-40}"
+            CPU="${CPU:-8}"
+            MEM="${MEM:-16}"
+
+            cloud_config="$(mktemp)"
+            sed "s|SPREAD_PASSWORD|$SPREAD_PASSWORD|g" tests/spread/cloud-config.yaml > "$cloud_config"
+
+            lxc launch --vm \
+                "ubuntu:${BASE}" \
+                "${VM_NAME}" \
+                -c user.user-data="$(cat "$cloud_config")" \
+                -c limits.cpu="${CPU}" \
+                -c limits.memory="${MEM}GiB" \
+                -d root,size="${DISK}GiB"
+
+            # Wait for the spread user to be created by cloud-init.
+            while ! lxc exec "${VM_NAME}" -- id -u spread &>/dev/null; do sleep 0.5; done
+
+            rm "$cloud_config"
+
+            # Set the instance address for spread.
+            ADDRESS "$(lxc ls -f csv | grep "${VM_NAME}" | cut -d"," -f3 | cut -d" " -f1)"
+        discard: |
+            export PATH="/snap/bin:$PATH"
+            instance_name="$(lxc ls -f csv | grep juju | grep $SPREAD_SYSTEM_ADDRESS | cut -f1 -d",")"
+            lxc delete -f $instance_name
+
+        prepare: |
+            # Provider-specific setup inside the VM.
+            case "${BOOTSTRAP_PROVIDER}" in
+            "lxd")
+                snap install lxd
+                lxd waitready --timeout=30
+                lxd init --auto
+                ;;
+            "ec2"|"aws")
+                snap install aws-cli --classic 2>/dev/null || true
+                ;;
+            "gce"|"google")
+                snap install google-cloud-cli --classic 2>/dev/null || true
+                ;;
+            "azure")
+                snap install azure-cli 2>/dev/null || true
+                ;;
+            "k8s"|"microk8s")
+                snap install microk8s --classic --channel latest/stable
+                microk8s status --wait-ready
+                ;;
+            esac
+
+        systems:
+            - ubuntu-22.04:
+                username: spread
+                workers: 1
+            - ubuntu-24.04:
+                username: spread
+                workers: 1
+
+exclude:
+    - _build
+    - _deps
+    - .git
+    - .github
+
+# Path must be under /root because spread executes test scripts as root,
+# and juju (snap-confined) can only see files in root's home directory.
+path: /root/proj
+
+prepare: |
+    snap refresh --hold
+    if systemctl is-enabled unattended-upgrades.service; then
+        systemctl stop unattended-upgrades.service
+        systemctl mask unattended-upgrades.service
+    fi
+
+    pushd "$SPREAD_PATH"
+
+    GOBIN="$PWD/../go/bin"
+    mkdir -p "$GOBIN"
+
+    if [[ -f "$GOBIN/juju" ]]; then
+        chown $(id -u):$(id -g) "$GOBIN/juju"
+        chmod a+x "$GOBIN/juju"
+    fi
+
+    if [[ -f "$GOBIN/jujud" ]]; then
+        chown $(id -u):$(id -g) "$GOBIN/jujud"
+        chmod a+x "$GOBIN/jujud"
+    fi
+
+    if [[ ! -f "$GOBIN/juju" ]]; then
+        apt-get update
+        apt-get install -y build-essential
+        snap install go --classic
+        make juju
+        chmod 755 "$GOBIN/juju"
+    fi
+
+    if [[ ! -f "$GOBIN/jujud" ]]; then
+        apt-get update
+        apt-get install -y build-essential
+        snap install go --classic
+        make jujud-controller
+        chmod 755 "$GOBIN/jujud"
+    fi
+
+    export PATH="$GOBIN:$PATH"
+
+    # Install charmcraft for tests that pack local charms.
+    snap install charmcraft --classic
+    snap install yq
+
+restore: |
+    export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+    # Clean up any leftover controllers.
+    for ctrl in $(juju controllers --format=json 2>/dev/null | yq -r '.controllers | keys[]' 2>/dev/null); do
+        juju destroy-controller --no-prompt --destroy-all-models --destroy-storage "$ctrl" 2>/dev/null || true
+    done
+
+suites:
+    tests/spread/deploy/:
+        summary: Deploy integration tests
+        environment:
+            JUJU_MODEL: deploy
+        kill-timeout: 30m
+        prepare: |
+            export PATH="$SPREAD_PATH/../go/bin:$PATH"
+            . "$TESTSLIB/juju.sh"
+
+            if ! juju controllers --format=json 2>/dev/null | yq -r '.controllers | keys[]' | grep -q test-deploy; then
+                bootstrap "test-deploy" "/tmp/test-deploy-bootstrap.log"
+            fi
+        debug-each: |
+            export PATH="$SPREAD_PATH/../go/bin:$PATH"
+            juju status 2>&1 || true
+        restore: |
+            export PATH="$SPREAD_PATH/../go/bin:$PATH"
+            . "$TESTSLIB/juju.sh"
+            destroy_controller "test-deploy" || true
+        prepare-each: |
+            export PATH="$SPREAD_PATH/../go/bin:$PATH"
+            . "$TESTSLIB/juju.sh"
+        restore-each: |
+            export PATH="$SPREAD_PATH/../go/bin:$PATH"
+            . "$TESTSLIB/juju.sh"

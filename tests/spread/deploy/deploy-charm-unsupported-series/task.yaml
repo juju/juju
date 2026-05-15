@@ -1,0 +1,14 @@
+summary: Deploying a charm to an unsupported series fails gracefully
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-deploy-charm-unsupported-series" "${TEST_DIR}/test-deploy-charm-unsupported-series.log"
+
+    # The charm in 3.0/stable only supports jammy and only one charm has
+    # been released to that channel.
+    juju deploy juju-qa-test --channel 3.0/stable --base ubuntu@20.04 | grep -q 'charm or bundle not found for channel' || true
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-charm-unsupported-series" || true

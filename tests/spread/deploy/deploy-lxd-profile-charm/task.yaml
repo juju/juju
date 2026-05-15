@@ -1,0 +1,26 @@
+summary: Deploy a charm that uses LXD profiles
+
+# LXD profile tests are currently skipped when BOOTSTRAP_PROVIDER=lxd
+# (nested LXD profile support not re-implemented).
+manual: true
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-deploy-lxd-profile" "${TEST_DIR}/test-deploy-lxd-profile.log"
+
+    model_name="test-deploy-lxd-profile"
+
+    juju deploy juju-qa-lxd-profile-without-devices --base ubuntu@22.04
+    wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
+
+    full_uuid=$(juju models --format json |
+        name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+    short_uuid="${full_uuid:0:6}"
+    lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
+
+    juju status --format=json | yq '.machines | .["0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-lxd-profile" || true

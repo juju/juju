@@ -1,0 +1,20 @@
+summary: Deploy a charm respecting model default-base config
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    model_name="test-deploy-default-base"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    juju model-config default-base=ubuntu@24.04
+    juju deploy ubuntu --storage "files=tmpfs"
+    wait_for "ubuntu" "$(idle_condition "ubuntu")"
+
+    ubuntu_base_name=$(juju status --format=json | yq ".applications.ubuntu.base.name")
+    ubuntu_base_ch=$(juju status --format=json | yq ".applications.ubuntu.base.channel")
+    echo "$ubuntu_base_name" | check "ubuntu"
+    echo "$ubuntu_base_ch" | check "24.04"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-default-base" || true

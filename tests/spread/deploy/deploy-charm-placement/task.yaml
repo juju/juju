@@ -1,0 +1,32 @@
+summary: Deploy a charm with placement directive to specific machines
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-deploy-charm-placement-directive" "${TEST_DIR}/test-deploy-charm-placement-directive.log"
+
+    expected_base="ubuntu@20.04"
+    # Container in container doesn't work consistently enough for test.
+    # Use kvm via lxc for LXD provider.
+    if [ "${BOOTSTRAP_PROVIDER}" = "lxd" ]; then
+        juju add-machine --base "${expected_base}" --constraints="virt-type=virtual-machine"
+    else
+        juju add-machine --base "${expected_base}"
+    fi
+
+    juju add-machine lxd:0 --base "${expected_base}"
+
+    # If 0/lxd/0 is started, so must machine 0 be.
+    wait_for_container_agent_status "0/lxd/0" "started"
+
+    juju deploy ubuntu-lite -n 2 --to 0,0/lxd/0
+    wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+
+    # Verify base used to create the machines was used during deploy.
+    base_name=$(juju status --format=json | yq -r '.applications."ubuntu-lite".base.name')
+    base_chan=$(juju status --format=json | yq -r '.applications."ubuntu-lite".base.channel')
+    echo "$base_name@$base_chan" | check "$expected_base"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-charm-placement-directive" || true
