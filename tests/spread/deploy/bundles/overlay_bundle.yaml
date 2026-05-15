@@ -1,0 +1,10 @@
+applications:
+    juju-qa-test:
+        charm: juju-qa-test
+        scale: 1
+
+---
+
+applications:
+    juju-qa-test:
+        scale: 2

@@ -1,0 +1,10 @@
+#cloud-config
+
+ssh_pwauth: true
+
+users:
+  - default
+  - name: spread
+    plain_text_passwd: SPREAD_PASSWORD
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL

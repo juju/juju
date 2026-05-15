@@ -1,0 +1,23 @@
+summary: Deploy a pinned revision then refresh to latest in channel
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    model_name="test-deploy-refresh"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    # revision 23 is in channel 2.0/edge
+    juju deploy juju-qa-test --revision 23 --channel latest/edge
+    wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
+    wait_for "juju-qa-test" "$(active_idle_condition "juju-qa-test")"
+
+    # Once the application is ready, refresh is expected to immediately work.
+    juju refresh juju-qa-test
+
+    # revision 21 is in channel latest/edge
+    wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
+    wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/edge")"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-refresh" || true

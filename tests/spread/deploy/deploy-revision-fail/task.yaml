@@ -1,0 +1,15 @@
+summary: Deploy with --revision but no channel fails gracefully
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    model_name="test-deploy-revision-fail"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    got=$(juju deploy juju-qa-test --revision 9 2>&1 || true)
+    # bad request should be caught by client
+    check_contains "${got}" 'revision requires a channel for future upgrades'
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-revision-fail" || true

@@ -1,0 +1,17 @@
+summary: Deploy a bundle with multiple apps using the same charm
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    model_name="test-deploy-multi-app-single-charm-bundle"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    bundle="$SPREAD_PATH/tests/spread/deploy/bundles/multi-app-single-charm.yaml"
+    juju deploy "${bundle}"
+
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+    wait_for "juju-qa-test-dup" "$(idle_condition "juju-qa-test-dup")"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-multi-app-single-charm-bundle" || true

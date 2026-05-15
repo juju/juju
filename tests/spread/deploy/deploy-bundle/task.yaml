@@ -1,0 +1,18 @@
+summary: Deploy a bundle from the store
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-bundles-deploy" "${TEST_DIR}/test-bundles-deploy.log"
+
+    juju deploy juju-qa-bundle-test
+    wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
+    wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+    wait_for "juju-qa-test-focal" "$(idle_condition "juju-qa-test-focal")"
+    wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
+    wait_for "dummy-subordinate-focal" "$(idle_subordinate_condition "dummy-subordinate-focal" "juju-qa-test-focal")"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-bundles-deploy" || true
