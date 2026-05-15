@@ -1275,7 +1275,7 @@ type ApplicationStorageUpdate struct {
 	// StorageConstraints is a map of storage names to storage constraints to
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
-	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+	StorageConstraints map[string]storage.Directives `json:"storage-constraints,omitempty"`
 }
 
 // UpdateApplicationStorage updates the storage constraints for multiple existing applications in bulk.
@@ -1284,8 +1284,8 @@ func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationSt
 	for k, v := range applicationStorageUpdate.StorageConstraints {
 		sc[k] = params.StorageConstraints{
 			Pool:  v.Pool,
-			Size:  &v.Size,
-			Count: &v.Count,
+			Size:  v.Size,
+			Count: v.Count,
 		}
 	}
 	in := params.ApplicationStorageUpdateRequest{

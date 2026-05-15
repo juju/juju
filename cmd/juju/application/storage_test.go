@@ -185,8 +185,10 @@ func (s *ApplicationStorageSuite) TestSetDirectivesAllFields(c *gc.C) {
 
 	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
-	c.Assert(data.Count, gc.Equals, uint64(1))
-	c.Assert(data.Size, gc.Equals, uint64(102400))
+	c.Assert(data.Count, gc.NotNil)
+	c.Assert(data.Size, gc.NotNil)
+	c.Assert(*data.Count, gc.Equals, uint64(1))
+	c.Assert(*data.Size, gc.Equals, uint64(102400))
 }
 
 func (s *ApplicationStorageSuite) TestSetDirectivesAllFieldsShuffledOrder(c *gc.C) {
@@ -205,8 +207,10 @@ func (s *ApplicationStorageSuite) TestSetDirectivesAllFieldsShuffledOrder(c *gc.
 
 	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
-	c.Assert(data.Count, gc.Equals, uint64(1))
-	c.Assert(data.Size, gc.Equals, uint64(102400))
+	c.Assert(data.Count, gc.NotNil)
+	c.Assert(data.Size, gc.NotNil)
+	c.Assert(*data.Count, gc.Equals, uint64(1))
+	c.Assert(*data.Size, gc.Equals, uint64(102400))
 }
 
 func (s *ApplicationStorageSuite) TestSetDirectivesOneField(c *gc.C) {
@@ -225,8 +229,8 @@ func (s *ApplicationStorageSuite) TestSetDirectivesOneField(c *gc.C) {
 
 	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
-	c.Assert(data.Count, gc.Equals, uint64(1))
-	c.Assert(data.Size, gc.Equals, uint64(0))
+	c.Assert(data.Count, gc.IsNil)
+	c.Assert(data.Size, gc.IsNil)
 }
 
 func (s *ApplicationStorageSuite) TestSetDirectivesMultipleStorageKeys(c *gc.C) {
@@ -244,13 +248,16 @@ func (s *ApplicationStorageSuite) TestSetDirectivesMultipleStorageKeys(c *gc.C) 
 
 	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
-	c.Assert(data.Count, gc.Equals, uint64(1))
-	c.Assert(data.Size, gc.Equals, uint64(102400))
+	c.Assert(data.Count, gc.NotNil)
+	c.Assert(*data.Count, gc.Equals, uint64(1))
+	c.Assert(data.Size, gc.NotNil)
+	c.Assert(*data.Size, gc.Equals, uint64(102400))
 
 	allecto := got.StorageConstraints["allecto"]
 	c.Assert(allecto.Pool, gc.Equals, "loop")
-	c.Assert(allecto.Count, gc.Equals, uint64(2))
-	c.Assert(allecto.Size, gc.Equals, uint64(0))
+	c.Assert(allecto.Count, gc.NotNil)
+	c.Assert(*allecto.Count, gc.Equals, uint64(2))
+	c.Assert(allecto.Size, gc.IsNil)
 }
 
 func (s *ApplicationStorageSuite) TestSetDirectivesAPIError(c *gc.C) {
