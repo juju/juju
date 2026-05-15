@@ -4,11 +4,11 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -337,31 +337,45 @@ func (s *Service) buildNetworkTopology(
 				"cannot use space %q as deployment target: no subnets", spaceName)
 		}
 
-		subnetIDs := make([]string, 0, len(subnets))
-		for _, subnet := range subnets {
-			providerID := subnet.ProviderId
-			if providerID == "" {
-				s.logger.Warningf(ctx, "not using subnet %q in space %q for machine %q provisioning: no ProviderId set",
-					subnet.CIDR, spaceName, machineID)
-				continue
-			}
-
-			zones := subnet.AvailabilityZones
-			if len(zones) == 0 {
-				if cloudType != "azure" && cloudType != "openstack" {
-					s.logger.Warningf(ctx, "not using subnet %q in space %q for machine %q provisioning: no availability zone(s) set",
-						subnet.CIDR, spaceName, machineID)
-					continue
-				}
-			}
-
-			subnetAZs[string(providerID)] = zones
-			subnetIDs = append(subnetIDs, string(providerID))
-		}
+		subnetIDs := s.spaceSubnetProviderIDs(ctx, machineID, spaceName, subnets, cloudType, subnetAZs)
 		spaceSubnets[spaceName.String()] = subnetIDs
 	}
 
 	return spaceSubnets, subnetAZs, nil
+}
+
+// spaceSubnetProviderIDs returns the provider IDs for usable subnets in
+// a space, populating subnetAZs as a side effect.
+func (s *Service) spaceSubnetProviderIDs(
+	ctx context.Context,
+	machineID string,
+	spaceName network.SpaceName,
+	subnets network.SubnetInfos,
+	cloudType string,
+	subnetAZs map[string][]string,
+) []string {
+	subnetIDs := make([]string, 0, len(subnets))
+	for _, subnet := range subnets {
+		providerID := subnet.ProviderId
+		if providerID == "" {
+			s.logger.Warningf(ctx, "not using subnet %q in space %q for machine %q provisioning: no ProviderId set",
+				subnet.CIDR, spaceName, machineID)
+			continue
+		}
+
+		zones := subnet.AvailabilityZones
+		if len(zones) == 0 {
+			if cloudType != "azure" && cloudType != "openstack" {
+				s.logger.Warningf(ctx, "not using subnet %q in space %q for machine %q provisioning: no availability zone(s) set",
+					subnet.CIDR, spaceName, machineID)
+				continue
+			}
+		}
+
+		subnetAZs[string(providerID)] = zones
+		subnetIDs = append(subnetIDs, string(providerID))
+	}
+	return subnetIDs
 }
 
 // resolveImageMetadata returns image metadata from cache or falls back
@@ -373,10 +387,8 @@ func (s *Service) resolveImageMetadata(
 	cachedImageMetadata []provisioner.CloudImageMetadata,
 ) ([]provisioner.CloudImageMetadata, error) {
 	if len(cachedImageMetadata) > 0 {
-		// Sort by priority.
-		metadata := slices.Clone(cachedImageMetadata)
-		sort.Slice(metadata, func(i, j int) bool {
-			return metadata[i].Priority < metadata[j].Priority
+		metadata := slices.SortedFunc(slices.Values(cachedImageMetadata), func(a, b provisioner.CloudImageMetadata) int {
+			return cmp.Compare(a.Priority, b.Priority)
 		})
 		return metadata, nil
 	}
@@ -411,10 +423,9 @@ func (s *Service) resolveImageMetadata(
 		return nil, nil
 	}
 
-	sort.Slice(metadata, func(i, j int) bool {
-		return metadata[i].Priority < metadata[j].Priority
-	})
-	return metadata, nil
+	return slices.SortedFunc(slices.Values(metadata), func(a, b provisioner.CloudImageMetadata) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	}), nil
 }
 
 // computeTags returns the instance tags for the machine.
@@ -452,7 +463,7 @@ func (s *Service) computeTags(
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(principalUnitNames, " ")
 	}
 
-	machineID := fmt.Sprintf("%s-%s", modelName, "machine-"+machineName.String())
+	machineID := fmt.Sprintf("%s-machine-%s", modelName, machineName.String())
 	machineTags[tags.JujuMachine] = machineID
 
 	return machineTags
