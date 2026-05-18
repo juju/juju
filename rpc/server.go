@@ -146,6 +146,12 @@ func (noopTracingRoot) FlightRecorder() flightrecorder.FlightRecorder {
 // Note that we use "client request" and "server request" to name
 // requests initiated locally and remotely respectively.
 
+// responseMsg represents a response message queued for writing.
+type responseMsg struct {
+	hdr  *Header
+	body any
+}
+
 // Conn represents an RPC endpoint.  It can both initiate and receive
 // RPC requests.  There may be multiple outstanding Calls associated
 // with a single Client, and a Client may be used by multiple goroutines
@@ -159,7 +165,6 @@ type Conn struct {
 
 	// sending guards the write side of the codec - it ensures
 	// that codec.WriteMessage is not called concurrently.
-	// It also guards shutdown.
 	sending sync.Mutex
 
 	// mutex guards the following values.
@@ -204,6 +209,20 @@ type Conn struct {
 	inputLoopError error
 
 	recorderFactory RecorderFactory
+
+	// responses is a buffered channel used to queue server response
+	// messages for the writer goroutine. Handler goroutines push
+	// responses here instead of directly acquiring the sending mutex,
+	// eliminating head-of-line blocking between concurrent handlers.
+	responses chan responseMsg
+
+	// writerDone is closed when the writer goroutine exits.
+	writerDone chan struct{}
+
+	// pendingWrites tracks responses that have been queued but not yet
+	// written by the writer goroutine. Close() waits on this to ensure
+	// all responses are flushed before the codec is closed.
+	pendingWrites sync.WaitGroup
 }
 
 // NewConn creates a new connection that uses the given codec for
@@ -233,6 +252,9 @@ func (conn *Conn) Start(ctx context.Context) {
 	if conn.dead == nil {
 		conn.context, conn.cancelContext = context.WithCancel(ctx)
 		conn.dead = make(chan struct{})
+		conn.responses = make(chan responseMsg, 128)
+		conn.writerDone = make(chan struct{})
+		go conn.writer()
 		go conn.input()
 	}
 }
@@ -379,11 +401,22 @@ func (conn *Conn) Close() error {
 	}
 	conn.mutex.Unlock()
 
+	// Wait for any responses queued by handler goroutines to be written
+	// by the writer goroutine. This ensures all responses are flushed to
+	// the client before the codec is closed.
+	conn.pendingWrites.Wait()
+
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
 		logger.Debugf(conn.context, "error closing codec: %v", err)
 	}
 	<-conn.dead
+
+	// Now that the input loop has exited and all handler goroutines are
+	// done, close the responses channel to signal the writer to drain
+	// any remaining messages and exit.
+	close(conn.responses)
+	<-conn.writerDone
 
 	return conn.inputLoopError
 }
@@ -427,8 +460,6 @@ type Killer interface {
 // appropriately.
 func (conn *Conn) input() {
 	err := conn.loop()
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
@@ -503,7 +534,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, recorder)
+		conn.sendErrorResponse(hdr, err, recorder)
+		return nil
 	}
 	var argp any
 	var arg reflect.Value
@@ -530,7 +562,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(hdr, req.transformErrors(err), recorder)
+		return nil
 	}
 	var body any = struct{}{}
 	if req.ParamsType() != nil {
@@ -538,7 +571,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	if err := recorder.HandleRequest(hdr, body); err != nil {
 		logger.Errorf(context.TODO(), "error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(hdr, req.transformErrors(err), recorder)
+		return nil
 	}
 
 	// Hold the lock whilst checking the closing flag.
@@ -548,7 +582,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
+		conn.sendErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
+		return nil
 	}
 
 	conn.srvPending.Add(1)
@@ -557,9 +592,10 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorder) error {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
+// sendErrorResponse constructs an error response and queues it for writing.
+// It calls recorder.HandleReply before queuing, ensuring observer work is not
+// performed while holding any write lock.
+func (conn *Conn) sendErrorResponse(reqHdr *Header, err error, recorder Recorder) {
 	hdr := &Header{
 		RequestId:  reqHdr.RequestId,
 		Version:    reqHdr.Version,
@@ -579,8 +615,39 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 	if err := recorder.HandleReply(reqHdr.Request, hdr, struct{}{}); err != nil {
 		logger.Errorf(context.TODO(), "error recording reply %+v: %T %+v", hdr, err, err)
 	}
+	conn.sendResponse(hdr, struct{}{})
+}
 
-	return conn.codec.WriteMessage(hdr, struct{}{})
+// sendResponse queues a response message for the writer goroutine.
+// It blocks if the response buffer is full, providing natural backpressure.
+// If the connection is dead, the response is dropped.
+func (conn *Conn) sendResponse(hdr *Header, body any) {
+	conn.pendingWrites.Add(1)
+	select {
+	case conn.responses <- responseMsg{hdr: hdr, body: body}:
+	case <-conn.dead:
+		conn.pendingWrites.Done()
+	}
+}
+
+// writer is the dedicated goroutine that drains the responses channel
+// and writes messages to the codec. It serializes all response writes,
+// eliminating mutex contention between handler goroutines.
+func (conn *Conn) writer() {
+	defer close(conn.writerDone)
+	for msg := range conn.responses {
+		conn.sending.Lock()
+		err := conn.codec.WriteMessage(msg.hdr, msg.body)
+		conn.sending.Unlock()
+		conn.pendingWrites.Done()
+		if err != nil {
+			msg := err.Error()
+			if !strings.Contains(msg, "websocket: close sent") &&
+				!strings.Contains(msg, "write: broken pipe") {
+				logger.Errorf(conn.context, "error writing response: %T %+v", err, err)
+			}
+		}
+	}
 }
 
 // boundRequest represents an RPC request that is
@@ -640,7 +707,7 @@ func (conn *Conn) runRequest(
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(conn.context,
 				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
-			_ = conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
+			conn.sendErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
 		}
 	}()
 
@@ -698,7 +765,7 @@ func (conn *Conn) callRequest(
 		// Record the first error, this is the one that will be returned to
 		// the client.
 		trace.SpanFromContext(ctx).RecordError(err)
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(&req.hdr, req.transformErrors(err), recorder)
 	} else {
 		hdr := &Header{
 			RequestId:  req.hdr.RequestId,
@@ -721,27 +788,7 @@ func (conn *Conn) callRequest(
 			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
 		}
 
-		// Guard against concurrent writes to the codec, but ensure that
-		// if there is a panic during WriteMessage we don't hold the lock.
-		conn.sending.Lock()
-		defer conn.sending.Unlock()
-
-		err = conn.codec.WriteMessage(hdr, rvi)
-	}
-	if err != nil {
-		// If the message failed due to the other end closing the socket, that
-		// is expected when an agent restarts so no need to log an  error.
-		// The error type here is errors.errorString so all we can do is a match
-		// on the error string content.
-		msg := err.Error()
-		if !strings.Contains(msg, "websocket: close sent") &&
-			!strings.Contains(msg, "write: broken pipe") {
-
-			// Record the second error, this is the one that will be recorded if
-			// we can't write the response to the client.
-			trace.SpanFromContext(ctx).RecordError(err)
-			logger.Errorf(ctx, "error writing response: %T %+v", err, err)
-		}
+		conn.sendResponse(hdr, rvi)
 	}
 }
 
