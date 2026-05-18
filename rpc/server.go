@@ -185,11 +185,14 @@ type Conn struct {
 	// the hot path.
 	config atomic.Pointer[serverConfig]
 
-	// mutex guards the following values.
-	mutex sync.Mutex
+	// reqId holds the latest client request id. It is accessed
+	// atomically and does not require the mutex for correctness.
+	reqId atomic.Uint64
 
-	// reqId holds the latest client request id.
-	reqId uint64
+	// mutex guards the client-side connection state: clientPending,
+	// tombstones, shutdown, and dead. It also serializes Start()
+	// initialization of context, dead, responses, and writerDone.
+	mutex sync.Mutex
 
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
@@ -211,12 +214,13 @@ type Conn struct {
 	cancelContext context.CancelFunc
 
 	// inputLoopError holds the error that caused the input loop to
-	// terminate prematurely.  It is set before dead is closed.
+	// terminate prematurely. It is set before dead is closed, so
+	// readers after <-dead observe it without a lock.
 	inputLoopError error
 
 	// responses is a buffered channel used to queue server response
 	// messages for the writer goroutine. Handler goroutines push
-	// responses here instead of directly acquiring the sending mutex,
+	// responses here instead of writing directly to the codec,
 	// eliminating head-of-line blocking between concurrent handlers.
 	responses chan responseMsg
 
@@ -625,8 +629,9 @@ func (conn *Conn) sendResponse(hdr *Header, body any) {
 }
 
 // writer is the dedicated goroutine that drains the responses channel
-// and writes messages to the codec. It serializes all response writes,
-// eliminating mutex contention between handler goroutines.
+// and writes messages to the codec sequentially. This decouples handler
+// goroutines from write latency and provides natural backpressure via
+// the channel buffer.
 func (conn *Conn) writer() {
 	defer close(conn.writerDone)
 	for msg := range conn.responses {

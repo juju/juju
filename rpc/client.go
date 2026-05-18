@@ -97,8 +97,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		call.done(conn.context)
 		return 0
 	}
-	conn.reqId++
-	reqId := conn.reqId
+	reqId := conn.reqId.Add(1)
 	conn.clientPending[reqId] = call
 	conn.mutex.Unlock()
 
