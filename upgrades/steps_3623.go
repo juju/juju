@@ -3,8 +3,8 @@
 
 package upgrades
 
-// stateStepsFor3622 returns upgrade steps for Juju 3.6.22 that manipulate state directly.
-func stateStepsFor3622() []Step {
+// stateStepsFor3623 returns upgrade steps for Juju 3.6.23 that manipulate state directly.
+func stateStepsFor3623() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "expose controller application",

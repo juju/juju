@@ -46,9 +46,9 @@ func (s *ApplicationStorageSuite) SetUpTest(c *gc.C) {
 
 	// Default mock returns one application with two storage keys.
 	s.mockAPI = &mockStorageDirectivesAPI{
-		getFunc: func(app string) (apiapplication.ApplicationStorageDirectives, error) {
-			return apiapplication.ApplicationStorageDirectives{
-				StorageDirectives: map[string]storage.Constraints{
+		getFunc: func(app string) (apiapplication.ApplicationStorageInfo, error) {
+			return apiapplication.ApplicationStorageInfo{
+				StorageConstraints: map[string]storage.Constraints{
 					"data":    {Pool: "rootfs", Size: 10240, Count: 1}, // 10 GiB (MiB units)
 					"allecto": {Pool: "loop", Size: 20480, Count: 2},   // 20 GiB
 				},
@@ -162,8 +162,8 @@ func (s *ApplicationStorageSuite) TestGetDirectivesKeyNotFound(c *gc.C) {
 }
 
 func (s *ApplicationStorageSuite) TestGetDirectivesAPIError(c *gc.C) {
-	s.mockAPI.getFunc = func(app string) (apiapplication.ApplicationStorageDirectives, error) {
-		return apiapplication.ApplicationStorageDirectives{}, fmt.Errorf("api error")
+	s.mockAPI.getFunc = func(app string) (apiapplication.ApplicationStorageInfo, error) {
+		return apiapplication.ApplicationStorageInfo{}, fmt.Errorf("api error")
 	}
 	_, err := s.run(c, "storage-block")
 	c.Assert(err, gc.ErrorMatches, "api error")
@@ -183,7 +183,7 @@ func (s *ApplicationStorageSuite) TestSetDirectivesAllFields(c *gc.C) {
 	// Assert application tag.
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageDirectives["data"]
+	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.NotNil)
 	c.Assert(data.Size, gc.NotNil)
@@ -205,7 +205,7 @@ func (s *ApplicationStorageSuite) TestSetDirectivesAllFieldsShuffledOrder(c *gc.
 	// Assert application tag.
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageDirectives["data"]
+	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.NotNil)
 	c.Assert(data.Size, gc.NotNil)
@@ -227,7 +227,7 @@ func (s *ApplicationStorageSuite) TestSetDirectivesOneField(c *gc.C) {
 
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageDirectives["data"]
+	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.IsNil)
 	c.Assert(data.Size, gc.IsNil)
@@ -246,14 +246,14 @@ func (s *ApplicationStorageSuite) TestSetDirectivesMultipleStorageKeys(c *gc.C) 
 
 	c.Assert(got.ApplicationTag, gc.Equals, names.NewApplicationTag("storage-block"))
 
-	data := got.StorageDirectives["data"]
+	data := got.StorageConstraints["data"]
 	c.Assert(data.Pool, gc.Equals, "rootfs")
 	c.Assert(data.Count, gc.NotNil)
 	c.Assert(*data.Count, gc.Equals, uint64(1))
 	c.Assert(data.Size, gc.NotNil)
 	c.Assert(*data.Size, gc.Equals, uint64(102400))
 
-	allecto := got.StorageDirectives["allecto"]
+	allecto := got.StorageConstraints["allecto"]
 	c.Assert(allecto.Pool, gc.Equals, "loop")
 	c.Assert(allecto.Count, gc.NotNil)
 	c.Assert(*allecto.Count, gc.Equals, uint64(2))
@@ -280,16 +280,16 @@ func assertTabLine(c *gc.C, line string, fields ...string) {
 
 // Mocks
 type mockStorageDirectivesAPI struct {
-	getFunc    func(app string) (apiapplication.ApplicationStorageDirectives, error)
+	getFunc    func(app string) (apiapplication.ApplicationStorageInfo, error)
 	updateFunc func(apiapplication.ApplicationStorageUpdate) error
 }
 
 func (m *mockStorageDirectivesAPI) Close() error { return nil }
 
-func (m *mockStorageDirectivesAPI) GetApplicationStorageDirectives(applicationName string) (apiapplication.ApplicationStorageDirectives, error) {
+func (m *mockStorageDirectivesAPI) GetApplicationStorage(applicationName string) (apiapplication.ApplicationStorageInfo, error) {
 	return m.getFunc(applicationName)
 }
 
-func (m *mockStorageDirectivesAPI) UpdateApplicationStorageDirectives(up apiapplication.ApplicationStorageUpdate) error {
+func (m *mockStorageDirectivesAPI) UpdateApplicationStorage(up apiapplication.ApplicationStorageUpdate) error {
 	return m.updateFunc(up)
 }

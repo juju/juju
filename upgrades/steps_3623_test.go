@@ -12,20 +12,20 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v3622 = version.MustParse("3.6.22")
+var v3623 = version.MustParse("3.6.23")
 
-type steps3622Suite struct {
+type steps3623Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps3622Suite{})
+var _ = gc.Suite(&steps3623Suite{})
 
-func (s *steps3622Suite) TestExposeControllerApplication(c *gc.C) {
-	step := findStateStep(c, v3622, "expose controller application")
+func (s *steps3623Suite) TestExposeControllerApplication(c *gc.C) {
+	step := findStateStep(c, v3623, "expose controller application")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
-func (s *steps3622Suite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
-	step := findStateStep(c, v3622, "convert scaling field to enum")
+func (s *steps3623Suite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
+	step := findStateStep(c, v3623, "convert scaling field to enum")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
