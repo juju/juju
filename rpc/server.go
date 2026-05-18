@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/juju/core/flightrecorder"
@@ -152,6 +153,16 @@ type responseMsg struct {
 	body any
 }
 
+// serverConfig holds the server-side configuration that is set once
+// (or rarely changed) via Serve/ServeRoot. It is stored in an atomic
+// pointer so that the hot request path (bindRequest, getRecorder,
+// withTrace) can read it without acquiring a mutex.
+type serverConfig struct {
+	root            Root
+	transformErrors func(error) error
+	recorderFactory RecorderFactory
+}
+
 // Conn represents an RPC endpoint.  It can both initiate and receive
 // RPC requests.  There may be multiple outstanding Calls associated
 // with a single Client, and a Client may be used by multiple goroutines
@@ -163,15 +174,19 @@ type Conn struct {
 	// srvPending represents the current server requests.
 	srvPending sync.WaitGroup
 
+	// closing is set atomically when the connection is shutting down
+	// via Close. When set, no more client or server requests will be
+	// initiated. Using atomic.Bool allows the hot server request path
+	// to check this without acquiring the mutex.
+	closing atomic.Bool
+
+	// config holds the server-side configuration (root, transformErrors,
+	// recorderFactory). It is stored atomically and read lock-free on
+	// the hot path.
+	config atomic.Pointer[serverConfig]
+
 	// mutex guards the following values.
 	mutex sync.Mutex
-
-	// root represents  the current root object that serves the RPC requests.
-	// It may be nil if nothing is being served.
-	root Root
-
-	// transformErrors is used to transform returned errors.
-	transformErrors func(error) error
 
 	// reqId holds the latest client request id.
 	reqId uint64
@@ -182,11 +197,6 @@ type Conn struct {
 	// tombstones holds the client request ids that have been
 	// cancelled.
 	tombstones map[uint64]struct{}
-
-	// closing is set when the connection is shutting down via
-	// Close.  When this is set, no more client or server requests
-	// will be initiated.
-	closing bool
 
 	// shutdown is set when the input loop terminates. When this
 	// is set, no more client requests will be sent to the server.
@@ -203,8 +213,6 @@ type Conn struct {
 	// inputLoopError holds the error that caused the input loop to
 	// terminate prematurely.  It is set before dead is closed.
 	inputLoopError error
-
-	recorderFactory RecorderFactory
 
 	// responses is a buffered channel used to queue server response
 	// messages for the writer goroutine. Handler goroutines push
@@ -226,12 +234,15 @@ type Conn struct {
 // before any requests are sent or received. If recorderFactory is
 // non-nil, it will be called to get a new recorder for every request.
 func NewConn(codec Codec, factory RecorderFactory) *Conn {
-	return &Conn{
-		codec:           codec,
-		clientPending:   make(map[uint64]*Call),
-		tombstones:      make(map[uint64]struct{}),
-		recorderFactory: ensureFactory(factory),
+	conn := &Conn{
+		codec:         codec,
+		clientPending: make(map[uint64]*Call),
+		tombstones:    make(map[uint64]struct{}),
 	}
+	conn.config.Store(&serverConfig{
+		recorderFactory: ensureFactory(factory),
+	})
+	return conn
 }
 
 // Start starts the RPC connection running.  It must be called at
@@ -320,11 +331,11 @@ func (conn *Conn) serve(root Root, factory RecorderFactory, transformErrors func
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	conn.root = root
-	conn.recorderFactory = ensureFactory(factory)
-	conn.transformErrors = transformErrors
+	conn.config.Store(&serverConfig{
+		root:            root,
+		transformErrors: transformErrors,
+		recorderFactory: ensureFactory(factory),
+	})
 }
 
 // noopTransform is used when transformErrors is not supplied to Serve.
@@ -350,23 +361,19 @@ func (conn *Conn) Dead() <-chan struct{} {
 //
 // Calling Close multiple times is not an error.
 func (conn *Conn) Close() error {
-	conn.mutex.Lock()
-	if conn.closing {
-		conn.mutex.Unlock()
+	if !conn.closing.CompareAndSwap(false, true) {
 		// Golang's net/rpc returns rpc.ErrShutdown if you ask to close
 		// a closing or shutdown connection. Our choice is that Close
 		// is an idempotent way to ask for resources to be released and
 		// isn't a failure if called multiple times.
 		return nil
 	}
-	conn.closing = true
-	if conn.root != nil {
+	if cfg := conn.config.Load(); cfg.root != nil {
 		// Kill calls down into the resources to stop all the resources which
 		// includes watchers. The watches need to be killed in order for their
 		// API methods to return, otherwise they are just waiting.
-		conn.root.Kill()
+		cfg.root.Kill()
 	}
-	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
 	// and write their replies before closing the codec. We
@@ -388,14 +395,12 @@ func (conn *Conn) Close() error {
 		logger.Warningf(conn.context, "timed out waiting for outstanding requests, closing anyway")
 	}
 
-	conn.mutex.Lock()
-	if conn.root != nil {
+	if cfg := conn.config.Load(); cfg.root != nil {
 		// It is possible that since we last Killed the root, other resources
 		// may have been added during some of the pending call resolutions.
 		// So to release these resources, double tap the root.
-		conn.root.Kill()
+		cfg.root.Kill()
 	}
-	conn.mutex.Unlock()
 
 	// Wait for any responses queued by handler goroutines to be written
 	// by the writer goroutine. This ensures all responses are flushed to
@@ -459,7 +464,7 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || errors.Is(err, io.EOF) {
+	if conn.closing.Load() || errors.Is(err, io.EOF) {
 		err = errors.Errorf(
 			"connection is shut down: %w", err,
 		).Add(ErrShutdown)
@@ -513,9 +518,7 @@ func (conn *Conn) readBody(resp any, isRequest bool) error {
 }
 
 func (conn *Conn) getRecorder() Recorder {
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	return conn.recorderFactory()
+	return conn.config.Load().recorderFactory()
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
@@ -571,12 +574,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		return nil
 	}
 
-	// Hold the lock whilst checking the closing flag.
-	conn.mutex.Lock()
-	closing := conn.closing
-	conn.mutex.Unlock()
-
-	if closing {
+	if conn.closing.Load() {
 		// We're closing down - no new requests may be initiated.
 		conn.sendErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
 		return nil
@@ -656,15 +654,12 @@ type boundRequest struct {
 // request held in the given header and returns
 // a boundRequest that can call those methods.
 func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
-	conn.mutex.Lock()
-	root := conn.root
-	transformErrors := conn.transformErrors
-	conn.mutex.Unlock()
+	cfg := conn.config.Load()
 
-	if root == nil {
+	if cfg.root == nil {
 		return boundRequest{}, errors.New("no service")
 	}
-	caller, err := root.FindMethod(
+	caller, err := cfg.root.FindMethod(
 		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
@@ -672,13 +667,13 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 				error: err,
 			}
 		} else {
-			err = transformErrors(err)
+			err = cfg.transformErrors(err)
 		}
 		return boundRequest{}, err
 	}
 	return boundRequest{
 		MethodCaller:    caller,
-		transformErrors: transformErrors,
+		transformErrors: cfg.transformErrors,
 		hdr:             *hdr,
 	}, nil
 }
@@ -721,14 +716,13 @@ func (conn *Conn) runRequest(
 }
 
 func (conn *Conn) withTrace(ctx context.Context, request Request, fn func(ctx context.Context)) {
-	// For some asinine reason, the connection may not have a root. In that
-	// case we just call the function without tracing.
-	if conn.root == nil {
+	cfg := conn.config.Load()
+	if cfg.root == nil {
 		fn(ctx)
 		return
 	}
 
-	ctx, span := conn.root.StartTrace(ctx)
+	ctx, span := cfg.root.StartTrace(ctx)
 	defer span.End(
 		trace.StringAttr("request.type", request.Type),
 		trace.IntAttr("request.version", request.Version),
@@ -789,12 +783,10 @@ func (conn *Conn) callRequest(
 var noop = flightrecorder.NoopRecorder{}
 
 func (conn *Conn) getFlightRecorder() flightrecorder.FlightRecorder {
-	// For some asinine reason, the connection may not have a root. In that
-	// case we just return a noop flight recorder.
-	if conn.root == nil {
-		return noop
+	if cfg := conn.config.Load(); cfg.root != nil {
+		return cfg.root.FlightRecorder()
 	}
-	return conn.root.FlightRecorder()
+	return noop
 }
 
 type serverError struct {
