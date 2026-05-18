@@ -20,6 +20,7 @@ import (
 	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -637,46 +638,17 @@ func (s *serviceSuite) TestGetMachinePrincipalUnitsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 }
 
-func (s *serviceSuite) TestGetMachinePlacement(c *tc.C) {
+func (s *serviceSuite) TestGetMachineProvisioningInfo(c *tc.C) {
 	s.setupMocks(c)
 
 	machineName := machine.Name("0")
-
-	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(new("0/lxd/42"), nil)
-
-	placement, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachinePlacementDirective(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(*placement, tc.Equals, "0/lxd/42")
-}
-
-func (s *serviceSuite) TestGetMachinePlacementInvalidMachineName(c *tc.C) {
-	s.setupMocks(c)
-
-	machineName := machine.Name("invalid")
-
-	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachinePlacementDirective(c.Context(), machineName)
-	c.Assert(err, tc.ErrorMatches, `.*validating machine name "invalid".*`)
-}
-
-func (s *serviceSuite) TestGetMachinePlacementNotFound(c *tc.C) {
-	s.setupMocks(c)
-
-	machineName := machine.Name("0")
-
-	s.state.EXPECT().GetMachinePlacementDirective(gomock.Any(), machineName.String()).Return(nil, machineerrors.MachineNotFound)
-
-	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachinePlacementDirective(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-func (s *serviceSuite) TestGetMachineConstraintsFull(c *tc.C) {
-	s.setupMocks(c)
-
-	machineName := machine.Name("0")
-
+	b := base.Base{
+		OS: "ubuntu",
+		Channel: base.Channel{
+			Track: "26.04",
+			Risk:  "stable",
+		},
+	}
 	machineConstraints := constraints.Constraints{
 		Arch:           new("amd64"),
 		Container:      new(instance.LXD),
@@ -694,46 +666,46 @@ func (s *serviceSuite) TestGetMachineConstraintsFull(c *tc.C) {
 		Zones:            new([]string{"zone1", "zone2"}),
 		AllocatePublicIP: new(true),
 	}
-	s.state.EXPECT().GetMachineConstraints(gomock.Any(), machineName.String()).Return(machineConstraints, nil)
+
+	s.state.EXPECT().GetMachineProvisioningInfo(gomock.Any(), machineName.String()).
+		Return(b, new("0/lxd/42"), machineConstraints, nil)
 
 	obtained, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineConstraints(c.Context(), machineName)
+		GetMachineProvisioningInfo(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained, tc.DeepEquals, coreconstraints.Value{
-		Arch:             new("amd64"),
-		Container:        new(instance.LXD),
-		CpuCores:         new(uint64(4)),
-		Mem:              new(uint64(1024)),
-		RootDisk:         new(uint64(1024)),
-		RootDiskSource:   new("root-disk-source"),
-		Tags:             new([]string{"tag1", "tag2"}),
-		InstanceRole:     new("instance-role"),
-		InstanceType:     new("instance-type"),
-		Spaces:           new([]string{"space1"}),
-		VirtType:         new("virt-type"),
-		Zones:            new([]string{"zone1", "zone2"}),
-		AllocatePublicIP: new(true),
+	c.Check(obtained, tc.DeepEquals, domainmachine.ProvisioningInfo{
+		Base: base.Base{
+			OS: "ubuntu",
+			Channel: base.Channel{
+				Track: "26.04",
+				Risk:  "stable",
+			},
+		},
+		Constraints: coreconstraints.Value{
+			Arch:             new("amd64"),
+			Container:        new(instance.LXD),
+			CpuCores:         new(uint64(4)),
+			Mem:              new(uint64(1024)),
+			RootDisk:         new(uint64(1024)),
+			RootDiskSource:   new("root-disk-source"),
+			Tags:             new([]string{"tag1", "tag2"}),
+			InstanceRole:     new("instance-role"),
+			InstanceType:     new("instance-type"),
+			Spaces:           new([]string{"space1"}),
+			VirtType:         new("virt-type"),
+			Zones:            new([]string{"zone1", "zone2"}),
+			AllocatePublicIP: new(true),
+		},
+		PlacementDirective: new("0/lxd/42"),
 	})
 }
 
-func (s *serviceSuite) TestGetMachineConstraintsInvalidMachineName(c *tc.C) {
+func (s *serviceSuite) TestGetMachineProvisioningInfoInvalidMachineName(c *tc.C) {
 	s.setupMocks(c)
 
 	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineConstraints(c.Context(), machine.Name("invalid"))
+		GetMachineProvisioningInfo(c.Context(), machine.Name("invalid"))
 	c.Assert(err, tc.ErrorMatches, `.*validating machine name "invalid".*`)
-}
-
-func (s *serviceSuite) TestGetMachineConstraintsMachineNotFound(c *tc.C) {
-	s.setupMocks(c)
-
-	machineName := machine.Name("0")
-
-	s.state.EXPECT().GetMachineConstraints(gomock.Any(), machineName.String()).Return(constraints.Constraints{}, machineerrors.MachineNotFound)
-
-	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
-		GetMachineConstraints(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *serviceSuite) TestGetMachineBase(c *tc.C) {

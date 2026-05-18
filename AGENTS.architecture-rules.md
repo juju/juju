@@ -57,6 +57,10 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Put logic in state only when it must execute inside a transaction.
 - State sub-packages must use Sqlair for query and mutation.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
+- Variables and accumulators populated inside a `db.Txn` closure MUST be reset
+  at the top of the closure to ensure correctness on transaction retry. The
+  `db.Txn` runner may re-execute the closure on transient errors; stale or
+  partial data from a previous attempt will corrupt results if not cleared.
 
 ## Worker Boundaries
 

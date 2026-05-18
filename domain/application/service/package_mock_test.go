@@ -3756,6 +3756,45 @@ func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetUnitNamesWithPrincipalForMachine mocks base method.
+func (m *MockState) GetUnitNamesWithPrincipalForMachine(arg0 context.Context, arg1 string) ([]unit.NameWithPrincipal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNamesWithPrincipalForMachine", arg0, arg1)
+	ret0, _ := ret[0].([]unit.NameWithPrincipal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNamesWithPrincipalForMachine indicates an expected call of GetUnitNamesWithPrincipalForMachine.
+func (mr *MockStateMockRecorder) GetUnitNamesWithPrincipalForMachine(arg0, arg1 any) *MockStateGetUnitNamesWithPrincipalForMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesWithPrincipalForMachine", reflect.TypeOf((*MockState)(nil).GetUnitNamesWithPrincipalForMachine), arg0, arg1)
+	return &MockStateGetUnitNamesWithPrincipalForMachineCall{Call: call}
+}
+
+// MockStateGetUnitNamesWithPrincipalForMachineCall wrap *gomock.Call
+type MockStateGetUnitNamesWithPrincipalForMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitNamesWithPrincipalForMachineCall) Return(arg0 []unit.NameWithPrincipal, arg1 error) *MockStateGetUnitNamesWithPrincipalForMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitNamesWithPrincipalForMachineCall) Do(f func(context.Context, string) ([]unit.NameWithPrincipal, error)) *MockStateGetUnitNamesWithPrincipalForMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitNamesWithPrincipalForMachineCall) DoAndReturn(f func(context.Context, string) ([]unit.NameWithPrincipal, error)) *MockStateGetUnitNamesWithPrincipalForMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitNetNodeUUID mocks base method.
 func (m *MockState) GetUnitNetNodeUUID(arg0 context.Context, arg1 unit.UUID) (string, error) {
 	m.ctrl.T.Helper()

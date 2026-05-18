@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"github.com/juju/juju/core/base"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/constraints"
@@ -124,3 +126,17 @@ type PollingInfo struct {
 
 // PollingInfos is a slice of PollingInfo.
 type PollingInfos []PollingInfo
+
+// ProvisioningInfo holds the base, placement directive and constraints
+// for a machine, combined for efficient provisioning info retrieval.
+type ProvisioningInfo struct {
+	// Base is the base OS for the machine.
+	Base base.Base
+
+	// PlacementDirective is the placement directive for the machine, or nil
+	// if no placement was specified.
+	PlacementDirective *string
+
+	// Constraints are the constraints for the machine.
+	Constraints coreconstraints.Value
+}
