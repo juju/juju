@@ -41,8 +41,8 @@ type Codec interface {
 
 	// WriteMessage writes a message with the given header and body.
 	// The body will always be a struct. It may be called concurrently
-	// with ReadHeader and ReadBody, but will not be called
-	// concurrently with itself.
+	// with ReadHeader, ReadBody, and other calls to WriteMessage.
+	// Implementations must handle their own write serialization.
 	WriteMessage(hdr *Header, body any) error
 
 	// Close closes the codec. It may be called concurrently
@@ -162,10 +162,6 @@ type Conn struct {
 
 	// srvPending represents the current server requests.
 	srvPending sync.WaitGroup
-
-	// sending guards the write side of the codec - it ensures
-	// that codec.WriteMessage is not called concurrently.
-	sending sync.Mutex
 
 	// mutex guards the following values.
 	mutex sync.Mutex
@@ -636,9 +632,7 @@ func (conn *Conn) sendResponse(hdr *Header, body any) {
 func (conn *Conn) writer() {
 	defer close(conn.writerDone)
 	for msg := range conn.responses {
-		conn.sending.Lock()
 		err := conn.codec.WriteMessage(msg.hdr, msg.body)
-		conn.sending.Unlock()
 		conn.pendingWrites.Done()
 		if err != nil {
 			msg := err.Error()
