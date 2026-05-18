@@ -10,5 +10,5 @@ const CodeNotImplemented = codeNotImplemented
 // ClientRequestID exposes the client's request ID which is
 // incremented everytime a connection sends a request.
 func (c *Conn) ClientRequestID() uint64 {
-	return c.reqId
+	return c.reqId.Load()
 }
