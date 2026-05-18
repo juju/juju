@@ -81,9 +81,6 @@ func (e *RequestError) UnmarshalInfo(to any) error {
 }
 
 func (conn *Conn) send(call *Call) uint64 {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
-
 	// Register this call.
 	conn.mutex.Lock()
 	if conn.dead == nil {
