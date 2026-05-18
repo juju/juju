@@ -89,7 +89,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		call.done(conn.context)
 		return 0
 	}
-	if conn.closing || conn.shutdown {
+	if conn.closing.Load() || conn.shutdown {
 		call.Error = errors.Errorf(
 			"connection is shutdown before send",
 		).Add(ErrShutdown)
