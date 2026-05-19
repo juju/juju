@@ -252,7 +252,7 @@ parts:
 
       make install
 
-  jujud:
+  jujuagentd:
     after:
       - libdqlite
     plugin: nil
@@ -276,11 +276,11 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
       export GO_LDFLAGS='-s -w -extldflags "-static" -linkmode "external" -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace='
       go mod download
-      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
+      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujuagentd
 
   juju:
     after:
-      - jujud
+      - jujuagentd
     plugin: nil
     source: .
     build-snaps:
@@ -299,15 +299,15 @@ parts:
       for completion in etc/bash_completion.d/*; do
         install -D ${completion} ../install/usr/share/bash-completion/completions/$(basename ${completion})
       done
-      jujud=${CRAFT_STAGE}/bin/jujud
-      version=$($jujud version)
-      hash=$(sha256sum $jujud | cut -d " " -f 1)
-      cat > jujud-versions.yaml <<EOF
+      jujuagentd=${CRAFT_STAGE}/bin/jujuagentd
+      version=$($jujuagentd version)
+      hash=$(sha256sum $jujuagentd | cut -d " " -f 1)
+      cat > jujuagentd-versions.yaml <<EOF
       versions:
         - version: $version
           sha256: $hash
       EOF
-      cp -a jujud-versions.yaml ${CRAFT_PART_INSTALL}/bin
+      cp -a jujuagentd-versions.yaml ${CRAFT_PART_INSTALL}/bin
     stage-packages:
       - openssh-client
 
