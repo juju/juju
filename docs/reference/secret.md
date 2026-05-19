@@ -55,7 +55,7 @@ In short, the same secret may end up being associated with multiple identifiers.
 (secret-uri)=
 ### Secret URI
 
-In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <charm-secret>`, a secret URI is automatically assigned by Juju when the secret is added, either by a user through `juju add-secret` (or its equivalent in other Juju clients) or by a charm via `secret-add`. The URI is returned to the caller so they can then use it in subsequent actions.
+In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <charm-secret>`, a secret URI is automatically assigned by Juju when the secret is added, either by a user through `juju add-secret` (or its equivalent in other Juju clients) or by a charm via `secret-add`. The URI is returned to the caller so they can then use it in subsequent actions (for example, a charm might grant permission to that secret using the URI and then put the URI in relation data).
 
 (secret-name)=
 ### Secret name
