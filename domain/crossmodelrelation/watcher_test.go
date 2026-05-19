@@ -51,6 +51,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelSuite.SetUpTest(c)
 
 	s.modelUUID = uuid.MustNewUUID().String()
+	s.relationCount = 0
 	_, s.modelIdler = s.InitWatchableDB(c, s.modelUUID)
 }
 
@@ -258,14 +259,20 @@ VALUES (?, ?, ?, ?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *watcherSuite) nextRelationID() int {
+	id := s.relationCount
+	s.relationCount++
+	return id
+}
+
 func (s *watcherSuite) addRelation(c *tc.C, db database.TxnRunner) corerelation.UUID {
 	relationUUID := tc.Must(c, corerelation.NewUUID)
+	relationID := s.nextRelationID()
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(c.Context(), `
 INSERT INTO relation (uuid, life_id, relation_id, scope_id) 
 VALUES (?, 0, ?, 0)
-`, relationUUID, s.relationCount)
-		s.relationCount++
+`, relationUUID, relationID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
