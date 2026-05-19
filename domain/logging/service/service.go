@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -87,6 +88,14 @@ func (s *Service) SetLokiEndpoint(ctx context.Context, endpoint string) error {
 
 	if endpoint == "" {
 		return errors.Errorf("empty loki endpoint").Add(coreerrors.NotValid)
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return errors.Errorf("loki endpoint %q: %w", endpoint, err).Add(coreerrors.NotValid)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return errors.Errorf("loki endpoint %q missing scheme or host", endpoint).Add(coreerrors.NotValid)
 	}
 
 	return s.st.SetLokiEndpoint(ctx, endpoint)

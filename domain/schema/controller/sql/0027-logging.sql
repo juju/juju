@@ -3,4 +3,4 @@ CREATE TABLE logging_loki_config (
     endpoint TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_logging_loki_config_endpoint ON logging_loki_config (endpoint);
+CREATE UNIQUE INDEX idx_singleton_logging_loki_config ON logging_loki_config ((1));

@@ -40,6 +40,13 @@ func (s *serviceSuite) TestSetLokiEndpointEmptyReturnsError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *serviceSuite) TestSetLokiEndpointInvalidURLReturnsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "not-a-valid-url")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *serviceSuite) TestSetLokiEndpointStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
