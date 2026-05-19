@@ -129,15 +129,17 @@ when it is package-wide behavior (for example Juju creating a VCN in OCI).
 
 ## Writing Guidelines
 
-1. **Maintain the red thread**: Explicitly repeat the main topic (e.g., "agent configuration") rather than using pronouns like "it" or "this".
+1. **Maintain the red thread**: Explicitly repeat the main topic (e.g., "agent configuration") rather than using pronouns like "it" or "this". This applies to prose and to section/subsection labels (e.g., "**Secret access and grants**" instead of "**Access and grants**").
 
-2. **Document contracts, not implementation**: State what callers can rely on and what constraints they must respect. Never describe internal mechanisms (locks, goroutines, data structures).
+2. **Use sentence case for section labels**: Bold subsection labels within `# Package patterns` and `# Package constraints` should use sentence case, not title case.
 
-3. **Use " -- " for em dashes**: Not "-" or "—", but " -- " with spaces.
+3. **Document contracts, not implementation**: State what callers can rely on and what constraints they must respect. Never describe internal mechanisms (locks, goroutines, data structures).
 
-4. **Use " -> " for right arrows**: Not "→" or "⮕" or "➡" or "⇨" or "🡒" or "⟶", but " -> " with spaces.
+4. **Use " -- " for em dashes**: Not "-" or "—", but " -- " with spaces.
 
-5. **Use ASCII diagrams for workflows**: In doc.go files, when documenting state transitions, sequences, or data flow, add ASCII diagrams.
+5. **Use " -> " for right arrows**: Not "→" or "⮕" or "➡" or "⇨" or "🡒" or "⟶", but " -> " with spaces.
+
+6. **Use ASCII diagrams for workflows**: In doc.go files, when documenting state transitions, sequences, or data flow, add ASCII diagrams.
 
    Example:
    ```
@@ -168,45 +170,50 @@ Add guard-rail sections when the package has:
 
 ### Guard-Rail Section Format
 
-In actual doc.go files, group all guard-rails under a single h1 section (typically `# Constraints` or `# Guard-Rails`). This distinguishes prescriptive constraints from descriptive pattern explanations. Within that section, organize by category using bold labels or paragraphs:
+**Both sections document contract-level information** from the caller's perspective:
 
-Write guard-rails using RFC 2119 keywords:
+- `# How this package works` - Descriptive contract information (realis mood): what concepts exist, how they relate, what flows are available. This explains what the package **is**.
+- `# How to use this package correctly` - Prescriptive contract information (irrealis mood): constraints callers must respect. This states what callers **must do**.
+
+Neither section documents implementation details. Both focus on the interface contract.
+
+In the prescriptive section (`# How to use this package correctly`), organize by category using bold labels with sentence case. Write guard-rails using RFC 2119 keywords:
 - **MUST** statements for mandatory requirements
 - **MUST NOT** statements for forbidden actions
 - **MAY** statements for optional behaviors
 - **SHOULD** statements for recommended but not mandatory practices
 
-Focus on **interface contracts**, not implementation details. State what callers must respect, not how the package implements protection internally.
+The RFC 2119 keywords signal the prescriptive nature of this section.
 
 ### Example Structure
 
 ```go
-// # Secret Access and Grants
+// # How this package works
 //
-// [Descriptive content explaining the pattern...]
+// **Secret access and grants**: Access to a secret is managed through grants,
+// which define the role (view or manage) and the scope (unit, application,
+// model, or relation) of the permissions. [Continue with descriptive content...]
+//
+// **Secret rotation and expiry**: Secrets can be configured with rotation
+// policies (hourly, daily, weekly, etc.) that determine when a secret should be
+// updated. [Continue with descriptive content...]
 
-// # Rotation and Expiry
-//
-// [Descriptive content explaining the pattern...]
-
-// # Constraints
-//
-// **Immutability**: Secret URIs are immutable once created. Secret revisions
-// are append-only -- existing revisions cannot be modified or deleted, only
-// obsoleted through expiry.
-//
-// **Transactions**: All write operations MUST occur within a transaction
-// provided by the caller. The state layer does not manage transaction
-// lifecycle. Callers MUST NOT hold transactions across multiple service calls
-// to avoid deadlocks.
-//
-// **Security**: Secret values MUST NOT be logged or included in error messages.
-// Callers MUST validate grants before accessing secret content using
-// CheckGrant(). The service layer does not enforce grant checks automatically.
+// # How to use this package correctly
 //
 // **Architecture**: This package MUST NOT import from apiserver or
 // internal/worker packages. Domain logic must remain transport-agnostic. Only
 // core/* and domain/* packages may be imported for type definitions.
+//
+// **Immutability**: Secret URIs MUST NOT be modified after creation. Secret
+// revisions are append-only -- existing revisions cannot be modified or deleted,
+// only obsoleted through expiry.
+//
+// **Security**: Secret values MUST NOT be logged or included in error messages.
+// Secret values MUST NOT be accessed without verifying read permissions.
+//
+// **Transactions**: Callers MUST NOT hold transactions across multiple service
+// calls to avoid deadlocks. Write operations MUST occur within database
+// transactions.
 //
 // **Validation**: Secret URIs MUST be validated using secret.ParseURI() before
 // storage. Rotation policies MUST be one of the enumerated constants
@@ -228,17 +235,32 @@ Focus on **interface contracts**, not implementation details. State what callers
 // entity.
 ```
 
+### Section Naming Conventions
+
+**Top-level sections**: Use action-oriented headings that distinguish descriptive (realis) from prescriptive (irrealis) content:
+
+- `# How this package works` - Descriptive contract information: concepts, relationships, flows
+- `# How to use this package correctly` - Prescriptive contract information: constraints, requirements, boundaries
+
+The linguistic mood distinction (realis vs. irrealis) is inherent in the verb forms. The RFC 2119 keywords (MUST, MUST NOT, MAY, SHOULD) in the second section reinforce the prescriptive nature.
+
+**Subsection labels**: Use bold labels with sentence case (not title case).
+Apply the red thread pattern by repeating the main package topic:
+- Good: `**Secret access and grants**`, `**Secret rotation and expiry**`
+- Avoid: `**Access and grants**`, `**Rotation and expiry**` (loses context)
+
 ### Categories to Consider
 
-When documenting constraints, consider including (where applicable):
-- **Immutability** - structural invariants and append-only constraints
-- **Transactions** - database transaction boundaries (critical for domain packages)
-- **Security** - handling of sensitive data, access control requirements
+When documenting constraints, consider including (where applicable). Categories
+MUST be ordered alphabetically in doc.go files:
 - **Architecture** - layer boundaries and import restrictions
-- **Validation** - mandatory validation steps before operations
-- **Lifecycle** - initialization and cleanup requirements
-- **Error Handling** - required error handling patterns
 - **Concurrency** - thread-safety guarantees (only what's explicitly guaranteed)
+- **Error handling** - required error handling patterns
+- **Immutability** - structural invariants and append-only constraints
+- **Lifecycle** - initialization and cleanup requirements
+- **Security** - handling of sensitive data, access control requirements
+- **Transactions** - database transaction boundaries (critical for domain packages)
+- **Validation** - mandatory validation steps before operations
 
 ### Balancing Comprehensiveness with Maintainability
 
@@ -299,7 +321,7 @@ The first states what callers must do; the second reveals internal database stru
 
 1. **LLM analyzes code** and proposes constraint statements based on patterns
 2. **Human reviews proposals** to identify which are real contracts vs. current implementation
-3. **LLM drafts `# Constraints` section** with validated constraints in RFC 2119 language
+3. **LLM drafts `# How to use this package correctly` section** with validated constraints in RFC 2119 language
 4. **Human verifies** each constraint is observable in code (per "Verification for Guard-Rails")
 5. **Iterate** until all statements are contract-level and verifiable
 
