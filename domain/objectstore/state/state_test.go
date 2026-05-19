@@ -739,6 +739,30 @@ func (s *stateSuite) TestTransitionDrainingPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
+func (s *stateSuite) TestTransitionDrainingPhaseToError(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	// TransitionBackendToS3 atomically starts draining.
+	err := st.TransitionBackendToS3(c.Context(), backendUUID, "drain-uuid", creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Transition from Draining → Error.
+	err = st.TransitionDrainingPhase(c.Context(), "drain-uuid", coreobjectstore.PhaseError)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Error phase should still be visible via GetActiveDrainingInfo.
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseError))
+}
+
 func (s *stateSuite) TestTransitionDrainingPhaseMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 

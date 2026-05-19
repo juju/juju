@@ -297,14 +297,14 @@ func (s *integrationSuite) TestDrainingLifecycleError(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// 2. Transition to error. After this, the drain is no longer "active"
-	// (phase_type_id > 1), so GetDrainingPhase returns PhaseUnknown.
+	// 2. Transition to error. The drain remains visible (phase_type_id <= 2),
+	// so GetDrainingPhase returns PhaseError.
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseError)
 	c.Assert(err, tc.ErrorIsNil)
 
 	phase, err := svc.GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(phase, tc.Equals, objectstore.PhaseUnknown)
+	c.Assert(phase, tc.Equals, objectstore.PhaseError)
 }
 
 // TestDrainingPhaseInvalidTransition verifies that invalid phase transitions

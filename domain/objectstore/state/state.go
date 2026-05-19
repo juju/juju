@@ -563,7 +563,7 @@ SELECT di.uuid AS &dbGetPhaseInfo.uuid,
        di.to_backend_uuid AS &dbGetPhaseInfo.active_backend_uuid
 FROM object_store_drain_info AS di
 JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
-WHERE di.phase_type_id <= 1;
+WHERE di.phase_type_id <= 2;
 `, dbGetPhaseInfo{})
 	if err != nil {
 		return errors.Errorf("preparing select statement: %w", err)
@@ -704,6 +704,9 @@ VALUES ($dbSetPhaseInfo.*);
 // information, which can be used to correlate with logs and other information
 // about the draining process.
 //
+// Active draining phases include Unknown, Draining, and Error. Only
+// Completed is considered finalized and excluded.
+//
 // This method returns the following errors:
 //   - [objectstoreerrors.ErrDrainingPhaseNotFound]: if there is no active
 //     draining phase.
@@ -719,7 +722,7 @@ SELECT di.uuid AS &dbGetPhaseInfo.uuid,
        di.to_backend_uuid AS &dbGetPhaseInfo.active_backend_uuid
 FROM object_store_drain_info AS di
 JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
-WHERE di.phase_type_id <= 1;
+WHERE di.phase_type_id <= 2;
 `, dbGetPhaseInfo{})
 	if err != nil {
 		return domainobjectstore.DrainingInfo{}, errors.Errorf("preparing select draining phase statement: %w", err)
