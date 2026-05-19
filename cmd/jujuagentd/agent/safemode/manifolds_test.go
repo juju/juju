@@ -1,7 +1,7 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package dbrepl_test
+package safemode_test
 
 import (
 	"slices"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/dbrepl"
+	"github.com/juju/juju/cmd/jujuagentd/agent/safemode"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
 )
@@ -33,13 +33,13 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
+	s.assertStartFuncs(c, safemode.IAASManifolds(safemode.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
 func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
+	s.assertStartFuncs(c, safemode.CAASManifolds(safemode.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
@@ -53,15 +53,15 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 
 func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
+		safemode.IAASManifolds(safemode.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
 		[]string{
 			"agent",
 			"controller-agent-config",
-			"db-repl-accessor",
-			"db-repl",
+			"db-accessor",
 			"is-controller-flag",
+			"query-logger",
 			"state-config-watcher",
 			"termination-signal-handler",
 		},
@@ -70,15 +70,15 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 
 func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
+		safemode.CAASManifolds(safemode.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
 		[]string{
 			"agent",
 			"controller-agent-config",
-			"db-repl-accessor",
-			"db-repl",
+			"db-accessor",
 			"is-controller-flag",
+			"query-logger",
 			"state-config-watcher",
 			"termination-signal-handler",
 		},
@@ -95,15 +95,16 @@ func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifol
 }
 
 func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
-	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
+	manifolds := safemode.IAASManifolds(safemode.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
 		"controller-agent-config",
-		"db-repl",
-		"db-repl-accessor",
+		"db-accessor",
+		"file-notify-watcher",
+		"query-logger",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -147,7 +148,7 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
+		safemode.IAASManifolds(safemode.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
 		expectedMachineManifoldsWithDependenciesIAAS,
@@ -156,7 +157,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
+		safemode.CAASManifolds(safemode.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
 		expectedMachineManifoldsWithDependenciesCAAS,
@@ -173,20 +174,21 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"db-repl": {
+	"db-accessor": {
 		"agent",
-		"db-repl-accessor",
+		"controller-agent-config",
 		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"db-repl-accessor": {
-		"agent",
-		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
+
+	"query-logger": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"state-config-watcher": {"agent"},
 
@@ -203,20 +205,21 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"db-repl": {
+	"db-accessor": {
 		"agent",
-		"db-repl-accessor",
+		"controller-agent-config",
 		"is-controller-flag",
-		"state-config-watcher",
-	},
-
-	"db-repl-accessor": {
-		"agent",
-		"is-controller-flag",
+		"query-logger",
 		"state-config-watcher",
 	},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
+
+	"query-logger": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"state-config-watcher": {"agent"},
 

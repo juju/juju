@@ -39,10 +39,10 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/cmd/jujud/reboot"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
+	"github.com/juju/juju/cmd/jujuagentd/agent/model"
+	"github.com/juju/juju/cmd/jujuagentd/reboot"
+	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -85,7 +85,7 @@ type (
 )
 
 var (
-	logger            = internallogger.GetLogger("juju.cmd.jujud")
+	logger            = internallogger.GetLogger("juju.cmd.jujuagentd")
 	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())

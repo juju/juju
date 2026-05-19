@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	agentcmd "github.com/juju/juju/cmd/jujuagentd/agent"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
