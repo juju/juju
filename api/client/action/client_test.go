@@ -4,12 +4,14 @@
 package action_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -108,7 +110,12 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 			facadeReturn = errors.New(t.patchErr)
 		}
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsCharmsActions", args, res).SetArg(3, ress).Return(facadeReturn)
+		mockFacadeCaller.EXPECT().FacadeCall(
+			gomock.Any(), "ApplicationsCharmsActions", args, res,
+		).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+			return facadeReturn
+		})
 		client := action.NewClientFromCaller(mockFacadeCaller)
 
 		result, err := client.ApplicationCharmActions(c.Context(), "foo")
@@ -138,7 +145,12 @@ func (s *actionSuite) TestWatchActionProgress(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "WatchActionsProgress", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	w, err := client.WatchActionProgress(c.Context(), "666")
@@ -165,7 +177,12 @@ func (s *actionSuite) TestWatchActionProgressArity(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "WatchActionsProgress", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.WatchActionProgress(c.Context(), "666")
@@ -202,7 +219,12 @@ func (s *actionSuite) TestListOperations(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListOperations", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListOperations", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.ListOperations(c.Context(), action.OperationQueryArgs{
@@ -247,7 +269,12 @@ func (s *actionSuite) TestOperation(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Operations", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Operations", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Operation(c.Context(), "666")
@@ -291,7 +318,12 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnqueueOperation", fArgs, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "EnqueueOperation", fArgs, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.EnqueueOperation(c.Context(), args)

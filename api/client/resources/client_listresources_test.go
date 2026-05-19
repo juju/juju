@@ -4,11 +4,13 @@
 package resources_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/resources"
@@ -39,7 +41,12 @@ func (s *ListResourcesSuite) TestListResources(c *tc.C) {
 	}
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListResources", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
@@ -74,7 +81,12 @@ func (s *ListResourcesSuite) TestEmptyResources(c *tc.C) {
 		Results: []params.ResourcesResult{{}, {}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListResources", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
@@ -94,7 +106,12 @@ func (s *ListResourcesSuite) TestServerError(c *tc.C) {
 		Results: []params.ResourcesResult{{}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListResources", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return errors.New("boom")
+	})
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(c.Context(), []string{"a-application"})
@@ -115,7 +132,12 @@ func (s *ListResourcesSuite) TestArity(c *tc.C) {
 		Results: []params.ResourcesResult{{}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListResources", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(c.Context(), []string{"a-application", "other-application"})
@@ -136,7 +158,12 @@ func (s *ListResourcesSuite) TestConversionFailed(c *tc.C) {
 		}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListResources", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources(c.Context(), []string{"a-application"})

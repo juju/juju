@@ -4,11 +4,13 @@
 package common_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
@@ -37,7 +39,12 @@ func (s *apiaddresserSuite) TestAPIAddresses(c *tc.C) {
 	result := params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	}
-	facade.EXPECT().FacadeCall(gomock.Any(), "APIAddresses", nil, gomock.Any()).SetArg(3, result).Return(nil)
+	facade.EXPECT().FacadeCall(
+		gomock.Any(), "APIAddresses", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
+		return nil
+	})
 
 	client := common.NewAPIAddresser(facade)
 	addresses, err := client.APIAddresses(c.Context())
@@ -71,7 +78,12 @@ func (s *apiaddresserSuite) TestAPIHostPorts(c *tc.C) {
 		Servers: params.FromHostsPorts(hps),
 	}
 
-	facade.EXPECT().FacadeCall(gomock.Any(), "APIHostPorts", nil, gomock.Any()).SetArg(3, result).Return(nil)
+	facade.EXPECT().FacadeCall(
+		gomock.Any(), "APIHostPorts", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
+		return nil
+	})
 
 	client := common.NewAPIAddresser(facade)
 
@@ -98,7 +110,12 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
 
 	result := params.NotifyWatchResult{}
-	facade.EXPECT().FacadeCall(gomock.Any(), "WatchAPIHostPorts", nil, gomock.Any()).SetArg(3, result).Return(nil)
+	facade.EXPECT().FacadeCall(
+		gomock.Any(), "WatchAPIHostPorts", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
+		return nil
+	})
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewAPIAddresser(facade)

@@ -4,11 +4,13 @@
 package action_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -39,7 +41,12 @@ func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RunOnAllMachines", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RunOnAllMachines", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.RunOnAllMachines(c.Context(), "pwd", time.Millisecond)
@@ -76,7 +83,12 @@ func (s *actionSuite) TestRun(c *tc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Run", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Run", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Run(c.Context(), action.RunParams{

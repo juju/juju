@@ -4,10 +4,12 @@
 package secretbackends_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/common/secretbackends"
 	"github.com/juju/juju/api/common/secretbackends/mocks"
@@ -46,8 +48,8 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{BackendIDs: []string{"active-id"}},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretBackendConfigResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
 				"active-id": {
@@ -60,8 +62,9 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 					},
 				},
 			},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	result, err := client.GetSecretBackendConfig(c.Context(), new("active-id"))
@@ -93,8 +96,8 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretBackendConfigResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
 				"active-id": {
@@ -107,8 +110,9 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 					},
 				},
 			},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	result, activeID, err := client.GetBackendConfigForDrain(c.Context(), new("active-id"))
@@ -144,13 +148,14 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), uri, "label", true, true)
@@ -180,8 +185,8 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
 					BackendID:  "backend-id",
@@ -198,8 +203,9 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 					},
 				},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), uri, "label", true, true)
@@ -237,13 +243,14 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetContentInfo(c.Context(), nil, "label", true, true)
@@ -272,13 +279,14 @@ func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, _, err := client.GetContentInfo(c.Context(), uri, "", true, true)
@@ -303,13 +311,14 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)
@@ -336,8 +345,8 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
 					BackendID:  "backend-id",
@@ -354,8 +363,9 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 					},
 				},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	content, backendConfig, draining, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)
@@ -392,13 +402,14 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.SecretContentResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretbackends.NewClient(apiCaller)
 	config, backendConfig, _, err := client.GetRevisionContentInfo(c.Context(), uri, 666, true)

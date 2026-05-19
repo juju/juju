@@ -4,11 +4,13 @@
 package provisioner_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/agent/provisioner/mocks"
@@ -53,7 +55,13 @@ func (s *provisionerSuite) TestNew(c *tc.C) {
 }
 
 func (s *provisionerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results any) {
-	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 }
 
 func (s *provisionerSuite) TestMachines(c *tc.C) {
@@ -676,7 +684,13 @@ func (s *provisionerContainerSuite) setupCaller(ctrl *gomock.Controller) *mocks.
 }
 
 func (s *provisionerContainerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results any) {
-	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *tc.C) {

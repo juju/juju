@@ -4,12 +4,14 @@
 package subnets_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/subnets"
@@ -60,7 +62,12 @@ func (s *SubnetsSuite) TestListSubnetsNoResults(c *tc.C) {
 	result := new(params.ListSubnetsResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListSubnets", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	obtainedResults, err := client.ListSubnets(c.Context(), &space, zone)
@@ -81,7 +88,12 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *tc.C) {
 	result := new(params.ListSubnetsResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(errors.New("bang"))
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListSubnets", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return errors.New("bang")
+	})
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	obtainedResults, err := client.ListSubnets(c.Context(), &space, zone)
@@ -105,7 +117,12 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *tc.C,
 
 	result := new(params.SubnetsResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SubnetsByCIDR", args, result).SetArg(3, expectedResults).Return(err)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "SubnetsByCIDR", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(expectedResults))
+		return err
+	})
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	gotResult, gotErr := client.SubnetsByCIDR(c.Context(), cidrs)

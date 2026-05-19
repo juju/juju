@@ -5,14 +5,15 @@ package watcher_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/deployer"
@@ -111,7 +112,7 @@ func setupWatcher[T any](c *tc.C, caller *apimocks.MockAPICaller, facadeName str
 			}
 			return nil
 		},
-	).Return(nil).AnyTimes()
+	).AnyTimes()
 
 	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, r any) error {
@@ -143,13 +144,41 @@ func (s *watcherSuite) TestWatchMachine(c *tc.C) {
 	lifeResults := params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Alive}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Life", args, gomock.Any()).SetArg(6, lifeResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Machiner", 666, "", "Life", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(lifeResults))
+			return nil
+		})
 	initialResults := params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: watcherID,
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := machiner.NewClient(caller)
 	m, err := client.Machine(c.Context(), names.NewMachineTag("666"))
@@ -178,13 +207,41 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *tc.C) {
 	lifeResults := params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Alive}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Life", args, gomock.Any()).SetArg(6, lifeResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Machiner", 666, "", "Life", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(lifeResults))
+			return nil
+		})
 	initialResults := params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: watcherID,
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := machiner.NewClient(caller)
 	m, err := client.Machine(c.Context(), names.NewMachineTag("666"))
@@ -214,7 +271,21 @@ func (s *watcherSuite) TestWatchUnits(c *tc.C) {
 			Changes:          []string{"unit-1", "unit-3"},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Deployer", 666, "", "WatchUnits", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Deployer", 666, "", "WatchUnits", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := deployer.NewClient(caller)
 	m, err := client.Machine(names.NewMachineTag("666"))
@@ -255,7 +326,21 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *tc.C) {
 			Changes:          []string{"unit-1", "unit-3"},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "Deployer", 666, "", "WatchUnits", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "Deployer", 666, "", "WatchUnits", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := deployer.NewClient(caller)
 	m, err := client.Machine(names.NewMachineTag("666"))
@@ -290,7 +375,22 @@ func (s *watcherSuite) TestWatchMachineStorage(c *tc.C) {
 			}},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "StorageProvisioner", 666, "", "WatchVolumeAttachments", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "StorageProvisioner", 666, "",
+		"WatchVolumeAttachments", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client, err := storageprovisioner.NewClient(caller)
 	c.Assert(err, tc.ErrorIsNil)
@@ -370,7 +470,22 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *tc.C) {
 			}},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchRelationsSuspendedStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "CrossModelRelations", 666, "",
+		"WatchRelationsSuspendedStatus", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
 	w, err := client.WatchRelationSuspendedStatus(c.Context(), arg)
@@ -451,7 +566,22 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *tc.C) {
 			}},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchOfferStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "CrossModelRelations", 666, "",
+		"WatchOfferStatus", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
 	w, err := client.WatchOfferStatus(c.Context(), arg)
@@ -520,7 +650,21 @@ func (s *watcherSuite) assertSecretsTriggerWatcher(c *tc.C, caller *apimocks.Moc
 			NextTriggerTime: next,
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "SecretsManager", 666, "", apiName, args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "SecretsManager", 666, "", apiName, args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	w, err := watchFunc(c.Context(), names.NewApplicationTag("mysql"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -611,7 +755,22 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *tc.C) {
 			}},
 		}},
 	}
-	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchConsumedSecretsChanges", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "CrossModelRelations", 666, "",
+		"WatchConsumedSecretsChanges", args, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResults))
+			return nil
+		})
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
 	w, err := client.WatchConsumedSecretsChanges(c.Context(), "app-token", "rel-token", mac)
@@ -673,7 +832,21 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *tc.C) {
 	initialResult := params.NotifyWatchResult{
 		NotifyWatcherId: watcherID,
 	}
-	caller.EXPECT().APICall(gomock.Any(), "MigrationMinion", 666, "", "Watch", nil, gomock.Any()).SetArg(6, initialResult).Return(nil)
+	caller.EXPECT().APICall(
+		gomock.Any(), "MigrationMinion", 666, "", "Watch", nil, gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ string,
+			_ int,
+			_ string,
+			_ string,
+			_ any,
+			response any,
+		) error {
+			reflect.ValueOf(response).Elem().Set(reflect.ValueOf(initialResult))
+			return nil
+		})
 
 	client := migrationminion.NewClient(caller)
 	w, err := client.Watch(c.Context())

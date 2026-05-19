@@ -4,10 +4,12 @@
 package bundle_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/bundle"
@@ -68,7 +70,12 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *tc.C) {
 		Changes: changes,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "GetChangesMapArgs", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(c.Context(), bundleURL, bundleYAML)
 	c.Assert(err, tc.ErrorIsNil)
@@ -103,7 +110,12 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "GetChangesMapArgs", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(c.Context(), bundleURL, bundleYAML)
 	c.Assert(err, tc.ErrorIsNil)
@@ -136,7 +148,12 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *tc.C) {
 		Result: bundleStr,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ExportBundle", args, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ExportBundle", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ExportBundle(c.Context(), true)
 	c.Assert(err, tc.ErrorIsNil)

@@ -4,11 +4,13 @@
 package highavailability_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/highavailability"
@@ -35,7 +37,12 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 		}}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ControllerDetails", nil, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ControllerDetails", nil, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	mockClient := basemocks.NewMockClientFacade(ctrl)
 	mockClient.EXPECT().BestAPIVersion().Return(3)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
@@ -62,7 +69,12 @@ func (s *clientSuite) TestControllerDetailsNotSupported(c *tc.C) {
 		}}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ControllerDetails", nil, res).SetArg(3, results).Return(params.Error{Code: params.CodeNotSupported})
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ControllerDetails", nil, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return params.Error{Code: params.CodeNotSupported}
+	})
 	mockClient := basemocks.NewMockClientFacade(ctrl)
 	mockClient.EXPECT().BestAPIVersion().Return(3)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)
@@ -86,7 +98,12 @@ func (s *clientSuite) TestEnableHa(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableHA", gomock.Any(), res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "EnableHA", gomock.Any(), res,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	mockClient := basemocks.NewMockClientFacade(ctrl)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller, mockClient)

@@ -4,12 +4,14 @@
 package modelmanager_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/base"
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -88,7 +90,12 @@ func (s *modelmanagerCompatSuite) TestListModelSummariesWithOlderFacadeVersion(c
 		result := new(params.ModelSummaryResultsLegacy)
 
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, result).SetArg(3, test.resultValue).Return(nil)
+		mockFacadeCaller.EXPECT().FacadeCall(
+			gomock.Any(), "ListModelSummaries", args, result,
+		).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(test.resultValue))
+			return nil
+		})
 		client := modelmanager.NewLegacyClientFromCaller(mockFacadeCaller)
 
 		results, err := client.ListModelSummaries(c.Context(), userTag.Id(), true)

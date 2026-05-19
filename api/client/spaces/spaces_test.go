@@ -4,14 +4,16 @@
 package spaces_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/spaces"
@@ -54,7 +56,13 @@ func (s *spacesSuite) TestRemoveSpace(c *tc.C) {
 	}
 	args := getRemoveSpaceArgs(name, false, false)
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 	c.Assert(err, tc.ErrorMatches, "0 results, expected 1")
@@ -77,7 +85,13 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *tc.C) {
 	}
 	args := getRemoveSpaceArgs(name, false, false)
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 	c.Assert(err, tc.ErrorMatches, "bam")
@@ -92,7 +106,13 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *tc.C) {
 	args := getRemoveSpaceArgs(name, false, false)
 
 	bam := errors.New("bam")
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(bam)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return bam
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 	c.Assert(err, tc.ErrorMatches, bam.Error())
@@ -111,7 +131,13 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *tc.C)
 		Code:    params.CodeNotSupported,
 		Info:    nil,
 	}
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(bam)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return bam
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 	c.Assert(err, tc.ErrorMatches, bam.Error())
@@ -136,7 +162,13 @@ func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *tc.C) {
 		}}}
 	args := getRemoveSpaceArgs(name, false, false)
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 
@@ -166,7 +198,13 @@ func (s *spacesSuite) TestRemoveSpaceConstraints(c *tc.C) {
 			Error: nil,
 		}}}
 	args := getRemoveSpaceArgs(name, false, false)
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, false, false)
 	expectedBounds := params.RemoveSpaceResult{
@@ -185,7 +223,13 @@ func (s *spacesSuite) TestRemoveSpaceForce(c *tc.C) {
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{{}}}
 	args := getRemoveSpaceArgs(name, true, false)
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RemoveSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	bounds, err := s.API.RemoveSpace(c.Context(), name, true, false)
 
@@ -213,7 +257,13 @@ func (s *spacesSuite) TestRenameSpace(c *tc.C) {
 			ToSpaceTag:   names.NewSpaceTag(to).String(),
 		}},
 	}
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RenameSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RenameSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	err := s.API.RenameSpace(c.Context(), from, to)
 	c.Assert(err, tc.IsNil)
@@ -234,7 +284,13 @@ func (s *spacesSuite) TestRenameSpaceError(c *tc.C) {
 			ToSpaceTag:   names.NewSpaceTag(to).String(),
 		}},
 	}
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "RenameSpace", args, gomock.Any()).SetArg(3, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "RenameSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		})
 
 	err := s.API.RenameSpace(c.Context(), from, to)
 	c.Assert(err, tc.ErrorMatches, "bam")
@@ -260,11 +316,16 @@ func (s *spacesSuite) TestCreateSpace(c *tc.C) {
 				},
 			},
 		}
-		res := new(params.ErrorResults)
 		ress := params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
-		s.fCaller.EXPECT().FacadeCall(gomock.Any(), "CreateSpaces", args, res).SetArg(3, ress).Return(nil)
+		s.fCaller.EXPECT().FacadeCall(
+			gomock.Any(), "CreateSpaces", args, gomock.Any(),
+		).DoAndReturn(
+			func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+				reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+				return nil
+			})
 		err := s.API.CreateSpace(c.Context(), name, subnets, true)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -281,14 +342,19 @@ func (s *spacesSuite) TestCreateSpaceEmptyResults(c *tc.C) {
 			},
 		},
 	}
-	res := new(params.ErrorResults)
 	ress := params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: &params.Error{Message: "expected 1 result, got 0"},
 		}},
 	}
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "CreateSpaces", args, res).SetArg(3, ress).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "CreateSpaces", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+			return nil
+		})
 	err := s.API.CreateSpace(c.Context(), "foo", nil, true)
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
 }
@@ -304,14 +370,19 @@ func (s *spacesSuite) TestCreateSpaceFails(c *tc.C) {
 			},
 		},
 	}
-	res := new(params.ErrorResults)
 	ress := params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: &params.Error{Message: "bang"},
 		}},
 	}
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "CreateSpaces", args, res).SetArg(3, ress).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "CreateSpaces", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+			return nil
+		})
 	err := s.API.CreateSpace(c.Context(), "foo", []string{"1.1.1.0/24"}, true)
 	c.Assert(err, tc.ErrorMatches, "bang")
 }
@@ -329,9 +400,14 @@ func (s *spacesSuite) testShowSpaces(c *tc.C, spaceName string, results []params
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewSpaceTag(spaceName).String()}},
 	}
-	res := new(params.ShowSpaceResults)
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "ShowSpace", args, res).SetArg(3, expectResults).Return(err)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ShowSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(expectResults))
+			return err
+		})
 	gotResults, gotErr := s.API.ShowSpace(c.Context(), spaceName)
 	if expectErr != "" {
 		c.Assert(gotErr, tc.ErrorMatches, expectErr)
@@ -384,12 +460,17 @@ func (s *spacesSuite) TestShowSpaceError(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewSpaceTag(arg).String()}},
 	}
-	res := new(params.ShowSpaceResults)
 	ress := params.ShowSpaceResults{
 		Results: []params.ShowSpaceResult{},
 	}
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "ShowSpace", args, res).SetArg(3, ress).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ShowSpace", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+			return nil
+		})
 
 	_, err := s.API.ShowSpace(c.Context(), arg)
 	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 0")
@@ -405,9 +486,13 @@ func (s *spacesSuite) testListSpaces(c *tc.C, results []params.Space, err error,
 		}
 	}
 
-	res := new(params.ListSpacesResults)
-
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "ListSpaces", nil, res).SetArg(3, expectResults).Return(err)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListSpaces", nil, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(expectResults))
+			return err
+		})
 	gotResults, gotErr := s.API.ListSpaces(c.Context())
 	c.Assert(gotResults, tc.DeepEquals, results)
 	if expectErr != "" {
@@ -470,9 +555,14 @@ func (s *spacesSuite) testMoveSubnets(c *tc.C,
 			Force:      false,
 		}},
 	}
-	res := new(params.MoveSubnetsResults)
 
-	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "MoveSubnets", args, res).SetArg(3, expectedResults).Return(err)
+	s.fCaller.EXPECT().FacadeCall(
+		gomock.Any(), "MoveSubnets", args, gomock.Any(),
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(expectedResults))
+			return err
+		})
 	gotResult, gotErr := s.API.MoveSubnets(c.Context(), space, subnets, false)
 	if len(results) > 0 {
 		c.Assert(gotResult, tc.DeepEquals, results[0])

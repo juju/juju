@@ -4,10 +4,12 @@
 package charms_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
@@ -36,7 +38,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 	args := params.CharmURL{URL: url}
 	info := new(params.Charm)
 
-	params := params.Charm{
+	charmResult := params.Charm{
 		Revision: 1,
 		URL:      url,
 		Config: map[string]params.CharmOption{
@@ -94,7 +96,12 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 		},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmInfo", args, info).SetArg(3, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "CharmInfo", args, info,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(charmResult))
+		return nil
+	})
 
 	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
 	got, err := client.CharmInfo(c.Context(), url)
@@ -176,7 +183,7 @@ func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 	args := params.Entity{Tag: "application-foobar"}
 	info := new(params.Charm)
 
-	params := params.Charm{
+	charmResult := params.Charm{
 		Revision: 1,
 		URL:      "ch:foobar",
 		Meta: &params.CharmMeta{
@@ -186,7 +193,12 @@ func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 		// The rest of the field conversions are tested by TestCharmInfo
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationCharmInfo", args, info).SetArg(3, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ApplicationCharmInfo", args, info,
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(charmResult))
+		return nil
+	})
 
 	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
 	got, err := client.ApplicationCharmInfo(c.Context(), "foobar")

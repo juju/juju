@@ -4,12 +4,14 @@
 package common_test
 
 import (
+	"context"
 	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
@@ -41,7 +43,12 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *tc.C) {
 
 	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
 	resultSource := params.PinnedLeadershipResult{Result: pinned}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinnedLeadership", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "PinnedLeadership", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	res, err := s.client.PinnedLeadership(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -52,7 +59,12 @@ func (s *LeadershipSuite) TestPinnedLeadershipError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinnedLeadershipResult{Error: apiservererrors.ServerError(errors.New("splat"))}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinnedLeadership", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "PinnedLeadership", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	_, err := s.client.PinnedLeadership(c.Context())
 	c.Assert(err, tc.ErrorMatches, "splat")
@@ -62,7 +74,12 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "PinMachineApplications", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	res, err := s.client.PinMachineApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -76,7 +93,12 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *tc.C) {
 	results := s.pinApplicationsServerSuccessResults()
 	results[2].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "PinMachineApplications", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	res, err := s.client.PinMachineApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -90,7 +112,12 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "UnpinMachineApplications", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	res, err := s.client.UnpinMachineApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -113,7 +140,12 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *tc.C) {
 	results := s.pinApplicationsServerSuccessResults()
 	results[1].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "UnpinMachineApplications", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+		return nil
+	})
 
 	res, err := s.client.UnpinMachineApplications(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
