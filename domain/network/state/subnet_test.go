@@ -434,7 +434,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *tc.C) {
 
 	// Add a space with subnet base.
 	spUUID := networktesting.GenSpaceUUID(c)
-	err = st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id", []string{subnetUUID0.String()})
+	err = st.AddSpace(c.Context(), spUUID, "space0", "provider-space-id", []string{"192.168.0.0/20"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expected := &network.SubnetInfo{

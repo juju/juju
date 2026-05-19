@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -31,7 +30,7 @@ type ControllerConfigService interface {
 // network spaces/subnets.
 type NetworkService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(context.Context, network.SpaceInfo) (network.SpaceUUID, error)
+	AddSpace(context.Context, domainnetwork.AddSpaceArgs) (network.SpaceUUID, error)
 
 	// SpaceByName returns a space from state that matches the input name. If
 	// the space is not found, an error is returned satisfying
@@ -57,9 +56,6 @@ type NetworkService interface {
 
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(context.Context) (network.SubnetInfos, error)
-
-	// SubnetsByCIDR returns the subnets matching the input CIDRs.
-	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
 
 	// Subnet returns the subnet identified by the input UUID,
 	// or an error if it is not found.
@@ -141,31 +137,19 @@ func (api *API) CreateSpaces(ctx context.Context, args params.CreateSpacesParams
 // createOneSpace creates one new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParams) error {
-	// Validate the args, assemble information for api.backing.AddSpaces
 	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, cidr := range args.CIDRs {
-		if !network.IsValidCIDR(cidr) {
-			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
-		}
-	}
-
-	subnets, err := api.networkService.SubnetsByCIDR(ctx, args.CIDRs...)
-	if err != nil {
-		return err
-	}
-
-	// Add the validated space.
-	spaceInfo := network.SpaceInfo{
+	// CIDR format validation lives in the network service; the existence
+	// check lives in the state layer alongside the space creation, so the
+	// whole operation is atomic.
+	if _, err := api.networkService.AddSpace(ctx, domainnetwork.AddSpaceArgs{
 		Name:       network.SpaceName(spaceTag.Id()),
-		ProviderId: network.Id(args.ProviderId),
-		Subnets:    subnets,
-	}
-	_, err = api.networkService.AddSpace(ctx, spaceInfo)
-	if err != nil {
+		ProviderID: network.Id(args.ProviderId),
+		CIDRs:      args.CIDRs,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

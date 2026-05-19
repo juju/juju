@@ -65,6 +65,28 @@ func (s *spaceSuite) TestSpaceUUIDValidate(c *tc.C) {
 	}
 }
 
+func (s *spaceSuite) TestSpaceNameValidate(c *tc.C) {
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "", err: coreerrors.NotValid},
+		{name: "-bad-name-", err: coreerrors.NotValid},
+		{name: "valid-space-name"},
+		{name: "alpha"},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.name)
+		err := network.SpaceName(test.name).Validate()
+		if test.err == nil {
+			c.Check(err, tc.IsNil)
+			continue
+		}
+		c.Check(err, tc.ErrorIs, test.err)
+	}
+}
+
 func (s *spaceSuite) TestString(c *tc.C) {
 	result := s.spaces.String()
 	c.Assert(result, tc.Equals, `"space1", "space2", "space3"`)

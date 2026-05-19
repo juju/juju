@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -129,11 +130,10 @@ func (s *importSubnetsSuite) TestImportIAASSubnetAndSpaceNotLinked(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	spaceInfo := network.SpaceInfo{
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
+		ProviderID: "space-provider-id",
+	})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -154,18 +154,10 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	spaceInfo := network.SpaceInfo{
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
-		Return(spUUID, nil)
-	s.importService.EXPECT().Space(gomock.Any(), spUUID).
-		Return(&network.SpaceInfo{
-			ID:         spUUID,
-			Name:       "space-name",
-			ProviderId: network.Id("space-provider-id"),
-		}, nil)
+		ProviderID: "space-provider-id",
+	}).Return(spUUID, nil)
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previous-subnet-id",
 		CIDR:              "192.0.2.0/24",
@@ -174,8 +166,6 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 		SpaceID:           "previous-space-id",
-		SpaceName:         "space-name",
-		ProviderSpaceId:   "space-provider-id",
 	})
 	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "192.0.2.0/24",
@@ -184,8 +174,6 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 		SpaceID:           spUUID,
-		SpaceName:         "space-name",
-		ProviderSpaceId:   "space-provider-id",
 	})
 
 	op := s.newImportOperation(c)
@@ -211,13 +199,11 @@ func (s *importSubnetsSuite) TestImportSpaces(c *tc.C) {
 		ProviderID: "space-provider-id",
 	})
 
-	spaceInfo := network.SpaceInfo{
-		Name:       "space-name",
-		ProviderId: "space-provider-id",
-	}
 	// don't import the alpha space
-	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
-		Return(spUUID, nil)
+	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
+		Name:       "space-name",
+		ProviderID: "space-provider-id",
+	}).Return(spUUID, nil)
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
