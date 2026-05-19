@@ -57,6 +57,7 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Put logic in state only when it must execute inside a transaction.
 - State sub-packages must use Sqlair for query and mutation.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
+- UUID should be created in the service layer and pushed to the state layer as a string.
 
 ## Worker Boundaries
 

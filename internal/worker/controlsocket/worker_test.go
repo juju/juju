@@ -29,6 +29,7 @@ import (
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujujujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/sockets"
@@ -37,6 +38,7 @@ import (
 type workerSuite struct {
 	accessService      *MockAccessService
 	tracingService     *MockTracingService
+	loggingService     *MockLoggingService
 	objectStoreService *MockControllerObjectStoreService
 
 	controllerModelID permission.ID
@@ -919,15 +921,112 @@ func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().SetLokiEndpoint(gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":"http://loki:3100/loki/api/v1/push"}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated loki endpoint.*",
+	})
+}
+
+func (s *workerSuite) TestSetLokiEndpointEmptyURL(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().SetLokiEndpoint(gomock.Any(), "").Return(
+		internalerrors.Errorf("empty loki endpoint").Add(coreerrors.NotValid),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":""}`,
+		statusCode: http.StatusBadRequest,
+		response:   ".*invalid loki endpoint.*",
+	})
+}
+
+func (s *workerSuite) TestSetLokiEndpointMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       "",
+		statusCode: http.StatusBadRequest,
+		response:   ".*missing request body.*",
+	})
+}
+
+func (s *workerSuite) TestRemoveLokiEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodDelete,
+		endpoint:   "/loki-endpoint",
+		statusCode: http.StatusOK,
+		response:   ".*removed loki endpoint.*",
+	})
+}
+
+func (s *workerSuite) TestRemoveLokiEndpointError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(
+		internalerrors.New("database error"),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodDelete,
+		endpoint:   "/loki-endpoint",
+		statusCode: http.StatusInternalServerError,
+		response:   ".*removing loki endpoint.*",
+	})
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	s.tracingService = NewMockTracingService(ctrl)
+	s.loggingService = NewMockLoggingService(ctrl)
 	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.tracingService = nil
+		s.loggingService = nil
 		s.objectStoreService = nil
 	})
 
@@ -952,6 +1051,7 @@ func (s *workerSuite) newValidConfig(c *tc.C) Config {
 	return Config{
 		AccessService:       s.accessService,
 		TracingService:      s.tracingService,
+		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
 		SocketName:          "/tmp/test.socket",
@@ -971,6 +1071,7 @@ func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 	w, err := NewWorker(Config{
 		AccessService:       s.accessService,
 		TracingService:      s.tracingService,
+		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
 		SocketName:          socket,

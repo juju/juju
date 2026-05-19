@@ -206,6 +206,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Tracing config
 		"charm_tracing_config",
+
+		// Logging config
+		"logging_loki_config",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -348,6 +351,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_object_store_backend_delete",
 		"trg_log_object_store_backend_insert",
 		"trg_log_object_store_backend_update",
+
+		"trg_log_logging_loki_config_insert",
+		"trg_log_logging_loki_config_update",
+		"trg_log_logging_loki_config_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
