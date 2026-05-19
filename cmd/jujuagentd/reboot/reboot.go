@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/container"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -90,7 +91,7 @@ func (r *Reboot) stopDeployedUnits() error {
 		return err
 	}
 	for _, svcName := range services {
-		if strings.HasPrefix(svcName, `jujud-unit-`) {
+		if strings.HasPrefix(svcName, jujunames.Jujud+"-unit-") {
 			svc, err := r.reboot.NewServiceReference(svcName)
 			if err != nil {
 				return err
