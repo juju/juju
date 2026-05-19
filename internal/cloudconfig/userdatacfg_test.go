@@ -354,7 +354,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 /sbin/remove-juju-services
 `,
 	},
@@ -389,7 +389,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 `,
 	},
 
@@ -921,14 +921,14 @@ postruncmd:
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "jujud bootstrap-state .* --show-log"
+	expected := "jujuagentd bootstrap-state .* --show-log"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	s.SetFeatureFlags("special", "foo")
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
+	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
