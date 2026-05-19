@@ -40,15 +40,15 @@ func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
-	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud")
+	jujuagentd := filepath.Join(dataDir, "tools", "machine-0", "jujuagentd")
 	cmd := strings.Join([]string{
-		shquote(jujud),
+		shquote(jujuagentd),
 		"machine",
 		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
-	serviceBinary := jujud
+	serviceBinary := jujuagentd
 	serviceArgs := []string{
 		"machine",
 		"--data-dir", dataDir,
@@ -75,15 +75,15 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
-	jujud := dataDir + "/tools/machine-0/jujud"
+	jujuagentd := dataDir + "/tools/machine-0/jujuagentd"
 	cmd := strings.Join([]string{
-		shquote(dataDir + "/tools/machine-0/jujud"),
+		shquote(dataDir + "/tools/machine-0/jujuagentd"),
 		"machine",
 		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
-	serviceBinary := jujud
+	serviceBinary := jujuagentd
 	serviceArgs := []string{
 		"machine",
 		"--data-dir", dataDir,
@@ -110,15 +110,15 @@ func (*agentSuite) TestAgentConfUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
-	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
+	jujuagentd := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujuagentd")
 	cmd := strings.Join([]string{
-		shquote(jujud),
+		shquote(jujuagentd),
 		"unit",
 		"--data-dir", shquote(dataDir),
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
-	serviceBinary := jujud
+	serviceBinary := jujuagentd
 	serviceArgs := []string{
 		"unit",
 		"--data-dir", dataDir,
@@ -144,15 +144,15 @@ func (*agentSuite) TestContainerAgentConf(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	conf := service.ContainerAgentConf(info, renderer, "cont")
 
-	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
+	jujuagentd := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujuagentd")
 	cmd := strings.Join([]string{
-		shquote(jujud),
+		shquote(jujuagentd),
 		"unit",
 		"--data-dir", shquote(dataDir),
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
-	serviceBinary := jujud
+	serviceBinary := jujuagentd
 	serviceArgs := []string{
 		"unit",
 		"--data-dir", dataDir,

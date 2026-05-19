@@ -106,7 +106,7 @@ run_go_tidy() {
 run_go_fanout() {
 	# Ensure that the following binaries don't import each other, or are not
 	# imported by any other package outside of their own package.
-	for cmd in "containeragent" "jujuc" "jujud"; do
+	for cmd in "containeragent" "jujuc" "jujuagentd"; do
 		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd" | grep -v "scripts/engine-dag")
 		if [[ -n ${LIST} ]]; then
 			(echo >&2 -e "\\nError: $cmd binary is being used outside of it's package. Refactor the following list:\\n\\n${LIST}")
