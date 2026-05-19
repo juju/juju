@@ -64,7 +64,7 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Deploy", deployArgs, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -121,7 +121,7 @@ func (s *applicationSuite) TestDeployAlreadyExists(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Deploy", deployArgs, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -183,7 +183,7 @@ func (s *applicationSuite) TestAddUnits(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUnits", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -225,7 +225,7 @@ func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetCharmURLOrigin", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -335,7 +335,7 @@ func (s *applicationSuite) TestDestroyApplications(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -363,7 +363,7 @@ func (s *applicationSuite) TestDestroyApplicationsArity(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -392,7 +392,7 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *tc.C) {
 	args := params.DestroyApplicationsParams{Applications: applications}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyApplication", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -421,7 +421,7 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyConsumedApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -447,7 +447,7 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyConsumedApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -491,7 +491,7 @@ func (s *applicationSuite) TestDestroyUnits(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -519,7 +519,7 @@ func (s *applicationSuite) TestDestroyUnitsArity(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -549,7 +549,7 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyUnit", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -596,7 +596,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Consume", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -703,7 +703,7 @@ func (s *applicationSuite) TestSetRelationSuspended(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetRelationsSuspended", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -735,7 +735,7 @@ func (s *applicationSuite) TestSetRelationSuspendedArity(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetRelationsSuspended", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -761,7 +761,7 @@ func (s *applicationSuite) TestAddRelation(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddRelation", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -817,7 +817,7 @@ func (s *applicationSuite) TestGetConfig(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmConfig", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -848,7 +848,7 @@ func (s *applicationSuite) TestGetConstraints(c *tc.C) {
 		}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConstraints", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -879,7 +879,7 @@ func (s *applicationSuite) TestGetConstraintsError(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConstraints", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -913,7 +913,7 @@ func (s *applicationSuite) TestSetConfig(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetConfigs", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -941,7 +941,7 @@ func (s *applicationSuite) TestUnsetApplicationConfig(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnsetApplicationsConfig", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -971,7 +971,7 @@ func (s *applicationSuite) TestResolveUnitErrors(c *tc.C) {
 	units := []string{"mysql/0", "mysql/1"}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveUnitErrors", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1033,7 +1033,7 @@ func (s *applicationSuite) TestResolveUnitErrorsAll(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveUnitErrors", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1059,7 +1059,7 @@ func (s *applicationSuite) TestScaleApplication(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1099,7 +1099,7 @@ func (s *applicationSuite) TestScaleApplicationAttachStorage(c *tc.C) {
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1182,7 +1182,7 @@ func (s *applicationSuite) TestScaleApplicationV21WithAttachStorage(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1221,7 +1221,7 @@ func (s *applicationSuite) TestChangeScaleApplication(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1258,7 +1258,7 @@ func (s *applicationSuite) TestScaleApplicationArity(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1320,7 +1320,7 @@ func (s *applicationSuite) TestScaleApplicationError(c *tc.C) {
 		}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1349,7 +1349,7 @@ func (s *applicationSuite) TestScaleApplicationCallError(c *tc.C) {
 		}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ScaleApplications", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return errors.New("boom")
 		})
@@ -1375,7 +1375,7 @@ func (s *applicationSuite) TestApplicationsInfoCallError(c *tc.C) {
 	results := params.ApplicationInfoResults{make([]params.ApplicationInfoResult, 0)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return errors.New("boom")
 		})
@@ -1414,7 +1414,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1462,7 +1462,7 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1487,7 +1487,7 @@ func (s *applicationSuite) TestUnitsInfoCallError(c *tc.C) {
 	results := params.UnitInfoResults{}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return errors.New("boom")
 		})
@@ -1537,7 +1537,7 @@ func (s *applicationSuite) TestUnitsInfo(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1594,7 +1594,7 @@ func (s *applicationSuite) TestUnitsInfoResultMismatch(c *tc.C) {
 	}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1667,7 +1667,7 @@ func (s *applicationSuite) TestLeader(c *tc.C) {
 	results := params.StringResult{Result: "ubuntu/42"}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Leader", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1718,7 +1718,7 @@ func (s *applicationSuite) TestDeployFromRepository(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DeployFromRepository", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1777,7 +1777,7 @@ func (s *applicationSuite) TestGetApplicationStorageSuccessful(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "GetApplicationStorage", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1817,7 +1817,7 @@ func (s *applicationSuite) TestGetApplicationStorageServerError(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "GetApplicationStorage", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1857,7 +1857,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "UpdateApplicationStorage", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1906,7 +1906,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(context.Background(), "UpdateApplicationStorage", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})

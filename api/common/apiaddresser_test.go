@@ -41,7 +41,7 @@ func (s *apiaddresserSuite) TestAPIAddresses(c *tc.C) {
 	}
 	facade.EXPECT().FacadeCall(
 		gomock.Any(), "APIAddresses", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
 		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})
@@ -80,7 +80,7 @@ func (s *apiaddresserSuite) TestAPIHostPorts(c *tc.C) {
 
 	facade.EXPECT().FacadeCall(
 		gomock.Any(), "APIHostPorts", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
 		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})
@@ -112,7 +112,7 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 	result := params.NotifyWatchResult{}
 	facade.EXPECT().FacadeCall(
 		gomock.Any(), "WatchAPIHostPorts", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
 		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})

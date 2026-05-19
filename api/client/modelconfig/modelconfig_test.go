@@ -43,7 +43,7 @@ func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModelGet", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -69,7 +69,7 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModelGet", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -129,7 +129,7 @@ func (s *modelconfigSuite) TestSequences(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "Sequences", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -151,7 +151,7 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "GetModelConstraints", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -203,7 +203,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendModelNotFound(c *tc.C) {
 	}
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "GetModelSecretBackend", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -225,7 +225,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackend(c *tc.C) {
 	}
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "GetModelSecretBackend", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -259,7 +259,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *tc.C) {
 		gomock.Any(), "SetModelSecretBackend", params.SetModelSecretBackendArg{
 			SecretBackendName: "backend-id",
 		}, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -283,7 +283,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedBackendNotFound(c *tc.
 		gomock.Any(), "SetModelSecretBackend", params.SetModelSecretBackendArg{
 			SecretBackendName: "backend-id",
 		}, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -307,7 +307,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedBackendNotValid(c *tc.
 		gomock.Any(), "SetModelSecretBackend", params.SetModelSecretBackendArg{
 			SecretBackendName: "backend-id",
 		}, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -333,7 +333,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedModelNotFound(c *tc.C)
 		gomock.Any(), "SetModelSecretBackend", params.SetModelSecretBackendArg{
 			SecretBackendName: "backend-id",
 		}, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

@@ -53,7 +53,7 @@ func (s *cloudSuite) TestCloud(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Cloud", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -115,7 +115,7 @@ func (s *cloudSuite) TestCloudInfo(c *tc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CloudInfo", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -177,7 +177,7 @@ func (s *cloudSuite) TestClouds(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Clouds", nil, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -218,7 +218,7 @@ func (s *cloudSuite) TestUserCredentials(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserCredentials", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -247,7 +247,7 @@ func (s *cloudSuite) TestCheckCredentialsModels(c *tc.C) {
 	gomock.InOrder(
 		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCredentialsModels", args, res).Return(errors.New("boom")),
 		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCredentialsModels", args, resSuccess).DoAndReturn(
-			func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+			func(_ context.Context, _ string, _ any, result any) error {
 				reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 				return nil
 			}),
@@ -284,7 +284,7 @@ func (s *cloudSuite) TestUpdateCredential(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -321,7 +321,7 @@ func (s *cloudSuite) TestUpdateCredentialError(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -355,7 +355,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -400,7 +400,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -453,7 +453,7 @@ func (s *cloudSuite) TestRevokeCredential(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RevokeCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -491,7 +491,7 @@ func (s *cloudSuite) TestCredentials(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Credential", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -596,7 +596,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -625,7 +625,7 @@ func (s *cloudSuite) TestCredentialContentsOne(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -655,7 +655,7 @@ func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -698,7 +698,7 @@ func (s *cloudSuite) TestRemoveCloud(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveClouds", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -726,7 +726,7 @@ func (s *cloudSuite) TestRemoveCloudErrorMapping(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveClouds", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -753,7 +753,7 @@ func (s *cloudSuite) TestGrantCloud(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyCloudAccess", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -780,7 +780,7 @@ func (s *cloudSuite) TestRevokeCloud(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyCloudAccess", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -819,7 +819,7 @@ func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCloud", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -852,7 +852,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -889,7 +889,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -926,7 +926,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -963,7 +963,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", cloudCredentialMatcher{args}, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1009,7 +1009,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *tc.C) {
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -1053,7 +1053,7 @@ func (s *cloudSuite) TestAddCloudsCredentials(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})

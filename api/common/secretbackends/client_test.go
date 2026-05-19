@@ -48,7 +48,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *tc.C) {
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{BackendIDs: []string{"active-id"}},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
@@ -96,7 +96,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *tc.C) {
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
@@ -148,7 +148,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -185,7 +185,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
@@ -243,7 +243,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -279,7 +279,7 @@ func (s *SecretsSuite) TestGetContentInfoError(c *tc.C) {
 			}},
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
@@ -311,7 +311,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -345,7 +345,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
@@ -402,7 +402,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *tc.C) {
 			PendingDelete: true,
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},

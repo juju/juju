@@ -64,7 +64,7 @@ func (s *crossmodelMockSuite) TestOffer(c *tc.C) {
 	ress := params.ErrorResults{Results: []params.ErrorResult{{}, {Error: apiservererrors.ServerError(errors.New(msg))}}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Offer", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -168,7 +168,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListApplicationOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -272,7 +272,7 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -319,7 +319,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -371,7 +371,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -446,7 +446,7 @@ func (s *crossmodelMockSuite) TestFind(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "FindApplicationOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -540,7 +540,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetConsumeDetails", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -582,7 +582,7 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyOffers", args, res).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})

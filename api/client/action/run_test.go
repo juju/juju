@@ -43,7 +43,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "RunOnAllMachines", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -85,7 +85,7 @@ func (s *actionSuite) TestRun(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "Run", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})

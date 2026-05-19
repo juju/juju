@@ -47,7 +47,7 @@ func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ListKeys", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -84,7 +84,7 @@ func (s *keymanagerSuite) TestAddKeys(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddKeys", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -120,7 +120,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "DeleteKeys", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -156,7 +156,7 @@ func (s *keymanagerSuite) TestImportKeys(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ImportKeys", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

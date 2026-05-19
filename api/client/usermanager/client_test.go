@@ -45,7 +45,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -69,7 +69,7 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return errors.New("call error")
 		})
@@ -93,7 +93,7 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -116,7 +116,7 @@ func (s *usermanagerSuite) TestRemoveUser(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveUser", arg, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -139,7 +139,7 @@ func (s *usermanagerSuite) TestDisableUser(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -159,7 +159,7 @@ func (s *usermanagerSuite) TestEnableUser(c *tc.C) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -182,7 +182,7 @@ func (s *usermanagerSuite) TestCantRemoveAdminUser(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -216,7 +216,7 @@ func (s *usermanagerSuite) TestUserInfo(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -252,7 +252,7 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -286,7 +286,7 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -313,7 +313,7 @@ func (s *usermanagerSuite) TestModelUserInfo(c *tc.C) {
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelUserInfo", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -340,7 +340,7 @@ func (s *usermanagerSuite) TestSetUserPassword(c *tc.C) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -360,7 +360,7 @@ func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *tc.C) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -392,7 +392,7 @@ func (s *usermanagerSuite) TestResetPasswordResponseError(c *tc.C) {
 	results := params.AddUserResults{Results: []params.AddUserResult{{Error: &params.Error{Message: "boom"}}}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -414,7 +414,7 @@ func (s *usermanagerSuite) TestResetPassword(c *tc.C) {
 	results := params.AddUserResults{Results: []params.AddUserResult{{Tag: "user-foobar", SecretKey: key}}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -444,7 +444,7 @@ func (s *usermanagerSuite) TestResetPasswordResultCount(c *tc.C) {
 	results := params.AddUserResults{Results: make([]params.AddUserResult, 2)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})

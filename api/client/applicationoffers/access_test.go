@@ -67,7 +67,7 @@ func (s *accessSuite) readOnlyUser(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModifyOfferAccess", args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -106,7 +106,7 @@ func (s *accessSuite) adminUser(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModifyOfferAccess", args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -158,7 +158,7 @@ func (s *accessSuite) threeOffers(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModifyOfferAccess", args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -200,7 +200,7 @@ func (s *accessSuite) errorResult(c *tc.C, action params.OfferAction) {
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModifyOfferAccess", args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -236,7 +236,7 @@ func (s *accessSuite) TestInvalidResultCount(c *tc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ModifyOfferAccess", args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})

@@ -188,12 +188,12 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *tc.C) {
 func (s *manifoldSuite) behaviourContext() {
 	cExp := s.getter.EXPECT()
 	cExp.Get("moon", gomock.Any()).DoAndReturn(
-		func(_ string, result interface{}) error {
+		func(_ string, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(s.agent))
 			return nil
 		})
 	cExp.Get("baz", gomock.Any()).DoAndReturn(
-		func(_ string, result interface{}) error {
+		func(_ string, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(s.apiCaller))
 			return nil
 		})

@@ -92,7 +92,7 @@ func (s *modelmanagerCompatSuite) TestListModelSummariesWithOlderFacadeVersion(c
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 		mockFacadeCaller.EXPECT().FacadeCall(
 			gomock.Any(), "ListModelSummaries", args, result,
-		).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+		).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(test.resultValue))
 			return nil
 		})

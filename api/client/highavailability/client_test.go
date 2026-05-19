@@ -39,7 +39,7 @@ func (s *clientSuite) TestControllerDetails(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ControllerDetails", nil, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -71,7 +71,7 @@ func (s *clientSuite) TestControllerDetailsNotSupported(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ControllerDetails", nil, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return params.Error{Code: params.CodeNotSupported}
 	})
@@ -100,7 +100,7 @@ func (s *clientSuite) TestEnableHa(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "EnableHA", gomock.Any(), res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

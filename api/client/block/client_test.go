@@ -40,7 +40,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "SwitchBlockOn", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -68,7 +68,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "SwitchBlockOn", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -94,7 +94,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "SwitchBlockOff", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -121,7 +121,7 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "SwitchBlockOff", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -155,7 +155,7 @@ func (s *blockMockSuite) TestList(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "List", nil, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

@@ -180,7 +180,7 @@ func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddPendingResources", &addArgs, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -232,7 +232,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
 	ctx := c.Context()
 	s.mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -257,7 +257,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -301,7 +301,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *tc.C) {
 	ctx := c.Context()
 	s.mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -342,7 +342,7 @@ func (s *UploadSuite) TestUploadPendingResourceAuthError(c *tc.C) {
 	})
 	s.mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

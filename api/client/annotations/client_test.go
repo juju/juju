@@ -54,7 +54,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "Set", annotationsSetMatcher{c, args}, result,
-	).DoAndReturn(func(_ context.Context, _ string, argsRaw interface{}, resultRaw interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, argsRaw any, resultRaw any) error {
 		args := argsRaw.(params.AnnotationsSet)
 		reflect.ValueOf(resultRaw).Elem().Set(reflect.ValueOf(results))
 		for _, aParam := range args.Annotations {
@@ -95,7 +95,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "Get", args, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})

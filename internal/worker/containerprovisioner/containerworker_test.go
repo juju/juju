@@ -232,7 +232,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 
 	notifySource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(notifySource))
 			return nil
 		}).AnyTimes()
@@ -246,40 +246,40 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 		},
 	}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ModelConfig", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(modelCfgSource))
 			return nil
 		}).AnyTimes()
 
 	addrSource := params.StringsResult{Result: []string{"0.0.0.0"}}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "StateAddresses", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(addrSource))
 			return nil
 		}).AnyTimes()
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "APIAddresses", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(addrSource))
 			return nil
 		}).AnyTimes()
 
 	certSource := params.BytesResult{Result: []byte(coretesting.CACert)}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "CACert", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(certSource))
 			return nil
 		}).AnyTimes()
 
 	uuidSource := params.StringResult{Result: s.modelUUID.String()}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ModelUUID", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(uuidSource))
 			return nil
 		}).AnyTimes()
 
 	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: life.Alive}}}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "Life", gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(lifeSource))
 			return nil
 		}).AnyTimes()
@@ -289,12 +289,12 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 		Changes:          []string{},
 	}}}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainers", gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(watchSource))
 			return nil
 		}).AnyTimes()
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(watchSource))
 			return nil
 		}).AnyTimes()
@@ -303,7 +303,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 		Config: map[string]any{"controller-uuid": s.controllerUUID.String()},
 	}
 	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(controllerCfgSource))
 			return nil
 		}).AnyTimes()
@@ -337,7 +337,7 @@ func (s *containerWorkerSuite) expectContainerManagerConfig(cType instance.Conta
 		gomock.Any(),
 		"Provisioner", 0, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 			return nil
 		}).MinTimes(1)

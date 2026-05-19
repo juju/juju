@@ -98,7 +98,7 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "CharmInfo", args, info,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(charmResult))
 		return nil
 	})
@@ -195,7 +195,7 @@ func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ApplicationCharmInfo", args, info,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(charmResult))
 		return nil
 	})

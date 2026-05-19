@@ -44,7 +44,7 @@ func (s *modelwatcherTests) TestModelConfig(c *tc.C) {
 	}
 	facade.EXPECT().FacadeCall(
 		gomock.Any(), "ModelConfig", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
 		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})
@@ -67,7 +67,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	result := params.NotifyWatchResult{}
 	facade.EXPECT().FacadeCall(
 		gomock.Any(), "WatchForModelConfigChanges", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, res interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
 		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})

@@ -54,7 +54,7 @@ func (s *MachinemanagerSuite) TestAddMachines(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddMachines", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -101,7 +101,7 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddMachines", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -135,7 +135,7 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *tc.C) {
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 		mockFacadeCaller.EXPECT().FacadeCall(
 			gomock.Any(), "AddMachines", args, res,
-		).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 			return nil
 		})
@@ -163,7 +163,7 @@ func (s *MachinemanagerSuite) TestRetryProvisioning(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "RetryProvisioning", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -192,7 +192,7 @@ func (s *MachinemanagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "RetryProvisioning", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -220,7 +220,7 @@ func (s *MachinemanagerSuite) TestProvisioningScript(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ProvisioningScript", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -261,7 +261,7 @@ func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(maxWait *tim
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "DestroyMachineWithParams", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})

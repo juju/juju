@@ -54,7 +54,7 @@ func (s *ModelStatusSuite) TestModelStatusLegacy(c *tc.C) {
 			},
 		},
 		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
 			Results: []params.ModelStatusLegacy{
 				{
@@ -92,7 +92,7 @@ func (s *ModelStatusSuite) TestModelStatusLegacyError(c *tc.C) {
 
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
 			Results: []params.ModelStatusLegacy{
 				{Error: apiservererrors.ServerError(errors.New("model error"))},
@@ -113,7 +113,7 @@ func (s *ModelStatusSuite) TestModelStatusLegacyEmpty(c *tc.C) {
 
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{}))
 		return nil
 	})
@@ -129,7 +129,7 @@ func (s *ModelStatusSuite) TestModelStatusLegacyParseUserTagError(c *tc.C) {
 
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
 			Results: []params.ModelStatusLegacy{
 				{

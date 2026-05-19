@@ -58,7 +58,7 @@ func (s *provisionerSuite) expectCall(caller *mocks.MockAPICaller, method, args,
 	caller.EXPECT().APICall(
 		gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})
@@ -687,7 +687,7 @@ func (s *provisionerContainerSuite) expectCall(caller *mocks.MockAPICaller, meth
 	caller.EXPECT().APICall(
 		gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
 			return nil
 		})

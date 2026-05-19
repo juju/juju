@@ -112,7 +112,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *tc.C) {
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 		mockFacadeCaller.EXPECT().FacadeCall(
 			gomock.Any(), "ApplicationsCharmsActions", args, res,
-		).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+		).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 			return facadeReturn
 		})
@@ -147,7 +147,7 @@ func (s *actionSuite) TestWatchActionProgress(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "WatchActionsProgress", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -179,7 +179,7 @@ func (s *actionSuite) TestWatchActionProgressArity(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "WatchActionsProgress", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -221,7 +221,7 @@ func (s *actionSuite) TestListOperations(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ListOperations", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -271,7 +271,7 @@ func (s *actionSuite) TestOperation(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "Operations", args, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -320,7 +320,7 @@ func (s *actionSuite) TestEnqueueOperation(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "EnqueueOperation", fArgs, res,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})

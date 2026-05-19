@@ -45,7 +45,7 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *tc.C) {
 	resultSource := params.PinnedLeadershipResult{Result: pinned}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "PinnedLeadership", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})
@@ -61,7 +61,7 @@ func (s *LeadershipSuite) TestPinnedLeadershipError(c *tc.C) {
 	resultSource := params.PinnedLeadershipResult{Error: apiservererrors.ServerError(errors.New("splat"))}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "PinnedLeadership", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})
@@ -76,7 +76,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *tc.C) {
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "PinMachineApplications", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})
@@ -95,7 +95,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *tc.C) {
 	resultSource := params.PinApplicationsResults{Results: results}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "PinMachineApplications", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})
@@ -114,7 +114,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *tc.C) {
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "UnpinMachineApplications", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})
@@ -142,7 +142,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *tc.C) {
 	resultSource := params.PinApplicationsResults{Results: results}
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "UnpinMachineApplications", nil, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 		return nil
 	})

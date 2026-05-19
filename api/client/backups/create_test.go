@@ -36,7 +36,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 
 	s.facade.EXPECT().FacadeCall(
 		gomock.Any(), "Create", arg, gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(result))
 		return nil
 	})

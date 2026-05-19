@@ -160,7 +160,7 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).DoAndReturn(
-		func(_ context.Context, _ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
 			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
 			return nil
 		}).MinTimes(1)

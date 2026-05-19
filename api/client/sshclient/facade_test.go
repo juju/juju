@@ -52,15 +52,15 @@ func (s *FacadeSuite) TestAddresses(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress2))
 		return nil
 	})
@@ -103,15 +103,15 @@ func (s *FacadeSuite) TestAddressesError(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return errors.New("boom")
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return errors.New("boom")
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress2))
 		return errors.New("boom")
 	})
@@ -150,15 +150,15 @@ func (s *FacadeSuite) TestAddressesTargetError(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress2))
 		return nil
 	})
@@ -232,15 +232,15 @@ func (s *FacadeSuite) TestAddressesExtraResults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PrivateAddress", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AllAddresses", expectedArg, res2).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress2))
 		return nil
 	})
@@ -274,7 +274,7 @@ func (s *FacadeSuite) TestPublicKeys(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -311,7 +311,7 @@ func (s *FacadeSuite) TestPublicKeysTargetError(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -357,7 +357,7 @@ func (s *FacadeSuite) TestPublicKeysExtraResults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "PublicKeys", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -383,7 +383,7 @@ func checkProxy(c *tc.C, useProxy bool) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Proxy", nil, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Proxy", nil, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -433,7 +433,7 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelCredentialForSSH", nil, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelCredentialForSSH", nil, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
 		return nil
 	})
@@ -478,7 +478,7 @@ func (s *FacadeSuite) TestVirtualHostname(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})
@@ -503,7 +503,7 @@ func (s *FacadeSuite) TestVirtualHostnameError(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ interface{}, result interface{}) error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
 		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress1))
 		return nil
 	})

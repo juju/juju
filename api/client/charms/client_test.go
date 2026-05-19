@@ -92,7 +92,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ResolveCharms", facadeArgs, resolve,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -164,7 +164,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *tc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "GetDownloadInfos", facadeArgs, &resolve,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
@@ -210,7 +210,7 @@ func (s *addCharmSuite) TestAddCharm(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "AddCharm", facadeArgs, result,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(actualResult))
 		return nil
 	})
@@ -253,7 +253,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *tc.C) {
 
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "ListCharmResources", facadeArgs, &resolve,
-	).DoAndReturn(func(_ context.Context, _ string, _ interface{}, resPtr interface{}) error {
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
 		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
 		return nil
 	})
