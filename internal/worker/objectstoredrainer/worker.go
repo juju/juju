@@ -47,9 +47,6 @@ type HashFileSystemAccessor interface {
 
 	// GetByHash returns an io.ReadCloser for the file at the given hash.
 	GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error)
-
-	// DeleteByHash deletes the file at the given hash.
-	DeleteByHash(ctx context.Context, hash string) error
 }
 
 // NewHashFileSystemAccessorFunc is a function that creates a new
@@ -528,6 +525,11 @@ func (w *Worker) completeDraining(ctx context.Context) error {
 	if err := w.objectStoreFlusher.FlushWorkers(ctx); err != nil {
 		return errors.Capture(err)
 	}
+
+	// TODO (stickupkid): Add a follow-up worker to clean up orphaned files
+	// from the file-backed object store after draining completes. Files are
+	// intentionally left on disk during draining to ensure the file store
+	// remains complete if draining fails partway through.
 
 	w.logger.Infof(ctx, "object store draining completed successfully")
 

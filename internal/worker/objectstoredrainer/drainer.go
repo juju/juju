@@ -285,15 +285,13 @@ func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadata
 		return errors.Capture(err)
 	}
 
-	// We can remove the file from the file backed object store, because it
-	// has been successfully drained to the s3 object store.
-	if err := w.removeDrainedFile(ctx, hash); err != nil {
-		// If we're unable to remove the file from the file backed object
-		// store, then we should log a warning, but continue processing.
-		// This is not a terminal case, we can continue processing.
-		w.logger.Warningf(ctx, "unable to remove file %q from file object store: %v", hash, err)
-		return nil
-	}
+	// Files are intentionally NOT removed from the file-backed object store
+	// during draining. The system remains in file-based mode until all files
+	// have been successfully migrated and completeDraining switches the
+	// active backend. Removing files eagerly would leave the file store in
+	// an incomplete state if draining fails partway through, causing missing
+	// file errors for any subsequent reads. Old files become orphaned after
+	// the backend switch and can be cleaned up separately.
 
 	return nil
 }
@@ -332,13 +330,6 @@ func (w *drainWorker) objectAlreadyExists(ctx context.Context, hash string) erro
 		return errors.Capture(err)
 	}); err != nil {
 		return errors.Errorf("checking if file %q exists in s3 object store: %w", hash, err)
-	}
-	return nil
-}
-
-func (w *drainWorker) removeDrainedFile(ctx context.Context, hash string) error {
-	if err := w.fileSystem.DeleteByHash(ctx, hash); err != nil {
-		return errors.Errorf("removing file %q from file object store: %w", hash, err)
 	}
 	return nil
 }

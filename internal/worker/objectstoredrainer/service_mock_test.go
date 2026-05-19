@@ -625,44 +625,6 @@ func (m *MockHashFileSystemAccessor) EXPECT() *MockHashFileSystemAccessorMockRec
 	return m.recorder
 }
 
-// DeleteByHash mocks base method.
-func (m *MockHashFileSystemAccessor) DeleteByHash(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteByHash", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteByHash indicates an expected call of DeleteByHash.
-func (mr *MockHashFileSystemAccessorMockRecorder) DeleteByHash(arg0, arg1 any) *MockHashFileSystemAccessorDeleteByHashCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteByHash", reflect.TypeOf((*MockHashFileSystemAccessor)(nil).DeleteByHash), arg0, arg1)
-	return &MockHashFileSystemAccessorDeleteByHashCall{Call: call}
-}
-
-// MockHashFileSystemAccessorDeleteByHashCall wrap *gomock.Call
-type MockHashFileSystemAccessorDeleteByHashCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockHashFileSystemAccessorDeleteByHashCall) Return(arg0 error) *MockHashFileSystemAccessorDeleteByHashCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockHashFileSystemAccessorDeleteByHashCall) Do(f func(context.Context, string) error) *MockHashFileSystemAccessorDeleteByHashCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockHashFileSystemAccessorDeleteByHashCall) DoAndReturn(f func(context.Context, string) error) *MockHashFileSystemAccessorDeleteByHashCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetByHash mocks base method.
 func (m *MockHashFileSystemAccessor) GetByHash(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()

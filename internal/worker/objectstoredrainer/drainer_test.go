@@ -235,37 +235,6 @@ func (s *drainerSuite) TestDrainFilePut(c *tc.C) {
 	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHash("foo")
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader.Closed(), tc.IsTrue)
-}
-
-func (s *drainerSuite) TestDrainFileDeleteError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Test that we can handle an error when we try to delete the hash
-	// from the file system.
-	// In this case we should just return nil, otherwise we'll end up
-	// crashing the worker.
-
-	store := &drainWorker{
-		rootBucket: defaultBucketName,
-		namespace:  "inferi",
-		fileSystem: s.hashFileSystemAccessor,
-		client:     &client{s3Session: s.s3Session},
-		logger:     s.logger,
-	}
-
-	reader := &readCloser{Reader: strings.NewReader("some content")}
-	size := int64(12)
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHash("foo", reader, size)
-	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHashError("foo", errors.Errorf("boom"))
 
 	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
@@ -350,14 +319,6 @@ func (s *drainerSuite) expectHashToExistError(hash string, err error) <-chan str
 		return err
 	})
 	return ch
-}
-
-func (s *drainerSuite) expectDeleteHash(hash string) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(nil)
-}
-
-func (s *drainerSuite) expectDeleteHashError(hash string, err error) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(err)
 }
 
 func (s *drainerSuite) expectObjectExists(hash string) {
