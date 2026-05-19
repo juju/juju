@@ -484,13 +484,15 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 // to unlock the guard and allow the object store to be used again.
 //
 // The ordering is important for crash recovery:
-// 1. Set phase to completed (persistent, authoritative state)
-// 2. Update agent config (idempotent, re-applied on restart if missed)
-// 3. Flush workers (idempotent, re-applied on restart if missed)
+// 1. Update agent config (idempotent, re-applied on restart if missed)
+// 2. Flush workers (idempotent, re-applied on restart if missed)
+// 3. Set phase to completed (atomic commit point, marks old backend dead)
 //
-// If a crash occurs after step 1, on restart the worker sees PhaseCompleted,
-// unlocks the guard, and the manifold start logic reconciles the remaining
-// steps.
+// SetDrainingPhase(PhaseCompleted) is deliberately last because it
+// atomically marks the old backend as dead in the database. If steps 1
+// or 2 fail, the phase remains Draining, the old backend is still alive,
+// and the error path can set PhaseError. On retry or restart the
+// idempotent steps are simply re-applied.
 //
 // NOTE: The fortress guard ensures no new objectstore operations can begin
 // during draining (all callers go through the objectStoreFacade which uses
@@ -504,13 +506,8 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 func (w *Worker) completeDraining(ctx context.Context) error {
 	w.logger.Infof(ctx, "completing object store draining")
 
-	// Set the draining phase to completed first. This is the persistent
-	// source of truth that determines recovery behavior on restart.
-	if err := w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
-		return errors.Capture(err)
-	}
-
 	// Update the agent configuration to reflect the new object store type.
+	// This is idempotent — if it was already written, re-writing is harmless.
 	if err := w.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
 		w.logger.Debugf(ctx, "setting object store type: %q => %q", setter.ObjectStoreType(), w.objectStoreType)
 		setter.SetObjectStoreType(w.objectStoreType)
@@ -521,8 +518,18 @@ func (w *Worker) completeDraining(ctx context.Context) error {
 
 	// Flush the object store workers to ensure that they are all stopped and
 	// removed. This is necessary to ensure that the object store is in a clean
-	// state before we start using it again.
+	// state before we start using it again. Safe to call while the DB still
+	// shows the old backend as Dying — the object store worker reads the
+	// active backend from GetActiveObjectStoreBackend on restart.
 	if err := w.objectStoreFlusher.FlushWorkers(ctx); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Set the draining phase to completed last. This is the atomic commit
+	// point — it marks the old backend as dead in the database. Because this
+	// is last, a failure in any prior step leaves the phase as Draining,
+	// allowing the error path to correctly transition to PhaseError.
+	if err := w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseCompleted); err != nil {
 		return errors.Capture(err)
 	}
 
