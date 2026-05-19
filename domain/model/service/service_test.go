@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -52,7 +52,7 @@ type serviceSuite struct {
 
 	mockState          *MockState
 	mockWatcherFactory *MockWatcherFactory
-	mockStringsWatcher *MockStringsWatcher[[]string]
+	mockStringsWatcher *MockStringsWatcher
 	changestreamtesting.ControllerSuite
 }
 
@@ -87,7 +87,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
-	s.mockStringsWatcher = NewMockStringsWatcher[[]string](ctrl)
+	s.mockStringsWatcher = NewMockStringsWatcher(ctrl)
 
 	return ctrl
 }

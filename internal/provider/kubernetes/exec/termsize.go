@@ -20,6 +20,8 @@ type SizeGetter interface {
 	Get(int) *remotecommand.TerminalSize
 }
 
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/sizequeue_mock.go github.com/juju/juju/internal/provider/kubernetes/exec SizeGetter
+
 func getFdInfo(in any) (inFd int) {
 	if file, ok := in.(*os.File); ok {
 		inFd = int(file.Fd())

@@ -108,6 +108,18 @@ func New(namespace string, clientset kubernetes.Interface, config *rest.Config) 
 	)
 }
 
+// RemoteCMDExecutorGetter returns a remotecommand.Executor for the given
+// REST config, HTTP method and URL.
+type RemoteCMDExecutorGetter interface {
+	RemoteCmdExecutorGetter(
+		config *rest.Config,
+		method string,
+		url *url.URL,
+	) (remotecommand.Executor, error)
+}
+
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/remotecmdexecutorgetter_mock.go github.com/juju/juju/internal/provider/kubernetes/exec RemoteCMDExecutorGetter
+
 func newClient(
 	namespace string,
 	clientset kubernetes.Interface,

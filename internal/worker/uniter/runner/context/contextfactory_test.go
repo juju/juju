@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
@@ -21,7 +21,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
@@ -559,13 +559,13 @@ func (s *ContextFactorySuite) TestRelationIsPeerHookContext(c *tc.C) {
 
 	// Add a dead peer relation.
 	relId := len(s.relunits)
-	rel := uniterapi.NewMockRelation(ctrl)
+	rel := apimocks.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(relId).AnyTimes()
 	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:peer mysql:peer")).AnyTimes()
 	rel.EXPECT().Life().Return(life.Dead).AnyTimes()
 	rel.EXPECT().Suspended().Return(false).AnyTimes()
 
-	relUnit := uniterapi.NewMockRelationUnit(ctrl)
+	relUnit := apimocks.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
 	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "peer", Role: charm.RolePeer}}).AnyTimes()
 	relUnit.EXPECT().Settings(gomock.Any()).Return(

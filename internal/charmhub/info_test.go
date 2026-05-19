@@ -10,9 +10,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -123,7 +123,7 @@ func (s *InfoSuite) expectBundleGet(c *tc.C, client *MockRESTClient, p path.Path
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.InfoResponse)
 		response.Type = "bundle"
 		response.Name = name
@@ -146,7 +146,7 @@ func (s *InfoSuite) expectGetError(c *tc.C, client *MockRESTClient, p path.Path,
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.InfoResponse)
 		response.ErrorList = []transport.APIError{{
 			Message: "not found",

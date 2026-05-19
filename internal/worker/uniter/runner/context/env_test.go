@@ -7,10 +7,10 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
@@ -19,6 +19,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 )
@@ -198,12 +199,12 @@ func (s *EnvSuite) TestHostEnv(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	state := api.NewMockUniterClient(ctrl)
+	state := apimocks.NewMockUniterClient(ctrl)
 	state.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()
-	unit := api.NewMockUnit(ctrl)
+	unit := apimocks.NewMockUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
 	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
@@ -34,6 +34,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -746,7 +747,7 @@ func TestHookContextSuite(t *testing.T) {
 
 type HookContextSuite struct {
 	testhelpers.IsolationSuite
-	mockUnit       *api.MockUnit
+	mockUnit       *apimocks.MockUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult
 }
@@ -1052,7 +1053,7 @@ func (s *HookContextSuite) TestClosePortRange(c *tc.C) {
 
 func (s *HookContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.mockUnit = api.NewMockUnit(ctrl)
+	s.mockUnit = apimocks.NewMockUnit(ctrl)
 	s.mockUnit.EXPECT().Name().Return("wordpress/0").AnyTimes()
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	s.mockUnit.EXPECT().ApplicationName().Return("wordpress").AnyTimes()
@@ -1083,7 +1084,7 @@ func (s *HookContextSuite) TestActionAbort(c *tc.C) {
 	}
 	for _, test := range tests {
 		ctrl := s.setupMocks(c)
-		client := api.NewMockUniterClient(ctrl)
+		client := apimocks.NewMockUniterClient(ctrl)
 		hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 		client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), test.Status, map[string]any(nil), "failed yo").Return(nil)
 
@@ -1122,7 +1123,7 @@ func (s *HookContextSuite) TestActionFlushError(c *tc.C) {
 		}},
 	}).Return(errors.New("flush failed"))
 
-	client := api.NewMockUniterClient(ctrl)
+	client := apimocks.NewMockUniterClient(ctrl)
 	hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 	resultData := map[string]any{
 		"stderr":      "flush failed",
@@ -1143,7 +1144,7 @@ func (s *HookContextSuite) TestMissingAction(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	client := api.NewMockUniterClient(ctrl)
+	client := apimocks.NewMockUniterClient(ctrl)
 	hookContext := context.NewMockUnitHookContextWithUniter(c, model.IAAS, s.mockUnit, client)
 	client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), "failed", map[string]any(nil),
 		`action not implemented on unit "wordpress/0"`).Return(nil)
@@ -2087,7 +2088,7 @@ func (s *HookContextSuite) TestHookStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	st := api.NewMockUniterClient(ctrl)
+	st := apimocks.NewMockUniterClient(ctrl)
 	st.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
 		StorageTag: "data/0",
 	}, nil)
@@ -2104,7 +2105,7 @@ func (s *HookContextSuite) TestHookCloudSpecMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	client := api.NewMockUniterClient(ctrl)
+	client := apimocks.NewMockUniterClient(ctrl)
 	client.EXPECT().CloudSpec(gomock.Any()).Return(&params.CloudSpec{
 		Type: "lxd",
 		Credential: &params.CloudCredential{
@@ -2128,7 +2129,7 @@ func (s *HookContextSuite) TestHookCloudSpecK8s(c *tc.C) {
 	err := os.WriteFile(caFile, []byte("start\ncadata\nend\n"), 0600)
 	c.Assert(err, tc.ErrorIsNil)
 
-	client := api.NewMockUniterClient(ctrl)
+	client := apimocks.NewMockUniterClient(ctrl)
 	client.EXPECT().CloudSpec(gomock.Any()).Return(&params.CloudSpec{
 		Type:   "kubernetes",
 		Name:   "myk8s",

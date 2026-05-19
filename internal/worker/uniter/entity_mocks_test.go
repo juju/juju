@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	jujucharm "github.com/juju/juju/domain/deployment/charm"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,7 +30,7 @@ var (
 
 type application struct {
 	mu sync.Mutex
-	*uniterapi.MockApplication
+	*apimocks.MockApplication
 
 	charmURL             string
 	charmForced          bool
@@ -43,7 +44,7 @@ func (app *application) String() string {
 
 func (ctx *testContext) makeApplication(appTag names.ApplicationTag) *application {
 	app := &application{
-		MockApplication: uniterapi.NewMockApplication(ctx.ctrl),
+		MockApplication: apimocks.NewMockApplication(ctx.ctrl),
 		charmURL:        curl(0),
 	}
 
@@ -75,7 +76,7 @@ func (app *application) configHash(newCfg map[string]any) string {
 
 type unit struct {
 	mu sync.Mutex
-	*uniterapi.MockUnit
+	*apimocks.MockUnit
 
 	subordinate *unit
 
@@ -93,7 +94,7 @@ func (u *unit) String() string {
 
 func (ctx *testContext) makeUnit(c tc.LikeC, unitTag names.UnitTag, l life.Value) *unit {
 	u := &unit{
-		MockUnit: uniterapi.NewMockUnit(ctx.ctrl),
+		MockUnit: apimocks.NewMockUnit(ctx.ctrl),
 		life:     l,
 		charmURL: curl(0),
 	}
@@ -284,14 +285,14 @@ func subordinateRelationKey(ifce string) string {
 
 type relation struct {
 	mu sync.Mutex
-	*uniterapi.MockRelation
+	*apimocks.MockRelation
 
 	life life.Value
 }
 
 func (ctx *testContext) makeRelation(c tc.LikeC, relTag names.RelationTag, l life.Value, otherApp string) *relation {
 	r := &relation{
-		MockRelation: uniterapi.NewMockRelation(ctx.ctrl),
+		MockRelation: apimocks.NewMockRelation(ctx.ctrl),
 		life:         l,
 	}
 
@@ -321,12 +322,12 @@ func (ctx *testContext) makeRelation(c tc.LikeC, relTag names.RelationTag, l lif
 }
 
 type relationUnit struct {
-	*uniterapi.MockRelationUnit
+	*apimocks.MockRelationUnit
 }
 
 func (ctx *testContext) makeRelationUnit(c tc.LikeC, rel *relation, u *unit) *relationUnit {
 	ru := &relationUnit{
-		MockRelationUnit: uniterapi.NewMockRelationUnit(ctx.ctrl),
+		MockRelationUnit: apimocks.NewMockRelationUnit(ctx.ctrl),
 	}
 
 	ru.EXPECT().Relation().Return(rel).AnyTimes()

@@ -5,17 +5,14 @@ package exec_test
 
 import (
 	"io"
-	"net/url"
-	"reflect"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	execmocks "github.com/juju/juju/internal/provider/kubernetes/exec/mocks"
@@ -33,7 +30,7 @@ type BaseSuite struct {
 	mockPodGetter         *mocks.MockPodInterface
 	mockNamespaces        *mocks.MockNamespaceInterface
 	mockRemoteCmdExecutor *execmocks.MockExecutor
-	suiteMocks            *suiteMocks
+	mockRemoteCMDGetter   *execmocks.MockRemoteCMDExecutorGetter
 
 	clock     *testclock.Clock
 	pipReader io.Reader
@@ -59,7 +56,7 @@ func (s *BaseSuite) TearDownTest(c *tc.C) {
 	s.execClient = nil
 	s.mockPodGetter = nil
 	s.mockRemoteCmdExecutor = nil
-	s.suiteMocks = nil
+	s.mockRemoteCMDGetter = nil
 	s.clock = nil
 	s.pipReader = nil
 	if s.pipWriter != nil {
@@ -85,17 +82,14 @@ func (s *BaseSuite) setupExecClient(c *tc.C) *gomock.Controller {
 	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockRemoteCmdExecutor = execmocks.NewMockExecutor(ctrl)
-
-	s.suiteMocks = newSuiteMocks(ctrl)
+	s.mockRemoteCMDGetter = execmocks.NewMockRemoteCMDExecutorGetter(ctrl)
 	s.clock = testclock.NewClock(time.Time{})
 
 	s.execClient = exec.NewForTest(
 		s.namespace,
 		s.k8sClient,
 		&rest.Config{},
-		func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
-			return s.suiteMocks.RemoteCmdExecutorGetter(config, method, url)
-		},
+		s.mockRemoteCMDGetter.RemoteCmdExecutorGetter,
 		func() (io.Reader, io.WriteCloser) {
 			return s.pipReader, s.pipWriter
 		},
@@ -106,34 +100,4 @@ func (s *BaseSuite) setupExecClient(c *tc.C) *gomock.Controller {
 
 func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
-}
-
-type suiteMocks struct {
-	ctrl     *gomock.Controller
-	recorder *suiteMocksRecorder
-}
-
-type suiteMocksRecorder struct {
-	mock *suiteMocks
-}
-
-func newSuiteMocks(ctrl *gomock.Controller) *suiteMocks {
-	mock := &suiteMocks{ctrl: ctrl}
-	mock.recorder = &suiteMocksRecorder{mock}
-	return mock
-}
-
-func (m *suiteMocks) EXPECT() *suiteMocksRecorder {
-	return m.recorder
-}
-
-func (m *suiteMocks) RemoteCmdExecutorGetter(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
-	ret := m.ctrl.Call(m, "RemoteCmdExecutorGetter", config, method, url)
-	ret0, _ := ret[0].(remotecommand.Executor)
-	ret1, _ := ret[0].(error)
-	return ret0, ret1
-}
-
-func (mr *suiteMocksRecorder) RemoteCmdExecutorGetter(config any, method any, url any) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteCmdExecutorGetter", reflect.TypeOf((*suiteMocks)(nil).RemoteCmdExecutorGetter), config, method, url)
 }

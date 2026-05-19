@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/hooks"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
 	"github.com/juju/juju/internal/worker/uniter/relation/mocks"
@@ -42,10 +43,10 @@ type baseStateTrackerSuite struct {
 	unitChanges       chan struct{}
 
 	client       *mocks.MockStateTrackerClient
-	unit         *api.MockUnit
-	relation     *api.MockRelation
+	unit         *apimocks.MockUnit
+	relation     *apimocks.MockRelation
 	relationer   *mocks.MockRelationer
-	relationUnit *api.MockRelationUnit
+	relationUnit *apimocks.MockRelationUnit
 	stateMgr     *mocks.MockStateManager
 	watcher      *watchertest.MockNotifyWatcher
 }
@@ -323,10 +324,10 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *tc.C) {
 func (s *baseStateTrackerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = mocks.NewMockStateTrackerClient(ctrl)
-	s.unit = api.NewMockUnit(ctrl)
-	s.relation = api.NewMockRelation(ctrl)
+	s.unit = apimocks.NewMockUnit(ctrl)
+	s.relation = apimocks.NewMockRelation(ctrl)
 	s.relationer = mocks.NewMockRelationer(ctrl)
-	s.relationUnit = api.NewMockRelationUnit(ctrl)
+	s.relationUnit = apimocks.NewMockRelationUnit(ctrl)
 	s.stateMgr = mocks.NewMockStateManager(ctrl)
 
 	s.relation.EXPECT().String().AnyTimes()

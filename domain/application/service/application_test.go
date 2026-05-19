@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -1577,7 +1577,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.Channel, tc.DeepEquals, channel)
 			return nil
 		})
@@ -1647,7 +1647,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithPlatformChange(c *t
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			// Verify that platform was correctly encoded and passed through.
 			c.Assert(params.Platform, tc.NotNil)
 			c.Assert(params.Platform.OSType, tc.Equals, deployment.Ubuntu)
@@ -2807,7 +2807,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesCh
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	// Expect complex changes: update data count, delete cache, add logs
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.StorageDirectivesToCreate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 
@@ -2962,7 +2962,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	)
 	// Expect the pool change to be applied in the update directives.
 	// Count should still be updated to the new charm minimum, but size should remain unchanged as there is no override for it.
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Do(
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.StorageDirectivesToCreate, tc.HasLen, 0)
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
@@ -3174,7 +3174,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 			return nil
 		},
 	)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Do(
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
@@ -3401,7 +3401,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 			return nil
 		},
 	)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Do(
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
@@ -3551,7 +3551,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 			return nil
 		},
 	)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Do(
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")

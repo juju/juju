@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
@@ -156,7 +156,7 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *tc.C) {
 	done := make(chan struct{})
 
 	// We expect the lock to be unlocked when the upgrade completes.
-	s.lock.EXPECT().Unlock().DoAndReturn(func() {
+	s.lock.EXPECT().Unlock().Do(func() {
 		defer close(done)
 	})
 
@@ -1154,7 +1154,7 @@ func (s *workerSuite) expectModelDBUpgrade(c *tc.C, modelUUID coremodel.UUID) co
 
 func (s *workerSuite) expectUnlock() chan struct{} {
 	done := make(chan struct{})
-	s.lock.EXPECT().Unlock().DoAndReturn(func() {
+	s.lock.EXPECT().Unlock().Do(func() {
 		close(done)
 	})
 	return done

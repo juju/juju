@@ -11,8 +11,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	intcharmhub "github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -54,7 +54,7 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 			Size:   size,
 		}, nil,
 	).Do(
-		func(_ context.Context, _ *url.URL, p string, _ ...intcharmhub.DownloadOption) (*intcharmhub.Digest, error) {
+		func(_ context.Context, _ *url.URL, p string, _ ...intcharmhub.DownloadOption) {
 			path = p
 			// Check that the temporary file has been created.
 			_, err = os.Stat(path)
@@ -63,8 +63,6 @@ func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 			// Write the resourceContent to the file, as the Downloader would.
 			err := os.WriteFile(path, resourceContent, os.ModeAppend)
 			c.Assert(err, tc.ErrorIsNil)
-
-			return nil, nil
 		})
 
 	d := downloader.NewResourceDownloader(s.client, loggertesting.WrapCheckLog(c))

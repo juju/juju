@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
@@ -28,7 +28,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -106,10 +106,10 @@ func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) 
 		deployer:               s.deployer,
 	}
 	ctx.runner.ctx = ctx
-	ctx.api = uniterapi.NewMockUniterClient(ctx.ctrl)
+	ctx.api = apimocks.NewMockUniterClient(ctx.ctrl)
 	ctx.resources = contextmocks.NewMockOpenedResourceClient(ctx.ctrl)
-	ctx.secretsClient = uniterapi.NewMockSecretsClient(ctx.ctrl)
-	ctx.secretBackends = uniterapi.NewMockSecretsBackend(ctx.ctrl)
+	ctx.secretsClient = apimocks.NewMockSecretsClient(ctx.ctrl)
+	ctx.secretBackends = apimocks.NewMockSecretsBackend(ctx.ctrl)
 
 	ctx.unitWatchCounter.Store(-1)
 	ctx.relUnitCounter.Store(-1)

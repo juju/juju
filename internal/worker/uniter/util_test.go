@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	pebbleclient "github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v5"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -50,6 +50,7 @@ import (
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -75,7 +76,7 @@ type testContext struct {
 	s       *UniterSuite
 
 	// API clients.
-	api           *uniterapi.MockUniterClient
+	api           *apimocks.MockUniterClient
 	resources     *contextmocks.MockOpenedResourceClient
 	leaderTracker *mockLeaderTracker
 	charmDirGuard *mockCharmDirGuard
@@ -109,7 +110,7 @@ type testContext struct {
 	// Stateful domain entities.
 	unit  *unit
 	app   *application
-	charm *uniterapi.MockCharm
+	charm *apimocks.MockCharm
 
 	relCounter atomic.Int32
 	relation   *relation
@@ -117,7 +118,7 @@ type testContext struct {
 	relUnitCounter atomic.Int32
 	relUnit        *relationUnit
 
-	relatedApplication *uniterapi.MockApplication
+	relatedApplication *apimocks.MockApplication
 
 	subordRelation *relation
 
@@ -133,8 +134,8 @@ type testContext struct {
 	secretsRotateCh  chan []string
 	secretsExpireCh  chan []string
 	secretRevisions  map[string]int
-	secretsClient    *uniterapi.MockSecretsClient
-	secretBackends   *uniterapi.MockSecretsBackend
+	secretsClient    *apimocks.MockSecretsClient
+	secretBackends   *apimocks.MockSecretsBackend
 
 	// Uniter state attributes (the ones we care about).
 	uniterState   string
@@ -374,7 +375,7 @@ func (s addCharm) step(c tc.LikeC, ctx *testContext) {
 
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.revision)
 	ctx.charms[storagePath] = body
-	ctx.charm = uniterapi.NewMockCharm(ctx.ctrl)
+	ctx.charm = apimocks.NewMockCharm(ctx.ctrl)
 	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
 	ctx.charm.EXPECT().ArchiveSha256(gomock.Any()).Return(hash, nil).AnyTimes()
 	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes()
@@ -1585,7 +1586,7 @@ func (s addRelation) step(c tc.LikeC, ctx *testContext) {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedApplication == nil {
-		ctx.relatedApplication = uniterapi.NewMockApplication(ctx.ctrl)
+		ctx.relatedApplication = apimocks.NewMockApplication(ctx.ctrl)
 		ctx.relatedApplication.EXPECT().Tag().Return(names.NewApplicationTag("mysql")).AnyTimes()
 	}
 

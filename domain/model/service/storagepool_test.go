@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model/internal"
@@ -345,7 +345,7 @@ func (s *storagePoolSuite) TestSeedDefaultStoragePoolsNotKnown(c *tc.C) {
 		gomock.Any(),
 		// We don't want to see any pools being created.
 		[]internal.CreateModelDefaultStoragePoolArg{},
-	).Return(nil).Return(nil)
+	).Return(nil)
 	s.mockModelState.EXPECT().SetModelStoragePools(
 		gomock.Any(), []internal.SetModelStoragePoolArg{},
 	).Return(nil).AnyTimes()

@@ -34,7 +34,7 @@ func (s *execSuite) TestCopyParamsValidate(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	type testcase struct {
 		Params exec.CopyParams
@@ -102,7 +102,7 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
 	c.Assert(err, tc.ErrorIsNil)
@@ -210,7 +210,7 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := os.CreateTemp(c.MkDir(), "testfile")
 	c.Assert(err, tc.ErrorIsNil)

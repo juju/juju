@@ -3,4 +3,4 @@
 
 package internal
 
-//go:generate go run github.com/canonical/gomock/mockgen -package internal_test -destination watcher_mock_test.go github.com/juju/juju/apiserver/internal WatcherRegistry
+//go:generate go run github.com/canonical/gomock/mockgen -package internal_test -destination watcher_mock_test.go github.com/juju/juju/apiserver/internal WatcherRegistry,Watcher
