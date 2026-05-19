@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"

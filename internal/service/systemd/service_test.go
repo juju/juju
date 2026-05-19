@@ -49,7 +49,7 @@ WantedBy=multi-user.target
 
 `
 
-const jujud = "/var/lib/juju/bin/jujud"
+const jujuagentd = "/var/lib/juju/bin/jujuagentd"
 
 var listCmdArg = exec.RunParams{
 	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -l -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
@@ -88,7 +88,7 @@ func (s *initSystemSuite) SetUpTest(c *tc.C) {
 	s.name = "jujud-" + tagStr
 	s.conf = common.Conf{
 		Desc:      "juju agent for " + tagStr,
-		ExecStart: jujud + " " + tagStr,
+		ExecStart: jujuagentd + " " + tagStr,
 	}
 }
 
@@ -137,7 +137,7 @@ func (s *initSystemSuite) newConfStr(name string) string {
 func (s *initSystemSuite) newConfStrCmd(name, cmd string) string {
 	tag := name[len("jujud-"):]
 	if cmd == "" {
-		cmd = jujud + " " + tag
+		cmd = jujuagentd + " " + tag
 	}
 	return fmt.Sprintf(confStr[1:], tag, cmd)
 }
@@ -201,7 +201,7 @@ exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-` + jujud + " machine-0"
+` + jujuagentd + " machine-0"
 
 	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
@@ -248,7 +248,7 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *tc.C) {
 #!/usr/bin/env bash
 
 '/path/to/another/command'
-`[1:] + jujud + " machine-0"
+`[1:] + jujuagentd + " machine-0"
 
 	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
@@ -724,7 +724,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *tc.C) {
 		DataDir: systemd.EtcSystemdDir,
 		Expected: strings.Replace(
 			s.newConfStr(name),
-			"ExecStart=/var/lib/juju/bin/jujud machine-0",
+			"ExecStart=/var/lib/juju/bin/jujuagentd machine-0",
 			"ExecStart=/etc/systemd/system/jujud-machine-0-exec-start.sh",
 			-1),
 		Script: `
@@ -736,7 +736,7 @@ exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-` + jujud + " machine-0",
+` + jujuagentd + " machine-0",
 	}
 
 	test.CheckCommands(c, commands)
@@ -799,7 +799,7 @@ func (s *initSystemSuite) TestInstallLimits(c *tc.C) {
 	name := "juju-job"
 	conf := common.Conf{
 		Desc:      "juju agent for juju-job",
-		ExecStart: "/usr/bin/jujud juju-job",
+		ExecStart: "/usr/bin/jujuagentd juju-job",
 		Limit: map[string]string{
 			"fsize":   "unlimited",
 			"cpu":     "unlimited",
@@ -828,7 +828,7 @@ LimitCPU=infinity
 LimitFSIZE=infinity
 LimitMEMLOCK=infinity
 LimitNOFILE=64000
-ExecStart=/usr/bin/jujud juju-job
+ExecStart=/usr/bin/jujuagentd juju-job
 Restart=on-failure
 
 [Install]
