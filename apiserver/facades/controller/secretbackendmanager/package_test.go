@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package secretbackendmanager -destination mock_service.go github.com/juju/juju/apiserver/facades/controller/secretbackendmanager BackendService
-//go:generate go run github.com/canonical/gomock/mockgen -package secretbackendmanager -destination mock_watcher.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package secretbackendmanager -destination service_mocks_test.go github.com/juju/juju/apiserver/facades/controller/secretbackendmanager BackendService
+//go:generate go run github.com/canonical/gomock/mockgen -package secretbackendmanager -destination watcher_mocks_test.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

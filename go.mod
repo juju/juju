@@ -26,6 +26,7 @@ require (
 	github.com/aws/smithy-go v1.24.2
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite/v3 v3.0.3
+	github.com/canonical/gomock v0.0.0-20260519060545-af63a8f99697
 	github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11
 	github.com/canonical/pebble v1.26.0
 	github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea
@@ -104,7 +105,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
 	go.uber.org/goleak v1.3.0
-	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.50.0
 	golang.org/x/net v0.53.0
 	golang.org/x/oauth2 v0.36.0
@@ -156,7 +156,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 // indirect
-	github.com/canonical/gomock v0.0.0-20260518113145-18e3e09e108a // indirect
 	github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect

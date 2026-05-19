@@ -16,6 +16,8 @@ import (
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/model/service CloudInfoProvider,ControllerState,EnvironVersionProvider,ModelState,ModelResourcesProvider,RegionProvider,State,StorageProviderRegistryGetter,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination internal_storage_mock_test.go -mock_names Provider=MockStorageProvider github.com/juju/juju/internal/storage ProviderRegistry,Provider
 
 type statusHistoryGetter struct {

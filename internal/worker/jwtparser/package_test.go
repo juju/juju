@@ -3,4 +3,4 @@
 
 package jwtparser
 
-//go:generate go run github.com/canonical/gomock/mockgen -package jwtparser -destination service_mock.go github.com/juju/juju/internal/worker/jwtparser ControllerConfigService,HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package jwtparser -destination service_mocks_test.go github.com/juju/juju/internal/worker/jwtparser ControllerConfigService,HTTPClient

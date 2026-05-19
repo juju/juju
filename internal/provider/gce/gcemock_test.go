@@ -11,28 +11,55 @@ package gce
 
 import (
 	context "context"
-	reflect "reflect"
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	gomock "github.com/canonical/gomock/gomock"
 	google "github.com/juju/juju/internal/provider/gce/internal/google"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockComputeService is a mock of ComputeService interface.
 type MockComputeService struct {
 	ctrl     *gomock.Controller
 	recorder *MockComputeServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockComputeServiceMockRecorder is the mock recorder for MockComputeService.
 type MockComputeServiceMockRecorder struct {
-	mock *MockComputeService
+	mock                         *MockComputeService
+	addFirewallExpects           []*gomock.Call2_1[context.Context, *computepb.Firewall, error]
+	addInstanceExpects           []*gomock.Call2_2[context.Context, *computepb.Instance, *computepb.Instance, error]
+	attachDiskExpects            []*gomock.Call5_2[context.Context, string, string, string, google.DiskMode, *computepb.AttachedDisk, error]
+	availabilityZonesExpects     []*gomock.Call2_2[context.Context, string, []*computepb.Zone, error]
+	createDisksExpects           []*gomock.Call3_1[context.Context, string, []*computepb.Disk, error]
+	defaultServiceAccountExpects []*gomock.Call1_2[context.Context, string, error]
+	detachDiskExpects            []*gomock.Call4_1[context.Context, string, string, string, error]
+	diskExpects                  []*gomock.Call3_2[context.Context, string, string, *computepb.Disk, error]
+	disksExpects                 []*gomock.Call1_2[context.Context, []*computepb.Disk, error]
+	firewallsExpects             []*gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+	instanceExpects              []*gomock.Call3_2[context.Context, string, string, *computepb.Instance, error]
+	instanceDisksExpects         []*gomock.Call3_2[context.Context, string, string, []*computepb.AttachedDisk, error]
+	instancesExpects             []*gomock.Call2V_2[context.Context, string, string, []*computepb.Instance, error]
+	listMachineTypesExpects      []*gomock.Call2_2[context.Context, string, []*computepb.MachineType, error]
+	machineTypeExpects           []*gomock.Call3_2[context.Context, string, string, *computepb.MachineType, error]
+	networkExpects               []*gomock.Call2_2[context.Context, string, *computepb.Network, error]
+	networkFirewallsExpects      []*gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+	networkSubnetworksExpects    []*gomock.Call3_2[context.Context, string, string, []*computepb.Subnetwork, error]
+	networksExpects              []*gomock.Call1_2[context.Context, []*computepb.Network, error]
+	removeDiskExpects            []*gomock.Call3_1[context.Context, string, string, error]
+	removeFirewallExpects        []*gomock.Call2_1[context.Context, string, error]
+	removeInstancesExpects       []*gomock.Call2V_1[context.Context, string, string, error]
+	setDiskLabelsExpects         []*gomock.Call5_1[context.Context, string, string, string, map[string]string, error]
+	subnetworksExpects           []*gomock.Call2V_2[context.Context, string, string, []*computepb.Subnetwork, error]
+	updateFirewallExpects        []*gomock.Call3_1[context.Context, string, *computepb.Firewall, error]
+	updateMetadataExpects        []*gomock.Call3V_1[context.Context, string, string, string, error]
+	verifyCredentialsExpects     []*gomock.Call1_1[context.Context, error]
 }
 
 // NewMockComputeService creates a new mock instance.
 func NewMockComputeService(ctrl *gomock.Controller) *MockComputeService {
 	mock := &MockComputeService{ctrl: ctrl}
-	mock.recorder = &MockComputeServiceMockRecorder{mock}
+	mock.recorder = &MockComputeServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -42,416 +69,503 @@ func (m *MockComputeService) EXPECT() *MockComputeServiceMockRecorder {
 }
 
 // AddFirewall mocks base method.
-func (m *MockComputeService) AddFirewall(arg0 context.Context, arg1 *computepb.Firewall) error {
+func (m *MockComputeService) AddFirewall(ctx context.Context, firewall *computepb.Firewall) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddFirewall", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch2_1(&m.recorder.addFirewallExpects, m.ctrl, m, "AddFirewall", ctx, firewall)
 }
 
 // AddFirewall indicates an expected call of AddFirewall.
-func (mr *MockComputeServiceMockRecorder) AddFirewall(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) AddFirewall(ctx, firewall any) *MockComputeServiceAddFirewallCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFirewall", reflect.TypeOf((*MockComputeService)(nil).AddFirewall), arg0, arg1)
+	call := gomock.NewCall2_1[context.Context, *computepb.Firewall, error](mr.mock.ctrl.T, mr.mock, "AddFirewall", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(firewall))
+	mr.addFirewallExpects = append(mr.addFirewallExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceAddFirewallCall is the typed call wrapper for AddFirewall.
+type MockComputeServiceAddFirewallCall = gomock.Call2_1[context.Context, *computepb.Firewall, error]
+
 // AddInstance mocks base method.
-func (m *MockComputeService) AddInstance(arg0 context.Context, arg1 *computepb.Instance) (*computepb.Instance, error) {
+func (m *MockComputeService) AddInstance(ctx context.Context, inst *computepb.Instance) (*computepb.Instance, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddInstance", arg0, arg1)
-	ret0, _ := ret[0].(*computepb.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.addInstanceExpects, m.ctrl, m, "AddInstance", ctx, inst)
 }
 
 // AddInstance indicates an expected call of AddInstance.
-func (mr *MockComputeServiceMockRecorder) AddInstance(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) AddInstance(ctx, inst any) *MockComputeServiceAddInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddInstance", reflect.TypeOf((*MockComputeService)(nil).AddInstance), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, *computepb.Instance, *computepb.Instance, error](mr.mock.ctrl.T, mr.mock, "AddInstance", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(inst))
+	mr.addInstanceExpects = append(mr.addInstanceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceAddInstanceCall is the typed call wrapper for AddInstance.
+type MockComputeServiceAddInstanceCall = gomock.Call2_2[context.Context, *computepb.Instance, *computepb.Instance, error]
+
 // AttachDisk mocks base method.
-func (m *MockComputeService) AttachDisk(arg0 context.Context, arg1, arg2, arg3 string, arg4 google.DiskMode) (*computepb.AttachedDisk, error) {
+func (m *MockComputeService) AttachDisk(ctx context.Context, zone, volumeName, instanceId string, mode google.DiskMode) (*computepb.AttachedDisk, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachDisk", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*computepb.AttachedDisk)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch5_2(&m.recorder.attachDiskExpects, m.ctrl, m, "AttachDisk", ctx, zone, volumeName, instanceId, mode)
 }
 
 // AttachDisk indicates an expected call of AttachDisk.
-func (mr *MockComputeServiceMockRecorder) AttachDisk(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) AttachDisk(ctx, zone, volumeName, instanceId, mode any) *MockComputeServiceAttachDiskCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachDisk", reflect.TypeOf((*MockComputeService)(nil).AttachDisk), arg0, arg1, arg2, arg3, arg4)
+	call := gomock.NewCall5_2[context.Context, string, string, string, google.DiskMode, *computepb.AttachedDisk, error](mr.mock.ctrl.T, mr.mock, "AttachDisk", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(volumeName), gomock.EnsureMatcher(instanceId), gomock.EnsureMatcher(mode))
+	mr.attachDiskExpects = append(mr.attachDiskExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceAttachDiskCall is the typed call wrapper for AttachDisk.
+type MockComputeServiceAttachDiskCall = gomock.Call5_2[context.Context, string, string, string, google.DiskMode, *computepb.AttachedDisk, error]
+
 // AvailabilityZones mocks base method.
-func (m *MockComputeService) AvailabilityZones(arg0 context.Context, arg1 string) ([]*computepb.Zone, error) {
+func (m *MockComputeService) AvailabilityZones(ctx context.Context, region string) ([]*computepb.Zone, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AvailabilityZones", arg0, arg1)
-	ret0, _ := ret[0].([]*computepb.Zone)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.availabilityZonesExpects, m.ctrl, m, "AvailabilityZones", ctx, region)
 }
 
 // AvailabilityZones indicates an expected call of AvailabilityZones.
-func (mr *MockComputeServiceMockRecorder) AvailabilityZones(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) AvailabilityZones(ctx, region any) *MockComputeServiceAvailabilityZonesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZones", reflect.TypeOf((*MockComputeService)(nil).AvailabilityZones), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, string, []*computepb.Zone, error](mr.mock.ctrl.T, mr.mock, "AvailabilityZones", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(region))
+	mr.availabilityZonesExpects = append(mr.availabilityZonesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceAvailabilityZonesCall is the typed call wrapper for AvailabilityZones.
+type MockComputeServiceAvailabilityZonesCall = gomock.Call2_2[context.Context, string, []*computepb.Zone, error]
+
 // CreateDisks mocks base method.
-func (m *MockComputeService) CreateDisks(arg0 context.Context, arg1 string, arg2 []*computepb.Disk) error {
+func (m *MockComputeService) CreateDisks(ctx context.Context, zone string, disks []*computepb.Disk) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateDisks", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3_1(&m.recorder.createDisksExpects, m.ctrl, m, "CreateDisks", ctx, zone, disks)
 }
 
 // CreateDisks indicates an expected call of CreateDisks.
-func (mr *MockComputeServiceMockRecorder) CreateDisks(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) CreateDisks(ctx, zone, disks any) *MockComputeServiceCreateDisksCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDisks", reflect.TypeOf((*MockComputeService)(nil).CreateDisks), arg0, arg1, arg2)
+	call := gomock.NewCall3_1[context.Context, string, []*computepb.Disk, error](mr.mock.ctrl.T, mr.mock, "CreateDisks", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(disks))
+	mr.createDisksExpects = append(mr.createDisksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceCreateDisksCall is the typed call wrapper for CreateDisks.
+type MockComputeServiceCreateDisksCall = gomock.Call3_1[context.Context, string, []*computepb.Disk, error]
+
 // DefaultServiceAccount mocks base method.
-func (m *MockComputeService) DefaultServiceAccount(arg0 context.Context) (string, error) {
+func (m *MockComputeService) DefaultServiceAccount(ctx context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultServiceAccount", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.defaultServiceAccountExpects, m.ctrl, m, "DefaultServiceAccount", ctx)
 }
 
 // DefaultServiceAccount indicates an expected call of DefaultServiceAccount.
-func (mr *MockComputeServiceMockRecorder) DefaultServiceAccount(arg0 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) DefaultServiceAccount(ctx any) *MockComputeServiceDefaultServiceAccountCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultServiceAccount", reflect.TypeOf((*MockComputeService)(nil).DefaultServiceAccount), arg0)
+	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DefaultServiceAccount", gomock.EnsureMatcher(ctx))
+	mr.defaultServiceAccountExpects = append(mr.defaultServiceAccountExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceDefaultServiceAccountCall is the typed call wrapper for DefaultServiceAccount.
+type MockComputeServiceDefaultServiceAccountCall = gomock.Call1_2[context.Context, string, error]
+
 // DetachDisk mocks base method.
-func (m *MockComputeService) DetachDisk(arg0 context.Context, arg1, arg2, arg3 string) error {
+func (m *MockComputeService) DetachDisk(ctx context.Context, zone, instanceId, volumeName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetachDisk", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch4_1(&m.recorder.detachDiskExpects, m.ctrl, m, "DetachDisk", ctx, zone, instanceId, volumeName)
 }
 
 // DetachDisk indicates an expected call of DetachDisk.
-func (mr *MockComputeServiceMockRecorder) DetachDisk(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) DetachDisk(ctx, zone, instanceId, volumeName any) *MockComputeServiceDetachDiskCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachDisk", reflect.TypeOf((*MockComputeService)(nil).DetachDisk), arg0, arg1, arg2, arg3)
+	call := gomock.NewCall4_1[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "DetachDisk", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(instanceId), gomock.EnsureMatcher(volumeName))
+	mr.detachDiskExpects = append(mr.detachDiskExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceDetachDiskCall is the typed call wrapper for DetachDisk.
+type MockComputeServiceDetachDiskCall = gomock.Call4_1[context.Context, string, string, string, error]
+
 // Disk mocks base method.
-func (m *MockComputeService) Disk(arg0 context.Context, arg1, arg2 string) (*computepb.Disk, error) {
+func (m *MockComputeService) Disk(ctx context.Context, zone, id string) (*computepb.Disk, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Disk", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*computepb.Disk)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.diskExpects, m.ctrl, m, "Disk", ctx, zone, id)
 }
 
 // Disk indicates an expected call of Disk.
-func (mr *MockComputeServiceMockRecorder) Disk(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Disk(ctx, zone, id any) *MockComputeServiceDiskCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disk", reflect.TypeOf((*MockComputeService)(nil).Disk), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, string, *computepb.Disk, error](mr.mock.ctrl.T, mr.mock, "Disk", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(id))
+	mr.diskExpects = append(mr.diskExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceDiskCall is the typed call wrapper for Disk.
+type MockComputeServiceDiskCall = gomock.Call3_2[context.Context, string, string, *computepb.Disk, error]
+
 // Disks mocks base method.
-func (m *MockComputeService) Disks(arg0 context.Context) ([]*computepb.Disk, error) {
+func (m *MockComputeService) Disks(ctx context.Context) ([]*computepb.Disk, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Disks", arg0)
-	ret0, _ := ret[0].([]*computepb.Disk)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.disksExpects, m.ctrl, m, "Disks", ctx)
 }
 
 // Disks indicates an expected call of Disks.
-func (mr *MockComputeServiceMockRecorder) Disks(arg0 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Disks(ctx any) *MockComputeServiceDisksCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disks", reflect.TypeOf((*MockComputeService)(nil).Disks), arg0)
+	call := gomock.NewCall1_2[context.Context, []*computepb.Disk, error](mr.mock.ctrl.T, mr.mock, "Disks", gomock.EnsureMatcher(ctx))
+	mr.disksExpects = append(mr.disksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceDisksCall is the typed call wrapper for Disks.
+type MockComputeServiceDisksCall = gomock.Call1_2[context.Context, []*computepb.Disk, error]
+
 // Firewalls mocks base method.
-func (m *MockComputeService) Firewalls(arg0 context.Context, arg1 string) ([]*computepb.Firewall, error) {
+func (m *MockComputeService) Firewalls(ctx context.Context, prefix string) ([]*computepb.Firewall, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Firewalls", arg0, arg1)
-	ret0, _ := ret[0].([]*computepb.Firewall)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.firewallsExpects, m.ctrl, m, "Firewalls", ctx, prefix)
 }
 
 // Firewalls indicates an expected call of Firewalls.
-func (mr *MockComputeServiceMockRecorder) Firewalls(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Firewalls(ctx, prefix any) *MockComputeServiceFirewallsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Firewalls", reflect.TypeOf((*MockComputeService)(nil).Firewalls), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, string, []*computepb.Firewall, error](mr.mock.ctrl.T, mr.mock, "Firewalls", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(prefix))
+	mr.firewallsExpects = append(mr.firewallsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceFirewallsCall is the typed call wrapper for Firewalls.
+type MockComputeServiceFirewallsCall = gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+
 // Instance mocks base method.
-func (m *MockComputeService) Instance(arg0 context.Context, arg1, arg2 string) (*computepb.Instance, error) {
+func (m *MockComputeService) Instance(ctx context.Context, id, zone string) (*computepb.Instance, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Instance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*computepb.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.instanceExpects, m.ctrl, m, "Instance", ctx, id, zone)
 }
 
 // Instance indicates an expected call of Instance.
-func (mr *MockComputeServiceMockRecorder) Instance(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Instance(ctx, id, zone any) *MockComputeServiceInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instance", reflect.TypeOf((*MockComputeService)(nil).Instance), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, string, *computepb.Instance, error](mr.mock.ctrl.T, mr.mock, "Instance", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(id), gomock.EnsureMatcher(zone))
+	mr.instanceExpects = append(mr.instanceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceInstanceCall is the typed call wrapper for Instance.
+type MockComputeServiceInstanceCall = gomock.Call3_2[context.Context, string, string, *computepb.Instance, error]
+
 // InstanceDisks mocks base method.
-func (m *MockComputeService) InstanceDisks(arg0 context.Context, arg1, arg2 string) ([]*computepb.AttachedDisk, error) {
+func (m *MockComputeService) InstanceDisks(ctx context.Context, zone, instanceId string) ([]*computepb.AttachedDisk, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceDisks", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*computepb.AttachedDisk)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.instanceDisksExpects, m.ctrl, m, "InstanceDisks", ctx, zone, instanceId)
 }
 
 // InstanceDisks indicates an expected call of InstanceDisks.
-func (mr *MockComputeServiceMockRecorder) InstanceDisks(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) InstanceDisks(ctx, zone, instanceId any) *MockComputeServiceInstanceDisksCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceDisks", reflect.TypeOf((*MockComputeService)(nil).InstanceDisks), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, string, []*computepb.AttachedDisk, error](mr.mock.ctrl.T, mr.mock, "InstanceDisks", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(instanceId))
+	mr.instanceDisksExpects = append(mr.instanceDisksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceInstanceDisksCall is the typed call wrapper for InstanceDisks.
+type MockComputeServiceInstanceDisksCall = gomock.Call3_2[context.Context, string, string, []*computepb.AttachedDisk, error]
+
 // Instances mocks base method.
-func (m *MockComputeService) Instances(arg0 context.Context, arg1 string, arg2 ...string) ([]*computepb.Instance, error) {
+func (m *MockComputeService) Instances(ctx context.Context, prefix string, statuses ...string) ([]*computepb.Instance, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Instances", varargs...)
-	ret0, _ := ret[0].([]*computepb.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2V_2(&m.recorder.instancesExpects, m.ctrl, m, "Instances", ctx, prefix, statuses...)
 }
 
 // Instances indicates an expected call of Instances.
-func (mr *MockComputeServiceMockRecorder) Instances(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Instances(ctx, prefix any, statuses ...any) *MockComputeServiceInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instances", reflect.TypeOf((*MockComputeService)(nil).Instances), varargs...)
+	varArgs := make([]gomock.Matcher, len(statuses))
+	for i, a := range statuses {
+		varArgs[i] = gomock.EnsureMatcher(a)
+	}
+	call := gomock.NewCall2V_2[context.Context, string, string, []*computepb.Instance, error](mr.mock.ctrl.T, mr.mock, "Instances", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(prefix), varArgs)
+	mr.instancesExpects = append(mr.instancesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceInstancesCall is the typed call wrapper for Instances.
+type MockComputeServiceInstancesCall = gomock.Call2V_2[context.Context, string, string, []*computepb.Instance, error]
+
 // ListMachineTypes mocks base method.
-func (m *MockComputeService) ListMachineTypes(arg0 context.Context, arg1 string) ([]*computepb.MachineType, error) {
+func (m *MockComputeService) ListMachineTypes(ctx context.Context, zone string) ([]*computepb.MachineType, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListMachineTypes", arg0, arg1)
-	ret0, _ := ret[0].([]*computepb.MachineType)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.listMachineTypesExpects, m.ctrl, m, "ListMachineTypes", ctx, zone)
 }
 
 // ListMachineTypes indicates an expected call of ListMachineTypes.
-func (mr *MockComputeServiceMockRecorder) ListMachineTypes(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) ListMachineTypes(ctx, zone any) *MockComputeServiceListMachineTypesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMachineTypes", reflect.TypeOf((*MockComputeService)(nil).ListMachineTypes), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, string, []*computepb.MachineType, error](mr.mock.ctrl.T, mr.mock, "ListMachineTypes", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone))
+	mr.listMachineTypesExpects = append(mr.listMachineTypesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceListMachineTypesCall is the typed call wrapper for ListMachineTypes.
+type MockComputeServiceListMachineTypesCall = gomock.Call2_2[context.Context, string, []*computepb.MachineType, error]
+
 // MachineType mocks base method.
-func (m *MockComputeService) MachineType(arg0 context.Context, arg1, arg2 string) (*computepb.MachineType, error) {
+func (m *MockComputeService) MachineType(ctx context.Context, zone, instanceType string) (*computepb.MachineType, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachineType", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*computepb.MachineType)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.machineTypeExpects, m.ctrl, m, "MachineType", ctx, zone, instanceType)
 }
 
 // MachineType indicates an expected call of MachineType.
-func (mr *MockComputeServiceMockRecorder) MachineType(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) MachineType(ctx, zone, instanceType any) *MockComputeServiceMachineTypeCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineType", reflect.TypeOf((*MockComputeService)(nil).MachineType), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, string, *computepb.MachineType, error](mr.mock.ctrl.T, mr.mock, "MachineType", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(instanceType))
+	mr.machineTypeExpects = append(mr.machineTypeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceMachineTypeCall is the typed call wrapper for MachineType.
+type MockComputeServiceMachineTypeCall = gomock.Call3_2[context.Context, string, string, *computepb.MachineType, error]
+
 // Network mocks base method.
-func (m *MockComputeService) Network(arg0 context.Context, arg1 string) (*computepb.Network, error) {
+func (m *MockComputeService) Network(ctx context.Context, id string) (*computepb.Network, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Network", arg0, arg1)
-	ret0, _ := ret[0].(*computepb.Network)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.networkExpects, m.ctrl, m, "Network", ctx, id)
 }
 
 // Network indicates an expected call of Network.
-func (mr *MockComputeServiceMockRecorder) Network(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Network(ctx, id any) *MockComputeServiceNetworkCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockComputeService)(nil).Network), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, string, *computepb.Network, error](mr.mock.ctrl.T, mr.mock, "Network", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(id))
+	mr.networkExpects = append(mr.networkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceNetworkCall is the typed call wrapper for Network.
+type MockComputeServiceNetworkCall = gomock.Call2_2[context.Context, string, *computepb.Network, error]
+
 // NetworkFirewalls mocks base method.
-func (m *MockComputeService) NetworkFirewalls(arg0 context.Context, arg1 string) ([]*computepb.Firewall, error) {
+func (m *MockComputeService) NetworkFirewalls(ctx context.Context, networkURL string) ([]*computepb.Firewall, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NetworkFirewalls", arg0, arg1)
-	ret0, _ := ret[0].([]*computepb.Firewall)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.networkFirewallsExpects, m.ctrl, m, "NetworkFirewalls", ctx, networkURL)
 }
 
 // NetworkFirewalls indicates an expected call of NetworkFirewalls.
-func (mr *MockComputeServiceMockRecorder) NetworkFirewalls(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) NetworkFirewalls(ctx, networkURL any) *MockComputeServiceNetworkFirewallsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkFirewalls", reflect.TypeOf((*MockComputeService)(nil).NetworkFirewalls), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, string, []*computepb.Firewall, error](mr.mock.ctrl.T, mr.mock, "NetworkFirewalls", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(networkURL))
+	mr.networkFirewallsExpects = append(mr.networkFirewallsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceNetworkFirewallsCall is the typed call wrapper for NetworkFirewalls.
+type MockComputeServiceNetworkFirewallsCall = gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+
 // NetworkSubnetworks mocks base method.
-func (m *MockComputeService) NetworkSubnetworks(arg0 context.Context, arg1, arg2 string) ([]*computepb.Subnetwork, error) {
+func (m *MockComputeService) NetworkSubnetworks(ctx context.Context, region, networkURL string) ([]*computepb.Subnetwork, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NetworkSubnetworks", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*computepb.Subnetwork)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.networkSubnetworksExpects, m.ctrl, m, "NetworkSubnetworks", ctx, region, networkURL)
 }
 
 // NetworkSubnetworks indicates an expected call of NetworkSubnetworks.
-func (mr *MockComputeServiceMockRecorder) NetworkSubnetworks(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) NetworkSubnetworks(ctx, region, networkURL any) *MockComputeServiceNetworkSubnetworksCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkSubnetworks", reflect.TypeOf((*MockComputeService)(nil).NetworkSubnetworks), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, string, []*computepb.Subnetwork, error](mr.mock.ctrl.T, mr.mock, "NetworkSubnetworks", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(region), gomock.EnsureMatcher(networkURL))
+	mr.networkSubnetworksExpects = append(mr.networkSubnetworksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceNetworkSubnetworksCall is the typed call wrapper for NetworkSubnetworks.
+type MockComputeServiceNetworkSubnetworksCall = gomock.Call3_2[context.Context, string, string, []*computepb.Subnetwork, error]
+
 // Networks mocks base method.
-func (m *MockComputeService) Networks(arg0 context.Context) ([]*computepb.Network, error) {
+func (m *MockComputeService) Networks(ctx context.Context) ([]*computepb.Network, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Networks", arg0)
-	ret0, _ := ret[0].([]*computepb.Network)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.networksExpects, m.ctrl, m, "Networks", ctx)
 }
 
 // Networks indicates an expected call of Networks.
-func (mr *MockComputeServiceMockRecorder) Networks(arg0 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Networks(ctx any) *MockComputeServiceNetworksCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Networks", reflect.TypeOf((*MockComputeService)(nil).Networks), arg0)
+	call := gomock.NewCall1_2[context.Context, []*computepb.Network, error](mr.mock.ctrl.T, mr.mock, "Networks", gomock.EnsureMatcher(ctx))
+	mr.networksExpects = append(mr.networksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceNetworksCall is the typed call wrapper for Networks.
+type MockComputeServiceNetworksCall = gomock.Call1_2[context.Context, []*computepb.Network, error]
+
 // RemoveDisk mocks base method.
-func (m *MockComputeService) RemoveDisk(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockComputeService) RemoveDisk(ctx context.Context, zone, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveDisk", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3_1(&m.recorder.removeDiskExpects, m.ctrl, m, "RemoveDisk", ctx, zone, id)
 }
 
 // RemoveDisk indicates an expected call of RemoveDisk.
-func (mr *MockComputeServiceMockRecorder) RemoveDisk(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) RemoveDisk(ctx, zone, id any) *MockComputeServiceRemoveDiskCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDisk", reflect.TypeOf((*MockComputeService)(nil).RemoveDisk), arg0, arg1, arg2)
+	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "RemoveDisk", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(id))
+	mr.removeDiskExpects = append(mr.removeDiskExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceRemoveDiskCall is the typed call wrapper for RemoveDisk.
+type MockComputeServiceRemoveDiskCall = gomock.Call3_1[context.Context, string, string, error]
+
 // RemoveFirewall mocks base method.
-func (m *MockComputeService) RemoveFirewall(arg0 context.Context, arg1 string) error {
+func (m *MockComputeService) RemoveFirewall(ctx context.Context, fwname string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveFirewall", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch2_1(&m.recorder.removeFirewallExpects, m.ctrl, m, "RemoveFirewall", ctx, fwname)
 }
 
 // RemoveFirewall indicates an expected call of RemoveFirewall.
-func (mr *MockComputeServiceMockRecorder) RemoveFirewall(arg0, arg1 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) RemoveFirewall(ctx, fwname any) *MockComputeServiceRemoveFirewallCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFirewall", reflect.TypeOf((*MockComputeService)(nil).RemoveFirewall), arg0, arg1)
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "RemoveFirewall", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(fwname))
+	mr.removeFirewallExpects = append(mr.removeFirewallExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceRemoveFirewallCall is the typed call wrapper for RemoveFirewall.
+type MockComputeServiceRemoveFirewallCall = gomock.Call2_1[context.Context, string, error]
+
 // RemoveInstances mocks base method.
-func (m *MockComputeService) RemoveInstances(arg0 context.Context, arg1 string, arg2 ...string) error {
+func (m *MockComputeService) RemoveInstances(ctx context.Context, prefix string, ids ...string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "RemoveInstances", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch2V_1(&m.recorder.removeInstancesExpects, m.ctrl, m, "RemoveInstances", ctx, prefix, ids...)
 }
 
 // RemoveInstances indicates an expected call of RemoveInstances.
-func (mr *MockComputeServiceMockRecorder) RemoveInstances(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) RemoveInstances(ctx, prefix any, ids ...any) *MockComputeServiceRemoveInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveInstances", reflect.TypeOf((*MockComputeService)(nil).RemoveInstances), varargs...)
+	varArgs := make([]gomock.Matcher, len(ids))
+	for i, a := range ids {
+		varArgs[i] = gomock.EnsureMatcher(a)
+	}
+	call := gomock.NewCall2V_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "RemoveInstances", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(prefix), varArgs)
+	mr.removeInstancesExpects = append(mr.removeInstancesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceRemoveInstancesCall is the typed call wrapper for RemoveInstances.
+type MockComputeServiceRemoveInstancesCall = gomock.Call2V_1[context.Context, string, string, error]
+
 // SetDiskLabels mocks base method.
-func (m *MockComputeService) SetDiskLabels(arg0 context.Context, arg1, arg2, arg3 string, arg4 map[string]string) error {
+func (m *MockComputeService) SetDiskLabels(ctx context.Context, zone, id, labelFingerprint string, labels map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetDiskLabels", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch5_1(&m.recorder.setDiskLabelsExpects, m.ctrl, m, "SetDiskLabels", ctx, zone, id, labelFingerprint, labels)
 }
 
 // SetDiskLabels indicates an expected call of SetDiskLabels.
-func (mr *MockComputeServiceMockRecorder) SetDiskLabels(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) SetDiskLabels(ctx, zone, id, labelFingerprint, labels any) *MockComputeServiceSetDiskLabelsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDiskLabels", reflect.TypeOf((*MockComputeService)(nil).SetDiskLabels), arg0, arg1, arg2, arg3, arg4)
+	call := gomock.NewCall5_1[context.Context, string, string, string, map[string]string, error](mr.mock.ctrl.T, mr.mock, "SetDiskLabels", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(id), gomock.EnsureMatcher(labelFingerprint), gomock.EnsureMatcher(labels))
+	mr.setDiskLabelsExpects = append(mr.setDiskLabelsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceSetDiskLabelsCall is the typed call wrapper for SetDiskLabels.
+type MockComputeServiceSetDiskLabelsCall = gomock.Call5_1[context.Context, string, string, string, map[string]string, error]
+
 // Subnetworks mocks base method.
-func (m *MockComputeService) Subnetworks(arg0 context.Context, arg1 string, arg2 ...string) ([]*computepb.Subnetwork, error) {
+func (m *MockComputeService) Subnetworks(ctx context.Context, region string, urls ...string) ([]*computepb.Subnetwork, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Subnetworks", varargs...)
-	ret0, _ := ret[0].([]*computepb.Subnetwork)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2V_2(&m.recorder.subnetworksExpects, m.ctrl, m, "Subnetworks", ctx, region, urls...)
 }
 
 // Subnetworks indicates an expected call of Subnetworks.
-func (mr *MockComputeServiceMockRecorder) Subnetworks(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) Subnetworks(ctx, region any, urls ...any) *MockComputeServiceSubnetworksCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnetworks", reflect.TypeOf((*MockComputeService)(nil).Subnetworks), varargs...)
+	varArgs := make([]gomock.Matcher, len(urls))
+	for i, a := range urls {
+		varArgs[i] = gomock.EnsureMatcher(a)
+	}
+	call := gomock.NewCall2V_2[context.Context, string, string, []*computepb.Subnetwork, error](mr.mock.ctrl.T, mr.mock, "Subnetworks", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(region), varArgs)
+	mr.subnetworksExpects = append(mr.subnetworksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceSubnetworksCall is the typed call wrapper for Subnetworks.
+type MockComputeServiceSubnetworksCall = gomock.Call2V_2[context.Context, string, string, []*computepb.Subnetwork, error]
+
 // UpdateFirewall mocks base method.
-func (m *MockComputeService) UpdateFirewall(arg0 context.Context, arg1 string, arg2 *computepb.Firewall) error {
+func (m *MockComputeService) UpdateFirewall(ctx context.Context, name string, firewall *computepb.Firewall) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateFirewall", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3_1(&m.recorder.updateFirewallExpects, m.ctrl, m, "UpdateFirewall", ctx, name, firewall)
 }
 
 // UpdateFirewall indicates an expected call of UpdateFirewall.
-func (mr *MockComputeServiceMockRecorder) UpdateFirewall(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) UpdateFirewall(ctx, name, firewall any) *MockComputeServiceUpdateFirewallCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFirewall", reflect.TypeOf((*MockComputeService)(nil).UpdateFirewall), arg0, arg1, arg2)
+	call := gomock.NewCall3_1[context.Context, string, *computepb.Firewall, error](mr.mock.ctrl.T, mr.mock, "UpdateFirewall", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(firewall))
+	mr.updateFirewallExpects = append(mr.updateFirewallExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceUpdateFirewallCall is the typed call wrapper for UpdateFirewall.
+type MockComputeServiceUpdateFirewallCall = gomock.Call3_1[context.Context, string, *computepb.Firewall, error]
+
 // UpdateMetadata mocks base method.
-func (m *MockComputeService) UpdateMetadata(arg0 context.Context, arg1, arg2 string, arg3 ...string) error {
+func (m *MockComputeService) UpdateMetadata(ctx context.Context, key, value string, ids ...string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "UpdateMetadata", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3V_1(&m.recorder.updateMetadataExpects, m.ctrl, m, "UpdateMetadata", ctx, key, value, ids...)
 }
 
 // UpdateMetadata indicates an expected call of UpdateMetadata.
-func (mr *MockComputeServiceMockRecorder) UpdateMetadata(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) UpdateMetadata(ctx, key, value any, ids ...any) *MockComputeServiceUpdateMetadataCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMetadata", reflect.TypeOf((*MockComputeService)(nil).UpdateMetadata), varargs...)
+	varArgs := make([]gomock.Matcher, len(ids))
+	for i, a := range ids {
+		varArgs[i] = gomock.EnsureMatcher(a)
+	}
+	call := gomock.NewCall3V_1[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "UpdateMetadata", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(key), gomock.EnsureMatcher(value), varArgs)
+	mr.updateMetadataExpects = append(mr.updateMetadataExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockComputeServiceUpdateMetadataCall is the typed call wrapper for UpdateMetadata.
+type MockComputeServiceUpdateMetadataCall = gomock.Call3V_1[context.Context, string, string, string, error]
+
 // VerifyCredentials mocks base method.
-func (m *MockComputeService) VerifyCredentials(arg0 context.Context) error {
+func (m *MockComputeService) VerifyCredentials(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyCredentials", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.verifyCredentialsExpects, m.ctrl, m, "VerifyCredentials", ctx)
 }
 
 // VerifyCredentials indicates an expected call of VerifyCredentials.
-func (mr *MockComputeServiceMockRecorder) VerifyCredentials(arg0 any) *gomock.Call {
+func (mr *MockComputeServiceMockRecorder) VerifyCredentials(ctx any) *MockComputeServiceVerifyCredentialsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyCredentials", reflect.TypeOf((*MockComputeService)(nil).VerifyCredentials), arg0)
+	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "VerifyCredentials", gomock.EnsureMatcher(ctx))
+	mr.verifyCredentialsExpects = append(mr.verifyCredentialsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockComputeServiceVerifyCredentialsCall is the typed call wrapper for VerifyCredentials.
+type MockComputeServiceVerifyCredentialsCall = gomock.Call1_1[context.Context, error]

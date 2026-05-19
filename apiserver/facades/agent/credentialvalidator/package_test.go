@@ -3,5 +3,5 @@
 
 package credentialvalidator
 
-//go:generate go run github.com/canonical/gomock/mockgen  -typed -package credentialvalidator -destination services_mock.go github.com/juju/juju/apiserver/facades/agent/credentialvalidator ModelCredentialService
-//go:generate go run github.com/canonical/gomock/mockgen  -typed -package credentialvalidator -destination watcher_mock.go github.com/juju/juju/core/watcher NotifyWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package credentialvalidator -destination services_mocks_test.go github.com/juju/juju/apiserver/facades/agent/credentialvalidator ModelCredentialService
+//go:generate go run github.com/canonical/gomock/mockgen -package credentialvalidator -destination watcher_mocks_test.go github.com/juju/juju/core/watcher NotifyWatcher

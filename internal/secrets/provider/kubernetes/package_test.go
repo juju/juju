@@ -4,6 +4,8 @@
 package kubernetes
 
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/k8sclient_extended_mock.go -mock_names Interface=ExtendedInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/k8sclient_extended_mock.go -mock_names Interface=ExtendedInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,SecretInterface,NamespaceInterface
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
