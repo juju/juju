@@ -13,13 +13,15 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	// SetLokiEndpoint sets the Loki push API endpoint. Any previously stored
-	// endpoint is replaced.
-	SetLokiEndpoint(ctx context.Context, endpoint string) error
+	// endpoint is replaced. The uuid is the unique identifier for the new
+	// endpoint row.
+	SetLokiEndpoint(ctx context.Context, uuid string, endpoint string) error
 
 	// GetLokiEndpoint returns the configured Loki push API endpoint. If no
 	// endpoint is configured, an error satisfying
@@ -98,7 +100,12 @@ func (s *Service) SetLokiEndpoint(ctx context.Context, endpoint string) error {
 		return errors.Errorf("loki endpoint %q missing scheme or host", endpoint).Add(coreerrors.NotValid)
 	}
 
-	return s.st.SetLokiEndpoint(ctx, endpoint)
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating UUID: %w", err)
+	}
+
+	return s.st.SetLokiEndpoint(ctx, id.String(), endpoint)
 }
 
 // GetLokiEndpoint returns the configured Loki push API endpoint.

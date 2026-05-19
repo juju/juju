@@ -27,7 +27,7 @@ func TestServiceSuite(t *testing.T) {
 func (s *serviceSuite) TestSetLokiEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(nil)
+	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(nil)
 
 	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
 	c.Assert(err, tc.ErrorIsNil)
@@ -50,7 +50,7 @@ func (s *serviceSuite) TestSetLokiEndpointInvalidURLReturnsError(c *tc.C) {
 func (s *serviceSuite) TestSetLokiEndpointStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(
+	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(
 		errors.Errorf("boom"),
 	)
 

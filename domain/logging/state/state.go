@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/domain"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State implements persistence for logging configuration.
@@ -29,7 +28,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 
 // SetLokiEndpoint sets the Loki push API endpoint. Any previously stored
 // endpoint is replaced.
-func (st *State) SetLokiEndpoint(ctx context.Context, endpoint string) error {
+func (st *State) SetLokiEndpoint(ctx context.Context, id string, endpoint string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting database: %w", err)
@@ -47,13 +46,8 @@ VALUES ($lokiConfig.uuid, $lokiConfig.endpoint)`, lokiConfig{})
 		return errors.Errorf("preparing insert statement: %w", err)
 	}
 
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return errors.Errorf("generating UUID: %w", err)
-	}
-
 	config := lokiConfig{
-		UUID:     id.String(),
+		UUID:     id,
 		Endpoint: endpoint,
 	}
 

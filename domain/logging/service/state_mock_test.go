@@ -157,17 +157,17 @@ func (c *MockStateNamespaceForWatchLokiEndpointCall) DoAndReturn(f func() string
 }
 
 // SetLokiEndpoint mocks base method.
-func (m *MockState) SetLokiEndpoint(arg0 context.Context, arg1 string) error {
+func (m *MockState) SetLokiEndpoint(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetLokiEndpoint", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetLokiEndpoint", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetLokiEndpoint indicates an expected call of SetLokiEndpoint.
-func (mr *MockStateMockRecorder) SetLokiEndpoint(arg0, arg1 any) *MockStateSetLokiEndpointCall {
+func (mr *MockStateMockRecorder) SetLokiEndpoint(arg0, arg1, arg2 any) *MockStateSetLokiEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLokiEndpoint", reflect.TypeOf((*MockState)(nil).SetLokiEndpoint), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLokiEndpoint", reflect.TypeOf((*MockState)(nil).SetLokiEndpoint), arg0, arg1, arg2)
 	return &MockStateSetLokiEndpointCall{Call: call}
 }
 
@@ -183,13 +183,13 @@ func (c *MockStateSetLokiEndpointCall) Return(arg0 error) *MockStateSetLokiEndpo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetLokiEndpointCall) Do(f func(context.Context, string) error) *MockStateSetLokiEndpointCall {
+func (c *MockStateSetLokiEndpointCall) Do(f func(context.Context, string, string) error) *MockStateSetLokiEndpointCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetLokiEndpointCall) DoAndReturn(f func(context.Context, string) error) *MockStateSetLokiEndpointCall {
+func (c *MockStateSetLokiEndpointCall) DoAndReturn(f func(context.Context, string, string) error) *MockStateSetLokiEndpointCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

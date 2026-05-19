@@ -23,7 +23,7 @@ func TestStateSuite(t *testing.T) {
 func (s *stateSuite) TestSetLokiEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://loki:3100/loki/api/v1/push")
 	c.Assert(err, tc.ErrorIsNil)
 
 	endpoint, err := st.GetLokiEndpoint(c.Context())
@@ -34,10 +34,10 @@ func (s *stateSuite) TestSetLokiEndpoint(c *tc.C) {
 func (s *stateSuite) TestSetLokiEndpointReplacesExisting(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "http://old-loki:3100/loki/api/v1/push")
+	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://old-loki:3100/loki/api/v1/push")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetLokiEndpoint(c.Context(), "http://new-loki:3100/loki/api/v1/push")
+	err = st.SetLokiEndpoint(c.Context(), "some-uuid-2", "http://new-loki:3100/loki/api/v1/push")
 	c.Assert(err, tc.ErrorIsNil)
 
 	endpoint, err := st.GetLokiEndpoint(c.Context())
@@ -55,7 +55,7 @@ func (s *stateSuite) TestGetLokiEndpointNotFound(c *tc.C) {
 func (s *stateSuite) TestDeleteLokiEndpoint(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://loki:3100/loki/api/v1/push")
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteLokiEndpoint(c.Context())
