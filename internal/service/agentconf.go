@@ -27,6 +27,7 @@ import (
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/core/paths"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/systemd"
 )
@@ -195,5 +196,5 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 }
 
 func serviceName(agent string) string {
-	return "jujud-" + agent
+	return jujunames.Jujud + "-" + agent
 }
