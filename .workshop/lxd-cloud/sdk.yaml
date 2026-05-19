@@ -1,0 +1,10 @@
+# SDK definition for LXD cloud integration.
+# Generates client certificates and configures juju to use the host LXD as a
+# cloud substrate. This does not install or configure LXD itself — it only
+# sets up credentials for communicating with a pre-existing host LXD over HTTPS.
+# The setup-base hook runs as privileged to install system packages.
+name: lxd-cloud
+
+hooks:
+  setup-base:
+    privileged: true

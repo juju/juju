@@ -8,7 +8,7 @@ tooling pre-installed.
 
 ```
 .workshop/
-├── dev.yaml              # Primary workspace definition
+├── dev-lxd.yaml          # Primary workspace definition (with LXD cloud)
 ├── Makefile              # Convenience targets for common workflows
 ├── dqlite/              
 │   ├── sdk.yaml          # SDK descriptor (name: dqlite)
@@ -21,8 +21,8 @@ tooling pre-installed.
 │   └── hooks/
 │       ├── setup-project # Builds juju CLI and jujud-controller binaries
 │       └── check-health  # Verifies built binaries are present
-├── lxd/
-│   ├── sdk.yaml          # SDK descriptor (name: lxd, privileged setup-base)
+├── lxd-cloud/
+│   ├── sdk.yaml          # SDK descriptor (name: lxd-cloud, privileged setup-base)
 │   └── hooks/
 │       ├── setup-base    # Installs LXD client dependencies (runs as root)
 │       ├── setup-project # Generates client certs, discovers host LXD, writes juju credentials
@@ -34,29 +34,33 @@ tooling pre-installed.
         └── setup-project # Configures GOTOOLCHAIN via `go env -w`
 ```
 
-## Workspace Definition (`dev.yaml`)
+## Workspace Definition (`dev-lxd.yaml`)
 
-The `dev.yaml` file declares a workspace named `dev` built on Ubuntu 24.04. It
-composes several SDKs and exposes actions that can be invoked via
-`workshop run dev <action>`.
+The `dev-lxd.yaml` file declares a workspace named `dev-lxd` built on Ubuntu
+24.04. It composes several SDKs and exposes actions that can be invoked via
+`workshop run dev-lxd <action>`.
 
 ### SDKs
 
-| SDK                | Purpose                                          |
-|--------------------|--------------------------------------------------|
-| `go`               | Go toolchain (channel: 1.26/stable)              |
-| `project-toolchain`| Pins GOTOOLCHAIN so `go.mod` versions auto-fetch |
-| `project-dqlite`   | Builds musl and dqlite static libraries          |
-| `project-lxd`      | Generates LXD client certs and juju credentials  |
-| `opencode`         | Installs the opencode development tool           |
-| `direnvrc`         | Provides direnv integration                      |
-| `project-juju`     | Builds juju and jujud-controller (runs last)     |
+| SDK                  | Purpose                                            |
+|----------------------|----------------------------------------------------|
+| `go`                 | Go toolchain (channel: 1.26/stable)                |
+| `project-toolchain`  | Pins GOTOOLCHAIN so `go.mod` versions auto-fetch   |
+| `project-dqlite`     | Builds musl and dqlite static libraries            |
+| `project-lxd-cloud`  | Generates LXD client certs and juju credentials    |
+| `opencode`           | Installs the opencode development tool             |
+| `direnvrc`           | Provides direnv integration                        |
+| `project-juju`       | Builds juju and jujud-controller (runs last)       |
 
 SDKs prefixed with `project-` reference the local SDK definitions in this
 directory (e.g. `project-dqlite` maps to `./dqlite/`).
 
-The `project-juju` SDK is listed last in `dev.yaml` so that all build
+The `project-juju` SDK is listed last in `dev-lxd.yaml` so that all build
 dependencies (Go toolchain, dqlite static libs) are ready before compilation.
+
+**Note:** The `project-lxd-cloud` SDK does not install or configure LXD itself.
+It only sets up client credentials for communicating with a pre-existing host
+LXD instance over HTTPS. See [Bootstrap LXD](#bootstrap-lxd) for details.
 
 ### Actions
 
@@ -104,14 +108,14 @@ The `.workshop/Makefile` provides targets invoked from the host:
 ## Typical Workflow
 
 ```bash
-# Launch the dev workspace (builds juju + controller automatically via project-juju SDK)
-workshop launch dev
+# Launch the dev-lxd workspace (builds juju + controller automatically via project-juju SDK)
+workshop launch dev-lxd
 
 # Rebuild juju after making changes
-workshop run dev build-juju
+workshop run dev-lxd build-juju
 
 # Run tests
-workshop run dev test ./domain/...
+workshop run dev-lxd test ./domain/...
 ```
 
 ## Bootstrap LXD
@@ -143,12 +147,13 @@ HTTPS using a generated client certificate.
 
 ### How It Works
 
-1. **`setup-project` (automatic)** — On workspace start, the LXD SDK generates
-   a self-signed TLS client certificate at `~/.config/lxc/client.crt`, discovers
-   the host LXD address via the container's default gateway, fetches the LXD
-   server certificate over TLS, and writes both `clouds.yaml` and
-   `credentials.yaml` into `~/.local/share/juju/`. This runs automatically — no
-   manual priming step is needed.
+1. **`setup-project` (automatic)** — On workspace start, the LXD cloud SDK
+   generates a self-signed TLS client certificate at
+   `~/.config/lxc/client.crt`, discovers the host LXD address via the
+   container's default gateway, fetches the LXD server certificate over TLS,
+   and writes both `clouds.yaml` and `credentials.yaml` into
+   `~/.local/share/juju/`. This runs automatically — no manual priming step is
+   needed.
 
 2. **`workshop-dev-lxd-trust` (host-side, manual)** — The host must trust the
    workshop's client certificate. This Makefile target extracts the certificate
@@ -171,7 +176,7 @@ lxc config set core.https_address "[::]:8443"
 make -f .workshop/Makefile workshop-dev-lxd-trust
 
 # 2. Inside the workshop — bootstrap (credentials already configured)
-workshop shell dev
+workshop shell dev-lxd
 juju bootstrap lxd
 ```
 
@@ -191,4 +196,4 @@ the workspace and this bridge approach will become optional.
 1. Create a directory under `.workshop/` with the SDK name.
 2. Add a `sdk.yaml` with at minimum `name: <sdk-name>`.
 3. Add hook scripts under `hooks/` (ensure they are executable).
-4. Reference the SDK in `dev.yaml` as `project-<sdk-name>`.
+4. Reference the SDK in `dev-lxd.yaml` as `project-<sdk-name>`.

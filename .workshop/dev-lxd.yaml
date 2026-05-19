@@ -1,14 +1,14 @@
-# Primary workshop workspace for Juju development.
-# Provides Go, dqlite, LXD integration, and development tooling.
+# Primary workshop workspace for Juju development with LXD cloud substrate.
+# Provides Go, dqlite, LXD cloud integration, and development tooling.
 # The juju SDK is listed last so all build deps are ready before compiling.
-name: dev
+name: dev-lxd
 base: ubuntu@24.04
 sdks:
   - name: go
     channel: 1.26/stable
   - name: project-toolchain
   - name: project-dqlite
-  - name: project-lxd
+  - name: project-lxd-cloud
   - name: project-juju
   - name: opencode
   - name: direnvrc
