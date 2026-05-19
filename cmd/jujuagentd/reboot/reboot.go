@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = internallogger.GetLogger("juju.cmd.jujud.reboot")
+var logger = internallogger.GetLogger("juju.cmd.jujuagentd.reboot")
 var timeout = 10 * time.Minute
 var rebootAfter = 15
 

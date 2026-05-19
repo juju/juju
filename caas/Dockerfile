@@ -15,7 +15,7 @@ RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog \
     && rm -rf /root/.cache
 
 WORKDIR /var/lib/juju
-COPY ${TARGETOS}_${TARGETARCH}/bin/jujud \
+COPY ${TARGETOS}_${TARGETARCH}/bin/jujuagentd \
      ${TARGETOS}_${TARGETARCH}/bin/jujuc \
      ${TARGETOS}_${TARGETARCH}/bin/containeragent \
      ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
