@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -351,7 +352,7 @@ func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootActio
 }
 
 func ensuringJujudNotRunning(tag names.Tag) error {
-	cmd := exec.Command("systemctl", "check", fmt.Sprintf("jujud-machine-%s.service", tag.Id()))
+	cmd := exec.Command("systemctl", "check", fmt.Sprintf("%s-machine-%s.service", jujunames.Jujud, tag.Id()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Exit code of 3 is ESRCH, which means no such process.
