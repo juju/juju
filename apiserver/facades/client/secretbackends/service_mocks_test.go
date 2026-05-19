@@ -54,10 +54,7 @@ func (m *MockSecretBackendService) BackendSummaryInfo(ctx context.Context, revea
 // BackendSummaryInfo indicates an expected call of BackendSummaryInfo.
 func (mr *MockSecretBackendServiceMockRecorder) BackendSummaryInfo(ctx, reveal any, names ...any) *MockSecretBackendServiceBackendSummaryInfoCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(names))
-	for i, a := range names {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(names)
 	call := gomock.NewCall2V_2[context.Context, bool, string, []*service.SecretBackendInfo, error](mr.mock.ctrl.T, mr.mock, "BackendSummaryInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(reveal), varArgs)
 	mr.backendSummaryInfoExpects = append(mr.backendSummaryInfoExpects, call)
 	mr.mock.ctrl.Track(call.Call)

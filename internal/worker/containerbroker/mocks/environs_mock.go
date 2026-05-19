@@ -109,10 +109,7 @@ func (m *MockInstanceBroker) StopInstances(arg0 context.Context, arg1 ...instanc
 // StopInstances indicates an expected call of StopInstances.
 func (mr *MockInstanceBrokerMockRecorder) StopInstances(arg0 any, arg1 ...any) *MockInstanceBrokerStopInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_1[context.Context, instance.Id, error](mr.mock.ctrl.T, mr.mock, "StopInstances", gomock.EnsureMatcher(arg0), varArgs)
 	mr.stopInstancesExpects = append(mr.stopInstancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -51,10 +51,7 @@ func (m *MockSecretBackendManagerFacade) RotateBackendTokens(ctx context.Context
 // RotateBackendTokens indicates an expected call of RotateBackendTokens.
 func (mr *MockSecretBackendManagerFacadeMockRecorder) RotateBackendTokens(ctx any, info ...any) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(info))
-	for i, a := range info {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(info)
 	call := gomock.NewCall1V_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "RotateBackendTokens", gomock.EnsureMatcher(ctx), varArgs)
 	mr.rotateBackendTokensExpects = append(mr.rotateBackendTokensExpects, call)
 	mr.mock.ctrl.Track(call.Call)

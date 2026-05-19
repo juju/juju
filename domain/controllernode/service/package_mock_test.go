@@ -286,10 +286,7 @@ func (m *MockWatcherFactory) NewNotifyWatcher(ctx context.Context, summary strin
 // NewNotifyWatcher indicates an expected call of NewNotifyWatcher.
 func (mr *MockWatcherFactoryMockRecorder) NewNotifyWatcher(ctx, summary, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNotifyWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filterOptions))
-	for i, a := range filterOptions {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filterOptions)
 	call := gomock.NewCall3V_2[context.Context, string, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNotifyWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(filterOption), varArgs)
 	mr.newNotifyWatcherExpects = append(mr.newNotifyWatcherExpects, call)
 	mr.mock.ctrl.Track(call.Call)

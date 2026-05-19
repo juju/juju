@@ -239,10 +239,7 @@ func (m *MockEventInterface) Patch(ctx context.Context, name string, pt types.Pa
 // Patch indicates an expected call of Patch.
 func (mr *MockEventInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockEventInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Event, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -913,10 +910,7 @@ func (m *MockNamespaceInterface) Patch(ctx context.Context, name string, pt type
 // Patch indicates an expected call of Patch.
 func (mr *MockNamespaceInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockNamespaceInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Namespace, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1248,10 +1242,7 @@ func (m *MockPodInterface) Patch(ctx context.Context, name string, pt types.Patc
 // Patch indicates an expected call of Patch.
 func (mr *MockPodInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockPodInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Pod, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1521,10 +1512,7 @@ func (m *MockServiceInterface) Patch(ctx context.Context, name string, pt types.
 // Patch indicates an expected call of Patch.
 func (mr *MockServiceInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockServiceInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Service, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1756,10 +1744,7 @@ func (m *MockConfigMapInterface) Patch(ctx context.Context, name string, pt type
 // Patch indicates an expected call of Patch.
 func (mr *MockConfigMapInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockConfigMapInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.ConfigMap, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1975,10 +1960,7 @@ func (m *MockPersistentVolumeInterface) Patch(ctx context.Context, name string, 
 // Patch indicates an expected call of Patch.
 func (mr *MockPersistentVolumeInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockPersistentVolumeInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.PersistentVolume, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -2212,10 +2194,7 @@ func (m *MockPersistentVolumeClaimInterface) Patch(ctx context.Context, name str
 // Patch indicates an expected call of Patch.
 func (mr *MockPersistentVolumeClaimInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockPersistentVolumeClaimInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.PersistentVolumeClaim, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -2429,10 +2408,7 @@ func (m *MockSecretInterface) Patch(ctx context.Context, name string, pt types.P
 // Patch indicates an expected call of Patch.
 func (mr *MockSecretInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockSecretInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -2649,10 +2625,7 @@ func (m *MockNodeInterface) Patch(ctx context.Context, name string, pt types.Pat
 // Patch indicates an expected call of Patch.
 func (mr *MockNodeInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockNodeInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v11.PatchOptions, string, *v1.Node, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)

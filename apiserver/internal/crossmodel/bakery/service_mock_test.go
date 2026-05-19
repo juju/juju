@@ -155,10 +155,7 @@ func (m *MockOven) NewMacaroon(ctx context.Context, version bakery.Version, cave
 // NewMacaroon indicates an expected call of NewMacaroon.
 func (mr *MockOvenMockRecorder) NewMacaroon(ctx, version, caveats any, ops ...any) *MockOvenNewMacaroonCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ops))
-	for i, a := range ops {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ops)
 	call := gomock.NewCall3V_2[context.Context, bakery.Version, []checkers.Caveat, bakery.Op, *bakery.Macaroon, error](mr.mock.ctrl.T, mr.mock, "NewMacaroon", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(version), gomock.EnsureMatcher(caveats), varArgs)
 	mr.newMacaroonExpects = append(mr.newMacaroonExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -202,10 +199,7 @@ func (m *MockMacaroonChecker) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
 // Auth indicates an expected call of Auth.
 func (mr *MockMacaroonCheckerMockRecorder) Auth(mss ...any) *MockMacaroonCheckerAuthCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(mss))
-	for i, a := range mss {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(mss)
 	call := gomock.NewCall0V_1[macaroon.Slice, *bakery.AuthChecker](mr.mock.ctrl.T, mr.mock, "Auth", varArgs)
 	mr.authExpects = append(mr.authExpects, call)
 	mr.mock.ctrl.Track(call.Call)

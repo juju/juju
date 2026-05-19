@@ -197,10 +197,7 @@ func (m *MockMachinesAPI) Machines(arg0 context.Context, arg1 ...names.MachineTa
 // Machines indicates an expected call of Machines.
 func (mr *MockMachinesAPIMockRecorder) Machines(arg0 any, arg1 ...any) *MockMachinesAPIMachinesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_2[context.Context, names.MachineTag, []provisioner.MachineResult, error](mr.mock.ctrl.T, mr.mock, "Machines", gomock.EnsureMatcher(arg0), varArgs)
 	mr.machinesExpects = append(mr.machinesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

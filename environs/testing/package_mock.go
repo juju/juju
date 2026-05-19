@@ -577,10 +577,7 @@ func (m *MockFinalizeCredentialContext) Verbosef(arg0 string, arg1 ...any) {
 // Verbosef indicates an expected call of Verbosef.
 func (mr *MockFinalizeCredentialContextMockRecorder) Verbosef(arg0 any, arg1 ...any) *MockFinalizeCredentialContextVerbosefCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_0[string, any](mr.mock.ctrl.T, mr.mock, "Verbosef", gomock.EnsureMatcher(arg0), varArgs)
 	mr.verbosefExpects = append(mr.verbosefExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -700,10 +697,7 @@ func (m *MockFinalizeCloudContext) Verbosef(arg0 string, arg1 ...any) {
 // Verbosef indicates an expected call of Verbosef.
 func (mr *MockFinalizeCloudContextMockRecorder) Verbosef(arg0 any, arg1 ...any) *MockFinalizeCloudContextVerbosefCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_0[string, any](mr.mock.ctrl.T, mr.mock, "Verbosef", gomock.EnsureMatcher(arg0), varArgs)
 	mr.verbosefExpects = append(mr.verbosefExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1306,10 +1300,7 @@ func (m *MockEnviron) StopInstances(arg0 context.Context, arg1 ...instance.Id) e
 // StopInstances indicates an expected call of StopInstances.
 func (mr *MockEnvironMockRecorder) StopInstances(arg0 any, arg1 ...any) *MockEnvironStopInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_1[context.Context, instance.Id, error](mr.mock.ctrl.T, mr.mock, "StopInstances", gomock.EnsureMatcher(arg0), varArgs)
 	mr.stopInstancesExpects = append(mr.stopInstancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -2257,10 +2248,7 @@ func (m *MockNetworkingEnviron) StopInstances(arg0 context.Context, arg1 ...inst
 // StopInstances indicates an expected call of StopInstances.
 func (mr *MockNetworkingEnvironMockRecorder) StopInstances(arg0 any, arg1 ...any) *MockNetworkingEnvironStopInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_1[context.Context, instance.Id, error](mr.mock.ctrl.T, mr.mock, "StopInstances", gomock.EnsureMatcher(arg0), varArgs)
 	mr.stopInstancesExpects = append(mr.stopInstancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

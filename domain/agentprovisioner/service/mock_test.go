@@ -51,10 +51,7 @@ func (m *MockState) GetModelConfigKeyValues(arg0 context.Context, arg1 ...string
 // GetModelConfigKeyValues indicates an expected call of GetModelConfigKeyValues.
 func (mr *MockStateMockRecorder) GetModelConfigKeyValues(arg0 any, arg1 ...any) *MockStateGetModelConfigKeyValuesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_2[context.Context, string, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetModelConfigKeyValues", gomock.EnsureMatcher(arg0), varArgs)
 	mr.getModelConfigKeyValuesExpects = append(mr.getModelConfigKeyValuesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

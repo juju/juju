@@ -75,10 +75,7 @@ func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, ba
 // ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
 func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role any, consumers ...any) *MockSecretServiceListGrantedSecretsForBackendCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(consumers))
-	for i, a := range consumers {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(consumers)
 	call := gomock.NewCall3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendID), gomock.EnsureMatcher(role), varArgs)
 	mr.listGrantedSecretsForBackendExpects = append(mr.listGrantedSecretsForBackendExpects, call)
 	mr.mock.ctrl.Track(call.Call)

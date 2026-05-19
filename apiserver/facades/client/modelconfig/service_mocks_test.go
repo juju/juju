@@ -177,10 +177,7 @@ func (m *MockModelConfigService) UpdateModelConfig(arg0 context.Context, arg1 ma
 // UpdateModelConfig indicates an expected call of UpdateModelConfig.
 func (mr *MockModelConfigServiceMockRecorder) UpdateModelConfig(arg0, arg1, arg2 any, arg3 ...any) *MockModelConfigServiceUpdateModelConfigCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg3))
-	for i, a := range arg3 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg3)
 	call := gomock.NewCall3V_1[context.Context, map[string]any, []string, config.Validator, error](mr.mock.ctrl.T, mr.mock, "UpdateModelConfig", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), varArgs)
 	mr.updateModelConfigExpects = append(mr.updateModelConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)

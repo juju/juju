@@ -232,10 +232,7 @@ func (m *MockOfferBakery) NewMacaroon(arg0 context.Context, arg1 bakery.Version,
 // NewMacaroon indicates an expected call of NewMacaroon.
 func (mr *MockOfferBakeryMockRecorder) NewMacaroon(arg0, arg1, arg2 any, arg3 ...any) *MockOfferBakeryNewMacaroonCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg3))
-	for i, a := range arg3 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg3)
 	call := gomock.NewCall3V_2[context.Context, bakery.Version, []checkers.Caveat, bakery.Op, *bakery.Macaroon, error](mr.mock.ctrl.T, mr.mock, "NewMacaroon", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), varArgs)
 	mr.newMacaroonExpects = append(mr.newMacaroonExpects, call)
 	mr.mock.ctrl.Track(call.Call)

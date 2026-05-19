@@ -67,10 +67,7 @@ func (m *MockInitializer) WrapTransport(arg0 ...internal.TransportWrapper) error
 // WrapTransport indicates an expected call of WrapTransport.
 func (mr *MockInitializerMockRecorder) WrapTransport(arg0 ...any) *MockInitializerWrapTransportCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_1[internal.TransportWrapper, error](mr.mock.ctrl.T, mr.mock, "WrapTransport", varArgs)
 	mr.wrapTransportExpects = append(mr.wrapTransportExpects, call)
 	mr.mock.ctrl.Track(call.Call)

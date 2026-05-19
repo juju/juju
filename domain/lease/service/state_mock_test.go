@@ -132,10 +132,7 @@ func (m *MockState) Leases(arg0 context.Context, arg1 ...lease.Key) (map[lease.K
 // Leases indicates an expected call of Leases.
 func (mr *MockStateMockRecorder) Leases(arg0 any, arg1 ...any) *MockStateLeasesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_2[context.Context, lease.Key, map[lease.Key]lease.Info, error](mr.mock.ctrl.T, mr.mock, "Leases", gomock.EnsureMatcher(arg0), varArgs)
 	mr.leasesExpects = append(mr.leasesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

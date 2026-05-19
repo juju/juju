@@ -408,10 +408,7 @@ func (m *MockApplicationService) AddCAASUnits(ctx context.Context, name string, 
 // AddCAASUnits indicates an expected call of AddCAASUnits.
 func (mr *MockApplicationServiceMockRecorder) AddCAASUnits(ctx, name any, units ...any) *MockApplicationServiceAddCAASUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(units))
-	for i, a := range units {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(units)
 	call := gomock.NewCall2V_2[context.Context, string, service.AddUnitArg, []unit.Name, error](mr.mock.ctrl.T, mr.mock, "AddCAASUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), varArgs)
 	mr.addCAASUnitsExpects = append(mr.addCAASUnitsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -430,10 +427,7 @@ func (m *MockApplicationService) AddIAASUnits(ctx context.Context, name string, 
 // AddIAASUnits indicates an expected call of AddIAASUnits.
 func (mr *MockApplicationServiceMockRecorder) AddIAASUnits(ctx, name any, units ...any) *MockApplicationServiceAddIAASUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(units))
-	for i, a := range units {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(units)
 	call := gomock.NewCall2V_3[context.Context, string, service.AddIAASUnitArg, []unit.Name, []machine.Name, error](mr.mock.ctrl.T, mr.mock, "AddIAASUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), varArgs)
 	mr.addIAASUnitsExpects = append(mr.addIAASUnitsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -470,10 +464,7 @@ func (m *MockApplicationService) CreateCAASApplication(arg0 context.Context, arg
 // CreateCAASApplication indicates an expected call of CreateCAASApplication.
 func (mr *MockApplicationServiceMockRecorder) CreateCAASApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateCAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg5))
-	for i, a := range arg5 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg5)
 	call := gomock.NewCall5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddUnitArg, application.UUID, error](mr.mock.ctrl.T, mr.mock, "CreateCAASApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), varArgs)
 	mr.createCAASApplicationExpects = append(mr.createCAASApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -492,10 +483,7 @@ func (m *MockApplicationService) CreateIAASApplication(arg0 context.Context, arg
 // CreateIAASApplication indicates an expected call of CreateIAASApplication.
 func (mr *MockApplicationServiceMockRecorder) CreateIAASApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateIAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg5))
-	for i, a := range arg5 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg5)
 	call := gomock.NewCall5V_2[context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, service.AddIAASUnitArg, application.UUID, error](mr.mock.ctrl.T, mr.mock, "CreateIAASApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), varArgs)
 	mr.createIAASApplicationExpects = append(mr.createIAASApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1422,10 +1410,7 @@ func (m *MockRelationService) AddRelation(ctx context.Context, ep1, ep2 string, 
 // AddRelation indicates an expected call of AddRelation.
 func (mr *MockRelationServiceMockRecorder) AddRelation(ctx, ep1, ep2 any, cidrs ...any) *MockRelationServiceAddRelationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(cidrs))
-	for i, a := range cidrs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(cidrs)
 	call := gomock.NewCall3V_3[context.Context, string, string, string, relation0.Endpoint, relation0.Endpoint, error](mr.mock.ctrl.T, mr.mock, "AddRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ep1), gomock.EnsureMatcher(ep2), varArgs)
 	mr.addRelationExpects = append(mr.addRelationExpects, call)
 	mr.mock.ctrl.Track(call.Call)

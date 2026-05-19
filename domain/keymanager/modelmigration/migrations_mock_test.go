@@ -95,10 +95,7 @@ func (m *MockImportService) AddPublicKeysForUser(arg0 context.Context, arg1 user
 // AddPublicKeysForUser indicates an expected call of AddPublicKeysForUser.
 func (mr *MockImportServiceMockRecorder) AddPublicKeysForUser(arg0, arg1 any, arg2 ...any) *MockImportServiceAddPublicKeysForUserCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_1[context.Context, user.UUID, string, error](mr.mock.ctrl.T, mr.mock, "AddPublicKeysForUser", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.addPublicKeysForUserExpects = append(mr.addPublicKeysForUserExpects, call)
 	mr.mock.ctrl.Track(call.Call)

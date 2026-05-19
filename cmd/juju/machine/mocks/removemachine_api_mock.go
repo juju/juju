@@ -89,10 +89,7 @@ func (m *MockRemoveMachineAPI) DestroyMachinesWithParams(ctx context.Context, fo
 // DestroyMachinesWithParams indicates an expected call of DestroyMachinesWithParams.
 func (mr *MockRemoveMachineAPIMockRecorder) DestroyMachinesWithParams(ctx, force, keep, dryRun, maxWait any, machines ...any) *MockRemoveMachineAPIDestroyMachinesWithParamsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(machines))
-	for i, a := range machines {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(machines)
 	call := gomock.NewCall5V_2[context.Context, bool, bool, bool, *time.Duration, string, []params.DestroyMachineResult, error](mr.mock.ctrl.T, mr.mock, "DestroyMachinesWithParams", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(force), gomock.EnsureMatcher(keep), gomock.EnsureMatcher(dryRun), gomock.EnsureMatcher(maxWait), varArgs)
 	mr.destroyMachinesWithParamsExpects = append(mr.destroyMachinesWithParamsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

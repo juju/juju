@@ -67,10 +67,7 @@ func (m *MockLock) Report(opts ...machinelock.ReportOption) (string, error) {
 // Report indicates an expected call of Report.
 func (mr *MockLockMockRecorder) Report(opts ...any) *MockLockReportCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(opts))
-	for i, a := range opts {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(opts)
 	call := gomock.NewCall0V_2[machinelock.ReportOption, string, error](mr.mock.ctrl.T, mr.mock, "Report", varArgs)
 	mr.reportExpects = append(mr.reportExpects, call)
 	mr.mock.ctrl.Track(call.Call)

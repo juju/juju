@@ -81,10 +81,7 @@ func (m *MockSecretTriggers) WatchDeletedSecrets(ctx context.Context, owners ...
 // WatchDeletedSecrets indicates an expected call of WatchDeletedSecrets.
 func (mr *MockSecretTriggersMockRecorder) WatchDeletedSecrets(ctx any, owners ...any) *MockSecretTriggersWatchDeletedSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(owners))
-	for i, a := range owners {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(owners)
 	call := gomock.NewCall1V_2[context.Context, secret.CharmSecretOwner, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchDeletedSecrets", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchDeletedSecretsExpects = append(mr.watchDeletedSecretsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -103,10 +100,7 @@ func (m *MockSecretTriggers) WatchObsoleteSecrets(ctx context.Context, owners ..
 // WatchObsoleteSecrets indicates an expected call of WatchObsoleteSecrets.
 func (mr *MockSecretTriggersMockRecorder) WatchObsoleteSecrets(ctx any, owners ...any) *MockSecretTriggersWatchObsoleteSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(owners))
-	for i, a := range owners {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(owners)
 	call := gomock.NewCall1V_2[context.Context, secret.CharmSecretOwner, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchObsoleteSecrets", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchObsoleteSecretsExpects = append(mr.watchObsoleteSecretsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -125,10 +119,7 @@ func (m *MockSecretTriggers) WatchSecretRevisionsExpiryChanges(ctx context.Conte
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
 func (mr *MockSecretTriggersMockRecorder) WatchSecretRevisionsExpiryChanges(ctx any, owners ...any) *MockSecretTriggersWatchSecretRevisionsExpiryChangesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(owners))
-	for i, a := range owners {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(owners)
 	call := gomock.NewCall1V_2[context.Context, secret.CharmSecretOwner, watcher.SecretTriggerWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSecretRevisionsExpiryChanges", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchSecretRevisionsExpiryChangesExpects = append(mr.watchSecretRevisionsExpiryChangesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -147,10 +138,7 @@ func (m *MockSecretTriggers) WatchSecretsRotationChanges(ctx context.Context, ow
 // WatchSecretsRotationChanges indicates an expected call of WatchSecretsRotationChanges.
 func (mr *MockSecretTriggersMockRecorder) WatchSecretsRotationChanges(ctx any, owners ...any) *MockSecretTriggersWatchSecretsRotationChangesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(owners))
-	for i, a := range owners {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(owners)
 	call := gomock.NewCall1V_2[context.Context, secret.CharmSecretOwner, watcher.SecretTriggerWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSecretsRotationChanges", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchSecretsRotationChangesExpects = append(mr.watchSecretsRotationChangesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -429,10 +417,7 @@ func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 ...secre
 // ListCharmSecrets indicates an expected call of ListCharmSecrets.
 func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any) *MockSecretServiceListCharmSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_3[context.Context, secret.CharmSecretOwner, []*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error](mr.mock.ctrl.T, mr.mock, "ListCharmSecrets", gomock.EnsureMatcher(arg0), varArgs)
 	mr.listCharmSecretsExpects = append(mr.listCharmSecretsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -451,10 +436,7 @@ func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, ba
 // ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
 func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role any, consumers ...any) *MockSecretServiceListGrantedSecretsForBackendCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(consumers))
-	for i, a := range consumers {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(consumers)
 	call := gomock.NewCall3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendID), gomock.EnsureMatcher(role), varArgs)
 	mr.listGrantedSecretsForBackendExpects = append(mr.listGrantedSecretsForBackendExpects, call)
 	mr.mock.ctrl.Track(call.Call)

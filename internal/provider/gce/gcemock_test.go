@@ -293,10 +293,7 @@ func (m *MockComputeService) Instances(ctx context.Context, prefix string, statu
 // Instances indicates an expected call of Instances.
 func (mr *MockComputeServiceMockRecorder) Instances(ctx, prefix any, statuses ...any) *MockComputeServiceInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(statuses))
-	for i, a := range statuses {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(statuses)
 	call := gomock.NewCall2V_2[context.Context, string, string, []*computepb.Instance, error](mr.mock.ctrl.T, mr.mock, "Instances", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(prefix), varArgs)
 	mr.instancesExpects = append(mr.instancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -459,10 +456,7 @@ func (m *MockComputeService) RemoveInstances(ctx context.Context, prefix string,
 // RemoveInstances indicates an expected call of RemoveInstances.
 func (mr *MockComputeServiceMockRecorder) RemoveInstances(ctx, prefix any, ids ...any) *MockComputeServiceRemoveInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ids))
-	for i, a := range ids {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ids)
 	call := gomock.NewCall2V_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "RemoveInstances", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(prefix), varArgs)
 	mr.removeInstancesExpects = append(mr.removeInstancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -499,10 +493,7 @@ func (m *MockComputeService) Subnetworks(ctx context.Context, region string, url
 // Subnetworks indicates an expected call of Subnetworks.
 func (mr *MockComputeServiceMockRecorder) Subnetworks(ctx, region any, urls ...any) *MockComputeServiceSubnetworksCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(urls))
-	for i, a := range urls {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(urls)
 	call := gomock.NewCall2V_2[context.Context, string, string, []*computepb.Subnetwork, error](mr.mock.ctrl.T, mr.mock, "Subnetworks", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(region), varArgs)
 	mr.subnetworksExpects = append(mr.subnetworksExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -539,10 +530,7 @@ func (m *MockComputeService) UpdateMetadata(ctx context.Context, key, value stri
 // UpdateMetadata indicates an expected call of UpdateMetadata.
 func (mr *MockComputeServiceMockRecorder) UpdateMetadata(ctx, key, value any, ids ...any) *MockComputeServiceUpdateMetadataCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ids))
-	for i, a := range ids {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ids)
 	call := gomock.NewCall3V_1[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "UpdateMetadata", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(key), gomock.EnsureMatcher(value), varArgs)
 	mr.updateMetadataExpects = append(mr.updateMetadataExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -270,10 +270,7 @@ func (m *MockLeafRequest) AddDNSNames(arg0 ...string) pki.LeafRequest {
 // AddDNSNames indicates an expected call of AddDNSNames.
 func (mr *MockLeafRequestMockRecorder) AddDNSNames(arg0 ...any) *MockLeafRequestAddDNSNamesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_1[string, pki.LeafRequest](mr.mock.ctrl.T, mr.mock, "AddDNSNames", varArgs)
 	mr.addDNSNamesExpects = append(mr.addDNSNamesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -292,10 +289,7 @@ func (m *MockLeafRequest) AddIPAddresses(arg0 ...net.IP) pki.LeafRequest {
 // AddIPAddresses indicates an expected call of AddIPAddresses.
 func (mr *MockLeafRequestMockRecorder) AddIPAddresses(arg0 ...any) *MockLeafRequestAddIPAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_1[net.IP, pki.LeafRequest](mr.mock.ctrl.T, mr.mock, "AddIPAddresses", varArgs)
 	mr.addIPAddressesExpects = append(mr.addIPAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

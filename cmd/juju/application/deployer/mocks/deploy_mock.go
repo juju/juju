@@ -443,10 +443,7 @@ func (m *MockDeployerAPI) GetConfig(ctx context.Context, appNames ...string) ([]
 // GetConfig indicates an expected call of GetConfig.
 func (mr *MockDeployerAPIMockRecorder) GetConfig(ctx any, appNames ...any) *MockDeployerAPIGetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(appNames))
-	for i, a := range appNames {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(appNames)
 	call := gomock.NewCall1V_2[context.Context, string, []map[string]any, error](mr.mock.ctrl.T, mr.mock, "GetConfig", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getConfigExpects = append(mr.getConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -465,10 +462,7 @@ func (m *MockDeployerAPI) GetConstraints(ctx context.Context, appNames ...string
 // GetConstraints indicates an expected call of GetConstraints.
 func (mr *MockDeployerAPIMockRecorder) GetConstraints(ctx any, appNames ...any) *MockDeployerAPIGetConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(appNames))
-	for i, a := range appNames {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(appNames)
 	call := gomock.NewCall1V_2[context.Context, string, []constraints.Value, error](mr.mock.ctrl.T, mr.mock, "GetConstraints", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getConstraintsExpects = append(mr.getConstraintsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -505,10 +499,7 @@ func (m *MockDeployerAPI) GrantOffer(ctx context.Context, user, access string, o
 // GrantOffer indicates an expected call of GrantOffer.
 func (mr *MockDeployerAPIMockRecorder) GrantOffer(ctx, user, access any, offerURLs ...any) *MockDeployerAPIGrantOfferCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(offerURLs))
-	for i, a := range offerURLs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(offerURLs)
 	call := gomock.NewCall3V_1[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "GrantOffer", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(user), gomock.EnsureMatcher(access), varArgs)
 	mr.grantOfferExpects = append(mr.grantOfferExpects, call)
 	mr.mock.ctrl.Track(call.Call)

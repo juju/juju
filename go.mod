@@ -26,7 +26,7 @@ require (
 	github.com/aws/smithy-go v1.24.2
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite/v3 v3.0.3
-	github.com/canonical/gomock v0.0.0-20260519060545-af63a8f99697
+	github.com/canonical/gomock v0.0.0-20260519102750-3d15054f37aa
 	github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11
 	github.com/canonical/pebble v1.26.0
 	github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea

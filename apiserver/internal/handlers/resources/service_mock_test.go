@@ -465,10 +465,7 @@ func (m *MockResourceOpenerGetter) Opener(arg0 *http.Request, arg1 ...string) (r
 // Opener indicates an expected call of Opener.
 func (mr *MockResourceOpenerGetterMockRecorder) Opener(arg0 any, arg1 ...any) *MockResourceOpenerGetterOpenerCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg1))
-	for i, a := range arg1 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg1)
 	call := gomock.NewCall1V_2[*http.Request, string, resource.Opener, error](mr.mock.ctrl.T, mr.mock, "Opener", gomock.EnsureMatcher(arg0), varArgs)
 	mr.openerExpects = append(mr.openerExpects, call)
 	mr.mock.ctrl.Track(call.Call)

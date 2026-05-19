@@ -185,10 +185,7 @@ func (m *MockClientStore) ControllerByAPIEndpoints(endpoints ...string) (*jujucl
 // ControllerByAPIEndpoints indicates an expected call of ControllerByAPIEndpoints.
 func (mr *MockClientStoreMockRecorder) ControllerByAPIEndpoints(endpoints ...any) *MockClientStoreControllerByAPIEndpointsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(endpoints))
-	for i, a := range endpoints {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(endpoints)
 	call := gomock.NewCall0V_3[string, *jujuclient.ControllerDetails, string, error](mr.mock.ctrl.T, mr.mock, "ControllerByAPIEndpoints", varArgs)
 	mr.controllerByAPIEndpointsExpects = append(mr.controllerByAPIEndpointsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

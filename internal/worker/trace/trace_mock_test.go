@@ -60,10 +60,7 @@ func (m *MockSpan) AddEvent(name string, options ...trace.EventOption) {
 // AddEvent indicates an expected call of AddEvent.
 func (mr *MockSpanMockRecorder) AddEvent(name any, options ...any) *MockSpanAddEventCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall1V_0[string, trace.EventOption](mr.mock.ctrl.T, mr.mock, "AddEvent", gomock.EnsureMatcher(name), varArgs)
 	mr.addEventExpects = append(mr.addEventExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -100,10 +97,7 @@ func (m *MockSpan) End(options ...trace.SpanEndOption) {
 // End indicates an expected call of End.
 func (mr *MockSpanMockRecorder) End(options ...any) *MockSpanEndCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall0V_0[trace.SpanEndOption](mr.mock.ctrl.T, mr.mock, "End", varArgs)
 	mr.endExpects = append(mr.endExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -140,10 +134,7 @@ func (m *MockSpan) RecordError(err error, options ...trace.EventOption) {
 // RecordError indicates an expected call of RecordError.
 func (mr *MockSpanMockRecorder) RecordError(err any, options ...any) *MockSpanRecordErrorCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall1V_0[error, trace.EventOption](mr.mock.ctrl.T, mr.mock, "RecordError", gomock.EnsureMatcher(err), varArgs)
 	mr.recordErrorExpects = append(mr.recordErrorExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -162,10 +153,7 @@ func (m *MockSpan) SetAttributes(kv ...attribute.KeyValue) {
 // SetAttributes indicates an expected call of SetAttributes.
 func (mr *MockSpanMockRecorder) SetAttributes(kv ...any) *MockSpanSetAttributesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(kv))
-	for i, a := range kv {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(kv)
 	call := gomock.NewCall0V_0[attribute.KeyValue](mr.mock.ctrl.T, mr.mock, "SetAttributes", varArgs)
 	mr.setAttributesExpects = append(mr.setAttributesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

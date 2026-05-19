@@ -133,10 +133,7 @@ func (m *MockLoggerContext) GetLogger(name string, tags ...string) logger.Logger
 // GetLogger indicates an expected call of GetLogger.
 func (mr *MockLoggerContextMockRecorder) GetLogger(name any, tags ...any) *MockLoggerContextGetLoggerCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(tags))
-	for i, a := range tags {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(tags)
 	call := gomock.NewCall1V_1[string, string, logger.Logger](mr.mock.ctrl.T, mr.mock, "GetLogger", gomock.EnsureMatcher(name), varArgs)
 	mr.getLoggerExpects = append(mr.getLoggerExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -151,10 +151,7 @@ func (m *MockWatcherFactory) NewNamespaceWatcher(ctx context.Context, query even
 // NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
 func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(ctx, query, summary, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNamespaceWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filterOptions))
-	for i, a := range filterOptions {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filterOptions)
 	call := gomock.NewCall4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNamespaceWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(query), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(filterOption), varArgs)
 	mr.newNamespaceWatcherExpects = append(mr.newNamespaceWatcherExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -372,10 +372,7 @@ func (m *MockModelState) GetConsumerRelationUUIDs(ctx context.Context, relationU
 // GetConsumerRelationUUIDs indicates an expected call of GetConsumerRelationUUIDs.
 func (mr *MockModelStateMockRecorder) GetConsumerRelationUUIDs(ctx any, relationUUIDs ...any) *MockModelStateGetConsumerRelationUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(relationUUIDs))
-	for i, a := range relationUUIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(relationUUIDs)
 	call := gomock.NewCall1V_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetConsumerRelationUUIDs", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getConsumerRelationUUIDsExpects = append(mr.getConsumerRelationUUIDsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -520,10 +517,7 @@ func (m *MockModelState) GetOffererRelationUUIDsForConsumers(ctx context.Context
 // GetOffererRelationUUIDsForConsumers indicates an expected call of GetOffererRelationUUIDsForConsumers.
 func (mr *MockModelStateMockRecorder) GetOffererRelationUUIDsForConsumers(ctx any, consumerUUIDs ...any) *MockModelStateGetOffererRelationUUIDsForConsumersCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(consumerUUIDs))
-	for i, a := range consumerUUIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(consumerUUIDs)
 	call := gomock.NewCall1V_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetOffererRelationUUIDsForConsumers", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getOffererRelationUUIDsForConsumersExpects = append(mr.getOffererRelationUUIDsForConsumersExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -668,10 +662,7 @@ func (m *MockModelState) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 // GetRemoteConsumedSecretURIsWithChangesFromOfferingSide indicates an expected call of GetRemoteConsumedSecretURIsWithChangesFromOfferingSide.
 func (mr *MockModelStateMockRecorder) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appUUID any, revisionUUIDs ...any) *MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(revisionUUIDs))
-	for i, a := range revisionUUIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(revisionUUIDs)
 	call := gomock.NewCall2V_2[context.Context, string, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetRemoteConsumedSecretURIsWithChangesFromOfferingSide", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), varArgs)
 	mr.getRemoteConsumedSecretURIsWithChangesFromOfferingSideExpects = append(mr.getRemoteConsumedSecretURIsWithChangesFromOfferingSideExpects, call)
 	mr.mock.ctrl.Track(call.Call)

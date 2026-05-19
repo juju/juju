@@ -50,10 +50,7 @@ func (m *MockTx) ExecContext(arg0 context.Context, arg1 string, arg2 ...any) (sq
 // ExecContext indicates an expected call of ExecContext.
 func (mr *MockTxMockRecorder) ExecContext(arg0, arg1 any, arg2 ...any) *MockTxExecContextCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_2[context.Context, string, any, sql.Result, error](mr.mock.ctrl.T, mr.mock, "ExecContext", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.execContextExpects = append(mr.execContextExpects, call)
 	mr.mock.ctrl.Track(call.Call)

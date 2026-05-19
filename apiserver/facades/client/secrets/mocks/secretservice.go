@@ -171,10 +171,7 @@ func (m *MockSecretService) ListCharmSecrets(ctx context.Context, owners ...secr
 // ListCharmSecrets indicates an expected call of ListCharmSecrets.
 func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(ctx any, owners ...any) *MockSecretServiceListCharmSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(owners))
-	for i, a := range owners {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(owners)
 	call := gomock.NewCall1V_3[context.Context, secret.CharmSecretOwner, []*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error](mr.mock.ctrl.T, mr.mock, "ListCharmSecrets", gomock.EnsureMatcher(ctx), varArgs)
 	mr.listCharmSecretsExpects = append(mr.listCharmSecretsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

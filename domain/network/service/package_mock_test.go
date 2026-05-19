@@ -494,10 +494,7 @@ func (m *MockState) GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (netw
 // GetSubnetsByCIDR indicates an expected call of GetSubnetsByCIDR.
 func (mr *MockStateMockRecorder) GetSubnetsByCIDR(ctx any, cidrs ...any) *MockStateGetSubnetsByCIDRCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(cidrs))
-	for i, a := range cidrs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(cidrs)
 	call := gomock.NewCall1V_2[context.Context, string, network.SubnetInfos, error](mr.mock.ctrl.T, mr.mock, "GetSubnetsByCIDR", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getSubnetsByCIDRExpects = append(mr.getSubnetsByCIDRExpects, call)
 	mr.mock.ctrl.Track(call.Call)

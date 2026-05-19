@@ -50,10 +50,7 @@ func (m *MockECRInterface) GetAuthorizationToken(arg0 context.Context, arg1 *ecr
 // GetAuthorizationToken indicates an expected call of GetAuthorizationToken.
 func (mr *MockECRInterfaceMockRecorder) GetAuthorizationToken(arg0, arg1 any, arg2 ...any) *MockECRInterfaceGetAuthorizationTokenCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_2[context.Context, *ecr.GetAuthorizationTokenInput, func(*ecr.Options), *ecr.GetAuthorizationTokenOutput, error](mr.mock.ctrl.T, mr.mock, "GetAuthorizationToken", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.getAuthorizationTokenExpects = append(mr.getAuthorizationTokenExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -247,10 +247,7 @@ func (m *MockControllerDBState) RemoveSecretBackendReference(ctx context.Context
 // RemoveSecretBackendReference indicates an expected call of RemoveSecretBackendReference.
 func (mr *MockControllerDBStateMockRecorder) RemoveSecretBackendReference(ctx any, revisionIDs ...any) *MockControllerDBStateRemoveSecretBackendReferenceCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(revisionIDs))
-	for i, a := range revisionIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(revisionIDs)
 	call := gomock.NewCall1V_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "RemoveSecretBackendReference", gomock.EnsureMatcher(ctx), varArgs)
 	mr.removeSecretBackendReferenceExpects = append(mr.removeSecretBackendReferenceExpects, call)
 	mr.mock.ctrl.Track(call.Call)

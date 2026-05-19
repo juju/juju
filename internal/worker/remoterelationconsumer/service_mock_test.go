@@ -228,10 +228,7 @@ func (m *MockRemoteModelRelationsClient) RegisterRemoteRelations(arg0 context.Co
 // RegisterRemoteRelations indicates an expected call of RegisterRemoteRelations.
 func (mr *MockRemoteModelRelationsClientMockRecorder) RegisterRemoteRelations(arg0 any, relations ...any) *MockRemoteModelRelationsClientRegisterRemoteRelationsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(relations))
-	for i, a := range relations {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(relations)
 	call := gomock.NewCall1V_2[context.Context, params.RegisterConsumingRelationArg, []params.RegisterConsumingRelationResult, error](mr.mock.ctrl.T, mr.mock, "RegisterRemoteRelations", gomock.EnsureMatcher(arg0), varArgs)
 	mr.registerRemoteRelationsExpects = append(mr.registerRemoteRelationsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

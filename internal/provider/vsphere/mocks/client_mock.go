@@ -306,10 +306,7 @@ func (m *MockClient) MoveVMsInto(arg0 context.Context, arg1 string, arg2 ...type
 // MoveVMsInto indicates an expected call of MoveVMsInto.
 func (mr *MockClientMockRecorder) MoveVMsInto(arg0, arg1 any, arg2 ...any) *MockClientMoveVMsIntoCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_1[context.Context, string, types.ManagedObjectReference, error](mr.mock.ctrl.T, mr.mock, "MoveVMsInto", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.moveVMsIntoExpects = append(mr.moveVMsIntoExpects, call)
 	mr.mock.ctrl.Track(call.Call)

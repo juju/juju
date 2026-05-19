@@ -366,10 +366,7 @@ func (m *MockMachineProvisioner) SetSupportedContainers(ctx context.Context, con
 // SetSupportedContainers indicates an expected call of SetSupportedContainers.
 func (mr *MockMachineProvisionerMockRecorder) SetSupportedContainers(ctx any, containerTypes ...any) *MockMachineProvisionerSetSupportedContainersCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(containerTypes))
-	for i, a := range containerTypes {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(containerTypes)
 	call := gomock.NewCall1V_1[context.Context, instance.ContainerType, error](mr.mock.ctrl.T, mr.mock, "SetSupportedContainers", gomock.EnsureMatcher(ctx), varArgs)
 	mr.setSupportedContainersExpects = append(mr.setSupportedContainersExpects, call)
 	mr.mock.ctrl.Track(call.Call)

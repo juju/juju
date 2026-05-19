@@ -237,10 +237,7 @@ func (m *MockState) AddRelation(ctx context.Context, ep1, ep2 relation0.Candidat
 // AddRelation indicates an expected call of AddRelation.
 func (mr *MockStateMockRecorder) AddRelation(ctx, ep1, ep2 any, cidrs ...any) *MockStateAddRelationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(cidrs))
-	for i, a := range cidrs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(cidrs)
 	call := gomock.NewCall3V_3[context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, string, relation0.Endpoint, relation0.Endpoint, error](mr.mock.ctrl.T, mr.mock, "AddRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ep1), gomock.EnsureMatcher(ep2), varArgs)
 	mr.addRelationExpects = append(mr.addRelationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1049,10 +1046,7 @@ func (m *MockWatcherFactory) NewNamespaceMapperWatcher(ctx context.Context, init
 // NewNamespaceMapperWatcher indicates an expected call of NewNamespaceMapperWatcher.
 func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(ctx, initialQuery, summary, mapper, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filterOptions))
-	for i, a := range filterOptions {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filterOptions)
 	call := gomock.NewCall5V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.Mapper, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNamespaceMapperWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(initialQuery), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(mapper), gomock.EnsureMatcher(filterOption), varArgs)
 	mr.newNamespaceMapperWatcherExpects = append(mr.newNamespaceMapperWatcherExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1071,10 +1065,7 @@ func (m *MockWatcherFactory) NewNotifyMapperWatcher(ctx context.Context, summary
 // NewNotifyMapperWatcher indicates an expected call of NewNotifyMapperWatcher.
 func (mr *MockWatcherFactoryMockRecorder) NewNotifyMapperWatcher(ctx, summary, mapper, filter any, filterOpts ...any) *MockWatcherFactoryNewNotifyMapperWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filterOpts))
-	for i, a := range filterOpts {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filterOpts)
 	call := gomock.NewCall4V_2[context.Context, string, eventsource.Mapper, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNotifyMapperWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(mapper), gomock.EnsureMatcher(filter), varArgs)
 	mr.newNotifyMapperWatcherExpects = append(mr.newNotifyMapperWatcherExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -1093,10 +1084,7 @@ func (m *MockWatcherFactory) NewNotifyWatcher(ctx context.Context, summary strin
 // NewNotifyWatcher indicates an expected call of NewNotifyWatcher.
 func (mr *MockWatcherFactoryMockRecorder) NewNotifyWatcher(ctx, summary, filter any, filterOpts ...any) *MockWatcherFactoryNewNotifyWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filterOpts))
-	for i, a := range filterOpts {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filterOpts)
 	call := gomock.NewCall3V_2[context.Context, string, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNotifyWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(filter), varArgs)
 	mr.newNotifyWatcherExpects = append(mr.newNotifyWatcherExpects, call)
 	mr.mock.ctrl.Track(call.Call)

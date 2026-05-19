@@ -56,10 +56,7 @@ func (m *MockCharmHubClient) Download(ctx context.Context, resourceURL *url.URL,
 // Download indicates an expected call of Download.
 func (mr *MockCharmHubClientMockRecorder) Download(ctx, resourceURL, archivePath any, options ...any) *MockCharmHubClientDownloadCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall3V_2[context.Context, *url.URL, string, charmhub.DownloadOption, *charmhub.Digest, error](mr.mock.ctrl.T, mr.mock, "Download", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceURL), gomock.EnsureMatcher(archivePath), varArgs)
 	mr.downloadExpects = append(mr.downloadExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -78,10 +75,7 @@ func (m *MockCharmHubClient) Find(ctx context.Context, query string, options ...
 // Find indicates an expected call of Find.
 func (mr *MockCharmHubClientMockRecorder) Find(ctx, query any, options ...any) *MockCharmHubClientFindCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall2V_2[context.Context, string, charmhub.FindOption, []transport.FindResponse, error](mr.mock.ctrl.T, mr.mock, "Find", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(query), varArgs)
 	mr.findExpects = append(mr.findExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -100,10 +94,7 @@ func (m *MockCharmHubClient) Info(ctx context.Context, name string, options ...c
 // Info indicates an expected call of Info.
 func (mr *MockCharmHubClientMockRecorder) Info(ctx, name any, options ...any) *MockCharmHubClientInfoCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(options))
-	for i, a := range options {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(options)
 	call := gomock.NewCall2V_2[context.Context, string, charmhub.InfoOption, transport.InfoResponse, error](mr.mock.ctrl.T, mr.mock, "Info", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), varArgs)
 	mr.infoExpects = append(mr.infoExpects, call)
 	mr.mock.ctrl.Track(call.Call)

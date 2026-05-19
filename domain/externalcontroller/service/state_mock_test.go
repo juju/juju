@@ -73,10 +73,7 @@ func (m *MockState) ControllersForModels(ctx context.Context, modelUUIDs ...stri
 // ControllersForModels indicates an expected call of ControllersForModels.
 func (mr *MockStateMockRecorder) ControllersForModels(ctx any, modelUUIDs ...any) *MockStateControllersForModelsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(modelUUIDs))
-	for i, a := range modelUUIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(modelUUIDs)
 	call := gomock.NewCall1V_2[context.Context, string, []crossmodel.ControllerInfo, error](mr.mock.ctrl.T, mr.mock, "ControllersForModels", gomock.EnsureMatcher(ctx), varArgs)
 	mr.controllersForModelsExpects = append(mr.controllersForModelsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

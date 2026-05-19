@@ -108,10 +108,7 @@ func (m *MockResourceInterface) Apply(ctx context.Context, name string, obj *uns
 // Apply indicates an expected call of Apply.
 func (mr *MockResourceInterfaceMockRecorder) Apply(ctx, name, obj, options any, subresources ...any) *MockResourceInterfaceApplyCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall4V_2[context.Context, string, *unstructured.Unstructured, v1.ApplyOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Apply", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.applyExpects = append(mr.applyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -148,10 +145,7 @@ func (m *MockResourceInterface) Create(ctx context.Context, obj *unstructured.Un
 // Create indicates an expected call of Create.
 func (mr *MockResourceInterfaceMockRecorder) Create(ctx, obj, options any, subresources ...any) *MockResourceInterfaceCreateCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, *unstructured.Unstructured, v1.CreateOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Create", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.createExpects = append(mr.createExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -170,10 +164,7 @@ func (m *MockResourceInterface) Delete(ctx context.Context, name string, options
 // Delete indicates an expected call of Delete.
 func (mr *MockResourceInterfaceMockRecorder) Delete(ctx, name, options any, subresources ...any) *MockResourceInterfaceDeleteCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_1[context.Context, string, v1.DeleteOptions, string, error](mr.mock.ctrl.T, mr.mock, "Delete", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(options), varArgs)
 	mr.deleteExpects = append(mr.deleteExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -210,10 +201,7 @@ func (m *MockResourceInterface) Get(ctx context.Context, name string, options v1
 // Get indicates an expected call of Get.
 func (mr *MockResourceInterfaceMockRecorder) Get(ctx, name, options any, subresources ...any) *MockResourceInterfaceGetCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, string, v1.GetOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Get", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(options), varArgs)
 	mr.getExpects = append(mr.getExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -250,10 +238,7 @@ func (m *MockResourceInterface) Patch(ctx context.Context, name string, pt types
 // Patch indicates an expected call of Patch.
 func (mr *MockResourceInterfaceMockRecorder) Patch(ctx, name, pt, data, options any, subresources ...any) *MockResourceInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v1.PatchOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(options), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -272,10 +257,7 @@ func (m *MockResourceInterface) Update(ctx context.Context, obj *unstructured.Un
 // Update indicates an expected call of Update.
 func (mr *MockResourceInterfaceMockRecorder) Update(ctx, obj, options any, subresources ...any) *MockResourceInterfaceUpdateCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, *unstructured.Unstructured, v1.UpdateOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Update", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.updateExpects = append(mr.updateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -366,10 +348,7 @@ func (m *MockNamespaceableResourceInterface) Apply(ctx context.Context, name str
 // Apply indicates an expected call of Apply.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Apply(ctx, name, obj, options any, subresources ...any) *MockNamespaceableResourceInterfaceApplyCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall4V_2[context.Context, string, *unstructured.Unstructured, v1.ApplyOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Apply", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.applyExpects = append(mr.applyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -406,10 +385,7 @@ func (m *MockNamespaceableResourceInterface) Create(ctx context.Context, obj *un
 // Create indicates an expected call of Create.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Create(ctx, obj, options any, subresources ...any) *MockNamespaceableResourceInterfaceCreateCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, *unstructured.Unstructured, v1.CreateOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Create", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.createExpects = append(mr.createExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -428,10 +404,7 @@ func (m *MockNamespaceableResourceInterface) Delete(ctx context.Context, name st
 // Delete indicates an expected call of Delete.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Delete(ctx, name, options any, subresources ...any) *MockNamespaceableResourceInterfaceDeleteCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_1[context.Context, string, v1.DeleteOptions, string, error](mr.mock.ctrl.T, mr.mock, "Delete", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(options), varArgs)
 	mr.deleteExpects = append(mr.deleteExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -468,10 +441,7 @@ func (m *MockNamespaceableResourceInterface) Get(ctx context.Context, name strin
 // Get indicates an expected call of Get.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Get(ctx, name, options any, subresources ...any) *MockNamespaceableResourceInterfaceGetCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, string, v1.GetOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Get", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(options), varArgs)
 	mr.getExpects = append(mr.getExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -526,10 +496,7 @@ func (m *MockNamespaceableResourceInterface) Patch(ctx context.Context, name str
 // Patch indicates an expected call of Patch.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Patch(ctx, name, pt, data, options any, subresources ...any) *MockNamespaceableResourceInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v1.PatchOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(options), varArgs)
 	mr.patchExpects = append(mr.patchExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -548,10 +515,7 @@ func (m *MockNamespaceableResourceInterface) Update(ctx context.Context, obj *un
 // Update indicates an expected call of Update.
 func (mr *MockNamespaceableResourceInterfaceMockRecorder) Update(ctx, obj, options any, subresources ...any) *MockNamespaceableResourceInterfaceUpdateCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(subresources))
-	for i, a := range subresources {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
 	call := gomock.NewCall3V_2[context.Context, *unstructured.Unstructured, v1.UpdateOptions, string, *unstructured.Unstructured, error](mr.mock.ctrl.T, mr.mock, "Update", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(obj), gomock.EnsureMatcher(options), varArgs)
 	mr.updateExpects = append(mr.updateExpects, call)
 	mr.mock.ctrl.Track(call.Call)

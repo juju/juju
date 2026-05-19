@@ -90,10 +90,7 @@ func (m *MockTrackedTracer) Start(arg0 context.Context, arg1 string, arg2 ...tra
 // Start indicates an expected call of Start.
 func (mr *MockTrackedTracerMockRecorder) Start(arg0, arg1 any, arg2 ...any) *MockTrackedTracerStartCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_2[context.Context, string, trace.Option, context.Context, trace.Span](mr.mock.ctrl.T, mr.mock, "Start", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.startExpects = append(mr.startExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -217,10 +214,7 @@ func (m *MockClientTracer) Start(ctx context.Context, spanName string, opts ...t
 // Start indicates an expected call of Start.
 func (mr *MockClientTracerMockRecorder) Start(ctx, spanName any, opts ...any) *MockClientTracerStartCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(opts))
-	for i, a := range opts {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(opts)
 	call := gomock.NewCall2V_2[context.Context, string, trace0.SpanStartOption, context.Context, ClientSpan](mr.mock.ctrl.T, mr.mock, "Start", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(spanName), varArgs)
 	mr.startExpects = append(mr.startExpects, call)
 	mr.mock.ctrl.Track(call.Call)

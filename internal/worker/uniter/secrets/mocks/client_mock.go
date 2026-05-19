@@ -186,10 +186,7 @@ func (m *MockSecretsClient) WatchDeleted(ctx context.Context, ownerTags ...names
 // WatchDeleted indicates an expected call of WatchDeleted.
 func (mr *MockSecretsClientMockRecorder) WatchDeleted(ctx any, ownerTags ...any) *MockSecretsClientWatchDeletedCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ownerTags))
-	for i, a := range ownerTags {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ownerTags)
 	call := gomock.NewCall1V_2[context.Context, names.Tag, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchDeleted", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchDeletedExpects = append(mr.watchDeletedExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -208,10 +205,7 @@ func (m *MockSecretsClient) WatchObsolete(ctx context.Context, ownerTags ...name
 // WatchObsolete indicates an expected call of WatchObsolete.
 func (mr *MockSecretsClientMockRecorder) WatchObsolete(ctx any, ownerTags ...any) *MockSecretsClientWatchObsoleteCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ownerTags))
-	for i, a := range ownerTags {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ownerTags)
 	call := gomock.NewCall1V_2[context.Context, names.Tag, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchObsolete", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchObsoleteExpects = append(mr.watchObsoleteExpects, call)
 	mr.mock.ctrl.Track(call.Call)

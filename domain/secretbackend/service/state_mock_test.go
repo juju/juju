@@ -175,10 +175,7 @@ func (m *MockState) GetSecretBackendRotateChanges(ctx context.Context, backendID
 // GetSecretBackendRotateChanges indicates an expected call of GetSecretBackendRotateChanges.
 func (mr *MockStateMockRecorder) GetSecretBackendRotateChanges(ctx any, backendIDs ...any) *MockStateGetSecretBackendRotateChangesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(backendIDs))
-	for i, a := range backendIDs {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(backendIDs)
 	call := gomock.NewCall1V_2[context.Context, string, []watcher.SecretBackendRotateChange, error](mr.mock.ctrl.T, mr.mock, "GetSecretBackendRotateChanges", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getSecretBackendRotateChangesExpects = append(mr.getSecretBackendRotateChangesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

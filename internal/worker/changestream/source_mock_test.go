@@ -48,10 +48,7 @@ func (m *MockEventSource) Subscribe(summary string, opts ...changestream.Subscri
 // Subscribe indicates an expected call of Subscribe.
 func (mr *MockEventSourceMockRecorder) Subscribe(summary any, opts ...any) *MockEventSourceSubscribeCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(opts))
-	for i, a := range opts {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(opts)
 	call := gomock.NewCall1V_2[string, changestream.SubscriptionOption, changestream.Subscription, error](mr.mock.ctrl.T, mr.mock, "Subscribe", gomock.EnsureMatcher(summary), varArgs)
 	mr.subscribeExpects = append(mr.subscribeExpects, call)
 	mr.mock.ctrl.Track(call.Call)

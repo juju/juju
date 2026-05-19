@@ -393,10 +393,7 @@ func (m *MockApplicationService) CreateCAASApplication(arg0 context.Context, arg
 // CreateCAASApplication indicates an expected call of CreateCAASApplication.
 func (mr *MockApplicationServiceMockRecorder) CreateCAASApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateCAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg5))
-	for i, a := range arg5 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg5)
 	call := gomock.NewCall5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddUnitArg, application.UUID, error](mr.mock.ctrl.T, mr.mock, "CreateCAASApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), varArgs)
 	mr.createCAASApplicationExpects = append(mr.createCAASApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -415,10 +412,7 @@ func (m *MockApplicationService) CreateIAASApplication(arg0 context.Context, arg
 // CreateIAASApplication indicates an expected call of CreateIAASApplication.
 func (mr *MockApplicationServiceMockRecorder) CreateIAASApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateIAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg5))
-	for i, a := range arg5 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg5)
 	call := gomock.NewCall5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddIAASUnitArg, application.UUID, error](mr.mock.ctrl.T, mr.mock, "CreateIAASApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), varArgs)
 	mr.createIAASApplicationExpects = append(mr.createIAASApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -764,10 +758,7 @@ func (m *MockKeyManagerService) AddPublicKeysForUser(arg0 context.Context, arg1 
 // AddPublicKeysForUser indicates an expected call of AddPublicKeysForUser.
 func (mr *MockKeyManagerServiceMockRecorder) AddPublicKeysForUser(arg0, arg1 any, arg2 ...any) *MockKeyManagerServiceAddPublicKeysForUserCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg2))
-	for i, a := range arg2 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
 	call := gomock.NewCall2V_1[context.Context, user.UUID, string, error](mr.mock.ctrl.T, mr.mock, "AddPublicKeysForUser", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.addPublicKeysForUserExpects = append(mr.addPublicKeysForUserExpects, call)
 	mr.mock.ctrl.Track(call.Call)

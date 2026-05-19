@@ -51,10 +51,7 @@ func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(ctx context.
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
 func (mr *MockSecretManagerFacadeMockRecorder) WatchSecretRevisionsExpiryChanges(ctx any, ownerTags ...any) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(ownerTags))
-	for i, a := range ownerTags {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(ownerTags)
 	call := gomock.NewCall1V_2[context.Context, names.Tag, watcher.SecretTriggerWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSecretRevisionsExpiryChanges", gomock.EnsureMatcher(ctx), varArgs)
 	mr.watchSecretRevisionsExpiryChangesExpects = append(mr.watchSecretRevisionsExpiryChangesExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -50,10 +50,7 @@ func (m *MockRegisterer) MustRegister(arg0 ...prometheus.Collector) {
 // MustRegister indicates an expected call of MustRegister.
 func (mr *MockRegistererMockRecorder) MustRegister(arg0 ...any) *MockRegistererMustRegisterCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_0[prometheus.Collector](mr.mock.ctrl.T, mr.mock, "MustRegister", varArgs)
 	mr.mustRegisterExpects = append(mr.mustRegisterExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -72,10 +72,7 @@ func (m *MockModelExtractor) GetConfig(ctx context.Context, applications ...stri
 // GetConfig indicates an expected call of GetConfig.
 func (mr *MockModelExtractorMockRecorder) GetConfig(ctx any, applications ...any) *MockModelExtractorGetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(applications))
-	for i, a := range applications {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(applications)
 	call := gomock.NewCall1V_2[context.Context, string, []map[string]any, error](mr.mock.ctrl.T, mr.mock, "GetConfig", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getConfigExpects = append(mr.getConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -94,10 +91,7 @@ func (m *MockModelExtractor) GetConstraints(ctx context.Context, applications ..
 // GetConstraints indicates an expected call of GetConstraints.
 func (mr *MockModelExtractorMockRecorder) GetConstraints(ctx any, applications ...any) *MockModelExtractorGetConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(applications))
-	for i, a := range applications {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(applications)
 	call := gomock.NewCall1V_2[context.Context, string, []constraints.Value, error](mr.mock.ctrl.T, mr.mock, "GetConstraints", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getConstraintsExpects = append(mr.getConstraintsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

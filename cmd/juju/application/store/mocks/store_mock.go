@@ -178,10 +178,7 @@ func (m *MockDownloadBundleClient) Download(arg0 context.Context, arg1 *url.URL,
 // Download indicates an expected call of Download.
 func (mr *MockDownloadBundleClientMockRecorder) Download(arg0, arg1, arg2 any, arg3 ...any) *MockDownloadBundleClientDownloadCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg3))
-	for i, a := range arg3 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg3)
 	call := gomock.NewCall3V_2[context.Context, *url.URL, string, charmhub.DownloadOption, *charmhub.Digest, error](mr.mock.ctrl.T, mr.mock, "Download", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), varArgs)
 	mr.downloadExpects = append(mr.downloadExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -232,10 +232,7 @@ func (m *MockApplier) Apply(arg0 ...resources.Resource) {
 // Apply indicates an expected call of Apply.
 func (mr *MockApplierMockRecorder) Apply(arg0 ...any) *MockApplierApplyCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_0[resources.Resource](mr.mock.ctrl.T, mr.mock, "Apply", varArgs)
 	mr.applyExpects = append(mr.applyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -272,10 +269,7 @@ func (m *MockApplier) Delete(arg0 ...resources.Resource) {
 // Delete indicates an expected call of Delete.
 func (mr *MockApplierMockRecorder) Delete(arg0 ...any) *MockApplierDeleteCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_0[resources.Resource](mr.mock.ctrl.T, mr.mock, "Delete", varArgs)
 	mr.deleteExpects = append(mr.deleteExpects, call)
 	mr.mock.ctrl.Track(call.Call)

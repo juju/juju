@@ -60,10 +60,7 @@ func (m *MockLogger) Child(name string, tags ...string) logger.Logger {
 // Child indicates an expected call of Child.
 func (mr *MockLoggerMockRecorder) Child(name any, tags ...any) *MockLoggerChildCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(tags))
-	for i, a := range tags {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(tags)
 	call := gomock.NewCall1V_1[string, string, logger.Logger](mr.mock.ctrl.T, mr.mock, "Child", gomock.EnsureMatcher(name), varArgs)
 	mr.childExpects = append(mr.childExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -82,10 +79,7 @@ func (m *MockLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 // Criticalf indicates an expected call of Criticalf.
 func (mr *MockLoggerMockRecorder) Criticalf(ctx, msg any, args ...any) *MockLoggerCriticalfCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Criticalf", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.criticalfExpects = append(mr.criticalfExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -104,10 +98,7 @@ func (m *MockLogger) Debugf(ctx context.Context, msg string, args ...any) {
 // Debugf indicates an expected call of Debugf.
 func (mr *MockLoggerMockRecorder) Debugf(ctx, msg any, args ...any) *MockLoggerDebugfCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Debugf", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.debugfExpects = append(mr.debugfExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -126,10 +117,7 @@ func (m *MockLogger) Errorf(ctx context.Context, msg string, args ...any) {
 // Errorf indicates an expected call of Errorf.
 func (mr *MockLoggerMockRecorder) Errorf(ctx, msg any, args ...any) *MockLoggerErrorfCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Errorf", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.errorfExpects = append(mr.errorfExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -184,10 +172,7 @@ func (m *MockLogger) Infof(ctx context.Context, msg string, args ...any) {
 // Infof indicates an expected call of Infof.
 func (mr *MockLoggerMockRecorder) Infof(ctx, msg any, args ...any) *MockLoggerInfofCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Infof", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.infofExpects = append(mr.infofExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -224,10 +209,7 @@ func (m *MockLogger) Logf(ctx context.Context, level logger.Level, labels logger
 // Logf indicates an expected call of Logf.
 func (mr *MockLoggerMockRecorder) Logf(ctx, level, labels, format any, args ...any) *MockLoggerLogfCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall4V_0[context.Context, logger.Level, logger.Labels, string, any](mr.mock.ctrl.T, mr.mock, "Logf", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(level), gomock.EnsureMatcher(labels), gomock.EnsureMatcher(format), varArgs)
 	mr.logfExpects = append(mr.logfExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -246,10 +228,7 @@ func (m *MockLogger) Tracef(ctx context.Context, msg string, args ...any) {
 // Tracef indicates an expected call of Tracef.
 func (mr *MockLoggerMockRecorder) Tracef(ctx, msg any, args ...any) *MockLoggerTracefCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Tracef", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.tracefExpects = append(mr.tracefExpects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -268,10 +247,7 @@ func (m *MockLogger) Warningf(ctx context.Context, msg string, args ...any) {
 // Warningf indicates an expected call of Warningf.
 func (mr *MockLoggerMockRecorder) Warningf(ctx, msg any, args ...any) *MockLoggerWarningfCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(args))
-	for i, a := range args {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(args)
 	call := gomock.NewCall2V_0[context.Context, string, any](mr.mock.ctrl.T, mr.mock, "Warningf", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(msg), varArgs)
 	mr.warningfExpects = append(mr.warningfExpects, call)
 	mr.mock.ctrl.Track(call.Call)

@@ -173,10 +173,7 @@ func (m *MockApplicationService) ListCharmLocators(ctx context.Context, names ..
 // ListCharmLocators indicates an expected call of ListCharmLocators.
 func (mr *MockApplicationServiceMockRecorder) ListCharmLocators(ctx any, names ...any) *MockApplicationServiceListCharmLocatorsCall {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(names))
-	for i, a := range names {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(names)
 	call := gomock.NewCall1V_2[context.Context, string, []charm0.CharmLocator, error](mr.mock.ctrl.T, mr.mock, "ListCharmLocators", gomock.EnsureMatcher(ctx), varArgs)
 	mr.listCharmLocatorsExpects = append(mr.listCharmLocatorsExpects, call)
 	mr.mock.ctrl.Track(call.Call)

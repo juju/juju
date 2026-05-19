@@ -627,10 +627,7 @@ func (m *MockNetworkingNeutron) ListFloatingIPsV2(arg0 ...*neutron.Filter) ([]ne
 // ListFloatingIPsV2 indicates an expected call of ListFloatingIPsV2.
 func (mr *MockNetworkingNeutronMockRecorder) ListFloatingIPsV2(arg0 ...any) *MockNetworkingNeutronListFloatingIPsV2Call {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_2[*neutron.Filter, []neutron.FloatingIPV2, error](mr.mock.ctrl.T, mr.mock, "ListFloatingIPsV2", varArgs)
 	mr.listFloatingIPsV2Expects = append(mr.listFloatingIPsV2Expects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -649,10 +646,7 @@ func (m *MockNetworkingNeutron) ListNetworksV2(arg0 ...*neutron.Filter) ([]neutr
 // ListNetworksV2 indicates an expected call of ListNetworksV2.
 func (mr *MockNetworkingNeutronMockRecorder) ListNetworksV2(arg0 ...any) *MockNetworkingNeutronListNetworksV2Call {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(arg0))
-	for i, a := range arg0 {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(arg0)
 	call := gomock.NewCall0V_2[*neutron.Filter, []neutron.NetworkV2, error](mr.mock.ctrl.T, mr.mock, "ListNetworksV2", varArgs)
 	mr.listNetworksV2Expects = append(mr.listNetworksV2Expects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -671,10 +665,7 @@ func (m *MockNetworkingNeutron) ListPolicyTargetsV2(filter ...*neutron.Filter) (
 // ListPolicyTargetsV2 indicates an expected call of ListPolicyTargetsV2.
 func (mr *MockNetworkingNeutronMockRecorder) ListPolicyTargetsV2(filter ...any) *MockNetworkingNeutronListPolicyTargetsV2Call {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filter))
-	for i, a := range filter {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filter)
 	call := gomock.NewCall0V_2[*neutron.Filter, []neutron.PolicyTargetV2, error](mr.mock.ctrl.T, mr.mock, "ListPolicyTargetsV2", varArgs)
 	mr.listPolicyTargetsV2Expects = append(mr.listPolicyTargetsV2Expects, call)
 	mr.mock.ctrl.Track(call.Call)
@@ -693,10 +684,7 @@ func (m *MockNetworkingNeutron) ListPortsV2(filter ...*neutron.Filter) ([]neutro
 // ListPortsV2 indicates an expected call of ListPortsV2.
 func (mr *MockNetworkingNeutronMockRecorder) ListPortsV2(filter ...any) *MockNetworkingNeutronListPortsV2Call {
 	mr.mock.ctrl.T.Helper()
-	varArgs := make([]gomock.Matcher, len(filter))
-	for i, a := range filter {
-		varArgs[i] = gomock.EnsureMatcher(a)
-	}
+	varArgs := gomock.EnsureVariadicMatcher(filter)
 	call := gomock.NewCall0V_2[*neutron.Filter, []neutron.PortV2, error](mr.mock.ctrl.T, mr.mock, "ListPortsV2", varArgs)
 	mr.listPortsV2Expects = append(mr.listPortsV2Expects, call)
 	mr.mock.ctrl.Track(call.Call)
