@@ -162,7 +162,7 @@ func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *tc.C) {
 
 func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *tc.C) {
 	s.PatchValue(&k8sprovider.CheckJujuOfficial, func(string) (semversion.Binary, bool, error) {
-		return semversion.Binary{}, false, errors.NotFoundf("jujud")
+		return semversion.Binary{}, false, errors.NotFoundf("jujuagentd")
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := k8sprovider.DecideKubeConfigDir()

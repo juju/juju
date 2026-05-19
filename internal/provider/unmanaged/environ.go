@@ -243,37 +243,37 @@ func (e *manualEnviron) Destroy(ctx context.Context) error {
 // DestroyController implements the Environ interface.
 func (e *manualEnviron) DestroyController(ctx context.Context, controllerUUID string) error {
 	script := `
-# Signal the jujud process to stop, then check it has done so.
+# Signal the jujuagentd process to stop, then check it has done so.
 set -x
 
 stopped=0
-function wait_for_jujud {
+function wait_for_jujuagentd {
     for i in {1..30}; do
-        if pgrep jujud > /dev/null ; then
+        if pgrep jujuagentd > /dev/null ; then
             sleep 1
         else
-            echo jujud stopped
+            echo jujuagentd stopped
             stopped=1
-            logger --id jujud stopped on attempt $i
+            logger --id jujuagentd stopped on attempt $i
             break
         fi
     done
 }
 
-# There might be no jujud at all (for example, after a failed deployment) so
-# don't require pkill to succeed before looking for a jujud process.
+# There might be no jujuagentd at all (for example, after a failed deployment) so
+# don't require pkill to succeed before looking for a jujuagentd process.
 # SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
 # rather than terminate normally.
-pkill -SIGABRT jujud
-wait_for_jujud
+pkill -SIGABRT jujuagentd
+wait_for_jujuagentd
 
 [[ $stopped -ne 1 ]] && {
-    # If jujud didn't stop nicely, we kill it hard here.
-    %[1]spkill -SIGKILL jujud && wait_for_jujud
+    # If jujuagentd didn't stop nicely, we kill it hard here.
+    %[1]spkill -SIGKILL jujuagentd && wait_for_jujuagentd
 }
 [[ $stopped -ne 1 ]] && {
-    echo stopping jujud failed
-    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
+    echo stopping jujuagentd failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujuagentd) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
     exit 1
 }
 exit 0
@@ -281,7 +281,7 @@ exit 0
 	var diagnostics string
 	if featureflag.Enabled(featureflag.DeveloperMode) {
 		diagnostics = `
-    echo "Dump engine report and goroutines for stuck jujud"
+    echo "Dump engine report and goroutines for stuck jujuagentd"
     source /etc/profile.d/juju-introspection.sh
     juju-engine-report
     juju-goroutines
