@@ -38,7 +38,7 @@ following structure:
     - Can be Optional is it’s hard to define the scope
 - **description**: A brief summary of the change.
     - Must be provided after the BREAKING CHANGE:, describing what has changed about the API, e.g., BREAKING CHANGE: environment variables now take precedence over config files.
-    - Should use lowercase.
+    - **Must use lowercase** (enforced by CI - your PR will fail if you use uppercase, title case, or sentence case).
     - Should not end in any punctuation.
 - **body**: Detailed explanation of the change.
     - Can be Optional for small/trivial `fix`, but NOT for other types.
@@ -158,4 +158,29 @@ refactor(cmr): remove all uclear and understandle code from CMR implementation
 fix(backup): fix backup db state issue
 
 <optional body for fix(backup)>
+```
+
+## Common Mistakes
+
+### ❌ Capitalized description (will fail CI)
+```
+docs: Update binary download links
+```
+
+### ✅ Correct lowercase description
+```
+docs: update binary download links
+```
+
+### ❌ Sentence case (will fail CI)
+```
+docs: Remove Windows installation instructions
+```
+
+### ✅ Correct lowercase
+```
+docs: remove Windows installation instructions
+```
+
+The CI uses `commitlint` which enforces `subject-case` rules. Your PR will fail if the description after the type and scope is not lowercase.
 ```
