@@ -143,7 +143,7 @@ func (s *initialisationSuite) TestCheckProvisioned(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provisioned, tc.IsFalse)
 
-	defer installFakeSSH(c, listCmd, "jujud-machine-42", 0)()
+	defer installFakeSSH(c, listCmd, "jujuagentd-machine-42", 0)()
 	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provisioned, tc.IsTrue)

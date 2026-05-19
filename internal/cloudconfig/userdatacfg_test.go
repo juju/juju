@@ -165,7 +165,7 @@ func makeNormalConfig(base corebase.Base, build int) *testInstanceConfig {
 // match the given machine ID. If APIInfo are nil, they're not changed.
 func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	cfg.MachineId = id
-	cfg.MachineAgentServiceName = fmt.Sprintf("jujud-%s", names.NewMachineTag(id).String())
+	cfg.MachineAgentServiceName = fmt.Sprintf("jujuagentd-%s", names.NewMachineTag(id).String())
 	if cfg.APIInfo != nil {
 		cfg.APIInfo.Tag = names.NewMachineTag(id)
 	}
@@ -612,7 +612,7 @@ func (s *cloudinitSuite) TestCloudInit(c *tc.C) {
 
 		tag := names.NewMachineTag(testConfig.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
-		c.Assert(acfg, tc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
+		c.Assert(acfg, tc.Contains, "AGENT_SERVICE_NAME: jujuagentd-"+tag)
 		c.Assert(acfg, tc.Contains, fmt.Sprintf("upgradedToVersion: %s\n", test.upgradedToVersion))
 	}
 }
@@ -1162,7 +1162,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *tc.C) {
 			Jobs:                    normalMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog("jammy"),
 			MachineNonce:            "FAKE_NONCE",
-			MachineAgentServiceName: "jujud-machine-99",
+			MachineAgentServiceName: "jujuagentd-machine-99",
 		}
 	}
 

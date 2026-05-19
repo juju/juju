@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
@@ -832,7 +833,7 @@ func NewInstanceConfig(
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
-		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		MachineAgentServiceName: jujunames.Jujud + "-" + names.NewMachineTag(machineID).String(),
 		Base:                    base,
 		Tags:                    map[string]string{},
 
