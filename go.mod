@@ -57,7 +57,7 @@ require (
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
-	github.com/juju/gomaasapi/v2 v2.3.0
+	github.com/juju/gomaasapi/v2 v2.4.0
 	github.com/juju/http/v2 v2.0.1
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
@@ -327,5 +327,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
-
-replace github.com/juju/gomaasapi/v2 => github.com/wallyworld/gomaasapi/v2 v2.0.0-20260507000738-f2c8a7a825da
