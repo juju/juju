@@ -8,7 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"

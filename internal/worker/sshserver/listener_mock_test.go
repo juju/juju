@@ -11,26 +11,29 @@ package sshserver
 
 import (
 	net "net"
-	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 )
 
 // MockListener is a mock of Listener interface.
 type MockListener struct {
 	ctrl     *gomock.Controller
 	recorder *MockListenerMockRecorder
+	isgomock struct{}
 }
 
 // MockListenerMockRecorder is the mock recorder for MockListener.
 type MockListenerMockRecorder struct {
-	mock *MockListener
+	mock          *MockListener
+	acceptExpects []*gomock.Call0_2[net.Conn, error]
+	addrExpects   []*gomock.Call0_1[net.Addr]
+	closeExpects  []*gomock.Call0_1[error]
 }
 
 // NewMockListener creates a new mock instance.
 func NewMockListener(ctrl *gomock.Controller) *MockListener {
 	mock := &MockListener{ctrl: ctrl}
-	mock.recorder = &MockListenerMockRecorder{mock}
+	mock.recorder = &MockListenerMockRecorder{mock: mock}
 	return mock
 }
 
@@ -42,42 +45,53 @@ func (m *MockListener) EXPECT() *MockListenerMockRecorder {
 // Accept mocks base method.
 func (m *MockListener) Accept() (net.Conn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Accept")
-	ret0, _ := ret[0].(net.Conn)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.acceptExpects, m.ctrl, m, "Accept")
 }
 
 // Accept indicates an expected call of Accept.
-func (mr *MockListenerMockRecorder) Accept() *gomock.Call {
+func (mr *MockListenerMockRecorder) Accept() *MockListenerAcceptCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accept", reflect.TypeOf((*MockListener)(nil).Accept))
+	call := gomock.NewCall0_2[net.Conn, error](mr.mock.ctrl.T, mr.mock, "Accept")
+	mr.acceptExpects = append(mr.acceptExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockListenerAcceptCall is the typed call wrapper for Accept.
+type MockListenerAcceptCall = gomock.Call0_2[net.Conn, error]
 
 // Addr mocks base method.
 func (m *MockListener) Addr() net.Addr {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Addr")
-	ret0, _ := ret[0].(net.Addr)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.addrExpects, m.ctrl, m, "Addr")
 }
 
 // Addr indicates an expected call of Addr.
-func (mr *MockListenerMockRecorder) Addr() *gomock.Call {
+func (mr *MockListenerMockRecorder) Addr() *MockListenerAddrCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addr", reflect.TypeOf((*MockListener)(nil).Addr))
+	call := gomock.NewCall0_1[net.Addr](mr.mock.ctrl.T, mr.mock, "Addr")
+	mr.addrExpects = append(mr.addrExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockListenerAddrCall is the typed call wrapper for Addr.
+type MockListenerAddrCall = gomock.Call0_1[net.Addr]
 
 // Close mocks base method.
 func (m *MockListener) Close() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.closeExpects, m.ctrl, m, "Close")
 }
 
 // Close indicates an expected call of Close.
-func (mr *MockListenerMockRecorder) Close() *gomock.Call {
+func (mr *MockListenerMockRecorder) Close() *MockListenerCloseCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockListener)(nil).Close))
+	call := gomock.NewCall0_1[error](mr.mock.ctrl.T, mr.mock, "Close")
+	mr.closeExpects = append(mr.closeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockListenerCloseCall is the typed call wrapper for Close.
+type MockListenerCloseCall = gomock.Call0_1[error]

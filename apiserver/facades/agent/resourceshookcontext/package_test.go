@@ -3,4 +3,4 @@
 
 package resourceshookcontext
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package resourceshookcontext -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/resourceshookcontext ApplicationService,ResourceService
+//go:generate go run github.com/canonical/gomock/mockgen -package resourceshookcontext -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/resourceshookcontext ApplicationService,ResourceService

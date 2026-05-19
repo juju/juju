@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -161,7 +161,7 @@ func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
 		nil,
 	)
 
-	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
+	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID).Return(nil)
 
 	w := &bootstrapWorker{
 		cfg: WorkerConfig{

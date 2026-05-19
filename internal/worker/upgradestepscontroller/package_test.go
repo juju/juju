@@ -8,7 +8,7 @@ import (
 
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"
@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/internal/upgradesteps"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination api_mock_test.go github.com/juju/juju/api/base APICaller
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination upgradeservice_mock_test.go github.com/juju/juju/internal/worker/upgradestepscontroller UpgradeService
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepscontroller -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination api_mock_test.go github.com/juju/juju/api/base APICaller
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination upgradeservice_mock_test.go github.com/juju/juju/internal/worker/upgradestepscontroller UpgradeService
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradestepscontroller -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

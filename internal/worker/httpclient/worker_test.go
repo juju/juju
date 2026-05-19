@@ -14,7 +14,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	corehttp "github.com/juju/juju/core/http"
 	internalhttp "github.com/juju/juju/internal/http"

@@ -3,4 +3,4 @@
 
 package watcherregistry
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package watcherregistry -destination worker_mock_test.go github.com/juju/worker/v5 Worker
+//go:generate go run github.com/canonical/gomock/mockgen -package watcherregistry -destination worker_mock_test.go github.com/juju/worker/v5 Worker

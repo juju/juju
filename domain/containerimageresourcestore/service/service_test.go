@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	resourcestore "github.com/juju/juju/core/resource/store"

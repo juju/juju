@@ -17,7 +17,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	api "github.com/juju/juju/api"

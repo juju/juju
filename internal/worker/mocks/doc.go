@@ -6,4 +6,4 @@
 
 package mocks
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination worker_mock.go github.com/juju/worker/v5 Worker
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination worker_mock.go github.com/juju/worker/v5 Worker

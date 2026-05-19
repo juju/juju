@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/blockcommand"

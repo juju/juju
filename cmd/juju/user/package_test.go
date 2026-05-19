@@ -3,10 +3,10 @@
 
 package user
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_controllercommand_mock_test.go github.com/juju/juju/cmd/juju/user ControllerCommand
-//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_clientstore_mock_test.go github.com/juju/juju/api/jujuclient ClientStore
-//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_loginprovider_mock_test.go github.com/juju/juju/api LoginProvider
-//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_sessionloginfactory_mock_test.go github.com/juju/juju/cmd/modelcmd SessionLoginFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package user_test -destination utils_controllercommand_mock_test.go github.com/juju/juju/cmd/juju/user ControllerCommand
+//go:generate go run github.com/canonical/gomock/mockgen -package user_test -destination utils_clientstore_mock_test.go github.com/juju/juju/api/jujuclient ClientStore
+//go:generate go run github.com/canonical/gomock/mockgen -package user_test -destination utils_loginprovider_mock_test.go github.com/juju/juju/api LoginProvider
+//go:generate go run github.com/canonical/gomock/mockgen -package user_test -destination utils_sessionloginfactory_mock_test.go github.com/juju/juju/cmd/modelcmd SessionLoginFactory
 
 // None of the tests in this package require mongo.
 // Full command integration tests are found in cmd/juju/user_test.go

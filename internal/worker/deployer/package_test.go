@@ -16,7 +16,7 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/internal/worker/deployer Client,Machine,Unit
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/internal/worker/deployer Client,Machine,Unit
 
 type BaseSuite struct {
 	testhelpers.IsolationSuite

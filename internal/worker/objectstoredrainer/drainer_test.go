@@ -19,7 +19,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	objectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/testing"

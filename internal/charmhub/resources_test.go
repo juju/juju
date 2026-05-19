@@ -10,9 +10,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -67,7 +67,7 @@ func (s *ResourcesSuite) expectGet(c *tc.C, client *MockRESTClient, p path.Path,
 	namedPath, err := p.Join(charm, resource, "revisions")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
 		response := r.(*transport.ResourcesResponse)
 		response.Revisions = make([]transport.ResourceRevision, 3)
 		return restResponse{}, nil

@@ -8,11 +8,11 @@ import (
 	"net/http"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -299,7 +299,7 @@ func (s *environSuite) setupStopInstanceExpectations(c *tc.C, instancesDetails [
 	}
 
 	listCall := s.compute.EXPECT().ListInstances(gomock.Any(), &s.testCompartment).Return(
-		listInstancesResponse.Items, nil).AnyTimes()
+		listInstancesResponse.Items, nil)
 
 	for _, inst := range instancesListWithError {
 		requestMachine, responseMachine := makeGetInstanceRequestResponse(inst.instance)
@@ -327,7 +327,7 @@ func (s *environSuite) setupStopInstanceExpectations(c *tc.C, instancesDetails [
 		requestMachineTerminated, responseMachineTerminated := makeGetInstanceRequestResponse(terminatedInst)
 
 		getCall := s.compute.EXPECT().GetInstance(gomock.Any(), requestMachine).Return(
-			responseMachine, nil).AnyTimes().After(listCall)
+			responseMachine, nil).After(listCall)
 
 		terminateCall := s.compute.EXPECT().TerminateInstance(gomock.Any(), terminateRequestMachine).Return(
 			terminateResponse, inst.err).After(getCall)

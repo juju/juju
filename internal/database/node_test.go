@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"

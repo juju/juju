@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	goyaml "gopkg.in/yaml.v2"
 
 	apicharm "github.com/juju/juju/api/common/charm"

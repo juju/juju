@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package network_test -destination discovery_mock_test.go github.com/juju/juju/core/network ConfigSource,ConfigSourceNIC,ConfigSourceAddr
+//go:generate go run github.com/canonical/gomock/mockgen -package network_test -destination discovery_mock_test.go github.com/juju/juju/core/network ConfigSource,ConfigSourceNIC,ConfigSourceAddr
 
 // BaseSuite exposes base testing functionality to the network tests,
 // including patching package-private functions/variables.

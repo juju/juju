@@ -29,7 +29,7 @@ import (
 
 var logger = internallogger.GetLogger("juju.container.broker")
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/internal/container/broker APICalls
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/internal/container/broker APICalls
 type APICalls interface {
 	ContainerConfig(context.Context) (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(context.Context, names.MachineTag) (corenetwork.InterfaceInfos, error)

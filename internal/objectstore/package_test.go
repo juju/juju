@@ -15,14 +15,14 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,TrackedObjectStore,RemoteRetriever
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreMetadata,RemoteObjectStoreMetadata,Session
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,TrackedObjectStore,RemoteRetriever
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreMetadata,RemoteObjectStoreMetadata,Session
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

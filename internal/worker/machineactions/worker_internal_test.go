@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	apimachineactions "github.com/juju/juju/api/agent/machineactions"
 	"github.com/juju/juju/core/watcher"

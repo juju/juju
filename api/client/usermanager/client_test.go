@@ -4,12 +4,14 @@
 package usermanager_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/usermanager"
@@ -42,7 +44,11 @@ func (s *usermanagerSuite) TestAddExistingUser(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(c.Context(), "foobar", "Foo Bar", "password")
@@ -62,7 +68,11 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *tc.C) {
 		Results: make([]params.AddUserResult, len(args.Users)),
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).SetArg(3, results).Return(errors.New("call error"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return errors.New("call error")
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(c.Context(), "foobar", "Foo Bar", "password")
@@ -82,7 +92,11 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *tc.C) {
 		Results: make([]params.AddUserResult, 2),
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, _, err := client.AddUser(c.Context(), "foobar", "Foo Bar", "password")
@@ -101,9 +115,12 @@ func (s *usermanagerSuite) TestRemoveUser(c *tc.C) {
 		Entities: []params.Entity{{Tag: "user-jjam"}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveUser", arg, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveUser", arg, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
-	// Delete the user.
 	err := client.RemoveUser(c.Context(), "jjam")
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -121,7 +138,11 @@ func (s *usermanagerSuite) TestDisableUser(c *tc.C) {
 		Results: make([]params.ErrorResult, 1),
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(c.Context(), user.Name())
@@ -137,7 +158,11 @@ func (s *usermanagerSuite) TestEnableUser(c *tc.C) {
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.EnableUser(c.Context(), user.Name())
 	c.Assert(err, tc.ErrorIsNil)
@@ -156,7 +181,11 @@ func (s *usermanagerSuite) TestCantRemoveAdminUser(c *tc.C) {
 		Results: []params.ErrorResult{{Error: &params.Error{Message: "failed to disable user: cannot disable controller model owner"}}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(c.Context(), admin.Name())
@@ -186,7 +215,11 @@ func (s *usermanagerSuite) TestUserInfo(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(c.Context(), []string{"foobar"}, usermanager.AllUsers)
@@ -218,7 +251,11 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.UserInfo(c.Context(), nil, usermanager.AllUsers)
@@ -248,7 +285,11 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserInfo", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.UserInfo(c.Context(), []string{"foo", "bar"}, usermanager.AllUsers)
@@ -271,7 +312,11 @@ func (s *usermanagerSuite) TestModelUserInfo(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelUserInfo", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelUserInfo", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := client.ModelUserInfo(c.Context(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
@@ -294,7 +339,11 @@ func (s *usermanagerSuite) TestSetUserPassword(c *tc.C) {
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(c.Context(), tag.Name(), "new-password")
@@ -310,7 +359,11 @@ func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *tc.C) {
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetPassword", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetPassword(c.Context(), tag.Id(), "new-password")
@@ -338,7 +391,11 @@ func (s *usermanagerSuite) TestResetPasswordResponseError(c *tc.C) {
 	result := new(params.AddUserResults)
 	results := params.AddUserResults{Results: []params.AddUserResult{{Error: &params.Error{Message: "boom"}}}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ResetPassword(c.Context(), "foobar")
@@ -356,7 +413,11 @@ func (s *usermanagerSuite) TestResetPassword(c *tc.C) {
 	result := new(params.AddUserResults)
 	results := params.AddUserResults{Results: []params.AddUserResult{{Tag: "user-foobar", SecretKey: key}}}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	res, err := client.ResetPassword(c.Context(), "foobar")
@@ -382,7 +443,11 @@ func (s *usermanagerSuite) TestResetPasswordResultCount(c *tc.C) {
 	result := new(params.AddUserResults)
 	results := params.AddUserResults{Results: make([]params.AddUserResult, 2)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResetPassword", args, result).DoAndReturn(
+		func(_ context.Context, _ string, _ any, resPtr any) error {
+			reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+			return nil
+		})
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.ResetPassword(c.Context(), "foobar")

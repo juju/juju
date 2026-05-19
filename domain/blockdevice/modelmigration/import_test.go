@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"

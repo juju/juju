@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -80,9 +80,9 @@ func (s *imageSuite) TestCopyImageRetries(c *tc.C) {
 
 	copyOp := lxdtesting.NewMockRemoteOperation(ctrl)
 	copyOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil).AnyTimes()
-	copyOp.EXPECT().Wait().Return(nil).Return(errors.New("Failed remote image download: boom"))
-	copyOp.EXPECT().Wait().Return(nil).Return(errors.New("Failed remote image download: boom"))
-	copyOp.EXPECT().Wait().Return(nil).Return(nil)
+	copyOp.EXPECT().Wait().Return(errors.New("Failed remote image download: boom"))
+	copyOp.EXPECT().Wait().Return(errors.New("Failed remote image download: boom"))
+	copyOp.EXPECT().Wait().Return(nil)
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil).Times(3)

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"

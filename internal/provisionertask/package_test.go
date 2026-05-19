@@ -3,4 +3,4 @@
 
 package provisionertask_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package provisionertask_test -destination package_mock_test.go github.com/juju/juju/internal/provisionertask ControllerAPI,MachinesAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package provisionertask_test -destination package_mock_test.go github.com/juju/juju/internal/provisionertask ControllerAPI,MachinesAPI

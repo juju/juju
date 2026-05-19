@@ -4,7 +4,7 @@
 package systemd
 
 import (
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 )
 
 // TODO (manadart 2018-04-04)

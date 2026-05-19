@@ -18,6 +18,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -109,7 +110,7 @@ func NewHookContext(c *tc.C, hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(c *tc.C, mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
+func NewMockUnitHookContext(c *tc.C, mockUnit *apimocks.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unit:              mockUnit,
@@ -130,7 +131,7 @@ func NewMockUnitHookContext(c *tc.C, mockUnit *api.MockUnit, modelType model.Mod
 	}
 }
 
-func NewMockUnitHookContextWithUniter(c *tc.C, modelType model.ModelType, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
+func NewMockUnitHookContextWithUniter(c *tc.C, modelType model.ModelType, mockUnit *apimocks.MockUnit, uniterClient *apimocks.MockUniterClient) *HookContext {
 	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	coretesting "github.com/juju/juju/core/testing"
 	corewatcher "github.com/juju/juju/core/watcher"

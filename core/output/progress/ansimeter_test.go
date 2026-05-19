@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/output/progress"
 	"github.com/juju/juju/core/output/progress/mocks"

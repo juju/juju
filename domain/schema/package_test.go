@@ -17,8 +17,8 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination fs_mock_test.go github.com/juju/juju/domain/schema ReadFileDirFS
-//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination dir_entry_mock_test.go io/fs DirEntry
+//go:generate go run github.com/canonical/gomock/mockgen -package schema -destination fs_mock_test.go github.com/juju/juju/domain/schema ReadFileDirFS
+//go:generate go run github.com/canonical/gomock/mockgen -package schema -destination dir_entry_mock_test.go io/fs DirEntry
 
 type schemaBaseSuite struct {
 	databasetesting.DqliteSuite

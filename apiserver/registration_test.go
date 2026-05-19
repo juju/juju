@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/juju/juju/caas"

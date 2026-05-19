@@ -3,4 +3,4 @@
 
 package storageprovisioner
 
-//go:generate go run go.uber.org/mock/mockgen -typed -source storageprovisioner.go -package storageprovisioner -destination storageprovisioner_mock_test.go
+//go:generate go run github.com/canonical/gomock/mockgen -package storageprovisioner -destination storageprovisioner_mock_test.go github.com/juju/juju/internal/worker/storageprovisioner VolumeAccessor,FilesystemAccessor,MachineAccessor,LifecycleManager,StatusSetter

@@ -3,4 +3,4 @@
 
 package externalcontrollerupdater
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package externalcontrollerupdater -destination package_mock_test.go github.com/juju/juju/internal/worker/externalcontrollerupdater ExternalControllerWatcherClientCloser,ExternalControllerUpdaterClient
+//go:generate go run github.com/canonical/gomock/mockgen -package externalcontrollerupdater -destination package_mock_test.go github.com/juju/juju/internal/worker/externalcontrollerupdater ExternalControllerWatcherClientCloser,ExternalControllerUpdaterClient

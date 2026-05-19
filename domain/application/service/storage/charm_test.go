@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"

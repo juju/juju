@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/flightrecorder"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

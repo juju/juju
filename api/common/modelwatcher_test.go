@@ -4,11 +4,13 @@
 package common_test
 
 import (
+	"context"
+	"reflect"
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
@@ -40,7 +42,12 @@ func (s *modelwatcherTests) TestModelConfig(c *tc.C) {
 	result := params.ModelConfigResult{
 		Config: params.ModelConfig(attrs),
 	}
-	facade.EXPECT().FacadeCall(gomock.Any(), "ModelConfig", nil, gomock.Any()).SetArg(3, result).Return(nil)
+	facade.EXPECT().FacadeCall(
+		gomock.Any(), "ModelConfig", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
+		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
+		return nil
+	})
 
 	client := common.NewModelConfigWatcher(facade)
 	cfg, err := client.ModelConfig(c.Context())
@@ -58,7 +65,12 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
 
 	result := params.NotifyWatchResult{}
-	facade.EXPECT().FacadeCall(gomock.Any(), "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(3, result).Return(nil)
+	facade.EXPECT().FacadeCall(
+		gomock.Any(), "WatchForModelConfigChanges", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, res any) error {
+		reflect.ValueOf(res).Elem().Set(reflect.ValueOf(result))
+		return nil
+	})
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewModelConfigWatcher(facade)

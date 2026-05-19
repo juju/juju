@@ -4,13 +4,15 @@
 package containerprovisioner
 
 import (
+	"context"
 	"errors"
+	"reflect"
 	"sync"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -157,7 +159,11 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 	s.caller.EXPECT().APICall(
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(6, resultSource).MinTimes(1)
+	).DoAndReturn(
+		func(_ context.Context, _ string, _ int, _ string, _ string, _ any, result any) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(resultSource))
+			return nil
+		}).MinTimes(1)
 }
 
 type fakeMachineLock struct {

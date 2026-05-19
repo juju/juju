@@ -11,7 +11,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package pinger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package pinger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 type ImportTest struct{}
 

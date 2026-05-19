@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migrationminion_test -destination mocks_test.go github.com/juju/juju/apiserver/facades/agent/migrationminion ModelMigrationService,ControllerNodeService,ControllerConfigService
+//go:generate go run github.com/canonical/gomock/mockgen -package migrationminion_test -destination mocks_test.go github.com/juju/juju/apiserver/facades/agent/migrationminion ModelMigrationService,ControllerNodeService,ControllerConfigService
 
 // ModelMigrationService defines migration functionality required for the minion.
 type ModelMigrationService interface {

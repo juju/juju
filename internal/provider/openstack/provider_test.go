@@ -14,7 +14,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

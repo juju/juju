@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/machine"

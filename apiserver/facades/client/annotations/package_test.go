@@ -3,5 +3,5 @@
 
 package annotations_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package annotations -destination annotations_mock_test.go github.com/juju/juju/apiserver/facades/client/annotations AnnotationService
-//go:generate go run go.uber.org/mock/mockgen -typed -package annotations -destination authorizer_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
+//go:generate go run github.com/canonical/gomock/mockgen -package annotations -destination annotations_mock_test.go github.com/juju/juju/apiserver/facades/client/annotations AnnotationService
+//go:generate go run github.com/canonical/gomock/mockgen -package annotations -destination authorizer_mock_test.go github.com/juju/juju/apiserver/facade Authorizer

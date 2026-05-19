@@ -3,4 +3,4 @@
 
 package store
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package store -destination store_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ModelObjectStoreGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package store -destination store_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ModelObjectStoreGetter

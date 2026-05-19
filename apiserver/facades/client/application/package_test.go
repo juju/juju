@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -20,12 +20,12 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService,StatusService
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm,CharmMeta
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService,RemovalService,ExternalControllerService,CrossModelRelationService,StatusService
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application CaasBrokerInterface
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm,CharmMeta
+//go:generate go run github.com/canonical/gomock/mockgen -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
