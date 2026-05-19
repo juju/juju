@@ -73,7 +73,7 @@ Not all secrets get labels -- only those that have been configured to support se
 
 ## Secret size
 
-The maximum secret value size is `1MiB`.
+The maximum size for a base64-encoded secret value is `1MB` (1,000,000 bytes) per key. This limit ensures compatibility across all secret backends, including Vault and Kubernetes.
 
 (secret-backend)=
 ## Secret backend
