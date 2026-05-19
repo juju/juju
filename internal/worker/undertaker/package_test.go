@@ -5,15 +5,15 @@ package undertaker
 
 import (
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package undertaker -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
-//go:generate go run go.uber.org/mock/mockgen -typed -package undertaker -destination package_mock_test.go github.com/juju/juju/internal/worker/undertaker ControllerModelService,RemovalServiceGetter,RemovalService
+//go:generate go run github.com/canonical/gomock/mockgen -package undertaker -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
+//go:generate go run github.com/canonical/gomock/mockgen -package undertaker -destination package_mock_test.go github.com/juju/juju/internal/worker/undertaker ControllerModelService,RemovalServiceGetter,RemovalService
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

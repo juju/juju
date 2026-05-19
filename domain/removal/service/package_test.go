@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service ControllerDBState,ModelDBState,Provider
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination secretprovider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service ControllerDBState,ModelDBState,Provider
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination leadership_mock_test.go github.com/juju/juju/core/leadership Revoker
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination secretprovider_mock_test.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

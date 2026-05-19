@@ -18,7 +18,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/arch"

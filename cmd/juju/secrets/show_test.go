@@ -8,7 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/api/jujuclient"

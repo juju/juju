@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"

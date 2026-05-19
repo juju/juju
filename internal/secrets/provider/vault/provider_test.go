@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	vault "github.com/mittwald/vaultgo"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"

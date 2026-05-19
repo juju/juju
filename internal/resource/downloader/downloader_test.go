@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	intcharmhub "github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

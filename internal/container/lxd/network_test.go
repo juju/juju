@@ -9,7 +9,7 @@ import (
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/lxd"

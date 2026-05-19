@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/removemachine_api_mock.go github.com/juju/juju/cmd/juju/machine RemoveMachineAPI
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modelconfig_api_mock.go github.com/juju/juju/cmd/juju/machine ModelConfigAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/removemachine_api_mock.go github.com/juju/juju/cmd/juju/machine RemoveMachineAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/modelconfig_api_mock.go github.com/juju/juju/cmd/juju/machine ModelConfigAPI
 
 // None of the tests in this package require mongo.
 

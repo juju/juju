@@ -5,14 +5,14 @@ package service
 
 import (
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/relation/service MigrationState,State,StatusHistory,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/relation/service MigrationState,State,StatusHistory,WatcherFactory
 
 type baseServiceSuite struct {
 	testhelpers.IsolationSuite

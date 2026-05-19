@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/tags"

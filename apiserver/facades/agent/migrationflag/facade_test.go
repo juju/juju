@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migrationflag_test -destination mocks_test.go github.com/juju/juju/apiserver/facades/agent/migrationflag ModelMigrationService
+//go:generate go run github.com/canonical/gomock/mockgen -package migrationflag_test -destination mocks_test.go github.com/juju/juju/apiserver/facades/agent/migrationflag ModelMigrationService
 
 type FacadeSuite struct {
 	testhelpers.IsolationSuite

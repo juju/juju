@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"

@@ -17,7 +17,7 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/testhelpers"

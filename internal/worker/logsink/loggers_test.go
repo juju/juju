@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	corelogger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	corerelation "github.com/juju/juju/core/relation"

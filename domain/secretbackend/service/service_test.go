@@ -14,7 +14,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"

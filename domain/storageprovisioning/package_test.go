@@ -3,4 +3,4 @@
 
 package storageprovisioning
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package storageprovisioning -destination provider_mock_test.go github.com/juju/juju/domain/storageprovisioning StorageProvider
+//go:generate go run github.com/canonical/gomock/mockgen -package storageprovisioning -destination provider_mock_test.go github.com/juju/juju/domain/storageprovisioning StorageProvider

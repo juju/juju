@@ -156,6 +156,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 // indirect
+	github.com/canonical/gomock v0.0.0-20260518113145-18e3e09e108a // indirect
 	github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -302,11 +303,6 @@ require (
 )
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
-
-// go.uber.org/mock v0.5.0 is a broken release. It adds named arguments to mocked
-// methods, which sometimes clash with package names. Fix the package to v0.4.0
-// until the issue is resolved.
-replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20260112233041-5b2ef070e94b
 

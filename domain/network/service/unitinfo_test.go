@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	corenetwork "github.com/juju/juju/core/network"

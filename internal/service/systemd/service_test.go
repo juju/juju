@@ -16,7 +16,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/shell"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service"

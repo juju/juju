@@ -12,7 +12,7 @@ import (
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"

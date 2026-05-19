@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/internal/statushistory"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go -source=./service.go
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/status/service StatusHistory,StatusHistoryReader
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go -source=./service.go
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/status/service StatusHistory,StatusHistoryReader
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber
 
 type statusHistoryRecord struct {
 	ns statushistory.Namespace

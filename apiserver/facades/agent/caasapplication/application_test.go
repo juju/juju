@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"

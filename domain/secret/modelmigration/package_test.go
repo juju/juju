@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/secret/modelmigration Coordinator,ImportService,SecretBackendService
+//go:generate go run github.com/canonical/gomock/mockgen -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/secret/modelmigration Coordinator,ImportService,SecretBackendService
 
 // backendSecrets provides some secrets to export.
 func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, timestamp time.Time) *service.SecretImport {

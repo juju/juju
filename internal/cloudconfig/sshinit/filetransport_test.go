@@ -13,12 +13,12 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package sshinit_test -destination sshclient_mock_test.go github.com/juju/utils/v4/ssh Client
+//go:generate go run github.com/canonical/gomock/mockgen -package sshinit_test -destination sshclient_mock_test.go github.com/juju/utils/v4/ssh Client
 
 type sshInitSuite struct{}
 

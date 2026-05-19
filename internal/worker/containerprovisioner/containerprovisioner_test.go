@@ -16,7 +16,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

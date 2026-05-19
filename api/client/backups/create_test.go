@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	backupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/rpc/params"

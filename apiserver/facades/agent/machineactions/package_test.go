@@ -3,4 +3,4 @@
 
 package machineactions
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package machineactions -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/machineactions OperationService
+//go:generate go run github.com/canonical/gomock/mockgen -package machineactions -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/machineactions OperationService

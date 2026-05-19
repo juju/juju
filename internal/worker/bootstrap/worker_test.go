@@ -15,7 +15,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"

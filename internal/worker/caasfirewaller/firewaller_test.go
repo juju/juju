@@ -11,7 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"

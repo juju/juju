@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/arch"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"

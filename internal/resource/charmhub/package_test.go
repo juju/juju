@@ -3,4 +3,4 @@
 
 package charmhub_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package charmhub_test -destination charmhub_mock_test.go github.com/juju/juju/internal/resource/charmhub ResourceClient,CharmHub,Downloader
+//go:generate go run github.com/canonical/gomock/mockgen -package charmhub_test -destination charmhub_mock_test.go github.com/juju/juju/internal/resource/charmhub ResourceClient,CharmHub,Downloader

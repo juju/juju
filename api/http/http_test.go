@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	apihttp "github.com/juju/juju/api/http"
 	"github.com/juju/juju/api/http/mocks"

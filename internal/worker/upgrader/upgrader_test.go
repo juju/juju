@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/internal/worker/upgrader/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
 
 type UpgraderSuite struct {
 	testhelpers.IsolationSuite

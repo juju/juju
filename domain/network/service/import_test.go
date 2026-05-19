@@ -5,7 +5,7 @@ package service
 
 import (
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )

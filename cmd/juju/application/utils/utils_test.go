@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"

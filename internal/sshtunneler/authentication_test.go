@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 )
 
 type authenticationSuite struct {

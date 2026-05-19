@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"

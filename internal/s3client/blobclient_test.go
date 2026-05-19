@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )

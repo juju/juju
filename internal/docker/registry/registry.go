@@ -16,8 +16,8 @@ import (
 
 var logger = internallogger.GetLogger("juju.docker.registry")
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/registry_mock.go github.com/juju/juju/internal/docker/registry/internal Registry
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/internal/docker/registry/internal Registry
 
 // Registry provides APIs to interact with the OCI provider client.
 type Registry = internal.Registry

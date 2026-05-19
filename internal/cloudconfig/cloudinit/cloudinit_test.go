@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 

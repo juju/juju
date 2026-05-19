@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/api/jujuclient"

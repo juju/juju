@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"

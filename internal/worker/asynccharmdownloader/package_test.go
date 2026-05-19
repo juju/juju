@@ -7,14 +7,14 @@ import (
 	time "time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,Downloader
-//go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination clock_mocks_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package asynccharmdownloader -destination http_mocks_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package asynccharmdownloader -destination package_mocks_test.go github.com/juju/juju/internal/worker/asynccharmdownloader ApplicationService,Downloader
+//go:generate go run github.com/canonical/gomock/mockgen -package asynccharmdownloader -destination clock_mocks_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package asynccharmdownloader -destination http_mocks_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

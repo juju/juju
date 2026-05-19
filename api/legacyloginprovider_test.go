@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -37,7 +37,7 @@ func TestLegacyLoginProviderSuite(t *stdtesting.T) {
 	tc.Run(t, &legacyLoginProviderSuite{})
 }
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
 
 type RootAPI interface {
 	Admin(id string) (AdminAPI, error)

@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"

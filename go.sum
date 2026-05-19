@@ -122,6 +122,8 @@ github.com/canonical/go-dqlite/v3 v3.0.3 h1:JkdMD+f21yuPcS+r6gzO57lBkU5U76xmWyk8
 github.com/canonical/go-dqlite/v3 v3.0.3/go.mod h1:6O+E6MiYesijRUOECyywp16iT+N4QOrvjDWWiMJ/xF0=
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVyM+QKFJagiyrM91Ke5S9htoL1D470g6E=
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
+github.com/canonical/gomock v0.0.0-20260518113145-18e3e09e108a h1:WYgYbO96Xm9AE8oSNzwYtZFZp9U/cGlzwCrQXRTUH30=
+github.com/canonical/gomock v0.0.0-20260518113145-18e3e09e108a/go.mod h1:7UeOIKm1uEKwbhUnnK8U3/cJm97QlVqoudBHwsnlZ8Y=
 github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11 h1:QOyXTFkf5zh/UezMurmpjobnOxefsrHxyYZpl8mfWbs=
 github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11/go.mod h1:vE1tA6TE1rvEzMcFKUfqh7BMhGH0vlkhYDy4YzeLHbM=
 github.com/canonical/pebble v1.26.0 h1:jsPJmHe/E5PU6epAoq8QC/U2itPsMX947/oP4zcsWCA=
@@ -772,6 +774,7 @@ go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/mock v0.4.0 h1:VcM4ZOtdbR4f6VXfiOpwpVJDL6lCReaZ6mw31wqh7KU=
 go.uber.org/mock v0.4.0/go.mod h1:a6FSlNadKUHUa9IP5Vyt1zh4fC7uAwxMutEAscFbkZc=
+go.uber.org/mock v0.6.0/go.mod h1:KiVJ4BqZJaMj4svdfmHM0AUx4NJYO8ZNpPnZn1Z+BBU=
 go.yaml.in/yaml/v2 v2.4.3 h1:6gvOSjQoTB3vt1l+CU+tSyi/HOjfOjRLJ4YwYZGwRO0=
 go.yaml.in/yaml/v2 v2.4.3/go.mod h1:zSxWcmIDjOzPXpjlTTbAsKokqkDNAVtZO0WOMiT90s8=
 go.yaml.in/yaml/v3 v3.0.4 h1:tfq32ie2Jv2UxXFdLJdh3jXuOzWiL1fo0bu/FbuKpbc=

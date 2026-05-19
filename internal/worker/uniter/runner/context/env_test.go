@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"

@@ -3,5 +3,5 @@
 
 package domain
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package domain -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,EventSource
-//go:generate go run go.uber.org/mock/mockgen -typed -package domain -destination lease_mock_test.go github.com/juju/juju/core/lease Token,Checker,Revoker,LeaseManager,ModelLeaseManagerGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package domain -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,EventSource
+//go:generate go run github.com/canonical/gomock/mockgen -package domain -destination lease_mock_test.go github.com/juju/juju/core/lease Token,Checker,Revoker,LeaseManager,ModelLeaseManagerGetter

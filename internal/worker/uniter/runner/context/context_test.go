@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/secretsmanager"

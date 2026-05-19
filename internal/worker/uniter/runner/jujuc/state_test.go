@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )

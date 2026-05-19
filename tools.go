@@ -9,5 +9,5 @@ import (
 	// github.com/canonical/pebble/cmd/pebble for pebble binary generation
 	_ "github.com/canonical/pebble/cmd/pebble"
 	// go.uber.org/mock/mockgen for generating mocks
-	_ "go.uber.org/mock/mockgen"
+	_ "github.com/canonical/gomock/mockgen"
 )

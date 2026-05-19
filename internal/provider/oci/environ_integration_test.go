@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"

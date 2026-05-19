@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/testing"

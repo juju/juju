@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher/watchertest"

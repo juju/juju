@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"golang.org/x/sys/unix"
 	"k8s.io/client-go/tools/remotecommand"
 

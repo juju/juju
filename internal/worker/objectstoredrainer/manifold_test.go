@@ -14,7 +14,7 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	controller "github.com/juju/juju/controller"

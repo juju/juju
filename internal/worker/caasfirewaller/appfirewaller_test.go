@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"

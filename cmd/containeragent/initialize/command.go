@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/internal/worker/introspection"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/containeragent/initialize ApplicationAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/containeragent/initialize ApplicationAPI
 type initCommand struct {
 	cmd.CommandBase
 

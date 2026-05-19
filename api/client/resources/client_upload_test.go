@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"gopkg.in/errgo.v1"
 
 	"github.com/juju/juju/api/base/mocks"

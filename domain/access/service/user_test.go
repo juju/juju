@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	coreerrors "github.com/juju/juju/core/errors"

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/keymanager"

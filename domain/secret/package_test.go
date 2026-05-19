@@ -3,4 +3,4 @@
 
 package secret
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package secret -destination backend_mock_test.go github.com/juju/juju/domain/secret/service SecretBackendState
+//go:generate go run github.com/canonical/gomock/mockgen -package secret -destination backend_mock_test.go github.com/juju/juju/domain/secret/service SecretBackendState

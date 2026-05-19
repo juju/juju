@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry,Provider
-//go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
-//go:generate go run go.uber.org/mock/mockgen -typed -package storageregistry -destination storageregistry_mock_test.go github.com/juju/juju/internal/worker/storageregistry StorageRegistryWorker
+//go:generate go run github.com/canonical/gomock/mockgen -package storageregistry -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package storageregistry -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry,Provider
+//go:generate go run github.com/canonical/gomock/mockgen -package storageregistry -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package storageregistry -destination storageregistry_mock_test.go github.com/juju/juju/internal/worker/storageregistry StorageRegistryWorker
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

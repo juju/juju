@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 

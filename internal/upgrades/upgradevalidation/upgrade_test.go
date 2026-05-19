@@ -6,7 +6,7 @@ package upgradevalidation_test
 import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
+	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/machine"
