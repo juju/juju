@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/service"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -231,7 +232,7 @@ func checkProvisionedAsUser(host string, provisioningUserName string, provisioni
 	}
 
 	output := strings.TrimSpace(stdout.String())
-	provisioned := strings.Contains(output, "jujud-machine")
+	provisioned := strings.Contains(output, jujunames.Jujud+"-machine")
 	return provisioned, nil
 }
 
