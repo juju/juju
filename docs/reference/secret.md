@@ -45,7 +45,7 @@ A **user secret** is a secret created by a {ref}`user <user>` with a {ref}`model
 
 Secrets are identified by an automatically assigned URI (see more: {ref}`secret-uri`).
 
-The secret URI can always be used in any content to identify a secret. Additionally, users may give secrets they create names (see more: {ref}`secret-name`), and charms may choose to assign labels to secrets (see more: {ref}`secret-label`).
+The secret URI can always be used in any content to identify a secret. Additionally, users give secrets they create names (see more: {ref}`secret-name`), and charms may choose to assign labels to secrets (see more: {ref}`secret-label`).
 
 In short, the same secret may end up being associated with multiple identifiers. For example:
 
