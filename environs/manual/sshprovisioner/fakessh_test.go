@@ -148,7 +148,7 @@ func (r fakeSSH) install(c *tc.C) testhelpers.Restorer {
 	}
 	var checkProvisionedOutput any
 	if r.Provisioned {
-		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
+		checkProvisionedOutput = "/etc/init/jujuagentd-machine-0.conf"
 	}
 	listCmd := service.ListServicesScript()
 	add(listCmd, checkProvisionedOutput, r.CheckProvisionedExitCode)
