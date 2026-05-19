@@ -155,61 +155,28 @@ juju_36 status
 
 This method allows you to install the Juju client on systems that do not support snaps.
 
-1. Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the binary that matches your system's architecture and the version that you want to install.
+1. Visit the project's [releases](https://github.com/juju/juju/releases) page, select the version you want to install, and expand the **Assets** dropdown to see the available binaries. Download the binary that matches your system's architecture.
 
-For example, to download the 2.9.38 client for amd64:
-
-```text
-curl -LO https://launchpad.net/juju/2.9/2.9.38/+download/juju-2.9.38-linux-amd64.tar.xz
-```
-
-2. Validate the downloaded binary archive (optional)
-
-Download the md5 checksum that matches the binary you just downloaded:
-
-```{note}
-
-The link to the `md5` signature can be constructed by appending `/+md5` to the end of the link you just downloaded.
-
-```
+For example, to download the 2.9.59 client for amd64:
 
 ```text
-curl -L https://launchpad.net/juju/2.9/2.9.38/+download/juju-2.9.38-linux-amd64.tar.xz/+md5 -o juju.md5
+curl -LO https://github.com/juju/juju/releases/download/v2.9.59/juju-2.9.59-linux-amd64.tar.xz
 ```
 
-Validate the downloaded binary archive against the checksum file:
+2. Extract and install the binary
 
 ```text
-cat juju.md5 | md5sum --check
-```
-
-If the checksum check succeeds, the output will be:
-
-```text
-juju-2.9.38-linux-amd64.tar.xz: OK
-```
-
-If the check fails, md5sum exits with nonzero status and prints output similar to:
-
-```text
-juju-2.9.38-linux-amd64.tar.xz: FAILED
-md5sum: WARNING: 1 computed checksum did NOT match
-```
-
-3. Unpack and install client binary
-
-```text
-tar xf juju-2.9.38-linux-amd64.tar.xz
+tar xf juju-2.9.59-linux-amd64.tar.xz
 sudo install -o root -g root -m 0755 juju /usr/local/bin/juju
 ```
 
-4. Test that the version of the client you installed is up to date
+3. Verify the installation
 
 ```text
 juju version
 ```
 
-**Build from source.** Visit the [downloads section](https://launchpad.net/juju/+download) of the [Launchpad project](https://launchpad.net/juju/) to download a tar.gz with Juju source code. For build instructions refer to the [contributing to Juju](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md) documentation on Github.
+**Build from source.** Visit the [releases](https://github.com/juju/juju/releases) page to download a tar.gz with Juju source code. For build instructions refer to the [contributing to Juju](https://github.com/juju/juju/blob/main/CONTRIBUTING.md) documentation on Github.
 
 
 `````
@@ -226,7 +193,7 @@ brew install juju
 
 `````{tab} Windows
 
-Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the Juju version you wish to install.
+Visit the project's [releases](https://github.com/juju/juju/releases) page and select the signed installer for the Juju version you wish to install.
 
 `````
 
@@ -319,7 +286,7 @@ brew upgrade juju
 
 `````{tab} Windows
 
-Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the latest stable version of Juju you wish to install.
+Visit the project's [releases](https://github.com/juju/juju/releases) page and select the signed installer for the latest stable version of Juju you wish to install.
 
 `````
 ``````
