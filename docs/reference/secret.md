@@ -49,15 +49,13 @@ The secret URI can always be used in any content to identify a secret. Additiona
 
 In short, the same secret may end up being associated with multiple identifiers. For example:
 
-- (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`. In the background, Juju will assign to it a URI, for example, `9m4e2mr0ui3e8a215n4g`. When I then configure a charm to use it, the charm might give it a label, for example, `vault-api-token`.
-- (label vs. URI vs. label:) A leader unit create an application secret for peer units to consume, and assign to it a label in its capacity as the secret owner, for example ___________. In the background, Juju will assign to it a URI, e.g., `6k7n4ps1vj2d9b318x5w`. When consuming the secret, the leader unit and all other peer units might assign to the charm another label in capacity as secret consumers, for example ___________.
-
-The easo
+- (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`. Juju assigns it a URI, for example, `9m4e2mr0ui3e8a215n4g`. When I then configure a charm to use it, the charm might give it a label, for example, `vault-api-token`.
+- (label vs. URI vs. label:) A leader unit creates an application secret for peer units to consume, and assigns to it a label in its capacity as the secret owner, for example, `db-password`. Juju assigns it a URI, e.g., `6k7n4ps1vj2d9b318x5w`. When consuming the secret, the leader unit and all other peer units might assign to the charm another label in their capacity as secret consumers, for example, `shared-db-creds`.
 
 (secret-uri)=
 ### Secret URI
 
-In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <user-secret>`, a secret URI is the URI assigned to a secret automatically by Juju when the secret is added to Juju, either by a user through `juju add-user` (or its equivalent in other Juju clients) or by a charm via `secret-add`.
+In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <charm-secret>`, a secret URI is automatically assigned by Juju when the secret is added, either by a user through `juju add-secret` (or its equivalent in other Juju clients) or by a charm via `secret-add`. The URI is returned to the caller so they can then use it in subsequent actions.
 
 (secret-name)=
 ### Secret name
