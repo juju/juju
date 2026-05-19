@@ -95,17 +95,17 @@ func (s *NewRebootSuite) expectManagerIsInitialized(lxd bool, times int) {
 
 func (s *NewRebootSuite) expectListServices() {
 	fakeServices := []string{
-		"jujud-machine-1",
-		"jujud-unit-drupal-1",
-		"jujud-unit-mysql-1",
+		"jujuagentd-machine-1",
+		"jujuagentd-unit-drupal-1",
+		"jujuagentd-unit-mysql-1",
 		"fake-random-service",
 	}
 	s.rebootWaiter.EXPECT().ListServices().Return(fakeServices, nil)
 }
 
 func (s *NewRebootSuite) expectStopDeployedUnits() {
-	s.rebootWaiter.EXPECT().NewServiceReference("jujud-unit-drupal-1").Return(s.service, nil)
-	s.rebootWaiter.EXPECT().NewServiceReference("jujud-unit-mysql-1").Return(s.service, nil)
+	s.rebootWaiter.EXPECT().NewServiceReference("jujuagentd-unit-drupal-1").Return(s.service, nil)
+	s.rebootWaiter.EXPECT().NewServiceReference("jujuagentd-unit-mysql-1").Return(s.service, nil)
 	s.service.EXPECT().Stop().Times(2)
 }
 
