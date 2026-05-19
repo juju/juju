@@ -3,5 +3,5 @@
 
 package secretrotate_test
 
-//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/client_mock.go -source secretrotate.go
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/internal/worker/secretrotate SecretManagerFacade
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/watcher SecretTriggerWatcher

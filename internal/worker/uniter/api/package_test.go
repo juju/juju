@@ -3,6 +3,6 @@
 
 package api
 
-//go:generate go run github.com/canonical/gomock/mockgen -package api -destination uniter_mocks.go -source=./interface_generics.go
+//go:generate go run github.com/canonical/gomock/mockgen -package api -destination uniter_mocks.go github.com/juju/juju/internal/worker/uniter/api UniterClient
 //go:generate go run github.com/canonical/gomock/mockgen -package api -destination domain_mocks.go github.com/juju/juju/internal/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
 //go:generate go run github.com/canonical/gomock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/internal/worker/uniter/api SecretsClient,SecretsBackend

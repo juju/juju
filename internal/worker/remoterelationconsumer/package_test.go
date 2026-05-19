@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination service_mock_test.go -source worker.go
+//go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination service_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer ReportableWorker,OffererApplicationWorker,RemoteModelRelationsClient,CrossModelService,ApplicationService,RelationService,CrossModelRelationService,StatusService,RemovalService
 //go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer RemoteRelationClientGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination remote_relation_caller_mock_test.go github.com/juju/juju/internal/worker/apiremoterelationcaller APIRemoteCallerGetter
 

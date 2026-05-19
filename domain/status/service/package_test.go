@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/statushistory"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go -source=./service.go
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/status/service ModelState,ControllerState
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/status/service StatusHistory,StatusHistoryReader
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber

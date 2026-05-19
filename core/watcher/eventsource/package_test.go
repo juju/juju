@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -19,7 +19,7 @@ import (
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
-//go:generate go run github.com/canonical/gomock/mockgen -package eventsource -destination watcher_mock_test.go -source=./consume.go
+//go:generate go run github.com/canonical/gomock/mockgen -package eventsource -destination watcher_mock_test.go github.com/juju/juju/core/watcher/eventsource Watcher
 
 type ImportTest struct{}
 

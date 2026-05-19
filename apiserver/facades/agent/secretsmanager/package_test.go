@@ -18,7 +18,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secrets.go -source service.go
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secrets.go github.com/juju/juju/apiserver/facades/agent/secretsmanager SecretTriggers,SecretsConsumer,SecretService,SecretBackendService,ApplicationService,CrossModelRelationService
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/crossmodel.go github.com/juju/juju/apiserver/facades/agent/secretsmanager CrossModelSecretsClient
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/core/watcher SecretTriggerWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/core/watcher StringsWatcher
