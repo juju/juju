@@ -313,7 +313,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *tc.C) {
 	c.Assert(vers, tc.DeepEquals, semversion.Binary{})
 	c.Assert(official, tc.IsFalse)
 	c.Assert(sha256Hash, tc.Equals, "")
-	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
+	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujuagentd agent binary from source: .*`)
 
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(jujuversion.Current))
 
@@ -341,7 +341,7 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *tc.C) {
 	builtTools, err := sync.BuildAgentTarball(true, "released",
 		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
-	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
+	c.Assert(err, tc.ErrorMatches, `(?m)cannot build jujuagentd agent binary from source: .*`)
 	c.Assert(builtTools, tc.IsNil)
 
 	// Test that BuildAgentTarball func passes after BundleTools func is
@@ -361,7 +361,7 @@ func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *tc.C) {
 	builtTools, err := sync.BuildAgentTarball(false, "released",
 		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
-	c.Assert(err, tc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
+	c.Assert(err, tc.ErrorMatches, `no prepackaged agent available and no jujuagentd binary can be found`)
 	c.Assert(builtTools, tc.IsNil)
 }
 
@@ -416,7 +416,7 @@ func (s *uploadSuite) TestMockBuildTools(c *tc.C) {
 
 		content, err := io.ReadAll(tr)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(string(content), tc.Equals, fmt.Sprintf("jujud contents %s", vers))
+		c.Check(string(content), tc.Equals, fmt.Sprintf("jujuagentd contents %s", vers))
 	}
 
 	current := semversion.MustParseBinary("1.9.1-ubuntu-amd64")

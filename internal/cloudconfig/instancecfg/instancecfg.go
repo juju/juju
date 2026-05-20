@@ -39,11 +39,11 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
 	internallogger "github.com/juju/juju/internal/logger"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")
@@ -561,8 +561,10 @@ func (cfg *InstanceConfig) CharmDir() string {
 func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
+		hosts = append(
+			hosts, net.JoinHostPort(
+				"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort),
+			),
 		)
 	}
 	if cfg.APIInfo != nil {
