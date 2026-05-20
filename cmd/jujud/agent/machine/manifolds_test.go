@@ -370,6 +370,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"change-stream-pruner",
 		"external-controller-updater",
 		"lease-expiry",
+		"object-store-drainer",
 		"secret-backend-rotate",
 	)
 
@@ -1326,6 +1327,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2361,6 +2363,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"is-controller-flag",
+		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store-fortress",
 		"object-store-s3-caller",

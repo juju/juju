@@ -482,6 +482,7 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 // object store type has changed and then flushes the object store workers.
 // It sets the draining phase to completed, which will cause the main loop
 // to unlock the guard and allow the object store to be used again.
+// The worker itself is run only on the singular primary controller.
 //
 // The ordering is important for crash recovery:
 // 1. Update agent config (idempotent, re-applied on restart if missed)

@@ -28,6 +28,12 @@ const (
 	// we have a consistent uuid for all file based backends. This must not be
 	// changed.
 	defaultFileBackendUUID = "653813f9-2896-5332-8cbe-629a337a56a3"
+
+	// objectStoreFileBackendTypeID is the backend type id for file backends.
+	objectStoreFileBackendTypeID = 0
+
+	// objectStoreS3BackendTypeID is the backend type id for S3 backends.
+	objectStoreS3BackendTypeID = 1
 )
 
 // State implements the domain objectstore state.
@@ -563,7 +569,7 @@ SELECT di.uuid AS &dbGetPhaseInfo.uuid,
        di.to_backend_uuid AS &dbGetPhaseInfo.active_backend_uuid
 FROM object_store_drain_info AS di
 JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
-WHERE di.phase_type_id <= 2;
+WHERE di.phase_type_id < 2;
 `, dbGetPhaseInfo{})
 	if err != nil {
 		return errors.Errorf("preparing select statement: %w", err)
@@ -704,8 +710,8 @@ VALUES ($dbSetPhaseInfo.*);
 // information, which can be used to correlate with logs and other information
 // about the draining process.
 //
-// Active draining phases include Unknown, Draining, and Error. Only
-// Completed is considered finalized and excluded.
+// Active draining phases include Unknown and Draining. Error and
+// Completed are terminal and excluded.
 //
 // This method returns the following errors:
 //   - [objectstoreerrors.ErrDrainingPhaseNotFound]: if there is no active
@@ -722,7 +728,7 @@ SELECT di.uuid AS &dbGetPhaseInfo.uuid,
        di.to_backend_uuid AS &dbGetPhaseInfo.active_backend_uuid
 FROM object_store_drain_info AS di
 JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
-WHERE di.phase_type_id <= 2;
+WHERE di.phase_type_id < 2;
 `, dbGetPhaseInfo{})
 	if err != nil {
 		return domainobjectstore.DrainingInfo{}, errors.Errorf("preparing select draining phase statement: %w", err)
@@ -880,8 +886,10 @@ WHERE life_id = 0`, backendInfo{})
 //   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
 //     active draining phase, as we don't want to update the backend information
 //     while we're in the middle of a draining process.
-//   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a backend
-//     with the specified uuid.
+//   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a
+//     backend with the specified uuid.
+//   - [objectstoreerrors.ErrBackendTransitionNotSupported]: if the current
+//     active backend cannot be used as a source for draining.
 func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, credential domainobjectstore.S3Credentials) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -900,6 +908,10 @@ func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, 
 	}
 	type count struct {
 		Count int `db:"count"`
+	}
+	type activeBackend struct {
+		UUID   string `db:"uuid"`
+		TypeID int    `db:"type_id"`
 	}
 
 	s3Creds := s3Credentials{
@@ -920,7 +932,7 @@ func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, 
 	getPhaseInfoStmt, err := s.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM object_store_drain_info AS di
-WHERE di.phase_type_id = 1`, count{})
+WHERE di.phase_type_id < 2`, count{})
 	if err != nil {
 		return errors.Errorf("preparing select draining phase statement: %w", err)
 	}
@@ -974,11 +986,12 @@ VALUES ($dbSetPhaseInfo.*)
 		return errors.Errorf("preparing insert drain info statement: %w", err)
 	}
 
-	// Get the current active backend UUID before marking it as dying.
+	// Get the current active backend before marking it as dying.
 	getActiveBackendStmt, err := s.Prepare(`
-SELECT b.uuid AS &backendUUID.uuid
+SELECT b.uuid AS &activeBackend.uuid,
+       b.type_id AS &activeBackend.type_id
 FROM object_store_backend AS b
-WHERE b.life_id = 0`, backendUUID{})
+WHERE b.life_id = 0`, activeBackend{})
 	if err != nil {
 		return errors.Errorf("preparing select active backend statement: %w", err)
 	}
@@ -1006,11 +1019,14 @@ WHERE b.life_id = 0`, backendUUID{})
 
 		// Capture the current active backend UUID before marking it as dying,
 		// as we need it for the drain info record.
-		var fromBackend backendUUID
+		var fromBackend activeBackend
 		if err := tx.Query(ctx, getActiveBackendStmt).Get(&fromBackend); errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("no object store backend active")
 		} else if err != nil {
 			return errors.Errorf("getting active backend for drain: %w", err)
+		}
+		if fromBackend.TypeID != objectStoreFileBackendTypeID {
+			return objectstoreerrors.ErrBackendTransitionNotSupported
 		}
 
 		var outcome sqlair.Outcome
@@ -1109,8 +1125,8 @@ WHERE uuid = $backendType.uuid AND life_id = 1`, backendType{})
 		return errors.Errorf("selecting backend: %w", err)
 	}
 
-	// Delete S3 credentials if applicable (type_id 1 = S3).
-	if backend.TypeID == 1 {
+	// Delete S3 credentials if applicable.
+	if backend.TypeID == objectStoreS3BackendTypeID {
 		if err := tx.Query(ctx, deleteStmt, backend).Run(); err != nil {
 			return errors.Errorf("deleting backend credentials: %w", err)
 		}

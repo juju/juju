@@ -321,15 +321,15 @@ func (s *watcherSuite) TestWatchDrainingTransitionToError(c *tc.C) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
 
-	// Stage 2: Set the phase to error. The drain remains visible
-	// (phase_type_id <= 2), so GetDrainingPhase returns PhaseError.
+	// Stage 2: Set the phase to error. Error is terminal, so there is no
+	// longer an active drain and GetDrainingPhase returns PhaseUnknown.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseError)
 		c.Assert(err, tc.ErrorIsNil)
 
 		phase, err := svc.GetDrainingPhase(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(phase, tc.Equals, objectstore.PhaseError)
+		c.Assert(phase, tc.Equals, objectstore.PhaseUnknown)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})

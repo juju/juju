@@ -757,10 +757,9 @@ func (s *stateSuite) TestTransitionDrainingPhaseToError(c *tc.C) {
 	err = st.TransitionDrainingPhase(c.Context(), "drain-uuid", coreobjectstore.PhaseError)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Error phase should still be visible via GetActiveDrainingInfo.
-	info, err := st.GetActiveDrainingInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseError))
+	// Error is terminal and is therefore no longer considered active.
+	_, err = st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
 func (s *stateSuite) TestTransitionDrainingPhaseMissingFromBackend(c *tc.C) {
@@ -845,12 +844,11 @@ func (s *stateSuite) TestTransitionBackendToS3CalledTwice(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
 
-func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
+func (s *stateSuite) TestTransitionBackendToS3FromS3NotSupported(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID0 := tc.Must(c, coreobjectstore.NewUUID).String()
 	backendUUID1 := tc.Must(c, coreobjectstore.NewUUID).String()
-	backendUUID2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	creds := domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
@@ -869,25 +867,9 @@ func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
 	// Force the file backend to be marked as dead.
 	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
 
-	// Second transition: backendUUID0 → backendUUID1. Also starts draining.
+	// A second transition from S3 is not yet supported.
 	err = st.TransitionBackendToS3(c.Context(), backendUUID1, "drain-uuid-1", creds)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Force the first S3 backend to be marked as dead.
-	s.markBackendAsDead(c, backendUUID0)
-
-	// Third transition fails because draining from second call is still
-	// active.
-	err = st.TransitionBackendToS3(c.Context(), backendUUID2, "drain-uuid-2", creds)
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
-
-	// Complete the drain from the second transition.
-	err = st.TransitionDrainingPhase(c.Context(), "drain-uuid-1", coreobjectstore.PhaseCompleted)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Now the third transition succeeds.
-	err = st.TransitionBackendToS3(c.Context(), backendUUID2, "drain-uuid-3", creds)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendTransitionNotSupported)
 }
 
 func (s *stateSuite) TestTransitionBackendToS3WithActiveDrainingBackend(c *tc.C) {

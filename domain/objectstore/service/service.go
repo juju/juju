@@ -110,6 +110,7 @@ type DrainingState interface {
 	// TransitionBackendToS3 sets the object store to use S3 with the provided
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
+	// Currently only file->S3 transitions are supported.
 	TransitionBackendToS3(ctx context.Context, backendUUID, drainUUID string, credential domainobjectstore.S3Credentials) error
 
 	// InitialWatchBackendTable returns the table for the object store backend.
@@ -600,7 +601,8 @@ func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uu
 // TransitionBackendToS3 sets the object store to use S3 with the provided
 // credentials. This atomically marks the current backend as dying, activates
 // the new S3 backend, and initiates the draining phase so the drainer worker
-// can begin migrating blobs.
+// can begin migrating blobs. Currently only file->S3 transitions are
+// supported.
 func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

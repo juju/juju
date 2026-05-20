@@ -297,14 +297,14 @@ func (s *integrationSuite) TestDrainingLifecycleError(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// 2. Transition to error. The drain remains visible (phase_type_id <= 2),
-	// so GetDrainingPhase returns PhaseError.
+	// 2. Transition to error. Error is terminal, so the drain is no longer
+	// active and GetDrainingPhase returns PhaseUnknown.
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseError)
 	c.Assert(err, tc.ErrorIsNil)
 
 	phase, err := svc.GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(phase, tc.Equals, objectstore.PhaseError)
+	c.Assert(phase, tc.Equals, objectstore.PhaseUnknown)
 }
 
 // TestDrainingPhaseInvalidTransition verifies that invalid phase transitions
@@ -393,9 +393,9 @@ func (s *integrationSuite) TestAddControllerIDHint(c *tc.C) {
 	c.Assert(len(hints), tc.Equals, 2)
 }
 
-// TestMultipleDrainCycles verifies that after completing a full drain cycle,
-// a second transition to a different S3 backend can be performed.
-func (s *integrationSuite) TestMultipleDrainCycles(c *tc.C) {
+// TestTransitionBackendToS3FromS3NotSupported verifies that once S3 is active,
+// a subsequent transition to another S3 backend is rejected.
+func (s *integrationSuite) TestTransitionBackendToS3FromS3NotSupported(c *tc.C) {
 	svc := s.newDrainingService()
 
 	// First cycle: transition to S3.
@@ -414,32 +414,13 @@ func (s *integrationSuite) TestMultipleDrainCycles(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(firstBackend.Type, tc.Equals, objectstore.S3Backend)
 
-	// Second cycle: transition to a different S3 backend.
+	// A second transition from S3 to S3 is not supported.
 	err = svc.TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3-second.example.com",
 		AccessKey: "access-key-2",
 		SecretKey: "secret-key-2",
 	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Verify the draining is from the first S3 backend.
-	phaseInfo, err := svc.GetDrainingPhaseInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(phaseInfo.FromBackendUUID, tc.Not(tc.IsNil))
-	c.Check(*phaseInfo.FromBackendUUID, tc.Equals, firstBackend.UUID)
-
-	// Complete second cycle.
-	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseCompleted)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Verify the final backend is the second S3 backend.
-	finalBackend, err := svc.GetActiveObjectStoreBackend(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(finalBackend.UUID, tc.Not(tc.Equals), firstBackend.UUID)
-
-	creds, ok := finalBackend.S3Credentials()
-	c.Assert(ok, tc.IsTrue)
-	c.Check(creds.Endpoint, tc.Equals, "https://s3-second.example.com")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendTransitionNotSupported)
 }
 
 // TestMetadataPersistsThroughBackendTransition verifies that object metadata

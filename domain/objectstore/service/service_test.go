@@ -515,6 +515,17 @@ func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
 	c.Check(p, tc.Equals, phase)
 }
 
+func (s *drainingServiceSuite) TestGetDrainingPhaseNotFoundReturnsUnknown(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(p, tc.Equals, objectstore.PhaseUnknown)
+}
+
 func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

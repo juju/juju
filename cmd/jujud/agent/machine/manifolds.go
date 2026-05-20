@@ -749,14 +749,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService: sshserver.GetControllerConfigService,
 		})),
 
-		// The objectstore draining workers collaborate to run draining of blobs
-		// between underlying object stores (s3 compatible). They are used to
-		// drain; and to create a mechanism for running other workers so they
-		// can't accidentally interfere with a draining in progress. Such a
-		// manifold should depend on the objectstore facade, which will guard
-		// against any objectstore operations while the draining is in progress.
+		// The objectstore drainer runs on the singular primary controller to
+		// avoid concurrent completion races in HA. It coordinates draining of
+		// blobs between underlying object stores (S3 compatible) and with the
+		// objectstore fortress guards objectstore operations while draining is
+		// in progress.
 		objectStoreFortressName: fortress.Manifold(),
-		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
+		objectStoreDrainerName: ifPrimaryController(objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
 			AgentName:                       agentName,
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
@@ -773,7 +772,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       objectstoredrainer.NewWorker,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
 			Clock:                           config.Clock,
-		}),
+		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,

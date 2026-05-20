@@ -56,4 +56,8 @@ const (
 
 	// ErrBackendAlreadyExists is returned when the backend already exists.
 	ErrBackendAlreadyExists = errors.ConstError("backend already exists")
+
+	// ErrBackendTransitionNotSupported is returned when transitioning from
+	// the currently active backend type is not supported.
+	ErrBackendTransitionNotSupported = errors.ConstError("backend transition not supported")
 )
