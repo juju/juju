@@ -435,21 +435,6 @@ test_secrets() {
 	)
 }
 
-test_secrets_token_reuse() {
-	if [ "$(skip 'test_secrets_token_reuse')" ]; then
-		echo "==> TEST SKIPPED: test_secrets_token_reuse"
-		return
-	fi
-
-	(
-		set_verbosity
-
-		cd .. || exit
-
-		run "run_secrets_token_reuse"
-	)
-}
-
 test_user_secrets() {
 	if [ "$(skip 'test_user_secrets')" ]; then
 		echo "==> TEST SKIPPED: test_user_secrets"
