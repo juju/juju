@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -50,20 +49,19 @@ import (
 	"github.com/juju/juju/juju/sockets"
 )
 
-var logger = internallogger.GetLogger("juju.cmd.jujuagentd")
+var logger = internallogger.GetLogger("juju.cmd.jujud")
 
 func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of models
-such as OpenStack, Amazon AWS, or bare metal. jujuagentd is a component of juju.
+such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
 
 https://juju.is/
 
-The jujuagentd command can also forward invocations over RPC for execution by the
+The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
 named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
 JUJU_CONTEXT_ID be set in its model.
@@ -144,7 +142,7 @@ func getSocket() (sockets.Socket, error) {
 // hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
+func hookToolMain(commandName string, _ *cmd.Context, args []string) (code int, err error) {
 	code = 1
 	contextID, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
@@ -211,7 +209,7 @@ type versionDetail struct {
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf(ctx, "jujuagentd complete, code %d, err %v", code, err)
+	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
 
 	// Set the default transport to use the in-process proxy
 	// configuration.
@@ -236,7 +234,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "jujuagentd",
+		Name: "jujud",
 		Doc:  jujudDoc,
 		Log:  jujucmd.DefaultLog,
 		// p.Version should be a version.Binary, but juju/cmd does not
@@ -309,7 +307,7 @@ func Main(args []string) int {
 	var code int
 	commandName := filepath.Base(args[0])
 	switch commandName {
-	case jujunames.Jujud:
+	case jujunames.JujuController:
 		code, err = jujuDMain(args, ctx)
 	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
@@ -321,8 +319,8 @@ func Main(args []string) int {
 		if err != nil {
 			code = ExitStatusCodeErr
 		} else {
-			run := &run.RunCommand{MachineLock: lock}
-			code = cmd.Main(run, ctx, args[1:])
+			r := &run.RunCommand{MachineLock: lock}
+			code = cmd.Main(r, ctx, args[1:])
 		}
 	case jujunames.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
@@ -339,7 +337,7 @@ type jujudWriter struct {
 	target io.Writer
 }
 
-func (w *jujudWriter) Write(ctx context.Context, entry loggo.Entry) error {
+func (w *jujudWriter) Write(_ context.Context, entry loggo.Entry) error {
 	var err error
 	if strings.HasPrefix(entry.Module, "unit.") {
 		_, err = fmt.Fprintln(w.target, w.unitFormat(entry))

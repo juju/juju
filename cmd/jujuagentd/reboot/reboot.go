@@ -91,7 +91,7 @@ func (r *Reboot) stopDeployedUnits() error {
 		return err
 	}
 	for _, svcName := range services {
-		if strings.HasPrefix(svcName, jujunames.Jujud+"-unit-") {
+		if strings.HasPrefix(svcName, jujunames.JujuAgentd+"-unit-") {
 			svc, err := r.reboot.NewServiceReference(svcName)
 			if err != nil {
 				return err
