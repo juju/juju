@@ -40,13 +40,17 @@ See more: {ref}`command-juju-bootstrap`, {ref}`cloud-specific reference docs <li
 Use DNS-based registration when: you want to simplify user onboarding (no registration tokens), you're setting up a shared controller for many users, you need automatic TLS certificates, or you want flexibility to change controller IPs without affecting users.
 ```
 
-To allow users to register using a DNS hostname (`juju register controller.example.com`), configure the controller's DNS address:
+To allow users to register using a DNS hostname (`juju register controller.example.com`) instead of a registration token, configure the controller's DNS address:
 
 ```text
 juju bootstrap aws my-controller --config public-dns-address=controller.example.com:443
 ```
 
-This is typically used with external authentication:
+After hostname-based registration, users authenticate with either:
+- Local passwords (if they were added via `juju add-user` and set a password)
+- External authentication (if `identity-url` is also configured)
+
+To combine DNS-based registration with external authentication:
 
 ```text
 juju bootstrap aws my-controller \
@@ -62,16 +66,19 @@ See more: {ref}`controller-config-public-dns-address`
 
 ````{dropdown} Enable external authentication
 
-To enable external authentication via an identity provider (OAuth/OIDC), bootstrap with the `identity-url` configuration key:
+To enable authentication via an external identity provider (OAuth/OIDC instead of local passwords), bootstrap with the `identity-url` configuration key:
 
 ```text
 juju bootstrap aws my-controller --config identity-url=https://identity.example.com
 ```
 
-This adds external authentication as an option alongside local user authentication:
+This changes how users authenticate (not how they register):
 - External users authenticate via the provider (e.g., Ubuntu SSO, Google OAuth) using browser-based OAuth/OIDC.
 - Local users created with `juju add-user` continue to use controller-local passwords.
-- Users can still register with tokens from `juju add-user`.
+
+Users can register with either:
+- Registration tokens from `juju add-user` (regardless of authentication method)
+- DNS hostname if `public-dns-address` is also configured
 
 For HTTP identity managers (if the provider doesn't expose an endpoint to retrieve its public key), you may need to provide the identity manager's public key:
 
