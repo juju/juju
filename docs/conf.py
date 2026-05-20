@@ -249,8 +249,23 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinxext.rediraffe',
     'sphinx_sitemap',
+    'sphinx_new_tab_link',
+    'sphinxcontrib.lightbox2',
+    'sphinx_llm.txt',
     ]
 
+# Customize sphinx_llm.txt
+## Add project summary:
+llms_txt_description = (
+    "Juju is an open source orchestration engine for deploying, integrating, "
+    "and managing applications across Kubernetes, VMs, and bare metal using "
+    "software operators called charms."
+)
+## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
+llms_txt_suffix_mode = "url-suffix"
+markdown_http_base = "https://documentation.ubuntu.com/juju/2.9"
+
+new_tab_link_show_external_link_icon = True
 
 # Add redirects, so they can be updated here to land with docs being moved
 # rediraffe_branch = "3.6"
@@ -266,6 +281,7 @@ exclude_patterns = [
 
 html_css_files = [
     "css/pdf.css",
+    "css/cookie-banner.css",
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
 ]
 
