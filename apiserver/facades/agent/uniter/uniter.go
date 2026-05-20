@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -51,6 +52,8 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -2987,6 +2990,36 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	}
 	arg.AddStorage = preparedStorageAdds
 
+	// Convert secret deletes to domain types, filtering out any the unit
+	// does not have manage access on.
+	if len(changes.SecretDeletes) > 0 {
+		secretDeletes := make([]unitstate.DeleteSecretArg, 0, len(changes.SecretDeletes))
+		var deleteErrs []error
+		for _, del := range changes.SecretDeletes {
+			uri, err := coresecrets.ParseURI(del.URI)
+			if err != nil {
+				return apiservererrors.ServerError(err)
+			}
+			if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+				if errors.Is(err, secreterrors.SecretNotFound) {
+					continue
+				}
+				deleteErrs = append(deleteErrs, err)
+				continue
+			}
+			secretDeletes = append(secretDeletes, unitstate.DeleteSecretArg{
+				URI: uri,
+				DeleteSecretParams: secret.DeleteSecretParams{
+					Revisions: del.Revisions,
+				},
+			})
+		}
+		if len(deleteErrs) > 0 {
+			return internalerrors.Errorf("removing secrets: %w", internalerrors.Join(deleteErrs...))
+		}
+		arg.SecretDeletes = secretDeletes
+	}
+
 	// Note: the call to CommitHookChanges will eventually move to the end
 	// of the method. During the change over to running in a single txn,
 	// make it here to preserve the order.
@@ -3047,29 +3080,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		if err != nil {
 			return errors.Annotate(err, "revoking secrets access")
 		}
-	}
-	if len(changes.SecretDeletes) > 0 {
-		result, err := u.removeSecrets(ctx, params.DeleteSecretArgs{Args: changes.SecretDeletes})
-		nilOrNotFound := err == nil
-		if err == nil {
-			for _, r := range result.Results {
-				if r.Error != nil && !params.IsCodeNotFound(r.Error) {
-					nilOrNotFound = false
-					break
-				}
-			}
-			if !nilOrNotFound {
-				err = result.Combine()
-			}
-		}
-		if err != nil {
-			return errors.Annotate(err, "removing secrets")
-		}
-	}
-
-	err = u.secretService.RemoveUnitReservationsAndTokens(ctx, unitName)
-	if err != nil {
-		return errors.Annotate(err, "cleanup unit secret reservations and tokens")
 	}
 
 	return nil

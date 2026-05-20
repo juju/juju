@@ -30,10 +30,11 @@ type SecretService interface {
 		ctx context.Context, uri *coresecrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
 
-	// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-	// unit has made that have not been claimed, and it also expires any tokens
-	// the unit has requested.
-	RemoveUnitReservationsAndTokens(ctx context.Context, unitName unit.Name) error
+	// CheckSecretManageAccess verifies the unit has RoleManage access on
+	// the given secret, including app-owned secrets if the unit is the
+	// leader. Returns an error satisfying [secreterrors.PermissionDenied]
+	// if access is denied.
+	CheckSecretManageAccess(ctx context.Context, uri *coresecrets.URI, unitName unit.Name) error
 }
 
 // createSecrets creates new secrets.

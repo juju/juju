@@ -3483,9 +3483,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	}
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), domainArg).Return(nil)
 
-	// TODO(secrets): move into txn
-	s.secretService.EXPECT().RemoveUnitReservationsAndTokens(gomock.Any(), unitName).Return(nil)
-
 	// Act
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag, arg)
 
@@ -3526,9 +3523,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesAddsPreparedStorage(c *tc.
 			}})
 			return nil
 		})
-
-	// TODO(secrets): move into txn
-	s.secretService.EXPECT().RemoveUnitReservationsAndTokens(gomock.Any(), unitName).Return(nil)
 
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
 		params.CommitHookChangesArg{
