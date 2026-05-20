@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"

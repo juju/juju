@@ -785,7 +785,7 @@ func (s *diffSuite) TestApplicationNumericOptions(c *tc.C) {
 				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
-				Options: map[string]interface{}{
+				Options: map[string]any{
 					"justin": 9,
 					"clint":  6.1,
 					"ellen":  11.0,

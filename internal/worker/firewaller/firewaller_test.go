@@ -741,7 +741,7 @@ func (s *InstanceModeSuite) assertModelFlushRetriesOnParamsNotFound(c *tc.C, mod
 	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachine(c, machine.Name(m.Tag().Id()))
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		select {
 		case <-modelRulesCalls:
 		case <-time.After(coretesting.LongWait):

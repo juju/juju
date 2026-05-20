@@ -25,7 +25,7 @@ func (*FlagsSuite) TestDisksFlagErrors(c *tc.C) {
 	var disks []storage.Directive
 	f := machine.NewDisksFlag(&disks)
 	err := f.Set("-1")
-	c.Assert(err, tc.ErrorMatches, `cannot parse disk constraints: parsing storage count: count must be greater than zero, got "-1"`)
+	c.Assert(err, tc.ErrorMatches, `cannot parse disk storage directives: parsing storage count: count must be greater than zero, got "-1"`)
 	c.Assert(disks, tc.HasLen, 0)
 }
 

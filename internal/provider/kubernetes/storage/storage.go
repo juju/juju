@@ -134,10 +134,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 		// For emptyDir charm storage, the volume mount name is "<app>-<storage>".
 		// We can extract the storage name by trimming the "<app>-" prefix.
 		prefix := appName + "-"
-		var storageName string
-		if strings.HasPrefix(volumeMount.Name, prefix) {
-			storageName = strings.TrimPrefix(volumeMount.Name, prefix)
-		}
+		storageName, _ := strings.CutPrefix(volumeMount.Name, prefix)
 
 		return &caas.FilesystemInfo{
 			StorageName:               storageName,

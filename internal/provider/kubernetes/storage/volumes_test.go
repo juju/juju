@@ -179,19 +179,19 @@ func (s *storageSuite) TestFilesystemInfoEmptyDirApplicationStorage(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, &caas.FilesystemInfo{
-		StorageName:  "config",
-		Size:         0,
+		StorageName:               "config",
+		Size:                      0,
 		PersistentVolumeClaimName: "gitlab-config",
-		MountPoint:   "/config",
-		ReadOnly:     false,
+		MountPoint:                "/config",
+		ReadOnly:                  false,
 		Status: status.StatusInfo{
 			Status: status.Attached,
 			Since:  &now,
 		},
 		Volume: caas.VolumeInfo{
-			PersistentVolumeName:   "gitlab-config",
-			Size:       0,
-			Persistent: false,
+			PersistentVolumeName: "gitlab-config",
+			Size:                 0,
+			Persistent:           false,
 			Status: status.StatusInfo{
 				Status: status.Attached,
 				Since:  &now,
@@ -225,19 +225,19 @@ func (s *storageSuite) TestFilesystemInfoEmptyDirNonApplicationStorage(c *tc.C) 
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, &caas.FilesystemInfo{
-		StorageName:  "",
-		Size:         0,
+		StorageName:               "",
+		Size:                      0,
 		PersistentVolumeClaimName: "vol",
-		MountPoint:   "/vol",
-		ReadOnly:     false,
+		MountPoint:                "/vol",
+		ReadOnly:                  false,
 		Status: status.StatusInfo{
 			Status: status.Attached,
 			Since:  &now,
 		},
 		Volume: caas.VolumeInfo{
-			PersistentVolumeName:   "vol",
-			Size:       0,
-			Persistent: false,
+			PersistentVolumeName: "vol",
+			Size:                 0,
+			Persistent:           false,
 			Status: status.StatusInfo{
 				Status: status.Attached,
 				Since:  &now,

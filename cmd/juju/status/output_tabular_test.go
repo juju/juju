@@ -14,7 +14,7 @@ import (
 )
 
 func TestOutputTabularSuite(t *testing.T) {
-	tc.Run(t, &StatusHistorySuite{})
+	tc.Run(t, &outputTabularSuite{})
 }
 
 type outputTabularSuite struct {

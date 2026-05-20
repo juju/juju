@@ -213,7 +213,7 @@ func (s *mockStream) NextReader() (int, io.Reader, error) {
 	return 0, nil, &gorillaws.CloseError{Code: gorillaws.CloseNormalClosure}
 }
 
-func (s *mockStream) WriteJSON(v interface{}) error {
+func (s *mockStream) WriteJSON(v any) error {
 	count := atomic.AddInt32(&s.writeCount, 1)
 	if int(count) <= s.succeedNWrites {
 		if int(count) == s.succeedNWrites {
@@ -226,7 +226,7 @@ func (s *mockStream) WriteJSON(v interface{}) error {
 	return fmt.Errorf("use of closed network connection")
 }
 
-func (s *mockStream) ReadJSON(v interface{}) error {
+func (s *mockStream) ReadJSON(v any) error {
 	s.c.Fatal("ReadJSON called unexpectedly")
 	return nil
 }
