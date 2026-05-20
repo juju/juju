@@ -246,16 +246,8 @@ See more: {ref}`controller-config-allow-model-access`
 juju bootstrap aws my-controller --config juju-db-snap-channel=4.4.31/stable
 ```
 
-**Controller snap source** (default: legacy):
-
-```text
-juju bootstrap aws my-controller --config jujud-controller-snap-source=snapstore
-```
-
-Options: `legacy`, `snapstore`, `local`, `local-dangerous`
-
 ```{ibnote}
-See more: {ref}`controller-config-juju-db-snap-channel`, {ref}`controller-config-jujud-controller-snap-source`
+See more: {ref}`controller-config-juju-db-snap-channel`
 ```
 
 ````
