@@ -34,6 +34,32 @@ See more: {ref}`command-juju-bootstrap`, {ref}`cloud-specific reference docs <li
 
 `````{dropdown} Common bootstrap settings
 
+````{dropdown} Enable DNS-based registration
+
+```{tip}
+Use DNS-based registration when: you want to simplify user onboarding (no registration tokens), you're setting up a shared controller for many users, you need automatic TLS certificates, or you want flexibility to change controller IPs without affecting users.
+```
+
+To allow users to register using a DNS hostname (`juju register controller.example.com`), configure the controller's DNS address:
+
+```text
+juju bootstrap aws my-controller --config public-dns-address=controller.example.com:443
+```
+
+This is typically used with external authentication:
+
+```text
+juju bootstrap aws my-controller \
+  --config public-dns-address=controller.example.com:443 \
+  --config identity-url=https://identity.example.com
+```
+
+```{ibnote}
+See more: {ref}`controller-config-public-dns-address`
+```
+
+````
+
 ````{dropdown} Enable external authentication
 
 To enable external authentication via an identity provider (OAuth/OIDC), bootstrap with the `identity-url` configuration key:
@@ -57,28 +83,6 @@ juju bootstrap aws my-controller \
 
 ```{ibnote}
 See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identity-public-key`
-```
-
-````
-
-````{dropdown} Enable DNS-based registration
-
-To allow users to register using a DNS hostname (`juju register controller.example.com`), configure the controller's DNS address:
-
-```text
-juju bootstrap aws my-controller --config public-dns-address=controller.example.com:443
-```
-
-This is typically used with external authentication:
-
-```text
-juju bootstrap aws my-controller \
-  --config identity-url=https://identity.example.com \
-  --config public-dns-address=controller.example.com:443
-```
-
-```{ibnote}
-See more: {ref}`controller-config-public-dns-address`
 ```
 
 ````
@@ -111,10 +115,6 @@ The Juju controller needs two container images (one for the controller agent con
 
 ```text
 juju bootstrap mycloud --config caas-image-repo="public.ecr.aws/juju"
-```
-
-```{note}
-While `caas-image-repo` can technically be changed after bootstrap, that is only for a very specific use case (adjusting credentials for a custom registry). For most cases it can only be set during bootstrap.
 ```
 
 ```{ibnote}
@@ -197,12 +197,35 @@ See more: {ref}`controller-config-autocert-url`, {ref}`controller-config-autocer
 
 ````
 
-````{dropdown} Allow model access without controller access
+````{dropdown} Allow users to connect to models without controller access
 
-By default, users must have controller access to connect to models. To allow users to access models they're authorized for without controller access, enable `allow-model-access` during bootstrap:
+By default, users must have controller access (login or superuser) to connect to models, even if they've been granted model permissions. To allow users to connect directly to models they've been granted access to without needing any controller access, enable `allow-model-access` during bootstrap:
 
 ```text
 juju bootstrap aws my-controller --config allow-model-access=true
+```
+
+**Typical workflow with external authentication:**
+
+```text
+# 1. Admin bootstraps controller with external auth and model-only access
+juju bootstrap aws my-controller \
+  --config public-dns-address=controller.example.com:443 \
+  --config identity-url=https://identity.example.com \
+  --config allow-model-access=true
+
+# 2. Admin shares controller address with external users
+
+# 3. External users register the controller with their client
+#    (opens browser for authentication via identity provider)
+juju register controller.example.com
+
+# 4. Admin grants model access to external user
+juju grant user@external write mymodel
+
+# 5. External user works with granted model without controller permissions
+juju status -m mymodel
+juju deploy postgresql -m mymodel
 ```
 
 ```{ibnote}
