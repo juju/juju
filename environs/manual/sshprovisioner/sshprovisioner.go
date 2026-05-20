@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/service"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/internal/uuid"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
 
