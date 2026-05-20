@@ -221,7 +221,7 @@ func NewSafeModeMachineAgent(
 }
 
 // SafeModeMachineAgent is responsible for tying together all functionality
-// needed to orchestrate a Jujud instance which controls a machine.
+// needed to orchestrate a JujuAgentd instance which controls a machine.
 type SafeModeMachineAgent struct {
 	agentconfig.AgentConfigWriter
 
@@ -352,7 +352,7 @@ func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootActio
 }
 
 func ensuringJujudNotRunning(tag names.Tag) error {
-	cmd := exec.Command("systemctl", "check", fmt.Sprintf("%s-machine-%s.service", jujunames.Jujud, tag.Id()))
+	cmd := exec.Command("systemctl", "check", fmt.Sprintf("%s-machine-%s.service", jujunames.JujuAgentd, tag.Id()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Exit code of 3 is ESRCH, which means no such process.

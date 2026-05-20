@@ -495,7 +495,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	bootstrapAgentArgs := []string{
-		featureFlags + w.icfg.JujuTools() + "/" + jujunames.Jujud,
+		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
 		"bootstrap-state",
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = internallogger.GetLogger("juju.cmd.jujuagentd.reboot")
+var logger = internallogger.GetLogger("juju.cmd.jujud.reboot")
 var timeout = 10 * time.Minute
 var rebootAfter = 15
 
@@ -91,7 +91,7 @@ func (r *Reboot) stopDeployedUnits() error {
 		return err
 	}
 	for _, svcName := range services {
-		if strings.HasPrefix(svcName, jujunames.Jujud+"-unit-") {
+		if strings.HasPrefix(svcName, jujunames.JujuAgentd+"-unit-") {
 			svc, err := r.reboot.NewServiceReference(svcName)
 			if err != nil {
 				return err

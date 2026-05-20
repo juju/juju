@@ -323,7 +323,7 @@ func Main(args []string) int {
 	var code int
 	commandName := filepath.Base(args[0])
 	switch commandName {
-	case jujunames.Jujud:
+	case jujunames.JujuAgentd:
 		code, err = jujuDMain(args, ctx)
 	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
