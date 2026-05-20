@@ -45,6 +45,7 @@ run_bootstrap_controller_snap_path() {
 
   echo "==> Bootstrapping with snap transport enabled and snap/assert paths provided: ${name}"
   juju bootstrap "${BOOTSTRAP_PROVIDER:-}" "${name}" \
+    --build-agent \
     --controller-snap-path="${snap_path}" \
     --controller-snap-assert-path="${assert_path}"
   echo "${name}" >>"${TEST_DIR}/jujus"
@@ -104,6 +105,7 @@ run_bootstrap_controller_snap_path_without_assert() {
 
   echo "==> Bootstrapping with snap transport enabled, snap path only (no assert): ${name}"
   juju bootstrap "${BOOTSTRAP_PROVIDER:-}" "${name}" \
+    --build-agent \
     --controller-snap-path="${snap_path}"
   echo "${name}" >>"${TEST_DIR}/jujus"
 
