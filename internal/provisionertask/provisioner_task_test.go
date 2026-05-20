@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -2074,7 +2075,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	tag := names.NewMachineTag(id)
 	result.InstanceConfig.APIInfo.Tag = tag
 	result.InstanceConfig.MachineId = id
-	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("jujud-%s", tag)
+	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("%s-%s", jujunames.Jujud, tag)
 	return &result
 }
 

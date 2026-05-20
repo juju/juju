@@ -191,7 +191,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
-	c.Assert(err, tc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
+	c.Assert(err, tc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujuagentd`)
 
 	select {
 	case args := <-argsCh:
