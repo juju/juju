@@ -33,7 +33,7 @@ In Juju, **user access** (or **access level**) is a property assigned to a user 
 Access levels are defined per resource type. A user may have different access levels on different resources of the same type -- for example, `admin` access on one model but only `read` access on another model.
 
 ```{note}
-Access levels follow the resource hierarchy: granting access at a higher-level resource automatically grants access to all lower-level resources within its scope. For example, a user with controller `superuser` access has full access to all clouds, models, and offers managed by that controller.
+Controller `superuser` access is special: it grants full access to all clouds, models, and offers managed by that controller, without requiring resource-level grants.
 ```
 
 (list-of-user-access-levels-for-controllers)=
