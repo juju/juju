@@ -411,7 +411,7 @@ func (s *uploadSuite) TestMockBuildTools(c *tc.C) {
 		gzr, err := gzip.NewReader(f)
 		c.Assert(err, tc.ErrorIsNil)
 
-		_, tr, err := tar.FindFile(gzr, names.Jujud)
+		_, tr, err := tar.FindFile(gzr, names.JujuAgentd)
 		c.Assert(err, tc.ErrorIsNil)
 
 		content, err := io.ReadAll(tr)
