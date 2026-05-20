@@ -67,7 +67,10 @@ Granted: Automatically by bootstrapping a controller.
 Abilities:
 - Full access to all models, clouds, and offers managed by this controller (without requiring resource-level grants).
 - Add, remove, and manage users.
+- Add, remove, and manage clouds.
+- Add, remove, and manage credentials.
 - Create and destroy models on any cloud.
+- Deploy and manage model resources.
 - Enable controller high availability.
 - Destroy the controller.
 - Manage controller configuration.
