@@ -73,6 +73,7 @@ linters:
     modernize:
       disable:
         - omitzero
+        - atomic
   exclusions:
     generated: lax
     presets:
