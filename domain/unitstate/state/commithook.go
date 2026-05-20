@@ -149,7 +149,7 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 
 		rec := secretRemovalJob{
 			UUID:          jobUUID.String(),
-			RemovalTypeID: userSecretRemovalJobTypeID,
+			RemovalTypeID: charmSecretRemovalJobTypeID,
 			EntityUUID:    del.URI.String(),
 			ScheduledFor:  now,
 		}

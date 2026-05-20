@@ -21,6 +21,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/secret"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -614,7 +615,7 @@ func (s *commitHookSuite) TestDeleteSecrets(c *tc.C) {
 		).Scan(&removalTypeID, &entityUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(removalTypeID, tc.Equals, 16)
+	c.Check(removalTypeID, tc.Equals, int(removal.CharmSecretJob))
 	c.Check(entityUUID, tc.Equals, uri.String())
 }
 
@@ -653,7 +654,7 @@ func (s *commitHookSuite) TestDeleteSecretsWithRevisions(c *tc.C) {
 		).Scan(&removalTypeID, &entityUUID, &argStr)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(removalTypeID, tc.Equals, 16)
+	c.Check(removalTypeID, tc.Equals, int(removal.CharmSecretJob))
 	c.Check(entityUUID, tc.Equals, uri.String())
 	c.Assert(argStr.Valid, tc.IsTrue)
 	c.Check(argStr.String, tc.Equals, `{"revisions":[1,3,5]}`)

@@ -26,13 +26,13 @@ func TestSecretSuite(t *testing.T) {
 	tc.Run(t, &secretSuite{})
 }
 
-func (s *secretSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
+func (s *secretSuite) TestProcessSecretRemovalJobInvalidJobType(c *tc.C) {
 	job := removal.Job{RemovalType: 500}
-	err := s.newService(c).processUserSecretRemovalJob(c.Context(), job)
+	err := s.newService(c).processSecretRemovalJob(c.Context(), job)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
 }
 
-func (s *secretSuite) TestProcessUserSecretRemovalJobInvalidArgs(c *tc.C) {
+func (s *secretSuite) TestProcessSecretRemovalJobInvalidArgs(c *tc.C) {
 	j := removal.Job{
 		UUID:        func() removal.UUID { u, _ := removal.NewUUID(); return u }(),
 		RemovalType: removal.UserSecretJob,
@@ -41,20 +41,20 @@ func (s *secretSuite) TestProcessUserSecretRemovalJobInvalidArgs(c *tc.C) {
 			"revisions": "not-a-valid-type",
 		},
 	}
-	err := s.newService(c).processUserSecretRemovalJob(c.Context(), j)
+	err := s.newService(c).processSecretRemovalJob(c.Context(), j)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobArgsInvalid)
 }
 
-func (s *secretSuite) TestProcessUserSecretRemovalJobInvalidRevisions(c *tc.C) {
+func (s *secretSuite) TestProcessSecretRemovalJobInvalidRevisions(c *tc.C) {
 	j := removal.Job{
 		UUID:        func() removal.UUID { u, _ := removal.NewUUID(); return u }(),
-		RemovalType: removal.UserSecretJob,
+		RemovalType: removal.CharmSecretJob,
 		EntityUUID:  secrets.NewURI().String(),
 		Arg: map[string]any{
 			"revisions": []any{"invalid-revisions"},
 		},
 	}
-	err := s.newService(c).processUserSecretRemovalJob(c.Context(), j)
+	err := s.newService(c).processSecretRemovalJob(c.Context(), j)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobArgsInvalid)
 }
 
@@ -80,7 +80,35 @@ func (s *secretSuite) TestExecuteJobForUserSecretWithInvalidArgs(c *tc.C) {
 func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	j := newUserSecretJob(c)
+	j := newSecretJob(c)
+	uri, _ := secrets.ParseURI(j.EntityUUID)
+
+	exp := s.modelState.EXPECT()
+	exp.DeleteUserSecretRevisions(gomock.Any(), uri, nil).Return([]string{"rev-uuid-1"}, nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: juju.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().
+		GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).
+		Return("", sbCfg, nil)
+	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1").Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestExecuteJobForCharmSecretDelete verifies that ExecuteJob routes
+// CharmSecretJob through the same secret-removal path as UserSecretJob.
+// This exercises the combined switch case in ExecuteJob to ensure charm
+// secrets scheduled by CommitHookChanges are processed correctly.
+func (s *secretSuite) TestExecuteJobForCharmSecretDelete(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newCharmSecretJob(c)
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	exp := s.modelState.EXPECT()
@@ -104,7 +132,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 func (s *secretSuite) TestExecuteJobForUserSecretWithSpecificRevisions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	j := newUserSecretJobWithRevisions(c, []int{1, 2})
+	j := newSecretJobWithRevisions(c, []int{1, 2})
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	revs := []string{"rev-uuid-1", "rev-uuid-2"}
@@ -129,7 +157,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretWithSpecificRevisions(c *tc.C) 
 func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDelete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	j := newUserSecretJob(c)
+	j := newSecretJob(c)
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	secretExternalRefs := []string{"ref-1", "ref-2", "ref-3"}
@@ -159,7 +187,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDelete(c *tc.C) 
 func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDeleteWithFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	j := newUserSecretJob(c)
+	j := newSecretJob(c)
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	secretExternalRefs := []string{"ref-1", "ref-2"}
@@ -181,7 +209,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDeleteWithFailur
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func newUserSecretJob(c *tc.C) removal.Job {
+func newSecretJob(c *tc.C) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -192,7 +220,7 @@ func newUserSecretJob(c *tc.C) removal.Job {
 	}
 }
 
-func newUserSecretJobWithRevisions(c *tc.C, revisions []int) removal.Job {
+func newSecretJobWithRevisions(c *tc.C, revisions []int) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -203,6 +231,17 @@ func newUserSecretJobWithRevisions(c *tc.C, revisions []int) removal.Job {
 		Arg: map[string]any{
 			"revisions": revisions,
 		},
+	}
+}
+
+func newCharmSecretJob(c *tc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.CharmSecretJob,
+		EntityUUID:  secrets.NewURI().String(),
 	}
 }
 

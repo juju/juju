@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/removal"
 )
 
-// userSecretRemovalJobTypeID is the removal_type_id for UserSecretJob.
-// This corresponds to the iota value in domain/removal/types.go.
-const userSecretRemovalJobTypeID uint64 = 16
+// charmSecretRemovalJobTypeID is the removal_type_id for CharmSecretJob,
+// used when scheduling deletion of unit- or application-owned secrets.
+const charmSecretRemovalJobTypeID = uint64(removal.CharmSecretJob)
 
 // secretRemovalJob represents a record in the removal table for scheduling
 // secret deletion.
