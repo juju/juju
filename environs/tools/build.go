@@ -201,7 +201,7 @@ func copyExistingJujus(ctx context.Context, dir string) error {
 		logger.Infof(ctx, "couldn't find existing jujuagentd: %v", err)
 		return errors.Trace(err)
 	}
-	jujudLocation := filepath.Join(jujuDir, names.Jujud)
+	jujudLocation := filepath.Join(jujuDir, names.JujuAgentd)
 	logger.Debugf(ctx, "checking: %s", jujudLocation)
 	info, err := os.Stat(jujudLocation)
 	if err != nil {
@@ -209,7 +209,7 @@ func copyExistingJujus(ctx context.Context, dir string) error {
 		return errors.Trace(err)
 	}
 	logger.Infof(ctx, "Found agent binary to upload (%s)", jujudLocation)
-	target := filepath.Join(dir, names.Jujud)
+	target := filepath.Join(dir, names.JujuAgentd)
 	logger.Infof(ctx, "target: %v", target)
 	err = copyFileWithMode(ctx, jujudLocation, target, info.Mode())
 	if err != nil {
@@ -230,11 +230,11 @@ func copyExistingJujus(ctx context.Context, dir string) error {
 	}
 	// If there's a version file beside the jujud binary or in the
 	// fallback location, include that.
-	versionTarget := filepath.Join(dir, names.JujudVersions)
+	versionTarget := filepath.Join(dir, names.JujuVersions)
 
 	versionPaths := []string{
-		filepath.Join(jujuDir, names.JujudVersions),
-		filepath.Join(VersionFileFallbackDir, names.JujudVersions),
+		filepath.Join(jujuDir, names.JujuVersions),
+		filepath.Join(VersionFileFallbackDir, names.JujuVersions),
 	}
 	for _, versionPath := range versionPaths {
 		info, err = os.Stat(versionPath)
@@ -397,7 +397,7 @@ var ExecCommand = exec.Command
 
 func getVersionFromJujud(dir string) (semversion.Binary, error) {
 	// If there's no jujud, return a NotFound error.
-	path := filepath.Join(dir, names.Jujud)
+	path := filepath.Join(dir, names.JujuAgentd)
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return semversion.Binary{}, errors.NotFoundf(path)
@@ -459,7 +459,7 @@ func isNoMatchingToolsChecksum(err error) bool {
 // specified directory and returns any version matching the
 // current binary.
 func GetVersionFromFile(dir string) (semversion.Binary, error) {
-	versionPath := filepath.Join(dir, names.JujudVersions)
+	versionPath := filepath.Join(dir, names.JujuVersions)
 	sigFile, err := os.Open(versionPath)
 	if os.IsNotExist(err) {
 		return semversion.Binary{}, errors.NotFoundf("version file %q", versionPath)
@@ -474,7 +474,7 @@ func GetVersionFromFile(dir string) (semversion.Binary, error) {
 	}
 
 	// Find the binary by hash.
-	jujudPath := filepath.Join(dir, names.Jujud)
+	jujudPath := filepath.Join(dir, names.JujuAgentd)
 	jujudFile, err := os.Open(jujudPath)
 	if err != nil {
 		return semversion.Binary{}, errors.Trace(err)

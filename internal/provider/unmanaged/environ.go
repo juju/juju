@@ -369,7 +369,7 @@ func (*manualEnviron) Provider() environs.EnvironProvider {
 }
 
 func isRunningController() bool {
-	return filepath.Base(os.Args[0]) == names.Jujud
+	return filepath.Base(os.Args[0]) == names.JujuAgentd
 }
 
 // DetectBase returns the base for the controller for this environment.
