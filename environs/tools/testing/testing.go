@@ -59,7 +59,7 @@ func GetMockBuildTools(c tc.LikeC) sync.BuildAgentTarballFunc {
 		vers.Number = getForceVersion(vers.Number)
 
 		tgz, checksum := coretesting.TarGz(
-			coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
+			coretesting.NewTarFile(names.Jujud, 0777, "jujuagentd contents "+vers.String()))
 
 		toolsDir, err := os.MkdirTemp("", "juju-tools-"+stream)
 		c.Assert(err, tc.ErrorIsNil)

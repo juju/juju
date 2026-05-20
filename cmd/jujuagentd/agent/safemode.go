@@ -32,10 +32,10 @@ import (
 	"github.com/juju/juju/core/semversion"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	jujunames "github.com/juju/juju/juju/names"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -105,7 +105,7 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
-	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
+	if err := os.MkdirAll(config.LogDir(), 0o644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
