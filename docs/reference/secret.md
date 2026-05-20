@@ -69,8 +69,6 @@ Secret names must start with a lowercase letter, followed by a sequence of lette
 
 In {ref}`user secrets <user-secret>` or {ref}` charm secrets <charm-secret>`, a secret label is a string identifier that may be assigned to a secret by the secret owning and, respectively, the secret consuming charm for their own internal reference.
 
-Not all secrets get labels -- only those that have been configured to support secret labels.
-
 ## Secret size
 
 The maximum size for a base64-encoded secret value is `1MB` (1,000,000 bytes) per key. This limit ensures compatibility across all secret backends, including Vault and Kubernetes.
