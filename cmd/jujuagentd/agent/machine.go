@@ -329,7 +329,7 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 }
 
 // MachineAgent is responsible for tying together all functionality
-// needed to orchestrate a Jujud instance which controls a machine.
+// needed to orchestrate a JujuAgentd instance which controls a machine.
 type MachineAgent struct {
 	agentconfig.AgentConfigWriter
 
@@ -822,11 +822,11 @@ func (a *MachineAgent) Tag() names.Tag {
 }
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
-	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.JujuAgentd)
 	symlinks := jujudSymlinks
 	if a.isCaasAgent {
 		// For IAAS, this is done in systemd for for caas we need to do it here.
-		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.Jujud)
+		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.JujuAgentd)
 		if err := a.createSymlink(caasJujud, jujud); err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", jujud)
 		}

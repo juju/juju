@@ -819,7 +819,7 @@ func NewInstanceConfig(
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
-		MachineAgentServiceName: jujunames.Jujud + "-" + names.NewMachineTag(machineID).String(),
+		MachineAgentServiceName: jujunames.JujuAgentd + "-" + names.NewMachineTag(machineID).String(),
 		Base:                    base,
 		Tags:                    map[string]string{},
 

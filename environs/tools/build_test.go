@@ -161,7 +161,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	v, err := tools.GetVersionFromJujud(dir)
@@ -187,7 +187,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
@@ -213,7 +213,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)

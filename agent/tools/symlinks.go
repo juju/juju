@@ -44,7 +44,7 @@ func EnsureSymlinks(jujuDir, dir string, commands []string) (err error) {
 	jujucPath := filepath.Join(jujuDir, names.Jujuc)
 	targetPath := jujucPath
 	if _, err := os.Stat(jujucPath); os.IsNotExist(err) {
-		jujudPath := filepath.Join(jujuDir, names.Jujud)
+		jujudPath := filepath.Join(jujuDir, names.JujuAgentd)
 		logger.Debugf(context.TODO(), "jujuc not found at %s using jujud path %s", jujucPath, jujudPath)
 		targetPath = jujudPath
 	}

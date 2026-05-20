@@ -396,7 +396,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	tag := names.NewMachineTag(id)
 	result.InstanceConfig.APIInfo.Tag = tag
 	result.InstanceConfig.MachineId = id
-	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("%s-%s", jujunames.Jujud, tag)
+	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("%s-%s", jujunames.JujuAgentd, tag)
 	return &result
 }
 
