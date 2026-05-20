@@ -232,7 +232,7 @@ func checkProvisionedAsUser(host string, provisioningUserName string, provisioni
 	}
 
 	output := strings.TrimSpace(stdout.String())
-	provisioned := strings.Contains(output, jujunames.Jujud+"-machine")
+	provisioned := strings.Contains(output, jujunames.JujuAgentd+"-machine")
 	return provisioned, nil
 }
 
