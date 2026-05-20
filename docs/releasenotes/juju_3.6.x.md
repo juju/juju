@@ -11,6 +11,129 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.23**
+🗓️ 21 May 2026
+
+🚀 **New features**
+
+### Update and view application storage directives
+
+It is now possible to update (and view) application storage directives. When
+deploying a charm, the `--storage` option can be used to specify storage
+directives for the application storage requirements. Before this release,
+these directives could not be viewed or updated after deployment.
+It is now possible to use the new `application-storage`command to perform these
+actions. The command works in a similar way to the `model-config` command; when
+run without any arguments, the current storage directives for the application
+are shown:<br>
+
+`juju application-storage postgresql-k8s`<br>
+
+To update a storage directive, use similar syntax as when deploying,
+for example:<br>
+
+`juju application-storage postgresql-k8s pgdata="3G,2"`<br>
+
+The updated storage directives do **not** cause any changes to existing storage
+for already deployed units. The new directives will be applied to future storage
+instances created for new units of the application.
+
+* feat: storage resize for k8s apps by @adisazhar123 in https://github.com/juju/juju/pull/21309
+* feat: display and update application storage cmd interface by @CodingCookieRookie in https://github.com/juju/juju/pull/21241
+* feat: k8s storage size update by @wallyworld in https://github.com/juju/juju/pull/22388
+* fix: disallow updating storage provider type by @adisazhar123 in https://github.com/juju/juju/pull/22287
+
+### Google cloud supports the `root-disk-source` constraint
+
+As is supported already for other clouds, it is now possible to specify a root
+disk source for Google Cloud instances using the `root-disk-source` constraint.
+This allows users to specify the type of storage to be used as the source for
+the root disk of provisioned instances, for example:<br>
+
+`juju deploy nginx --constraints "root-disk-source=pd-ssd"`<br>
+
+* feat: add support for root disk source in gce by @CodingCookieRookie in https://github.com/juju/juju/pull/22041
+
+### Handle proxies when retrieving CA certs
+
+When logging into a JAAS controller, if the controller is behind a proxy,
+the CA certificate retrieval process now correctly handles the proxy.
+
+* feat: handle proxy in retrieveCACert function by @kian99 in https://github.com/juju/juju/pull/22165
+
+### Mongo DB upgrade script
+
+The juju-db snap channel is read-only. In order to mediate CVE-2025-14847,
+a user must upgrade the Juju controller and refresh the juju-db snap to 4.4.30.
+The controller upgrade process does not automatically update the running juju-db
+snap version. A script is provided which can be run against an upgraded controller
+to update the juju-db snap to the required version.
+The script can be found in the Juju repository and is linked below:
+
+`https://github.com/juju/juju/blob/3.6/scripts/set-juju-db-snap-channel.sh`
+
+* feat: add script to change the juju-db snap channel by @nicolasbock in https://github.com/juju/juju/pull/21868
+
+🛠️ **Bug fixes**
+
+### K8s secrets scalability fix
+
+A previous CVE fix for secrets on k8s changed the way RBAC artefacts were
+created to allow charms to read secret revision context. On deployments with
+a large number of secret access operations due to frequent hook invocations,
+the number of service accounts ,role, and role bindings created could grow very
+large, causing performance issues and even hitting k8s etcd limits.
+
+A fix is implemented to maintain a hash of the secret access scope and reuse
+existing service accounts, roles, and role bindings where the scope matches,
+instead of creating new ones for every access.
+
+* feat: reuse secret access tokens if scope matches by @wallyworld in https://github.com/juju/juju/pull/22399
+
+### Backup
+
+`juju backup` was broken on controllers upgraded from earlier versions og Juju. 
+
+* fix: ensure create backup works after upgrade by @wallyworld in https://github.com/juju/juju/pull/22271
+
+### Ensure controller application is exposed after upgrade
+
+A previous feature which landed in 3.6.19, added better management of Juju
+controller API port ingress. A key requirement is that the controller application
+must be exposed for the API port to be open. However, on upgrade, the controller
+application would not be exposed, resulting in the API port being closed and the
+controller becoming inaccessible. This fix ensures that the controller application
+is exposed as part of the upgrade process.
+
+* fix: ensure controller app is exposed on upgrade by @wallyworld in https://github.com/juju/juju/pull/22313
+
+### K8s deployments support rootfs and tmpfs storage types
+
+Using `rootfs` or `tmpfs` storage types with k8s deployments is now working,
+for example:<br>
+
+`juju deploy postgresql-k8s --storage pgdata=rootfs=1G`<br>
+
+* fix: k8s deployment issue with rootfs and tmpfs by @CodingCookieRookie in https://github.com/juju/juju/pull/22163
+
+### Include machine hostnames when migrating models
+
+Model migration was ignoring any machine hostname values - these are now
+included in the migration.
+
+* fix: migrate machine hostname by @adisazhar123 in https://github.com/juju/juju/pull/22207
+
+### Other fixes
+
+* fix(bundle): treat compare integral float values as ints by @raineszm in https://github.com/juju/juju/pull/22061
+* feat: add support of '--file' for update-cloud by @Tony-WLB in https://github.com/juju/juju/pull/22191
+* fix: gracefully handle missing storage backing status by @adisazhar123 in https://github.com/juju/juju/pull/22159
+* fix: add robust not found error handling in firewallers by @wallyworld in https://github.com/juju/juju/pull/22339
+* fix: add a short model id to error messages by @jameinel in https://github.com/juju/juju/pull/22269
+* fix: grouping ports issue by @Deadinside101 in https://github.com/juju/juju/pull/22278
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.23).
+
 ### 🔸 **Juju 3.6.21**
 🗓️ 09 Apr 2026
 
@@ -19,10 +142,10 @@ which allows the cloud credential for the controller model to be leaked.
 We recommend that all users running Juju 3.6 upgrade to this release as soon
 as possible given the critical nature of the fixes included.
 
-🛠️ Fixes:
+🛠️ **Bug fixes**
 
-- fix: [CVE-2026-5412](https://github.com/juju/juju/security/advisories/GHSA-w5fq-8965-c969)
-- fix: [CVE-2026-5774](https://github.com/juju/juju/security/advisories/GHSA-7m55-2hr4-pw78)
+* fix: [CVE-2026-5412](https://github.com/juju/juju/security/advisories/GHSA-w5fq-8965-c969)
+* fix: [CVE-2026-5774](https://github.com/juju/juju/security/advisories/GHSA-7m55-2hr4-pw78)
 
 See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.21).
 
@@ -52,15 +175,15 @@ firewall rules to block all ingress traffic to this port. Only Juju controller
 IPs should be able to connect to this port.
 
 
-- fix: [CVE-2026-4370](https://github.com/juju/juju/security/advisories/GHSA-gvrj-cjch-728p)
+* fix: [CVE-2026-4370](https://github.com/juju/juju/security/advisories/GHSA-gvrj-cjch-728p)
 
 ### Other CVEs
-- fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
-- fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
+* fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
+* fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
 
 ### Other fixes
-- fix: eventual consistency in etcd causing rbac authz failures @hpidcock
-- fix(ssh): revert disable PTY allocation when remote command is provided since it broke some juju ssh use cases
+* fix: eventual consistency in etcd causing rbac authz failures @hpidcock
+* fix(ssh): revert disable PTY allocation when remote command is provided since it broke some juju ssh use cases
 
 See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.20).
 
@@ -106,8 +229,8 @@ This means that when deploying a charm with `--base=ubuntu@26.04` will now succe
 🛠️ **Bug fixes**
 
 ### Mongo Bleed
-- fix: [CVE-2025-14847](https://github.com/juju/juju/security/advisories/GHSA-29v7-rr38-wf32)
-- fix: mongodb accepts unauthenticated connection https://github.com/juju/juju/security/advisories/GHSA-9j5v-49f8-cpp8
+* fix: [CVE-2025-14847](https://github.com/juju/juju/security/advisories/GHSA-29v7-rr38-wf32)
+* fix: mongodb accepts unauthenticated connection https://github.com/juju/juju/security/advisories/GHSA-9j5v-49f8-cpp8
 
 A consequence of using the new MongoDB version is that client connections are required to use a certificate
 signed by the same authority as used by the server. The script used to start a mongo shell connection to the 
@@ -121,17 +244,17 @@ You can still bootstrap to an older agent version by explicitly allowing the old
 `juju bootstrap lxd --agent-version 3.6.14 --config juju-db-snap-channel 4.4/stable`
 
 ### Other CVEs
-- fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
-- fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
-- fix: [CVE-2026-32694](https://github.com/juju/juju/security/advisories/GHSA-5cj2-rqqf-hx9p)
-- fix: [CVE-2026-32693](https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc)
+* fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
+* fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
+* fix: [CVE-2026-32694](https://github.com/juju/juju/security/advisories/GHSA-5cj2-rqqf-hx9p)
+* fix: [CVE-2026-32693](https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc)
 
 ### Handle concurrent secret updates correctly
 When a secret owner adds a new revision to a secret at precisely the same moment as a secret consumer
 is refreshing their secret content, it was possible that the latest secret revision could be considered
 as obsolete and deleted.
 
-- fix: handle concurrent updates when marking obsolete secret revisions @wallyworld in https://github.com/juju/juju/pull/21779
+* fix: handle concurrent updates when marking obsolete secret revisions @wallyworld in https://github.com/juju/juju/pull/21779
 
 ### MongoDB consistency in HA controllers
 When a Juju controller opens a mongodb connection, it was querying the db version to determine
@@ -142,24 +265,24 @@ handling between controllers, and potentially bugs like [intermittent disconnect
 Juju now always uses server side transactions so the entire pre-flight check is removed.
 
 - chore: update juju/txn dep for sstxn checking @wallyworld in https://github.com/juju/juju/pull/21939
-- fix: error in critical version preflight check ignored @hpidcock in https://github.com/juju/txn/pull/70
-- fix: do not feed state watcher from txn stash @wallyworld in https://github.com/juju/juju/pull/21885
+* fix: error in critical version preflight check ignored @hpidcock in https://github.com/juju/txn/pull/70
+* fix: do not feed state watcher from txn stash @wallyworld in https://github.com/juju/juju/pull/21885
 
 ### Handling deleted users showing offers
 When displaying application offers with `show-offer`, if there were users who had previously
 been granted access to the offer but have since been deleted, the result would include an incomplete
 list of users.
 
-- fix(cmr): handle deleted users in show-offer @iyiguncevik in https://github.com/juju/juju/pull/21763
+* fix(cmr): handle deleted users in show-offer @iyiguncevik in https://github.com/juju/juju/pull/21763
 
 ### Other fixes
-- fix: upgrade broken on k8s @wallyworld in https://github.com/juju/juju/issues/21979
-- fix(ssh): disable PTY allocation when remote command is provided @kooltuoehias in https://github.com/juju/juju/pull/21716
-- fix: deduplicate DNS in container fallback path @goldberl in https://github.com/juju/juju/pull/21738
-- fix: retry caas provisioning if charm not ready @wallyworld in https://github.com/juju/juju/pull/21759
+* fix: upgrade broken on k8s @wallyworld in https://github.com/juju/juju/issues/21979
+* fix(ssh): disable PTY allocation when remote command is provided @kooltuoehias in https://github.com/juju/juju/pull/21716
+* fix: deduplicate DNS in container fallback path @goldberl in https://github.com/juju/juju/pull/21738
+* fix: retry caas provisioning if charm not ready @wallyworld in https://github.com/juju/juju/pull/21759
 - feat: always log offending ops on transaction errors @manadart in https://github.com/juju/juju/pull/21782
-- fix(k8s): delete orphaned StatefulSets before recreating to avoid PVC mismatch @marceloneppel in https://github.com/juju/juju/pull/21786
-- fix: retry writing agent config during migration @SimonRichardson in https://github.com/juju/juju/pull/21821
+* fix(k8s): delete orphaned StatefulSets before recreating to avoid PVC mismatch @marceloneppel in https://github.com/juju/juju/pull/21786
+* fix: retry writing agent config during migration @SimonRichardson in https://github.com/juju/juju/pull/21821
 
 See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.19).
 
@@ -551,7 +674,7 @@ and not managed by Juju. These include:
 
 Adding multiple secrets simultaneously could result in an error and this has been fixed.
 Fixes for issues scaling applications:
-- fix logic to only consider units >= target scale for removal, preventing inappropriate scaling during scale-up scenarios.
+* fix logic to only consider units >= target scale for removal, preventing inappropriate scaling during scale-up scenarios.
 - only initiate scaling when all excess units (>= target) are dead.
 The `credential-get` hook command now works on Kubernetes models for trusted applications the same way as for VM models.
 
