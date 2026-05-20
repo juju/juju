@@ -1252,7 +1252,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 // service. This will be written to a file in the Pebble layers directory.
 func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) {
 	layer := plan.Layer{
-		Summary: "jujud service",
+		Summary: "jujuagentd service",
 		Services: map[string]*plan.Service{
 			"jujuagentd": {
 				Override: plan.ReplaceOverride,
