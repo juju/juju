@@ -42,18 +42,21 @@ Access levels follow the resource hierarchy: granting access at a higher-level r
 (user-access-controller-login)=
 #### `login`
 
-Granted: Via `juju register`.
+Granted: Via `juju add-user` (for local users) or `juju grant` (for external users).
 
 Abilities:
 - Log in to the controller.
 - View your own user information.
 
-Cannot:
-- View models, clouds, or other controller resources.
-- Perform any operations beyond authentication.
+Cannot (at controller level):
+- View all controller resources.
+- Manage controller configuration.
+- Add or manage users.
 
 ```{note}
-This is the default access level for users created with `juju add-user`. Users must be explicitly granted additional access to clouds, models, or offers to perform useful work.
+Local users receive `login` access when created via `juju add-user`. They then use `juju register` with the provided token to set their password and connect their client.
+
+External users authenticating via an identity provider must be explicitly granted `login` access if controller access is needed. When `allow-model-access=true` is enabled, external users can work with models without needing controller `login` access.
 ```
 
 (user-access-controller-superuser)=
@@ -62,7 +65,7 @@ This is the default access level for users created with `juju add-user`. Users m
 Granted: Automatically by bootstrapping a controller.
 
 Abilities:
-- Full access to all models, clouds, and offers managed by this controller (overrides all resource-level permissions).
+- Full access to all models, clouds, and offers managed by this controller (without requiring resource-level grants).
 - Add, remove, and manage users.
 - Create and destroy models on any cloud.
 - Enable controller high availability.
@@ -104,7 +107,7 @@ Cannot:
 Granted: Via {ref}`command-juju-grant-cloud`.
 
 Abilities:
-- View and manage all models on this cloud (overrides model-level permissions).
+- View and manage all models on this cloud (without requiring model-level grants).
 - Manage cloud credentials and configuration.
 - Grant and revoke cloud-level access.
 
