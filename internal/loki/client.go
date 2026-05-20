@@ -49,7 +49,8 @@ type Config struct {
 	FlushInterval time.Duration
 
 	// MaxRetries is the maximum number of retry attempts
-	// for a failed push request. Default: 3.
+	// after the initial push request. Set to 0 to disable
+	// retries. Default: 3.
 	MaxRetries int
 
 	// InitialBackoff is the delay before the first retry.
@@ -78,8 +79,8 @@ type Config struct {
 	// other error reporting mechanism.
 	OnError func(error)
 
-	// Clock is passed to the retry logic for testing. If nil, the wall clock is
-	// used.
+	// Clock is passed to the retry logic for testing.
+	// If nil, the wall clock is used.
 	Clock clock.Clock
 }
 
@@ -113,7 +114,8 @@ type Client struct {
 // NewClient creates and starts a new Loki push client worker.
 // The endpoint should be the full URL to the Loki push API
 // (e.g. http://loki:3100/loki/api/v1/push).
-// Zero-value fields in cfg are replaced with defaults.
+// Invalid and unset fields in cfg are replaced with defaults.
+// MaxRetries follows retry-count semantics: 0 disables retries.
 func NewClient(endpoint string, cfg Config) (*Client, error) {
 	if endpoint == "" {
 		return nil, internalerrors.Errorf("endpoint must not be empty")
@@ -132,6 +134,9 @@ func NewClient(endpoint string, cfg Config) (*Client, error) {
 	}
 	if cfg.MaxBackoff <= 0 {
 		cfg.MaxBackoff = 30 * time.Second
+	}
+	if cfg.Clock == nil {
+		cfg.Clock = clock.WallClock
 	}
 	httpClient := cfg.HTTPClient
 	if httpClient == nil {
@@ -159,7 +164,9 @@ func NewClient(endpoint string, cfg Config) (*Client, error) {
 // size is reached or the flush interval elapses. Push blocks
 // if the internal channel is full, providing backpressure to
 // the caller. Returns tomb.ErrDying if the client is shutting
-// down.
+// down. Push does not deep-copy records, so callers should not
+// mutate record contents (especially Labels maps) after calling
+// this method.
 func (c *Client) Push(records ...Record) error {
 	for _, r := range records {
 		select {
@@ -173,6 +180,7 @@ func (c *Client) Push(records ...Record) error {
 
 // Kill requests the client to stop. Any buffered records are
 // flushed on a best-effort basis before the client exits.
+// Records in-flight during shutdown may be dropped.
 func (c *Client) Kill(reason error) {
 	c.tomb.Kill(reason)
 }
@@ -253,6 +261,9 @@ func (c *Client) flush(ctx context.Context, batch []Record) {
 // cancelled before the goroutine starts, the push is
 // abandoned.
 func (c *Client) flushAsync(ctx context.Context, batch []Record) {
+	batchCopy := make([]Record, len(batch))
+	copy(batchCopy, batch)
+
 	go func() {
 		select {
 		case <-c.tomb.Dying():
@@ -261,7 +272,7 @@ func (c *Client) flushAsync(ctx context.Context, batch []Record) {
 			return
 		default:
 		}
-		c.pushAll(ctx, batch)
+		c.pushAll(ctx, batchCopy)
 	}()
 }
 
@@ -303,8 +314,9 @@ func (c *Client) pushBatch(
 		return internalerrors.Errorf("marshaling payload: %w", err)
 	}
 
+	attempts := c.cfg.MaxRetries + 1
 	err = retry.Call(retry.CallArgs{
-		Attempts: c.cfg.MaxRetries,
+		Attempts: attempts,
 		Delay:    c.cfg.InitialBackoff,
 		MaxDelay: c.cfg.MaxBackoff,
 		Func: func() error {
@@ -364,13 +376,16 @@ func (c *Client) doRequest(
 			msg: fmt.Sprintf("sending request: %s", err),
 		}
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
 	// Read and discard the body to enable connection reuse.
 	if _, err = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024)); err != nil {
 		return &retryableError{
 			msg: fmt.Sprintf("reading response: %s", err),
 		}
 	}
-	_ = resp.Body.Close()
 
 	switch {
 	case resp.StatusCode == http.StatusNoContent ||

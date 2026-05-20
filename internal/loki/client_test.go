@@ -57,6 +57,65 @@ func (s *clientSuite) TestNewClientZeroRetriesIsValid(c *tc.C) {
 	c.Check(client.cfg.MaxRetries, tc.Equals, 0)
 }
 
+func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
+	var attempts atomic.Int32
+	errCh := make(chan error, 1)
+
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts.Add(1)
+			w.WriteHeader(http.StatusInternalServerError)
+		}),
+	)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.MaxRetries = 0
+	cfg.OnError = func(err error) {
+		errCh <- err
+	}
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	err = client.Push(Record{
+		Timestamp: time.Now(),
+		Line:      "no retries",
+		Labels:    map[string]string{"job": "test"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	pushErr := waitError(c, errCh)
+	c.Check(pushErr, tc.ErrorMatches, ".*loki returned status 500")
+	c.Check(attempts.Load(), tc.Equals, int32(1))
+}
+
+func (s *clientSuite) TestPushUsesWallClockWhenUnset(c *tc.C) {
+	srv, payloads := newTestServer(c)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.Clock = nil
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	err = client.Push(Record{
+		Timestamp: time.Now(),
+		Line:      "clock default",
+		Labels:    map[string]string{"job": "test"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	p := waitPayload(c, payloads)
+	c.Assert(p.Streams, tc.HasLen, 1)
+	c.Check(p.Streams[0].Values[0][1], tc.Equals, "clock default")
+}
+
 func (s *clientSuite) TestPushFlushOnBatchSize(c *tc.C) {
 	srv, payloads := newTestServer(c)
 	defer srv.Close()
@@ -474,6 +533,16 @@ func waitPayload(
 	case <-time.After(5 * time.Second):
 		c.Fatal("timed out waiting for payload")
 		return pushPayload{}
+	}
+}
+
+func waitError(c *tc.C, ch <-chan error) error {
+	select {
+	case err := <-ch:
+		return err
+	case <-time.After(5 * time.Second):
+		c.Fatal("timed out waiting for error callback")
+		return nil
 	}
 }
 
