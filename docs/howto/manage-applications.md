@@ -413,28 +413,6 @@ juju deploy mysql --storage pgdata=6G,rootfs,1
 See more: {ref}`command-juju-deploy`
 ```
 
-- To set storage directives for an application after deployment, run the `application-storage` command
-followed by the desired ("-enclosed list of) key-value pair(s), as in the example below.
-Note: This will affect any future units you may add to the application.
-
-``` text
-juju application-storage mysql database=1,3G,lxd
-```
-
-```{ibnote}
-See more: {ref}`command-juju-application-storage`
-```
-
-**Get values.** To view an application's current storage directives, use the `application-storage` command. For example:
-
-``` text
-juju application-storage mysql
-```
-
-```{ibnote}
-See more: {ref}`command-juju-application-storage`
-```
-
 ## Change space bindings for an application
 
 You can set space bindings for an application during deployment or post-deployment. In both cases you can set either a default space for the entire application or a specific space for one or more individual application endpoints or both.

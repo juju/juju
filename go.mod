@@ -54,7 +54,6 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
-	github.com/juju/cmd/v3 v3.2.0
 	github.com/juju/collections v1.0.4
 	github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1
 	github.com/juju/errors v1.0.0
@@ -289,7 +288,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

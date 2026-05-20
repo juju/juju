@@ -764,7 +764,7 @@ func (s *diffSuite) TestApplicationNumericOptions(c *tc.C) {
             prometheus:
                 charm: ch:prometheus
                 revision: 7
-                series: xenial
+                base: ubuntu@16.04/stable
                 channel: stable
                 num_units: 1
                 options:

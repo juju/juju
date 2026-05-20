@@ -420,7 +420,7 @@ constraints or add a machine (` + "`add-machine`" + `) with a certain constraint
 target that machine with ` + "`add-unit`" + ` by using the ` + "`--to`" + `option.
 
 Use the ` + "`--storage`" + ` option to specify a storage directive for the application;
-see more: https://documentation.ubuntu.com/juju/4.0/reference/storage/#storage-directive. 
+see more: https://documentation.ubuntu.com/juju/latest/reference/storage/#storage-directive.
 These directives will control the application's default persistent storage layout (i.e. they are used when the application is later
 scaled out with the ` + "`add-unit`" + ` command and new units need storage provisioned).
 
