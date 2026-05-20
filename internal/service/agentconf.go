@@ -196,5 +196,5 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 }
 
 func serviceName(agent string) string {
-	return jujunames.Jujud + "-" + agent
+	return jujunames.JujuAgentd + "-" + agent
 }
