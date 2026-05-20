@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	"github.com/juju/juju/cmd/jujuagentd/agent/model"
+	jjudmachine "github.com/juju/juju/cmd/jujud/agent/machine"
+	jjudmodel "github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -34,12 +36,13 @@ func main() {
 		useModelFlag       = flags.Bool("model", false, "use model manifolds")
 		transitiveDepsFlag = flags.Int("dependency-depth", 0, "include transitive dependencies and how many levels to include")
 		listManifoldsFlag  = flags.Bool("list-manifolds", false, "list all manifolds")
+		agentFlag          = flags.String("agent", "jujuagentd", "agent binary to use (jujuagentd|jujud)")
 
 		manifoldsFlag = stringslice{}
 	)
 
 	flags.Var(&manifoldsFlag, "manifold", "manifold to select (empty indicates all)")
-	flags.Usage = usageFor(flags, "dag")
+	flags.Usage = usageFor(flags, "dag [flags] [manifold ...]")
 
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing flags: %v\n", err)
@@ -50,7 +53,7 @@ func main() {
 
 	selectedManifolds := set.NewStrings(manifoldsFlag.Slice()...)
 
-	manifolds := getManifolds(*useModelFlag, *modelTypeFlag)
+	manifolds := getManifolds(*useModelFlag, *modelTypeFlag, *agentFlag)
 
 	if *listManifoldsFlag {
 		if *transitiveDepsFlag > 0 {
@@ -197,19 +200,35 @@ func (n *DagNode) Render(b Writer) {
 	}
 }
 
-func getManifolds(useModel bool, modelType string) dependency.Manifolds {
+func getManifolds(useModel bool, modelType string, agent string) dependency.Manifolds {
 	if useModel {
 		switch modelType {
 		case "iaas":
-			return model.IAASManifolds(model.ManifoldsConfig{
-				Agent:          &mockAgent{},
-				LoggingContext: internallogger.DefaultContext(),
-			})
+			switch agent {
+			case "jujud":
+				return jjudmodel.IAASManifolds(jjudmodel.ManifoldsConfig{
+					Agent:          &mockAgent{},
+					LoggingContext: internallogger.DefaultContext(),
+				})
+			default:
+				return model.IAASManifolds(model.ManifoldsConfig{
+					Agent:          &mockAgent{},
+					LoggingContext: internallogger.DefaultContext(),
+				})
+			}
 		case "caas":
-			return model.CAASManifolds(model.ManifoldsConfig{
-				Agent:          &mockAgent{},
-				LoggingContext: internallogger.DefaultContext(),
-			})
+			switch agent {
+			case "jujud":
+				return jjudmodel.CAASManifolds(jjudmodel.ManifoldsConfig{
+					Agent:          &mockAgent{},
+					LoggingContext: internallogger.DefaultContext(),
+				})
+			default:
+				return model.CAASManifolds(model.ManifoldsConfig{
+					Agent:          &mockAgent{},
+					LoggingContext: internallogger.DefaultContext(),
+				})
+			}
 		default:
 			panic("unknown model type for model manifolds")
 		}
@@ -217,15 +236,31 @@ func getManifolds(useModel bool, modelType string) dependency.Manifolds {
 
 	switch modelType {
 	case "iaas":
-		return machine.IAASManifolds(machine.ManifoldsConfig{
-			Agent:           &mockAgent{},
-			PreUpgradeSteps: preUpgradeSteps,
-		})
+		switch agent {
+		case "jujud":
+			return jjudmachine.IAASManifolds(jjudmachine.ManifoldsConfig{
+				Agent:           &mockAgent{},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		default:
+			return machine.IAASManifolds(machine.ManifoldsConfig{
+				Agent:           &mockAgent{},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		}
 	case "caas":
-		return machine.CAASManifolds(machine.ManifoldsConfig{
-			Agent:           &mockAgent{},
-			PreUpgradeSteps: preUpgradeSteps,
-		})
+		switch agent {
+		case "jujud":
+			return jjudmachine.CAASManifolds(jjudmachine.ManifoldsConfig{
+				Agent:           &mockAgent{},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		default:
+			return machine.CAASManifolds(machine.ManifoldsConfig{
+				Agent:           &mockAgent{},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		}
 	default:
 		panic("unknown model type for machine manifolds")
 	}
