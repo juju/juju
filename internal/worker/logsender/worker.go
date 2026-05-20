@@ -6,10 +6,12 @@ package logsender
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/api/logsender"
 	jworker "github.com/juju/juju/internal/worker"
@@ -74,6 +76,9 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 					Labels:   rec.Labels,
 				})
 				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return dependency.ErrBounce
+					}
 					return errors.Trace(err)
 				}
 				if rec.DroppedAfter > 0 {
@@ -99,6 +104,9 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 						Message: fmt.Sprintf("%d log messages dropped due to lack of API connectivity", rec.DroppedAfter),
 					})
 					if err != nil {
+						if errors.Is(err, io.EOF) {
+							return dependency.ErrBounce
+						}
 						return errors.Trace(err)
 					}
 				}

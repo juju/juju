@@ -76,7 +76,10 @@ type AppWorkerConfig struct {
 	Facade CAASProvisionerFacade
 }
 
-const tryAgain errors.ConstError = "try again"
+const (
+	tryAgain      errors.ConstError = "try again"
+	unitsChurning errors.ConstError = "units churning"
+)
 
 type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
 
@@ -356,7 +359,8 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
-	refreshTimer := a.clock.NewTimer(10 * time.Second)
+	const refreshInterval = 10 * time.Second
+	refreshTimer := a.clock.NewTimer(refreshInterval)
 	defer refreshTimer.Stop()
 	for {
 		shouldRefresh := true
@@ -533,7 +537,9 @@ func (a *appWorker) loop() error {
 		if shouldRefresh {
 			err := a.ops.RefreshApplicationStatus(ctx, name, a.appUUID, app, appLife,
 				a.statusService, a.clock, a.logger)
-			if err != nil {
+			if errors.Is(err, unitsChurning) {
+				refreshTimer.Reset(refreshInterval)
+			} else if err != nil {
 				return errors.Annotatef(err, "refreshing application status for %q", name)
 			}
 		}

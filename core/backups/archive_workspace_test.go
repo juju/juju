@@ -14,25 +14,21 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-type workspaceSuiteV0 struct {
+type workspaceSuite struct {
 	testhelpers.IsolationSuite
 	baseArchiveDataSuite
 }
 
-func TestWorkspaceSuiteV0(t *testing.T) {
-	tc.Run(t, &workspaceSuiteV0{})
+func TestWorkspaceSuite(t *testing.T) {
+	tc.Run(t, &workspaceSuite{})
 }
 
-func TestWorkspaceSuiteV1(t *testing.T) {
-	tc.Run(t, &workspaceSuiteV1{})
-}
-
-func (s *workspaceSuiteV0) SetUpTest(c *tc.C) {
+func (s *workspaceSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV2)
 }
 
-func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *tc.C) {
+func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
@@ -40,7 +36,7 @@ func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *tc.C) {
 	c.Check(ws.RootDir, tc.Not(tc.Equals), "")
 }
 
-func (s *workspaceSuiteV0) TestClose(c *tc.C) {
+func (s *workspaceSuite) TestClose(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -51,7 +47,7 @@ func (s *workspaceSuiteV0) TestClose(c *tc.C) {
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *tc.C) {
+func (s *workspaceSuite) TestUnpackFilesBundle(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
@@ -66,7 +62,7 @@ func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *workspaceSuiteV0) TestOpenBundledFile(c *tc.C) {
+func (s *workspaceSuite) TestOpenBundledFile(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
@@ -79,7 +75,7 @@ func (s *workspaceSuiteV0) TestOpenBundledFile(c *tc.C) {
 	c.Check(string(data), tc.Equals, "<an ssh key goes here>")
 }
 
-func (s *workspaceSuiteV0) TestMetadata(c *tc.C) {
+func (s *workspaceSuite) TestMetadata(c *tc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, tc.ErrorIsNil)
 	defer ws.Close()
@@ -88,14 +84,4 @@ func (s *workspaceSuiteV0) TestMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta, tc.DeepEquals, s.meta)
-}
-
-type workspaceSuiteV1 struct {
-	testhelpers.IsolationSuite
-	baseArchiveDataSuite
-}
-
-func (s *workspaceSuiteV1) SetUpTest(c *tc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }

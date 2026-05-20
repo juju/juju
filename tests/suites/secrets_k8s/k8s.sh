@@ -7,26 +7,26 @@ run_secrets() {
 	# k8s secrets are stored in an external backend.
 	# These checks ensure the secrets are deleted when the units and app are deleted.
 	echo "deploy an app and create an app owned secret and a unit owned secret"
-	juju --show-log deploy alertmanager-k8s --trust
-	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 0)"
-	wait_for "active" '.applications["alertmanager-k8s"] | ."application-status".current'
-	full_uri1=$(juju exec --unit alertmanager-k8s/0 -- secret-add foo=bar)
+	juju --show-log deploy prometheus-k8s --trust
+	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0)"
+	wait_for "prometheus-k8s" "$(idle_condition "prometheus-k8s")"
+	full_uri1=$(juju exec --unit prometheus-k8s/0 -- secret-add foo=bar)
 	short_uri1=${full_uri1##*/}
-	full_uri2=$(juju exec --unit alertmanager-k8s/0 -- secret-add --owner unit foo=bar2)
+	full_uri2=$(juju exec --unit prometheus-k8s/0 -- secret-add --owner unit foo=bar2)
 	short_uri2=${full_uri2##*/}
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
 
 	echo "add another unit and create a unit owned secret"
-	juju --show-log scale-application alertmanager-k8s 2
-	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 1)"
-	full_uri3=$(juju exec --unit alertmanager-k8s/1 -- secret-add --owner unit foo=bar3)
+	juju --show-log scale-application prometheus-k8s 2
+	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 1)"
+	full_uri3=$(juju exec --unit prometheus-k8s/1 -- secret-add --owner unit foo=bar3)
 	short_uri3=${full_uri3##*/}
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")')" "${short_uri3}-1"
 
 	echo "remove a unit and check only its secret is removed"
-	juju --show-log scale-application alertmanager-k8s 1
-	wait_for_unit_count "alertmanager-k8s" 1
+	juju --show-log scale-application prometheus-k8s 1
+	wait_for_unit_count "prometheus-k8s" 1
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
 	attempt=0
@@ -40,8 +40,8 @@ run_secrets() {
 	done
 
 	echo "remove the last unit and check only the app owned secret remains"
-	juju --show-log scale-application alertmanager-k8s 0
-	wait_for_unit_count "alertmanager-k8s" 0
+	juju --show-log scale-application prometheus-k8s 0
+	wait_for_unit_count "prometheus-k8s" 0
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	attempt=0
 	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")') ]]; do
@@ -54,7 +54,7 @@ run_secrets() {
 	done
 
 	echo "remove the app and the app owned secret should be deleted too"
-	juju --show-log remove-application alertmanager-k8s
+	juju --show-log remove-application prometheus-k8s --no-prompt
 	attempt=0
 	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
@@ -65,19 +65,16 @@ run_secrets() {
 		attempt=$((attempt + 1))
 	done
 
-	juju --show-log deploy alertmanager-k8s hello --trust
-	juju --show-log deploy nginx-ingress-integrator nginx --trust --config service-hostname=hello.test
-	juju --show-log integrate nginx hello
+	juju --show-log deploy prometheus-k8s hello --trust
+	juju --show-log deploy prometheus-k8s world --trust
+	juju --show-log integrate world:metrics-endpoint hello:self-metrics-endpoint
 
 	# create user secrets.
 	juju --show-log add-secret mysecret owned-by="$model_name" --info "this is a user secret"
 
-	wait_for "active" '.applications["hello"] | ."application-status".current'
-	wait_for "hello" "$(idle_condition "hello")"
-	wait_for "active" '.applications["nginx"] | ."application-status".current' 900
-	wait_for "nginx" "$(idle_condition "nginx" 0)"
-	wait_for "active" "$(workload_status "nginx" 0).current"
-	wait_for "hello" '.applications["nginx"] | .relations.ingress[0]'
+	wait_for "hello" "$(active_idle_condition "hello" 0)"
+	wait_for "world" "$(active_idle_condition "world" 0)"
+	wait_for "hello" '.applications["world"] | .relations.metrics-endpoint[0].related-application'
 
 	echo "Apps deployed, creating secrets"
 	unit_owned_full_uri=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
@@ -109,30 +106,30 @@ run_secrets() {
 	echo "Checking: secret-info-get by label - metadata"
 	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | yq ".${unit_owned_short_uri}.label")" hello_0
 
-	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[0]."relation-id"')
+	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[1]."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
 	juju exec --unit hello/0 -- secret-grant "$app_owned_full_uri" -r "$relation_id"
 
 	echo "Checking: secret-get by URI - consume content"
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
+	check_contains "$(juju exec --unit world/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
+	check_contains "$(juju exec --unit world/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
 
-	juju exec --unit nginx/0 -- secret-get "$unit_owned_full_uri" --label=consumer_label_secret_owned_by_hello_0
-	juju exec --unit nginx/0 -- secret-get "$app_owned_full_uri" --label=consumer_label_secret_owned_by_hello
-
-	check_contains "$(juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0)" 'owned-by: hello/0'
-	check_contains "$(juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
+	echo "Checking: secret-get by label - consume content"
+	juju exec --unit world/0 -- secret-get "$unit_owned_full_uri" --label=consumer_label_secret_owned_by_hello_0
+	juju exec --unit world/0 -- secret-get "$app_owned_full_uri" --label=consumer_label_secret_owned_by_hello
+	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0)" 'owned-by: hello/0'
+	check_contains "$(juju exec --unit world/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
 
 	check_contains "$(kubectl -n "$model_name" get "secrets/${unit_owned_short_uri}-1" -o json | yq -r '.data["owned-by"]' | base64 -d)" "hello/0"
 	check_contains "$(kubectl -n "$model_name" get "secrets/${app_owned_short_uri}-1" -o json | yq -r '.data["owned-by"]' | base64 -d)" "hello-app"
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit hello/0 -- secret-revoke "$app_owned_full_uri" --relation "$relation_id"
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju exec --unit world/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-revoke by app name"
-	juju exec --unit hello/0 -- secret-revoke "$unit_owned_short_uri" --app nginx
-	check_contains "$(juju exec --unit nginx/0 -- secret-get "$unit_owned_short_uri" 2>&1)" 'is not allowed to read this secret'
+	juju exec --unit hello/0 -- secret-revoke "$unit_owned_short_uri" --app world
+	check_contains "$(juju exec --unit world/0 -- secret-get "$unit_owned_short_uri" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-remove"
 	juju exec --unit hello/0 -- secret-remove "$unit_owned_short_uri"
@@ -141,9 +138,9 @@ run_secrets() {
 	check_contains "$(juju exec --unit hello/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'not found'
 
 	# TODO: no need to remove-relation before destroying model once we fixed(lp:1952221).
-	juju --show-log remove-relation nginx hello
+	juju --show-log remove-relation world hello
 	# wait for relation removed.
-	wait_for null '.applications["nginx"] | .relations.source[0]'
+	wait_for null '.applications["world"] | .relations.self-metrics-endpoint[0]'
 	destroy_model "$model_name"
 }
 

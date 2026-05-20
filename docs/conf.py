@@ -332,6 +332,7 @@ exclude_patterns = [
 
 html_css_files = [
     "css/pdf.css",
+    "css/cookie-banner.css",
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
 ]
