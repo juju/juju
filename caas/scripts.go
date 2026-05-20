@@ -10,7 +10,7 @@ export JUJU_DATA_DIR=%[1]s
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/%[2]s
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
 %[3]s
 `[1:]
@@ -21,7 +21,7 @@ export JUJU_DATA_DIR=%[1]s
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/%[2]s
 
 mkdir -p $JUJU_TOOLS_DIR
-cp %[3]s/jujud $JUJU_TOOLS_DIR/jujud
+cp %[3]s/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
 %[4]s
 `[1:]
@@ -33,12 +33,12 @@ export JUJU_DATA_DIR=%[1]s
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
 %[2]s
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
+cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
 %[3]s
 EOF
 

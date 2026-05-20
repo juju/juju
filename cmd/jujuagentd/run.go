@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/internal/run"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	agentcmd "github.com/juju/juju/cmd/jujuagentd/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -50,7 +50,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 )
 
-var logger = internallogger.GetLogger("juju.cmd.jujud")
+var logger = internallogger.GetLogger("juju.cmd.jujuagentd")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -59,11 +59,11 @@ func init() {
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of models
-such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
+such as OpenStack, Amazon AWS, or bare metal. jujuagentd is a component of juju.
 
 https://juju.is/
 
-The jujud command can also forward invocations over RPC for execution by the
+The jujuagentd command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
 named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
 JUJU_CONTEXT_ID be set in its model.
@@ -211,7 +211,7 @@ type versionDetail struct {
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
+	defer logger.Debugf(ctx, "jujuagentd complete, code %d, err %v", code, err)
 
 	// Set the default transport to use the in-process proxy
 	// configuration.
@@ -236,7 +236,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "jujud",
+		Name: "jujuagentd",
 		Doc:  jujudDoc,
 		Log:  jujucmd.DefaultLog,
 		// p.Version should be a version.Binary, but juju/cmd does not

@@ -192,7 +192,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *tc.C) {
 func (t *ToolsSuite) TestChangeAgentTools(c *tc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("jujuc", agenttools.DirPerm, "juju executable"),
-		testing.NewTarFile("jujud", agenttools.DirPerm, "jujuc executable"),
+		testing.NewTarFile("jujuagentd", agenttools.DirPerm, "jujuc executable"),
 	}
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
@@ -209,7 +209,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *tc.C) {
 	c.Assert(*gotTools, tc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-ubuntu-amd64", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", agenttools.ToolsFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujuagentd", agenttools.ToolsFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{

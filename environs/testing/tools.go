@@ -149,7 +149,7 @@ func InstallFakeDownloadedTools(c *tc.C, dataDir string, vers semversion.Binary)
 
 func makeFakeTools(vers semversion.Binary) ([]byte, string) {
 	return coretesting.TarGz(
-		coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
+		coretesting.NewTarFile(names.Jujud, 0777, "jujuagentd contents "+vers.String()))
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.

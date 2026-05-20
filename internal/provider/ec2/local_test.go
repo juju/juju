@@ -429,7 +429,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
 	CheckPackage(c, userDataMap, "mongodb-server", false)
-	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
+	CheckScripts(c, userDataMap, "jujuagentd bootstrap-state", false)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
 	// TODO check for provisioning agent
 
