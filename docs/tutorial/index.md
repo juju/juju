@@ -468,13 +468,13 @@ juju integrate postgresql-k8s:db mattermost-k8s
 
 ```
 
-While executing any of these commands returns automatically so you can execute the next, standing things up in the cloud takes a little bit of time; watch your progress with `juju status --relations --color --watch 1s`. Things are all set when the output looks similar to the one below:
+While executing any of these commands returns automatically so you can execute the next, standing things up in the cloud takes a little bit of time; watch your progress with `watch -n 1 --color juju status --relations --color`. Things are all set when the output looks similar to the one below:
 
 ```{terminal}
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-juju status --relations --color
+watch -n 1 --color juju status --relations --color
 
 Model          Controller                Cloud/Region        Version  SLA          Timestamp
 my-chat-model  my-first-juju-controller  microk8s/localhost  3.6.8    unsupported  13:26:28+02:00
