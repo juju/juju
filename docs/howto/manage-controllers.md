@@ -148,6 +148,10 @@ juju bootstrap aws my-controller
 juju add-k8s my-k8s-cloud --controller my-controller
 ```
 
+```{note}
+The `add-k8s` command reads credentials from your local kubeconfig file (using the standard Kubernetes search path, including the `KUBECONFIG` environment variable).
+```
+
 ```{ibnote}
 See more: {ref}`add-a-cloud`
 ```
@@ -239,7 +243,7 @@ See more: {ref}`controller-config-allow-model-access`
 **MongoDB snap channel** (for Ubuntu Focal or later, default: 4.4.30/stable):
 
 ```text
-juju bootstrap aws my-controller --config juju-db-snap-channel=5.0/stable
+juju bootstrap aws my-controller --config juju-db-snap-channel=4.4.31/stable
 ```
 
 **Controller snap source** (default: legacy):
