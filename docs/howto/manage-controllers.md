@@ -63,7 +63,7 @@ See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identit
 
 ````{dropdown} Enable DNS-based registration
 
-To allow users to register using a DNS hostname (`juju register controller.example.com`) instead of tokens, configure the controller's DNS address:
+To allow users to register using a DNS hostname (`juju register controller.example.com`), configure the controller's DNS address:
 
 ```text
 juju bootstrap aws my-controller --config public-dns-address=controller.example.com:443
