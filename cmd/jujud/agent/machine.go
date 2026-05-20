@@ -85,7 +85,7 @@ type (
 )
 
 var (
-	logger            = internallogger.GetLogger("juju.cmd.jujuagentd")
+	logger            = internallogger.GetLogger("juju.cmd.jujud")
 	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
@@ -538,8 +538,8 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		clock := clock.WallClock
-		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
+		c := clock.WallClock
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(c), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
@@ -556,7 +556,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
-			Clock:                             clock,
+			Clock:                             c,
 			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
@@ -603,7 +603,7 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusGatherer: a.prometheusRegistry,
 			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
-			Clock:              clock,
+			Clock:              c,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
@@ -798,11 +798,11 @@ func (a *MachineAgent) Tag() names.Tag {
 }
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
-	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.JujuController)
 	symlinks := jujudSymlinks
 	if a.isCaasAgent {
 		// For IAAS, this is done in systemd for for caas we need to do it here.
-		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.Jujud)
+		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.JujuController)
 		if err := a.createSymlink(caasJujud, jujud); err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", jujud)
 		}
