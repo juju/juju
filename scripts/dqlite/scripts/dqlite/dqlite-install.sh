@@ -8,14 +8,12 @@ check_dependencies sha256sum
 
 sha() {
 	case ${BUILD_ARCH} in
-		amd64) echo "d9811654898507a661147ac0d26eb896b97177603335e04ef427a230db776c91" ;;
-		arm64) echo "2a04593d397451ab30c056e0d2ad828270ed54da7158477ee014bc449bbf3fe2" ;;
-
-		# s390x and ppc64le are failing to build, so are stuck on v1.18.0
-		s390x) echo "8561238d7cdc2036fee321b7f8f1b563500325b4b1ed172002a56aca79ddb936" ;;
-		ppc64le) echo "950f55a4aa10a7209ede86cf4c023ec1dc79a31317f9e6d5378d7897beb26b35" ;;
-		riscv64) echo "" ;;
-		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
+	amd64) echo "45c9bbc1291e3ae3a1254e8098fda0e1a4d9b0a64178093e4e253e6ac75caa3b" ;;
+	arm64) echo "e4c1e2ca250a80bc389930495bafa78dd45bd411eaca05b79bf72839c6050904" ;;
+	*) {
+		echo "Unsupported arch ${BUILD_ARCH}."
+		exit 1
+	} ;;
 	esac
 }
 
@@ -26,13 +24,13 @@ retrieve() {
 
 	sha=${1}
 
-	filenames=( "${sha}.tar.bz2" )
+	filenames=("${sha}.tar.bz2")
 	for name in "${filenames[@]}"; do
 		echo "Retrieving ${name}"
 		curl --fail -o ${FILE} -s https://dqlite-static-libs.s3.amazonaws.com/${name} && return || {
-			echo " + Failed to retrieve ${name}";
-			rm -f ${FILE} || true;
-			true;
+			echo " + Failed to retrieve ${name}"
+			rm -f ${FILE} || true
+			true
 		}
 	done
 }
@@ -46,14 +44,20 @@ install() {
 		exit 1
 	fi
 
-    SUM=$(sha256sum ${FILE} | awk '{print $1}')
-    if [ "${SUM}" != ${SHA} ]; then
-        echo "sha256sum mismatch (${SUM}, expected $(sha))"
-        exit 1
-    fi
+	SUM=$(sha256sum ${FILE} | awk '{print $1}')
+	if [ "${SUM}" != ${SHA} ]; then
+		echo "sha256sum mismatch (${SUM}, expected $(sha))"
+		exit 1
+	fi
 
-    echo "${EXTRACTED_DEPS_PATH} ${FILE}"
+	echo "${EXTRACTED_DEPS_PATH} ${FILE}"
 
-    tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || { echo "Failed to extract ${FILE}"; exit 1; }
-    mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH} || { echo "Failed to move ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps to ${EXTRACTED_DEPS_ARCH_PATH}"; exit 1; }
+	tar xjf ${FILE} -C ${EXTRACTED_DEPS_PATH} || {
+		echo "Failed to extract ${FILE}"
+		exit 1
+	}
+	mv ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps ${EXTRACTED_DEPS_ARCH_PATH} || {
+		echo "Failed to move ${EXTRACTED_DEPS_PATH}/juju-dqlite-static-lib-deps to ${EXTRACTED_DEPS_ARCH_PATH}"
+		exit 1
+	}
 }

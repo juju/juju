@@ -14,7 +14,7 @@ Updates cloud information available to Juju.
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `-c`, `--controller` |  | Controller to operate in |
 | `--client` | false | Client operation |
-| `-f` |  | The path to a cloud definition file |
+| `-f`, `--file` |  | The path to a cloud definition file |
 
 ## Examples
 

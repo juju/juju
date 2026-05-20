@@ -334,7 +334,7 @@ func (fw *Firewaller) loop() error {
 			return fw.catacomb.ErrDying()
 		case <-ensureModelFirewalls:
 			err := fw.flushModel(ctx)
-			if errors.Is(err, errors.NotFound) {
+			if isNotFound(err) {
 				ensureModelFirewalls = fw.clk.After(time.Second)
 			} else if err != nil {
 				return err
@@ -2015,6 +2015,10 @@ func (rd *remoteRelationData) publishIngressToRemote(ctx context.Context, cidrs 
 		BakeryVersion:   bakery.LatestVersion,
 	}
 	if err := remoteModelAPI.PublishIngressNetworkChange(ctx, event); err != nil {
+		if isNotFound(err) {
+			rd.fw.logger.Debugf(ctx, "relation id not found publishing %+v", event)
+			return nil
+		}
 		// If the requested ingress is not permitted on the offering side,
 		// mark the relation as in error. It's not an error that requires a
 		// worker restart though.
@@ -2064,6 +2068,10 @@ type remoteRelationNetworkChange struct {
 	networks            set.Strings
 	ingressRequired     bool
 	workerID            string
+}
+
+func isNotFound(err error) bool {
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 // updateIngressNetworks processes the changed ingress networks on the relation.

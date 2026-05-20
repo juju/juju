@@ -1277,8 +1277,8 @@ func (c *Client) UpdateApplicationStorage(applicationStorageUpdate ApplicationSt
 	in := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
 			{
-				ApplicationTag:     applicationStorageUpdate.ApplicationTag.String(),
-				StorageConstraints: sc,
+				ApplicationTag:    applicationStorageUpdate.ApplicationTag.String(),
+				StorageDirectives: sc,
 			},
 		},
 	}

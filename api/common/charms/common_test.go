@@ -11,6 +11,7 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/resource"
@@ -201,4 +202,39 @@ func (s *suite) TestApplicationCharmInfo(c *tc.C) {
 		},
 	}
 	c.Assert(got, tc.DeepEquals, want)
+}
+
+func (s *suite) TestCharmInfoTranslatesCodeNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	url := "local:quantal/dummy-1"
+	args := params.CharmURL{URL: url}
+	info := new(params.Charm)
+
+	mockFacadeCaller.EXPECT().FacadeCall(c.Context(), "CharmInfo", args, info).Return(
+		&params.Error{Code: params.CodeNotFound, Message: "missing charm"})
+
+	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
+	_, err := client.CharmInfo(c.Context(), url)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *suite) TestApplicationCharmInfoTranslatesCodeNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	args := params.Entity{Tag: "application-foobar"}
+	info := new(params.Charm)
+
+	mockFacadeCaller.EXPECT().FacadeCall(c.Context(), "ApplicationCharmInfo", args, info).Return(
+		&params.Error{Code: params.CodeNotFound, Message: "missing app"})
+
+	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
+	_, err := client.ApplicationCharmInfo(c.Context(), "foobar")
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

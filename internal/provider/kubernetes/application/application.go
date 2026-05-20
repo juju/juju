@@ -279,15 +279,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(storageClass)
 		return nil
 	}
-	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
-		err := a.configureStorage(
-			storageUniqueID,
-			config.Filesystems,
-			storageClasses,
-			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
-		)
-		return errors.Trace(err)
-	}
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -333,20 +324,28 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		var volumeClaimTemplates []corev1.PersistentVolumeClaim
-		if err = configureStorage(
+		handlePVCForStatefulSet := func(
+			pvc corev1.PersistentVolumeClaim,
+			attachParams jujustorage.KubernetesFilesystemAttachmentParams,
+		) (*corev1.VolumeMount, error) {
+			if err := storage.PushUniqueVolumeClaimTemplate(
+				&volumeClaimTemplates,
+				pvc,
+			); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return &corev1.VolumeMount{
+				Name:      pvc.GetName(),
+				ReadOnly:  attachParams.ReadOnly,
+				MountPath: attachParams.Path,
+			}, nil
+		}
+
+		if err = a.configureStorage(
 			config.StorageUniqueID,
-			func(pvc corev1.PersistentVolumeClaim,
-				attachParams jujustorage.KubernetesFilesystemAttachmentParams,
-			) (*corev1.VolumeMount, error) {
-				if err := storage.PushUniqueVolumeClaimTemplate(&volumeClaimTemplates, pvc); err != nil {
-					return nil, errors.Trace(err)
-				}
-				return &corev1.VolumeMount{
-					Name:      pvc.GetName(),
-					ReadOnly:  attachParams.ReadOnly,
-					MountPath: attachParams.Path,
-				}, nil
-			},
+			config.Filesystems,
+			storageClasses,
+			handleVolume, handleVolumeMount, handlePVCForStatefulSet, handleStorageClass,
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -391,7 +390,12 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = a.configureStorage(
+			config.StorageUniqueID,
+			config.Filesystems,
+			storageClasses,
+			handleVolume, handleVolumeMount, handlePVCForStatelessResource, handleStorageClass,
+		); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -422,7 +426,12 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(deployment)
 	case caas.DeploymentDaemon:
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(config.StorageUniqueID, handlePVCForStatelessResource); err != nil {
+		if err = a.configureStorage(
+			config.StorageUniqueID,
+			config.Filesystems,
+			storageClasses,
+			handleVolume, handleVolumeMount, handlePVCForStatelessResource, handleStorageClass,
+		); err != nil {
 			return errors.Trace(err)
 		}
 		ds := &appsv1.DaemonSet{
@@ -1342,6 +1351,12 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 			o.FieldSelector = a.fieldSelector()
 		}),
 	)
+	pvcFactory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
+		informers.WithNamespace(a.namespace),
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
+			o.LabelSelector = a.labelSelector()
+		}),
+	)
 	var informer cache.SharedIndexInformer
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1361,7 +1376,11 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
+	w3, err := a.newWatcher(pvcFactory.Core().V1().PersistentVolumeClaims().Informer(), a.name, a.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return eventsource.NewMultiNotifyWatcher(ctx, w1, w2, w3)
 }
 
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
@@ -1558,12 +1577,8 @@ func (a *app) Units() ([]caas.Unit, error) {
 				logger.Tracef(context.TODO(), "ignoring volume source for hostPath volume: %v", vol.Name)
 				continue
 			}
-			if vol.EmptyDir != nil {
-				logger.Tracef(context.TODO(), "ignoring volume source for emptyDir volume: %v", vol.Name)
-				continue
-			}
 
-			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
+			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, a.name, now)
 			if err != nil {
 				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
 			}
@@ -1571,6 +1586,12 @@ func (a *app) Units() ([]caas.Unit, error) {
 				continue
 			}
 			if fsInfo.StorageName == "" {
+				// For emptyDir volumes, we should have derived the storage name from FilesystemInfo using app name prefix,
+				// if not this would mean the volume is not managed by juju and we should ignore it.
+				if vol.EmptyDir != nil {
+					logger.Tracef(ctx, "ignoring volume source for emptyDir volume: %v", vol.Name)
+					continue
+				}
 				if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
 					fsInfo.StorageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				} else if valid := constants.PVNameRegexp.MatchString(volMount.Name); valid {

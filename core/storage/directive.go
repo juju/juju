@@ -67,7 +67,7 @@ func ParseDirective(s string) (Directive, error) {
 		}
 		if count, ok, err := parseCount(field); ok {
 			if err != nil {
-				return directive, errors.Annotate(err, "cannot parse count")
+				return directive, errors.Annotate(err, "parsing storage count")
 			}
 			if directive.Count != 0 {
 				return directive, errors.NotValidf("storage instance count is already set to %d, new value %d", directive.Count, count)
