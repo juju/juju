@@ -80,11 +80,7 @@ Abilities:
 - Grant and revoke access at all levels (controller, cloud, model, offer).
 
 ```{note}
-The `admin` user created at controller bootstrap automatically has superuser access. This is the only way to receive superuser access -- it cannot be granted to other users.
-```
-
-```{note}
-A person logged into the `jaas` controller automatically has the login access level. This is automatically granted via ` juju grant login everyone@external`.
+The `admin` user created at controller bootstrap automatically has superuser access. Additional users can be granted superuser access using `juju grant`.
 ```
 
 ```{note}
@@ -108,7 +104,7 @@ Abilities:
 
 Cannot:
 - View or manage models you didn't create (unless separately granted access).
-- Modify cloud credentials or configuration.
+- Modify cloud credentials (except those you own).
 - Manage the cloud itself.
 
 (user-access-cloud-admin)=
@@ -137,7 +133,6 @@ Abilities:
 - View annotations, storage details, and network information.
 - View secrets (metadata only).
 - View model configuration.
-- SSH access to units (for debugging).
 
 Cannot:
 - Deploy, configure, or remove applications.
@@ -163,7 +158,6 @@ Abilities (includes all `read` operations, plus):
 
 Cannot:
 - Destroy the model.
-- Execute commands directly on machines (`juju exec`).
 - Grant or revoke model access to other users.
 - Export model state or database dumps.
 
@@ -174,10 +168,9 @@ Granted: Via {ref}`command-juju-grant`.
 
 Abilities (includes all `write` operations, plus):
 - Destroy the model (`juju destroy-model`).
-- Execute commands directly on machines and units (`juju exec`).
+- Execute commands on machines and units (`juju exec`).
 - Grant and revoke model access to other users (`juju grant`, `juju revoke`).
 - Export model state and database dumps.
-- Manage model generations.
 
 (list-of-user-access-levels-for-offers)=
 ### List of user access levels for application offers

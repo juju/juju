@@ -42,12 +42,12 @@ To enable external authentication via an identity provider (OAuth/OIDC), bootstr
 juju bootstrap aws my-controller --config identity-url=https://identity.example.com
 ```
 
-This changes how users authenticate:
-- Users authenticate via the external provider (e.g., Ubuntu SSO, Google OAuth) instead of controller-local passwords.
-- The login process opens a browser for OAuth/OIDC authentication.
+This adds external authentication as an option alongside local user authentication:
+- External users authenticate via the provider (e.g., Ubuntu SSO, Google OAuth) using browser-based OAuth/OIDC.
+- Local users created with `juju add-user` continue to use controller-local passwords.
 - Users can still register with tokens from `juju add-user`.
 
-For HTTP identity managers, you must also provide the identity manager's public key:
+For HTTP identity managers (if the provider doesn't expose an endpoint to retrieve its public key), you may need to provide the identity manager's public key:
 
 ```text
 juju bootstrap aws my-controller \
@@ -57,20 +57,6 @@ juju bootstrap aws my-controller \
 
 ```{ibnote}
 See more: {ref}`controller-config-identity-url`, {ref}`controller-config-identity-public-key`
-```
-
-````
-
-````{dropdown} Use JWT-based authentication
-
-For JWT-based authentication (alternative to OAuth/OIDC or local passwords), configure the JWT token refresh URL:
-
-```text
-juju bootstrap aws my-controller --config login-token-refresh-url=https://auth.example.com/.well-known/jwks.json
-```
-
-```{ibnote}
-See more: {ref}`controller-config-login-token-refresh-url`
 ```
 
 ````

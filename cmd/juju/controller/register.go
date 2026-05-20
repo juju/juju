@@ -247,7 +247,7 @@ func (c *registerCommand) controllerDetails(ctx *cmd.Context, p *registrationPar
 }
 
 // publicControllerDetails returns controller and account details to be registered
-// for a controller configured with external authentication (hostname-based registration).
+// for a controller configured with a DNS hostname (hostname-based registration).
 func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 	errRet := func(err error) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
 		return jujuclient.ControllerDetails{}, jujuclient.AccountDetails{}, err
