@@ -159,28 +159,3 @@ fix(backup): fix backup db state issue
 
 <optional body for fix(backup)>
 ```
-
-## Common Mistakes
-
-### ❌ Capitalized description (will fail CI)
-```
-docs: Update binary download links
-```
-
-### ✅ Correct lowercase description
-```
-docs: update binary download links
-```
-
-### ❌ Sentence case (will fail CI)
-```
-docs: Remove Windows installation instructions
-```
-
-### ✅ Correct lowercase
-```
-docs: remove Windows installation instructions
-```
-
-The CI uses `commitlint` which enforces `subject-case` rules. Your PR will fail if the description after the type and scope is not lowercase.
-```
