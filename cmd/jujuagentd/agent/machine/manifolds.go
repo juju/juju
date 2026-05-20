@@ -918,6 +918,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:                      config.ControlSocketPath,
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			GetObjectStoreServicesGetter:    controlsocket.GetObjectStoreServicesGetter,
 			PrometheusRegisterer:            config.PrometheusRegisterer,
 			NewMetricsCollector:             controlsocket.NewMetricsCollector,
 		})),

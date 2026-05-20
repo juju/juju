@@ -42,6 +42,7 @@ type workerSuite struct {
 	tracingService     *MockTracingService
 	loggingService     *MockLoggingService
 	objectStoreService *MockControllerObjectStoreService
+	preflightValidator DrainPreflightValidator
 
 	controllerModelID permission.ID
 	metricsUserName   coreuser.Name
@@ -82,6 +83,14 @@ func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
 	cfg := s.newValidConfig(c)
 	cfg.ObjectStoreService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *workerSuite) TestConfigValidateNilDrainPreflightValidator(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.DrainPreflightValidator = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil DrainPreflightValidator.*")
 }
 
 func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
@@ -1071,6 +1080,52 @@ func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestAddS3CredentialsDrainPreflightError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.preflightValidator = staticDrainPreflightValidator{
+		err: errors.New("boom"),
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*validating object store drain viability.*boom.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsDrainPreflightMissingFiles(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.preflightValidator = staticDrainPreflightValidator{
+		missing: []MissingObject{{
+			Namespace: "controller",
+			Path:      "tools/juju",
+			Hash:      "abc",
+		}},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusConflict,
+		response:   ".*drain is not viable.*read-repair.*controller:tools/juju.*hash=abc.*",
+	})
+}
+
 func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1319,12 +1374,14 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.tracingService = NewMockTracingService(ctrl)
 	s.loggingService = NewMockLoggingService(ctrl)
 	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
+	s.preflightValidator = staticDrainPreflightValidator{}
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.tracingService = nil
 		s.loggingService = nil
 		s.objectStoreService = nil
+		s.preflightValidator = nil
 	})
 
 	return ctrl
@@ -1346,15 +1403,16 @@ type handlerTest struct {
 
 func (s *workerSuite) newValidConfig(c *tc.C) Config {
 	return Config{
-		AccessService:       s.accessService,
-		TracingService:      s.tracingService,
-		LoggingService:      s.loggingService,
-		ObjectStoreService:  s.objectStoreService,
-		Logger:              loggertesting.WrapCheckLog(c),
-		MetricsCollector:    NewMetricsCollector(),
-		SocketName:          "/tmp/test.socket",
-		NewSocketListener:   NewSocketListener,
-		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:           s.accessService,
+		TracingService:          s.tracingService,
+		LoggingService:          s.loggingService,
+		ObjectStoreService:      s.objectStoreService,
+		DrainPreflightValidator: s.preflightValidator,
+		Logger:                  loggertesting.WrapCheckLog(c),
+		MetricsCollector:        NewMetricsCollector(),
+		SocketName:              "/tmp/test.socket",
+		NewSocketListener:       NewSocketListener,
+		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
 	}
 }
 
@@ -1367,15 +1425,16 @@ func (s *workerSuite) newSocket(c *tc.C) string {
 
 func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 	w, err := NewWorker(Config{
-		AccessService:       s.accessService,
-		TracingService:      s.tracingService,
-		LoggingService:      s.loggingService,
-		ObjectStoreService:  s.objectStoreService,
-		Logger:              loggertesting.WrapCheckLog(c),
-		MetricsCollector:    NewMetricsCollector(),
-		SocketName:          socket,
-		NewSocketListener:   NewSocketListener,
-		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:           s.accessService,
+		TracingService:          s.tracingService,
+		LoggingService:          s.loggingService,
+		ObjectStoreService:      s.objectStoreService,
+		DrainPreflightValidator: s.preflightValidator,
+		Logger:                  loggertesting.WrapCheckLog(c),
+		MetricsCollector:        NewMetricsCollector(),
+		SocketName:              socket,
+		NewSocketListener:       NewSocketListener,
+		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1434,4 +1493,13 @@ func client(socketPath string) *http.Client {
 			},
 		},
 	}
+}
+
+type staticDrainPreflightValidator struct {
+	missing []MissingObject
+	err     error
+}
+
+func (v staticDrainPreflightValidator) Validate(context.Context) ([]MissingObject, error) {
+	return v.missing, v.err
 }
