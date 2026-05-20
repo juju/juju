@@ -29,6 +29,7 @@ run_simplestream_metadata() {
 	file="${TEST_DIR}/test-bootstrap-stream.log"
 	juju bootstrap "lxd" "${name}" \
 		--show-log \
+    --build-agent \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
 		--bootstrap-base="${BOOTSTRAP_BASE}" \
