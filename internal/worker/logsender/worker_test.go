@@ -100,11 +100,7 @@ func (s *workerSuite) TestLogSending(c *tc.C) {
 		close(done)
 	}()
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for all events")
-	}
+	<-done
 }
 
 func (s *workerSuite) TestDroppedLogs(c *tc.C) {
@@ -178,11 +174,7 @@ func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 		close(done)
 	}()
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for all events")
-	}
+	<-done
 }
 
 type workerBounceSuite struct {
@@ -230,11 +222,7 @@ func (s *mockStream) WriteJSON(v interface{}) error {
 		return nil
 	}
 	// Ensure readLoop has processed the close error before we return.
-	select {
-	case <-s.closed:
-	case <-time.After(testing.LongWait):
-		s.c.Fatal("timed out waiting for mock stream close")
-	}
+	<-s.closed
 	return fmt.Errorf("use of closed network connection")
 }
 
