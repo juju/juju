@@ -725,5 +725,5 @@ type ApplicationStorageUpdate struct {
 	ApplicationTag string `json:"application-tag"`
 
 	// Holds the application storage constraints where the key is the storage name.
-	StorageDirectives map[string]StorageDirectives `json:"storage-directives"`
+	StorageDirectives map[string]StorageDirectives `json:"storage-constraints"`
 }
