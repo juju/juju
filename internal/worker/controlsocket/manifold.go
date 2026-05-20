@@ -5,13 +5,16 @@ package controlsocket
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/socketlistener"
 )
@@ -33,6 +36,10 @@ type GetControllerDomainServicesFunc func(dependency.Getter, string) (services.C
 // controller object store service from the dependency getter.
 type GetControllerObjectStoreServiceFunc func(dependency.Getter, string) (ControllerObjectStoreService, error)
 
+// GetObjectStoreServicesGetterFunc is a function that retrieves model object
+// store services from the dependency getter.
+type GetObjectStoreServicesGetterFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
+
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
 type ManifoldConfig struct {
 	DomainServicesName      string
@@ -45,6 +52,7 @@ type ManifoldConfig struct {
 
 	GetControllerDomainServices     GetControllerDomainServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
+	GetObjectStoreServicesGetter    GetObjectStoreServicesGetterFunc
 }
 
 // Manifold returns a Manifold that encapsulates the controlsocket worker.
@@ -84,6 +92,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.GetControllerObjectStoreService == nil {
 		return errors.NotValidf("nil GetControllerObjectStoreService func")
 	}
+	if cfg.GetObjectStoreServicesGetter == nil {
+		return errors.NotValidf("nil GetObjectStoreServicesGetter func")
+	}
 	return nil
 }
 
@@ -103,22 +114,46 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
+	controllerMetadataService, ok := controllerObjectStoreService.(MetadataService)
+	if !ok {
+		return nil, errors.NotValidf("controller object store service does not support metadata listing")
+	}
+
+	objectStoreServicesGetter, err := cfg.GetObjectStoreServicesGetter(getter, cfg.ObjectStoreServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	controllerSerivce := domainServices.Controller()
 	controllerModelUUID, err := controllerSerivce.ControllerModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	preflightValidator, err := NewDrainPreflightValidator(DrainPreflightValidatorConfig{
+		ControllerService:         controllerSerivce,
+		ControllerMetadataService: controllerMetadataService,
+		ObjectStoreServicesGetter: objectStoreServicesGetter,
+		NewHashFileSystemAccessor: NewHashFileStoreAccessor,
+		SelectFileHash:            internalobjectstore.SelectFileHash,
+		RootDir:                   filepath.Dir(cfg.SocketName),
+		Logger:                    cfg.Logger,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		AccessService:       domainServices.Access(),
-		TracingService:      domainServices.Tracing(),
-		LoggingService:      domainServices.Logging(),
-		ObjectStoreService:  controllerObjectStoreService,
-		Logger:              cfg.Logger,
-		SocketName:          cfg.SocketName,
-		NewSocketListener:   cfg.NewSocketListener,
-		ControllerModelUUID: controllerModelUUID,
+		AccessService:           domainServices.Access(),
+		TracingService:          domainServices.Tracing(),
+		LoggingService:          domainServices.Logging(),
+		ObjectStoreService:      controllerObjectStoreService,
+		DrainPreflightValidator: preflightValidator,
+		Logger:                  cfg.Logger,
+		SocketName:              cfg.SocketName,
+		NewSocketListener:       cfg.NewSocketListener,
+		ControllerModelUUID:     controllerModelUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,4 +189,33 @@ func GetControllerObjectStoreService(getter dependency.Getter, name string) (Con
 		return nil, errors.Trace(err)
 	}
 	return services.AgentObjectStore(), nil
+}
+
+// GetObjectStoreServicesGetter retrieves model object store services from the
+// dependency getter.
+func GetObjectStoreServicesGetter(getter dependency.Getter, name string) (ObjectStoreServicesGetter, error) {
+	var servicesGetter services.ObjectStoreServicesGetter
+	if err := getter.Get(name, &servicesGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelMetadataServiceGetter{
+		servicesGetter: servicesGetter,
+	}, nil
+}
+
+// NewHashFileStoreAccessor creates a hash accessor rooted at the supplied
+// namespace and root directory.
+func NewHashFileStoreAccessor(
+	namespace, rootDir string, logger logger.Logger,
+) HashFileSystemAccessor {
+	return internalobjectstore.NewHashFileStore(namespace, rootDir, logger)
+}
+
+type modelMetadataServiceGetter struct {
+	servicesGetter services.ObjectStoreServicesGetter
+}
+
+// ObjectStoreForModel returns metadata operations for the supplied model.
+func (s modelMetadataServiceGetter) ObjectStoreForModel(modelUUID model.UUID) MetadataService {
+	return s.servicesGetter.ServicesForModel(modelUUID).ObjectStore()
 }

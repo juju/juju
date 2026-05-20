@@ -769,6 +769,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			GetObjectStoreServicesGetter:    controlsocket.GetObjectStoreServicesGetter,
 		})),
 
 		// The ssh server worker runs on the controller machine.

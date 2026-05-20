@@ -129,6 +129,9 @@ type Config struct {
 	LoggingService LoggingService
 	// ObjectStoreService is the object store service for the controller.
 	ObjectStoreService ControllerObjectStoreService
+	// DrainPreflightValidator validates drain viability before starting the
+	// transition to S3.
+	DrainPreflightValidator DrainPreflightValidator
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -146,6 +149,9 @@ func (config Config) Validate() error {
 	}
 	if config.ObjectStoreService == nil {
 		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
+	}
+	if config.DrainPreflightValidator == nil {
+		return internalerrors.New("nil DrainPreflightValidator").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -170,6 +176,7 @@ type Worker struct {
 	tracingService     TracingService
 	loggingService     LoggingService
 	objectStoreService ControllerObjectStoreService
+	preflightValidator DrainPreflightValidator
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -193,6 +200,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		tracingService:      config.TracingService,
 		loggingService:      config.LoggingService,
 		objectStoreService:  config.ObjectStoreService,
+		preflightValidator:  config.DrainPreflightValidator,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
@@ -574,6 +582,16 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
 				internalerrors.Errorf("request body is not valid JSON: %w", err))
 		}
+		return
+	}
+
+	missing, err := w.preflightValidator.Validate(ctx)
+	if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("validating object store drain viability: %w", err))
+		return
+	}
+	if len(missing) > 0 {
+		w.writeErrorResponse(ctx, resp, http.StatusConflict, missingObjectsError(missing))
 		return
 	}
 
