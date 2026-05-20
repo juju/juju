@@ -75,7 +75,7 @@ var allowedCalls = map[string]set.Strings{
 }
 
 var ignoredPackages = set.NewStrings(
-	"jujuc", "jujuagentd", "containeragent", "juju-bridge", "service", "internal",
+	"jujuc", "jujuagentd", "jujud", "containeragent", "juju-bridge", "service", "internal",
 )
 
 type OSCallTest struct{}
