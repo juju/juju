@@ -488,7 +488,7 @@ func (s *ModelServices) Proxy() *proxy.Service {
 func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 	log := s.logger.Child("unitstate")
 	return unitstateservice.NewLeadershipService(
-		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		domain.NewLeaseService(s.leaseManager),
 		log,
 	)

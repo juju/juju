@@ -5,6 +5,10 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -16,6 +20,7 @@ import (
 	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // CommitHookChanges persists a set of changes after a hook successfully
@@ -122,6 +127,48 @@ func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes
 }
 
 func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []unitstate.DeleteSecretArg) error {
+	if len(deletes) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($secretRemovalJob.*)", secretRemovalJob{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	now := st.clock.Now().UTC()
+	for _, del := range deletes {
+		if del.URI == nil {
+			continue
+		}
+
+		jobUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		rec := secretRemovalJob{
+			UUID:          jobUUID.String(),
+			RemovalTypeID: userSecretRemovalJobTypeID,
+			EntityUUID:    del.URI.String(),
+			ScheduledFor:  now,
+		}
+
+		if len(del.Revisions) > 0 {
+			var revStrs []string
+			for _, rev := range del.Revisions {
+				revStrs = append(revStrs, strconv.Itoa(rev))
+			}
+			rec.Arg = sql.NullString{
+				String: fmt.Sprintf(`{"revisions":[%s]}`, strings.Join(revStrs, ",")),
+				Valid:  true,
+			}
+		}
+
+		if err := tx.Query(ctx, stmt, rec).Run(); err != nil {
+			return errors.Errorf("inserting secret removal job for %q: %w", del.URI, err)
+		}
+	}
 	return nil
 }
 

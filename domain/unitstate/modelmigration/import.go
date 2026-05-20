@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/logger"
@@ -55,7 +56,7 @@ func (i *importOperation) Name() string {
 // Setup the import operation.
 // This will create a new service instance.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = unitstateservice.NewService(unitstatestate.NewState(scope.ModelDB(), i.logger), i.logger)
+	i.service = unitstateservice.NewService(unitstatestate.NewState(scope.ModelDB(), clock.WallClock, i.logger), i.logger)
 	return nil
 }
 

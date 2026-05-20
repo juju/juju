@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -20,6 +21,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/secret"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -579,6 +581,82 @@ func (s *commitHookSuite) TestEnsureCheckRelationExistsNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *commitHookSuite) TestDeleteSecrets(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create a secret URI.
+	uri := coresecrets.NewURI()
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretDeletes: []unitstate.DeleteSecretArg{{
+			URI: uri,
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify a removal job was created.
+	var (
+		removalTypeID int
+		entityUUID    string
+	)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT removal_type_id, entity_uuid FROM removal WHERE entity_uuid = ?",
+			uri.String(),
+		).Scan(&removalTypeID, &entityUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalTypeID, tc.Equals, 16)
+	c.Check(entityUUID, tc.Equals, uri.String())
+}
+
+func (s *commitHookSuite) TestDeleteSecretsWithRevisions(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create a secret URI with specific revisions.
+	uri := coresecrets.NewURI()
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretDeletes: []unitstate.DeleteSecretArg{{
+			URI: uri,
+			DeleteSecretParams: secret.DeleteSecretParams{
+				Revisions: []int{1, 3, 5},
+			},
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify a removal job was created with the revisions arg.
+	var (
+		removalTypeID int
+		entityUUID    string
+		argStr        sql.NullString
+	)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT removal_type_id, entity_uuid, arg FROM removal WHERE entity_uuid = ?",
+			uri.String(),
+		).Scan(&removalTypeID, &entityUUID, &argStr)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalTypeID, tc.Equals, 16)
+	c.Check(entityUUID, tc.Equals, uri.String())
+	c.Assert(argStr.Valid, tc.IsTrue)
+	c.Check(argStr.String, tc.Equals, `{"revisions":[1,3,5]}`)
 }
 
 func (s *commitHookSuite) addStoragePool(

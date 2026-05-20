@@ -5,9 +5,25 @@ package state
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/juju/juju/core/network"
 )
+
+// userSecretRemovalJobTypeID is the removal_type_id for UserSecretJob.
+// This corresponds to the iota value in domain/removal/types.go.
+const userSecretRemovalJobTypeID uint64 = 16
+
+// secretRemovalJob represents a record in the removal table for scheduling
+// secret deletion.
+type secretRemovalJob struct {
+	UUID          string         `db:"uuid"`
+	RemovalTypeID uint64         `db:"removal_type_id"`
+	EntityUUID    string         `db:"entity_uuid"`
+	Force         bool           `db:"force"`
+	ScheduledFor  time.Time      `db:"scheduled_for"`
+	Arg           sql.NullString `db:"arg"`
+}
 
 // entityUUID identifies an entity.
 type entityUUID struct {
