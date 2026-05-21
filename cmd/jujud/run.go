@@ -42,7 +42,6 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
@@ -250,11 +249,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
-	// TODO(katco-): AgentConf type is doing too much. The
-	// MachineAgent type has called out the separate concerns; the
-	// AgentConf should be split up to follow suit.
 	agentConf := agentconf.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+	controllerAgentFactory := agentcmd.ControllerAgentFactoryFn(
 		agentConf,
 		dbaccessor.NewTrackedDBWorker,
 		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
@@ -266,19 +262,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		upgrades.PerformUpgradeSteps,
 		"",
 	)
-	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
-
-	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
-		agentConf,
-		dbaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
-
-	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
-		agentConf,
-		dbreplaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplModeMachineAgentFactory, agentConf, agentConf))
+	jujud.Register(agentcmd.NewControllerAgentCommand(ctx, controllerAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
