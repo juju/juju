@@ -114,15 +114,14 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (c OpenstackCredentials) DetectCredentials(cloudName string) (*cloud.CloudCredential, error) {
+	ctx := context.TODO()
 	result := cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
 
 	// Try just using environment variables
-	creds, user, region, err := c.detectCredential(context.TODO())
-	if err == nil {
-		result.DefaultRegion = region
-		result.AuthCredentials[user] = *creds
+	if err := c.updateCredentialFromEnv(ctx, &result); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Now look for .novarc file in home dir.
@@ -138,10 +137,8 @@ func (c OpenstackCredentials) DetectCredentials(cloudName string) (*cloud.CloudC
 			k = stripExport.ReplaceAllString(k, "")
 			os.Setenv(k, v)
 		}
-		creds, user, region, err := c.detectCredential(context.TODO())
-		if err == nil {
-			result.DefaultRegion = region
-			result.AuthCredentials[user] = *creds
+		if err := c.updateCredentialFromEnv(ctx, &result); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	if len(result.AuthCredentials) == 0 {
@@ -150,22 +147,38 @@ func (c OpenstackCredentials) DetectCredentials(cloudName string) (*cloud.CloudC
 	return &result, nil
 }
 
+func (c OpenstackCredentials) updateCredentialFromEnv(ctx context.Context, result *cloud.CloudCredential) error {
+	creds, user, region, err := c.detectCredential(ctx)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	result.DefaultRegion = region
+	result.AuthCredentials[user] = *creds
+	return nil
+}
+
 func (c OpenstackCredentials) detectCredential(ctx context.Context) (*cloud.Credential, string, string, error) {
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
 		return nil, "", "", errors.Errorf("failed to retrieve credential from env : %v", err)
 	}
 	if creds.TenantName == "" {
-		logger.Debugf(ctx, "neither OS_TENANT_NAME nor OS_PROJECT_NAME environment variable not set")
+		logger.Debugf(ctx, "OS_TENANT_NAME and OS_PROJECT_NAME environment variables are not set")
 	}
 	if creds.TenantID == "" {
-		logger.Debugf(ctx, "neither OS_TENANT_ID nor OS_PROJECT_ID environment variable not set")
+		logger.Debugf(ctx, "OS_TENANT_ID and OS_PROJECT_ID environment variables are not set")
 	}
 	if creds.User == "" {
-		return nil, "", "", errors.NewNotFound(nil, "neither OS_USERNAME nor OS_ACCESS_KEY environment variable not set")
+		return nil, "", "", errors.NewNotFound(nil, "OS_USERNAME and OS_ACCESS_KEY environment variables are not set")
 	}
 	if creds.Secrets == "" {
-		return nil, "", "", errors.NewNotFound(nil, "neither OS_PASSWORD nor OS_SECRET_KEY environment variable not set")
+		return nil, "", "", errors.NewNotFound(nil, "OS_PASSWORD and OS_SECRET_KEY environment variables are not set")
+	}
+	if err := validateTrustCredentialScope(*creds); err != nil {
+		return nil, "", "", errors.Trace(err)
 	}
 
 	user, err := utils.LocalUsername()

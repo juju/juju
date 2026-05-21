@@ -849,7 +849,34 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		cred.Secrets = credAttrs[CredAttrSecretKey]
 		authMode = identity.AuthKeyPair
 	}
+	if err := validateTrustCredentialScope(cred); err != nil {
+		return identity.Credentials{}, 0, errors.Trace(err)
+	}
 	return cred, authMode, nil
+}
+
+func validateTrustCredentialScope(cred identity.Credentials) error {
+	if cred.TrustID == "" {
+		return nil
+	}
+	var scopeAttrs []string
+	if cred.TenantName != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantName)
+	}
+	if cred.TenantID != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantID)
+	}
+	if cred.Domain != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrDomainName)
+	}
+	if len(scopeAttrs) == 0 {
+		return nil
+	}
+	return errors.NewNotValid(nil, fmt.Sprintf(
+		"%s cannot be used with project or domain scope attributes: %s",
+		CredAttrTrustID,
+		strings.Join(scopeAttrs, ", "),
+	))
 }
 
 func tlsConfig(certStrs []string) *tls.Config {

@@ -59,8 +59,8 @@ Attributes:
 
 For Keystone v3 trust authentication, use `userpass` with `username`,
 `password`, `user-domain-name`, `version: "3"`, and `trust-id`. The trust
-defines the delegated project scope, so project and tenant attributes are not
-required.
+defines the delegated project scope, so do not set `tenant-name`, `tenant-id`,
+or `domain-name` with `trust-id`.
 
 ## Notes on `juju bootstrap`
 

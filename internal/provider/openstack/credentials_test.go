@@ -57,7 +57,14 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 		"username":    "bob",
 		"password":    "dobbs",
 		"tenant-name": "gary",
-		"trust-id":    "trust",
+	})
+}
+
+func (s *credentialsSuite) TestUserPassTrustCredentialsValid(c *tc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
+		"username": "bob",
+		"password": "dobbs",
+		"trust-id": "trust",
 	})
 }
 
@@ -154,6 +161,25 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassTrustEnvironmentVariable
 	c.Assert(credentials.AuthCredentials["admin"], tc.DeepEquals, expected)
 }
 
+func (s *credentialsSuite) TestDetectCredentialsUserPassTrustWithProjectEnvironmentVariablesRejects(c *tc.C) {
+	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
+	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
+	s.PatchEnvironment("OS_USERNAME", "admin")
+	s.PatchEnvironment("OS_PASSWORD", "secret")
+	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "admin_domain")
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
+
+	_, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "trust-id cannot be used with project or domain scope attributes: tenant-name")
+}
+
+func (s *credentialsSuite) TestDetectCredentialsInvalidEnvironmentVariablesRejects(c *tc.C) {
+	s.PatchEnvironment("OS_AUTH_VERSION", "not-a-version")
+
+	_, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "failed to retrieve credential from env : cred.Version is not a valid integer type.*")
+}
+
 func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
 	s.PatchEnvironment("OS_AUTH_VERSION", "3")
 	s.PatchEnvironment("USER", "fred")
@@ -181,6 +207,32 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
 	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsInvalidNovarcRejects(c *tc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip("not running linux")
+	}
+	home := utils.Home()
+	dir := c.MkDir()
+	err := utils.SetHome(dir)
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
+		err := utils.SetHome(home)
+		c.Assert(err, tc.ErrorIsNil)
+	})
+
+	content := `
+OS_AUTH_VERSION=not-a-version
+OS_USERNAME=bob
+OS_PASSWORD=dobbs
+`[1:]
+	novarc := filepath.Join(dir, ".novarc")
+	err = os.WriteFile(novarc, []byte(content), 0600)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "failed to retrieve credential from env : cred.Version is not a valid integer type.*")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNovarc(c *tc.C) {

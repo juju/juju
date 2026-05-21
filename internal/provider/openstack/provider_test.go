@@ -868,6 +868,43 @@ func (s *providerUnitTests) TestNewCredentialsWithTrustID(c *tc.C) {
 	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
 }
 
+func (s *providerUnitTests) TestNewCredentialsWithTrustIDAndScopeRejects(c *tc.C) {
+	for _, test := range []struct {
+		attr  string
+		value string
+	}{{
+		attr:  CredAttrTenantName,
+		value: "someTenant",
+	}, {
+		attr:  CredAttrTenantID,
+		value: "someID",
+	}, {
+		attr:  CredAttrDomainName,
+		value: "openstack_domain",
+	}} {
+		attrs := map[string]string{
+			CredAttrUserName:       "user",
+			CredAttrPassword:       "secret",
+			CredAttrUserDomainName: "openstack_userdomain",
+			CredAttrTrustID:        "trust-id",
+		}
+		attrs[test.attr] = test.value
+		creds := cloud.NewCredential(cloud.UserPassAuthType, attrs)
+		clouldSpec := environscloudspec.CloudSpec{
+			Type:       "openstack",
+			Region:     "openstack_region",
+			Name:       "openstack",
+			Endpoint:   "http://endpoint",
+			Credential: &creds,
+		}
+
+		_, _, err := newCredentials(clouldSpec)
+		c.Check(err, tc.ErrorMatches,
+			fmt.Sprintf("%s cannot be used with project or domain scope attributes: %s", CredAttrTrustID, test.attr),
+			tc.Commentf(test.attr))
+	}
+}
+
 func (s *providerUnitTests) TestNewCredentialsWithTrustIDAndVersion2(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":  "2",
