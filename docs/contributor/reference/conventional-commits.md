@@ -38,7 +38,7 @@ following structure:
     - Can be Optional is it’s hard to define the scope
 - **description**: A brief summary of the change.
     - Must be provided after the BREAKING CHANGE:, describing what has changed about the API, e.g., BREAKING CHANGE: environment variables now take precedence over config files.
-    - **Must use lowercase** (enforced by CI - your PR will fail if you use uppercase, title case, or sentence case).
+    - Must start with a lowercase character.
     - Should not end in any punctuation.
 - **body**: Detailed explanation of the change.
     - Can be Optional for small/trivial `fix`, but NOT for other types.
