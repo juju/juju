@@ -160,7 +160,7 @@ func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 func (s *NestedContextSuite) TestDeployUnit(c *tc.C) {
 	ctx := s.newContext(c)
 	unitName := "something/0"
-	err := ctx.DeployUnit(unitName, "password")
+	err := ctx.DeployUnit(c.Context(), unitName, "password")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
@@ -181,7 +181,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *tc.C) {
 	tag := names.NewUnitTag(unitName)
 	s.config.RebootMonitorStatePurger = &fakeRebootMonitor{c: c, tag: tag}
 	ctx := s.newContext(c)
-	err := ctx.DeployUnit(unitName, "password")
+	err := ctx.DeployUnit(c.Context(), unitName, "password")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for unit to start.
@@ -232,7 +232,7 @@ func waitForFile(filePath string) error {
 func (s *NestedContextSuite) deployThreeUnits(c *tc.C, ctx deployer.Context) {
 	// Units are conveniently in alphabetical order.
 	for _, unitName := range []string{"first/0", "second/0", "third/0"} {
-		err := ctx.DeployUnit(unitName, "password")
+		err := ctx.DeployUnit(c.Context(), unitName, "password")
 		c.Assert(err, tc.ErrorIsNil)
 		// Wait for unit to start.
 		s.workers.waitForStart(c, unitName)

@@ -170,6 +170,13 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
+	// ControllerAgentConfigReadyLock is passed to the controller agent
+	// config ready gate to coordinate the deployer with the
+	// controlleragentconfig worker. On controller machines the deployer
+	// must not start until the configchange.socket exists; on
+	// non-controller machines the caller pre-unlocks this lock.
+	ControllerAgentConfigReadyLock gate.Lock
+
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
@@ -323,6 +330,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
+		// controllerAgentConfigReadyGateName/FlagName coordinate the deployer
+		// with the controlleragentconfig worker. The deployer must not start
+		// on controller machines until the configchange.socket is available.
+		// On non-controller machines the lock is pre-unlocked by the caller.
+		controllerAgentConfigReadyGateName: gate.ManifoldEx(config.ControllerAgentConfigReadyLock),
+		controllerAgentConfigReadyFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  controllerAgentConfigReadyGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
@@ -348,6 +365,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
+			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
 		})),
 
 		// The stateconfigwatcher manifold watches the machine agent's
@@ -1106,8 +1124,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
-		// longer needed.
-		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		// longer needed. On controller machines it must also wait until the
+		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
+		// so the controller charm's install hook can reach the socket. On
+		// non-controller machines that flag is pre-unlocked.
+		deployerName: engine.Housing{
+			Flags: []string{controllerAgentConfigReadyFlagName},
+		}.Decorate(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
 			FlightRecorder: config.FlightRecorder,
@@ -1117,7 +1140,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
 			NewDeployContext: config.NewDeployContext,
-		})),
+		}))),
 
 		// The reboot manifold manages a worker which will reboot the
 		// machine when requested. It needs an API connection and
@@ -1374,64 +1397,66 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	apiAddressSetterName          = "api-address-setter"
-	apiAddressUpdaterName         = "api-address-updater"
-	apiServerName                 = "api-server"
-	apiRemoteCallerName           = "api-remote-caller"
-	apiRemoteRelationCallerName   = "api-remote-relation-caller"
-	auditConfigUpdaterName        = "audit-config-updater"
-	authenticationWorkerName      = "ssh-authkeys-updater"
-	brokerTrackerName             = "broker-tracker"
-	certificateUpdaterName        = "certificate-updater"
-	certificateWatcherName        = "certificate-watcher"
-	changeStreamName              = "change-stream"
-	changeStreamPrunerName        = "change-stream-pruner"
-	controllerAgentConfigName     = "controller-agent-config"
-	controllerPresenceName        = "controller-presence"
-	controlSocketName             = "control-socket"
-	dbAccessorName                = "db-accessor"
-	deployerName                  = "deployer"
-	diskManagerName               = "disk-manager"
-	domainServicesName            = "domain-services"
-	externalControllerUpdaterName = "external-controller-updater"
-	fileNotifyWatcherName         = "file-notify-watcher"
-	hostKeyReporterName           = "host-key-reporter"
-	httpClientName                = "http-client"
-	httpServerArgsName            = "http-server-args"
-	httpServerName                = "http-server"
-	identityFileWriterName        = "ssh-identity-writer"
-	isControllerFlagName          = "is-controller-flag"
-	isNotControllerFlagName       = "is-not-controller-flag"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
-	jwtParserName                 = "jwt-parser"
-	leaseExpiryName               = "lease-expiry"
-	leaseManagerName              = "lease-manager"
-	loggingConfigUpdaterName      = "logging-config-updater"
-	logSinkName                   = "log-sink"
-	lxdContainerProvisioner       = "lxd-container-provisioner"
-	machineActionName             = "machine-action-runner"
-	machinerName                  = "machiner"
-	modelWorkerManagerName        = "model-worker-manager"
-	objectStoreName               = "object-store"
-	objectStoreS3CallerName       = "object-store-s3-caller"
-	objectStoreServicesName       = "object-store-services"
-	objectStoreFortressName       = "object-store-fortress"
-	objectStoreFacadeName         = "object-store-facade"
-	objectStoreDrainerName        = "object-store-drainer"
-	providerDomainServicesName    = "provider-services"
-	providerTrackerName           = "provider-tracker"
-	proxyConfigUpdater            = "proxy-config-updater"
-	queryLoggerName               = "query-logger"
-	rebootName                    = "reboot-executor"
-	secretBackendRotateName       = "secret-backend-rotate"
-	sshServerName                 = "ssh-server"
-	machineConverterName          = "machine-converter"
-	storageProvisionerName        = "storage-provisioner"
-	storageRegistryName           = "storage-registry"
-	toolsVersionCheckerName       = "tools-version-checker"
-	traceName                     = "trace"
-	validCredentialFlagName       = "valid-credential-flag"
-	undertakerName                = "undertaker"
-	machineSetupName              = "machine-setup"
-	watcherRegistryName           = "watcher-registry"
+	apiAddressSetterName               = "api-address-setter"
+	apiAddressUpdaterName              = "api-address-updater"
+	apiServerName                      = "api-server"
+	apiRemoteCallerName                = "api-remote-caller"
+	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	auditConfigUpdaterName             = "audit-config-updater"
+	authenticationWorkerName           = "ssh-authkeys-updater"
+	brokerTrackerName                  = "broker-tracker"
+	certificateUpdaterName             = "certificate-updater"
+	certificateWatcherName             = "certificate-watcher"
+	changeStreamName                   = "change-stream"
+	changeStreamPrunerName             = "change-stream-pruner"
+	controllerAgentConfigName          = "controller-agent-config"
+	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
+	controllerAgentConfigReadyFlagName = "controller-agent-config-ready-flag"
+	controllerPresenceName             = "controller-presence"
+	controlSocketName                  = "control-socket"
+	dbAccessorName                     = "db-accessor"
+	deployerName                       = "deployer"
+	diskManagerName                    = "disk-manager"
+	domainServicesName                 = "domain-services"
+	externalControllerUpdaterName      = "external-controller-updater"
+	fileNotifyWatcherName              = "file-notify-watcher"
+	hostKeyReporterName                = "host-key-reporter"
+	httpClientName                     = "http-client"
+	httpServerArgsName                 = "http-server-args"
+	httpServerName                     = "http-server"
+	identityFileWriterName             = "ssh-identity-writer"
+	isControllerFlagName               = "is-controller-flag"
+	isNotControllerFlagName            = "is-not-controller-flag"
+	isPrimaryControllerFlagName        = "is-primary-controller-flag"
+	jwtParserName                      = "jwt-parser"
+	leaseExpiryName                    = "lease-expiry"
+	leaseManagerName                   = "lease-manager"
+	loggingConfigUpdaterName           = "logging-config-updater"
+	logSinkName                        = "log-sink"
+	lxdContainerProvisioner            = "lxd-container-provisioner"
+	machineActionName                  = "machine-action-runner"
+	machinerName                       = "machiner"
+	modelWorkerManagerName             = "model-worker-manager"
+	objectStoreName                    = "object-store"
+	objectStoreS3CallerName            = "object-store-s3-caller"
+	objectStoreServicesName            = "object-store-services"
+	objectStoreFortressName            = "object-store-fortress"
+	objectStoreFacadeName              = "object-store-facade"
+	objectStoreDrainerName             = "object-store-drainer"
+	providerDomainServicesName         = "provider-services"
+	providerTrackerName                = "provider-tracker"
+	proxyConfigUpdater                 = "proxy-config-updater"
+	queryLoggerName                    = "query-logger"
+	rebootName                         = "reboot-executor"
+	secretBackendRotateName            = "secret-backend-rotate"
+	sshServerName                      = "ssh-server"
+	machineConverterName               = "machine-converter"
+	storageProvisionerName             = "storage-provisioner"
+	storageRegistryName                = "storage-registry"
+	toolsVersionCheckerName            = "tools-version-checker"
+	traceName                          = "trace"
+	validCredentialFlagName            = "valid-credential-flag"
+	undertakerName                     = "undertaker"
+	machineSetupName                   = "machine-setup"
+	watcherRegistryName                = "watcher-registry"
 )

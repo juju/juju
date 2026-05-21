@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 type manifoldSuite struct {
@@ -63,6 +64,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.SocketName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ReadyUnlocker = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -72,6 +77,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		Clock:             clock.WallClock,
 		NewSocketListener: NewSocketListener,
 		SocketName:        filepath.Join(s.socketDir, "test.socket"),
+		ReadyUnlocker:     gate.NewLock(),
 	}
 }
 
@@ -92,6 +98,24 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newContext())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+}
+
+// TestStartUnlocksReadyGate verifies that a successful Start call unlocks
+// the ReadyUnlocker, signalling to dependents that the socket is available.
+func (s *manifoldSuite) TestStartUnlocksReadyGate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lock := gate.NewLock()
+	cfg := s.getConfig()
+	cfg.ReadyUnlocker = lock
+
+	c.Assert(lock.IsUnlocked(), tc.IsFalse)
+
+	w, err := Manifold(cfg).Start(c.Context(), s.newContext())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(lock.IsUnlocked(), tc.IsTrue)
 }
 
 func (s *manifoldSuite) TestOutput(c *tc.C) {

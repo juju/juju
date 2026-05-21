@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 // SocketListener describes a worker that listens on a unix socket.
@@ -36,6 +37,10 @@ type ManifoldConfig struct {
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
+	// ReadyUnlocker is unlocked once the socket listener is successfully
+	// started, signalling to dependents (e.g. the deployer) that the socket
+	// is available.
+	ReadyUnlocker gate.Unlocker
 }
 
 // Validate validates the manifold configuration.
@@ -54,6 +59,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewSocketListener == nil {
 		return errors.NotValidf("nil NewSocketListener func")
+	}
+	if cfg.ReadyUnlocker == nil {
+		return errors.NotValidf("nil ReadyUnlocker")
 	}
 	return nil
 }
@@ -85,6 +93,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			// Socket listener started successfully; the socket file now exists.
+			// Unblock any manifolds waiting for it (e.g. the deployer).
+			config.ReadyUnlocker.Unlock()
 
 			return w, nil
 		},
