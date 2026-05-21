@@ -26,30 +26,28 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/dbrepl"
-	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
-	"github.com/juju/juju/rpc/params"
 )
 
 // NewDBReplAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
-// MachineAgent.
+// replControllerAgent.
 func NewDBReplAgentCommand(
 	ctx *cmd.Context,
-	replMachineAgentFactory dbReplMachineAgentFactoryFnType,
+	replControllerAgentFactory dbReplControllerAgentFactoryFnType,
 	agentInitializer AgentInitializer,
 	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
 	return &dbReplAgentCommand{
-		ctx:                     ctx,
-		replMachineAgentFactory: replMachineAgentFactory,
-		agentInitializer:        agentInitializer,
-		currentConfig:           configFetcher,
+		ctx:                        ctx,
+		replControllerAgentFactory: replControllerAgentFactory,
+		agentInitializer:           agentInitializer,
+		currentConfig:              configFetcher,
 	}
 }
 
@@ -57,30 +55,25 @@ type dbReplAgentCommand struct {
 	cmd.CommandBase
 
 	// This group of arguments is required.
-	agentInitializer        AgentInitializer
-	currentConfig           agentconfig.AgentConfigWriter
-	replMachineAgentFactory dbReplMachineAgentFactoryFnType
-	ctx                     *cmd.Context
+	agentInitializer           AgentInitializer
+	currentConfig              agentconfig.AgentConfigWriter
+	replControllerAgentFactory dbReplControllerAgentFactoryFnType
+	ctx                        *cmd.Context
 
 	isCaas   bool
 	agentTag names.Tag
 
 	// The following are set via command-line flags.
-	machineId string
-	// TODO(controlleragent) - this will be in a new controller agent command
 	controllerId string
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *dbReplAgentCommand) Init(args []string) error {
-	if a.machineId == "" && a.controllerId == "" {
-		return errors.New("either machine-id or controller-id must be set")
+	if a.controllerId == "" {
+		return errors.New("--controller-id must be set")
 	}
-	if a.machineId != "" && !names.IsValidMachine(a.machineId) {
-		return errors.Errorf("--machine-id option must be a non-negative integer")
-	}
-	if a.controllerId != "" && !names.IsValidControllerAgent(a.controllerId) {
+	if !names.IsValidControllerAgent(a.controllerId) {
 		return errors.Errorf("--controller-id option must be a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
@@ -93,11 +86,7 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	// lines of all logging in the log file.
 	_, _ = loggo.RemoveWriter("logfile")
 
-	if a.machineId != "" {
-		a.agentTag = names.NewMachineTag(a.machineId)
-	} else {
-		a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	}
+	a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
@@ -110,24 +99,23 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	return nil
 }
 
-// Run instantiates a MachineAgent and runs it.
+// Run instantiates a replControllerAgent and runs it.
 func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
 	// Force the writing of the repl header to os.Stderr.
 	if !c.Quiet() {
 		fmt.Fprint(os.Stderr, replWarningHeader)
 	}
 
-	machineAgent, err := a.replMachineAgentFactory(a.agentTag, a.isCaas)
+	controllerAgent, err := a.replControllerAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return machineAgent.Run(c)
+	return controllerAgent.Run(c)
 }
 
 // SetFlags adds the requisite flags to run this command.
 func (a *dbReplAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
-	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 }
 
@@ -135,12 +123,11 @@ func (a *dbReplAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 func (a *dbReplAgentCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "db-repl",
-		Purpose: "run a juju in db repl",
+		Purpose: "run a juju controller db repl",
 	})
 }
 
-const (
-	replWarningHeader = `
+const replWarningHeader = `
 Running DB REPL.
 ----------------
 
@@ -151,17 +138,16 @@ state of the system. Be careful!
 
 Type '.help' for help.
 `
-)
 
-type dbReplMachineAgentFactoryFnType func(names.Tag, bool) (*replMachineAgent, error)
+type dbReplControllerAgentFactoryFnType func(names.Tag, bool) (*replControllerAgent, error)
 
-// DBReplMachineAgentFactoryFn returns a function which instantiates a
-// replMachineAgent given a machineId.
-func DBReplMachineAgentFactoryFn(
+// DBReplControllerAgentFactoryFn returns a function which instantiates a
+// replControllerAgent given a controller agent tag.
+func DBReplControllerAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
-) dbReplMachineAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
+) dbReplControllerAgentFactoryFnType {
+	return func(agentTag names.Tag, isCaasAgent bool) (*replControllerAgent, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "repl",
 			IsFatal:       agenterrors.IsFatal,
@@ -172,7 +158,7 @@ func DBReplMachineAgentFactoryFn(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return NewREPLMachineAgent(
+		return NewREPLControllerAgent(
 			agentTag,
 			agentConfWriter,
 			runner,
@@ -182,15 +168,15 @@ func DBReplMachineAgentFactoryFn(
 	}
 }
 
-// NewREPLMachineAgent instantiates a new replMachineAgent.
-func NewREPLMachineAgent(
+// NewREPLControllerAgent instantiates a new replControllerAgent.
+func NewREPLControllerAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 	isCaasAgent bool,
-) (*replMachineAgent, error) {
-	a := &replMachineAgent{
+) (*replControllerAgent, error) {
+	a := &replControllerAgent{
 		agentTag:            agentTag,
 		AgentConfigWriter:   agentConfWriter,
 		configChangedVal:    voyeur.NewValue(true),
@@ -202,9 +188,10 @@ func NewREPLMachineAgent(
 	return a, nil
 }
 
-// replMachineAgent is responsible for tying together all functionality
-// needed to orchestrate a Jujud instance which controls a machine.
-type replMachineAgent struct {
+// replControllerAgent is a stripped-down agent that runs only the
+// manifolds required to provide an interactive Dqlite REPL.  It does
+// not participate in the controller's normal dependency engine.
+type replControllerAgent struct {
 	agentconfig.AgentConfigWriter
 
 	dead             chan struct{}
@@ -218,26 +205,39 @@ type replMachineAgent struct {
 	isCaasAgent bool
 }
 
-// Wait waits for the repl machine agent to finish.
-func (a *replMachineAgent) Wait() error {
+// Wait waits for the repl controller agent to finish.
+func (a *replControllerAgent) Wait() error {
 	<-a.dead
 	return a.errReason
 }
 
-// Stop stops the repl machine agent.
-func (a *replMachineAgent) Stop() error {
+// Stop stops the repl controller agent.
+func (a *replControllerAgent) Stop() error {
 	a.runner.Kill()
 	return a.Wait()
 }
 
-// Done signals the repl machine agent is finished
-func (a *replMachineAgent) Done(err error) {
+// Done signals the repl controller agent is finished.
+func (a *replControllerAgent) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
 
-// Run runs a repl machine agent.
-func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
+// Tag returns the controller agent's tag.
+func (a *replControllerAgent) Tag() names.Tag {
+	return a.agentTag
+}
+
+// ChangeConfig updates the agent's configuration and notifies
+// listeners of the change.
+func (a *replControllerAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConfigWriter.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
+}
+
+// Run runs a repl controller agent.
+func (a *replControllerAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -245,44 +245,26 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 
 	agentConfig := a.CurrentConfig()
-
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
 
 	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
-	// At this point, all workers will have been configured to start
+	// At this point, all workers will have been configured to start.
 	err = a.runner.Wait()
-	switch errors.Cause(err) {
-	case internalworker.ErrRebootMachine:
-		logger.Infof(context.TODO(), "Caught reboot error")
-		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case internalworker.ErrShutdownMachine:
-		logger.Infof(context.TODO(), "Caught shutdown error")
-		err = a.executeRebootOrShutdown(params.ShouldShutdown)
-	}
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *replMachineAgent) Tag() names.Tag {
-	return a.agentTag
-}
-
-func (a *replMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
-	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(true)
-	return errors.Trace(err)
-}
-
-func (a *replMachineAgent) makeEngineCreator(
-	stdout io.Writer,
-	stderr io.Writer,
+func (a *replControllerAgent) makeEngineCreator(
+	stdout, stderr io.Writer,
 	stdin io.Reader,
 ) func(ctx context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
-			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
+			internaldependency.WrapLogger(
+				internallogger.GetLogger("juju.worker.dependency"),
+			),
 		))
 		if err != nil {
 			return nil, err
@@ -293,10 +275,9 @@ func (a *replMachineAgent) makeEngineCreator(
 			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
 			Clock:               clock.WallClock,
-
-			Stdout: stdout,
-			Stderr: stderr,
-			Stdin:  stdin,
+			Stdout:              stdout,
+			Stderr:              stderr,
+			Stdin:               stdin,
 		}
 
 		var manifolds dependency.Manifolds
@@ -312,24 +293,6 @@ func (a *replMachineAgent) makeEngineCreator(
 			}
 			return nil, err
 		}
-		return eng, err
+		return eng, nil
 	}
-}
-
-func (a *replMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
-	// block until all units/containers are ready, and reboot/shutdown
-	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof(context.TODO(), "Reboot: Executing reboot")
-	err = finalize.ExecuteReboot(action)
-	if err != nil {
-		logger.Infof(context.TODO(), "Reboot: Error executing reboot: %v", err)
-		return errors.Trace(err)
-	}
-	// We return ErrRebootMachine so the agent will simply exit without error
-	// pending reboot/shutdown.
-	return internalworker.ErrRebootMachine
 }
