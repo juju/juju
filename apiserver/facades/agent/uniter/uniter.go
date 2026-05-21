@@ -2990,43 +2990,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	}
 	arg.AddStorage = preparedStorageAdds
 
-	// Convert secret deletes to domain types, filtering out any the unit
-	// does not have manage access on.
-	if len(changes.SecretDeletes) > 0 {
-		secretDeletes := make([]unitstate.DeleteSecretArg, 0, len(changes.SecretDeletes))
-		var deleteErrs []error
-		for _, del := range changes.SecretDeletes {
-			uri, err := coresecrets.ParseURI(del.URI)
-			if err != nil {
-				return apiservererrors.ServerError(err)
-			}
-			if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
-				if errors.Is(err, secreterrors.SecretNotFound) {
-					continue
-				}
-				deleteErrs = append(deleteErrs, err)
-				continue
-			}
-			secretDeletes = append(secretDeletes, unitstate.DeleteSecretArg{
-				URI: uri,
-				DeleteSecretParams: secret.DeleteSecretParams{
-					Revisions: del.Revisions,
-				},
-			})
-		}
-		if len(deleteErrs) > 0 {
-			return internalerrors.Errorf("removing secrets: %w", internalerrors.Join(deleteErrs...))
-		}
-		arg.SecretDeletes = secretDeletes
-	}
-
-	// Note: the call to CommitHookChanges will eventually move to the end
-	// of the method. During the change over to running in a single txn,
-	// make it here to preserve the order.
-	if err := u.unitStateService.CommitHookChanges(ctx, arg); err != nil {
-		return apiservererrors.ServerError(err)
-	}
-
 	// TODO - do in txn once we have support for that
 	if len(changes.SecretCreates) > 0 {
 		result, err := u.createSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
@@ -3082,6 +3045,39 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		}
 	}
 
+	// Convert secret deletes to domain types, filtering out any the unit
+	// does not have manage access on.
+	if len(changes.SecretDeletes) > 0 {
+		secretDeletes := make([]unitstate.DeleteSecretArg, 0, len(changes.SecretDeletes))
+		var deleteErrs []error
+		for _, del := range changes.SecretDeletes {
+			uri, err := coresecrets.ParseURI(del.URI)
+			if err != nil {
+				return apiservererrors.ServerError(err)
+			}
+			if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+				if errors.Is(err, secreterrors.SecretNotFound) {
+					continue
+				}
+				deleteErrs = append(deleteErrs, err)
+				continue
+			}
+			secretDeletes = append(secretDeletes, unitstate.DeleteSecretArg{
+				URI: uri,
+				DeleteSecretParams: secret.DeleteSecretParams{
+					Revisions: del.Revisions,
+				},
+			})
+		}
+		if len(deleteErrs) > 0 {
+			return internalerrors.Errorf("removing secrets: %w", internalerrors.Join(deleteErrs...))
+		}
+		arg.SecretDeletes = secretDeletes
+	}
+
+	if err := u.unitStateService.CommitHookChanges(ctx, arg); err != nil {
+		return apiservererrors.ServerError(err)
+	}
 	return nil
 }
 
