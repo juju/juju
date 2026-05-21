@@ -1,6 +1,10 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Package safemode provides the dependency manifolds for the controller
+// safe-mode recovery subcommand.  The controller binary is always a
+// controller node, so none of the manifolds here need an ifController
+// guard or a state-config-watcher input.
 package safemode
 
 import (
@@ -13,14 +17,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/cmd/jujud/util"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/querylogger"
-	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
@@ -30,7 +31,7 @@ type ManifoldsConfig struct {
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
 
-	// AgentConfigChanged is set whenever the machine agent's config
+	// AgentConfigChanged is set whenever the controller agent's config
 	// is updated.
 	AgentConfigChanged *voyeur.Value
 
@@ -39,73 +40,55 @@ type ManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
-
-	// IsCaasConfig is true if this config is for a caas agent.
-	IsCaasConfig bool
 }
 
-// commonManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a machine agent.
+// commonManifolds returns manifolds shared between IAAS and CAAS
+// controller safe-mode engines.  The controller binary is always a
+// controller, so no ifController gating is required.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 
-	manifolds := dependency.Manifolds{
+	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
-		// foundation stone on which most other manifolds ultimately depend.
+		// foundation stone on which most other manifolds ultimately
+		// depend.
 		agentName: agent.Manifold(config.Agent),
 
 		// The termination worker returns ErrTerminateAgent if a
-		// termination signal is received by the process it's running
-		// in. It has no inputs and its only output is the error it
-		// returns. It depends on the uninstall file having been
-		// written *by the unmanaged provider* at install time; it would
-		// be Very Wrong Indeed to use SetCanUninstall in conjunction
-		// with this code.
+		// termination signal is received by the process it's running in.
 		terminationName: terminationworker.Manifold(),
 
-		// Each machine agent has a flag manifold/worker which
-		// reports whether or not the agent is a controller.
-		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
+		// Controller agent config manifold watches the controller agent
+		// config socket and bounces if it changes.
+		controllerAgentConfigName: controlleragentconfig.Manifold(
+			controlleragentconfig.ManifoldConfig{
+				AgentName:         agentName,
+				Clock:             config.Clock,
+				Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
+				NewSocketListener: controlleragentconfig.NewSocketListener,
+				SocketName: path.Join(
+					agentConfig.DataDir(), "configchange.socket",
+				),
+			},
+		),
 
-		// Controller agent config manifold watches the controller
-		// agent config and bounces if it changes.
-		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
-			AgentName:         agentName,
-			Clock:             config.Clock,
-			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
-			NewSocketListener: controlleragentconfig.NewSocketListener,
-			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
-		})),
-
-		// The stateconfigwatcher manifold watches the machine agent's
-		// configuration and reports if state serving info is
-		// present. It will bounce itself if state serving info is
-		// added or removed. It is intended as a dependency just for
-		// the state manifold.
-		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
-			AgentName:          agentName,
-			AgentConfigChanged: config.AgentConfigChanged,
-		}),
-
-		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
+		// The query logger records slow or failing SQL queries.
+		queryLoggerName: querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
-		})),
+		}),
 	}
-
-	return manifolds
 }
 
-// IAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a IAAS machine agent.
+// IAASManifolds returns manifolds for an IAAS controller safe-mode engine.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 
 	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:                 agentName,
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
@@ -117,17 +100,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDBWorker:               config.NewDBWorkerFunc,
 			NewNodeManager:            dbaccessor.IAASNodeManager,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		})),
+		}),
 	})
 }
 
-// CAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a CAAS machine agent.
+// CAASManifolds returns manifolds for a CAAS controller safe-mode engine.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 
 	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:                 agentName,
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
@@ -139,72 +121,32 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDBWorker:               config.NewDBWorkerFunc,
 			NewNodeManager:            dbaccessor.CAASNodeManager,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		})),
+		}),
 	})
 }
 
-func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
+func mergeManifolds(
+	config ManifoldsConfig, manifolds dependency.Manifolds,
+) dependency.Manifolds {
 	result := commonManifolds(config)
 	maps.Copy(result, manifolds)
 	return result
 }
 
-var ifController = engine.Housing{
-	Flags: []string{
-		isControllerFlagName,
-	},
-}.Decorate
-
 const (
-	agentName              = "agent"
-	terminationName        = "termination-signal-handler"
-	stateConfigWatcherName = "state-config-watcher"
+	agentName       = "agent"
+	terminationName = "termination-signal-handler"
 
-	isControllerFlagName      = "is-controller-flag"
 	controllerAgentConfigName = "controller-agent-config"
 
 	dbAccessorName  = "db-accessor"
 	queryLoggerName = "query-logger"
 )
 
+// noopPrometheusRegisterer is a no-op prometheus registerer.
+// Safe-mode is a recovery tool; no metrics are required.
 type noopPrometheusRegisterer struct{}
 
-// Register registers a new Collector to be included in metrics
-// collection. It returns an error if the descriptors provided by the
-// Collector are invalid or if they — in combination with descriptors of
-// already registered Collectors — do not fulfill the consistency and
-// uniqueness criteria described in the documentation of metric.Desc.
-//
-// If the provided Collector is equal to a Collector already registered
-// (which includes the case of re-registering the same Collector), the
-// returned error is an instance of AlreadyRegisteredError, which
-// contains the previously registered Collector.
-//
-// A Collector whose Describe method does not yield any Desc is treated
-// as unchecked. Registration will always succeed. No check for
-// re-registering (see previous paragraph) is performed. Thus, the
-// caller is responsible for not double-registering the same unchecked
-// Collector, and for providing a Collector that will not cause
-// inconsistent metrics on collection. (This would lead to scrape
-// errors.)
-func (noopPrometheusRegisterer) Register(prometheus.Collector) error { return nil }
-
-// MustRegister works like Register but registers any number of
-// Collectors and panics upon the first registration that causes an
-// error.
+func (noopPrometheusRegisterer) Register(prometheus.Collector) error  { return nil }
 func (noopPrometheusRegisterer) MustRegister(...prometheus.Collector) {}
-
-// Unregister unregisters the Collector that equals the Collector passed
-// in as an argument.  (Two Collectors are considered equal if their
-// Describe method yields the same set of descriptors.) The function
-// returns whether a Collector was unregistered. Note that an unchecked
-// Collector cannot be unregistered (as its Describe method does not
-// yield any descriptor).
-//
-// Note that even after unregistering, it will not be possible to
-// register a new Collector that is inconsistent with the unregistered
-// Collector, e.g. a Collector collecting metrics with the same name but
-// a different help string. The rationale here is that the same registry
-// instance must only collect consistent metrics throughout its
-// lifetime.
 func (noopPrometheusRegisterer) Unregister(prometheus.Collector) bool { return false }
