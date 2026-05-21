@@ -1,4 +1,4 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
@@ -426,7 +426,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			DependencyEngineMetrics:           metrics,
 			NewEnvironFunc:                    newEnvirons,
 		}
-		manifolds := agentcontroller.ControllerManifolds(manifoldsCfg)
+		manifolds := agentcontroller.Manifolds(manifoldsCfg)
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
 				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
