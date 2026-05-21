@@ -5,6 +5,7 @@ package controlsocket
 
 import (
 	"context"
+	"io"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/socketlistener"
@@ -26,6 +29,23 @@ type ControllerObjectStoreService interface {
 	// credentials. This is used to update the object store information when the
 	// object store is set to use S3 as the backend.
 	TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error
+
+	// GetActiveObjectStoreBackend returns information about the active backend.
+	GetActiveObjectStoreBackend(ctx context.Context) (objectstoreservice.BackendInfo, error)
+}
+
+// ReadRepairObjectStore describes the subset of object store operations used by
+// read-repair.
+type ReadRepairObjectStore interface {
+	// Get returns an object reader for the specified path.
+	Get(ctx context.Context, path string) (io.ReadCloser, coreobjectstore.Digest, error)
+}
+
+// ReadRepairObjectStoreGetter provides namespaced object stores for
+// read-repair.
+type ReadRepairObjectStoreGetter interface {
+	// GetObjectStore returns the object store for the supplied namespace.
+	GetObjectStore(ctx context.Context, namespace string) (ReadRepairObjectStore, error)
 }
 
 // GetControllerDomainServicesFunc is a function that retrieves the controller
@@ -40,9 +60,14 @@ type GetControllerObjectStoreServiceFunc func(dependency.Getter, string) (Contro
 // store services from the dependency getter.
 type GetObjectStoreServicesGetterFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
 
+// GetReadRepairObjectStoreGetterFunc is a function that retrieves the
+// namespaced object store getter from the dependency getter.
+type GetReadRepairObjectStoreGetterFunc func(dependency.Getter, string) (ReadRepairObjectStoreGetter, error)
+
 // ManifoldConfig describes the dependencies required by the controlsocket worker.
 type ManifoldConfig struct {
 	DomainServicesName      string
+	ObjectStoreName         string
 	ObjectStoreServicesName string
 
 	Logger            logger.Logger
@@ -53,6 +78,7 @@ type ManifoldConfig struct {
 	GetControllerDomainServices     GetControllerDomainServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
 	GetObjectStoreServicesGetter    GetObjectStoreServicesGetterFunc
+	GetReadRepairObjectStoreGetter  GetReadRepairObjectStoreGetterFunc
 }
 
 // Manifold returns a Manifold that encapsulates the controlsocket worker.
@@ -60,6 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.DomainServicesName,
+			config.ObjectStoreName,
 			config.ObjectStoreServicesName,
 		},
 		Start: config.start,
@@ -70,6 +97,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
+	}
+	if cfg.ObjectStoreName == "" {
+		return errors.NotValidf("empty ObjectStoreName")
 	}
 	if cfg.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
@@ -94,6 +124,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.GetObjectStoreServicesGetter == nil {
 		return errors.NotValidf("nil GetObjectStoreServicesGetter func")
+	}
+	if cfg.GetReadRepairObjectStoreGetter == nil {
+		return errors.NotValidf("nil GetReadRepairObjectStoreGetter func")
 	}
 	return nil
 }
@@ -124,6 +157,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
+	readRepairObjectStoreGetter, err := cfg.GetReadRepairObjectStoreGetter(getter, cfg.ObjectStoreName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	controllerSerivce := domainServices.Controller()
 	controllerModelUUID, err := controllerSerivce.ControllerModelUUID(ctx)
 	if err != nil {
@@ -145,15 +183,16 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		AccessService:           domainServices.Access(),
-		TracingService:          domainServices.Tracing(),
-		LoggingService:          domainServices.Logging(),
-		ObjectStoreService:      controllerObjectStoreService,
-		DrainPreflightValidator: preflightValidator,
-		Logger:                  cfg.Logger,
-		SocketName:              cfg.SocketName,
-		NewSocketListener:       cfg.NewSocketListener,
-		ControllerModelUUID:     controllerModelUUID,
+		AccessService:               domainServices.Access(),
+		TracingService:              domainServices.Tracing(),
+		LoggingService:              domainServices.Logging(),
+		ObjectStoreService:          controllerObjectStoreService,
+		DrainPreflightValidator:     preflightValidator,
+		ReadRepairObjectStoreGetter: readRepairObjectStoreGetter,
+		Logger:                      cfg.Logger,
+		SocketName:                  cfg.SocketName,
+		NewSocketListener:           cfg.NewSocketListener,
+		ControllerModelUUID:         controllerModelUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -209,6 +248,28 @@ func NewHashFileStoreAccessor(
 	namespace, rootDir string, logger logger.Logger,
 ) HashFileSystemAccessor {
 	return internalobjectstore.NewHashFileStore(namespace, rootDir, logger)
+}
+
+// GetReadRepairObjectStoreGetter retrieves the namespaced object store getter
+// from the dependency getter.
+func GetReadRepairObjectStoreGetter(getter dependency.Getter, name string) (ReadRepairObjectStoreGetter, error) {
+	var objectStoreGetter coreobjectstore.ObjectStoreGetter
+	if err := getter.Get(name, &objectStoreGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return readRepairObjectStoreGetter{
+		getter: objectStoreGetter,
+	}, nil
+}
+
+type readRepairObjectStoreGetter struct {
+	getter coreobjectstore.ObjectStoreGetter
+}
+
+func (g readRepairObjectStoreGetter) GetObjectStore(
+	ctx context.Context, namespace string,
+) (ReadRepairObjectStore, error) {
+	return g.getter.GetObjectStore(ctx, namespace)
 }
 
 type modelMetadataServiceGetter struct {

@@ -18,7 +18,8 @@ import (
 	service "github.com/juju/juju/domain/access/service"
 	logging "github.com/juju/juju/domain/logging"
 	objectstore "github.com/juju/juju/domain/objectstore"
-	service0 "github.com/juju/juju/domain/tracing/service"
+	service0 "github.com/juju/juju/domain/objectstore/service"
+	service1 "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -265,7 +266,7 @@ func (m *MockTracingService) EXPECT() *MockTracingServiceMockRecorder {
 }
 
 // SetCharmTracingConfig mocks base method.
-func (m *MockTracingService) SetCharmTracingConfig(arg0 context.Context, arg1 service0.CharmTracingConfig) error {
+func (m *MockTracingService) SetCharmTracingConfig(arg0 context.Context, arg1 service1.CharmTracingConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCharmTracingConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -291,13 +292,13 @@ func (c *MockTracingServiceSetCharmTracingConfigCall) Return(arg0 error) *MockTr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockTracingServiceSetCharmTracingConfigCall) Do(f func(context.Context, service0.CharmTracingConfig) error) *MockTracingServiceSetCharmTracingConfigCall {
+func (c *MockTracingServiceSetCharmTracingConfigCall) Do(f func(context.Context, service1.CharmTracingConfig) error) *MockTracingServiceSetCharmTracingConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockTracingServiceSetCharmTracingConfigCall) DoAndReturn(f func(context.Context, service0.CharmTracingConfig) error) *MockTracingServiceSetCharmTracingConfigCall {
+func (c *MockTracingServiceSetCharmTracingConfigCall) DoAndReturn(f func(context.Context, service1.CharmTracingConfig) error) *MockTracingServiceSetCharmTracingConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -460,6 +461,45 @@ func NewMockControllerObjectStoreService(ctrl *gomock.Controller) *MockControlle
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerObjectStoreService) EXPECT() *MockControllerObjectStoreServiceMockRecorder {
 	return m.recorder
+}
+
+// GetActiveObjectStoreBackend mocks base method.
+func (m *MockControllerObjectStoreService) GetActiveObjectStoreBackend(arg0 context.Context) (service0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveObjectStoreBackend", arg0)
+	ret0, _ := ret[0].(service0.BackendInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveObjectStoreBackend indicates an expected call of GetActiveObjectStoreBackend.
+func (mr *MockControllerObjectStoreServiceMockRecorder) GetActiveObjectStoreBackend(arg0 any) *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveObjectStoreBackend", reflect.TypeOf((*MockControllerObjectStoreService)(nil).GetActiveObjectStoreBackend), arg0)
+	return &MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall{Call: call}
+}
+
+// MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall wrap *gomock.Call
+type MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall) Return(arg0 service0.BackendInfo, arg1 error) *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall) Do(f func(context.Context) (service0.BackendInfo, error)) *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall) DoAndReturn(f func(context.Context) (service0.BackendInfo, error)) *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // TransitionBackendToS3 mocks base method.

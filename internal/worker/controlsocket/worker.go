@@ -22,6 +22,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -132,6 +133,8 @@ type Config struct {
 	// DrainPreflightValidator validates drain viability before starting the
 	// transition to S3.
 	DrainPreflightValidator DrainPreflightValidator
+	// ReadRepairObjectStoreGetter gets namespaced object stores for read-repair.
+	ReadRepairObjectStoreGetter ReadRepairObjectStoreGetter
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -152,6 +155,9 @@ func (config Config) Validate() error {
 	}
 	if config.DrainPreflightValidator == nil {
 		return internalerrors.New("nil DrainPreflightValidator").Add(coreerrors.NotValid)
+	}
+	if config.ReadRepairObjectStoreGetter == nil {
+		return internalerrors.New("nil ReadRepairObjectStoreGetter").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -176,6 +182,7 @@ type Worker struct {
 	tracingService     TracingService
 	loggingService     LoggingService
 	objectStoreService ControllerObjectStoreService
+	readRepairGetter   ReadRepairObjectStoreGetter
 	preflightValidator DrainPreflightValidator
 
 	controllerModelUUID model.UUID
@@ -200,6 +207,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		tracingService:      config.TracingService,
 		loggingService:      config.LoggingService,
 		objectStoreService:  config.ObjectStoreService,
+		readRepairGetter:    config.ReadRepairObjectStoreGetter,
 		preflightValidator:  config.DrainPreflightValidator,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
@@ -318,6 +326,11 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
 		Methods(http.MethodDelete)
+
+	// objectstore/read-repair endpoint repairs missing local objectstore blobs
+	// from peer controllers before a file->S3 drain is attempted.
+	r.Handle("/objectstore/read-repair", w.handleJSONPost(w.handleReadRepair)).
+		Methods(http.MethodPost)
 
 	// loki-endpoint endpoint for managing the Loki push API endpoint. This
 	// is a POST endpoint that accepts a JSON body with the following format:
@@ -585,6 +598,18 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 		return
 	}
 
+	if err := w.ensureFileObjectStoreBackend(
+		ctx,
+		"object store drain preflight",
+	); err != nil {
+		statusCode := http.StatusInternalServerError
+		if internalerrors.Is(err, coreerrors.NotSupported) {
+			statusCode = http.StatusConflict
+		}
+		w.writeErrorResponse(ctx, resp, statusCode, err)
+		return
+	}
+
 	missing, err := w.preflightValidator.Validate(ctx)
 	if err != nil {
 		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("validating object store drain viability: %w", err))
@@ -615,6 +640,130 @@ func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.R
 	// be fixed in future requests.
 	w.writeErrorResponse(req.Context(), resp, http.StatusNotImplemented,
 		internalerrors.New("removing s3 credentials is not supported at this time"))
+}
+
+func (w *Worker) handleReadRepair(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	repaired, remaining, err := w.runReadRepair(ctx)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if internalerrors.Is(err, coreerrors.NotSupported) {
+			statusCode = http.StatusConflict
+		}
+		w.writeErrorResponse(
+			ctx,
+			resp,
+			statusCode,
+			internalerrors.Errorf("running object store read-repair: %w", err),
+		)
+		return
+	}
+	if len(remaining) > 0 {
+		w.writeErrorResponse(
+			ctx,
+			resp,
+			http.StatusConflict,
+			internalerrors.Errorf(
+				"read-repair incomplete after repairing %d objects: %w",
+				repaired,
+				missingObjectsError(remaining),
+			),
+		)
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof(
+		"completed object store read-repair; repaired %d objects",
+		repaired,
+	))
+}
+
+func (w *Worker) runReadRepair(ctx context.Context) (int, []MissingObject, error) {
+	if err := w.ensureFileObjectStoreBackend(
+		ctx,
+		"object store read-repair",
+	); err != nil {
+		return 0, nil, err
+	}
+
+	missing, err := w.preflightValidator.Validate(ctx)
+	if err != nil {
+		return 0, nil, internalerrors.Errorf("validating object store drain viability: %w", err)
+	}
+	if len(missing) == 0 {
+		return 0, nil, nil
+	}
+
+	stores := make(map[string]ReadRepairObjectStore, len(missing))
+	repaired := 0
+
+	for _, entry := range missing {
+		store, ok := stores[entry.Namespace]
+		if !ok {
+			store, err = w.readRepairGetter.GetObjectStore(ctx, entry.Namespace)
+			if err != nil {
+				return repaired, nil, internalerrors.Errorf(
+					"getting object store for namespace %q: %w",
+					entry.Namespace,
+					err,
+				)
+			}
+			stores[entry.Namespace] = store
+		}
+
+		reader, _, err := store.Get(ctx, entry.Path)
+		if err != nil {
+			w.logger.Warningf(
+				ctx,
+				"read-repair failed for namespace %q path %q: %v",
+				entry.Namespace,
+				entry.Path,
+				err,
+			)
+			continue
+		}
+		if reader != nil {
+			if err := reader.Close(); err != nil {
+				w.logger.Warningf(
+					ctx,
+					"closing read-repair reader for namespace %q path %q: %v",
+					entry.Namespace,
+					entry.Path,
+					err,
+				)
+			}
+		}
+		repaired++
+	}
+
+	remaining, err := w.preflightValidator.Validate(ctx)
+	if err != nil {
+		return repaired, nil, internalerrors.Errorf("validating object store after read-repair: %w", err)
+	}
+	return repaired, remaining, nil
+}
+
+func (w *Worker) ensureFileObjectStoreBackend(
+	ctx context.Context,
+	operation string,
+) error {
+	backend, err := w.objectStoreService.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return internalerrors.Errorf(
+			"getting active object store backend: %w",
+			err,
+		)
+	}
+	if backend.Type != coreobjectstore.FileBackend {
+		return internalerrors.Errorf(
+			"%s requires %q object store backend; current backend is %q",
+			operation,
+			coreobjectstore.FileBackend,
+			backend.Type,
+		).Add(coreerrors.NotSupported)
+	}
+	return nil
 }
 
 type lokiEndpointRequest struct {

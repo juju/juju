@@ -202,6 +202,10 @@ juju_object_store_contents_ () {
   done
 }
 
+juju_object_store_read_repair () {
+  juju_agent --post objectstore/read-repair
+}
+
 juju_api_connection_sources () {
   if [ -x "$(which sudo)" ]; then
     local num=${1:-10}
@@ -253,6 +257,7 @@ if [ "$shell" = "bash" ]; then
   export -f juju_machine_lock
   export -f juju_unit_status
   export -f juju_db_repl
+  export -f juju_object_store_read_repair
   export -f juju_api_connection_sources
   export -f juju_flightrecorder_start
   export -f juju_flightrecorder_stop

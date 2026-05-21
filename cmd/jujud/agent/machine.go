@@ -604,6 +604,7 @@ func (a *MachineAgent) makeEngineCreator(
 
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			AgentDir:           agentConfig.Dir(),
+			ControlSocketPath:  filepath.Join(agentConfig.DataDir(), "control.socket"),
 			Engine:             eng,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
