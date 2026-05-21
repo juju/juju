@@ -1,8 +1,7 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package controller provides the manifolds for the jujud controller
-// agent.
+// Package controller provides the manifolds for the jujud controller.
 package controller
 
 import (
@@ -104,9 +103,8 @@ import (
 )
 
 // ManifoldsConfig allows specialisation of the result of
-// ControllerManifolds.
+// Manifolds.
 type ManifoldsConfig struct {
-
 	// AgentName is the name of the controller agent, like
 	// "controller-0". This will never change during the execution of
 	// an agent, and is used to provide this as config into a worker
@@ -226,12 +224,9 @@ type ManifoldsConfig struct {
 	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
 }
 
-// ControllerManifolds returns a set of co-configured manifolds covering
+// Manifolds returns a set of co-configured manifolds covering
 // the various responsibilities of the controller agent.
-//
-// Thou Shalt Not Use String Literals In This Function. Or Else.
-func ControllerManifolds(config ManifoldsConfig) dependency.Manifolds {
-
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
@@ -239,9 +234,9 @@ func ControllerManifolds(config ManifoldsConfig) dependency.Manifolds {
 	//     e.g. apicaller.ErrConnectImpossible.
 	connectFilter := func(err error) error {
 		cause := errors.Cause(err)
-		if cause == apicaller.ErrConnectImpossible {
+		if errors.Is(cause, apicaller.ErrConnectImpossible) {
 			return jworker.ErrTerminateAgent
-		} else if cause == apicaller.ErrChangedPassword {
+		} else if errors.Is(cause, apicaller.ErrChangedPassword) {
 			return dependency.ErrBounce
 		}
 		return err
