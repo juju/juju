@@ -21,6 +21,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/logging"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -42,6 +44,7 @@ type workerSuite struct {
 	tracingService     *MockTracingService
 	loggingService     *MockLoggingService
 	objectStoreService *MockControllerObjectStoreService
+	readRepairGetter   ReadRepairObjectStoreGetter
 	preflightValidator DrainPreflightValidator
 
 	controllerModelID permission.ID
@@ -91,6 +94,14 @@ func (s *workerSuite) TestConfigValidateNilDrainPreflightValidator(c *tc.C) {
 	cfg := s.newValidConfig(c)
 	cfg.DrainPreflightValidator = nil
 	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil DrainPreflightValidator.*")
+}
+
+func (s *workerSuite) TestConfigValidateNilReadRepairObjectStoreGetter(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.ReadRepairObjectStoreGetter = nil
+	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil ReadRepairObjectStoreGetter.*")
 }
 
 func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
@@ -1080,12 +1091,67 @@ func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestAddS3CredentialsRequiresFileBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	preflightCalled := false
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			preflightCalled = true
+			return nil, nil
+		},
+	}
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(
+		objectstoreservice.BackendInfo{
+			Type: coreobjectstore.S3Backend,
+		},
+		nil,
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusConflict,
+		response:   `.*requires.*file.*object store backend.*current backend.*s3.*`,
+	})
+	c.Check(preflightCalled, tc.IsFalse)
+}
+
+func (s *workerSuite) TestAddS3CredentialsActiveBackendError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(
+		objectstoreservice.BackendInfo{},
+		errors.New("boom"),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*getting active object store backend.*boom.*`,
+	})
+}
+
 func (s *workerSuite) TestAddS3CredentialsDrainPreflightError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.preflightValidator = staticDrainPreflightValidator{
 		err: errors.New("boom"),
 	}
+	s.expectActiveFileObjectStoreBackend()
 
 	socket := s.newSocket(c)
 
@@ -1111,6 +1177,7 @@ func (s *workerSuite) TestAddS3CredentialsDrainPreflightMissingFiles(c *tc.C) {
 			Hash:      "abc",
 		}},
 	}
+	s.expectActiveFileObjectStoreBackend()
 
 	socket := s.newSocket(c)
 
@@ -1129,6 +1196,7 @@ func (s *workerSuite) TestAddS3CredentialsDrainPreflightMissingFiles(c *tc.C) {
 func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectActiveFileObjectStoreBackend()
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
 	socket := s.newSocket(c)
@@ -1148,6 +1216,7 @@ func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
 func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectActiveFileObjectStoreBackend()
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), domainobjectstore.S3Credentials{
 		Endpoint:  "https://example.com",
 		AccessKey: "foo",
@@ -1171,6 +1240,7 @@ func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
 func (s *workerSuite) TestAddS3CredentialsNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectActiveFileObjectStoreBackend()
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(
 		coreerrors.NotValid,
 	)
@@ -1220,6 +1290,335 @@ func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
 		contentType: "text/plain",
 		statusCode:  http.StatusUnsupportedMediaType,
 		response:    ".*request Content-Type must be application/json.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairInvalidMethod(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodGet,
+		endpoint:   "/objectstore/read-repair",
+		statusCode: http.StatusMethodNotAllowed,
+		ignoreBody: true,
+	})
+}
+
+func (s *workerSuite) TestReadRepairRequiresFileBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	preflightCalled := false
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			preflightCalled = true
+			return nil, nil
+		},
+	}
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(
+		objectstoreservice.BackendInfo{
+			Type: coreobjectstore.S3Backend,
+		},
+		nil,
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusConflict,
+		response:   `.*running object store read-repair.*requires.*file.*object store backend.*current backend.*s3.*`,
+	})
+	c.Check(preflightCalled, tc.IsFalse)
+}
+
+func (s *workerSuite) TestReadRepairActiveBackendError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(
+		objectstoreservice.BackendInfo{},
+		errors.New("boom"),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*running object store read-repair.*getting active object store backend.*boom.*`,
+	})
+}
+
+func (s *workerSuite) TestReadRepairPreflightError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	s.preflightValidator = staticDrainPreflightValidator{
+		err: errors.New("boom"),
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*running object store read-repair.*boom.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairAlreadyHealthy(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusOK,
+		response:   ".*completed object store read-repair; repaired 0 objects.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairObjectStoreGetterError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	missing := []MissingObject{{
+		Namespace: "controller",
+		Path:      "tools/juju",
+		Hash:      "abc",
+	}}
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			return missing, nil
+		},
+	}
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{
+		errorsByNamespace: map[string]error{
+			"controller": errors.New("boom"),
+		},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*running object store read-repair.*getting object store for namespace .*boom.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairPostRepairValidationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	missing := []MissingObject{{
+		Namespace: "controller",
+		Path:      "tools/juju",
+		Hash:      "abc",
+	}}
+	validateCalls := 0
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			validateCalls++
+			if validateCalls == 1 {
+				return missing, nil
+			}
+			return nil, errors.New("boom")
+		},
+	}
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{
+		storesByNamespace: map[string]ReadRepairObjectStore{
+			"controller": staticReadRepairObjectStore{
+				get: func(context.Context, string) (io.ReadCloser, coreobjectstore.Digest, error) {
+					return io.NopCloser(strings.NewReader("data")), coreobjectstore.Digest{}, nil
+				},
+			},
+		},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*running object store read-repair.*validating object store after read-repair.*boom.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	missing := []MissingObject{{
+		Namespace: "controller",
+		Path:      "tools/juju",
+		Hash:      "abc",
+	}}
+	validateCalls := 0
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			validateCalls++
+			if validateCalls == 1 {
+				return missing, nil
+			}
+			return nil, nil
+		},
+	}
+
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{
+		storesByNamespace: map[string]ReadRepairObjectStore{
+			"controller": staticReadRepairObjectStore{
+				get: func(_ context.Context, path string) (io.ReadCloser, coreobjectstore.Digest, error) {
+					c.Check(path, tc.Equals, "tools/juju")
+					return io.NopCloser(strings.NewReader("data")), coreobjectstore.Digest{}, nil
+				},
+			},
+		},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusOK,
+		response:   ".*completed object store read-repair; repaired 1 objects.*",
+	})
+}
+
+func (s *workerSuite) TestReadRepairReusesStorePerNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	missing := []MissingObject{
+		{
+			Namespace: "controller",
+			Path:      "tools/juju",
+			Hash:      "abc",
+		},
+		{
+			Namespace: "controller",
+			Path:      "tools/juju-2",
+			Hash:      "def",
+		},
+	}
+	validateCalls := 0
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			validateCalls++
+			if validateCalls == 1 {
+				return missing, nil
+			}
+			return nil, nil
+		},
+	}
+
+	requestedPaths := make([]string, 0, len(missing))
+	callsByNamespace := map[string]int{}
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{
+		callsByNamespace: callsByNamespace,
+		storesByNamespace: map[string]ReadRepairObjectStore{
+			"controller": staticReadRepairObjectStore{
+				get: func(_ context.Context, path string) (io.ReadCloser, coreobjectstore.Digest, error) {
+					requestedPaths = append(requestedPaths, path)
+					return io.NopCloser(strings.NewReader("data")), coreobjectstore.Digest{}, nil
+				},
+			},
+		},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusOK,
+		response:   ".*completed object store read-repair; repaired 2 objects.*",
+	})
+
+	c.Check(callsByNamespace["controller"], tc.Equals, 1)
+	c.Check(requestedPaths, tc.DeepEquals, []string{"tools/juju", "tools/juju-2"})
+}
+
+func (s *workerSuite) TestReadRepairIncomplete(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectActiveFileObjectStoreBackend()
+	missing := []MissingObject{{
+		Namespace: "controller",
+		Path:      "tools/juju",
+		Hash:      "abc",
+	}}
+	s.preflightValidator = staticDrainPreflightValidator{
+		validate: func(context.Context) ([]MissingObject, error) {
+			return missing, nil
+		},
+	}
+
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{
+		storesByNamespace: map[string]ReadRepairObjectStore{
+			"controller": staticReadRepairObjectStore{
+				get: func(_ context.Context, _ string) (io.ReadCloser, coreobjectstore.Digest, error) {
+					return nil, coreobjectstore.Digest{}, errors.New("remote not found")
+				},
+			},
+		},
+	}
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/objectstore/read-repair",
+		body:       `{}`,
+		statusCode: http.StatusConflict,
+		response:   ".*read-repair incomplete.*drain is not viable.*controller:tools/juju.*",
 	})
 }
 
@@ -1374,6 +1773,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.tracingService = NewMockTracingService(ctrl)
 	s.loggingService = NewMockLoggingService(ctrl)
 	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
+	s.readRepairGetter = staticReadRepairObjectStoreGetter{}
 	s.preflightValidator = staticDrainPreflightValidator{}
 
 	c.Cleanup(func() {
@@ -1381,6 +1781,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.tracingService = nil
 		s.loggingService = nil
 		s.objectStoreService = nil
+		s.readRepairGetter = nil
 		s.preflightValidator = nil
 	})
 
@@ -1403,16 +1804,17 @@ type handlerTest struct {
 
 func (s *workerSuite) newValidConfig(c *tc.C) Config {
 	return Config{
-		AccessService:           s.accessService,
-		TracingService:          s.tracingService,
-		LoggingService:          s.loggingService,
-		ObjectStoreService:      s.objectStoreService,
-		DrainPreflightValidator: s.preflightValidator,
-		Logger:                  loggertesting.WrapCheckLog(c),
-		MetricsCollector:        NewMetricsCollector(),
-		SocketName:              "/tmp/test.socket",
-		NewSocketListener:       NewSocketListener,
-		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:               s.accessService,
+		TracingService:              s.tracingService,
+		LoggingService:              s.loggingService,
+		ObjectStoreService:          s.objectStoreService,
+		DrainPreflightValidator:     s.preflightValidator,
+		ReadRepairObjectStoreGetter: s.readRepairGetter,
+		Logger:                      loggertesting.WrapCheckLog(c),
+		MetricsCollector:            NewMetricsCollector(),
+		SocketName:                  "/tmp/test.socket",
+		NewSocketListener:           NewSocketListener,
+		ControllerModelUUID:         model.UUID(jujujujutesting.ModelTag.Id()),
 	}
 }
 
@@ -1425,20 +1827,30 @@ func (s *workerSuite) newSocket(c *tc.C) string {
 
 func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 	w, err := NewWorker(Config{
-		AccessService:           s.accessService,
-		TracingService:          s.tracingService,
-		LoggingService:          s.loggingService,
-		ObjectStoreService:      s.objectStoreService,
-		DrainPreflightValidator: s.preflightValidator,
-		Logger:                  loggertesting.WrapCheckLog(c),
-		MetricsCollector:        NewMetricsCollector(),
-		SocketName:              socket,
-		NewSocketListener:       NewSocketListener,
-		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:               s.accessService,
+		TracingService:              s.tracingService,
+		LoggingService:              s.loggingService,
+		ObjectStoreService:          s.objectStoreService,
+		DrainPreflightValidator:     s.preflightValidator,
+		ReadRepairObjectStoreGetter: s.readRepairGetter,
+		Logger:                      loggertesting.WrapCheckLog(c),
+		MetricsCollector:            NewMetricsCollector(),
+		SocketName:                  socket,
+		NewSocketListener:           NewSocketListener,
+		ControllerModelUUID:         model.UUID(jujujujutesting.ModelTag.Id()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	return w.(*Worker)
+}
+
+func (s *workerSuite) expectActiveFileObjectStoreBackend() {
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(
+		objectstoreservice.BackendInfo{
+			Type: coreobjectstore.FileBackend,
+		},
+		nil,
+	)
 }
 
 func (s *workerSuite) runHandlerTest(c *tc.C, socket string, test handlerTest) {
@@ -1496,10 +1908,48 @@ func client(socketPath string) *http.Client {
 }
 
 type staticDrainPreflightValidator struct {
-	missing []MissingObject
-	err     error
+	missing  []MissingObject
+	err      error
+	validate func(context.Context) ([]MissingObject, error)
 }
 
-func (v staticDrainPreflightValidator) Validate(context.Context) ([]MissingObject, error) {
+func (v staticDrainPreflightValidator) Validate(ctx context.Context) ([]MissingObject, error) {
+	if v.validate != nil {
+		return v.validate(ctx)
+	}
 	return v.missing, v.err
+}
+
+type staticReadRepairObjectStoreGetter struct {
+	storesByNamespace map[string]ReadRepairObjectStore
+	errorsByNamespace map[string]error
+	callsByNamespace  map[string]int
+}
+
+func (g staticReadRepairObjectStoreGetter) GetObjectStore(
+	_ context.Context, namespace string,
+) (ReadRepairObjectStore, error) {
+	if g.callsByNamespace != nil {
+		g.callsByNamespace[namespace]++
+	}
+	if err, ok := g.errorsByNamespace[namespace]; ok {
+		return nil, err
+	}
+	if store, ok := g.storesByNamespace[namespace]; ok {
+		return store, nil
+	}
+	return nil, errors.New("object store not found")
+}
+
+type staticReadRepairObjectStore struct {
+	get func(context.Context, string) (io.ReadCloser, coreobjectstore.Digest, error)
+}
+
+func (s staticReadRepairObjectStore) Get(
+	ctx context.Context, path string,
+) (io.ReadCloser, coreobjectstore.Digest, error) {
+	if s.get == nil {
+		return nil, coreobjectstore.Digest{}, errors.New("unexpected object store get")
+	}
+	return s.get(ctx, path)
 }
