@@ -74,6 +74,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"change-stream",
 		"change-stream-pruner",
 		"clock",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
 		"controller-presence",
@@ -127,7 +129,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	})
 }
 
-func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
+func (*ManifoldsSuite) TestMigrationInfrastructureStaysActive(c *tc.C) {
 	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
@@ -135,8 +137,9 @@ func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
 	manifold, ok := manifolds["migration-fortress"]
 	c.Assert(ok, tc.IsTrue)
 
-	checkContains(c, manifold.Inputs, "upgrade-check-flag")
-	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
+	checkNotContains(c, manifold.Inputs, "controller-upgrade-flag")
+	checkNotContains(c, manifold.Inputs, "upgrade-check-flag")
+	checkNotContains(c, manifold.Inputs, "upgrade-steps-flag")
 }
 
 func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
@@ -157,6 +160,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"change-stream",
 		"change-stream-pruner",
 		"clock",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
 		"controller-presence",
@@ -279,6 +284,16 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 	}
 }
 
+func (*ManifoldsSuite) TestControllerUpgradeGate(c *tc.C) {
+	controllerUpgradeLock := gate.NewLock()
+	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+		Agent:                 &mockAgent{},
+		PreUpgradeSteps:       preUpgradeSteps,
+		ControllerUpgradeLock: controllerUpgradeLock,
+	})
+	assertGate(c, manifolds["controller-upgrade-gate"], controllerUpgradeLock)
+}
+
 func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
@@ -288,8 +303,40 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
 	})
-	assertGate(c, manifolds["upgrade-steps-gate"], upgradeStepsLock)
-	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckLock)
+	checkContains(c, manifolds["upgrade-steps-gate"].Inputs, "controller-upgrade-flag")
+	checkContains(c, manifolds["upgrade-check-gate"].Inputs, "controller-upgrade-flag")
+}
+
+func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
+	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	for _, name := range []string{
+		"upgrade-services",
+		"upgrade-steps-gate",
+		"upgrade-steps-flag",
+		"upgrade-check-gate",
+		"upgrade-check-flag",
+		"upgrader",
+		"upgrade-controller-steps-runner",
+		"api-remote-caller",
+		"api-remote-relation-caller",
+		"migration-minion",
+	} {
+		checkContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
+	}
+
+	for _, name := range []string{
+		"upgrade-database-gate",
+		"upgrade-database-flag",
+		"upgrade-database-runner",
+		"migration-fortress",
+		"migration-inactive-flag",
+	} {
+		checkNotContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
+	}
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
@@ -338,6 +385,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -356,12 +405,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"query-logger",
 		"storage-registry",
 		"trace",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"api-address-setter": {
@@ -370,6 +415,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -399,6 +446,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"change-stream",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"object-store-services",
@@ -411,6 +460,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -438,6 +489,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -471,6 +524,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -497,6 +552,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -525,6 +582,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -565,6 +624,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -588,12 +649,18 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"clock": {},
 
+	"controller-upgrade-flag": {"controller-upgrade-gate"},
+
+	"controller-upgrade-gate": {},
+
 	"control-socket": {
 		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -622,6 +689,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -654,6 +723,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -686,10 +757,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"query-logger",
 		"trace",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"file-notify-watcher": {},
@@ -707,6 +774,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -740,6 +809,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -782,6 +853,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -830,18 +903,9 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
-	"migration-fortress": {
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
+	"migration-fortress": {},
 
 	"migration-inactive-flag": {
 		"agent",
@@ -853,11 +917,9 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"migration-fortress",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"model-worker-manager": {
@@ -868,6 +930,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -900,6 +964,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -920,6 +986,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -940,6 +1008,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -1009,10 +1079,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"query-logger",
 		"trace",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"ssh-identity-writer": {
@@ -1021,10 +1087,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"ssh-server": {
@@ -1033,6 +1095,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1075,6 +1139,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1095,9 +1161,9 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"upgrade-database-gate",
 	},
 
-	"upgrade-check-flag": {"upgrade-check-gate"},
+	"upgrade-check-flag": {"controller-upgrade-flag", "controller-upgrade-gate", "upgrade-check-gate"},
 
-	"upgrade-check-gate": {},
+	"upgrade-check-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
 
 	"upgrade-database-flag": {"upgrade-database-gate"},
 
@@ -1107,6 +1173,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"change-stream",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"query-logger",
@@ -1118,14 +1186,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"change-stream",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"file-notify-watcher",
 		"query-logger",
 	},
 
-	"upgrade-steps-flag": {"upgrade-steps-gate"},
+	"upgrade-steps-flag": {"controller-upgrade-flag", "controller-upgrade-gate", "upgrade-steps-gate"},
 
-	"upgrade-steps-gate": {},
+	"upgrade-steps-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
 
 	"upgrade-controller-steps-runner": {
 		"agent",
@@ -1135,6 +1205,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"clock",
 		"controller-agent-config",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1160,6 +1232,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"upgrade-check-gate",
 		"upgrade-steps-gate",
 	},
