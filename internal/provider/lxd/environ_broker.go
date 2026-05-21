@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/canonical/lxd/shared/api"
@@ -236,7 +237,10 @@ func (env *environ) getContainerSpec(
 			return cSpec, errors.Trace(err)
 		}
 
-		cSpec.Devices = nics
+		if cSpec.Devices == nil {
+			cSpec.Devices = make(map[string]map[string]string)
+		}
+		maps.Copy(cSpec.Devices, nics)
 	}
 
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, lxdRenderer{})
