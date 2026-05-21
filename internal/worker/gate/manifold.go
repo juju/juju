@@ -23,10 +23,10 @@ func Manifold() dependency.Manifold {
 }
 
 // ManifoldEx does the same thing as Manifold but takes the
-// Lock which used to wait on or unlock the gate. This
-// allows code running outside of a dependency engine managed worker
-// to monitor or unlock the gate.
-func ManifoldEx(lock Lock) dependency.Manifold {
+// Waiter that backs the gate. Callers that need to unlock the gate
+// can pass a Lock, while permanently-open gates can pass a Waiter
+// such as AlreadyUnlocked.
+func ManifoldEx(lock Waiter) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			// Need to assign a copy of the arg so we don't
@@ -50,11 +50,19 @@ func ManifoldEx(lock Lock) dependency.Manifold {
 			}
 			switch outPointer := out.(type) {
 			case *Unlocker:
-				*outPointer = inWorker.lock
+				unlocker, ok := inWorker.lock.(Unlocker)
+				if !ok {
+					return errors.Errorf("gate does not support unlocking")
+				}
+				*outPointer = unlocker
 			case *Waiter:
 				*outPointer = inWorker.lock
 			case *Lock:
-				*outPointer = inWorker.lock
+				lock, ok := inWorker.lock.(Lock)
+				if !ok {
+					return errors.Errorf("gate does not support lock output")
+				}
+				*outPointer = lock
 			default:
 				return errors.Errorf("out should be a *Unlocker, *Waiter, *Lock; is %#v", out)
 			}
@@ -109,10 +117,10 @@ func (l *lock) IsUnlocked() bool {
 	}
 }
 
-// gate implements a degenerate worker that holds a Lock.
+// gate implements a degenerate worker that holds a Waiter.
 type gate struct {
 	tomb tomb.Tomb
-	lock Lock
+	lock Waiter
 }
 
 // Kill is part of the worker.Worker interface.
