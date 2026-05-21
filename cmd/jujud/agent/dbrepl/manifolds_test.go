@@ -8,7 +8,6 @@ import (
 	"sort"
 	stdtesting "testing"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
@@ -61,8 +60,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
-			"is-controller-flag",
-			"state-config-watcher",
 			"termination-signal-handler",
 		},
 	)
@@ -78,8 +75,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
-			"is-controller-flag",
-			"state-config-watcher",
 			"termination-signal-handler",
 		},
 	)
@@ -94,48 +89,19 @@ func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifol
 	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
+func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
+	// The controller binary is always a controller node; no manifold
+	// should reference the removed is-controller-flag or
+	// state-config-watcher workers.
 	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 
-	// Explicitly guarded by ifController.
-	controllerWorkers := set.NewStrings(
-		"controller-agent-config",
-		"db-repl",
-		"db-repl-accessor",
-	)
-
-	// Explicitly guarded by ifPrimaryController.
-	primaryControllerWorkers := set.NewStrings()
-
-	dbUpgradedWorkers := set.NewStrings()
-
 	for name, manifold := range manifolds {
 		c.Logf("%s", name)
-		switch {
-		case controllerWorkers.Contains(name):
-			checkContains(c, manifold.Inputs, "is-controller-flag")
-			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
-		case primaryControllerWorkers.Contains(name):
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
-			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
-		case dbUpgradedWorkers.Contains(name):
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
-			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
-			checkContains(c, manifold.Inputs, "upgrade-database-flag")
-		default:
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
-			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
-		}
+		checkNotContains(c, manifold.Inputs, "is-controller-flag")
+		checkNotContains(c, manifold.Inputs, "state-config-watcher")
 	}
-}
-
-func checkContains(c *tc.C, names []string, seek string) {
-	if slices.Contains(names, seek) {
-		return
-	}
-	c.Errorf("%q not found in %v", seek, names)
 }
 
 func checkNotContains(c *tc.C, names []string, seek string) {
@@ -169,26 +135,16 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"controller-agent-config": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"db-repl": {
 		"agent",
 		"db-repl-accessor",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"db-repl-accessor": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
-
-	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"state-config-watcher": {"agent"},
 
 	"termination-signal-handler": {},
 }
@@ -199,26 +155,16 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"controller-agent-config": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"db-repl": {
 		"agent",
 		"db-repl-accessor",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"db-repl-accessor": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
-
-	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"state-config-watcher": {"agent"},
 
 	"termination-signal-handler": {},
 }
