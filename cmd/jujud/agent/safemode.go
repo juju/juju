@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/safemode"
-	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/semversion"
 	internaldependency "github.com/juju/juju/internal/dependency"
@@ -36,23 +35,22 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/rpc/params"
 )
 
 // NewSafeModeAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
-// MachineAgent.
+// SafeModeControllerAgent.
 func NewSafeModeAgentCommand(
 	ctx *cmd.Context,
-	safeModeMachineAgentFactory safeModeMachineAgentFactoryFnType,
+	safeModeControllerAgentFactory safeModeControllerAgentFactoryFnType,
 	agentInitializer AgentInitializer,
 	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
 	return &safeModeAgentCommand{
-		ctx:                         ctx,
-		safeModeMachineAgentFactory: safeModeMachineAgentFactory,
-		agentInitializer:            agentInitializer,
-		currentConfig:               configFetcher,
+		ctx:                            ctx,
+		safeModeControllerAgentFactory: safeModeControllerAgentFactory,
+		agentInitializer:               agentInitializer,
+		currentConfig:                  configFetcher,
 	}
 }
 
@@ -60,30 +58,25 @@ type safeModeAgentCommand struct {
 	cmd.CommandBase
 
 	// This group of arguments is required.
-	agentInitializer            AgentInitializer
-	currentConfig               agentconfig.AgentConfigWriter
-	safeModeMachineAgentFactory safeModeMachineAgentFactoryFnType
-	ctx                         *cmd.Context
+	agentInitializer               AgentInitializer
+	currentConfig                  agentconfig.AgentConfigWriter
+	safeModeControllerAgentFactory safeModeControllerAgentFactoryFnType
+	ctx                            *cmd.Context
 
 	isCaas   bool
 	agentTag names.Tag
 
 	// The following are set via command-line flags.
-	machineId string
-	// TODO(controlleragent) - this will be in a new controller agent command
 	controllerId string
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *safeModeAgentCommand) Init(args []string) error {
-	if a.machineId == "" && a.controllerId == "" {
-		return errors.New("either machine-id or controller-id must be set")
+	if a.controllerId == "" {
+		return errors.New("--controller-id must be set")
 	}
-	if a.machineId != "" && !names.IsValidMachine(a.machineId) {
-		return errors.Errorf("--machine-id option must be a non-negative integer")
-	}
-	if a.controllerId != "" && !names.IsValidControllerAgent(a.controllerId) {
+	if !names.IsValidControllerAgent(a.controllerId) {
 		return errors.Errorf("--controller-id option must be a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
@@ -96,11 +89,7 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 	// lines of all logging in the log file.
 	_, _ = loggo.RemoveWriter("logfile")
 
-	if a.machineId != "" {
-		a.agentTag = names.NewMachineTag(a.machineId)
-	} else {
-		a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	}
+	a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
@@ -113,32 +102,31 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 	return nil
 }
 
-// Run instantiates a MachineAgent and runs it.
+// Run instantiates a SafeModeControllerAgent and runs it.
 func (a *safeModeAgentCommand) Run(c *cmd.Context) error {
-	if err := ensuringJujudNotRunning(a.agentTag); err != nil {
+	if err := ensuringControllerNotRunning(a.agentTag); err != nil {
 		if errors.Is(err, errors.AlreadyExists) {
-			fmt.Fprint(os.Stderr, safeModeJujudWarning)
+			fmt.Fprint(os.Stderr, safeModeControllerWarning)
 			return nil
 		}
 		return err
 	}
 
-	// Force the writing of the safemode header to os.Stderr, so it can't be
-	// bypassed with a flag (obviously, this is not a security measure, but
-	// it's better than nothing).
+	// Force the writing of the safe-mode header to os.Stderr so it
+	// cannot be suppressed (this is not a security measure, but it is
+	// better than nothing).
 	fmt.Fprint(os.Stderr, safeModeWarningHeader)
 
-	machineAgent, err := a.safeModeMachineAgentFactory(a.agentTag, a.isCaas)
+	controllerAgent, err := a.safeModeControllerAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return machineAgent.Run(c)
+	return controllerAgent.Run(c)
 }
 
 // SetFlags adds the requisite flags to run this command.
 func (a *safeModeAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
-	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 }
 
@@ -146,13 +134,13 @@ func (a *safeModeAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 func (a *safeModeAgentCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "safe-mode",
-		Purpose: "run a juju in safe mode",
+		Purpose: "run a juju controller in safe mode",
 	})
 }
 
 const (
 	safeModeWarningHeader = `
-Running in safe mode. 
+Running in safe mode.
 ---------------------
 
 This is a special mode of operation that allows you to have single node
@@ -164,21 +152,21 @@ you to connect to the database and perform recovery operations.
 
 Use at your own risk.
 `
-	safeModeJujudWarning = `
-Running in safe mode while jujud is running is dangerous. Please stop jujud
-before running in safe mode.
+	safeModeControllerWarning = `
+Running in safe mode while the controller is running is dangerous. Please
+stop the controller service before running in safe mode.
 `
 )
 
-type safeModeMachineAgentFactoryFnType func(names.Tag, bool) (*SafeModeMachineAgent, error)
+type safeModeControllerAgentFactoryFnType func(names.Tag, bool) (*SafeModeControllerAgent, error)
 
-// SafeModeMachineAgentFactoryFn returns a function which instantiates a
-// SafeModeMachineAgent given a machineId.
-func SafeModeMachineAgentFactoryFn(
+// SafeModeControllerAgentFactoryFn returns a function which instantiates a
+// SafeModeControllerAgent given a controller agent tag.
+func SafeModeControllerAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-) safeModeMachineAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
+) safeModeControllerAgentFactoryFnType {
+	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeControllerAgent, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "safemode",
 			IsFatal:       agenterrors.IsFatal,
@@ -189,7 +177,7 @@ func SafeModeMachineAgentFactoryFn(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return NewSafeModeMachineAgent(
+		return NewSafeModeControllerAgent(
 			agentTag,
 			agentConfWriter,
 			runner,
@@ -199,15 +187,15 @@ func SafeModeMachineAgentFactoryFn(
 	}
 }
 
-// NewSafeModeMachineAgent instantiates a new SafeModeMachineAgent.
-func NewSafeModeMachineAgent(
+// NewSafeModeControllerAgent instantiates a new SafeModeControllerAgent.
+func NewSafeModeControllerAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	isCaasAgent bool,
-) (*SafeModeMachineAgent, error) {
-	a := &SafeModeMachineAgent{
+) (*SafeModeControllerAgent, error) {
+	a := &SafeModeControllerAgent{
 		agentTag:          agentTag,
 		AgentConfigWriter: agentConfWriter,
 		configChangedVal:  voyeur.NewValue(true),
@@ -220,9 +208,10 @@ func NewSafeModeMachineAgent(
 	return a, nil
 }
 
-// SafeModeMachineAgent is responsible for tying together all functionality
-// needed to orchestrate a Jujud instance which controls a machine.
-type SafeModeMachineAgent struct {
+// SafeModeControllerAgent is a stripped-down agent that runs only the
+// manifolds required to bring the Dqlite database online for recovery.
+// It does not participate in the controller's normal dependency engine.
+type SafeModeControllerAgent struct {
 	agentconfig.AgentConfigWriter
 
 	dead             chan struct{}
@@ -238,26 +227,45 @@ type SafeModeMachineAgent struct {
 	isCaasAgent bool
 }
 
-// Wait waits for the safe mode machine agent to finish.
-func (a *SafeModeMachineAgent) Wait() error {
+// Wait waits for the safe-mode controller agent to finish.
+func (a *SafeModeControllerAgent) Wait() error {
 	<-a.dead
 	return a.errReason
 }
 
-// Stop stops the safe mode machine agent.
-func (a *SafeModeMachineAgent) Stop() error {
+// Stop stops the safe-mode controller agent.
+func (a *SafeModeControllerAgent) Stop() error {
 	a.runner.Kill()
 	return a.Wait()
 }
 
-// Done signals the safe mode machine agent is finished
-func (a *SafeModeMachineAgent) Done(err error) {
+// Done signals the safe-mode controller agent is finished.
+func (a *SafeModeControllerAgent) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
 
-// Run runs a safe mode machine agent.
-func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
+// WorkersStarted returns a channel that is closed once all top-level
+// workers have been started.  Provided for testing purposes.
+func (a *SafeModeControllerAgent) WorkersStarted() <-chan struct{} {
+	return a.workersStarted
+}
+
+// Tag returns the controller agent's tag.
+func (a *SafeModeControllerAgent) Tag() names.Tag {
+	return a.agentTag
+}
+
+// ChangeConfig updates the agent's configuration and notifies
+// listeners of the change.
+func (a *SafeModeControllerAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConfigWriter.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
+}
+
+// Run runs a safe-mode controller agent.
+func (a *SafeModeControllerAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -272,37 +280,22 @@ func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
-	// At this point, all workers will have been configured to start
+	// At this point, all workers will have been configured to start.
 	close(a.workersStarted)
 	err = a.runner.Wait()
-	switch errors.Cause(err) {
-	case internalworker.ErrRebootMachine:
-		logger.Infof(context.TODO(), "Caught reboot error")
-		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case internalworker.ErrShutdownMachine:
-		logger.Infof(context.TODO(), "Caught shutdown error")
-		err = a.executeRebootOrShutdown(params.ShouldShutdown)
-	}
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *SafeModeMachineAgent) Tag() names.Tag {
-	return a.agentTag
-}
-
-func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
-	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(true)
-	return errors.Trace(err)
-}
-
-func (a *SafeModeMachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion semversion.Number,
+func (a *SafeModeControllerAgent) makeEngineCreator(
+	agentName string,
+	previousAgentVersion semversion.Number,
 ) func(ctx context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
-			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
+			internaldependency.WrapLogger(
+				internallogger.GetLogger("juju.worker.dependency"),
+			),
 		))
 		if err != nil {
 			return nil, err
@@ -313,7 +306,6 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			AgentConfigChanged: a.configChangedVal,
 			NewDBWorkerFunc:    a.newDBWorkerFunc,
 			Clock:              clock.WallClock,
-			IsCaasConfig:       a.isCaasAgent,
 		}
 
 		var manifolds dependency.Manifolds
@@ -329,41 +321,30 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			}
 			return nil, err
 		}
-		return eng, err
+		return eng, nil
 	}
 }
 
-func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
-	// block until all units/containers are ready, and reboot/shutdown
-	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof(context.TODO(), "Reboot: Executing reboot")
-	err = finalize.ExecuteReboot(action)
-	if err != nil {
-		logger.Infof(context.TODO(), "Reboot: Error executing reboot: %v", err)
-		return errors.Trace(err)
-	}
-	// We return ErrRebootMachine so the agent will simply exit without error
-	// pending reboot/shutdown.
-	return internalworker.ErrRebootMachine
-}
-
-func ensuringJujudNotRunning(tag names.Tag) error {
-	cmd := exec.Command("systemctl", "check", fmt.Sprintf("%s-machine-%s.service", jujunames.JujuAgentd, tag.Id()))
+// ensuringControllerNotRunning checks that the normal controller
+// service is not active.  If it is, safe-mode must not start, because
+// the two processes would compete for the Dqlite database.
+func ensuringControllerNotRunning(tag names.Tag) error {
+	svcName := fmt.Sprintf(
+		"%s-controller-%s.service",
+		jujunames.JujuController,
+		tag.Id(),
+	)
+	cmd := exec.Command("systemctl", "check", svcName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Exit code of 3 is ESRCH, which means no such process.
-		// See: https://man7.org/linux/man-pages/man3/errno.3.html
+		// Exit code 3 is ESRCH — no such process / unit not active.
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 3 {
 			return nil
 		}
-		return errors.Annotatef(err, "systemctrl check failed")
+		return errors.Annotatef(err, "systemctl check failed")
 	}
 	if strings.TrimSpace(string(output)) != "active" {
 		return nil
 	}
-	return errors.AlreadyExistsf("jujud is running")
+	return errors.AlreadyExistsf("controller is running")
 }
