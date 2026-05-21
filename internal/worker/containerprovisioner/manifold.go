@@ -153,6 +153,12 @@ func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) 
 }
 
 func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	// Container machines cannot provision further containers.
+	if names.IsContainerMachine(mTag.Id()) {
+		cfg.Logger.Infof(ctx, "uninstalling container provisioner: machine %q is itself a container", mTag)
+		return nil, dependency.ErrUninstall
+	}
+
 	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "loading machine %s from state", mTag)

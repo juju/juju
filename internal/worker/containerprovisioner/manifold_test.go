@@ -80,6 +80,19 @@ func (s *containerManifoldSuite) TestConfigValidateSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainerMachine(c *tc.C) {
+	// A container machine (e.g. 0/lxd/0) should never provision further
+	// containers. The worker must uninstall itself immediately without
+	// making any API calls.
+	tag := names.NewMachineTag("0/lxd/0")
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
+}
+
 func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
