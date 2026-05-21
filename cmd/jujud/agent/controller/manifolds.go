@@ -777,13 +777,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
-		apiRemoteCallerName: ifControllerUpgradeComplete(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+		apiRemoteCallerName: apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
 			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:               apiremotecaller.NewWorker,
-		})),
+		}),
 
 		controllerPresenceName: controllerpresence.Manifold(controllerpresence.ManifoldConfig{
 			APIRemoteCallerName:         apiRemoteCallerName,
