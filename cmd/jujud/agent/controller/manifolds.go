@@ -137,7 +137,7 @@ type ManifoldsConfig struct {
 	// UpgradeDBLock is passed to the upgrade database gate to
 	// coordinate workers that should not do anything until the
 	// upgrade-database worker is done.
-	UpgradeDBLock gate.Lock
+	UpgradeDBLock gate.Waiter
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that should not do anything until the
@@ -148,6 +148,13 @@ type ManifoldsConfig struct {
 	// coordinate workers that should not do anything until the
 	// upgrader worker completes its first check.
 	UpgradeCheckLock gate.Lock
+
+	// ControllerUpgradeLock keeps upgrade and migration workers inactive
+	// during fresh controller bootstrap, while those flows are still
+	// out-of-scope and their API/server-side support is not yet in
+	// place. This temporary outer gate should be removed once the
+	// controller upgrade and migration flows are fully implemented.
+	ControllerUpgradeLock gate.Lock
 
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
@@ -270,6 +277,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
+		controllerUpgradeGateName: gate.ManifoldEx(config.ControllerUpgradeLock),
+		controllerUpgradeFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  controllerUpgradeGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in.
@@ -346,44 +359,44 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// upgrading the controller. This worker MUST never take on a
 		// dependency which relies on the database upgrade having been
 		// performed.
-		upgradeDomainServicesName: upgradeservices.Manifold(upgradeservices.ManifoldConfig{
+		upgradeDomainServicesName: ifControllerUpgradeComplete(upgradeservices.Manifold(upgradeservices.ManifoldConfig{
 			ChangeStreamName:         changeStreamName,
 			Logger:                   internallogger.GetLogger("juju.worker.upgradeservices"),
 			NewUpgradeServices:       upgradeservices.NewUpgradeServices,
 			NewUpgradeServicesGetter: upgradeservices.NewUpgradeServicesGetter,
 			NewWorker:                upgradeservices.NewWorker,
-		}),
+		})),
 
 		// Upgrade steps gate/flag coordinate workers that should not do
 		// anything until all upgrade steps have run. The flag of similar
 		// name is used to implement the isFullyUpgraded func that keeps
 		// upgrade concerns out of unrelated manifolds.
-		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
-		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+		upgradeStepsGateName: ifControllerUpgradeComplete(gate.ManifoldEx(config.UpgradeStepsLock)),
+		upgradeStepsFlagName: ifControllerUpgradeComplete(gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeStepsGateName,
 			NewWorker: gate.NewFlagWorker,
-		}),
+		})),
 
 		// Upgrade check gate/flag coordinate workers that should not do
 		// anything until the upgrader has completed its first check for
 		// a new tools version to upgrade to.
-		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
-		upgradeCheckFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+		upgradeCheckGateName: ifControllerUpgradeComplete(gate.ManifoldEx(config.UpgradeCheckLock)),
+		upgradeCheckFlagName: ifControllerUpgradeComplete(gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeCheckGateName,
 			NewWorker: gate.NewFlagWorker,
-		}),
+		})),
 
 		// The migration workers collaborate to run migrations and create
 		// a mechanism for running other workers so they can't
 		// accidentally interfere with a migration in progress.
-		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
+		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
 		}),
-		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
+		migrationMinionName: ifControllerUpgradeComplete(migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
@@ -393,7 +406,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
 			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
-		}),
+		})),
 
 		// The primary controller flag manifold will attempt to claim
 		// responsibility for running certain workers that must not be
@@ -764,13 +777,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
-		apiRemoteCallerName: apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+		apiRemoteCallerName: ifControllerUpgradeComplete(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
 			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:               apiremotecaller.NewWorker,
-		}),
+		})),
 
 		controllerPresenceName: controllerpresence.Manifold(controllerpresence.ManifoldConfig{
 			APIRemoteCallerName:         apiRemoteCallerName,
@@ -782,7 +795,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                       config.Clock,
 		}),
 
-		apiRemoteRelationCallerName: apiremoterelationcaller.Manifold(apiremoterelationcaller.ManifoldConfig{
+		apiRemoteRelationCallerName: ifControllerUpgradeComplete(apiremoterelationcaller.Manifold(apiremoterelationcaller.ManifoldConfig{
 			DomainServicesName:          domainServicesName,
 			NewWorker:                   apiremoterelationcaller.NewWorker,
 			NewAPIInfoGetter:            apiremoterelationcaller.NewAPIInfoGetter,
@@ -790,7 +803,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetDomainServicesGetterFunc: apiremoterelationcaller.GetDomainServicesGetter,
 			Logger:                      internallogger.GetLogger("juju.worker.apiremoterelationcaller"),
 			Clock:                       config.Clock,
-		}),
+		})),
 
 		jwtParserName: jwtparser.Manifold(jwtparser.ManifoldConfig{
 			GetControllerConfigService: jwtparser.GetControllerConfigService,
@@ -881,7 +894,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// type recognised by the controller agent, causing other workers
 		// to be stopped and the agent to be restarted running the new
 		// tools.
-		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
+		upgraderName: ifControllerUpgradeComplete(upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -889,13 +902,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
-		}),
+		})),
 
 		// The upgradestepscontroller worker runs soon after the
 		// controller agent starts and runs any steps required to
 		// upgrade to the running jujud version. Once upgrade steps have
 		// run, the upgradesteps gate is unlocked and the worker exits.
-		upgradeControllerStepsName: upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+		upgradeControllerStepsName: ifControllerUpgradeComplete(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			DomainServicesName:   domainServicesName,
@@ -907,7 +920,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
-		}),
+		})),
 	}
 }
 
@@ -933,6 +946,12 @@ var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
 		upgradeCheckFlagName,
+	},
+}.Decorate
+
+var ifControllerUpgradeComplete = engine.Housing{
+	Flags: []string{
+		controllerUpgradeFlagName,
 	},
 }.Decorate
 
@@ -967,6 +986,9 @@ const (
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"
 	isBootstrapFlagName = "is-bootstrap-flag"
+
+	controllerUpgradeGateName = "controller-upgrade-gate"
+	controllerUpgradeFlagName = "controller-upgrade-flag"
 
 	upgradeDatabaseName     = "upgrade-database-runner"
 	upgradeDatabaseGateName = "upgrade-database-gate"
