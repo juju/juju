@@ -252,9 +252,10 @@ type ControllerAgent struct {
 	preUpgradeSteps PreUpgradeStepsFunc
 	upgradeSteps    UpgradeStepsFunc
 
-	bootstrapLock    gate.Lock
-	upgradeDBLock    gate.Lock
-	upgradeStepsLock gate.Lock
+	bootstrapLock         gate.Lock
+	controllerUpgradeLock gate.Lock
+	upgradeDBLock         gate.Waiter
+	upgradeStepsLock      gate.Lock
 }
 
 // Wait waits for the controller agent to finish.
@@ -347,7 +348,8 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 	agentName := a.Tag().String()
 
 	a.bootstrapLock = gate.NewLock()
-	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
+	a.controllerUpgradeLock = gate.NewLock()
+	a.upgradeDBLock = gate.AlreadyUnlocked{}
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink)
@@ -404,6 +406,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
 			BootstrapLock:                     a.bootstrapLock,
+			ControllerUpgradeLock:             a.controllerUpgradeLock,
 			UpgradeDBLock:                     a.upgradeDBLock,
 			UpgradeStepsLock:                  a.upgradeStepsLock,
 			UpgradeCheckLock:                  a.upgradeCheckLock,
