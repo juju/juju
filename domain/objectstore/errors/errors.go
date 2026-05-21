@@ -6,6 +6,9 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// ErrEmptyPath is returned when a path is empty.
+	ErrEmptyPath = errors.ConstError("empty path")
+
 	// ErrNotFound is returned when a path is not found.
 	ErrNotFound = errors.ConstError("path not found")
 
@@ -53,4 +56,8 @@ const (
 
 	// ErrBackendAlreadyExists is returned when the backend already exists.
 	ErrBackendAlreadyExists = errors.ConstError("backend already exists")
+
+	// ErrBackendTransitionNotSupported is returned when transitioning from
+	// the currently active backend type is not supported.
+	ErrBackendTransitionNotSupported = errors.ConstError("backend transition not supported")
 )

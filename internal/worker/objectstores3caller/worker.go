@@ -65,7 +65,7 @@ type s3Worker struct {
 	catacomb       catacomb.Catacomb
 	config         workerConfig
 
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 	session objectstore.Session
 }
 
@@ -110,13 +110,20 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 // Session calls the given function with a session. The session is the
 // current session held by the worker, which is updated by the loop when
 // the backend changes.
+//
+// The session reference is captured under the lock, but the callback
+// executes without holding the lock. This means the session may be
+// replaced during the callback's execution. This is safe because S3
+// clients are stateless (credentials baked in at creation) and operations
+// are idempotent. Callers that get an auth error due to credential
+// rotation should retry, which will pick up the new session.
 func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objectstore.Session) error) error {
 	ctx, trace := coretrace.Start(ctx, coretrace.NameFromFunc())
 	defer trace.End()
 
-	w.mutex.Lock()
+	w.mutex.RLock()
 	session := w.session
-	w.mutex.Unlock()
+	w.mutex.RUnlock()
 
 	if session == nil {
 		return internalerrors.Errorf("no session available").Add(errors.NotSupported)
