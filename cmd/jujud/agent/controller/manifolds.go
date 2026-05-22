@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"path"
 	"time"
@@ -230,9 +231,8 @@ type ManifoldsConfig struct {
 	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
 }
 
-// Manifolds returns a set of co-configured manifolds covering
-// the various responsibilities of the controller agent.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+// commonManifolds returns the shared controller manifolds.
+func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
@@ -729,9 +729,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args, invalidator)
 			}),
-			// GetCAASProvider uses caas.New directly: no NewCAASBrokerFunc
-			// in ManifoldsConfig since the controller is always IAAS-like,
-			// but providertracker validates both providers non-nil.
+			// GetCAASProvider uses caas.New directly because the controller
+			// ManifoldsConfig does not currently accept a CAAS broker
+			// constructor, but providertracker still validates that both
+			// providers are non-nil.
 			GetCAASProvider: providertracker.CAASGetProvider(caas.New),
 			Logger:          internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:           config.Clock,
@@ -832,38 +833,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:     config.Clock,
 			Logger:    internallogger.GetLogger("juju.worker.watcherregistry"),
 		}),
+	}
+}
 
+// IAASManifolds returns the IAAS-specific controller manifolds merged with the
+// shared controller manifolds.
+func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial
 		// controller.
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:               agentName,
-			ObjectStoreName:         objectStoreFacadeName,
-			DomainServicesName:      domainServicesName,
-			HTTPClientName:          httpClientName,
-			BootstrapGateName:       isBootstrapGateName,
-			ProviderFactoryName:     providerTrackerName,
-			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
-			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
-			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
-			Clock:                   config.Clock,
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewIAASBootstrapManifoldConfig(config))),
 
-			AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
-			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
-			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
-			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
-			AgentFinalizer:               bootstrap.IAASAgentFinalizer,
-		})),
-
-		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
-			AgentName:                     agentName,
-			APICallerName:                 apiCallerName,
-			DomainServicesName:            domainServicesName,
-			TraceName:                     traceName,
-			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
-			IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
-			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
-		})),
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(NewIAASAgentConfigUpdaterManifoldConfig())),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -874,20 +855,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// DBAccessor provides access to the Dqlite database. The
-		// controller always uses the IAAS node manager.
-		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:                 agentName,
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			Clock:                     config.Clock,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			LogDir:                    agentConfig.LogDir(),
-			PrometheusRegisterer:      config.PrometheusRegisterer,
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
-		}),
+		// controller currently uses the IAAS node manager.
+		dbAccessorName: dbaccessor.Manifold(NewIAASDBAccessorManifoldConfig(config)),
 
 		// The upgrader is a leaf worker that returns a specific error
 		// type recognised by the controller agent, causing other workers
@@ -920,7 +889,163 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
 		})),
+	})
+}
+
+// CAASManifolds returns the CAAS-specific controller manifolds merged with the
+// shared controller manifolds.
+func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	return mergeManifolds(config, dependency.Manifolds{
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewCAASBootstrapManifoldConfig(config))),
+
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(NewCAASAgentConfigUpdaterManifoldConfig())),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AuthorityName:               certificateWatcherName,
+			DomainServicesName:          domainServicesName,
+			GetControllerDomainServices: certupdater.GetControllerDomainServices,
+			NewWorker:                   certupdater.NewCertificateUpdater,
+			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
+		})),
+
+		dbAccessorName: dbaccessor.Manifold(NewCAASDBAccessorManifoldConfig(config)),
+
+		upgraderName: ifControllerUpgradeComplete(upgrader.Manifold(upgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			UpgradeCheckGateName: upgradeCheckGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
+			Clock:                config.Clock,
+		})),
+
+		upgradeControllerStepsName: ifControllerUpgradeComplete(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			DomainServicesName:   domainServicesName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreUpgradeSteps:      config.PreUpgradeSteps(model.IAAS),
+			UpgradeSteps:         config.UpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewControllerWorker:  upgradestepscontroller.NewControllerWorker,
+			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
+			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
+			Clock:                config.Clock,
+		})),
+	})
+}
+
+// NewIAASBootstrapManifoldConfig returns the IAAS-specific bootstrap config.
+func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
+	return bootstrap.ManifoldConfig{
+		AgentName:                    agentName,
+		ObjectStoreName:              objectStoreFacadeName,
+		DomainServicesName:           domainServicesName,
+		HTTPClientName:               httpClientName,
+		BootstrapGateName:            isBootstrapGateName,
+		ProviderFactoryName:          providerTrackerName,
+		RequiresBootstrap:            bootstrap.RequiresBootstrap,
+		PopulateControllerCharm:      bootstrap.PopulateIAASControllerCharm,
+		StatusHistory:                domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+		Logger:                       internallogger.GetLogger("juju.worker.bootstrap"),
+		Clock:                        config.Clock,
+		AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
+		ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
+		ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
+		BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
+		AgentFinalizer:               bootstrap.IAASAgentFinalizer,
 	}
+}
+
+// NewCAASBootstrapManifoldConfig returns the CAAS-specific bootstrap config.
+func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
+	return bootstrap.ManifoldConfig{
+		AgentName:                    agentName,
+		ObjectStoreName:              objectStoreFacadeName,
+		DomainServicesName:           domainServicesName,
+		HTTPClientName:               httpClientName,
+		BootstrapGateName:            isBootstrapGateName,
+		ProviderFactoryName:          providerTrackerName,
+		RequiresBootstrap:            bootstrap.RequiresBootstrap,
+		PopulateControllerCharm:      bootstrap.PopulateCAASControllerCharm,
+		StatusHistory:                domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+		Logger:                       internallogger.GetLogger("juju.worker.bootstrap"),
+		Clock:                        config.Clock,
+		AgentBinaryUploader:          bootstrap.CAASAgentBinaryUploader,
+		ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,
+		ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
+		BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
+		AgentFinalizer:               bootstrap.CAASAgentFinalizer,
+	}
+}
+
+// NewIAASAgentConfigUpdaterManifoldConfig returns the IAAS agent-config updater
+// config.
+func NewIAASAgentConfigUpdaterManifoldConfig() agentconfigupdater.ManifoldConfig {
+	return agentconfigupdater.ManifoldConfig{
+		AgentName:                     agentName,
+		APICallerName:                 apiCallerName,
+		DomainServicesName:            domainServicesName,
+		TraceName:                     traceName,
+		GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+		IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
+		Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
+	}
+}
+
+// NewCAASAgentConfigUpdaterManifoldConfig returns the CAAS agent-config updater
+// config.
+func NewCAASAgentConfigUpdaterManifoldConfig() agentconfigupdater.ManifoldConfig {
+	return agentconfigupdater.ManifoldConfig{
+		AgentName:                     agentName,
+		APICallerName:                 apiCallerName,
+		DomainServicesName:            domainServicesName,
+		TraceName:                     traceName,
+		GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+		IsControllerAgentFn:           agentconfigupdater.CAASIsControllerAgent,
+		Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
+	}
+}
+
+// NewIAASDBAccessorManifoldConfig returns the IAAS-specific db-accessor config.
+func NewIAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
+	return dbaccessor.ManifoldConfig{
+		AgentName:                 agentName,
+		QueryLoggerName:           queryLoggerName,
+		ControllerAgentConfigName: controllerAgentConfigName,
+		Clock:                     config.Clock,
+		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+		LogDir:                    config.Agent.CurrentConfig().LogDir(),
+		PrometheusRegisterer:      config.PrometheusRegisterer,
+		NewApp:                    dbaccessor.NewApp,
+		NewDBWorker:               config.NewDBWorkerFunc,
+		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		NewNodeManager:            dbaccessor.IAASNodeManager,
+	}
+}
+
+// NewCAASDBAccessorManifoldConfig returns the CAAS-specific db-accessor config.
+func NewCAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
+	return dbaccessor.ManifoldConfig{
+		AgentName:                 agentName,
+		QueryLoggerName:           queryLoggerName,
+		ControllerAgentConfigName: controllerAgentConfigName,
+		Clock:                     config.Clock,
+		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+		LogDir:                    config.Agent.CurrentConfig().LogDir(),
+		PrometheusRegisterer:      config.PrometheusRegisterer,
+		NewApp:                    dbaccessor.NewApp,
+		NewDBWorker:               config.NewDBWorkerFunc,
+		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		NewNodeManager:            dbaccessor.CAASNodeManager,
+	}
+}
+
+func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
+	result := commonManifolds(config)
+	maps.Copy(result, manifolds)
+	return result
 }
 
 func clockManifold(clk clock.Clock) dependency.Manifold {
