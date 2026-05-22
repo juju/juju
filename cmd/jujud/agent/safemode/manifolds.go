@@ -1,10 +1,6 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package safemode provides the dependency manifolds for the controller
-// safe-mode recovery subcommand.  The controller binary is always a
-// controller node, so none of the manifolds here need an ifController
-// guard or a state-config-watcher input.
 package safemode
 
 import (
