@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"reflect"
 	"slices"
 	"sort"
 	stdtesting "testing"
@@ -21,7 +22,10 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/agentconfigupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
+	"github.com/juju/juju/internal/worker/bootstrap"
+	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -38,7 +42,7 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -46,10 +50,19 @@ func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 		c.Logf("checking %q manifold", name)
 		c.Check(manifold.Start, tc.NotNil)
 	}
+
+	manifolds = agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+	for name, manifold := range manifolds {
+		c.Logf("checking CAAS %q manifold", name)
+		c.Check(manifold.Start, tc.NotNil)
+	}
 }
 
 func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -130,7 +143,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 }
 
 func (*ManifoldsSuite) TestMigrationInfrastructureStaysActive(c *tc.C) {
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -209,7 +222,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"upgrader",
 		"watcher-registry",
 	)
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -225,7 +238,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 	// The object-store is a dependency of domain-services; no circular
 	// dependency is permitted.
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -240,7 +253,7 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	// The provider-tracker is a dependency of domain-services; no circular
 	// dependency is permitted.
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -258,7 +271,7 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 			dataPath: c.MkDir(),
 		},
 	}
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:           ag,
 		PreUpgradeSteps: preUpgradeSteps,
 	})
@@ -286,7 +299,7 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 
 func (*ManifoldsSuite) TestControllerUpgradeGate(c *tc.C) {
 	controllerUpgradeLock := gate.NewLock()
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:                 &mockAgent{},
 		PreUpgradeSteps:       preUpgradeSteps,
 		ControllerUpgradeLock: controllerUpgradeLock,
@@ -297,7 +310,7 @@ func (*ManifoldsSuite) TestControllerUpgradeGate(c *tc.C) {
 func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 		Agent:            &mockAgent{},
 		PreUpgradeSteps:  preUpgradeSteps,
 		UpgradeStepsLock: upgradeStepsLock,
@@ -308,35 +321,98 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 }
 
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
-	manifolds := agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
-		PreUpgradeSteps: preUpgradeSteps,
-	})
-
-	for _, name := range []string{
-		"upgrade-services",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-		"upgrade-check-gate",
-		"upgrade-check-flag",
-		"upgrader",
-		"upgrade-controller-steps-runner",
-		"api-remote-relation-caller",
-		"migration-minion",
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
 	} {
-		checkContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
-	}
+		for _, name := range []string{
+			"upgrade-services",
+			"upgrade-steps-gate",
+			"upgrade-steps-flag",
+			"upgrade-check-gate",
+			"upgrade-check-flag",
+			"upgrader",
+			"upgrade-controller-steps-runner",
+			"api-remote-relation-caller",
+			"migration-minion",
+		} {
+			checkContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
+		}
 
-	for _, name := range []string{
-		"api-remote-caller",
-		"upgrade-database-gate",
-		"upgrade-database-flag",
-		"upgrade-database-runner",
-		"migration-fortress",
-		"migration-inactive-flag",
-	} {
-		checkNotContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
+		for _, name := range []string{
+			"api-remote-caller",
+			"upgrade-database-gate",
+			"upgrade-database-flag",
+			"upgrade-database-runner",
+			"migration-fortress",
+			"migration-inactive-flag",
+		} {
+			checkNotContains(c, manifolds[name].Inputs, "controller-upgrade-flag")
+		}
 	}
+}
+
+func (*ManifoldsSuite) TestAgentConfigUpdaterUsesMigrationHousingInBothVariants(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold := manifolds["agent-config-updater"]
+		checkContains(c, manifold.Inputs, "migration-fortress")
+		checkContains(c, manifold.Inputs, "migration-inactive-flag")
+	}
+}
+
+func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c *tc.C) {
+	manifoldsCfg := agentcontroller.ManifoldsConfig{
+		Agent: &mockAgent{},
+	}
+	iaasCfg := agentcontroller.NewIAASBootstrapManifoldConfig(manifoldsCfg)
+	caasCfg := agentcontroller.NewCAASBootstrapManifoldConfig(manifoldsCfg)
+
+	c.Check(reflect.ValueOf(iaasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.PopulateIAASControllerCharm).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.PopulateCAASControllerCharm).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.AgentBinaryUploader).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentBinaryUploader).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.AgentBinaryUploader).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentBinaryUploader).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.ControllerCharmDeployer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASControllerCharmUploader).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.ControllerCharmDeployer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASControllerCharmUploader).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.ControllerUnitPassword).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASControllerUnitPassword).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.ControllerUnitPassword).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASControllerUnitPassword).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAddressFinder).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAddressFinder).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentFinalizer).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentFinalizer).Pointer())
+}
+
+func (*ManifoldsSuite) TestAgentConfigUpdaterManifoldConfigUsesProviderSpecificControllerChecks(c *tc.C) {
+	iaasCfg := agentcontroller.NewIAASAgentConfigUpdaterManifoldConfig()
+	caasCfg := agentcontroller.NewCAASAgentConfigUpdaterManifoldConfig()
+
+	c.Check(reflect.ValueOf(iaasCfg.IsControllerAgentFn).Pointer(), tc.Equals, reflect.ValueOf(agentconfigupdater.IAASIsControllerAgent).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.IsControllerAgentFn).Pointer(), tc.Equals, reflect.ValueOf(agentconfigupdater.CAASIsControllerAgent).Pointer())
+}
+
+func (*ManifoldsSuite) TestDBAccessorManifoldConfigUsesProviderSpecificNodeManagers(c *tc.C) {
+	manifoldsCfg := agentcontroller.ManifoldsConfig{
+		Agent: &mockAgent{},
+	}
+	iaasCfg := agentcontroller.NewIAASDBAccessorManifoldConfig(manifoldsCfg)
+	caasCfg := agentcontroller.NewCAASDBAccessorManifoldConfig(manifoldsCfg)
+
+	c.Check(reflect.ValueOf(iaasCfg.NewNodeManager).Pointer(), tc.Equals, reflect.ValueOf(dbaccessor.IAASNodeManager).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.NewNodeManager).Pointer(), tc.Equals, reflect.ValueOf(dbaccessor.CAASNodeManager).Pointer())
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
@@ -365,7 +441,7 @@ func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 
 func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		agentcontroller.Manifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
