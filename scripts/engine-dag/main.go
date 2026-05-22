@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	"github.com/juju/juju/cmd/jujuagentd/agent/model"
-	jjudmachine "github.com/juju/juju/cmd/jujud/agent/machine"
+	jjudcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	jjudmodel "github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
@@ -234,35 +234,29 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 		}
 	}
 
-	switch modelType {
-	case "iaas":
-		switch agent {
-		case "jujud":
-			return jjudmachine.IAASManifolds(jjudmachine.ManifoldsConfig{
-				Agent:           &mockAgent{},
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		default:
+	switch agent {
+	case "jujud":
+		// The controller binary has a single unified Manifolds function
+		// with no IAAS/CAAS split.
+		return jjudcontroller.Manifolds(jjudcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		})
+	default:
+		switch modelType {
+		case "iaas":
 			return machine.IAASManifolds(machine.ManifoldsConfig{
 				Agent:           &mockAgent{},
 				PreUpgradeSteps: preUpgradeSteps,
 			})
-		}
-	case "caas":
-		switch agent {
-		case "jujud":
-			return jjudmachine.CAASManifolds(jjudmachine.ManifoldsConfig{
-				Agent:           &mockAgent{},
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		default:
+		case "caas":
 			return machine.CAASManifolds(machine.ManifoldsConfig{
 				Agent:           &mockAgent{},
 				PreUpgradeSteps: preUpgradeSteps,
 			})
+		default:
+			panic("unknown model type for machine manifolds")
 		}
-	default:
-		panic("unknown model type for machine manifolds")
 	}
 }
 
