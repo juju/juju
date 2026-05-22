@@ -236,12 +236,20 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 
 	switch agent {
 	case "jujud":
-		// The controller binary has a single unified Manifolds function
-		// with no IAAS/CAAS split.
-		return jjudcontroller.Manifolds(jjudcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
-			PreUpgradeSteps: preUpgradeSteps,
-		})
+		switch modelType {
+		case "iaas":
+			return jjudcontroller.IAASManifolds(jjudcontroller.ManifoldsConfig{
+				Agent:           &mockAgent{},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		case "caas":
+			return jjudcontroller.CAASManifolds(jjudcontroller.ManifoldsConfig{
+				Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+				PreUpgradeSteps: preUpgradeSteps,
+			})
+		default:
+			panic("unknown model type for controller manifolds")
+		}
 	default:
 		switch modelType {
 		case "iaas":
