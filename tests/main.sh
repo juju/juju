@@ -80,6 +80,7 @@ TEST_NAMES="actions \
             static_analysis \
             storage \
             storage_k8s \
+            tla \
             unmanaged \
             upgrade \
             user"
