@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -66,6 +67,15 @@ func NewSpaceName(name string) SpaceName {
 // String returns the SpaceName as a string.
 func (n SpaceName) String() string {
 	return string(n)
+}
+
+// Validate returns an error satisfying [coreerrors.NotValid] if the space name
+// is not valid according to the naming rules.
+func (n SpaceName) Validate() error {
+	if !names.IsValidSpace(string(n)) {
+		return errors.Errorf("space name %q %w", n, coreerrors.NotValid)
+	}
+	return nil
 }
 
 const (

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	corenetwork "github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/service"
 	"github.com/juju/juju/domain/network/state"
 	"github.com/juju/juju/internal/errors"
@@ -28,13 +29,11 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 // methods needed for spaces and subnets import.
 type SubnetsImportService interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
+	AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs) (corenetwork.SpaceUUID, error)
 	// AddSubnet creates and returns a new subnet.
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 	// GetModelCloudType returns the type of the cloud that is in use by this model.
 	GetModelCloudType(context.Context) (string, error)
-	// Space retrieves the space information for the given UUID.
-	Space(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
 }
 
 type importSubnetsOperation struct {
@@ -79,18 +78,22 @@ func (i *importSubnetsOperation) Execute(ctx context.Context, model description.
 }
 
 func (i *importSubnetsOperation) importSpaces(ctx context.Context, modelSpaces []description.Space) (map[string]corenetwork.SpaceUUID, error) {
+	// CIDRs are not passed here: multiple subnets with the same CIDR may
+	// belong to different spaces (distinct provider networks), so the
+	// CIDR-based association used by the user-facing API is ambiguous during
+	// import. Each subnet is instead linked to its space explicitly by
+	// importIAASSubnets via SpaceID.
 	spaceIDsMap := make(map[string]corenetwork.SpaceUUID)
 	for _, space := range modelSpaces {
 		// The default space should not have been exported, but be defensive.
 		if space.Name() == corenetwork.AlphaSpaceName.String() {
 			continue
 		}
-		spaceInfo := corenetwork.SpaceInfo{
-			ID:         corenetwork.SpaceUUID(space.UUID()),
+		spaceID, err := i.importService.AddSpace(ctx, domainnetwork.AddSpaceArgs{
+			UUID:       corenetwork.SpaceUUID(space.UUID()),
 			Name:       corenetwork.SpaceName(space.Name()),
-			ProviderId: corenetwork.Id(space.ProviderID()),
-		}
-		spaceID, err := i.importService.AddSpace(ctx, spaceInfo)
+			ProviderID: corenetwork.Id(space.ProviderID()),
+		})
 		if err != nil {
 			return nil, errors.Errorf("creating space %s: %w", space.Name(), err)
 		}
@@ -112,7 +115,6 @@ func (i *importSubnetsOperation) importIAASSubnets(
 	modelSubnets []description.Subnet,
 	spaceIDsMap map[string]corenetwork.SpaceUUID,
 ) error {
-
 	cloudType, err := i.importService.GetModelCloudType(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -139,13 +141,7 @@ func (i *importSubnetsOperation) importIAASSubnets(
 
 		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]
 		if ok {
-			space, err := i.importService.Space(ctx, importedSpaceID)
-			if err != nil {
-				return errors.Errorf("retrieving space with ID %s to import subnet %s: %w", importedSpaceID, subnet.ID(), err)
-			}
 			subnetInfo.SpaceID = importedSpaceID
-			subnetInfo.SpaceName = space.Name
-			subnetInfo.ProviderSpaceId = space.ProviderId
 		}
 
 		_, err := i.importService.AddSubnet(ctx, subnetInfo)

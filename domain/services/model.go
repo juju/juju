@@ -78,6 +78,9 @@ import (
 	operationstate "github.com/juju/juju/domain/operation/state"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
+	provisionerservice "github.com/juju/juju/domain/provisioner/service"
+	provisionerctrlstate "github.com/juju/juju/domain/provisioner/state/controller"
+	provisionermodelstate "github.com/juju/juju/domain/provisioner/state/model"
 	proxy "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	relationstate "github.com/juju/juju/domain/relation/state"
@@ -509,6 +512,22 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("port"),
 		s.logger.Child("port"),
+	)
+}
+
+// Provisioning returns the service for aggregating provisioning info.
+func (s *ModelServices) Provisioning() *provisionerservice.Service {
+	log := s.logger.Child("provisioning")
+	return provisionerservice.NewService(
+		provisionermodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		provisionerctrlstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		provisionerservice.NewImageMetadataFetcher(
+			providertracker.ProviderRunner[provisionerservice.ProviderForImageMetadata](s.providerFactory, s.modelUUID.String()),
+			s.CloudImageMetadata(),
+			log,
+		),
+		s.modelUUID,
+		log,
 	)
 }
 

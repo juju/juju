@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,21 +30,41 @@ func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
 	}
 }
 
-// AddSpace creates and returns a new space.
+// AddSpace creates and returns a new space, associating any subnets matching
+// the provided CIDRs with it.
+//
+// All preconditions (the space name is not already in use, and each requested
+// CIDR matches at least one subnet) are verified by SELECTs before any writes
+// happen, so the rejection path stays as a read transaction. When the
+// preconditions hold, the space insert, optional provider_space insert and
+// subnet space update all run in the same transaction, keeping the operation
+// atomic.
+//
+// If a space with the same name already exists, an error matching
+// [networkerrors.SpaceAlreadyExists] is returned. If any of the given CIDRs
+// has no matching subnet, an error matching [networkerrors.SubnetNotFound] is
+// returned. In both cases no rows are written.
 func (st *State) AddSpace(
 	ctx context.Context,
 	uuid network.SpaceUUID,
 	name network.SpaceName,
 	providerID network.Id,
-	subnetIDs []string,
+	cidrList []string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	sp := space{UUID: uuid, Name: name}
+	selectSpaceByNameStmt, err := st.Prepare(`
+SELECT &space.uuid
+FROM   space
+WHERE  name = $space.name`, sp)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	insertSpaceStmt, err := st.Prepare(`
-INSERT INTO space (uuid, name) 
+INSERT INTO space (uuid, name)
 VALUES ($space.*)`, sp)
 	if err != nil {
 		return errors.Capture(err)
@@ -59,11 +78,64 @@ VALUES ($providerSpace.*)`, providerSp)
 		return errors.Capture(err)
 	}
 
+	type cidrs []string
+	var (
+		selectCIDRsStmt *sqlair.Statement
+		updateCIDRsStmt *sqlair.Statement
+		cidrInput       cidrs
+	)
+	if len(cidrList) > 0 {
+		cidrInput = cidrList
+		selectCIDRsStmt, err = st.Prepare(`
+SELECT DISTINCT &subnet.cidr
+FROM   subnet
+WHERE  cidr IN ($cidrs[:])`, subnet{}, cidrInput)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		updateCIDRsStmt, err = st.Prepare(`
+UPDATE subnet
+SET    space_uuid = $space.uuid
+WHERE  cidr IN ($cidrs[:])`, sp, cidrInput)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, insertSpaceStmt, sp).Run(); err != nil {
-			if database.IsErrConstraintUnique(err) {
-				return errors.Errorf("inserting space uuid %q into space table: %w with err: %w", uuid, networkerrors.SpaceAlreadyExists, err)
+		var existing space
+		err := tx.Query(ctx, selectSpaceByNameStmt, sp).Get(&existing)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking space name %q: %w", name, err)
+		}
+		if err == nil {
+			return errors.Errorf("space %q: %w", name, networkerrors.SpaceAlreadyExists)
+		}
+
+		if len(cidrList) > 0 {
+			// Verify each requested CIDR matches at least one
+			// existing subnet. A single CIDR may correspond to
+			// multiple subnet rows (e.g. distinct provider networks
+			// presenting the same range); we only care that the
+			// CIDR is present.
+			var found []subnet
+			err := tx.Query(ctx, selectCIDRsStmt, cidrInput).GetAll(&found)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("looking up subnets for space %q: %w", uuid, err)
 			}
+			foundSet := make(map[string]struct{}, len(found))
+			for _, s := range found {
+				foundSet[s.CIDR] = struct{}{}
+			}
+			for _, cidr := range cidrList {
+				if _, ok := foundSet[cidr]; !ok {
+					return errors.Errorf("subnet %q: %w", cidr, networkerrors.SubnetNotFound)
+				}
+			}
+		}
+
+		// Preconditions satisfied: perform the writes.
+		if err := tx.Query(ctx, insertSpaceStmt, sp).Run(); err != nil {
 			return errors.Errorf("inserting space uuid %q into space table: %w", uuid, err)
 		}
 		if providerID != "" {
@@ -71,19 +143,13 @@ VALUES ($providerSpace.*)`, providerSp)
 				return errors.Errorf("inserting provider id %q into provider_space table: %w", providerID, err)
 			}
 		}
-
-		// Update all subnets (including their fan overlays) to include
-		// the space uuid.
-		for _, subnetID := range subnetIDs {
-			if err := st.updateSubnetSpaceID(
-				ctx,
-				tx,
-				subnet{
-					UUID:      subnetID,
-					SpaceUUID: uuid,
-				}); err != nil {
-				return errors.Errorf("updating subnet %q using space uuid %q: %w", subnetID, uuid, err)
-			}
+		if len(cidrList) == 0 {
+			return nil
+		}
+		// Assign all subnets matching any of the requested CIDRs to
+		// the new space.
+		if err := tx.Query(ctx, updateCIDRsStmt, sp, cidrInput).Run(); err != nil {
+			return errors.Errorf("updating subnets for space %q: %w", uuid, err)
 		}
 		return nil
 	})

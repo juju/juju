@@ -9,7 +9,6 @@ import (
 	"fmt"
 	stdtesting "testing"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
@@ -616,28 +615,11 @@ WHERE uuid = ?
 	return machineName
 }
 
-func (s *stateSuite) TestGetMachinePlacementDirective(c *tc.C) {
-	machineUUID, machineName := s.addMachine(c)
-
-	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return insertMachineProviderPlacement(c.Context(), tx, s.state, machineUUID.String(), "0/lxd/42")
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	placement, err := s.state.GetMachinePlacementDirective(c.Context(), machineName.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(*placement, tc.Equals, "0/lxd/42")
-}
-
-func (s *stateSuite) TestGetMachinePlacementDirectiveNotFound(c *tc.C) {
-	_, err := s.state.GetMachinePlacementDirective(c.Context(), "1")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-func (s *stateSuite) TestConstraintFull(c *tc.C) {
-	networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddSpace(c.Context(), "space-uuid-0", "space0", "", []string{})
-	networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).AddSpace(c.Context(), "space-uuid-1", "space1", "", []string{})
+func (s *stateSuite) TestGetProvisioningInfoFull(c *tc.C) {
+	_ = networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).
+		AddSpace(c.Context(), "space-uuid-0", "space0", "", []string{})
+	_ = networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)).
+		AddSpace(c.Context(), "space-uuid-1", "space1", "", []string{})
 
 	_, machineNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -669,7 +651,7 @@ func (s *stateSuite) TestConstraintFull(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	machineName := machineNames[0]
 
-	cons, err := s.state.GetMachineConstraints(c.Context(), machineName.String())
+	b, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*cons.Tags, tc.SameContents, []string{"tag0", "tag1"})
 	c.Check(*cons.Spaces, tc.SameContents, []constraints.SpaceConstraint{
@@ -689,6 +671,13 @@ func (s *stateSuite) TestConstraintFull(c *tc.C) {
 	c.Check(cons.VirtType, tc.DeepEquals, new("virt-type"))
 	c.Check(cons.AllocatePublicIP, tc.DeepEquals, new(true))
 	c.Check(cons.ImageID, tc.DeepEquals, new("image-id"))
+	c.Assert(b, tc.DeepEquals, corebase.Base{
+		OS: "ubuntu",
+		Channel: corebase.Channel{
+			Track: "22.04",
+			Risk:  "stable",
+		},
+	})
 }
 
 func (s *stateSuite) TestConstraintPartial(c *tc.C) {
@@ -708,7 +697,7 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	machineName := machineNames[0]
 
-	cons, err := s.state.GetMachineConstraints(c.Context(), machineName.String())
+	_, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		Arch:             new("amd64"),
@@ -732,7 +721,7 @@ func (s *stateSuite) TestConstraintSingleValue(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	machineName := machineNames[0]
 
-	cons, err := s.state.GetMachineConstraints(c.Context(), machineName.String())
+	_, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
 		CpuCores: new(uint64(2)),
@@ -742,14 +731,9 @@ func (s *stateSuite) TestConstraintSingleValue(c *tc.C) {
 func (s *stateSuite) TestConstraintEmpty(c *tc.C) {
 	_, machineName := s.addMachine(c)
 
-	cons, err := s.state.GetMachineConstraints(c.Context(), machineName.String())
+	_, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{})
-}
-
-func (s *stateSuite) TestConstraintsApplicationNotFound(c *tc.C) {
-	_, err := s.state.GetMachineConstraints(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestGetMachineBase(c *tc.C) {

@@ -132,18 +132,16 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(base, tc.Equals, corebase.MustParseBaseFromString("ubuntu@24.04"))
 
-	cons, err := svc.GetMachineConstraints(c.Context(), machineName)
+	pInfo, err := svc.GetMachineProvisioningInfo(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cons, tc.DeepEquals, constraints.Value{
+	c.Check(pInfo.Constraints, tc.DeepEquals, constraints.Value{
 		CpuCores: new(uint64(4)),
 		Mem:      new(uint64(8192)),
 		RootDisk: new(uint64(1024)),
 		Tags:     &[]string{"tag1", "tag2"},
 	})
-
-	placement, err := svc.GetMachinePlacementDirective(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(placement, tc.IsNil)
+	c.Check(pInfo.PlacementDirective, tc.IsNil)
+	c.Check(pInfo.Base, tc.Equals, corebase.MustParseBaseFromString("ubuntu@24.04"))
 
 	containerTypes, err := svc.GetSupportedContainersTypes(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)

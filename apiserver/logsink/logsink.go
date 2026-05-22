@@ -328,7 +328,7 @@ func (h *logSinkHandler) receiveLogs(
 				// has already disconnected from us, this will fail, but we don't
 				// care that much.
 				h.mu.Lock()
-				_ = socket.WriteMessage(gorillaws.CloseMessage, []byte{})
+				_ = socket.WriteMessage(gorillaws.CloseMessage, gorillaws.FormatCloseMessage(gorillaws.CloseGoingAway, ""))
 				h.mu.Unlock()
 				return
 			}

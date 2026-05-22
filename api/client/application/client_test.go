@@ -1677,7 +1677,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageSuccessful(c *tc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageDirectives{
+			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageDirectives{
 				"storage-block": {
 					Pool:    "loop",
 					SizeMiB: &sbSize,
@@ -1722,7 +1722,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageServerError(c *tc.C) {
 
 	args := params.ApplicationStorageUpdateRequest{
 		ApplicationStorageUpdates: []params.ApplicationStorageUpdate{
-			{ApplicationTag: "application-storage-block", StorageConstraints: map[string]params.StorageDirectives{
+			{ApplicationTag: "application-storage-block", StorageDirectives: map[string]params.StorageDirectives{
 				"storage-block": {
 					Pool:    "loop",
 					SizeMiB: &sbSize,

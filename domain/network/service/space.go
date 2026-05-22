@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -22,31 +21,36 @@ import (
 )
 
 // AddSpace creates and returns a new space.
-func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.SpaceUUID, error) {
+//
+// CIDR format is validated here; the existence check (each CIDR must match an
+// existing subnet) is performed atomically by the state layer alongside the
+// space creation.
+func (s *Service) AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs) (network.SpaceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !names.IsValidSpace(string(space.Name)) {
-		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
+	if err := args.Name.Validate(); err != nil {
+		return "", errors.Errorf("%w", err).Add(networkerrors.SpaceNameNotValid)
 	}
-
-	spaceID := space.ID
-	if spaceID == "" {
-		var err error
-		spaceID, err = network.NewSpaceUUID()
-		if err != nil {
-			return "", errors.Errorf("creating uuid for new space %q: %w", space.Name, err)
+	for _, cidr := range args.CIDRs {
+		if !network.IsValidCIDR(cidr) {
+			return "", errors.Errorf("%q is not a valid CIDR", cidr).Add(networkerrors.SubnetCIDRNotValid)
 		}
 	}
 
-	subnetIDs := make([]string, len(space.Subnets))
-	for i, subnet := range space.Subnets {
-		subnetIDs[i] = subnet.ID.String()
+	spaceUUID := args.UUID
+	if spaceUUID == "" {
+		var err error
+		spaceUUID, err = network.NewSpaceUUID()
+		if err != nil {
+			return "", errors.Errorf("creating uuid for new space %q: %w", args.Name, err)
+		}
 	}
-	if err := s.st.AddSpace(ctx, spaceID, space.Name, space.ProviderId, subnetIDs); err != nil {
+
+	if err := s.st.AddSpace(ctx, spaceUUID, args.Name, args.ProviderID, args.CIDRs); err != nil {
 		return "", errors.Capture(err)
 	}
-	return spaceID, nil
+	return spaceUUID, nil
 }
 
 // UpdateSpace updates the space name identified by the passed uuid. If the
@@ -286,9 +290,9 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 			s.logger.Debugf(ctx, "Adding space %s from providerWithNetworking %s", spaceName, string(spaceInfo.ProviderId))
 			spaceUUID, err := s.spaceService.AddSpace(
 				ctx,
-				network.SpaceInfo{
+				domainnetwork.AddSpaceArgs{
 					Name:       network.SpaceName(spaceName),
-					ProviderId: spaceInfo.ProviderId,
+					ProviderID: spaceInfo.ProviderId,
 				},
 			)
 			if err != nil {

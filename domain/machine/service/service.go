@@ -11,7 +11,6 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/base"
-	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
@@ -171,19 +170,14 @@ type State interface {
 	// (non-subordinate) applications for the specified machine.
 	GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error)
 
-	// GetMachinePlacementDirective returns the placement structure as it was
-	// recorded for the given machine.
-	GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error)
-
-	// GetMachineConstraints returns the constraints for the given machine.
-	// Empty constraints are returned if no constraints exist for the given
-	// machine.
-	GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error)
-
 	// GetMachineBase returns the base for the given machine. Since the
 	// machine_platform table is populated when creating a machine, there should
 	// always be a base for a machine.
 	GetMachineBase(ctx context.Context, mName string) (base.Base, error)
+
+	// GetMachineProvisioningInfo returns the base, placement directive and
+	// constraints for the given machine.
+	GetMachineProvisioningInfo(ctx context.Context, mName string) (base.Base, *string, constraints.Constraints, error)
 
 	// GetModelConstraints returns the currently set constraints for the model.
 	// Note: This method should mirror the model domain method of the same name.
@@ -498,38 +492,31 @@ func (s *Service) GetMachinePrincipalApplications(ctx context.Context, mName mac
 	return s.st.GetMachinePrincipalApplications(ctx, mName)
 }
 
-// GetMachinePlacementDirective returns the placement structure as it was
-// recorded for the given machine.
+// GetMachineProvisioningInfo returns the base, placement directive and
+// constraints for the given machine.
 //
 // The following errors may be returned:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
-func (s *Service) GetMachinePlacementDirective(ctx context.Context, mName machine.Name) (*string, error) {
+func (s *Service) GetMachineProvisioningInfo(ctx context.Context, mName machine.Name) (domainmachine.ProvisioningInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := mName.Validate(); err != nil {
-		return nil, errors.Errorf("validating machine name %q: %w", mName, err)
+		return domainmachine.ProvisioningInfo{}, errors.Errorf(
+			"validating machine name %q: %w", mName, err,
+		)
 	}
 
-	return s.st.GetMachinePlacementDirective(ctx, mName.String())
-}
-
-// GetMachineConstraints returns the constraints for the given machine.
-// Empty constraints are returned if no constraints exist for the given
-// machine.
-//
-// The following errors may be returned:
-// - [machineerrors.MachineNotFound] if the machine does not exist.
-func (s *Service) GetMachineConstraints(ctx context.Context, mName machine.Name) (coreconstraints.Value, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := mName.Validate(); err != nil {
-		return coreconstraints.Value{}, errors.Errorf("validating machine name %q: %w", mName, err)
+	b, placement, cons, err := s.st.GetMachineProvisioningInfo(ctx, mName.String())
+	if err != nil {
+		return domainmachine.ProvisioningInfo{}, errors.Capture(err)
 	}
 
-	cons, err := s.st.GetMachineConstraints(ctx, mName.String())
-	return constraints.EncodeConstraints(cons), errors.Capture(err)
+	return domainmachine.ProvisioningInfo{
+		Base:               b,
+		PlacementDirective: placement,
+		Constraints:        constraints.EncodeConstraints(cons),
+	}, nil
 }
 
 // GetMachineBase returns the base for the given machine.

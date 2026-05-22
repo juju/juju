@@ -66,9 +66,13 @@ func (m *ModelOperatorManager) loop() error {
 	ctx, cancel := m.scopedContext()
 	defer cancel()
 
+	shortModelID := m.modelUUID
+	if names.IsValidModel(m.modelUUID) {
+		shortModelID = names.NewModelTag(m.modelUUID).ShortId()
+	}
 	watcher, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch model operator provisioning info")
+		return errors.Annotatef(err, "cannot watch model operator [%s] provisioning info", shortModelID)
 	}
 	err = m.catacomb.Add(watcher)
 	if err != nil {
@@ -82,7 +86,7 @@ func (m *ModelOperatorManager) loop() error {
 		case <-watcher.Changes():
 			err := m.update(ctx)
 			if err != nil {
-				return errors.Annotate(err, "failed to update model operator")
+				return errors.Annotatef(err, "failed to update model operator [%s]", shortModelID)
 			}
 		}
 	}
@@ -240,7 +244,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 		},
 	)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating new agent config")
+		return nil, errors.Annotatef(err, "creating new agent config for model")
 	}
 
 	return conf, nil

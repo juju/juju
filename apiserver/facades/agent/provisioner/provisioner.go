@@ -48,31 +48,24 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsGetter
 
-	networkService             NetworkService
-	controllerConfigService    ControllerConfigService
-	cloudImageMetadataService  CloudImageMetadataService
-	agentProvisionerService    AgentProvisionerService
-	keyUpdaterService          KeyUpdaterService
-	modelConfigService         ModelConfigService
-	modelInfoService           ModelInfoService
-	machineService             MachineService
-	statusService              StatusService
-	applicationService         ApplicationService
-	removalService             RemovalService
-	authorizer                 facade.Authorizer
-	storagePoolGetter          StoragePoolGetter
-	storageProvisioningService StoageProvisioningService
-	getAuthFunc                common.GetAuthFunc
-	getCanModify               common.GetAuthFunc
-	toolsFinder                common.ToolsFinder
-	watcherRegistry            facade.WatcherRegistry
-	logger                     logger.Logger
-	clock                      clock.Clock
+	networkService          NetworkService
+	controllerConfigService ControllerConfigService
+	agentProvisionerService AgentProvisionerService
+	keyUpdaterService       KeyUpdaterService
+	machineService          MachineService
+	statusService           StatusService
+	applicationService      ApplicationService
+	removalService          RemovalService
+	provisioningService     ProvisioningService
+	authorizer              facade.Authorizer
+	getAuthFunc             common.GetAuthFunc
+	getCanModify            common.GetAuthFunc
+	toolsFinder             common.ToolsFinder
+	watcherRegistry         facade.WatcherRegistry
+	logger                  logger.Logger
+	clock                   clock.Clock
 
-	// Hold on to the controller UUID, as we'll reuse it for a lot of
-	// calls.
-	controllerUUID    string
-	modelName         string
+	// Hold on to the model UUID for the ModelUUID method.
 	modelUUID         coremodel.UUID
 	isControllerModel bool
 }
@@ -124,7 +117,6 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	agentProvisionerService := domainServices.AgentProvisioner()
 	agentService := domainServices.Agent()
 	applicationService := domainServices.Application()
-	cloudImageMetadataService := domainServices.CloudImageMetadata()
 	controllerNodeService := domainServices.ControllerNode()
 	controllerConfigService := domainServices.ControllerConfig()
 	externalControllerService := domainServices.ExternalController()
@@ -134,10 +126,9 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	modelInfoService := domainServices.ModelInfo()
 	modelService := domainServices.Model()
 	networkService := domainServices.Network()
+	provisioningService := domainServices.Provisioning()
 	removalService := domainServices.Removal()
 	statusService := domainServices.Status()
-	storageService := domainServices.Storage()
-	storageProvisioningService := domainServices.StorageProvisioning()
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
@@ -163,29 +154,23 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			externalControllerService,
 			modelService,
 		),
-		isControllerModel:          ctx.IsControllerModelScoped(),
-		networkService:             networkService,
-		controllerConfigService:    controllerConfigService,
-		agentProvisionerService:    agentProvisionerService,
-		cloudImageMetadataService:  cloudImageMetadataService,
-		keyUpdaterService:          keyUpdaterService,
-		modelConfigService:         modelConfigService,
-		modelInfoService:           modelInfoService,
-		machineService:             machineService,
-		statusService:              statusService,
-		applicationService:         applicationService,
-		removalService:             removalService,
-		authorizer:                 authorizer,
-		storagePoolGetter:          storageService,
-		storageProvisioningService: storageProvisioningService,
-		getAuthFunc:                getAuthFunc,
-		getCanModify:               getCanModify,
-		controllerUUID:             ctx.ControllerUUID(),
-		modelName:                  modelInfo.Name,
-		modelUUID:                  ctx.ModelUUID(),
-		watcherRegistry:            watcherRegistry,
-		logger:                     ctx.Logger().Child("provisioner"),
-		clock:                      ctx.Clock(),
+		isControllerModel:       ctx.IsControllerModelScoped(),
+		networkService:          networkService,
+		controllerConfigService: controllerConfigService,
+		agentProvisionerService: agentProvisionerService,
+		keyUpdaterService:       keyUpdaterService,
+		machineService:          machineService,
+		statusService:           statusService,
+		applicationService:      applicationService,
+		removalService:          removalService,
+		provisioningService:     provisioningService,
+		authorizer:              authorizer,
+		getAuthFunc:             getAuthFunc,
+		getCanModify:            getCanModify,
+		modelUUID:               ctx.ModelUUID(),
+		watcherRegistry:         watcherRegistry,
+		logger:                  ctx.Logger().Child("provisioner"),
+		clock:                   ctx.Clock(),
 	}
 	if isCaasModel {
 		return api, nil
@@ -630,7 +615,7 @@ func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.En
 // commonServiceInstances returns instances with
 // services in common with the specified machine.
 func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineName coremachine.Name) ([]instance.Id, error) {
-	unitNames, err := api.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	unitNames, err := api.applicationService.GetUnitNamesWithPrincipalOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return nil, errors.Errorf(
 			"machine %q not found", machineName,
@@ -639,14 +624,12 @@ func (api *ProvisionerAPI) commonServiceInstances(ctx context.Context, machineNa
 		return nil, errors.Capture(err)
 	}
 	instanceIdSet := make(set.Strings)
-	for _, unitName := range unitNames {
-		if _, isPrincipal, err := api.applicationService.GetUnitPrincipal(ctx, unitName); err != nil {
-			return nil, errors.Capture(err)
-		} else if !isPrincipal {
+	for _, u := range unitNames {
+		if u.IsSubordinate() {
 			continue
 		}
 
-		appName := unitName.Application()
+		appName := u.Name.Application()
 		machineNames, err := api.applicationService.GetMachinesForApplication(ctx, appName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.Errorf(
@@ -746,12 +729,12 @@ func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		cons, err := api.machineService.GetMachineConstraints(ctx, coremachine.Name(tag.Id()))
+		pInfo, err := api.machineService.GetMachineProvisioningInfo(ctx, coremachine.Name(tag.Id()))
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Constraints = cons
+		result.Results[i].Constraints = pInfo.Constraints
 	}
 	return result, nil
 }
