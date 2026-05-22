@@ -50,10 +50,10 @@ type SecretModelState interface {
 	// for secret revisions owned by the application with the input UUID.
 	GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error)
 
-	// DeleteUserSecretRevisions deletes the specified revisions of the user
-	// secret with the input URI. If revisions is nil or empty, all revisions
-	// are deleted. Returns the revision UUIDs that were deleted.
-	DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) ([]string, error)
+	// DeleteSecretRevisions deletes the specified revisions of the secret with
+	// the input URI. If revisions is nil or empty, all revisions are deleted.
+	// Returns the revision UUIDs that were deleted.
+	DeleteSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) ([]string, error)
 
 	// DeleteObsoleteUserSecretRevisions deletes all obsolete revisions of
 	// auto-prune user secrets. Returns the deleted revision UUIDs for
@@ -237,7 +237,7 @@ func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend
 
 func (s *Service) deleteSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) error {
 	// Delete the specified revisions (or all if revisions is nil)
-	deletedRevisionUUIDs, err := s.modelState.DeleteUserSecretRevisions(ctx, uri, revisions)
+	deletedRevisionUUIDs, err := s.modelState.DeleteSecretRevisions(ctx, uri, revisions)
 	if err != nil {
 		return errors.Errorf("deleting secret revisions: %w", err)
 	}

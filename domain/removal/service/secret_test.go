@@ -84,7 +84,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	exp := s.modelState.EXPECT()
-	exp.DeleteUserSecretRevisions(gomock.Any(), uri, nil).Return([]string{"rev-uuid-1"}, nil)
+	exp.DeleteSecretRevisions(gomock.Any(), uri, nil).Return([]string{"rev-uuid-1"}, nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -112,7 +112,7 @@ func (s *secretSuite) TestExecuteJobForCharmSecretDelete(c *tc.C) {
 	uri, _ := secrets.ParseURI(j.EntityUUID)
 
 	exp := s.modelState.EXPECT()
-	exp.DeleteUserSecretRevisions(gomock.Any(), uri, nil).Return([]string{"rev-uuid-1"}, nil)
+	exp.DeleteSecretRevisions(gomock.Any(), uri, nil).Return([]string{"rev-uuid-1"}, nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -138,7 +138,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretWithSpecificRevisions(c *tc.C) 
 	revs := []string{"rev-uuid-1", "rev-uuid-2"}
 
 	exp := s.modelState.EXPECT()
-	exp.DeleteUserSecretRevisions(gomock.Any(), uri, []int{1, 2}).Return(revs, nil)
+	exp.DeleteSecretRevisions(gomock.Any(), uri, []int{1, 2}).Return(revs, nil)
 	exp.GetUserSecretRevisionRefs(gomock.Any(), revs).Return([]string{"ref-1", "ref-2"}, nil)
 	exp.DeleteUserSecretRevisionRef(gomock.Any(), "ref-1").Return(nil)
 	exp.DeleteUserSecretRevisionRef(gomock.Any(), "ref-2").Return(nil)
@@ -164,7 +164,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDelete(c *tc.C) 
 	deletedRevisionUUIDs := []string{"rev-uuid-1", "rev-uuid-2", "rev-uuid-3"}
 
 	exp := s.modelState.EXPECT()
-	exp.DeleteUserSecretRevisions(gomock.Any(), uri, nil).Return(deletedRevisionUUIDs, nil)
+	exp.DeleteSecretRevisions(gomock.Any(), uri, nil).Return(deletedRevisionUUIDs, nil)
 	exp.GetUserSecretRevisionRefs(gomock.Any(), deletedRevisionUUIDs).Return(secretExternalRefs, nil)
 	exp.DeleteUserSecretRevisionRef(gomock.Any(), secretExternalRefs[0]).Return(nil)
 	exp.DeleteUserSecretRevisionRef(gomock.Any(), secretExternalRefs[1]).Return(nil)
@@ -194,7 +194,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDeleteWithFailur
 	deletedRevisionUUIDs := []string{"rev-uuid-1", "rev-uuid-2"}
 
 	exp := s.modelState.EXPECT()
-	exp.DeleteUserSecretRevisions(gomock.Any(), uri, nil).Return(deletedRevisionUUIDs, nil)
+	exp.DeleteSecretRevisions(gomock.Any(), uri, nil).Return(deletedRevisionUUIDs, nil)
 	exp.GetUserSecretRevisionRefs(gomock.Any(), deletedRevisionUUIDs).Return(secretExternalRefs, nil)
 	exp.DeleteUserSecretRevisionRef(gomock.Any(), secretExternalRefs[0]).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
