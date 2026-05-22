@@ -3981,17 +3981,3 @@ func (st State) ScheduleObsoleteUserSecretRevisionsPruning(ctx context.Context, 
 		return nil
 	}))
 }
-
-// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-// unit has made that have not been claimed, and it also expires any tokens
-// the unit has requested at the time provided.
-//
-// The following errors can be expected:
-// - [applicationerrors.UnitNotFound] when the unit is not found.
-func (st State) RemoveUnitReservationsAndTokens(
-	ctx context.Context, unitName string, expireAt time.Time,
-) error {
-	// TODO(secrets): remove reserved secret ids and expire tokens for this
-	// unit.
-	return nil
-}

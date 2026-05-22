@@ -127,13 +127,6 @@ type State interface {
 	// NamespaceForWatchSecretRevisionObsolete returns namespace identifier for
 	// obsolete secret revision watcher.
 	NamespaceForWatchSecretRevisionObsolete() string
-
-	// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-	// unit has made that have not been claimed, and it also expires any tokens
-	// the unit has requested at the time provided.
-	RemoveUnitReservationsAndTokens(
-		ctx context.Context, unitName string, expireAt time.Time,
-	) error
 }
 
 // SecretBackendReferenceMutator describes methods
