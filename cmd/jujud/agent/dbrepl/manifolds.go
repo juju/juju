@@ -1,10 +1,6 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package dbrepl provides the dependency manifolds for the controller
-// database REPL subcommand.  The controller binary is always a
-// controller node, so none of the manifolds here need an ifController
-// guard or a state-config-watcher input.
 package dbrepl
 
 import (
