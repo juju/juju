@@ -78,7 +78,7 @@ var errorTsts = []tstData{
 	{
 		args:        []string{"tst/123", "data=-676"},
 		expectedErr: `count must be greater than zero, got "-676"`,
-		visibleErr:  `cannot parse directive for storage "data": cannot parse count: count must be greater than zero, got "-676"`,
+		visibleErr:  `cannot parse directive for storage "data": parsing storage count: count must be greater than zero, got "-676"`,
 	},
 	{
 		args:        []string{"tst/123", "data=676", "data=676"},

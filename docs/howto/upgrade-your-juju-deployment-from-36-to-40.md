@@ -372,6 +372,25 @@ watch --color -n 1 juju status --color
 viddy juju status
 ```
 
+### 14. Volume-backed storage pools are preferred by default
+
+Where possible, Juju defaults to use volume-backed storage pools to create filesystems.
+
+**Juju 3.6**
+```bash
+juju deploy postgresql --storage pgdata=10G
+# This will result in a `rootfs` filesystem
+```
+
+**Juju 4.0**
+```bash
+juju deploy postgresql --storage pgdata=10G
+# This will result in `ebs`, `azure`, `gce`, `cinder`, etc. volume-backed filesystems for the providers `aws`, `azure`, `gce`, `openstack`, etc. respectively
+
+# To replicate the 3.6 behaviour, set the storage pool to `rootfs` in the storage directive
+juju deploy postgresql --storage pgdata=rootfs,10G
+```
+
 ### 15. Spaces are explicit
 
 Juju `3.6` and prior treated the `alpha` space as a space agnostic request in some cases.

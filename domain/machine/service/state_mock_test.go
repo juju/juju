@@ -518,45 +518,6 @@ func (c *MockStateGetMachineBaseCall) DoAndReturn(f func(context.Context, string
 	return c
 }
 
-// GetMachineConstraints mocks base method.
-func (m *MockState) GetMachineConstraints(ctx context.Context, mName string) (constraints.Constraints, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineConstraints", ctx, mName)
-	ret0, _ := ret[0].(constraints.Constraints)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachineConstraints indicates an expected call of GetMachineConstraints.
-func (mr *MockStateMockRecorder) GetMachineConstraints(ctx, mName any) *MockStateGetMachineConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineConstraints", reflect.TypeOf((*MockState)(nil).GetMachineConstraints), ctx, mName)
-	return &MockStateGetMachineConstraintsCall{Call: call}
-}
-
-// MockStateGetMachineConstraintsCall wrap *gomock.Call
-type MockStateGetMachineConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineConstraintsCall) Return(arg0 constraints.Constraints, arg1 error) *MockStateGetMachineConstraintsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineConstraintsCall) Do(f func(context.Context, string) (constraints.Constraints, error)) *MockStateGetMachineConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineConstraintsCall) DoAndReturn(f func(context.Context, string) (constraints.Constraints, error)) *MockStateGetMachineConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetMachineContainers mocks base method.
 func (m *MockState) GetMachineContainers(ctx context.Context, mUUID string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -674,45 +635,6 @@ func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// GetMachinePlacementDirective mocks base method.
-func (m *MockState) GetMachinePlacementDirective(ctx context.Context, mName string) (*string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachinePlacementDirective", ctx, mName)
-	ret0, _ := ret[0].(*string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMachinePlacementDirective indicates an expected call of GetMachinePlacementDirective.
-func (mr *MockStateMockRecorder) GetMachinePlacementDirective(ctx, mName any) *MockStateGetMachinePlacementDirectiveCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinePlacementDirective", reflect.TypeOf((*MockState)(nil).GetMachinePlacementDirective), ctx, mName)
-	return &MockStateGetMachinePlacementDirectiveCall{Call: call}
-}
-
-// MockStateGetMachinePlacementDirectiveCall wrap *gomock.Call
-type MockStateGetMachinePlacementDirectiveCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachinePlacementDirectiveCall) Return(arg0 *string, arg1 error) *MockStateGetMachinePlacementDirectiveCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachinePlacementDirectiveCall) Do(f func(context.Context, string) (*string, error)) *MockStateGetMachinePlacementDirectiveCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachinePlacementDirectiveCall) DoAndReturn(f func(context.Context, string) (*string, error)) *MockStateGetMachinePlacementDirectiveCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetMachinePrincipalApplications mocks base method.
 func (m *MockState) GetMachinePrincipalApplications(ctx context.Context, mName machine.Name) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -748,6 +670,47 @@ func (c *MockStateGetMachinePrincipalApplicationsCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetMachinePrincipalApplicationsCall) DoAndReturn(f func(context.Context, machine.Name) ([]string, error)) *MockStateGetMachinePrincipalApplicationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineProvisioningInfo mocks base method.
+func (m *MockState) GetMachineProvisioningInfo(ctx context.Context, mName string) (base.Base, *string, constraints.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineProvisioningInfo", ctx, mName)
+	ret0, _ := ret[0].(base.Base)
+	ret1, _ := ret[1].(*string)
+	ret2, _ := ret[2].(constraints.Constraints)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetMachineProvisioningInfo indicates an expected call of GetMachineProvisioningInfo.
+func (mr *MockStateMockRecorder) GetMachineProvisioningInfo(ctx, mName any) *MockStateGetMachineProvisioningInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineProvisioningInfo", reflect.TypeOf((*MockState)(nil).GetMachineProvisioningInfo), ctx, mName)
+	return &MockStateGetMachineProvisioningInfoCall{Call: call}
+}
+
+// MockStateGetMachineProvisioningInfoCall wrap *gomock.Call
+type MockStateGetMachineProvisioningInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineProvisioningInfoCall) Return(arg0 base.Base, arg1 *string, arg2 constraints.Constraints, arg3 error) *MockStateGetMachineProvisioningInfoCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineProvisioningInfoCall) Do(f func(context.Context, string) (base.Base, *string, constraints.Constraints, error)) *MockStateGetMachineProvisioningInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineProvisioningInfoCall) DoAndReturn(f func(context.Context, string) (base.Base, *string, constraints.Constraints, error)) *MockStateGetMachineProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

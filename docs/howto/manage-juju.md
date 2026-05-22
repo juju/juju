@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Install, configure, and manage the Juju CLI client on Linux, Windows, and macOS. Learn to handle authentication, upgrades, and plugins."
+    description: "Install, configure, and manage the Juju CLI client on Linux and macOS. Learn to handle authentication, upgrades, and plugins."
 ---
 
 (manage-juju)=
@@ -55,7 +55,7 @@ description: |
   applications on K8s. Juju is an operator lifecycle manager that manages the
   installation, integration and configuration of operators on the cluster.
   Juju also extends the idea of operators to traditional application
-  management on Linux and Windows servers, or cloud instances.
+  management on Linux servers, or cloud instances.
 
   **Model-driven operations and integration**
   Organise your operators into models, which group together applications that
@@ -232,12 +232,6 @@ brew install juju
 
 `````
 
-`````{tab} Windows
-
-Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the Juju version you wish to install.
-
-`````
-
 ``````
 
 ## Use `juju`
@@ -313,12 +307,6 @@ To upgrade Juju to the latest stable release, run
 brew upgrade juju
 
 `````
-
-`````{tab} Windows
-
-Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the latest stable version of Juju you wish to install.
-
-`````
 ``````
 
 ## Uninstall `juju`
@@ -340,12 +328,6 @@ sudo snap remove juju
 ```text
 brew uninstall juju
 ```
-
-`````
-
-`````{tab} Windows
-
-Uninstall the juju client application using your system's application management settings.
 
 `````
 ``````

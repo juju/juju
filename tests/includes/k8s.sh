@@ -1,9 +1,11 @@
 kubectl() {
 	local k8s="${BOOTSTRAP_CLOUD}"
 	case "${BOOTSTRAP_PROVIDER}" in
-	"k8s") ;;
+	"k8s")
+		k8s="${BOOTSTRAP_CLOUD:-$(default_k8s)}"
+		;;
 	*)
-		# Use a local k8s that is available for IAAS testing needs.
+		# Use a local k8s that is available for CAAS testing needs.
 		k8s="$(default_k8s)"
 		;;
 	esac
@@ -25,9 +27,9 @@ kubectl() {
 }
 
 default_k8s() {
-	if which "minikube" >/dev/null 2>&1; then
+	if command -v minikube >/dev/null 2>&1 && [[ "Stopped" != "$(minikube status -o json | yq .APIServer)" ]]; then
 		printf "minikube"
-	elif which "microk8s" >/dev/null 2>&1; then
+	elif command -v microk8s >/dev/null 2>&1 && [[ "True" == "$(microk8s status --format yaml | yq .microk8s.running)" ]]; then
 		printf "microk8s"
 	fi
 }

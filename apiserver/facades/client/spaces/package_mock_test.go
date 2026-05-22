@@ -165,7 +165,7 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockNetworkService) AddSpace(arg0 context.Context, arg1 network.SpaceInfo) (network.SpaceUUID, error) {
+func (m *MockNetworkService) AddSpace(arg0 context.Context, arg1 network0.AddSpaceArgs) (network.SpaceUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1)
 	ret0, _ := ret[0].(network.SpaceUUID)
@@ -192,13 +192,13 @@ func (c *MockNetworkServiceAddSpaceCall) Return(arg0 network.SpaceUUID, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceAddSpaceCall) Do(f func(context.Context, network.SpaceInfo) (network.SpaceUUID, error)) *MockNetworkServiceAddSpaceCall {
+func (c *MockNetworkServiceAddSpaceCall) Do(f func(context.Context, network0.AddSpaceArgs) (network.SpaceUUID, error)) *MockNetworkServiceAddSpaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceAddSpaceCall) DoAndReturn(f func(context.Context, network.SpaceInfo) (network.SpaceUUID, error)) *MockNetworkServiceAddSpaceCall {
+func (c *MockNetworkServiceAddSpaceCall) DoAndReturn(f func(context.Context, network0.AddSpaceArgs) (network.SpaceUUID, error)) *MockNetworkServiceAddSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -471,50 +471,6 @@ func (c *MockNetworkServiceSubnetCall) Do(f func(context.Context, string) (*netw
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNetworkServiceSubnetCall) DoAndReturn(f func(context.Context, string) (*network.SubnetInfo, error)) *MockNetworkServiceSubnetCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SubnetsByCIDR mocks base method.
-func (m *MockNetworkService) SubnetsByCIDR(arg0 context.Context, arg1 ...string) ([]network.SubnetInfo, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SubnetsByCIDR", varargs...)
-	ret0, _ := ret[0].([]network.SubnetInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SubnetsByCIDR indicates an expected call of SubnetsByCIDR.
-func (mr *MockNetworkServiceMockRecorder) SubnetsByCIDR(arg0 any, arg1 ...any) *MockNetworkServiceSubnetsByCIDRCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetsByCIDR", reflect.TypeOf((*MockNetworkService)(nil).SubnetsByCIDR), varargs...)
-	return &MockNetworkServiceSubnetsByCIDRCall{Call: call}
-}
-
-// MockNetworkServiceSubnetsByCIDRCall wrap *gomock.Call
-type MockNetworkServiceSubnetsByCIDRCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkServiceSubnetsByCIDRCall) Return(arg0 []network.SubnetInfo, arg1 error) *MockNetworkServiceSubnetsByCIDRCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkServiceSubnetsByCIDRCall) Do(f func(context.Context, ...string) ([]network.SubnetInfo, error)) *MockNetworkServiceSubnetsByCIDRCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkServiceSubnetsByCIDRCall) DoAndReturn(f func(context.Context, ...string) ([]network.SubnetInfo, error)) *MockNetworkServiceSubnetsByCIDRCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

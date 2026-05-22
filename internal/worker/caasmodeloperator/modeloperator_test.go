@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
@@ -175,4 +176,45 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(iteration, tc.Equals, n)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerWatchErrorContainsShortModelUUID(c *tc.C) {
+	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+
+	api := &dummyAPI{
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return nil, errors.New("watch failed")
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
+		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = worker.Wait()
+	c.Assert(err, tc.ErrorMatches, `cannot watch model operator \[deadbe\] provisioning info: watch failed`)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsShortModelUUID(c *tc.C) {
+	modelUUID := "deadbee0-0bad-400d-8000-4b1d0d06f00d"
+
+	changed := make(chan struct{}, 1)
+	api := &dummyAPI{
+		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+			return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
+		},
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(changed), nil
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
+		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Trigger one update cycle which will return an error.
+	changed <- struct{}{}
+
+	err = worker.Wait()
+	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: provisioning info failed`)
 }

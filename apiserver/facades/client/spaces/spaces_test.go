@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -60,33 +61,31 @@ func (s *APISuite) TestCreateSpacesFailInvalidTag(c *tc.C) {
 	c.Assert(res, tc.DeepEquals, expected)
 }
 
-func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *tc.C) {
+// TestCreateSpacesAddSpaceError asserts that an error returned by the network
+// service AddSpace call (e.g. CIDR validation or subnet-not-found, which are
+// now handled in the service/state layers) is surfaced on the per-space
+// result without aborting the rest of the batch.
+func (s *APISuite) TestCreateSpacesAddSpaceError(c *tc.C) {
 	ctrl := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 
 	args := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
 			{
-				CIDRs:      []string{"256.0.0.0/24"},
+				CIDRs:      []string{"10.0.0.0/24"},
 				SpaceTag:   "space-0",
-				ProviderId: "space-0",
+				ProviderId: "prov-space-0",
 			},
 		},
 	}
 
-	expected := params.ErrorResults{
-		Results: []params.ErrorResult{
-			{
-				Error: &params.Error{
-					Message: "\"256.0.0.0/24\" is not a valid CIDR",
-				},
-			},
-		},
-	}
+	bamErr := errors.New("bam")
+	s.NetworkService.EXPECT().AddSpace(gomock.Any(), gomock.Any()).Return(network.SpaceUUID(""), bamErr)
 
 	res, err := s.API.CreateSpaces(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, expected)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.ErrorMatches, ".*bam")
 }
 
 func (s *APISuite) TestCreateSpacesSuccess(c *tc.C) {
@@ -108,51 +107,18 @@ func (s *APISuite) TestCreateSpacesSuccess(c *tc.C) {
 		},
 	}
 
-	s.NetworkService.EXPECT().SubnetsByCIDR(gomock.Any(), []string{"10.0.0.0/24", "192.168.0.0/24"}).
-		Return([]network.SubnetInfo{
-			{
-				ID: "subnet-1",
-			},
-			{
-				ID: "subnet-2",
-			},
-		}, nil)
-	s.NetworkService.EXPECT().SubnetsByCIDR(gomock.Any(), []string{"10.0.1.0/24", "192.168.1.0/24"}).
-		Return([]network.SubnetInfo{
-			{
-				ID: "subnet-3",
-			},
-			{
-				ID: "subnet-4",
-			},
-		}, nil)
-
-	space0 := network.SpaceInfo{
+	// CIDR validation and subnet existence are handled inside the network
+	// service: the facade just passes the CIDRs straight through.
+	s.NetworkService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "0",
-		ProviderId: network.Id("prov-space-0"),
-		Subnets: []network.SubnetInfo{
-			{
-				ID: "subnet-1",
-			},
-			{
-				ID: "subnet-2",
-			},
-		},
-	}
-	space1 := network.SpaceInfo{
+		ProviderID: "prov-space-0",
+		CIDRs:      []string{"10.0.0.0/24", "192.168.0.0/24"},
+	})
+	s.NetworkService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "1",
-		ProviderId: network.Id("prov-space-1"),
-		Subnets: []network.SubnetInfo{
-			{
-				ID: "subnet-3",
-			},
-			{
-				ID: "subnet-4",
-			},
-		},
-	}
-	s.NetworkService.EXPECT().AddSpace(gomock.Any(), space0)
-	s.NetworkService.EXPECT().AddSpace(gomock.Any(), space1)
+		ProviderID: "prov-space-1",
+		CIDRs:      []string{"10.0.1.0/24", "192.168.1.0/24"},
+	})
 
 	expected := params.ErrorResults{Results: []params.ErrorResult{{}, {}}}
 	res, err := s.API.CreateSpaces(c.Context(), args)
