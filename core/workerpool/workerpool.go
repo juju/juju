@@ -109,7 +109,10 @@ func (wp *WorkerPool) Done() <-chan struct{} {
 	return wp.shutdownTriggerCh
 }
 
-// Idle returns true when the queue is empty and the workers are not working.
+// Idle waits until the queue is empty and the workers are not working.
+//
+// It returns false if the pool starts shutting down or the context is done
+// before the pool becomes idle.
 func (wp *WorkerPool) Idle(ctx context.Context) bool {
 	respChan := make(chan int, len(wp.idleChans))
 	for {
@@ -137,13 +140,9 @@ func (wp *WorkerPool) Idle(ctx context.Context) bool {
 			// All workers are idle and don't see any queued tasks.
 			return true
 		}
-		if numEmpty != 0 {
-			// Some of the workers disagreed about the number of queued tasks,
-			// try again until we get consensus.
-			continue
-		}
-		// All workers see queued tasks, so we cannot be idle.
-		return false
+
+		// Either some or all workers still see queued tasks. Keep waiting until
+		// everyone agrees that the pool is idle, or the caller gives up.
 	}
 }
 

@@ -62,6 +62,53 @@ func (s *ProvisionerWorkerPoolSuite) TestIdle(c *tc.C) {
 	}
 }
 
+func (s *ProvisionerWorkerPoolSuite) TestIdleWaitsForWorkers(c *tc.C) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	idleResult := make(chan bool, 1)
+	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 1)
+
+	select {
+	case wp.Queue() <- Task{
+		Type: "alien invasion",
+		Process: func() error {
+			close(started)
+			<-release
+			return nil
+		},
+	}:
+	case <-c.Context().Done():
+		c.Fatal("test context cancelled while enqueueing task")
+	}
+
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatal("test context cancelled while waiting for task to start")
+	}
+
+	go func() {
+		idleResult <- wp.Idle(c.Context())
+	}()
+
+	select {
+	case result := <-idleResult:
+		c.Fatalf("Idle returned early with %v", result)
+	default:
+	}
+
+	close(release)
+
+	select {
+	case result := <-idleResult:
+		c.Check(result, tc.IsTrue)
+	case <-c.Context().Done():
+		c.Fatal("test context cancelled while waiting for Idle")
+	}
+
+	c.Assert(wp.Close(), tc.ErrorIsNil)
+}
+
 func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *tc.C) {
 	doneCh := make(chan struct{}, 10)
 	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 5)
