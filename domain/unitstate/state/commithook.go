@@ -6,9 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strconv"
-	"strings"
+	"encoding/json"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -72,6 +70,10 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		if err := st.revokeSecretsAccess(ctx, tx, arg.SecretRevokes); err != nil {
 			return errors.Errorf("revoke secrets access:%w", err)
 		}
+
+		// TODO(secrets): clean up unit secret reservations and tokens here,
+		// inside the transaction, once the state-layer implementation is
+		// provided (currently a no-op in domain/secret/state).
 
 		if err := st.deleteSecrets(ctx, tx, arg.SecretDeletes); err != nil {
 			return errors.Errorf("delete secrets:%w", err)
@@ -137,9 +139,9 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 	}
 
 	now := st.clock.Now().UTC()
-	for _, del := range deletes {
+	for i, del := range deletes {
 		if del.URI == nil {
-			continue
+			return errors.Errorf("delete secret arg at index %d has nil URI", i)
 		}
 
 		jobUUID, err := uuid.NewUUID()
@@ -155,12 +157,12 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 		}
 
 		if len(del.Revisions) > 0 {
-			var revStrs []string
-			for _, rev := range del.Revisions {
-				revStrs = append(revStrs, strconv.Itoa(rev))
+			argJSON, err := json.Marshal(secretDeletionArg{Revisions: del.Revisions})
+			if err != nil {
+				return errors.Errorf("marshalling revisions arg for %q: %w", del.URI, err)
 			}
 			rec.Arg = sql.NullString{
-				String: fmt.Sprintf(`{"revisions":[%s]}`, strings.Join(revStrs, ",")),
+				String: string(argJSON),
 				Valid:  true,
 			}
 		}

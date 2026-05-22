@@ -11,7 +11,12 @@ import (
 	"github.com/juju/juju/domain/removal"
 )
 
-// charmSecretRemovalJobTypeID is the removal_type_id for CharmSecretJob,
+// secretDeletionArg is the JSON payload stored in the removal table's arg
+// column when scheduling a charm-secret deletion with specific revisions.
+type secretDeletionArg struct {
+	Revisions []int `json:"revisions"`
+}
+
 // used when scheduling deletion of unit- or application-owned secrets.
 const charmSecretRemovalJobTypeID = uint64(removal.CharmSecretJob)
 
