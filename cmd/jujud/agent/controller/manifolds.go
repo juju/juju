@@ -1,7 +1,6 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package controller provides the manifolds for the jujud controller.
 package controller
 
 import (
