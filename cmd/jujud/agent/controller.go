@@ -40,6 +40,7 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgradesteps"
@@ -429,7 +430,10 @@ func (a *ControllerAgent) makeEngineCreator(
 			DependencyEngineMetrics:           metrics,
 			NewEnvironFunc:                    newEnvirons,
 		}
-		manifolds := agentcontroller.Manifolds(manifoldsCfg)
+		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
+		if agentConfig.Value(agent.ProviderType) == k8sconstants.CAASProviderType {
+			manifolds = agentcontroller.CAASManifolds(manifoldsCfg)
+		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
 				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
