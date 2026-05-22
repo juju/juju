@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 	"regexp"
@@ -781,6 +782,92 @@ func (*rpcSuite) TestConcurrentCalls(c *tc.C) {
 	chanRead(c, done2, "method 2 done")
 }
 
+func (*rpcSuite) TestErrorResponseWriteDoesNotBlockRequestHandling(c *tc.C) {
+	codec := newBlockingServerCodec(
+		rpc.Header{
+			RequestId: 1,
+			Request: rpc.Request{
+				Type:    "UnknownMethods",
+				Version: 0,
+				Id:      "",
+				Action:  "Nope",
+			},
+			Version: 1,
+		},
+		rpc.Header{
+			RequestId: 2,
+			Request: rpc.Request{
+				Type:    "BlockingWriteMethods",
+				Version: 0,
+				Id:      "",
+				Action:  "Ping",
+			},
+			Version: 1,
+		},
+	)
+	methods := &blockingWriteMethods{
+		called: make(chan struct{}),
+	}
+	root := &blockingWriteRoot{
+		methods: methods,
+	}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		codec.unblockFirstWrite()
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.firstWriteStarted, "first response write started")
+	chanRead(c, methods.called, "second request handled")
+}
+
+func (*rpcSuite) TestClientRequestIDConcurrentRead(c *tc.C) {
+	root := SimpleRoot(c)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+
+	stopReads := make(chan struct{})
+	readsDone := make(chan struct{})
+	go func() {
+		defer close(readsDone)
+		for {
+			select {
+			case <-stopReads:
+				return
+			default:
+				_ = client.ClientRequestID()
+			}
+		}
+	}()
+
+	const callCount = 64
+	var wg sync.WaitGroup
+	for i := 0; i < callCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var response stringVal
+			err := client.Call(c.Context(), rpc.Request{
+				Type:    "SimpleMethods",
+				Version: 0,
+				Id:      "a99",
+				Action:  "Call0r1",
+			}, nil, &response)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(response, tc.Equals, stringVal{Val: "Call0r1 ret"})
+		}()
+	}
+	wg.Wait()
+	close(stopReads)
+	<-readsDone
+
+	c.Assert(client.ClientRequestID(), tc.Equals, uint64(callCount))
+}
+
 type codedError struct {
 	m    string
 	code string
@@ -1167,6 +1254,30 @@ func (*rpcSuite) TestClientCloseIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (*rpcSuite) TestClientCloseConcurrentIdempotent(c *tc.C) {
+	client, _, srvDone, _ := newRPCClientServer(c, &Root{c: c}, nil, false)
+
+	const closeCalls = 16
+	errs := make(chan error, closeCalls)
+	var wg sync.WaitGroup
+	for i := 0; i < closeCalls; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- client.Close()
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	err := chanReadError(c, srvDone, "server done")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (*rpcSuite) TestBidirectional(c *tc.C) {
 	srvRoot := &Root{c: c}
 	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
@@ -1489,6 +1600,96 @@ func closeClient(c tc.LikeTB, client *rpc.Conn, srvDone <-chan error) {
 	tc.Assert(c, err, tc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
 	tc.Assert(c, err, tc.ErrorIsNil)
+}
+
+type blockingWriteRoot struct {
+	methods *blockingWriteMethods
+}
+
+func (r *blockingWriteRoot) BlockingWriteMethods(string) (*blockingWriteMethods, error) {
+	return r.methods, nil
+}
+
+type blockingWriteMethods struct {
+	called chan struct{}
+	once   sync.Once
+}
+
+func (m *blockingWriteMethods) Ping() {
+	m.once.Do(func() {
+		close(m.called)
+	})
+}
+
+type blockingServerCodec struct {
+	mu                sync.Mutex
+	headers           []rpc.Header
+	readIndex         int
+	closeCh           chan struct{}
+	closeOnce         sync.Once
+	firstWriteStarted chan struct{}
+	firstWriteOnce    sync.Once
+	unblockWrite      chan struct{}
+	unblockWriteOnce  sync.Once
+	writeCount        int
+}
+
+func newBlockingServerCodec(headers ...rpc.Header) *blockingServerCodec {
+	copied := make([]rpc.Header, len(headers))
+	copy(copied, headers)
+	return &blockingServerCodec{
+		headers:           copied,
+		closeCh:           make(chan struct{}),
+		firstWriteStarted: make(chan struct{}),
+		unblockWrite:      make(chan struct{}),
+	}
+}
+
+func (c *blockingServerCodec) ReadHeader(hdr *rpc.Header) error {
+	c.mu.Lock()
+	if c.readIndex < len(c.headers) {
+		*hdr = c.headers[c.readIndex]
+		c.readIndex++
+		c.mu.Unlock()
+		return nil
+	}
+	closeCh := c.closeCh
+	c.mu.Unlock()
+
+	<-closeCh
+	return io.EOF
+}
+
+func (*blockingServerCodec) ReadBody(any, bool) error {
+	return nil
+}
+
+func (c *blockingServerCodec) WriteMessage(_ *rpc.Header, _ any) error {
+	c.mu.Lock()
+	c.writeCount++
+	writeCount := c.writeCount
+	c.mu.Unlock()
+
+	if writeCount == 1 {
+		c.firstWriteOnce.Do(func() {
+			close(c.firstWriteStarted)
+		})
+		<-c.unblockWrite
+	}
+	return nil
+}
+
+func (c *blockingServerCodec) Close() error {
+	c.closeOnce.Do(func() {
+		close(c.closeCh)
+	})
+	return nil
+}
+
+func (c *blockingServerCodec) unblockFirstWrite() {
+	c.unblockWriteOnce.Do(func() {
+		close(c.unblockWrite)
+	})
 }
 
 // testCodec wraps an rpc.Codec with extra error checking code.
