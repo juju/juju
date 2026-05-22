@@ -4,10 +4,13 @@
 package jsoncodec_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/juju/tc"
@@ -290,6 +293,53 @@ func (*suite) TestWrite(c *tc.C) {
 	}
 }
 
+func (*suite) TestNetJSONConnConcurrentSend(c *tc.C) {
+	var out bytes.Buffer
+	conn := jsoncodec.NetJSONConn(&readerWriterCloser{
+		Reader: strings.NewReader(""),
+		Writer: &out,
+	})
+
+	const goroutines = 16
+	const sendsPerGoroutine = 32
+
+	start := make(chan struct{})
+	errs := make(chan error, goroutines*sendsPerGoroutine)
+	var wg sync.WaitGroup
+	for i := 0; i < goroutines; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < sendsPerGoroutine; j++ {
+				errs <- conn.Send(struct {
+					G int `json:"g"`
+					S int `json:"s"`
+				}{
+					G: i,
+					S: j,
+				})
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	c.Assert(lines, tc.HasLen, goroutines*sendsPerGoroutine)
+	for _, line := range lines {
+		var msg map[string]int
+		err := json.Unmarshal([]byte(line), &msg)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
 func (*suite) TestDumpRequest(c *tc.C) {
 	for i, test := range []struct {
 		hdr    rpc.Header
@@ -447,5 +497,14 @@ func (c *testConn) Send(msg any) error {
 
 func (c *testConn) Close() error {
 	c.closed = true
+	return nil
+}
+
+type readerWriterCloser struct {
+	io.Reader
+	io.Writer
+}
+
+func (*readerWriterCloser) Close() error {
 	return nil
 }
