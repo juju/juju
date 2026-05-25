@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -111,6 +112,27 @@ func (s *offerSuite) TestHideOfferWithRelations(c *tc.C) {
 	c.Check(offerEndpointCount, tc.Equals, 0)
 	c.Check(relCount, tc.Equals, 1)
 	c.Check(remoteAppCount, tc.Equals, 1)
+}
+
+func (s *offerSuite) TestHideOfferDeletesOfferAfterRelationsRemoved(c *tc.C) {
+	relUUID, _, offerUUID := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+
+	err := st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.HideOffer(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.OfferExists(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
 
 func (s *offerSuite) TestDeleteOfferWithRelations(c *tc.C) {

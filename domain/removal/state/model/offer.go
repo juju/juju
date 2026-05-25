@@ -73,7 +73,8 @@ func (st *State) GetOfferRelationUUIDs(ctx context.Context, oUUID string) ([]str
 }
 
 // HideOffer removes the offer endpoints so the offer can no longer be listed or
-// consumed while existing remote relations finish removal.
+// consumed while existing remote relations finish removal. If there are no
+// remaining connections, the offer row is removed as well.
 func (st *State) HideOffer(ctx context.Context, oUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -131,6 +132,36 @@ WHERE offer_uuid = $entityUUID.uuid
 
 	if err := tx.Query(ctx, deleteOfferEndpointsStmt, offerUUID).Run(); err != nil {
 		return errors.Errorf("deleting offer endpoints: %w", err)
+	}
+
+	if err := st.deleteHiddenOffer(ctx, tx, offerUUID); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) deleteHiddenOffer(ctx context.Context, tx *sqlair.TX, offerUUID entityUUID) error {
+	deleteHiddenOfferStmt, err := st.Prepare(`
+DELETE FROM offer
+WHERE  uuid = $entityUUID.uuid
+AND    NOT EXISTS (
+	SELECT 1
+	FROM   offer_endpoint
+	WHERE  offer_uuid = $entityUUID.uuid
+)
+AND    NOT EXISTS (
+	SELECT 1
+	FROM   offer_connection
+	WHERE  offer_uuid = $entityUUID.uuid
+)
+`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing hidden offer deletion: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteHiddenOfferStmt, offerUUID).Run(); err != nil {
+		return errors.Errorf("deleting hidden offer: %w", err)
 	}
 
 	return nil

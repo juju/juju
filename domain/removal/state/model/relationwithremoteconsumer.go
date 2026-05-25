@@ -237,24 +237,6 @@ WHERE remote_relation_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing offer connection deletion: %w", err)
 	}
 
-	deleteHiddenOfferStmt, err := st.Prepare(`
-DELETE FROM offer
-WHERE  uuid = $entityUUID.uuid
-AND    NOT EXISTS (
-	SELECT 1
-	FROM   offer_endpoint
-	WHERE  offer_uuid = $entityUUID.uuid
-)
-AND    NOT EXISTS (
-	SELECT 1
-	FROM   offer_connection
-	WHERE  offer_uuid = $entityUUID.uuid
-)
-`, entityUUID{})
-	if err != nil {
-		return errors.Errorf("preparing hidden offer deletion: %w", err)
-	}
-
 	var synthAppUUID entityUUID
 	err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
 	if err != nil {
@@ -282,9 +264,9 @@ AND    NOT EXISTS (
 		return errors.Errorf("running offer connection deletion: %w", err)
 	}
 
-	err = tx.Query(ctx, deleteHiddenOfferStmt, offerUUID).Run()
+	err = st.deleteHiddenOffer(ctx, tx, offerUUID)
 	if err != nil {
-		return errors.Errorf("deleting hidden offer: %w", err)
+		return errors.Capture(err)
 	}
 
 	err = st.deleteRelation(ctx, tx, remoteRelationUUID)
