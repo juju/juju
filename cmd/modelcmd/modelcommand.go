@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/model"
@@ -454,16 +453,6 @@ func (c *ModelCommandBase) NewModelManagerAPIClient(ctx context.Context) (*model
 		return nil, errors.Trace(err)
 	}
 	return modelmanager.NewClient(root), nil
-}
-
-// NewModelUpgraderAPIClient returns an API client for the
-// ModelUpgrader on the current controller using the current credentials.
-func (c *ModelCommandBase) NewModelUpgraderAPIClient(ctx context.Context) (*modelupgrader.Client, error) {
-	root, err := c.NewAPIRoot(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelupgrader.NewClient(root), nil
 }
 
 // WrapOption specifies an option to the Wrap function.
