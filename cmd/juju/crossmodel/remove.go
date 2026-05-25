@@ -6,6 +6,7 @@ package crossmodel
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 // NewRemoveOfferCommand returns a command used to remove a specified offer.
@@ -36,15 +38,17 @@ type removeCommand struct {
 	offers      []string
 	offerSource string
 
-	assumeYes bool
-	force     bool
+	force    bool
+	noPrompt bool
 }
 
 const destroyOfferDoc = `
 Remove one or more application offers.
 
-If the ` + "`--force`" + ` option is specified, any existing relations to the
-offer will also be removed.
+If an offer has active connections, Juju will ask for confirmation before
+removing the offer and the relations to it unless --no-prompt is used.
+
+Use --force to request forced offer removal from the controller.
 
 Offers to remove are normally specified by their URL.
 It's also possible to specify just the offer name, in which case
@@ -53,7 +57,6 @@ the offer is considered to reside in the current model.
 
 const destroyOfferExamples = `
     juju remove-offer staging/mymodel.hosted-mysql
-    juju remove-offer staging/mymodel.hosted-mysql --force
     juju remove-offer hosted-mysql
 `
 
@@ -75,9 +78,8 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Remove the offer as well as any relations to the offer")
-	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.BoolVar(&c.force, "force", false, "Force remove the offer")
+	f.BoolVar(&c.noPrompt, "no-prompt", false, "Do not prompt for confirmation")
 }
 
 // Init implements Command.Init.
@@ -93,6 +95,7 @@ func (c *removeCommand) Init(args []string) error {
 type RemoveAPI interface {
 	Close() error
 	DestroyOffers(ctx context.Context, force bool, offerURLs ...string) error
+	ListOffers(ctx context.Context, filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // NewApplicationOffersAPI returns an application offers api.
@@ -106,7 +109,7 @@ func (c *removeCommand) NewApplicationOffersAPI(ctx context.Context, controllerN
 
 var removeOfferMsg = `
 WARNING! This command will remove offers: %v
-This includes all relations to those offers.
+Any existing relations to those offers will also be removed.
 `[1:]
 
 // Run implements Command.Run.
@@ -123,11 +126,13 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var invalidOffers []string
+	parsedOffers := make([]crossmodel.OfferURL, len(c.offers))
 	for i, urlStr := range c.offers {
 		url, err := c.parseOfferURL(controllerName, currentModel, urlStr)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		parsedOffers[i] = url
 		c.offers[i] = url.String()
 		if c.offerSource == "" {
 			c.offerSource = url.Source
@@ -148,22 +153,87 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		c.offerSource = controllerName
 	}
 
-	if !c.assumeYes && c.force {
-		fmt.Fprintf(ctx.Stderr, removeOfferMsg, strings.Join(c.offers, ", "))
-
-		if err := jujucmd.UserConfirmYes(ctx); err != nil {
-			return errors.Annotate(err, "offer removal")
-		}
-	}
-
 	api, err := c.newAPIFunc(ctx, c.offerSource)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
+	err = c.resolveOfferRemoval(ctx, api, parsedOffers)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	err = api.DestroyOffers(ctx, c.force, c.offers...)
 	return block.ProcessBlockedError(err, block.BlockRemove)
+}
+
+func (c *removeCommand) resolveOfferRemoval(
+	ctx *cmd.Context,
+	api RemoveAPI,
+	offers []crossmodel.OfferURL,
+) error {
+	connectedOffers, err := c.connectedOffers(ctx, api, offers)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(connectedOffers) == 0 {
+		return nil
+	}
+
+	if err := c.confirmOfferRemoval(ctx, connectedOffers); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *removeCommand) confirmOfferRemoval(ctx *cmd.Context, offers []string) error {
+	if c.noPrompt {
+		return nil
+	}
+
+	fmt.Fprintf(ctx.Stderr, removeOfferMsg, strings.Join(offers, ", "))
+	if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		return errors.Annotate(err, "offer removal")
+	}
+	return nil
+}
+
+func (c *removeCommand) connectedOffers(
+	ctx context.Context,
+	api RemoveAPI,
+	offers []crossmodel.OfferURL,
+) ([]string, error) {
+	filters := make([]crossmodel.ApplicationOfferFilter, len(offers))
+	userOffers := make(map[string]string, len(offers))
+	for i, offer := range offers {
+		localURL := offer.AsLocal().String()
+		filters[i] = crossmodel.ApplicationOfferFilter{
+			ModelQualifier: coremodel.Qualifier(offer.ModelQualifier),
+			ModelName:      offer.ModelName,
+			OfferName:      fmt.Sprintf("^%v$", regexp.QuoteMeta(offer.Name)),
+		}
+		userOffers[localURL] = c.offers[i]
+	}
+
+	listedOffers, err := api.ListOffers(ctx, filters...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	connected := make([]string, 0)
+	for _, offer := range listedOffers {
+		if len(offer.Connections) == 0 {
+			continue
+		}
+		userOffer, ok := userOffers[offer.OfferURL]
+		if !ok {
+			continue
+		}
+		connected = append(connected, userOffer)
+	}
+
+	return connected, nil
 }
 
 func (c *removeCommand) parseOfferURL(controllerName, currentModel, urlStr string) (crossmodel.OfferURL, error) {

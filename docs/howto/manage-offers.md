@@ -490,10 +490,13 @@ See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relati
 ## Remove an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-An offer can be removed providing it hasn't been used in any relation. To override this behaviour the `--force` option is required, in which case the relation is also removed. This is how an offer is removed:
+An offer can be removed directly. If it has active integrations, the CLI asks for
+confirmation before removing the offer and those integrations, unless
+`--no-prompt` is used. Pass `--force` to forward a forced removal request to the
+controller.
 
 ```text
-juju remove-offer [--force] <offer-url>
+juju remove-offer <offer-url>
 ```
 
 Note that, if the offer resides in the current model, then the shorter offer name can be used instead of the longer URL.

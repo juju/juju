@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecrossmodel "github.com/juju/juju/core/crossmodel"
 )
 
 func newRemoveCommandForTest(store jujuclient.ClientStore, api RemoveAPI) cmd.Command {
@@ -69,24 +70,33 @@ func (s *removeSuite) TestRemoveInconsistentControllers(c *tc.C) {
 
 func (s *removeSuite) TestRemoveApiError(c *tc.C) {
 	s.mockAPI.msg = "fail"
-	_, err := s.runRemove(c, "prod/model.db2", "-y")
+	_, err := s.runRemove(c, "prod/model.db2", "--no-prompt")
 	c.Assert(err, tc.ErrorMatches, ".*fail.*")
 }
 
 func (s *removeSuite) TestRemove(c *tc.C) {
 	s.mockAPI.expectedURLs = []string{"prod/model.db2", "staging/model.db2"}
-	_, err := s.runRemove(c, "prod/model.db2", "staging/model.db2", "-y")
+	_, err := s.runRemove(c, "prod/model.db2", "staging/model.db2", "--no-prompt")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemoveForce(c *tc.C) {
-	s.mockAPI.expectedURLs = []string{"prod/model.db2", "staging/model.db2"}
+func (s *removeSuite) TestRemoveWithForce(c *tc.C) {
+	s.mockAPI.expectedURLs = []string{"prod/model.db2"}
 	s.mockAPI.expectedForce = true
-	_, err := s.runRemove(c, "prod/model.db2", "staging/model.db2", "-y", "--force")
+
+	_, err := s.runRemove(c, "prod/model.db2", "--force", "--no-prompt")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *removeSuite) TestRemoveForceMessage(c *tc.C) {
+func (s *removeSuite) TestRemoveWithConnectionsPrompts(c *tc.C) {
+	s.mockAPI.expectedURLs = []string{"prod/model.db2"}
+	s.mockAPI.offerDetails = []*corecrossmodel.ApplicationOfferDetails{{
+		OfferURL: "prod/model.db2",
+		Connections: []corecrossmodel.OfferConnection{{
+			RelationId: 1,
+		}},
+	}}
+
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, tc.ErrorIsNil)
@@ -96,17 +106,31 @@ func (s *removeSuite) TestRemoveForceMessage(c *tc.C) {
 	stdin.WriteString("y")
 
 	com := newRemoveCommandForTest(s.store, s.mockAPI)
-	err = cmdtesting.InitCommand(com, []string{"prod/model.db2", "--force"})
+	err = cmdtesting.InitCommand(com, []string{"prod/model.db2"})
 	c.Assert(err, tc.ErrorIsNil)
-	com.Run(ctx)
+	err = com.Run(ctx)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := `
 WARNING! This command will remove offers: prod/model.db2
-This includes all relations to those offers.
+Any existing relations to those offers will also be removed.
 
 Continue [y/N]? `[1:]
 
 	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, expected)
+}
+
+func (s *removeSuite) TestRemoveWithConnectionsAndNoPrompt(c *tc.C) {
+	s.mockAPI.expectedURLs = []string{"prod/model.db2"}
+	s.mockAPI.offerDetails = []*corecrossmodel.ApplicationOfferDetails{{
+		OfferURL: "prod/model.db2",
+		Connections: []corecrossmodel.OfferConnection{{
+			RelationId: 1,
+		}},
+	}}
+
+	_, err := s.runRemove(c, "prod/model.db2", "--no-prompt")
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *removeSuite) TestRemoveNameOnly(c *tc.C) {
@@ -134,6 +158,7 @@ type mockRemoveAPI struct {
 	msg           string
 	expectedForce bool
 	expectedURLs  []string
+	offerDetails  []*corecrossmodel.ApplicationOfferDetails
 }
 
 func (s mockRemoveAPI) Close() error {
@@ -151,4 +176,8 @@ func (s mockRemoveAPI) DestroyOffers(ctx context.Context, force bool, offerURLs 
 		return errors.Errorf("mismatched URLs: %v != %v", s.expectedURLs, offerURLs)
 	}
 	return nil
+}
+
+func (s mockRemoveAPI) ListOffers(ctx context.Context, filters ...corecrossmodel.ApplicationOfferFilter) ([]*corecrossmodel.ApplicationOfferDetails, error) {
+	return s.offerDetails, nil
 }

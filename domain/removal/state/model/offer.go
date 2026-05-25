@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -60,15 +59,6 @@ func (st *State) DeleteOffer(ctx context.Context, oUUID string, force bool) erro
 }
 
 func (st *State) deleteOffer(ctx context.Context, tx *sqlair.TX, offerUUID entityUUID, force bool) error {
-	checkConnsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM offer_connection 
-WHERE offer_uuid = $entityUUID.uuid
-`, count{}, offerUUID)
-	if err != nil {
-		return errors.Errorf("preparing offer connection count query: %w", err)
-	}
-
 	getSynthRelationsStmt, err := st.Prepare(`
 SELECT remote_relation_uuid AS &entityUUID.uuid
 FROM   offer_connection
@@ -94,38 +84,21 @@ WHERE uuid = $entityUUID.uuid
 		return errors.Errorf("preparing delete offer query: %w", err)
 	}
 
-	// If we aren't forcing, check for existing connections.
-	if !force {
-		var count count
-		if err := tx.Query(ctx, checkConnsStmt, offerUUID).Get(&count); err != nil {
-			return errors.Errorf("checking offer connections: %w", err)
-		} else if count.Count > 0 {
-			return errors.Errorf("cannot delete offer %q, it has %d connections", offerUUID, count.Count).
-				Add(removalerrors.OfferHasRelations).
-				Add(removalerrors.ForceRequired)
-		}
+	var synthRelationUUIDs []entityUUID
+	err = tx.Query(ctx, getSynthRelationsStmt, offerUUID).GetAll(&synthRelationUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting synthetic relation UUIDs: %w", err)
 	}
 
-	// If we aren't force removing, we know we don't have any connections
-	// so we don't need to run the queries deleting the connections and
-	// remote apps/relations
-	if force {
-		var synthRelationUUIDs []entityUUID
-		err = tx.Query(ctx, getSynthRelationsStmt, offerUUID).GetAll(&synthRelationUUIDs)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting synthetic relation UUIDs: %w", err)
+	for _, synthRelationUUID := range synthRelationUUIDs {
+		err = st.deleteRelationUnitsForRelation(ctx, tx, synthRelationUUID)
+		if err != nil {
+			return errors.Errorf("deleting relation units for relation %q: %w", synthRelationUUID, err)
 		}
 
-		for _, synthRelationUUID := range synthRelationUUIDs {
-			err = st.deleteRelationUnitsForRelation(ctx, tx, synthRelationUUID)
-			if err != nil {
-				return errors.Errorf("deleting relation units for relation %q: %w", synthRelationUUID, err)
-			}
-
-			err = st.deleteRelationWithRemoteConsumer(ctx, tx, synthRelationUUID)
-			if err != nil {
-				return errors.Errorf("deleting synthetic relations with remote consumers: %w", err)
-			}
+		err = st.deleteRelationWithRemoteConsumer(ctx, tx, synthRelationUUID)
+		if err != nil {
+			return errors.Errorf("deleting synthetic relations with remote consumers: %w", err)
 		}
 	}
 

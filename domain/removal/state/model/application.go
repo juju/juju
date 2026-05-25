@@ -449,9 +449,9 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		}
 
 		for _, offer := range offers {
-			// We don't need to worry about whether the offer has connections here.
-			// Either we are using force, meaning we don't care, or we are not forcing,
-			// meaning we checked there are no connections before setting to dying.
+			// Offer deletion handles any connected remote-consumer relation cleanup
+			// directly, so application removal does not need a separate connection
+			// pre-check here.
 			if err := st.deleteOffer(ctx, tx, offer, force); err != nil {
 				return errors.Errorf("deleting offer %q: %w", offer.UUID, err)
 			}
