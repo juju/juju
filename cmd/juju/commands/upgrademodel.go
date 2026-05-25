@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/client/modelconfig"
+	"github.com/juju/juju/api/client/modelupgrader"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -148,7 +149,11 @@ func (c *upgradeModelCommand) getModelUpgraderAPI(ctx context.Context) (ModelUpg
 		return c.modelUpgraderAPI, nil
 	}
 
-	return c.NewModelUpgraderAPIClient(ctx)
+	root, err := modelUpgraderAPIRoot(ctx, c.NewAPIRoot, c.NewControllerAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelupgrader.NewClient(root), nil
 }
 
 func (c *upgradeModelCommand) getModelConfigAPI(ctx context.Context) (ModelConfigAPI, error) {
