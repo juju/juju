@@ -292,6 +292,54 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `watching status for offer: not valid`)
 }
 
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			ch := make(chan []string)
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			defer close(done)
+			return nil, params.Error{Code: params.CodeNotFound, Message: "offer not found"}
+		})
+
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+			Status:  status.Terminated,
+			Message: "offer has been removed",
+		}).
+		Return(nil)
+
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, RemoteApplicationOffererDeadErr)
+}
+
 func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

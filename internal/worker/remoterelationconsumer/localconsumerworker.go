@@ -224,7 +224,7 @@ func (w *localConsumerWorker) Kill() {
 // Wait is defined on worker.Worker
 func (w *localConsumerWorker) Wait() error {
 	err := w.catacomb.Wait()
-	if err != nil {
+	if err != nil && !errors.Is(err, RemoteApplicationOffererDeadErr) {
 		w.logger.Errorf(context.Background(), "error in remote application worker for %v: %v", w.applicationName, err)
 	}
 	return err
@@ -473,7 +473,10 @@ func (w *localConsumerWorker) watchRemoteOfferStatus(ctx context.Context) (watch
 		BakeryVersion: defaultBakeryVersion,
 	})
 	if isNotFound(err) {
-		return nil, w.remoteOfferRemoved(ctx)
+		if err := w.remoteOfferRemoved(ctx); err != nil {
+			return nil, err
+		}
+		return nil, RemoteApplicationOffererDeadErr
 	} else if err != nil {
 		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
 			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
