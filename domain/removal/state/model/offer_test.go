@@ -65,6 +65,54 @@ func (s *offerSuite) TestDeleteOfferSuperfluousForce(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
+func (s *offerSuite) TestGetOfferRelationUUIDs(c *tc.C) {
+	relUUID, _, offerUUID := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	relationUUIDs, err := st.GetOfferRelationUUIDs(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationUUIDs, tc.DeepEquals, []string{relUUID.String()})
+}
+
+func (s *offerSuite) TestHideOfferWithRelations(c *tc.C) {
+	_, _, offerUUID := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.HideOffer(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.OfferExists(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+
+	var (
+		offerEndpointCount int
+		relCount           int
+		remoteAppCount     int
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM offer_endpoint WHERE offer_uuid = ?", offerUUID.String()).Scan(&offerEndpointCount)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM relation").Scan(&relCount)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_remote_consumer").Scan(&remoteAppCount)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerEndpointCount, tc.Equals, 0)
+	c.Check(relCount, tc.Equals, 1)
+	c.Check(remoteAppCount, tc.Equals, 1)
+}
+
 func (s *offerSuite) TestDeleteOfferWithRelations(c *tc.C) {
 	_, _, offerUUID := s.createRelationWithRemoteConsumer(c)
 

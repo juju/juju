@@ -2889,6 +2889,45 @@ func (c *MockModelDBStateGetModelTypeCall) DoAndReturn(f func(context.Context) (
 	return c
 }
 
+// GetOfferRelationUUIDs mocks base method.
+func (m *MockModelDBState) GetOfferRelationUUIDs(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOfferRelationUUIDs", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOfferRelationUUIDs indicates an expected call of GetOfferRelationUUIDs.
+func (mr *MockModelDBStateMockRecorder) GetOfferRelationUUIDs(arg0, arg1 any) *MockModelDBStateGetOfferRelationUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferRelationUUIDs", reflect.TypeOf((*MockModelDBState)(nil).GetOfferRelationUUIDs), arg0, arg1)
+	return &MockModelDBStateGetOfferRelationUUIDsCall{Call: call}
+}
+
+// MockModelDBStateGetOfferRelationUUIDsCall wrap *gomock.Call
+type MockModelDBStateGetOfferRelationUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetOfferRelationUUIDsCall) Return(arg0 []string, arg1 error) *MockModelDBStateGetOfferRelationUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetOfferRelationUUIDsCall) Do(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetOfferRelationUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetOfferRelationUUIDsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetOfferRelationUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationLife mocks base method.
 func (m *MockModelDBState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -3392,6 +3431,44 @@ func (c *MockModelDBStateGetVolumeStatusCall) Do(f func(context.Context, string)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetVolumeStatusCall) DoAndReturn(f func(context.Context, string) (int, error)) *MockModelDBStateGetVolumeStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// HideOffer mocks base method.
+func (m *MockModelDBState) HideOffer(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HideOffer", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HideOffer indicates an expected call of HideOffer.
+func (mr *MockModelDBStateMockRecorder) HideOffer(arg0, arg1 any) *MockModelDBStateHideOfferCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HideOffer", reflect.TypeOf((*MockModelDBState)(nil).HideOffer), arg0, arg1)
+	return &MockModelDBStateHideOfferCall{Call: call}
+}
+
+// MockModelDBStateHideOfferCall wrap *gomock.Call
+type MockModelDBStateHideOfferCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateHideOfferCall) Return(arg0 error) *MockModelDBStateHideOfferCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateHideOfferCall) Do(f func(context.Context, string) error) *MockModelDBStateHideOfferCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateHideOfferCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateHideOfferCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

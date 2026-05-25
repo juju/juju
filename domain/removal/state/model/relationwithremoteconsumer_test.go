@@ -208,3 +208,26 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
+
+func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerDeletesHiddenOffer(c *tc.C) {
+	relUUID, _, offerUUID := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.HideOffer(c.Context(), offerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+
+	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM offer WHERE uuid = ?", offerUUID.String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}

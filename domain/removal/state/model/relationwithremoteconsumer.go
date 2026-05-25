@@ -205,6 +205,15 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 		return errors.Errorf("preparing remote relation application UUID query: %w", err)
 	}
 
+	getOfferUUIDStmt, err := st.Prepare(`
+SELECT offer_uuid AS &entityUUID.uuid
+FROM   offer_connection
+WHERE  remote_relation_uuid = $entityUUID.uuid
+`, remoteRelationUUID)
+	if err != nil {
+		return errors.Errorf("preparing remote relation offer UUID query: %w", err)
+	}
+
 	deleteRelationNetworkIngressStmt, err := st.Prepare(`
 DELETE FROM relation_network_ingress
 WHERE  relation_uuid = $entityUUID.uuid`, remoteRelationUUID)
@@ -228,10 +237,34 @@ WHERE remote_relation_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing offer connection deletion: %w", err)
 	}
 
+	deleteHiddenOfferStmt, err := st.Prepare(`
+DELETE FROM offer
+WHERE  uuid = $entityUUID.uuid
+AND    NOT EXISTS (
+	SELECT 1
+	FROM   offer_endpoint
+	WHERE  offer_uuid = $entityUUID.uuid
+)
+AND    NOT EXISTS (
+	SELECT 1
+	FROM   offer_connection
+	WHERE  offer_uuid = $entityUUID.uuid
+)
+`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing hidden offer deletion: %w", err)
+	}
+
 	var synthAppUUID entityUUID
 	err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
 	if err != nil {
 		return errors.Errorf("getting application UUID: %w", err)
+	}
+
+	var offerUUID entityUUID
+	err = tx.Query(ctx, getOfferUUIDStmt, remoteRelationUUID).Get(&offerUUID)
+	if err != nil {
+		return errors.Errorf("getting offer UUID: %w", err)
 	}
 
 	err = tx.Query(ctx, deleteRelationNetworkIngressStmt, remoteRelationUUID).Run()
@@ -247,6 +280,11 @@ WHERE remote_relation_uuid = $entityUUID.uuid
 	err = tx.Query(ctx, deleteOfferConnectionStmt, remoteRelationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running offer connection deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, deleteHiddenOfferStmt, offerUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting hidden offer: %w", err)
 	}
 
 	err = st.deleteRelation(ctx, tx, remoteRelationUUID)

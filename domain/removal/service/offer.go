@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -16,6 +17,14 @@ import (
 type OfferState interface {
 	// OfferExists returns true if an offer exists with the input offer UUID.
 	OfferExists(ctx context.Context, offerUUID string) (bool, error)
+
+	// GetOfferRelationUUIDs returns the remote relation UUIDs for any active
+	// connections to the offer.
+	GetOfferRelationUUIDs(ctx context.Context, offerUUID string) ([]string, error)
+
+	// HideOffer removes the endpoints for an offer so it can no longer be listed
+	// or consumed while existing remote relations finish tearing down.
+	HideOffer(ctx context.Context, offerUUID string) error
 
 	// DeleteOffer removes an offer from the database completely.
 	DeleteOffer(ctx context.Context, offerUUID string, force bool) error
@@ -27,11 +36,6 @@ type ControllerOfferState interface {
 }
 
 // RemoveOffer removes the offer from the model.
-//
-// NOTE: This method is different from the other removal methods, because offers
-// do not have life, and their removal only cascade removes synthetic entities
-// whose life does not matter either. This means we can simply attempt to remove
-// the offer directly in this call.
 func (s *Service) RemoveOffer(ctx context.Context, offerUUID offer.UUID, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -43,7 +47,27 @@ func (s *Service) RemoveOffer(ctx context.Context, offerUUID offer.UUID, force b
 		return errors.Errorf("offer %q does not exist", offerUUID).Add(crossmodelrelationerrors.OfferNotFound)
 	}
 
-	if err := s.modelState.DeleteOffer(ctx, offerUUID.String(), force); err != nil {
+	relationUUIDs, err := s.modelState.GetOfferRelationUUIDs(ctx, offerUUID.String())
+	if err != nil {
+		return errors.Errorf("getting relations for offer %q: %w", offerUUID, err)
+	}
+
+	if len(relationUUIDs) > 0 {
+		for _, relationUUID := range relationUUIDs {
+			relUUID, err := corerelation.ParseUUID(relationUUID)
+			if err != nil {
+				return errors.Errorf("parsing relation UUID %q for offer %q: %w", relationUUID, offerUUID, err)
+			}
+
+			if _, err := s.RemoveRelationWithRemoteConsumer(ctx, relUUID, force, 0); err != nil {
+				return errors.Errorf("removing relation %q for offer %q: %w", relUUID, offerUUID, err)
+			}
+		}
+
+		if err := s.modelState.HideOffer(ctx, offerUUID.String()); err != nil {
+			return errors.Errorf("hiding offer %q: %w", offerUUID, err)
+		}
+	} else if err := s.modelState.DeleteOffer(ctx, offerUUID.String(), force); err != nil {
 		return errors.Errorf("deleting offer %q: %w", offerUUID, err)
 	}
 
