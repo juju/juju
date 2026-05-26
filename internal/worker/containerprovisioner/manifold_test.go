@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
+	"github.com/juju/juju/rpc/params"
 )
 
 type containerManifoldSuite struct {
@@ -99,6 +100,26 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
+	}
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
+	s.machine.EXPECT().Life().Return(life.Alive)
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	m, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.NotNil)
+}
+
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldIgnoresTypedNilError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	var machineErr *params.Error
+	retval := []containerprovisioner.ContainerMachineResult{
+		{Machine: s.machine, Err: machineErr},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)

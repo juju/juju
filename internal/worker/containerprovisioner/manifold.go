@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	internalerors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 // ErrNotContainerHost is returned by machineSupportsContainers when the
@@ -139,7 +140,7 @@ type ContainerMachineGetter interface {
 
 type ContainerMachineResult struct {
 	Machine ContainerMachine
-	Err     error
+	Err     *params.Error
 }
 
 type containerShim struct {
