@@ -611,14 +611,11 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndCustomNICs(c *gc
 		if !reflect.DeepEqual(spec.Devices["eno9"], nics["eno9"]) {
 			return false
 		}
-		if !reflect.DeepEqual(spec.Devices["root"], map[string]string{
+		return reflect.DeepEqual(spec.Devices["root"], map[string]string{
 			"type": "disk",
 			"pool": "test-storage-pool",
 			"path": "/",
-		}) {
-			return false
-		}
-		return true
+		})
 	}
 
 	exp := svr.EXPECT()
