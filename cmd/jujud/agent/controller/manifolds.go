@@ -573,7 +573,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		changeStreamName: changestream.Manifold(changestream.ManifoldConfig{
-			AgentName:            agentName,
+			ControllerID:         config.ControllerID,
 			DBAccessor:           dbAccessorName,
 			FileNotifyWatcher:    fileNotifyWatcherName,
 			Clock:                config.Clock,
@@ -667,7 +667,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
 			GetControllerObjectStoreService: objectstoredrainer.GetControllerObjectStoreService,
-			GetGuardService:                 objectstoredrainer.GetGuardService,
+			GetDrainingService:              objectstoredrainer.GetDrainingService,
 			GetControllerConfigService:      objectstoredrainer.GetControllerConfigService,
 			NewHashFileSystemAccessor:       objectstoredrainer.NewHashFileStoreAccessor,
 			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
