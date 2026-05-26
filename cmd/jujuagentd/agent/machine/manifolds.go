@@ -652,7 +652,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		changeStreamName: changestream.Manifold(changestream.ManifoldConfig{
-			AgentName:            agentName,
+			ControllerID:         config.ControllerID,
 			DBAccessor:           dbAccessorName,
 			FileNotifyWatcher:    fileNotifyWatcherName,
 			Clock:                config.Clock,
