@@ -320,6 +320,30 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	checkContains(c, manifolds["upgrade-check-gate"].Inputs, "controller-upgrade-flag")
 }
 
+func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
+	// change-stream no longer depends on the agent manifold directly.
+	// It receives the controller ID as a static config value, so only
+	// db-accessor and file-notify-watcher appear in its direct Inputs.
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["change-stream"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{
+			"db-accessor",
+			"file-notify-watcher",
+		})
+		checkNotContains(c, manifold.Inputs, "agent")
+	}
+}
+
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
