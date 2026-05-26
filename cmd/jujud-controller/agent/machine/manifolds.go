@@ -1128,9 +1128,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
 		// so the controller charm's install hook can reach the socket. On
 		// non-controller machines that flag is pre-unlocked.
-		deployerName: engine.Housing{
-			Flags: []string{controllerAgentConfigReadyFlagName},
-		}.Decorate(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		deployerName: ifControllerAgentConfigReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
 			FlightRecorder: config.FlightRecorder,
@@ -1363,6 +1361,17 @@ var ifCredentialValid = engine.Housing{
 var ifDatabaseUpgradeComplete = engine.Housing{
 	Flags: []string{
 		upgradeDatabaseFlagName,
+	},
+}.Decorate
+
+// ifControllerAgentConfigReady gates against the controlleragentconfig worker
+// having started its socket listener. On controller machines this prevents the
+// deployer from starting before configchange.socket is on disk. On
+// non-controller machines the underlying gate lock is pre-unlocked by the
+// caller so this is a no-op.
+var ifControllerAgentConfigReady = engine.Housing{
+	Flags: []string{
+		controllerAgentConfigReadyFlagName,
 	},
 }.Decorate
 
