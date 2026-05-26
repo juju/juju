@@ -112,6 +112,12 @@ type ManifoldsConfig struct {
 	// itself.
 	AgentName string
 
+	// ControllerID is the numeric ID of the controller (e.g. "0" for
+	// controller-0). It is passed directly to manifolds that require
+	// the controller's identity without needing the agent manifold for
+	// the lookup.
+	ControllerID string
+
 	// Agent contains the agent that will be wrapped and made available
 	// to its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
