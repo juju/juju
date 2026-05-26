@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
+	"github.com/juju/juju/rpc/params"
 )
 
 type containerManifoldSuite struct {
@@ -80,12 +81,45 @@ func (s *containerManifoldSuite) TestConfigValidateSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainerMachine(c *tc.C) {
+	// A container machine (e.g. 0/lxd/0) should never provision further
+	// containers. The worker must uninstall itself immediately without
+	// making any API calls.
+	tag := names.NewMachineTag("0/lxd/0")
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorIs, containerprovisioner.ErrNotContainerHost)
+}
+
 func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
 	retval := []containerprovisioner.ContainerMachineResult{
 		{Machine: s.machine},
+	}
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
+	s.machine.EXPECT().Life().Return(life.Alive)
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	m, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.NotNil)
+}
+
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldIgnoresTypedNilError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	var machineErr *params.Error
+	retval := []containerprovisioner.ContainerMachineResult{
+		{Machine: s.machine, Err: machineErr},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
@@ -132,7 +166,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 		ContainerType: instance.LXD,
 	}
 	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
-	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, tc.ErrorIs, containerprovisioner.ErrNotContainerHost)
 }
 
 func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c *tc.C) {
@@ -149,7 +183,52 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 		ContainerType: instance.LXD,
 	}
 	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
-	c.Assert(err, tc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, tc.ErrorIs, containerprovisioner.ErrNotContainerHost)
+}
+
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(nil, errors.NotFoundf("machine %s", tag))
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachinesEmptyResult(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return([]containerprovisioner.ContainerMachineResult{}, nil)
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorMatches, "loading machine .* from state: no results")
+}
+
+func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainerTypeNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	retval := []containerprovisioner.ContainerMachineResult{
+		{Machine: s.machine},
+	}
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
+	// Machine supports NONE only, not LXD.
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.NONE}, true, nil)
+	s.machine.EXPECT().Life().Return(life.Alive)
+	cfg := containerprovisioner.ManifoldConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ContainerType: instance.LXD,
+	}
+	_, err := containerprovisioner.MachineSupportsContainers(c, cfg, s.getter, tag)
+	c.Assert(err, tc.ErrorIs, containerprovisioner.ErrNotContainerHost)
 }
 
 func (s *containerManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
