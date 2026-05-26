@@ -403,6 +403,7 @@ func (a *ControllerAgent) makeEngineCreator(
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
+			ControllerID:                      a.agentTag.Id(),
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
