@@ -511,6 +511,23 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	c.Check(dependencies.Contains("domain-services"), tc.IsFalse)
 }
 
+func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
+	// change-stream no longer depends on the agent manifold directly.
+	// It receives the controller ID as a static config value, so only
+	// db-accessor and file-notify-watcher appear in its direct Inputs.
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+	manifold, ok := manifolds["change-stream"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(manifold.Inputs, tc.SameContents, []string{
+		"db-accessor",
+		"file-notify-watcher",
+	})
+	checkNotContains(c, manifold.Inputs, "agent")
+}
+
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 	ag := &mockAgent{
 		conf: mockConfig{
