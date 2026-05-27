@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/clock"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -305,7 +307,10 @@ func (a *SafeModeControllerAgent) makeEngineCreator(
 			Agent:              agent.APIHostPortsSetter{Agent: a},
 			AgentConfigChanged: a.configChangedVal,
 			NewDBWorkerFunc:    a.newDBWorkerFunc,
-			Clock:              clock.WallClock,
+			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
+				filepath.Join(a.CurrentConfig().DataDir(), "agents", "controller-"+a.Tag().Id()),
+			),
+			Clock: clock.WallClock,
 		}
 
 		var manifolds dependency.Manifolds
