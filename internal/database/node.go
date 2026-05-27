@@ -21,7 +21,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
@@ -39,11 +38,48 @@ const (
 	dqliteClusterFileName = "cluster.yaml"
 )
 
+// NodeManagerConfig holds the static startup values required by NodeManager
+// to configure and operate a Dqlite node. All values are set once at
+// construction and treated as immutable thereafter.
+type NodeManagerConfig struct {
+	// DataDir is the root data directory of the controller agent. Dqlite
+	// stores its data under <DataDir>/dqlite.
+	DataDir string
+
+	// DqlitePort is the TCP port Dqlite listens on. Zero means use the
+	// compiled-in default (17666).
+	DqlitePort int
+
+	// QueryTracingEnabled enables per-query tracing in Dqlite, routing
+	// log output through the slow-query logger.
+	QueryTracingEnabled bool
+
+	// QueryTracingThreshold is the minimum query duration that triggers
+	// a slow-query log entry. Only relevant when QueryTracingEnabled is true.
+	QueryTracingThreshold time.Duration
+
+	// DqliteBusyTimeout is the duration Dqlite waits when a table is
+	// locked before returning SQLITE_BUSY. Zero disables the timeout.
+	DqliteBusyTimeout time.Duration
+
+	// CACert is the PEM-encoded CA certificate used to verify Dqlite
+	// peer TLS connections.
+	CACert string
+
+	// ControllerCert is the PEM-encoded controller TLS certificate
+	// presented to Dqlite peers.
+	ControllerCert string
+
+	// ControllerPrivateKey is the PEM-encoded private key corresponding
+	// to ControllerCert.
+	ControllerPrivateKey string
+}
+
 // NodeManager is responsible for interrogating a single Dqlite node,
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
 type NodeManager struct {
-	cfg                 agent.Config
+	cfg                 NodeManagerConfig
 	port                int
 	isLoopbackPreferred bool
 	logger              logger.Logger
@@ -53,7 +89,7 @@ type NodeManager struct {
 }
 
 // NewNodeManager returns a new NodeManager reference
-// based on the input agent configuration.
+// based on the input controller runtime configuration.
 //
 // If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
 // termination. This is useful primarily in unit testing and a temporary
@@ -62,7 +98,7 @@ type NodeManager struct {
 // If it is false, we attempt to identify a unique local-cloud address.
 // If we find one, we use it as the bind address. Otherwise, we fall back
 // to the loopback binding.
-func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
+func NewNodeManager(cfg NodeManagerConfig, isLoopbackPreferred bool, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
 		cfg:                 cfg,
 		port:                dqlitePort,
@@ -70,10 +106,8 @@ func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger logger.Lo
 		logger:              logger,
 		slowQueryLogger:     slowQueryLogger,
 	}
-	if cfg != nil {
-		if port, ok := cfg.DqlitePort(); ok {
-			m.port = port
-		}
+	if cfg.DqlitePort != 0 {
+		m.port = cfg.DqlitePort
 	}
 	return m
 }
@@ -137,7 +171,7 @@ func (m *NodeManager) IsExistingNode() (bool, error) {
 // a path determined by the agent config, then returns that path.
 func (m *NodeManager) EnsureDataDir() (string, error) {
 	if m.dataDir == "" {
-		dir := filepath.Join(m.cfg.DataDir(), dqliteDataDir)
+		dir := filepath.Join(m.cfg.DataDir, dqliteDataDir)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			return "", errors.Annotatef(err, "creating directory for Dqlite data")
 		}
@@ -215,8 +249,8 @@ func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
-	if m.cfg.QueryTracingEnabled() {
-		return app.WithLogFunc(m.slowQueryLogFunc(m.cfg.QueryTracingThreshold()))
+	if m.cfg.QueryTracingEnabled {
+		return app.WithLogFunc(m.slowQueryLogFunc(m.cfg.QueryTracingThreshold))
 	}
 	return app.WithLogFunc(m.appLogFunc)
 }
@@ -224,7 +258,7 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 // WithTracingOption returns a Dqlite application Option that will enable
 // tracing of Dqlite queries.
 func (m *NodeManager) WithTracingOption() app.Option {
-	if m.cfg.QueryTracingEnabled() {
+	if m.cfg.QueryTracingEnabled {
 		return app.WithTracing(client.LogWarn)
 	}
 	return app.WithTracing(client.LogNone)
@@ -233,8 +267,7 @@ func (m *NodeManager) WithTracingOption() app.Option {
 // WithBusyTimeoutOption returns a Dqlite application Option that sets
 // the busy timeout based on the agent configuration.
 func (m *NodeManager) WithBusyTimeoutOption() app.Option {
-	timeout := m.cfg.DqliteBusyTimeout()
-	return app.WithBusyTimeout(max(timeout, 0))
+	return app.WithBusyTimeout(max(m.cfg.DqliteBusyTimeout, 0))
 }
 
 // WithPreferredCloudLocalAddressOption uses the input network config source to
@@ -296,13 +329,12 @@ func (m *NodeManager) WithAddressOption(ip string) app.Option {
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
 func (m *NodeManager) WithTLSOption() (app.Option, error) {
-	stateInfo, ok := m.cfg.ControllerAgentInfo()
-	if !ok {
+	if m.cfg.ControllerCert == "" {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
 	listen, dial, err := dqliteTLSConfig(
-		m.cfg.CACert(), stateInfo.Cert, stateInfo.PrivateKey,
+		m.cfg.CACert, m.cfg.ControllerCert, m.cfg.ControllerPrivateKey,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -376,18 +408,17 @@ func (m *NodeManager) TLSDialer(ctx context.Context) (client.DialFunc, error) {
 		return client.DefaultDialFunc, nil
 	}
 
-	stateInfo, ok := m.cfg.ControllerAgentInfo()
-	if !ok {
+	if m.cfg.ControllerCert == "" {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
-	cert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	cert, err := tls.X509KeyPair([]byte(m.cfg.ControllerCert), []byte(m.cfg.ControllerPrivateKey))
 	if err != nil {
 		return nil, errors.Annotate(err, "parsing controller certificate")
 	}
 
 	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM([]byte(stateInfo.Cert)) {
+	if !pool.AppendCertsFromPEM([]byte(m.cfg.ControllerCert)) {
 		return nil, errors.New("failed to append controller cert to pool")
 	}
 
