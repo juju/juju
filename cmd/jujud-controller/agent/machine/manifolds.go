@@ -1128,7 +1128,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
 		// so the controller charm's install hook can reach the socket. On
 		// non-controller machines that flag is pre-unlocked.
-		deployerName: ifControllerAgentConfigReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
 			FlightRecorder: config.FlightRecorder,
@@ -1364,12 +1364,18 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
-// ifControllerAgentConfigReady gates against the controlleragentconfig worker
-// having started its socket listener. On controller machines this prevents the
-// deployer from starting before configchange.socket is on disk. On
-// non-controller machines the underlying gate lock is pre-unlocked by the
-// caller so this is a no-op.
-var ifControllerAgentConfigReady = engine.Housing{
+// ifControllerAgentConfigNeededAndReady gates a manifold on two conditions:
+// "needed"  — the machine is a controller, so configchange.socket must exist
+//
+//	before the gated worker starts (e.g. the controller charm's
+//	install hook connects to it); on non-controller machines the gate
+//	lock is pre-unlocked by the caller, making this a no-op there.
+//
+// "ready"   — the controlleragentconfig worker has started its socket listener,
+//
+//	meaning configchange.socket is on disk (created synchronously
+//	inside NewWorker before the manifold reports as running).
+var ifControllerAgentConfigNeededAndReady = engine.Housing{
 	Flags: []string{
 		controllerAgentConfigReadyFlagName,
 	},
