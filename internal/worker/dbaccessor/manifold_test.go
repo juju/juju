@@ -11,9 +11,9 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 )
 
@@ -32,9 +32,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
 	cfg = s.getConfig()
 	cfg.QueryLoggerName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
@@ -44,7 +41,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
+	cfg.ControllerRuntimeConfigPath = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -78,13 +75,12 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:                 "agent",
-		QueryLoggerName:           "query-logger",
-		ControllerAgentConfigName: "controller-agent-config",
-		Clock:                     s.clock,
-		Logger:                    s.logger,
-		LogDir:                    "log-dir",
-		PrometheusRegisterer:      s.prometheusRegisterer,
+		QueryLoggerName:             "query-logger",
+		ControllerAgentConfigName:   "controller-agent-config",
+		ControllerRuntimeConfigPath: "/var/lib/juju/agents/controller-0/runtime.conf",
+		Logger:                      s.logger,
+		LogDir:                      "log-dir",
+		PrometheusRegisterer:        s.prometheusRegisterer,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
@@ -94,7 +90,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewMetricsCollector: func() *Collector {
 			return &Collector{}
 		},
-		NewNodeManager: func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
+		NewNodeManager: func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
 			return s.nodeManager
 		},
 	}
