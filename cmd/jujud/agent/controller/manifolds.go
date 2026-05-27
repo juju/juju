@@ -118,6 +118,13 @@ type ManifoldsConfig struct {
 	// the lookup.
 	ControllerID string
 
+	// ControllerRuntimeConfigPath is the absolute path to the
+	// controller runtime config file (runtime.conf) written at
+	// bootstrap. It is passed to the db-accessor manifold so that the
+	// worker can read its own connection parameters without going
+	// through the legacy agent.Config.
+	ControllerRuntimeConfigPath string
+
 	// Agent contains the agent that will be wrapped and made available
 	// to its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -1017,34 +1024,30 @@ func NewCAASAgentConfigUpdaterManifoldConfig() agentconfigupdater.ManifoldConfig
 // NewIAASDBAccessorManifoldConfig returns the IAAS-specific db-accessor config.
 func NewIAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
 	return dbaccessor.ManifoldConfig{
-		AgentName:                 agentName,
-		QueryLoggerName:           queryLoggerName,
-		ControllerAgentConfigName: controllerAgentConfigName,
-		Clock:                     config.Clock,
-		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-		LogDir:                    config.Agent.CurrentConfig().LogDir(),
-		PrometheusRegisterer:      config.PrometheusRegisterer,
-		NewApp:                    dbaccessor.NewApp,
-		NewDBWorker:               config.NewDBWorkerFunc,
-		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		NewNodeManager:            dbaccessor.IAASNodeManager,
+		QueryLoggerName:             queryLoggerName,
+		ControllerAgentConfigName:   controllerAgentConfigName,
+		ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
+		Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
+		PrometheusRegisterer:        config.PrometheusRegisterer,
+		NewApp:                      dbaccessor.NewApp,
+		NewDBWorker:                 config.NewDBWorkerFunc,
+		NewMetricsCollector:         dbaccessor.NewMetricsCollector,
+		NewNodeManager:              dbaccessor.IAASNodeManager,
 	}
 }
 
 // NewCAASDBAccessorManifoldConfig returns the CAAS-specific db-accessor config.
 func NewCAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
 	return dbaccessor.ManifoldConfig{
-		AgentName:                 agentName,
-		QueryLoggerName:           queryLoggerName,
-		ControllerAgentConfigName: controllerAgentConfigName,
-		Clock:                     config.Clock,
-		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-		LogDir:                    config.Agent.CurrentConfig().LogDir(),
-		PrometheusRegisterer:      config.PrometheusRegisterer,
-		NewApp:                    dbaccessor.NewApp,
-		NewDBWorker:               config.NewDBWorkerFunc,
-		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		NewNodeManager:            dbaccessor.CAASNodeManager,
+		QueryLoggerName:             queryLoggerName,
+		ControllerAgentConfigName:   controllerAgentConfigName,
+		ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
+		Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
+		PrometheusRegisterer:        config.PrometheusRegisterer,
+		NewApp:                      dbaccessor.NewApp,
+		NewDBWorker:                 config.NewDBWorkerFunc,
+		NewMetricsCollector:         dbaccessor.NewMetricsCollector,
+		NewNodeManager:              dbaccessor.CAASNodeManager,
 	}
 }
 

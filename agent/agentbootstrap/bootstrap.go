@@ -260,9 +260,16 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// dqlite for k8s.
 	isLoopbackPreferred := isCAAS
 
+	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
+	nodeManagerCfg := database.NodeManagerConfig{
+		DataDir:              b.agentConfig.DataDir(),
+		CACert:               b.agentConfig.CACert(),
+		ControllerCert:       agentInfo.Cert,
+		ControllerPrivateKey: agentInfo.PrivateKey,
+	}
 	if err := b.bootstrapDqlite(
 		ctx,
-		database.NewNodeManager(b.agentConfig, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(nodeManagerCfg, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
 		controllerModelUUID,
 		b.logger,
 		databaseBootstrapOptions...,
