@@ -19,6 +19,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -47,6 +48,7 @@ type ControllerStackerForTest interface {
 	controllerStacker
 	GetControllerAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentConfigContent(*tc.C) string
+	GetControllerRuntimeConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
@@ -62,6 +64,23 @@ func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.unitAgentConfig.Render()
 	c.Assert(err, tc.ErrorIsNil)
 	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
+	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:          cs.pcfg.ControllerId,
+		DataDir:               cs.pcfg.DataDir,
+		LogDir:                cs.pcfg.LogDir,
+		QueryTracingEnabled:   cs.pcfg.Controller.QueryTracingEnabled(),
+		QueryTracingThreshold: cs.pcfg.Controller.QueryTracingThreshold(),
+		DqliteBusyTimeout:     cs.pcfg.Controller.DqliteBusyTimeout(),
+		CACert:                cs.pcfg.APIInfo.CACert,
+		ControllerCert:        cs.pcfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:  cs.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+	}
+	data, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	return string(data)
 }
 
 func (cs *controllerStack) GetControllerUnitAgentPassword() string {
