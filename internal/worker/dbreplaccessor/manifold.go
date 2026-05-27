@@ -39,7 +39,7 @@ type ClusterIntrospector interface {
 type NewDBReplWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 // NewNodeManagerFunc creates a NodeManager
-type NewNodeManagerFunc func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
+type NewNodeManagerFunc func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
@@ -94,8 +94,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			agentConfig := thisAgent.CurrentConfig()
 
+			info, _ := agentConfig.ControllerAgentInfo()
+			nodeManagerCfg := database.NodeManagerConfig{
+				DataDir:              agentConfig.DataDir(),
+				CACert:               agentConfig.CACert(),
+				ControllerCert:       info.Cert,
+				ControllerPrivateKey: info.PrivateKey,
+			}
+
 			cfg := WorkerConfig{
-				NodeManager:     config.NewNodeManager(agentConfig, config.Logger, coredatabase.NoopSlowQueryLogger{}),
+				NodeManager:     config.NewNodeManager(nodeManagerCfg, config.Logger, coredatabase.NoopSlowQueryLogger{}),
 				Clock:           config.Clock,
 				Logger:          config.Logger,
 				NewApp:          config.NewApp,
@@ -131,12 +139,12 @@ func dbAccessorOutput(in worker.Worker, out any) error {
 
 // IAASNodeManager returns a NodeManager that is configured to use
 // the cloud-local TLS terminated address for Dqlite.
-func IAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func IAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
 }
 
 // CAASNodeManager returns a NodeManager that is configured to use
 // the loopback address for Dqlite.
-func CAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func CAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
 }
