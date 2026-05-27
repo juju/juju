@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujunames "github.com/juju/juju/juju/names"
@@ -491,6 +492,30 @@ func (w *userdataConfig) configureBootstrap() error {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
 	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
+
+	// Write the controller runtime config before the bootstrap agent runs.
+	// This provides Dqlite startup values for the controller process without
+	// requiring access to machine-agent config.
+	controllerAgentDir := path.Join(
+		w.icfg.DataDir, "agents", "controller-"+agent.BootstrapControllerId,
+	)
+	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:          agent.BootstrapControllerId,
+		DataDir:               w.icfg.DataDir,
+		LogDir:                w.icfg.LogDir,
+		QueryTracingEnabled:   w.icfg.ControllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold: w.icfg.ControllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:     w.icfg.ControllerConfig.DqliteBusyTimeout(),
+		CACert:                w.icfg.APIInfo.CACert,
+		ControllerCert:        w.icfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:  w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+	}
+	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
+	if err != nil {
+		return errors.Annotate(err, "rendering controller runtime config")
+	}
+	runtimeCfgPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
+	w.conf.AddRunTextFile(runtimeCfgPath, string(runtimeCfgContent), 0600)
 
 	loggingOption := "--show-log"
 	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
