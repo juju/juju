@@ -140,9 +140,16 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *tc.C, tag names.Tag, password str
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, names.NewModelTag(s.ControllerModelUUID()), apiPort)
 	s.primeAPIHostPorts(c)
 
+	agentInfo, _ := conf.ControllerAgentInfo()
+	nodeManagerCfg := database.NodeManagerConfig{
+		DataDir:              conf.DataDir(),
+		CACert:               conf.CACert(),
+		ControllerCert:       agentInfo.Cert,
+		ControllerPrivateKey: agentInfo.PrivateKey,
+	}
 	err = database.BootstrapDqlite(
 		c.Context(),
-		database.NewNodeManager(conf, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(nodeManagerCfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{}),
 		tc.Must0(c, coremodel.NewUUID),
 		loggertesting.WrapCheckLog(c),
 	)
