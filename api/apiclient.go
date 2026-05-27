@@ -170,6 +170,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	// all the way down to a single connection.
 	httpsTransport.MaxIdleConns = 1
 	httpsTransport.IdleConnTimeout = 90 * time.Second
+	httpsTransport.Proxy = proxyForRequest
 
 	// Technically, when there's no CACert, we don't need this
 	// machinery because we could just use http.DefaultTransport
