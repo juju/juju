@@ -96,7 +96,21 @@ func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.S
 	return p.NewBackend(cfg)
 }
 
-func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor domainsecret.SecretAccessor) (provider.SecretsBackend, string, error) {
+// getBackendForUserSecrets returns a secrets backend client restricted to the
+// secrets the given accessor is allowed to manage.
+//
+// newSecretIDs must be provided when the caller is about to create a secret
+// whose URI has not yet been persisted to state. The K8s backend cannot
+// restrict the "create" verb by resource name, so it pre-creates an empty
+// placeholder and grants the restricted service account "patch" access to it
+// by name. Without the new secret ID in the owned list, policyRulesForSecretAccess
+// omits the secrets rule entirely (the "if len(owned) > 0" guard is intentional
+// to avoid granting access to all secrets), and SaveContent will be forbidden.
+func (s *SecretService) getBackendForUserSecrets(
+	ctx context.Context,
+	accessor domainsecret.SecretAccessor,
+	newSecretIDs ...string,
+) (provider.SecretsBackend, string, error) {
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return nil, "", errors.Errorf("getting model UUID: %w", err)
@@ -125,6 +139,10 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor d
 	for _, r := range revInfo {
 		ownedRevisions.Add(r.URI, r.RevisionID)
 		owned.Add(r.URI.ID)
+	}
+	// Include any secrets being created in this call (not yet in state).
+	for _, id := range newSecretIDs {
+		owned.Add(id)
 	}
 	s.logger.Debugf(ctx, "secrets for %s:\nowned: %v", accessor, ownedRevisions)
 
@@ -246,7 +264,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	p.Data = make(map[string]string)
 	maps.Copy(p.Data, params.Data)
 
-	backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
+	backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor, uri.ID)
 	if err != nil {
 		return errors.Capture(err)
 	}

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -115,6 +116,10 @@ func (s *serviceSuite) TestCreateUserSecretFailedLabelExistsWithCleanup(c *tc.C)
 func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 
+	// Create the URI for the new secret upfront so we can include it in the
+	// expected owned list for RestrictedConfig.
+	uri := coresecrets.NewURI()
+
 	params := domainsecret.UpsertSecretParams{
 		Description: new("a secret"),
 		Label:       new("my secret"),
@@ -172,7 +177,10 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 	)
 	s.secretsBackendProvider.EXPECT().IssuesTokens().Return(false)
 	issuedTokenUUID := ""
-	owned := []string{existingOwnedURI.ID}
+	// The owned list includes both the existing secret and the new one being
+	// created, sorted lexicographically (as returned by set.SortedValues()).
+	owned := []string{existingOwnedURI.ID, uri.ID}
+	slices.Sort(owned)
 	ownedRevisions := provider.SecretRevisions{}
 	ownedRevisions.Add(existingOwnedURI, "rev-id")
 	s.secretsBackendProvider.EXPECT().RestrictedConfig(
@@ -202,7 +210,6 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 	)
 
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil).AnyTimes()
-	uri := coresecrets.NewURI()
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String(), uri.ID).Return(
 		func() error {
@@ -258,6 +265,122 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 	} else {
 		c.Assert(err, tc.ErrorIsNil)
 	}
+}
+
+// TestCreateUserSecretNoExistingSecrets is a regression test for
+// https://github.com/juju/juju/issues/22485 - when creating the very first
+// secret for a model (no existing secrets), the K8s backend must still receive
+// the new secret's ID in the owned list so it can pre-create the placeholder
+// and grant the restricted service account "patch" permission on it.
+func (s *serviceSuite) TestCreateUserSecretNoExistingSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+
+	params := domainsecret.UpsertSecretParams{
+		Description: new("a secret"),
+		Label:       new("my secret"),
+		AutoPrune:   new(true),
+		Checksum:    "checksum-1234",
+		RevisionID:  new(s.fakeUUID.String()),
+		CreateTime:  s.clock.Now(),
+		UpdateTime:  s.clock.Now(),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}
+
+	s.secretBackendState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelID).Return(
+		"backend-id",
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "active-type",
+				Config:      map[string]any{"foo": "active-type"},
+			},
+		}, nil,
+	)
+
+	mBackendConfig := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      s.modelID.String(),
+		ModelName:      "some-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "active-type",
+			Config:      map[string]any{"foo": "active-type"},
+		},
+	}
+	s.secretsBackendProvider.EXPECT().Initialise(mBackendConfig).Return(nil)
+
+	// No existing secrets - ListGrantedSecretsForBackend returns empty.
+	s.state.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", []domainsecret.AccessParams{
+		{
+			SubjectID:     s.modelID.String(),
+			SubjectTypeID: domainsecret.SubjectModel,
+		},
+	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
+		[]*coresecrets.SecretRevisionRef{}, nil,
+	)
+	s.secretsBackendProvider.EXPECT().IssuesTokens().Return(false)
+
+	// The key assertion: even with no existing secrets, the new secret's ID
+	// must appear in the owned list passed to RestrictedConfig.
+	issuedTokenUUID := ""
+	owned := []string{uri.ID}
+	ownedRevisions := provider.SecretRevisions{}
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		mBackendConfig,
+		true, false,
+		issuedTokenUUID,
+		coresecrets.Accessor{
+			Kind: coresecrets.ModelAccessor,
+			ID:   s.modelID.String(),
+		},
+		owned, ownedRevisions, provider.SecretRevisions{},
+	).Return(
+		&mBackendConfig.BackendConfig, nil,
+	)
+	s.secretsBackendProvider.EXPECT().NewBackend(
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig:  mBackendConfig.BackendConfig,
+		},
+	).DoAndReturn(
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			return s.secretsBackend, nil
+		},
+	)
+
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil).AnyTimes()
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String(), uri.ID).Return(
+		func() error { return nil }, nil,
+	)
+	s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		Return("rev-id", nil)
+	s.state.EXPECT().CreateUserSecret(c.Context(), 1, uri, gomock.AssignableToTypeOf(params)).
+		Return(nil)
+
+	err := s.service.CreateUserSecret(c.Context(), uri, CreateUserSecretParams{
+		UpdateUserSecretParams: UpdateUserSecretParams{
+			Accessor: domainsecret.SecretAccessor{
+				Kind: domainsecret.ModelAccessor,
+				ID:   s.modelID.String(),
+			},
+			Description: new("a secret"),
+			Label:       new("my secret"),
+			Data:        map[string]string{"foo": "bar"},
+			AutoPrune:   new(true),
+			Checksum:    "checksum-1234",
+		},
+		Version: 1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateUserSecretInternal(c *tc.C) {
