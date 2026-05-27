@@ -973,6 +973,89 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportRemoteApplicationConsumersNormalizesRelationKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea27915e7840d888c5e9451444b45d",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RelationID:      0,
+		RelationKey:     "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea27915e7840d888c5e9451444b45d",
+		Token: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-sink.source#remote-13ea27915e7840d888c5e9451444b45d.sink",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-sink",
+		Name:            "source",
+		Role:            "provider",
+		Scope:           "global",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+		Name:            "sink",
+		Role:            "requirer",
+		Scope:           "",
+		Interface:       "dummy-token",
+	})
+
+	s.importService.EXPECT().ImportRemoteApplicationConsumers(
+		gomock.Any(),
+		gomock.Any(),
+	).DoAndReturn(func(ctx context.Context, imports []service.RemoteApplicationConsumerImport) error {
+		c.Assert(imports, tc.HasLen, 1)
+		c.Check(imports[0].Name, tc.Equals, "remote-13ea27915e7840d888c5e9451444b45d")
+		c.Check(imports[0].OfferUUID, tc.Equals, "cfa46843-ebf2-4fff-8519-c1fb5a9816f3")
+		c.Check(imports[0].RelationUUID, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
+		c.Check(imports[0].ConsumerModelUUID, tc.Equals, "4ddd6454-931d-4278-8779-b0b7208994d9")
+		c.Check(imports[0].ConsumerApplicationUUID, tc.Equals, "13ea2791-5e78-40d8-88c5-e9451444b45d")
+		c.Check(imports[0].UserName, tc.Equals, "admin")
+		c.Check(imports[0].RelationKey, tc.DeepEquals, relation.Key{
+			{
+				ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+				EndpointName:    "sink",
+				Role:            deploymentcharm.RoleRequirer,
+			},
+			{
+				ApplicationName: "dummy-sink",
+				EndpointName:    "source",
+				Role:            deploymentcharm.RoleProvider,
+			},
+		})
+		return nil
+	})
+
+	err := s.newImportOperation(c).Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestExtractRelationUUIDFromRemoteEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
