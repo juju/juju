@@ -54,6 +54,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -542,9 +543,12 @@ func (a *MachineAgent) makeEngineCreator(
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
-			PreviousAgentVersion:              previousAgentVersion,
-			AgentName:                         agentName,
-			ControllerID:                      agentConfig.Tag().Id(),
+			PreviousAgentVersion: previousAgentVersion,
+			AgentName:            agentName,
+			ControllerID:         agentConfig.Tag().Id(),
+			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
+				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+agentConfig.Tag().Id()),
+			),
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
