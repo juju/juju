@@ -141,18 +141,18 @@ func (mr *MockApplicationOpsMockRecorder) ReconcileDeadUnitScale(arg0, arg1, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileDeadUnitScale", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileDeadUnitScale), arg0, arg1, arg2, arg3, arg4)
 }
 
-// RefreshApplicationStatus mocks base method.
-func (m *MockApplicationOps) RefreshApplicationStatus(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.Logger) error {
+// RefreshOperatorStatus mocks base method.
+func (m *MockApplicationOps) RefreshOperatorStatus(arg0 string, arg1 caas.Application, arg2 life.Value, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RefreshApplicationStatus", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "RefreshOperatorStatus", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RefreshApplicationStatus indicates an expected call of RefreshApplicationStatus.
-func (mr *MockApplicationOpsMockRecorder) RefreshApplicationStatus(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+// RefreshOperatorStatus indicates an expected call of RefreshOperatorStatus.
+func (mr *MockApplicationOpsMockRecorder) RefreshOperatorStatus(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshApplicationStatus", reflect.TypeOf((*MockApplicationOps)(nil).RefreshApplicationStatus), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshOperatorStatus", reflect.TypeOf((*MockApplicationOps)(nil).RefreshOperatorStatus), arg0, arg1, arg2, arg3, arg4)
 }
 
 // UpdateState mocks base method.

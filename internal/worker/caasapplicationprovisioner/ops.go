@@ -50,7 +50,7 @@ type ApplicationOps interface {
 	UpdateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) (map[string]status.StatusInfo, error)
 
-	RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
+	RefreshOperatorStatus(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, logger Logger) error
 
 	WaitForTerminated(appName string, app caas.Application,
@@ -119,11 +119,11 @@ func (applicationOps) UpdateState(appName string, app caas.Application, lastRepo
 	return updateState(appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
 }
 
-// RefreshApplicationStatus sets the application's operator status to "waiting"
+// RefreshOperatorStatus sets the application's operator status to "waiting"
 // if units are still settling or "active" once all desired replicas are ready.
-func (applicationOps) RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
+func (applicationOps) RefreshOperatorStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
-	return refreshApplicationStatus(appName, app, appLife, facade, logger)
+	return refreshOperatorStatus(appName, app, appLife, facade, logger)
 }
 
 // WaitForTerminated polls until the application no longer exists in the provider.
@@ -290,7 +290,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, *lastApplied) {
 		if err = app.Ensure(config); err != nil {
-			_ = setApplicationStatus(appName, status.Error, err.Error(), nil, facade, logger)
+			_ = setOperatorStatus(appName, status.Error, err.Error(), nil, facade, logger)
 			return errors.Annotatef(err, "ensuring application %q", appName)
 		}
 		*lastApplied = config
@@ -594,7 +594,7 @@ func updateState(appName string, app caas.Application, lastReportedStatus map[st
 	return reportedStatus, nil
 }
 
-func refreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
+func refreshOperatorStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
 	if appLife != life.Alive {
 		return nil
@@ -614,24 +614,27 @@ func refreshApplicationStatus(appName string, app caas.Application, appLife life
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	readyUnitsCount := 0
+	initialisedUnitsCount := 0
 	for _, unit := range units {
-		if unit.UnitStatus.AgentStatus.Status == string(status.Active) {
-			readyUnitsCount++
+		if unit.UnitStatus != nil &&
+			unit.UnitStatus.AgentStatus.Status != string(status.Allocating) &&
+			(unit.UnitStatus.AgentStatus.Status != string(status.Waiting) ||
+				unit.UnitStatus.AgentStatus.Info != status.MessageInitializingAgent) {
+			initialisedUnitsCount++
 		}
 	}
-	if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+	if st.DesiredReplicas > 0 && st.DesiredReplicas > initialisedUnitsCount {
 		// Only set status to waiting for scale up.
 		// When the application gets scaled down, the desired units will be kept running and
 		// the application should be active always.
-		statusErr := setApplicationStatus(appName, status.Waiting, "waiting for units to settle down", nil, facade, logger)
+		statusErr := setOperatorStatus(appName, status.Waiting, "waiting for units to settle down", nil, facade, logger)
 		if statusErr != nil {
 			return statusErr
 		}
 		// Signal to the caller that units have not yet settled down.
 		return unitsChurning
 	}
-	return setApplicationStatus(appName, status.Active, "", nil, facade, logger)
+	return setOperatorStatus(appName, status.Active, "", nil, facade, logger)
 }
 
 func waitForTerminated(appName string, app caas.Application,
@@ -872,7 +875,7 @@ func ensureStorage(appName string, app caas.Application, password string,
 	if err != nil {
 		return errors.Annotatef(err, "setting current operation to %q", storageOp)
 	}
-	err = setApplicationStatus(appName, status.Waiting, "updating storage", nil, facade, logger)
+	err = setOperatorStatus(appName, status.Waiting, "updating storage", nil, facade, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -889,14 +892,14 @@ func ensureStorage(appName string, app caas.Application, password string,
 	config.InitialScale = ps.ReplicaCount
 	err = app.EnsureStorage(config, saveReplicaCount)
 	if err != nil {
-		statusErr := setApplicationStatus(appName, status.Error, "failed to update storage",
+		statusErr := setOperatorStatus(appName, status.Error, "failed to update storage",
 			nil, facade, logger)
 		if statusErr != nil {
 			return errors.Trace(stderrors.Join(statusErr, err))
 		}
 		return errors.Trace(err)
 	}
-	err = setApplicationStatus(appName, status.Active, "", nil, facade, logger)
+	err = setOperatorStatus(appName, status.Active, "", nil, facade, logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -912,9 +915,9 @@ func ensureStorage(appName string, app caas.Application, password string,
 	return nil
 }
 
-func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
+func setOperatorStatus(appName string, s status.Status, reason string, data map[string]interface{},
 	facade CAASProvisionerFacade, logger Logger) error {
-	logger.Tracef("updating application %q status to %q, %q, %v", appName, s, reason, data)
+	logger.Tracef("updating application operator %q status to %q, %q, %v", appName, s, reason, data)
 	return facade.SetOperatorStatus(appName, s, reason, data)
 }
 
