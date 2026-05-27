@@ -41,6 +41,7 @@ import (
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/featureflag"
@@ -716,12 +717,32 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	}
 	logger.Tracef(context.TODO(), "controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
 
+	// Build and render the controller runtime config for the CAAS controller
+	// pod. This file provides Dqlite startup values before the database is
+	// available, without requiring access to machine-agent config.
+	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:          c.pcfg.ControllerId,
+		DataDir:               c.pcfg.DataDir,
+		LogDir:                c.pcfg.LogDir,
+		QueryTracingEnabled:   c.pcfg.Controller.QueryTracingEnabled(),
+		QueryTracingThreshold: c.pcfg.Controller.QueryTracingThreshold(),
+		DqliteBusyTimeout:     c.pcfg.Controller.DqliteBusyTimeout(),
+		CACert:                c.pcfg.APIInfo.CACert,
+		ControllerCert:        c.pcfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:  c.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+	}
+	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
+	if err != nil {
+		return errors.Annotate(err, "rendering controller runtime config")
+	}
+
 	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
+	cm.Data[controllerruntimeconfig.Filename] = string(runtimeCfgContent)
 
 	logger.Tracef(context.TODO(), "ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
@@ -1059,6 +1080,9 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 					}, {
 						Key:  constants.ControllerUnitAgentConfigFilename,
 						Path: constants.ControllerUnitAgentConfigFilename,
+					}, {
+						Key:  controllerruntimeconfig.Filename,
+						Path: controllerruntimeconfig.Filename,
 					},
 				},
 			},
@@ -1205,6 +1229,20 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				MountPath: c.pathJoin(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
 				SubPath:   cloudconfig.FileNameBootstrapParams,
 				ReadOnly:  true,
+			},
+			{
+				// Mount the controller runtime config at the expected path
+				// so the controller process can read Dqlite startup values
+				// before the database is available.
+				Name: c.resourceNameVolAgentConf,
+				MountPath: c.pathJoin(
+					c.pcfg.DataDir,
+					"agents",
+					"controller-"+c.pcfg.ControllerId,
+					controllerruntimeconfig.Filename,
+				),
+				SubPath:  controllerruntimeconfig.Filename,
+				ReadOnly: true,
 			},
 			{
 				Name:      constants.CharmVolumeName,
