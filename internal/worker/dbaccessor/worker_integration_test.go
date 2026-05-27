@@ -11,15 +11,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/model"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
@@ -28,7 +24,6 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 )
 
@@ -60,24 +55,11 @@ func (s *integrationSuite) SetUpSuite(c *tc.C) {
 func (s *integrationSuite) SetUpTest(c *tc.C) {
 	s.DqliteSuite.SetUpTest(c)
 
-	params := agent.AgentConfigParams{
-		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: jujuversion.Current,
-		Jobs:              []model.MachineJob{model.JobHostUnits},
-		Password:          "sekrit",
-		CACert:            "ca cert",
-		APIAddresses:      []string{"localhost:1235"},
-		Nonce:             "a nonce",
-		Model:             testing.ModelTag,
-		Controller:        testing.ControllerTag,
-	}
-	params.Paths.DataDir = s.RootPath()
-	params.Paths.LogDir = c.MkDir()
-	agentConfig, err := agent.NewAgentConfig(params)
-	c.Assert(err, tc.ErrorIsNil)
-
 	logger := loggertesting.WrapCheckLog(c)
-	nodeManager := database.NewNodeManager(agentConfig, false, logger, coredatabase.NoopSlowQueryLogger{})
+	nodeManager := database.NewNodeManager(
+		database.NodeManagerConfig{DataDir: s.RootPath()},
+		false, logger, coredatabase.NoopSlowQueryLogger{},
+	)
 
 	db, err := s.DBApp().Open(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
@@ -103,7 +85,7 @@ func (s *integrationSuite) SetUpTest(c *tc.C) {
 		MetricsCollector:        dbaccessor.NewMetricsCollector(),
 		Clock:                   clock.WallClock,
 		Logger:                  logger,
-		ControllerID:            agentConfig.Tag().Id(),
+		ControllerID:            "0",
 		ControllerConfigWatcher: controllerConfigWatcher{},
 		ClusterConfig:           clusterConfig{},
 	})
