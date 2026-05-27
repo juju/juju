@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	cloud "github.com/juju/juju/cloud"
 	credential "github.com/juju/juju/core/credential"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
@@ -161,6 +162,45 @@ func (c *MockStateCloudCredentialsForOwnerCall) Do(f func(context.Context, user.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateCloudCredentialsForOwnerCall) DoAndReturn(f func(context.Context, user.Name, string) (map[string]credential0.CloudCredentialResult, error)) *MockStateCloudCredentialsForOwnerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CloudSupportedAuthTypes mocks base method.
+func (m *MockState) CloudSupportedAuthTypes(arg0 context.Context, arg1 string) (cloud.AuthTypes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudSupportedAuthTypes", arg0, arg1)
+	ret0, _ := ret[0].(cloud.AuthTypes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudSupportedAuthTypes indicates an expected call of CloudSupportedAuthTypes.
+func (mr *MockStateMockRecorder) CloudSupportedAuthTypes(arg0, arg1 any) *MockStateCloudSupportedAuthTypesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSupportedAuthTypes", reflect.TypeOf((*MockState)(nil).CloudSupportedAuthTypes), arg0, arg1)
+	return &MockStateCloudSupportedAuthTypesCall{Call: call}
+}
+
+// MockStateCloudSupportedAuthTypesCall wrap *gomock.Call
+type MockStateCloudSupportedAuthTypesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCloudSupportedAuthTypesCall) Return(arg0 cloud.AuthTypes, arg1 error) *MockStateCloudSupportedAuthTypesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCloudSupportedAuthTypesCall) Do(f func(context.Context, string) (cloud.AuthTypes, error)) *MockStateCloudSupportedAuthTypesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCloudSupportedAuthTypesCall) DoAndReturn(f func(context.Context, string) (cloud.AuthTypes, error)) *MockStateCloudSupportedAuthTypesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
