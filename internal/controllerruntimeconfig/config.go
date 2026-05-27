@@ -1,0 +1,157 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package controllerruntimeconfig
+
+import (
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4"
+	"gopkg.in/yaml.v2"
+)
+
+const (
+	// Filename is the name of the controller runtime configuration file
+	// within the controller agent directory.
+	Filename = "runtime.conf"
+)
+
+// ConfigPath returns the path to the controller runtime configuration
+// file in the given controller agent directory.
+func ConfigPath(controllerAgentDir string) string {
+	return filepath.Join(controllerAgentDir, Filename)
+}
+
+// ControllerRuntimeConfig holds the static local startup values required
+// by the controller process and Dqlite before the database is available.
+//
+// The file contains TLS private key material and must be written with
+// owner-only permissions (0600). Values in this struct must never be
+// logged verbatim.
+type ControllerRuntimeConfig struct {
+	// ControllerID is the numeric controller agent ID, e.g. "0".
+	ControllerID string `yaml:"controller-id"`
+
+	// DataDir is the Dqlite data directory root.
+	DataDir string `yaml:"data-dir"`
+
+	// LogDir is the controller process log directory.
+	LogDir string `yaml:"log-dir"`
+
+	// DqlitePort is the Dqlite application bind/listen port. A value of
+	// zero means the controller uses the compiled-in default port.
+	DqlitePort int `yaml:"dqlite-port,omitempty"`
+
+	// QueryTracingEnabled controls whether Dqlite query tracing is on.
+	QueryTracingEnabled bool `yaml:"query-tracing-enabled"`
+
+	// QueryTracingThreshold is the slow-query threshold for Dqlite. A
+	// value of zero means all traced queries are logged.
+	QueryTracingThreshold time.Duration `yaml:"query-tracing-threshold"`
+
+	// DqliteBusyTimeout is the SQLite busy timeout for Dqlite.
+	DqliteBusyTimeout time.Duration `yaml:"dqlite-busy-timeout"`
+
+	// CACert is the TLS CA certificate PEM block used for Dqlite.
+	CACert string `yaml:"ca-cert"`
+
+	// ControllerCert is the Dqlite node TLS certificate PEM block.
+	ControllerCert string `yaml:"controller-cert"`
+
+	// ControllerPrivateKey is the Dqlite node TLS private key PEM block.
+	// This field is sensitive and must not be logged.
+	ControllerPrivateKey string `yaml:"controller-private-key"`
+}
+
+// Validate returns an error if any required field is missing or invalid.
+func (cfg ControllerRuntimeConfig) Validate() error {
+	if !names.IsValidControllerAgent(cfg.ControllerID) {
+		return errors.NotValidf("controller ID %q", cfg.ControllerID)
+	}
+	if cfg.DataDir == "" {
+		return errors.NotValidf("empty data-dir")
+	}
+	if cfg.LogDir == "" {
+		return errors.NotValidf("empty log-dir")
+	}
+	if cfg.DqlitePort != 0 && (cfg.DqlitePort < 1 || cfg.DqlitePort > 65535) {
+		return errors.NotValidf("dqlite port %d", cfg.DqlitePort)
+	}
+	if cfg.QueryTracingThreshold < 0 {
+		return errors.NotValidf("negative query-tracing-threshold")
+	}
+	if cfg.DqliteBusyTimeout < 0 {
+		return errors.NotValidf("negative dqlite-busy-timeout")
+	}
+	if cfg.CACert == "" {
+		return errors.NotValidf("empty ca-cert")
+	}
+	if cfg.ControllerCert == "" {
+		return errors.NotValidf("empty controller-cert")
+	}
+	if cfg.ControllerPrivateKey == "" {
+		return errors.NotValidf("empty controller-private-key")
+	}
+	return nil
+}
+
+// ReadControllerRuntimeConfig reads and validates the controller runtime
+// configuration from the file at path. It returns an annotated error if
+// the file is missing, malformed, or fails validation.
+func ReadControllerRuntimeConfig(path string) (ControllerRuntimeConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ControllerRuntimeConfig{}, errors.Annotatef(err,
+			"reading controller runtime config %q", path)
+	}
+	var cfg ControllerRuntimeConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return ControllerRuntimeConfig{}, errors.Annotatef(err,
+			"parsing controller runtime config %q", path)
+	}
+	if err := cfg.Validate(); err != nil {
+		return ControllerRuntimeConfig{}, errors.Annotatef(err,
+			"validating controller runtime config %q", path)
+	}
+	return cfg, nil
+}
+
+// WriteControllerRuntimeConfig validates cfg and atomically writes it to
+// the file at path with 0600 permissions. Parent directories are created
+// if they do not exist.
+func WriteControllerRuntimeConfig(path string, cfg ControllerRuntimeConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return errors.Annotate(err, "invalid controller runtime config")
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return errors.Annotate(err, "marshalling controller runtime config")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return errors.Annotatef(err,
+			"creating parent directory for controller runtime config %q", path)
+	}
+	if err := utils.AtomicWriteFile(path, data, 0600); err != nil {
+		return errors.Annotatef(err,
+			"writing controller runtime config %q", path)
+	}
+	return nil
+}
+
+// RenderControllerRuntimeConfig validates cfg and marshals it to YAML.
+// It is provided for callers that need the raw YAML content, for example
+// cloud-init script generation and Kubernetes ConfigMap assembly.
+func RenderControllerRuntimeConfig(cfg ControllerRuntimeConfig) ([]byte, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Annotate(err, "invalid controller runtime config")
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling controller runtime config")
+	}
+	return data, nil
+}
