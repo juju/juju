@@ -429,12 +429,20 @@ func (env *maasEnviron) parsePlacement(ctx context.ProviderCallContext, placemen
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
+const systemIdVMPlacementError = errors.ConstError("cannot specify system-id placement constraint when requesting a virtual machine")
+
 func (env *maasEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement == "" {
 		return nil
 	}
-	_, err := env.parsePlacement(ctx, args.Placement)
-	return err
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return err
+	}
+	if p.systemId != "" && args.Constraints.HasVirtType() {
+		return systemIdVMPlacementError
+	}
+	return nil
 }
 
 // getCapabilities asks the MAAS server for its capabilities, if
@@ -621,6 +629,9 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext
 }
 
 // acquireNode allocates a machine from MAAS.
+// If cons.VirtType is set to "virtual-machine" the machine is always obtained
+// by composing a new VM in a pod (KVM/LXD host) and then allocating it.
+// For all other cases the standard AllocateMachine workflow is used.
 func (env *maasEnviron) acquireNode(
 	ctx context.ProviderCallContext,
 	nodeName, zoneName, systemId string,
@@ -628,7 +639,31 @@ func (env *maasEnviron) acquireNode(
 	positiveSpaceIDs set.Strings,
 	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
-) (*maasInstance, error) {
+) (_ *maasInstance, acquireErr error) {
+	// When the caller explicitly requests a virtual machine, compose it from
+	// a pod rather than trying to acquire a pre-existing machine.
+	if cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
+		// Should never happen - checked in PrecheckInstance().
+		if systemId != "" {
+			return nil, systemIdVMPlacementError
+		}
+		var err error
+		systemId, err = env.composeNode(ctx, nodeName, zoneName, cons, positiveSpaceIDs, volumes)
+		if err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			return nil, errors.Annotate(err, "composing virtual machine")
+		}
+		defer func() {
+			if acquireErr == nil {
+				return
+			}
+			if err := env.maasController.DeleteMachine(systemId); err != nil {
+				logger.Errorf("cannot delete unused composed node %v: %v", systemId, err)
+				common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+			}
+		}()
+	}
+
 	acquireParams := convertConstraints(cons)
 	addInterfaces(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
 	addStorage(&acquireParams, volumes)
@@ -652,6 +687,136 @@ func (env *maasEnviron) acquireNode(
 		constraintMatches: constraintMatches,
 		environ:           env,
 	}, nil
+}
+
+// composeNode finds a suitable pod, composes a VM with the required resources.
+func (env *maasEnviron) composeNode(
+	ctx context.ProviderCallContext,
+	nodeName, zoneName string,
+	cons constraints.Value,
+	positiveSpaceIDs set.Strings,
+	volumes []volumeInfo,
+) (string, error) {
+	pods, err := env.maasController.Pods()
+	if err != nil {
+		return "", errors.Annotate(err, "listing pods")
+	}
+	if len(pods) == 0 {
+		return "", errors.New("no pods available to compose machine")
+	}
+
+	composeArgs := gomaasapi.ComposeMachineArgs{
+		Hostname: nodeName,
+		Zone:     zoneName,
+	}
+	if cons.CpuCores != nil {
+		composeArgs.MinCPUCount = int(*cons.CpuCores)
+	}
+	if cons.Mem != nil {
+		composeArgs.MinMemory = int(*cons.Mem)
+	}
+	// Convert volumes to storage specs for the compose call.
+	for _, v := range volumes {
+		sizeGB := v.sizeInGB
+		if v.name == rootDiskLabel && sizeGB == 0 {
+			// For compose, MAAS treats the first storage entry as the root disk.
+			// If Juju did not specify RootDisk, default to a practical root size
+			// so curtin can complete installation.
+			sizeGB = common.MinRootDiskSizeGiB(ostype.Ubuntu)
+		}
+		composeArgs.Storage = append(composeArgs.Storage, gomaasapi.StorageSpec{
+			Label: v.name,
+			Size:  int(sizeGB),
+			Tags:  v.tags,
+		})
+	}
+	// Convert space requirements to interface specs.
+	for _, spaceID := range positiveSpaceIDs.SortedValues() {
+		composeArgs.Interfaces = append(composeArgs.Interfaces, gomaasapi.InterfaceSpec{
+			Label: spaceID,
+			Space: spaceID,
+		})
+	}
+
+	// Use the first pod that can commission the machine.
+	var lastComposeErr error
+	for _, pod := range pods {
+		machine, err := pod.ComposeMachine(composeArgs)
+		if err != nil {
+			if gomaasapi.IsNoMatchError(err) || gomaasapi.IsCannotCompleteError(err) {
+				lastComposeErr = err
+				logger.Debugf("pod %q could not compose machine, trying next pod: %v", pod.Name(), err)
+				continue
+			}
+			return "", errors.Annotate(err, "composing machine")
+		}
+		systemID := machine.SystemID()
+		logger.Infof("composed machine %q in pod %q", systemID, pod.Name())
+
+		// The composed machine goes through MAAS commissioning before it
+		// reaches "Ready" state. AllocateMachine only works on Ready
+		// machines, so we must wait here.
+		if err := env.waitForComposedMachineReady(ctx, systemID); err != nil {
+			// If compose failed, try to clean up any machine that may have been
+			// partially created before the error occurred.
+			if deleteErr := env.maasController.DeleteMachine(systemID); deleteErr != nil {
+				logger.Warningf("failed to delete orphaned machine %q: %v", systemID, deleteErr)
+			}
+			return "", errors.Annotate(err, "waiting for machine to be ready")
+		}
+		return systemID, nil
+	}
+	if lastComposeErr != nil {
+		return "", errors.Annotate(lastComposeErr, "composing machine")
+	}
+
+	return "", errors.New("no pods matched the zone requirement")
+}
+
+// waitForComposedMachineReady polls MAAS until the machine with the given
+// system ID reaches "Ready" state (i.e. commissioning has completed).
+// It returns an error if the machine moves to a failed state or the
+// timeout is exceeded.
+func (env *maasEnviron) waitForComposedMachineReady(ctx context.ProviderCallContext, systemID string) error {
+	retryStrategy := env.longRetryStrategy
+	retryStrategy.IsFatalError = func(err error) bool {
+		if errors.Is(err, errors.NotProvisioned) {
+			return true
+		}
+		return common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+	}
+	retryStrategy.NotifyFunc = func(lastErr error, attempts int) {
+		logger.Debugf("waiting for composed machine %q to become ready (attempt %d): %v", systemID, attempts, lastErr)
+	}
+	retryStrategy.Func = func() error {
+		machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{
+			SystemIDs: []string{systemID},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(machines) == 0 {
+			return errors.NotFoundf("composed machine %q", systemID)
+		}
+		machine := machines[0]
+		switch machine.StatusName() {
+		case "Ready":
+			return nil
+		case "Failed commissioning", "Failed testing", "Broken": // These strings are defined by MAAS.
+			// Fatal: commissioning failed, no point retrying.
+			return errors.NewNotProvisioned(nil,
+				fmt.Sprintf("composed machine %q entered failed state: %s (%s)",
+					systemID, machine.StatusName(), machine.StatusMessage()))
+		default:
+			return errors.NewNotYetAvailable(nil,
+				fmt.Sprintf("composed machine %q is %s, waiting for Ready", systemID, machine.StatusName()))
+		}
+	}
+	err := retry.Call(retryStrategy)
+	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		return errors.Errorf("timed out waiting for composed machine %q to become ready", systemID)
+	}
+	return errors.Trace(err)
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -853,7 +1018,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 	retryStrategy := env.longRetryStrategy
 	retryStrategy.MaxDuration = timeout
 	retryStrategy.IsFatalError = func(err error) bool {
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			return true
 		}
 		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
@@ -862,7 +1027,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 		return false
 	}
 	retryStrategy.NotifyFunc = func(lastErr error, attempts int) {
-		if errors.IsNotFound(lastErr) {
+		if errors.Is(lastErr, errors.NotFound) {
 			logger.Warningf("failed to get instance from provider attempt %d", attempts)
 		}
 	}
@@ -996,13 +1161,46 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext
 		err := env.releaseNodes(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
-			logger.Errorf("error while releasing node %v (%v)", id, err)
+			logger.Errorf("cannot release node %v: %v", id, err)
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
 		}
 	}
 	return errors.Trace(lastErr)
+}
+
+// deleteAnyComposedNodes determines which instance ids are for VMs provisioned
+// by a pod (rather than pre-existing machines) and deletes them.
+// This is necessary to clean up the composed machines after release,
+// as ReleaseMachine only releases the machine but does not delete it from MAAS,
+// and we don't need composed machines to be reused for future allocations.
+func (env *maasEnviron) deleteAnyComposedNodes(ctx context.ProviderCallContext, ids []instance.Id) error {
+	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{
+		SystemIDs: instanceIdsToSystemIDs(ids),
+	})
+	if err != nil {
+		common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Annotate(err, "getting machines for deletion")
+	}
+	var lastErr error
+	for _, m := range machines {
+		if m.Pod() == nil && m.PowerType() != "virsh" && m.PowerType() != "lxd" {
+			continue
+		}
+		err = env.maasController.DeleteMachine(m.SystemID())
+		if err != nil {
+			lastErr = err
+			logger.Errorf("cannot delete node %v: %v", m.SystemID(), err)
+			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+				break
+			}
+		}
+	}
+	if lastErr != nil {
+		return errors.Annotate(lastErr, "deleting composed machines")
+	}
+	return nil
 }
 
 func instanceIdsToSystemIDs(ids []instance.Id) []string {
@@ -1024,6 +1222,11 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = env.deleteAnyComposedNodes(ctx, ids)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return common.RemoveStateInstances(env.Storage(), ids...)
 }
 

@@ -4,6 +4,7 @@
 package storagecommon
 
 import (
+	"path"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -112,6 +113,17 @@ func matchingBlockDevice(
 				logger.Tracef("hwid match on %v", volumeInfo.HardwareId)
 				return &dev, true
 			}
+			if serialMatchesHardwareID(volumeInfo.HardwareId, dev.SerialId) {
+				logger.Tracef("serial %q matched hardware id %q", dev.SerialId, volumeInfo.HardwareId)
+				return &dev, true
+			}
+			for _, link := range dev.DeviceLinks {
+				linkID := path.Base(link)
+				if volumeInfo.HardwareId == linkID || serialMatchesHardwareID(volumeInfo.HardwareId, linkID) {
+					logger.Tracef("device link %q matched hardware id %q", link, volumeInfo.HardwareId)
+					return &dev, true
+				}
+			}
 		}
 		logger.Tracef("no match for block device hardware id: %v", volumeInfo.HardwareId)
 	}
@@ -177,4 +189,17 @@ func matchingBlockDevice(
 		logger.Tracef("no match for block device name: %v", attachmentInfo.DeviceName)
 	}
 	return nil, false
+}
+
+func serialMatchesHardwareID(hardwareID, serial string) bool {
+	if hardwareID == "" || serial == "" {
+		return false
+	}
+	if hardwareID == serial {
+		return true
+	}
+	// MAAS/KVM often reports hardware IDs like
+	// "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1" while discovered devices carry
+	// serial IDs like "lxd_disk1".
+	return strings.HasSuffix(hardwareID, "_"+serial) || strings.HasSuffix(hardwareID, "-"+serial)
 }

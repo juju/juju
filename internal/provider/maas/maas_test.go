@@ -83,6 +83,9 @@ type fakeController struct {
 	spacesError        error
 	staticRoutes       []gomaasapi.StaticRoute
 	staticRoutesError  error
+	pods               []gomaasapi.Pod
+	podsError          error
+	deleteMachineError error
 
 	allocateMachine          gomaasapi.Machine
 	allocateMachineMatches   gomaasapi.ConstraintMatches
@@ -132,17 +135,18 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 	if c.machinesError != nil {
 		return nil, c.machinesError
 	}
-	if len(args.SystemIDs) > 0 {
-		result := []gomaasapi.Machine{}
-		systemIds := set.NewStrings(args.SystemIDs...)
-		for _, machine := range c.machines {
-			if systemIds.Contains(machine.SystemID()) {
-				result = append(result, machine)
-			}
-		}
-		return result, nil
+	if len(args.SystemIDs) == 0 && len(args.Hostnames) == 0 {
+		return c.machines, nil
 	}
-	return c.machines, nil
+	result := []gomaasapi.Machine{}
+	systemIDs := set.NewStrings(args.SystemIDs...)
+	hostnames := set.NewStrings(args.Hostnames...)
+	for _, machine := range c.machines {
+		if systemIDs.Contains(machine.SystemID()) || hostnames.Contains(machine.Hostname()) {
+			result = append(result, machine)
+		}
+	}
+	return result, nil
 }
 
 func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
@@ -218,6 +222,18 @@ func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) err
 	return c.NextErr()
 }
 
+func (c *fakeController) DeleteMachine(systemID string) error {
+	c.MethodCall(c, "DeleteMachine", systemID)
+	return c.deleteMachineError
+}
+
+func (c *fakeController) Pods() ([]gomaasapi.Pod, error) {
+	if c.podsError != nil {
+		return nil, c.podsError
+	}
+	return c.pods, nil
+}
+
 type fakeBootResource struct {
 	gomaasapi.BootResource
 	name         string
@@ -245,6 +261,8 @@ type fakeMachine struct {
 	cpuCount      int
 	memory        int
 	architecture  string
+	powerType     string
+	pod           gomaasapi.Pod
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
@@ -300,6 +318,14 @@ func (m *fakeMachine) FQDN() string {
 
 func (m *fakeMachine) IPAddresses() []string {
 	return m.ipAddresses
+}
+
+func (m *fakeMachine) PowerType() string {
+	return m.powerType
+}
+
+func (m *fakeMachine) Pod() gomaasapi.Pod {
+	return m.pod
 }
 
 func (m *fakeMachine) StatusName() string {
@@ -695,4 +721,48 @@ type fakeDomain struct{}
 
 func (*fakeDomain) Name() string {
 	return "maas"
+}
+
+type fakePod struct {
+	gomaasapi.Pod
+
+	id    int
+	name  string
+	type_ string
+	zone  gomaasapi.Zone
+	pool  gomaasapi.Pool
+
+	composeMachine          gomaasapi.Machine
+	composeMachineErr       error
+	composeMachineArgsCheck func(gomaasapi.ComposeMachineArgs)
+}
+
+func (p *fakePod) ID() int {
+	return p.id
+}
+
+func (p *fakePod) Name() string {
+	return p.name
+}
+
+func (p *fakePod) Type() string {
+	return p.type_
+}
+
+func (p *fakePod) Zone() gomaasapi.Zone {
+	return p.zone
+}
+
+func (p *fakePod) Pool() gomaasapi.Pool {
+	return p.pool
+}
+
+func (p *fakePod) ComposeMachine(args gomaasapi.ComposeMachineArgs) (gomaasapi.Machine, error) {
+	if p.composeMachineArgsCheck != nil {
+		p.composeMachineArgsCheck(args)
+	}
+	if p.composeMachineErr != nil {
+		return nil, p.composeMachineErr
+	}
+	return p.composeMachine, nil
 }

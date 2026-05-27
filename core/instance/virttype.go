@@ -19,12 +19,19 @@ const (
 	DefaultInstanceType = api.InstanceTypeContainer
 )
 
+const (
+	// VirtTypeContainer represents a container instance type.
+	VirtTypeContainer = "container"
+	// VirtTypeMachine represents a VM instance type.
+	VirtTypeMachine = "virtual-machine"
+)
+
 // ParseVirtType parses a string into a VirtType.
 func ParseVirtType(s string) (VirtType, error) {
 	switch strings.ToLower(s) {
-	case "container":
+	case VirtTypeContainer:
 		return api.InstanceTypeContainer, nil
-	case "virtual-machine":
+	case VirtTypeMachine:
 		return api.InstanceTypeVM, nil
 	case "":
 		// Constraints are optional and the absence of a constraint will

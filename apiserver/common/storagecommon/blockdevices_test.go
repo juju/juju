@@ -63,6 +63,26 @@ func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareID(c *gc.C) {
 	})
 }
 
+func (s *BlockDeviceSuite) TestBlockDeviceMatchingHardwareIDBySerialSuffix(c *gc.C) {
+	blockDevices := []state.BlockDeviceInfo{
+		{
+			DeviceName: "sdc",
+			SerialId:   "lxd_disk1",
+		},
+	}
+	volumeInfo := state.VolumeInfo{
+		HardwareId: "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1",
+	}
+	attachmentInfo := state.VolumeAttachmentInfo{}
+	planBlockInfo := state.BlockDeviceInfo{}
+	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(blockDevices, volumeInfo, attachmentInfo, planBlockInfo)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(blockDeviceInfo, jc.DeepEquals, &state.BlockDeviceInfo{
+		DeviceName: "sdc",
+		SerialId:   "lxd_disk1",
+	})
+}
+
 func (s *BlockDeviceSuite) TestBlockDevicesAWS(c *gc.C) {
 	blockDeviceInfo, ok := storagecommon.MatchingVolumeBlockDevice(awsTestBlockDevices, awsTestVolumeInfo, awsTestAttachmentInfo, awsTestPlanBlockInfo)
 	c.Assert(ok, jc.IsTrue)

@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 )
 
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.InstanceType,
-	constraints.VirtType,
 	constraints.AllocatePublicIP,
 }
 
@@ -37,6 +37,8 @@ func (env *maasEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 	supported := set.NewStrings(arch.AllSupportedArches...).Intersection(maasArches)
 
 	validator.RegisterVocabulary(constraints.Arch, supported.SortedValues())
+	// "virtual-machine" causes machines to be composed from a pod (KVM/LXD host).
+	validator.RegisterVocabulary(constraints.VirtType, []string{"", instance.VirtTypeMachine})
 
 	return validator, nil
 }
