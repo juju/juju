@@ -11,9 +11,9 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/database"
 )
 
 type manifoldSuite struct {
@@ -66,7 +66,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewDBReplWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return nil, nil
 		},
-		NewNodeManager: func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
+		NewNodeManager: func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
 			return s.nodeManager
 		},
 	}
