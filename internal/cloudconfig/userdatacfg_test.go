@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -838,6 +839,53 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
+}
+
+// TestCloudInitConfigureBootstrapWritesRuntimeConfig verifies that IAAS
+// bootstrap cloud-init adds a write step for the controller runtime config
+// (runtime.conf) at the expected path with restricted permissions.
+func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.C) {
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	rendered := instConfig.render()
+	cloudcfg, err := cloudinit.New(rendered.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+
+	controllerAgentDir := path.Join(
+		jujuDataDir("ubuntu"),
+		"agents",
+		"controller-"+agent.BootstrapControllerId,
+	)
+	expectedPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
+
+	// AddRunTextFile emits an install step followed by an echo step.
+	// Verify that both reference the expected runtime.conf path and that
+	// the install step uses owner-only permissions (0600).
+	var installScript, echoScript string
+	for _, s := range scripts {
+		if strings.Contains(s, expectedPath) {
+			if strings.HasPrefix(s, "install ") {
+				installScript = s
+			} else if strings.Contains(s, "echo") {
+				echoScript = s
+			}
+		}
+	}
+	c.Assert(installScript, tc.Not(tc.Equals), "",
+		tc.Commentf("expected install step for %s in runcmd scripts", expectedPath))
+	c.Assert(echoScript, tc.Not(tc.Equals), "",
+		tc.Commentf("expected echo step for %s in runcmd scripts", expectedPath))
+	c.Check(installScript, tc.Matches, `install -D -m 600 /dev/null '`+regexp.QuoteMeta(expectedPath)+`'`)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
