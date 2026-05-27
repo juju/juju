@@ -49,10 +49,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.LogDir = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.PrometheusRegisterer = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -79,7 +75,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ControllerAgentConfigName:   "controller-agent-config",
 		ControllerRuntimeConfigPath: "/var/lib/juju/agents/controller-0/runtime.conf",
 		Logger:                      s.logger,
-		LogDir:                      "log-dir",
 		PrometheusRegisterer:        s.prometheusRegisterer,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil

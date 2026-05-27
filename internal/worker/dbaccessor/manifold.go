@@ -38,7 +38,6 @@ type ManifoldConfig struct {
 	ControllerAgentConfigName   string
 	ControllerRuntimeConfigPath string
 	Logger                      logger.Logger
-	LogDir                      string
 	PrometheusRegisterer        prometheus.Registerer
 	NewApp                      func(string, ...app.Option) (DBApp, error)
 	NewDBWorker                 NewDBWorkerFunc
@@ -58,9 +57,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.LogDir == "" {
-		return errors.NotValidf("empty LogDir")
 	}
 	if cfg.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
