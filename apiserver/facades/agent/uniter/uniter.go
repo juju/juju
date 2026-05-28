@@ -3072,6 +3072,36 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		if len(deleteErrs) > 0 {
 			return internalerrors.Errorf("removing secrets: %w", internalerrors.Join(deleteErrs...))
 		}
+
+		// Resolve ownership so RequiresLeadership can distinguish
+		// unit-owned deletes (no lease needed) from app-owned ones.
+		if len(secretDeletes) > 0 {
+			uris := make([]*coresecrets.URI, len(secretDeletes))
+			for i, d := range secretDeletes {
+				uris[i] = d.URI
+			}
+			ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
+			if err != nil {
+				return apiservererrors.ServerError(err)
+			}
+			ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
+			for _, info := range ownerInfos {
+				ownerByID[info.SecretID] = info.OwnerKind
+			}
+			// Filter: secrets that disappeared between the access
+			// check and the ownership query were deleted concurrently.
+			filtered := secretDeletes[:0]
+			for i := range secretDeletes {
+				kind, ok := ownerByID[secretDeletes[i].URI.ID]
+				if !ok {
+					continue
+				}
+				secretDeletes[i].OwnerKind = kind
+				filtered = append(filtered, secretDeletes[i])
+			}
+			secretDeletes = filtered
+		}
+
 		arg.SecretDeletes = secretDeletes
 	}
 

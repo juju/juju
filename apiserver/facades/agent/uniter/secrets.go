@@ -34,6 +34,10 @@ type SecretService interface {
 	// leader. Returns an error satisfying [secreterrors.PermissionDenied]
 	// if access is denied.
 	CheckSecretManageAccess(ctx context.Context, uri *coresecrets.URI, unitName unit.Name) error
+
+	// GetSecretOwnerKinds returns the owner kind for each of the given
+	// secret URIs. Secrets that no longer exist are silently omitted.
+	GetSecretOwnerKinds(ctx context.Context, uris []*coresecrets.URI) ([]secret.SecretOwnerInfo, error)
 }
 
 // createSecrets creates new secrets.

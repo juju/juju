@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
@@ -3606,12 +3607,18 @@ func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecrets(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]domainsecret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: domainsecret.UnitCharmSecretOwner,
+		}}, nil)
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
 			c.Check(arg.UnitName, tc.Equals, unitName)
 			c.Assert(len(arg.SecretDeletes), tc.Equals, 1)
 			c.Check(arg.SecretDeletes[0].URI.String(), tc.Equals, uri.String())
 			c.Check(arg.SecretDeletes[0].Revisions, tc.DeepEquals, []int{1, 3})
+			c.Check(arg.SecretDeletes[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
 			return nil
 		})
 

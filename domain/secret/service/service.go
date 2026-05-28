@@ -744,6 +744,15 @@ func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secre
 	return s.secretState.GetSecret(ctx, uri)
 }
 
+// GetSecretOwnerKinds returns the owner kind for each of the given secret
+// URIs. Secrets that no longer exist are silently omitted from the result.
+func (s *SecretService) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]domainsecret.SecretOwnerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.secretState.GetSecretOwnerKinds(ctx, uris)
+}
+
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
