@@ -37,6 +37,9 @@ type ManifoldsConfig struct {
 	// NewDBReplWorkerFunc returns a tracked db worker.
 	NewDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
+	// ControllerID is the numeric ID of the controller.
+	ControllerID string
+
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 
@@ -88,8 +91,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
-			AgentName:         agentName,
-			Clock:             config.Clock,
+			ControllerID:      config.ControllerID,
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
