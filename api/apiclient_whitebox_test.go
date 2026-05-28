@@ -138,3 +138,26 @@ func (s *apiclientWhiteboxSuite) TestProxyForRequestNormalizesWebsocketSchemes(c
 
 	c.Assert(proxy.DefaultConfig.Set(proxyutils.Settings{}), jc.ErrorIsNil)
 }
+
+func (s *apiclientWhiteboxSuite) TestNewPrimaryHTTPTransportUsesProxyConfig(c *gc.C) {
+	err := proxy.DefaultConfig.Set(proxyutils.Settings{
+		Https: "https://proxy.example:8443",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(proxy.DefaultConfig.Set(proxyutils.Settings{}), jc.ErrorIsNil)
+	}()
+
+	transport := newPrimaryHTTPTransport(nil)
+	c.Assert(transport.Proxy, gc.NotNil)
+	c.Assert(transport.MaxIdleConns, gc.Equals, 1)
+	c.Assert(transport.IdleConnTimeout, gc.Equals, 90*time.Second)
+
+	req, err := http.NewRequest(http.MethodGet, "https://controller.example:17070/model/uuid", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	proxyURL, err := transport.Proxy(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(proxyURL, gc.NotNil)
+	c.Assert(proxyURL.String(), gc.Equals, "https://proxy.example:8443")
+}
