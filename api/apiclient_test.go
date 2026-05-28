@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	proxytest "github.com/juju/juju/internal/proxy/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
@@ -795,6 +796,45 @@ func (s *apiclientSuite) testOpenDialError(c *tc.C, t dialTest) {
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for API open")
 	}
+}
+
+func (s *apiclientSuite) TestDialAPIStopsProxierOnDialFailure(c *tc.C) {
+	var stopped int32
+	proxier := proxytest.NewMockTunnelProxier()
+	proxier.HostFn = func() string { return "127.0.0.1" }
+	proxier.PortFn = func() string { return "33419" }
+	proxier.StopFn = func() { atomic.AddInt32(&stopped, 1) }
+	proxier.ProxyErrorFn = func() error { return errors.New("lost connection to pod") }
+
+	info := s.APIInfo()
+	info.Proxier = proxier
+	info.Addrs = []string{"10.152.183.79:17070"}
+
+	var dialed string
+	_, _, err := api.DialAPI(c, info, api.DialOpts{
+		RetryDelay: 0,
+		DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+			dialed = urlStr
+			return nil, errors.New("websocket refused")
+		},
+	})
+	c.Assert(err, tc.ErrorMatches, "unable to connect to API: websocket refused; proxy error: lost connection to pod")
+	c.Check(dialed, tc.Matches, `wss://127\.0\.0\.1:33419/model/.*/api`)
+	c.Check(atomic.LoadInt32(&stopped), tc.Equals, int32(1))
+}
+
+func (s *apiclientSuite) TestDialAPIStopsUnknownProxierOnce(c *tc.C) {
+	var stopped int32
+	proxier := &proxytest.MockProxier{
+		StopFn: func() { atomic.AddInt32(&stopped, 1) },
+	}
+
+	info := s.APIInfo()
+	info.Proxier = proxier
+
+	_, _, err := api.DialAPI(c, info, api.DialOpts{})
+	c.Assert(err, tc.ErrorMatches, "unknown proxier provided")
+	c.Check(atomic.LoadInt32(&stopped), tc.Equals, int32(1))
 }
 
 func (s *apiclientSuite) TestOpenWithNoCACert(c *tc.C) {
