@@ -588,6 +588,63 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	c.Assert(*res.Hardware.RootDiskSource, gc.Equals, "test-storage-pool")
 }
 
+func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndCustomNICs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+
+	nics := map[string]map[string]string{
+		"eno9": {
+			"name":    "eno9",
+			"mtu":     "9000",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+			"hwaddr":  "00:00:00:00:00",
+		},
+	}
+
+	check := func(spec containerlxd.ContainerSpec) bool {
+		if spec.Config[containerlxd.NetworkConfigKey] != cloudinit.CloudInitNetworkConfigDisabled {
+			return false
+		}
+		if !reflect.DeepEqual(spec.Devices["eno9"], nics["eno9"]) {
+			return false
+		}
+		return reflect.DeepEqual(spec.Devices["root"], map[string]string{
+			"type": "disk",
+			"pool": "test-storage-pool",
+			"path": "/",
+		})
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(nics, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	args := s.GetStartInstanceArgs(c)
+	rootDiskSource := "test-storage-pool"
+	args.Constraints = constraints.Value{
+		RootDiskSource: &rootDiskSource,
+	}
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	res, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
+	c.Assert(res.Hardware.RootDiskSource, gc.NotNil)
+	c.Assert(*res.Hardware.RootDiskSource, gc.Equals, "test-storage-pool")
+}
+
 func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
