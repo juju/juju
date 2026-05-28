@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -128,7 +127,7 @@ func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes
 	return nil
 }
 
-func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []unitstate.DeleteSecretArg) error {
+func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []internal.DeleteSecretArg) error {
 	if len(deletes) == 0 {
 		return nil
 	}
@@ -140,11 +139,7 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 
 	now := st.clock.Now().UTC()
 	jobs := make([]secretRemovalJob, 0, len(deletes))
-	for i, del := range deletes {
-		if del.URI == nil {
-			return errors.Errorf("delete secret arg at index %d has nil URI", i)
-		}
-
+	for _, del := range deletes {
 		jobUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Capture(err)
@@ -153,17 +148,13 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 		rec := secretRemovalJob{
 			UUID:          jobUUID.String(),
 			RemovalTypeID: charmSecretRemovalJobTypeID,
-			EntityUUID:    del.URI.String(),
+			EntityUUID:    del.URI,
 			ScheduledFor:  now,
 		}
 
-		if len(del.Revisions) > 0 {
-			argJSON, err := json.Marshal(secretDeletionArg{Revisions: del.Revisions})
-			if err != nil {
-				return errors.Errorf("marshalling revisions arg for %q: %w", del.URI, err)
-			}
+		if del.ArgJSON != nil {
 			rec.Arg = sql.NullString{
-				String: string(argJSON),
+				String: *del.ArgJSON,
 				Valid:  true,
 			}
 		}

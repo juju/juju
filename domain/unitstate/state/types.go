@@ -11,12 +11,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 )
 
-// secretDeletionArg is the JSON payload stored in the removal table's arg
-// column when scheduling a charm-secret deletion with specific revisions.
-type secretDeletionArg struct {
-	Revisions []int `json:"revisions"`
-}
-
 // charmSecretRemovalJobTypeID is used when scheduling deletion of unit- or
 // application-owned secrets.
 const charmSecretRemovalJobTypeID = uint64(removal.CharmSecretJob)

@@ -22,7 +22,6 @@ import (
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
-	"github.com/juju/juju/domain/secret"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -592,8 +591,8 @@ func (s *commitHookSuite) TestDeleteSecrets(c *tc.C) {
 
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: s.unitUUID,
-		SecretDeletes: []unitstate.DeleteSecretArg{{
-			URI: uri,
+		SecretDeletes: []internal.DeleteSecretArg{{
+			URI: uri.String(),
 		}},
 	}
 
@@ -622,16 +621,15 @@ func (s *commitHookSuite) TestDeleteSecrets(c *tc.C) {
 func (s *commitHookSuite) TestDeleteSecretsWithRevisions(c *tc.C) {
 	ctx := c.Context()
 
-	// Arrange: create a secret URI with specific revisions.
+	// Arrange: create a secret URI with specific revisions (pre-marshaled).
 	uri := coresecrets.NewURI()
+	revisionsJSON := `{"revisions":[1,3,5]}`
 
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: s.unitUUID,
-		SecretDeletes: []unitstate.DeleteSecretArg{{
-			URI: uri,
-			DeleteSecretParams: secret.DeleteSecretParams{
-				Revisions: []int{1, 3, 5},
-			},
+		SecretDeletes: []internal.DeleteSecretArg{{
+			URI:     uri.String(),
+			ArgJSON: &revisionsJSON,
 		}},
 	}
 
@@ -667,13 +665,15 @@ func (s *commitHookSuite) TestDeleteSecretsMultiple(c *tc.C) {
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 	uri3 := coresecrets.NewURI()
+	revisions24 := `{"revisions":[2,4]}`
+	revisions1 := `{"revisions":[1]}`
 
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: s.unitUUID,
-		SecretDeletes: []unitstate.DeleteSecretArg{
-			{URI: uri1},
-			{URI: uri2, DeleteSecretParams: secret.DeleteSecretParams{Revisions: []int{2, 4}}},
-			{URI: uri3, DeleteSecretParams: secret.DeleteSecretParams{Revisions: []int{1}}},
+		SecretDeletes: []internal.DeleteSecretArg{
+			{URI: uri1.String()},
+			{URI: uri2.String(), ArgJSON: &revisions24},
+			{URI: uri3.String(), ArgJSON: &revisions1},
 		},
 	}
 
