@@ -22,16 +22,12 @@ import (
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
 	LogDir string
-	Clock  clock.Clock
 	Logger logger.Logger
 }
 
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.LogDir == "" {
 		return errors.NotValidf("empty LogDir")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -52,7 +48,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			cfg := &WorkerConfig{
 				LogDir: config.LogDir,
-				Clock:  config.Clock,
+				Clock:  clock.WallClock,
 				Logger: config.Logger,
 				StackGatherer: func() []byte {
 					// TODO (stickupkid): Drop the first frames that don't

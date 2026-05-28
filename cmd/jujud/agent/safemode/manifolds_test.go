@@ -133,12 +133,9 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"agent": {},
 
-	"controller-agent-config": {
-		"agent",
-	},
+	"controller-agent-config": {},
 
 	"db-accessor": {
-		"agent",
 		"controller-agent-config",
 		"query-logger",
 	},
@@ -152,12 +149,9 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"agent": {},
 
-	"controller-agent-config": {
-		"agent",
-	},
+	"controller-agent-config": {},
 
 	"db-accessor": {
-		"agent",
 		"controller-agent-config",
 		"query-logger",
 	},

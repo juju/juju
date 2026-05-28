@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -303,14 +304,18 @@ func (a *SafeModeControllerAgent) makeEngineCreator(
 			return nil, err
 		}
 
+		agentConfig := a.CurrentConfig()
 		manifoldsCfg := safemode.ManifoldsConfig{
 			Agent:              agent.APIHostPortsSetter{Agent: a},
 			AgentConfigChanged: a.configChangedVal,
 			NewDBWorkerFunc:    a.newDBWorkerFunc,
 			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
-				filepath.Join(a.CurrentConfig().DataDir(), "agents", "controller-"+a.Tag().Id()),
+				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.Tag().Id()),
 			),
-			Clock: clock.WallClock,
+			ControllerID:           a.Tag().Id(),
+			LogDir:                 agentConfig.LogDir(),
+			ConfigChangeSocketPath: path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Clock:                  clock.WallClock,
 		}
 
 		var manifolds dependency.Manifolds
