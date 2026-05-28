@@ -4,7 +4,6 @@
 package logsink
 
 import (
-	"maps"
 	"testing"
 
 	"github.com/juju/clock"
@@ -31,8 +30,7 @@ type ManifoldSuite struct {
 
 	logger logger.Logger
 
-	clock clock.Clock
-	stub  testhelpers.Stub
+	stub testhelpers.Stub
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -42,8 +40,6 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.clock = clock.WallClock
-
 	s.stub.ResetCalls()
 
 	s.logger = loggertesting.WrapCheckLog(c)
@@ -51,7 +47,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.getter = s.newGetter(c, nil)
 	s.manifold = Manifold(ManifoldConfig{
 		LogSink:   loggertesting.WrapCheckLogSink(c),
-		Clock:     s.clock,
 		NewWorker: s.newWorker,
 		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
@@ -75,9 +70,6 @@ func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg.NewModelLogger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig(c)
-	cfg.Clock = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
@@ -87,16 +79,11 @@ func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
-		Clock: clock.WallClock,
 	}
 }
 
 func (s *ManifoldSuite) newGetter(c *tc.C, overlay map[string]any) dependency.Getter {
-	resources := map[string]any{
-		"clock": s.clock,
-	}
-	maps.Copy(resources, overlay)
-	return dt.StubGetter(resources)
+	return dt.StubGetter(overlay)
 }
 
 func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
@@ -133,6 +120,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, tc.HasLen, 1)
 	c.Check(args[0], tc.FitsTypeOf, Config{})
+	c.Check(args[0].(Config).Clock, tc.Equals, clock.WallClock)
 
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "NewWorker")
