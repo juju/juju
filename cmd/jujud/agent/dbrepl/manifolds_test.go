@@ -133,9 +133,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"agent": {},
 
-	"controller-agent-config": {
-		"agent",
-	},
+	"controller-agent-config": {},
 
 	"db-repl": {
 		"agent",
@@ -153,9 +151,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"agent": {},
 
-	"controller-agent-config": {
-		"agent",
-	},
+	"controller-agent-config": {},
 
 	"db-repl": {
 		"agent",
