@@ -701,7 +701,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"certificate-watcher": {"agent"},
 
 	"change-stream": {
-		"agent",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -767,7 +766,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"upgrade-database-gate",
 	},
 
-	"controller-agent-config": {"agent"},
+	"controller-agent-config": {},
 
 	"controller-presence": {
 		"agent",
@@ -796,7 +795,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"db-accessor": {
-		"agent",
 		"controller-agent-config",
 		"query-logger",
 	},
@@ -1095,7 +1093,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"object-store-services": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1104,7 +1101,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"object-store-s3-caller": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1117,7 +1113,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"provider-services": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1126,7 +1121,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"provider-tracker": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1188,7 +1182,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"storage-registry": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1251,7 +1244,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"upgrade-services": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"controller-upgrade-flag",

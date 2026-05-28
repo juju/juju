@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -561,15 +562,20 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 
 		clock := clock.WallClock
+		controllerRuntimeConfigPath := controllerruntimeconfig.ConfigPath(
+			filepath.Join(agentConfig.DataDir(), "agents", "controller-"+agentConfig.Tag().Id()),
+		)
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
 
 		manifoldsCfg := machine.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			AgentName:            agentName,
-			ControllerID:         agentConfig.Tag().Id(),
-			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
-				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+agentConfig.Tag().Id()),
-			),
+			PreviousAgentVersion:              previousAgentVersion,
+			AgentName:                         agentName,
+			ControllerID:                      agentConfig.Tag().Id(),
+			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
+			ControllerAgentTag:                agentConfig.Tag(),
+			LogDir:                            agentConfig.LogDir(),
+			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
+			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,

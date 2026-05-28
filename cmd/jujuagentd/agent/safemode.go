@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -318,8 +319,11 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
 				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.Tag().Id()),
 			),
-			Clock:        clock.WallClock,
-			IsCaasConfig: a.isCaasAgent,
+			ControllerID:           a.Tag().Id(),
+			LogDir:                 agentConfig.LogDir(),
+			ConfigChangeSocketPath: path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Clock:                  clock.WallClock,
+			IsCaasConfig:           a.isCaasAgent,
 		}
 
 		var manifolds dependency.Manifolds

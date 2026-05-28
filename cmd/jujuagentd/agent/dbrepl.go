@@ -299,6 +299,7 @@ func (a *replMachineAgent) makeEngineCreator(
 			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
 			ControllerUnlocker:  a.controllerUnlocker,
+			ControllerID:        a.Tag().Id(),
 			Clock:               clock.WallClock,
 
 			Stdout: stdout,
