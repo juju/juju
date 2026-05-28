@@ -1094,7 +1094,9 @@ func (c *statusContext) processApplication(ctx context.Context, name string, app
 	// Handle CAAS applications fields independently of the IAAS ones.
 	if providerID := application.K8sProviderID; providerID != nil {
 		processedStatus.ProviderId = *providerID
-		// TODO (stickupkid): Add addresses to the status for k8s applications.
+	}
+	if publicAddress := application.K8sPublicAddress; publicAddress != nil {
+		processedStatus.PublicAddress = *publicAddress
 	}
 
 	if scale := application.Scale; scale != nil {

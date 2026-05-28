@@ -1977,6 +1977,153 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 	})
 }
 
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	appUUID, _ := s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "1.2.3.4")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, map[string]status.Application{
+		"foo": {
+			ID:     appUUID,
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Scale:            new(1),
+			K8sProviderID:    new("provider-id"),
+			K8sPublicAddress: new("1.2.3.4"),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/0": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceMultipleAddresses(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"1.2.3.4",
+		"1.2.3.5",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("1.2.3.4"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceLocalCloudAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "10.0.0.10")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesPublicAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"8.8.8.8",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("8.8.8.8"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesIPv4Address(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"fd00::10",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceSelectsAlphabeticalAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"10.0.0.20",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceNonLocalAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "255.255.255.255")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.IsNil)
+}
+
 func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.UUID, unitUUID coreunit.UUID, version string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {

@@ -23,20 +23,21 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
-	Life            life.Value
-	Status          status.StatusInfo
-	Relations       []relation.UUID
-	Subordinate     bool
-	CharmLocator    charm.CharmLocator
-	CharmVersion    string
-	Platform        deployment.Platform
-	Channel         *deployment.Channel
-	Exposed         bool
-	LXDProfile      *internalcharm.LXDProfile
-	Scale           *int
-	WorkloadVersion *string
-	K8sProviderID   *string
-	Units           map[unit.Name]Unit
+	Life             life.Value
+	Status           status.StatusInfo
+	Relations        []relation.UUID
+	Subordinate      bool
+	CharmLocator     charm.CharmLocator
+	CharmVersion     string
+	Platform         deployment.Platform
+	Channel          *deployment.Channel
+	Exposed          bool
+	LXDProfile       *internalcharm.LXDProfile
+	Scale            *int
+	WorkloadVersion  *string
+	K8sProviderID    *string
+	K8sPublicAddress *string
+	Units            map[unit.Name]Unit
 }
 
 // Unit represents the status of a unit.
