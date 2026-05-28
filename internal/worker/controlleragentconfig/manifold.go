@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/socketlistener"
 )
@@ -29,9 +28,9 @@ func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
 // ManifoldConfig defines the configuration for the agent controller config
 // manifold.
 type ManifoldConfig struct {
-	AgentName string
-	Logger    logger.Logger
-	Clock     clock.Clock
+	// ControllerID is the numeric ID of this controller.
+	ControllerID string
+	Logger       logger.Logger
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -40,14 +39,11 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if cfg.ControllerID == "" {
+		return errors.NotValidf("empty ControllerID")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if cfg.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
@@ -61,24 +57,17 @@ func (cfg ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the trace worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-		},
+		Inputs: []string{},
 		Output: configOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var thisAgent agent.Agent
-			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			w, err := NewWorker(WorkerConfig{
-				ControllerID:      thisAgent.CurrentConfig().Tag().Id(),
+				ControllerID:      config.ControllerID,
 				Logger:            config.Logger,
-				Clock:             config.Clock,
+				Clock:             clock.WallClock,
 				NewSocketListener: config.NewSocketListener,
 				SocketName:        config.SocketName,
 			})
