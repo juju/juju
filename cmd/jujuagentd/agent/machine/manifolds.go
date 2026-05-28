@@ -7,12 +7,12 @@ import (
 	"context"
 	"maps"
 	"net/http"
-	"path"
 	"runtime"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
@@ -147,6 +147,18 @@ type ManifoldsConfig struct {
 	// worker can read its own connection parameters without going
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
+
+	// ControllerAgentTag is the tag used for controller-agent log records.
+	ControllerAgentTag names.Tag
+
+	// LogDir is the controller process log directory.
+	LogDir string
+
+	// ConfigChangeSocketPath is the path to the config-change reload socket.
+	ConfigChangeSocketPath string
+
+	// ControlSocketPath is the path to the local controller control socket.
+	ControlSocketPath string
 
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
@@ -375,11 +387,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
-			AgentName:         agentName,
-			Clock:             config.Clock,
+			ControllerID:      config.ControllerID,
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
-			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
+			SocketName:        config.ConfigChangeSocketPath,
 			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
 		})),
 
@@ -604,8 +615,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
-			AgentTag:       agentTag,
-			Clock:          config.Clock,
+			AgentTag:       config.ControllerAgentTag,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
 			LogSink:        config.LogSink,
@@ -685,8 +695,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
-			LogDir: agentConfig.LogDir(),
-			Clock:  config.Clock,
+			LogDir: config.LogDir,
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
 
@@ -717,7 +726,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		auditConfigUpdaterName: ifDatabaseUpgradeComplete(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
-			AgentName:                  agentName,
+			LogDir:                     config.LogDir,
 			DomainServicesName:         domainServicesName,
 			NewWorker:                  auditconfigupdater.NewWorker,
 			GetControllerConfigService: auditconfigupdater.GetControllerConfigService,
@@ -787,7 +796,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                          internallogger.GetLogger("juju.worker.controlsocket"),
 			NewWorker:                       controlsocket.NewWorker,
 			NewSocketListener:               controlsocket.NewSocketListener,
-			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
+			SocketName:                      config.ControlSocketPath,
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
 		})),
