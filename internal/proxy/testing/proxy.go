@@ -17,6 +17,9 @@ type MockProxier struct {
 
 	// See Proxier interface
 	TypeFn func() string
+
+	// See api.ProxierErrorReporter interface
+	ProxyErrorFn func() error
 }
 
 type MockTunnelProxier struct {
@@ -64,6 +67,13 @@ func (mp *MockProxier) Type() string {
 		return "mock-proxier"
 	}
 	return mp.TypeFn()
+}
+
+func (mp *MockProxier) ProxyError() error {
+	if mp.ProxyErrorFn == nil {
+		return nil
+	}
+	return mp.ProxyErrorFn()
 }
 
 func (mtp *MockTunnelProxier) Host() string {
