@@ -174,7 +174,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0057-model-migrating-triggers.PATCH.sql",
 	},
 }, {
-	version: semversion.MustParse("4.0.10"),
+	version: semversion.MustParse("4.0.12"),
 	files: []string{
 		"0058-charm-secret-removal.PATCH.sql",
 	},

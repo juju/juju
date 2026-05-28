@@ -660,6 +660,68 @@ func (s *commitHookSuite) TestDeleteSecretsWithRevisions(c *tc.C) {
 	c.Check(argStr.String, tc.Equals, `{"revisions":[1,3,5]}`)
 }
 
+func (s *commitHookSuite) TestDeleteSecretsMultiple(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create three secret URIs with varying revision args.
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretDeletes: []unitstate.DeleteSecretArg{
+			{URI: uri1},
+			{URI: uri2, DeleteSecretParams: secret.DeleteSecretParams{Revisions: []int{2, 4}}},
+			{URI: uri3, DeleteSecretParams: secret.DeleteSecretParams{Revisions: []int{1}}},
+		},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify all three removal jobs were created via bulk insert.
+	type row struct {
+		EntityUUID string
+		Arg        sql.NullString
+	}
+	rows := make(map[string]row)
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		r, err := tx.QueryContext(ctx,
+			"SELECT entity_uuid, arg FROM removal WHERE removal_type_id = ? ORDER BY entity_uuid",
+			int(removal.CharmSecretJob),
+		)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		for r.Next() {
+			var rec row
+			if err := r.Scan(&rec.EntityUUID, &rec.Arg); err != nil {
+				return err
+			}
+			rows[rec.EntityUUID] = rec
+		}
+		return r.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rows, tc.HasLen, 3)
+
+	// uri1: no revisions arg.
+	c.Check(rows[uri1.String()].Arg.Valid, tc.IsFalse)
+
+	// uri2: revisions [2, 4].
+	c.Assert(rows[uri2.String()].Arg.Valid, tc.IsTrue)
+	c.Check(rows[uri2.String()].Arg.String, tc.Equals, `{"revisions":[2,4]}`)
+
+	// uri3: revisions [1].
+	c.Assert(rows[uri3.String()].Arg.Valid, tc.IsTrue)
+	c.Check(rows[uri3.String()].Arg.String, tc.Equals, `{"revisions":[1]}`)
+}
+
 func (s *commitHookSuite) addStoragePool(
 	c *tc.C,
 	name, providerType string,

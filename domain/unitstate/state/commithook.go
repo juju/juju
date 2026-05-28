@@ -139,6 +139,7 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 	}
 
 	now := st.clock.Now().UTC()
+	jobs := make([]secretRemovalJob, 0, len(deletes))
 	for i, del := range deletes {
 		if del.URI == nil {
 			return errors.Errorf("delete secret arg at index %d has nil URI", i)
@@ -167,9 +168,11 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 			}
 		}
 
-		if err := tx.Query(ctx, stmt, rec).Run(); err != nil {
-			return errors.Errorf("inserting secret removal job for %q: %w", del.URI, err)
-		}
+		jobs = append(jobs, rec)
+	}
+
+	if err := tx.Query(ctx, stmt, jobs).Run(); err != nil {
+		return errors.Errorf("inserting secret removal jobs: %w", err)
 	}
 	return nil
 }

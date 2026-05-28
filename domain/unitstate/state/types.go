@@ -17,7 +17,8 @@ type secretDeletionArg struct {
 	Revisions []int `json:"revisions"`
 }
 
-// used when scheduling deletion of unit- or application-owned secrets.
+// charmSecretRemovalJobTypeID is used when scheduling deletion of unit- or
+// application-owned secrets.
 const charmSecretRemovalJobTypeID = uint64(removal.CharmSecretJob)
 
 // secretRemovalJob represents a record in the removal table for scheduling
@@ -26,7 +27,6 @@ type secretRemovalJob struct {
 	UUID          string         `db:"uuid"`
 	RemovalTypeID uint64         `db:"removal_type_id"`
 	EntityUUID    string         `db:"entity_uuid"`
-	Force         bool           `db:"force"`
 	ScheduledFor  time.Time      `db:"scheduled_for"`
 	Arg           sql.NullString `db:"arg"`
 }
