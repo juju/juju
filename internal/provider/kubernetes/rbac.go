@@ -240,8 +240,8 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 
 	var existingLabelVersion constants.LabelVersion
 	switch name := sa.GetName(); name {
-	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	case ExecRBACResourceName, constants.ModelOperatorName:
+		existingLabelVersion, err = utils.MatchModelOperatorMetaLabelVersion(existing.ObjectMeta)
 	default:
 		if isOperatorName(name) {
 			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
@@ -340,8 +340,8 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 
 	var existingLabelVersion constants.LabelVersion
 	switch name := role.GetName(); name {
-	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	case ExecRBACResourceName, constants.ModelOperatorName:
+		existingLabelVersion, err = utils.MatchModelOperatorMetaLabelVersion(existing.ObjectMeta)
 	default:
 		if isOperatorName(name) {
 			existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, appNameFromOperator(name), OperatorAppTarget)
