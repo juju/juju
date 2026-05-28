@@ -336,7 +336,7 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 	})
 }
 
-func (s *OpsSuite) TestRefreshApplicationStatusChurning(c *gc.C) {
+func (s *OpsSuite) TestRefreshOperatorStatusChurningAllocating(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -358,11 +358,11 @@ func (s *OpsSuite) TestRefreshApplicationStatusChurning(c *gc.C) {
 		facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus("test", app, appLife, facade, s.logger)
 	c.Assert(errors.Is(err, errors.ConstError("units churning")), jc.IsTrue)
 }
 
-func (s *OpsSuite) TestRefreshApplicationStatusSettled(c *gc.C) {
+func (s *OpsSuite) TestRefreshOperatorStatusChurningWaitingInitialising(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -376,7 +376,35 @@ func (s *OpsSuite) TestRefreshApplicationStatusSettled(c *gc.C) {
 	units := []params.CAASUnit{{
 		UnitStatus: &params.UnitStatus{AgentStatus: params.DetailedStatus{Status: "active"}},
 	}, {
+		UnitStatus: &params.UnitStatus{AgentStatus: params.DetailedStatus{Status: "waiting", Info: "agent initialising"}},
+	}}
+	gomock.InOrder(
+		app.EXPECT().State().Return(appState, nil),
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus("test", app, appLife, facade, s.logger)
+	c.Assert(errors.Is(err, errors.ConstError("units churning")), jc.IsTrue)
+}
+
+func (s *OpsSuite) TestRefreshOperatorStatusSettled(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appLife := life.Alive
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	appState := caas.ApplicationState{
+		DesiredReplicas: 2,
+	}
+	units := []params.CAASUnit{{
 		UnitStatus: &params.UnitStatus{AgentStatus: params.DetailedStatus{Status: "active"}},
+	}, {
+		UnitStatus: &params.UnitStatus{AgentStatus: params.DetailedStatus{Status: "executing"}},
+	}, {
+		UnitStatus: &params.UnitStatus{AgentStatus: params.DetailedStatus{Status: "waiting"}},
 	}}
 	gomock.InOrder(
 		app.EXPECT().State().Return(appState, nil),
@@ -384,7 +412,7 @@ func (s *OpsSuite) TestRefreshApplicationStatusSettled(c *gc.C) {
 		facade.EXPECT().SetOperatorStatus("test", status.Active, "", nil).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus("test", app, appLife, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

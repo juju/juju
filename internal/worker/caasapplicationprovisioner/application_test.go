@@ -190,7 +190,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 	storageConsChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -314,7 +314,7 @@ func (s *ApplicationWorkerSuite) TestWorkerResumeStorageUpdateOperation(c *gc.C)
 	appReplicasChan := make(chan struct{}, 1)
 	storageConsChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -379,7 +379,7 @@ func (s *ApplicationWorkerSuite) TestWorkerResumeScaleOperation(c *gc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 	storageConsChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -444,7 +444,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 	storageConsChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 	op := application.ScaleOperation
 
 	gomock.InOrder(
@@ -539,14 +539,14 @@ func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *g
 		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().Return(watchertest.NewMockNotifyWatcher(appReplicasChan), nil),
 
-		ops.EXPECT().RefreshApplicationStatus("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().RefreshOperatorStatus("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
 			select {
 			case firstRefresh <- struct{}{}:
 			default:
 			}
 			return errors.ConstError("units churning")
 		}),
-		ops.EXPECT().RefreshApplicationStatus("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().RefreshOperatorStatus("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -595,7 +595,7 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 	storageConsChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
