@@ -292,6 +292,7 @@ func (a *replMachineAgent) makeEngineCreator(
 			Agent:               agent.APIHostPortsSetter{Agent: a},
 			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
+			ControllerID:        a.Tag().Id(),
 			Clock:               clock.WallClock,
 
 			Stdout: stdout,
