@@ -52,7 +52,7 @@ func (s *modelUpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 	var (
-		operatorName = modelOperatorName
+		operatorName = constants.ModelOperatorName
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
