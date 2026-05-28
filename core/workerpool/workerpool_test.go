@@ -4,6 +4,7 @@
 package workerpool
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -66,6 +67,10 @@ func (s *ProvisionerWorkerPoolSuite) TestIdleWaitsForWorkers(c *tc.C) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	idleResult := make(chan bool, 1)
+	idleCtx := &idleEnteredContext{
+		Context: c.Context(),
+		entered: make(chan struct{}),
+	}
 	wp := NewWorkerPool(loggertesting.WrapCheckLog(c), 1)
 
 	select {
@@ -88,8 +93,14 @@ func (s *ProvisionerWorkerPoolSuite) TestIdleWaitsForWorkers(c *tc.C) {
 	}
 
 	go func() {
-		idleResult <- wp.Idle(c.Context())
+		idleResult <- wp.Idle(idleCtx)
 	}()
+
+	select {
+	case <-idleCtx.entered:
+	case <-c.Context().Done():
+		c.Fatal("test context cancelled while waiting for Idle to start")
+	}
 
 	select {
 	case result := <-idleResult:
@@ -107,6 +118,19 @@ func (s *ProvisionerWorkerPoolSuite) TestIdleWaitsForWorkers(c *tc.C) {
 	}
 
 	c.Assert(wp.Close(), tc.ErrorIsNil)
+}
+
+type idleEnteredContext struct {
+	context.Context
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (c *idleEnteredContext) Done() <-chan struct{} {
+	c.once.Do(func() {
+		close(c.entered)
+	})
+	return c.Context.Done()
 }
 
 func (s *ProvisionerWorkerPoolSuite) TestProcessMoreTasksThanWorkers(c *tc.C) {
