@@ -5,7 +5,6 @@ package safemode
 
 import (
 	"maps"
-	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
@@ -44,6 +43,15 @@ type ManifoldsConfig struct {
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
 
+	// ControllerID is the numeric ID of the controller.
+	ControllerID string
+
+	// LogDir is the controller process log directory.
+	LogDir string
+
+	// ConfigChangeSocketPath is the path to the config-change reload socket.
+	ConfigChangeSocketPath string
+
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 
@@ -56,8 +64,6 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -79,11 +85,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
-			AgentName:         agentName,
-			Clock:             config.Clock,
+			ControllerID:      config.ControllerID,
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
-			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
+			SocketName:        config.ConfigChangeSocketPath,
 		})),
 
 		// The stateconfigwatcher manifold watches the machine agent's
@@ -97,8 +102,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
-			LogDir: agentConfig.LogDir(),
-			Clock:  config.Clock,
+			LogDir: config.LogDir,
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
 	}
