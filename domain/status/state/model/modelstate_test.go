@@ -791,6 +791,38 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresent(c *tc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
+func (s *modelStateSuite) TestGetMachineAgentStatusPresentViaChildMachine(c *tc.C) {
+	_, parentName, _, childName := s.createContainerMachine(c)
+
+	status := status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's starting",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   new(time.Now()),
+	}
+
+	err := s.state.SetMachineStatus(c.Context(), parentName.String(), status)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachinePresence(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetMachineStatus(c.Context(), parentName.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, tc.IsTrue)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
+
+	err = s.state.DeleteMachinePresence(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetMachineStatus(c.Context(), parentName.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, tc.IsFalse)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
+}
+
 func (s *modelStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 	_, err := s.state.GetUnitWorkloadStatus(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -2939,6 +2971,33 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 	c.Assert(err, tc.ErrorIsNil)
 
 	return mUUID, name
+}
+
+func (s *modelStateSuite) createContainerMachine(c *tc.C) (coremachine.UUID, coremachine.Name, coremachine.UUID, coremachine.Name) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+		},
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.AMD64,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineNames, tc.HasLen, 2)
+
+	parentName := machineNames[0]
+	parentUUID, err := machineState.GetMachineUUID(c.Context(), parentName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	childName := machineNames[1]
+	childUUID, err := machineState.GetMachineUUID(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return parentUUID, parentName, childUUID, childName
 }
 
 func (s *modelStateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {

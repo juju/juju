@@ -177,6 +177,7 @@ var modelPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.12"),
 	files: []string{
 		"0058-charm-secret-removal.PATCH.sql",
+		"0059-machine-status.PATCH.sql",
 	},
 }}
 
