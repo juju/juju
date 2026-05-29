@@ -6,8 +6,11 @@ package migrations
 import (
 	"github.com/juju/description/v3"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 )
+
+var logger = loggo.GetLogger("juju.state.migrations.externalcontrollers")
 
 // MigrationExternalController represents a state.ExternalController
 // Point of use interface to enable better encapsulation.
@@ -91,7 +94,7 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 	for modelUUID := range sourceModelUUIDs {
 		externalController, err := src.ControllerForModel(modelUUID)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			// No external controller record found. Check if the model
@@ -103,12 +106,13 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 			if existsErr != nil {
 				return errors.Trace(existsErr)
 			}
-			if !exists {
-				return errors.Annotatef(err,
-					"cannot find external controller for model %q "+
-						"and model is not on this controller", modelUUID)
+			if exists {
+				localModelUUIDs = append(localModelUUIDs, modelUUID)
+			} else {
+				logger.Warningf(
+					"cannot find external controller for model %q and model is not on this controller",
+					modelUUID)
 			}
-			localModelUUIDs = append(localModelUUIDs, modelUUID)
 			continue
 		}
 		controllers[externalController.ID()] = externalController

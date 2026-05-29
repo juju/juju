@@ -1513,6 +1513,8 @@ func (s externalControllerShim) LocalControllerInfo(modelUUIDs []string) (migrat
 			if addr == "" {
 				continue
 			}
+			// Addresses can be recorded without a scope.
+			// Ensure no loopback addresses are included.
 			host, _, err := net.SplitHostPort(addr)
 			if err == nil {
 				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {

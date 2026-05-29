@@ -177,29 +177,6 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoContr
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoControllerNotFoundModelNotLocal(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	entities := []MigrationRemoteApplication{
-		s.migrationRemoteApplication(ctrl, func(expect *MockMigrationRemoteApplicationMockRecorder) {
-			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
-		}),
-	}
-
-	source := NewMockExternalControllerSource(ctrl)
-	source.EXPECT().AllRemoteApplications().Return(entities, nil)
-	source.EXPECT().ControllerForModel("uuid-2").Return(nil, errors.NotFoundf("not found"))
-	source.EXPECT().ModelExists("uuid-2").Return(false, nil)
-
-	model := NewMockExternalControllerModel(ctrl)
-
-	migration := ExportExternalControllers{}
-	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches,
-		`cannot find external controller for model "uuid-2" and model is not on this controller: not found not found`)
-}
-
 func (s *ExternalControllersExportSuite) TestExportExternalControllerMultipleLocalModels(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

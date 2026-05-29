@@ -63,12 +63,15 @@ func controllerInfo(st controllerInfoGetter) ([]string, string, error) {
 			if addr == "" {
 				continue
 			}
+			// Addresses can be recorded without a scope.
+			// Ensure no loopback addresses are included.
 			host, _, err := net.SplitHostPort(addr)
 			if err == nil {
 				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 					continue
 				}
 			}
+			addrs = append(addrs, addr)
 		}
 	}
 
