@@ -34,6 +34,18 @@ type MigrationExternalController interface {
 // external controllers.
 type AllExternalControllerSource interface {
 	ControllerForModel(string) (MigrationExternalController, error)
+
+	// ModelExists returns true if the model with the given UUID is
+	// hosted on this controller.
+	ModelExists(string) (bool, error)
+
+	// LocalControllerInfo returns a MigrationExternalController
+	// representing the current controller, with the given model UUIDs
+	// as its hosted models. This is used during export to include the
+	// local controller as an external controller record so that after
+	// migration, the target controller knows how to reach back to the
+	// source controller for consumed offers that were local.
+	LocalControllerInfo(modelUUIDs []string) (MigrationExternalController, error)
 }
 
 // ExternalControllerSource composes all the interfaces to create a external
@@ -58,7 +70,7 @@ type ExportExternalControllers struct{}
 // This doesn't conform to an interface because go doesn't have generics, but
 // when this does arrive this would be an excellent place to use them.
 func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst ExternalControllerModel) error {
-	// If there are not remote applications, then no external controllers will
+	// If there are no remote applications, then no external controllers will
 	// be exported. We should understand if that's ever going to be an issue?
 	remoteApplications, err := src.AllRemoteApplications()
 	if err != nil {
@@ -75,23 +87,43 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 	}
 
 	controllers := make(map[string]MigrationExternalController)
+	var localModelUUIDs []string
 	for modelUUID := range sourceModelUUIDs {
 		externalController, err := src.ControllerForModel(modelUUID)
 		if err != nil {
-			// This can occur when attempting to export a remote application
-			// where there is a external controller, yet the controller doesn't
-			// exist.
-			// This generally only happens whilst keeping backwards
-			// compatibility, whilst remote applications aren't exported or
-			// imported correctly.
-			// TODO (stickupkid): This should be removed when we support CMR
-			// migrations without a feature flag.
-			if errors.IsNotFound(err) {
-				continue
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
 			}
-			return errors.Trace(err)
+			// No external controller record found. Check if the model
+			// is hosted on this controller. If so, we need to include
+			// the local controller as an external controller in the
+			// export, because after migration the consumed offers that
+			// were local will be on an external controller.
+			exists, existsErr := src.ModelExists(modelUUID)
+			if existsErr != nil {
+				return errors.Trace(existsErr)
+			}
+			if !exists {
+				return errors.Annotatef(err,
+					"cannot find external controller for model %q "+
+						"and model is not on this controller", modelUUID)
+			}
+			localModelUUIDs = append(localModelUUIDs, modelUUID)
+			continue
 		}
 		controllers[externalController.ID()] = externalController
+	}
+
+	// If any remote applications reference models on this controller,
+	// include the local controller info as an external controller so
+	// the target controller can reach back after migration.
+	if len(localModelUUIDs) > 0 {
+		localCtrl, err := src.LocalControllerInfo(localModelUUIDs)
+		if err != nil {
+			return errors.Annotate(err,
+				"getting local controller info for export")
+		}
+		controllers[localCtrl.ID()] = localCtrl
 	}
 
 	for _, controller := range controllers {

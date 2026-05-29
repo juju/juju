@@ -951,6 +951,62 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 	c.Assert(ctrl.Models(), gc.DeepEquals, []string{s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971"})
 }
 
+func (s *MigrationExportSuite) TestExternalControllersLocalController(c *gc.C) {
+	// Create a second model on this controller that will be the source of the
+	// remote application's offer.
+	otherState := s.Factory.MakeModel(c, nil)
+	defer func() { _ = otherState.Close() }()
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: otherModel.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No external controller record is saved for the other model - this
+	// simulates the case where the offer's source model is on this controller.
+
+	// Set API host ports so the local controller has addresses to export.
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
+		{SpaceAddress: network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), NetPort: 17070},
+		{SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)), NetPort: 17070},
+		// This one is filtered out.
+		{SpaceAddress: network.NewSpaceAddress("127.0.0.1"), NetPort: 17070},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipActions:              true,
+		SkipAnnotations:          true,
+		SkipCloudImageMetadata:   true,
+		SkipCredentials:          true,
+		SkipIPAddresses:          true,
+		SkipSettings:             true,
+		SkipSSHHostKeys:          true,
+		SkipStatusHistory:        true,
+		SkipLinkLayerDevices:     true,
+		SkipUnitAgentBinaries:    true,
+		SkipMachineAgentBinaries: true,
+		SkipRelationData:         true,
+		SkipInstanceData:         true,
+		SkipApplicationOffers:    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrls := model.ExternalControllers()
+	c.Assert(ctrls, gc.HasLen, 1)
+
+	ctrl := ctrls[0]
+	c.Check(ctrl.ID(), gc.Equals, names.NewControllerTag(s.State.ControllerUUID()))
+	c.Check(ctrl.Addrs(), jc.SameContents, []string{"1.2.3.4:17070", "10.0.0.1:17070"})
+	c.Check(ctrl.Models(), jc.SameContents, []string{otherModel.UUID()})
+}
+
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	s.assertMigrateUnits(c, s.State)
 }
