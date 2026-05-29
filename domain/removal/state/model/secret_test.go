@@ -122,7 +122,7 @@ func (s *secretSuite) TestDeleteSomeRevisions(c *tc.C) {
 	sec := s.addSecretWithRevisionsAndContent(c, app)
 	uri := &coresecrets.URI{ID: sec}
 
-	deleted, err := st.DeleteUserSecretRevisions(ctx, uri, []int{1})
+	deleted, err := st.DeleteSecretRevisions(ctx, uri, []int{1})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(deleted, tc.DeepEquals, []string{"revision_id_1"})
 
@@ -164,7 +164,7 @@ func (s *secretSuite) assertDeleteAllRevisions(c *tc.C, revs []int) {
 	_, err = s.DB().ExecContext(ctx, q, sec, unit)
 	c.Assert(err, tc.ErrorIsNil)
 
-	deleted, err := st.DeleteUserSecretRevisions(ctx, uri, revs)
+	deleted, err := st.DeleteSecretRevisions(ctx, uri, revs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(deleted, tc.SameContents, []string{"revision_id_0", "revision_id_1", "revision_id_2"})
 

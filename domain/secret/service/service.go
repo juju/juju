@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -745,6 +744,15 @@ func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secre
 	return s.secretState.GetSecret(ctx, uri)
 }
 
+// GetSecretOwnerKinds returns the owner kind for each of the given secret
+// URIs. Secrets that no longer exist are silently omitted from the result.
+func (s *SecretService) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]domainsecret.SecretOwnerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.secretState.GetSecretOwnerKinds(ctx, uris)
+}
+
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
 // If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
@@ -1083,39 +1091,4 @@ func (s *SecretService) GetLatestRevisions(ctx context.Context, uris []*secrets.
 		return nil, nil
 	}
 	return s.secretState.GetLatestRevisions(ctx, uris)
-}
-
-// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-// unit has made that have not been claimed, and it also expires any tokens
-// the unit has requested.
-//
-// The following errors can be expected:
-// - [coreunit.InvalidUnitName] when the unit name is not valid.
-// - [domainapplicationerrors.UnitNotFound] when the unit is not found.
-func (s *SecretService) RemoveUnitReservationsAndTokens(
-	ctx context.Context, unitName coreunit.Name,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	err := unitName.Validate()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = s.secretState.RemoveUnitReservationsAndTokens(
-		ctx, unitName.String(), s.clock.Now(),
-	)
-	if errors.Is(err, domainapplicationerrors.UnitNotFound) {
-		return errors.Errorf(
-			"unit %q not found removing unit secret reservations and tokens",
-			unitName,
-		).Add(domainapplicationerrors.UnitNotFound)
-	} else if err != nil {
-		return errors.Errorf(
-			"removing unit secret reservations and tokens",
-		).Add(err)
-	}
-
-	return nil
 }

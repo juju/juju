@@ -22,7 +22,6 @@ import (
 type SecretService interface {
 	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
 	UpdateCharmSecret(context.Context, *coresecrets.URI, secret.UpdateCharmSecretParams) error
-	DeleteSecret(context.Context, *coresecrets.URI, secret.DeleteSecretParams) error
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
 	GrantSecretAccess(context.Context, *coresecrets.URI, secret.SecretAccessParams) error
 	RevokeSecretAccess(context.Context, *coresecrets.URI, secret.SecretAccessParams) error
@@ -30,10 +29,15 @@ type SecretService interface {
 		ctx context.Context, uri *coresecrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
 
-	// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-	// unit has made that have not been claimed, and it also expires any tokens
-	// the unit has requested.
-	RemoveUnitReservationsAndTokens(ctx context.Context, unitName unit.Name) error
+	// CheckSecretManageAccess verifies the unit has RoleManage access on
+	// the given secret, including app-owned secrets if the unit is the
+	// leader. Returns an error satisfying [secreterrors.PermissionDenied]
+	// if access is denied.
+	CheckSecretManageAccess(ctx context.Context, uri *coresecrets.URI, unitName unit.Name) error
+
+	// GetSecretOwnerKinds returns the owner kind for each of the given
+	// secret URIs. Secrets that no longer exist are silently omitted.
+	GetSecretOwnerKinds(ctx context.Context, uris []*coresecrets.URI) ([]secret.SecretOwnerInfo, error)
 }
 
 // createSecrets creates new secrets.
@@ -152,44 +156,6 @@ func (u *UniterAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg
 	}
 	err = u.secretService.UpdateCharmSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, accessor))
 	return errors.Trace(err)
-}
-
-// removeSecrets removes the specified secrets.
-func (u *UniterAPI) removeSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-
-	if len(args.Args) == 0 {
-		return result, nil
-	}
-
-	accessor := secret.SecretAccessor{
-		Kind: secret.UnitAccessor,
-		ID:   u.auth.GetAuthTag().Id(),
-	}
-
-	for i, arg := range args.Args {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			result.Results[i].Error = apiServerErrors.ServerError(err)
-			continue
-		}
-		p := secret.DeleteSecretParams{
-			Accessor:  accessor,
-			Revisions: arg.Revisions,
-		}
-		err = u.secretService.DeleteSecret(ctx, uri, p)
-		if err != nil {
-			if errors.Is(err, secreterrors.SecretRevisionNotFound) {
-				result.Results[i].Error = apiServerErrors.ParamsErrorf(params.CodeNotFound, "secret %q not found", uri)
-			} else {
-				result.Results[i].Error = apiServerErrors.ServerError(err)
-			}
-			continue
-		}
-	}
-	return result, nil
 }
 
 // isSameApplication returns true if the authenticated entity and the specified entity are in the same application.

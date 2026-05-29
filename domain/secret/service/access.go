@@ -406,3 +406,20 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 	}
 	return notAllowedErr
 }
+
+// CheckSecretManageAccess verifies the unit has RoleManage access on the
+// given secret, including app-owned secrets if the unit is the leader.
+//
+// Note: that if the unit is not the leader, it cannot manage app-owned secrets.
+// This needs to be ensured outside this call.
+//
+// Returns an error satisfying [secreterrors.PermissionDenied] if access is
+// denied.
+func (s *SecretService) CheckSecretManageAccess(ctx context.Context, uri *secrets.URI, unitName unit.Name) error {
+	accessor := domainsecret.SecretAccessor{
+		Kind: domainsecret.UnitAccessor,
+		ID:   unitName.String(),
+	}
+	_, err := s.getManagementCaveat(ctx, uri, accessor)
+	return err
+}

@@ -52,7 +52,10 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 
-	newArgs := internal.TransformCommitHookChangesArg(arg, unitInfo)
+	newArgs, err := internal.TransformCommitHookChangesArg(arg, unitInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	newArgs.RelationSettings = relationSettings
 
 	withCaveat, err := s.getManagementCaveat(arg)

@@ -320,11 +320,11 @@ func (st *State) prepareSecretDeletions() ([]*sqlair.Statement, []*sqlair.Statem
 	return rdStmts, sdStmts, nil
 }
 
-// DeleteUserSecretRevisions deletes the specified revisions of the user secret
-// with the input URI. If revisions is nil or empty, all revisions are deleted.
-// If the last remaining revisions are removed, the secret is deleted.
-// Returns the revision UUIDs that were deleted (for backend cleanup).
-func (st *State) DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revs []int) ([]string, error) {
+// DeleteSecretRevisions deletes the specified revisions of the secret with the
+// input URI. If revisions is nil or empty, all revisions are deleted. If the
+// last remaining revisions are removed, the secret is deleted. Returns the
+// revision UUIDs that were deleted (for backend cleanup).
+func (st *State) DeleteSecretRevisions(ctx context.Context, uri *coresecrets.URI, revs []int) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -332,7 +332,7 @@ func (st *State) DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets
 
 	var deletedUUIDs []string
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		deletedUUIDs, err = st.deleteUserSecretRevisions(ctx, tx, uri, revs)
+		deletedUUIDs, err = st.deleteSecretRevisions(ctx, tx, uri, revs)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -389,7 +389,7 @@ WHERE     sm.auto_prune = true AND sro.obsolete = true`
 			for i, r := range toDelete.Revisions {
 				revs[i] = r.Revision
 			}
-			deleted, err := st.deleteUserSecretRevisions(ctx, tx, toDelete.URI, revs)
+			deleted, err := st.deleteSecretRevisions(ctx, tx, toDelete.URI, revs)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -403,7 +403,7 @@ WHERE     sm.auto_prune = true AND sro.obsolete = true`
 	return deletedRevisionIDs, nil
 }
 
-func (st *State) deleteUserSecretRevisions(
+func (st *State) deleteSecretRevisions(
 	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revNums []int,
 ) ([]string, error) {
 	type revisions []int
