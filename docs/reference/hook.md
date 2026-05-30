@@ -418,6 +418,8 @@ Thereafter, any subsequent `secret-changed` hooks will be run with this label.
 
 All units observing the affected secret.
 
+For a {ref}`user secret <user-secret>`, `secret-changed` is the **only** secret hook an observer ever receives. It fires when the user updates the secret content with `juju update-secret`. The `juju grant-secret` command does **not** fire a hook; the secret only becomes observable after the user also configures the application with the secret URI (which triggers `config-changed`). User secrets have no rotate, expire, or remove lifecycle.
+
 ```{note}
 Upon receiving that event (or at any time after that) a consumer can choose to:
 

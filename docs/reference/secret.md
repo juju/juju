@@ -178,9 +178,7 @@ An entity that does not own the secret can only **view** it (call `secret-get`),
 
 ## Secret lifecycle
 
-```{important}
-This section currently covers only the lifecycle of a charm secret.
-```
+### Charm-secret lifecycle
 
 Charms can use relations to share secrets, such as API keys, a database's address, credentials and so on. Like a relation has a "provider" and a "requirer", so a secret has an "owner" and an "observer" -- though these need not coincide with the applications' roles in the relation.
 
@@ -211,4 +209,17 @@ Juju maintains a list of which observers are tracking each revision of each secr
 Charms that create secrets should _always_ handle the `secret-remove` event. That is because secret revisions, even if obsolete, remain until removed by the charm; if a charm does not remove them, they accumulate indefinitely.
 
 ```
+
+### User-secret lifecycle
+
+A user secret has a simpler lifecycle than a charm secret:
+
+1. **Create**: A model admin creates the secret: `juju add-secret <name> <key>=<value>`
+2. **Grant**: The admin grants access to an application: `juju grant-secret <name> <app-name>` — this does **not** fire a hook on the observing charm.
+3. **Configure**: The admin sets the application's configuration option to the secret URI: `juju config <app-name> <option>=<secret-uri>` — this triggers a `config-changed` hook on the observing charm.
+4. **Update**: The admin updates the secret content: `juju update-secret <name> <key>=<new-value>` — this triggers `secret-changed` on all observing units.
+
+The **only hook** a user-secret observer receives is `secret-changed`. There is no `secret-rotate`, `secret-expired`, or `secret-remove` lifecycle for user secrets.
+
+> See also: {ref}`hook-secret-changed`, {ref}`manage-secrets`
 
