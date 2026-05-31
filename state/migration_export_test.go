@@ -975,8 +975,9 @@ func (s *MigrationExportSuite) TestExternalControllersLocalController(c *gc.C) {
 	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
 		{SpaceAddress: network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)), NetPort: 17070},
 		{SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)), NetPort: 17070},
-		// This one is filtered out.
+		// These ones are filtered out.
 		{SpaceAddress: network.NewSpaceAddress("127.0.0.1"), NetPort: 17070},
+		{SpaceAddress: network.NewSpaceAddress("localhost")},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 

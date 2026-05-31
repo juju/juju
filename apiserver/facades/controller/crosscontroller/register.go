@@ -67,6 +67,9 @@ func controllerInfo(st controllerInfoGetter) ([]string, string, error) {
 			// Ensure no loopback addresses are included.
 			host, _, err := net.SplitHostPort(addr)
 			if err == nil {
+				if host == "localhost" {
+					continue
+				}
 				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 					continue
 				}

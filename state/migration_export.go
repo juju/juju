@@ -1517,6 +1517,9 @@ func (s externalControllerShim) LocalControllerInfo(modelUUIDs []string) (migrat
 			// Ensure no loopback addresses are included.
 			host, _, err := net.SplitHostPort(addr)
 			if err == nil {
+				if host == "localhost" {
+					continue
+				}
 				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 					continue
 				}
