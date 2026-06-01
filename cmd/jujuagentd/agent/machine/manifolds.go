@@ -68,6 +68,7 @@ import (
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	controllerlogger "github.com/juju/juju/internal/worker/controllerlogger"
 	"github.com/juju/juju/internal/worker/controllerpresence"
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
@@ -549,6 +550,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
+		// The controller logging config updater uses domain services
+		// instead of an api-caller, and is only active on controller
+		// machines.
+		loggingControllerConfigUpdaterName: ifController(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			LoggerContext:               internallogger.DefaultContext(),
+			Logger:                      internallogger.GetLogger("juju.worker.logger"),
+			Tag:                         agentTag,
+			LoggingOverride:             agentConfig.LoggingConfig(),
+			UpdateAgentFunc:             config.UpdateLoggerConfig,
+			GetControllerDomainServices: controllerlogger.GetControllerDomainServices,
+			GetModelConfigService:       controllerlogger.GetModelConfigService,
+			NewWorker:                   logger.NewLogger,
+		})),
+
 		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -776,8 +792,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
 			secretbackendrotate.ManifoldConfig{
-				APICallerName: apiCallerName,
-				Logger:        internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				DomainServicesName:      domainServicesName,
+				Logger:                  internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				GetSecretBackendService: secretbackendrotate.GetSecretBackendService,
+				NewWorker:               secretbackendrotate.NewWorker,
 			},
 		))),
 
@@ -1481,6 +1499,7 @@ const (
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
 	loggingConfigUpdaterName           = "logging-config-updater"
+	loggingControllerConfigUpdaterName = "logging-controller-config-updater"
 	logSinkName                        = "log-sink"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"
