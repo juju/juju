@@ -69,6 +69,7 @@ import (
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	controllerlogger "github.com/juju/juju/internal/worker/controllerlogger"
 	"github.com/juju/juju/internal/worker/controllerpresence"
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
@@ -605,6 +606,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		})),
 
+		// The controller logging config updater uses domain services
+		// instead of an api-caller, and is only active on controller
+		// machines.
+		loggingControllerConfigUpdaterName: ifController(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			LoggerContext:               internallogger.DefaultContext(),
+			Logger:                      internallogger.GetLogger("juju.worker.logger"),
+			Tag:                         agentTag,
+			LoggingOverride:             agentConfig.LoggingConfig(),
+			UpdateAgentFunc:             config.UpdateLoggerConfig,
+			GetControllerDomainServices: controllerlogger.GetControllerDomainServices,
+			GetModelConfigService:       controllerlogger.GetModelConfigService,
+			NewWorker:                   logger.NewLogger,
+		})),
+
 		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -682,7 +698,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// model loggers to follow logsink/loki/drain backend changes
 		// without depending on the API caller.
 		controllerLogSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
-			AgentTag:       config.ControllerAgentTag,,
+			AgentTag:       config.ControllerAgentTag,
 			LogRouterName:  controllerLogRouterName,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
@@ -695,7 +711,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		nonControllerLogSinkName: ifNotController(logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
 			LogRouterName:  logRouterName,
-			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
 		})),
@@ -872,8 +887,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
 			secretbackendrotate.ManifoldConfig{
-				APICallerName: apiCallerName,
-				Logger:        internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				DomainServicesName:      domainServicesName,
+				Logger:                  internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				GetSecretBackendService: secretbackendrotate.GetSecretBackendService,
+				NewWorker:               secretbackendrotate.NewWorker,
 			},
 		))),
 
@@ -1599,6 +1616,7 @@ const (
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
 	loggingConfigUpdaterName           = "logging-config-updater"
+	loggingControllerConfigUpdaterName = "logging-controller-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	logSinkName                        = "log-sink"
 	controllerLogSinkName              = "controller-log-sink"

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/services"
 )
 
 // SecretBackendService provides access to the secret backend operations
@@ -98,4 +99,14 @@ func (f *secretBackendServiceFacade) RotateBackendTokens(ctx context.Context, id
 		}
 	}
 	return nil
+}
+
+// GetSecretBackendService retrieves the secret backend service from the
+// controller domain services via the dependency getter.
+func GetSecretBackendService(getter dependency.Getter, name string) (SecretBackendService, error) {
+	var controllerServices services.ControllerDomainServices
+	if err := getter.Get(name, &controllerServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllerServices.SecretBackend(), nil
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
@@ -59,6 +60,7 @@ import (
 	"github.com/juju/juju/internal/worker/changestream"
 	"github.com/juju/juju/internal/worker/changestreampruner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	"github.com/juju/juju/internal/worker/controllerlogger"
 	"github.com/juju/juju/internal/worker/controllerpresence"
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -254,6 +256,12 @@ type ManifoldsConfig struct {
 	// NewEnvironFunc is a function that opens a provider
 	// "environment" (typically environs.New).
 	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
+
+	// SystemIdentity is the SSH private key sourced from the
+	// controller runtime config, written to the system identity file
+	// by the ssh-identity-writer worker. An empty value causes the
+	// file to be removed.
+	SystemIdentity string
 }
 
 // commonManifolds returns the shared controller manifolds.
@@ -446,17 +454,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The logging config updater controls the messages sent via the
 		// log sender, according to changes in environment config.
-		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			LoggerContext:   internallogger.DefaultContext(),
-			Logger:          internallogger.GetLogger("juju.worker.logger"),
-			UpdateAgentFunc: config.UpdateLoggerConfig,
+		loggingControllerConfigUpdaterName: ifNotMigrating(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			LoggerContext:               internallogger.DefaultContext(),
+			Logger:                      internallogger.GetLogger("juju.worker.logger"),
+			Tag:                         agentTag,
+			LoggingOverride:             agentConfig.LoggingConfig(),
+			UpdateAgentFunc:             config.UpdateLoggerConfig,
+			GetControllerDomainServices: controllerlogger.GetControllerDomainServices,
+			GetModelConfigService:       controllerlogger.GetModelConfigService,
+			NewWorker:                   logger.NewLogger,
 		})),
 
-		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+			SystemIdentity:     config.SystemIdentity,
+			SystemIdentityPath: filepath.Join(agentConfig.DataDir(), coreagent.SystemIdentity),
+			NewWorker:          identityfilewriter.NewWorker,
 		})),
 
 		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
@@ -642,8 +655,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
 			secretbackendrotate.ManifoldConfig{
-				APICallerName: apiCallerName,
-				Logger:        internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				DomainServicesName:      domainServicesName,
+				Logger:                  internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+				GetSecretBackendService: secretbackendrotate.GetSecretBackendService,
+				NewWorker:               secretbackendrotate.NewWorker,
 			},
 		))),
 
@@ -1148,46 +1163,46 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	apiAddressSetterName          = "api-address-setter"
-	apiServerName                 = "api-server"
-	apiRemoteCallerName           = "api-remote-caller"
-	apiRemoteRelationCallerName   = "api-remote-relation-caller"
-	auditConfigUpdaterName        = "audit-config-updater"
-	certificateUpdaterName        = "certificate-updater"
-	certificateWatcherName        = "certificate-watcher"
-	changeStreamName              = "change-stream"
-	changeStreamPrunerName        = "change-stream-pruner"
-	controllerAgentConfigName     = "controller-agent-config"
-	controllerPresenceName        = "controller-presence"
-	controlSocketName             = "control-socket"
-	dbAccessorName                = "db-accessor"
-	domainServicesName            = "domain-services"
-	externalControllerUpdaterName = "external-controller-updater"
-	fileNotifyWatcherName         = "file-notify-watcher"
-	httpClientName                = "http-client"
-	httpServerArgsName            = "http-server-args"
-	httpServerName                = "http-server"
-	identityFileWriterName        = "ssh-identity-writer"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
-	jwtParserName                 = "jwt-parser"
-	leaseExpiryName               = "lease-expiry"
-	leaseManagerName              = "lease-manager"
-	loggingConfigUpdaterName      = "logging-config-updater"
-	logSinkName                   = "log-sink"
-	modelWorkerManagerName        = "model-worker-manager"
-	objectStoreName               = "object-store"
-	objectStoreS3CallerName       = "object-store-s3-caller"
-	objectStoreServicesName       = "object-store-services"
-	objectStoreFortressName       = "object-store-fortress"
-	objectStoreFacadeName         = "object-store-facade"
-	objectStoreDrainerName        = "object-store-drainer"
-	providerDomainServicesName    = "provider-services"
-	providerTrackerName           = "provider-tracker"
-	queryLoggerName               = "query-logger"
-	secretBackendRotateName       = "secret-backend-rotate"
-	sshServerName                 = "ssh-server"
-	storageRegistryName           = "storage-registry"
-	traceName                     = "trace"
-	undertakerName                = "undertaker"
-	watcherRegistryName           = "watcher-registry"
+	apiAddressSetterName               = "api-address-setter"
+	apiServerName                      = "api-server"
+	apiRemoteCallerName                = "api-remote-caller"
+	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	auditConfigUpdaterName             = "audit-config-updater"
+	certificateUpdaterName             = "certificate-updater"
+	certificateWatcherName             = "certificate-watcher"
+	changeStreamName                   = "change-stream"
+	changeStreamPrunerName             = "change-stream-pruner"
+	controllerAgentConfigName          = "controller-agent-config"
+	controllerPresenceName             = "controller-presence"
+	controlSocketName                  = "control-socket"
+	dbAccessorName                     = "db-accessor"
+	domainServicesName                 = "domain-services"
+	externalControllerUpdaterName      = "external-controller-updater"
+	fileNotifyWatcherName              = "file-notify-watcher"
+	httpClientName                     = "http-client"
+	httpServerArgsName                 = "http-server-args"
+	httpServerName                     = "http-server"
+	identityFileWriterName             = "ssh-identity-writer"
+	isPrimaryControllerFlagName        = "is-primary-controller-flag"
+	jwtParserName                      = "jwt-parser"
+	leaseExpiryName                    = "lease-expiry"
+	leaseManagerName                   = "lease-manager"
+	loggingControllerConfigUpdaterName = "logging-controller-config-updater"
+	logSinkName                        = "log-sink"
+	modelWorkerManagerName             = "model-worker-manager"
+	objectStoreName                    = "object-store"
+	objectStoreS3CallerName            = "object-store-s3-caller"
+	objectStoreServicesName            = "object-store-services"
+	objectStoreFortressName            = "object-store-fortress"
+	objectStoreFacadeName              = "object-store-facade"
+	objectStoreDrainerName             = "object-store-drainer"
+	providerDomainServicesName         = "provider-services"
+	providerTrackerName                = "provider-tracker"
+	queryLoggerName                    = "query-logger"
+	secretBackendRotateName            = "secret-backend-rotate"
+	sshServerName                      = "ssh-server"
+	storageRegistryName                = "storage-registry"
+	traceName                          = "trace"
+	undertakerName                     = "undertaker"
+	watcherRegistryName                = "watcher-registry"
 )
