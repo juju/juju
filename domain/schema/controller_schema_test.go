@@ -153,6 +153,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"model_migration_redirect_user",
 		"model_authorized_keys",
 		"model_migration_import",
+		"model_migration_import_phase_type",
 		"model_migration_import_offer",
 		"model_migration_import_external_controller_model",
 
@@ -427,20 +428,21 @@ func (s *controllerSchemaSuite) TestVModelStateMigratingForImportPhases(c *tc.C)
 	// With no import claim, the model is not migrating.
 	c.Check(migrating(), tc.Equals, 0)
 
-	// Every claim phase must surface as migrating=true.
-	for _, phase := range []string{"importing", "activating", "aborting"} {
+	// Every claim phase (importing=0, activating=1, aborting=2) must surface as
+	// migrating=true.
+	for _, phaseTypeID := range []int{0, 1, 2} {
 		importUUID := utils.MustNewUUID().String()
 		s.assertExecSQL(c,
-			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase) VALUES (?, ?, 'source-migration-uuid', ?);",
-			importUUID, modelUUID, phase)
-		c.Check(migrating(), tc.Equals, 1, tc.Commentf("expected migrating for phase %q", phase))
+			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id) VALUES (?, ?, 'source-migration-uuid', ?);",
+			importUUID, modelUUID, phaseTypeID)
+		c.Check(migrating(), tc.Equals, 1, tc.Commentf("expected migrating for phase_type_id %d", phaseTypeID))
 
 		s.assertExecSQL(c, "DELETE FROM model_migration_import WHERE uuid = ?;", importUUID)
-		c.Check(migrating(), tc.Equals, 0, tc.Commentf("expected not migrating after deleting %q claim", phase))
+		c.Check(migrating(), tc.Equals, 0, tc.Commentf("expected not migrating after deleting phase_type_id %d claim", phaseTypeID))
 	}
 
-	// Any phase outside the allowed set is rejected by the CHECK constraint.
+	// A phase_type_id with no lookup row is rejected by the FK.
 	s.assertExecSQLError(c,
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase) VALUES (?, ?, 'source-migration-uuid', 'bogus');",
-		"(?s).*CHECK constraint failed.*", utils.MustNewUUID().String(), modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id) VALUES (?, ?, 'source-migration-uuid', 99);",
+		"(?s).*FOREIGN KEY constraint failed.*", utils.MustNewUUID().String(), modelUUID)
 }
