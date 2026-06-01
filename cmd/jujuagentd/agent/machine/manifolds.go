@@ -534,7 +534,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
