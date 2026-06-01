@@ -344,6 +344,44 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		loggingManifold, ok := manifolds["logging-controller-config-updater"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(loggingManifold.Inputs, tc.SameContents, []string{
+			"domain-services",
+			"migration-fortress",
+			"migration-inactive-flag",
+		})
+		checkNotContains(c, loggingManifold.Inputs, "agent")
+		checkNotContains(c, loggingManifold.Inputs, "api-caller")
+
+		secretBackendManifold, ok := manifolds["secret-backend-rotate"]
+		c.Assert(ok, tc.IsTrue)
+		checkContains(c, secretBackendManifold.Inputs, "domain-services")
+		checkContains(c, secretBackendManifold.Inputs, "is-primary-controller-flag")
+		checkNotContains(c, secretBackendManifold.Inputs, "api-caller")
+
+		identityManifold, ok := manifolds["ssh-identity-writer"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(identityManifold.Inputs, tc.SameContents, []string{
+			"migration-fortress",
+			"migration-inactive-flag",
+		})
+		checkNotContains(c, identityManifold.Inputs, "agent")
+		checkNotContains(c, identityManifold.Inputs, "api-caller")
+	}
+}
+
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
