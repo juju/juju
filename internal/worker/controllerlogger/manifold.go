@@ -14,15 +14,14 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/config"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
-	loggerworker "github.com/juju/juju/internal/worker/logger"
 )
 
 // ModelConfigService provides access to model configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current model configuration.
-	ModelConfig(ctx context.Context) (*config.Config, error)
+	ModelConfig(ctx context.Context) (*environsconfig.Config, error)
 	// Watch returns a watcher that returns keys for any changes to model
 	// config.
 	Watch(ctx context.Context) (watcher.StringsWatcher, error)
@@ -33,17 +32,6 @@ type ModelService interface {
 	// GetControllerModelUUID returns the UUID of the controller model.
 	GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error)
 }
-
-// GetControllerDomainServicesFunc is a helper function that gets controller
-// domain services from the dependency getter.
-type GetControllerDomainServicesFunc func(getter dependency.Getter, name string) (ModelService, error)
-
-// GetModelConfigServiceFunc is a helper function that gets the model config
-// service for a given model UUID from the dependency getter.
-type GetModelConfigServiceFunc func(getter dependency.Getter, name string, controllerModelUUID coremodel.UUID) (ModelConfigService, error)
-
-// NewWorkerFunc creates a new logger worker from the given config.
-type NewWorkerFunc func(loggerworker.WorkerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines the configuration for a controller-only logging
 // worker manifold.
@@ -66,17 +54,6 @@ type ManifoldConfig struct {
 
 	// UpdateAgentFunc persists the current logging config.
 	UpdateAgentFunc func(string) error
-
-	// GetControllerDomainServices retrieves the controller domain services
-	// from the dependency getter.
-	GetControllerDomainServices GetControllerDomainServicesFunc
-
-	// GetModelConfigService retrieves the model config service for the
-	// controller model from the dependency getter.
-	GetModelConfigService GetModelConfigServiceFunc
-
-	// NewWorker creates a new logger worker.
-	NewWorker NewWorkerFunc
 }
 
 // Validate checks that all required configuration fields are set.
@@ -92,15 +69,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Tag == nil {
 		return errors.NotValidf("nil Tag")
-	}
-	if config.GetControllerDomainServices == nil {
-		return errors.NotValidf("nil GetControllerDomainServices")
-	}
-	if config.GetModelConfigService == nil {
-		return errors.NotValidf("nil GetModelConfigService")
-	}
-	if config.NewWorker == nil {
-		return errors.NotValidf("nil NewWorker")
 	}
 	return nil
 }
@@ -121,7 +89,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	modelService, err := config.GetControllerDomainServices(getter, config.DomainServicesName)
+	modelService, err := GetControllerDomainServices(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,24 +99,20 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigService, err := config.GetModelConfigService(getter, config.DomainServicesName, controllerModelUUID)
+	modelConfigService, err := GetModelConfigService(getter, config.DomainServicesName, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	api := &modelConfigLoggerAPI{
-		service: modelConfigService,
+	workerConfig := Config{
+		Context:         config.LoggerContext,
+		ModelConfigSvc:  modelConfigService,
+		Tag:             config.Tag,
+		Logger:          config.Logger,
+		Override:        config.LoggingOverride,
+		UpdateAgentFunc: config.UpdateAgentFunc,
 	}
-
-	workerConfig := loggerworker.WorkerConfig{
-		Context:  config.LoggerContext,
-		API:      api,
-		Tag:      config.Tag,
-		Logger:   config.Logger,
-		Override: config.LoggingOverride,
-		Callback: config.UpdateAgentFunc,
-	}
-	return config.NewWorker(workerConfig)
+	return NewWorker(workerConfig)
 }
 
 // GetControllerDomainServices retrieves the model service from the controller
