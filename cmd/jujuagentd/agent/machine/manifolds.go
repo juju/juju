@@ -605,7 +605,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		})),
 
-		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
