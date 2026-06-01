@@ -65,6 +65,11 @@ type ControllerRuntimeConfig struct {
 	// ControllerPrivateKey is the Dqlite node TLS private key PEM block.
 	// This field is sensitive and must not be logged.
 	ControllerPrivateKey string `yaml:"controller-private-key"`
+
+	// SystemIdentity is the SSH private key written to the controller
+	// system identity file. An empty value means no system identity file
+	// is present. This field is sensitive and must not be logged.
+	SystemIdentity string `yaml:"system-identity,omitempty"`
 }
 
 // Validate returns an error if any required field is missing or invalid.
