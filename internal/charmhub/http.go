@@ -66,12 +66,12 @@ func DefaultHTTPClient(logger corelogger.Logger) *jujuhttp.Client {
 	recorder := loggingRequestRecorder{
 		logger: logger.Child("transport.request-recorder", corelogger.METRICS),
 	}
-	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
+	return requestHTTPClient(recorder, DefaultRetryPolicy())(logger)
 }
 
 // defaultRetryPolicy returns a retry policy with sane defaults for most
 // requests.
-func defaultRetryPolicy() jujuhttp.RetryPolicy {
+func DefaultRetryPolicy() jujuhttp.RetryPolicy {
 	return jujuhttp.RetryPolicy{
 		Attempts: defaultRetryAttempts,
 		Delay:    defaultRetryDelay,

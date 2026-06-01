@@ -285,13 +285,31 @@ func (c *Client) Get(ctx context.Context, path string) (resp *http.Response, err
 	return c.Do(req)
 }
 
-// traceRequest enabled debugging on the http request if
-// log level for ths package is set to Trace.  Otherwise it
-// returns with no change to the request.
+// Do issues the provided http.Request and returns the http.Response.  It mimics the net/http Do, but allows for enhanced debugging.
+//
+// When err is nil, resp always contains a non-nil resp.Body.
+// Caller should close resp.Body when done reading from it.
+func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
+	if err := c.traceRequest(req, req.URL.String()); err != nil {
+		// No need to fail, but let user know we're not tracing the client request.
+		err = errors.Annotatef(err, "setup of http client tracing failed")
+		c.logger.Tracef(req.Context(), "%s", err)
+	}
+	return c.HTTPClient.Do(req)
+}
+
+// traceRequest enabled debugging on the http request if log level for ths
+// package is set to Trace. This will compose any existing traceable http
+// client. Otherwise it returns with no change to the request.
 func (c *Client) traceRequest(req *http.Request, url string) error {
 	if !c.logger.IsLevelEnabled(logger.TRACE) {
 		return nil
 	}
+
+	// If there is an existing trace, we want to compose with it, so that we can
+	// log the same events as the existing trace, but with our additional
+	// logging.
+	existing := httptrace.ContextClientTrace(req.Context())
 
 	dump, err := httputil.DumpRequestOut(req, true)
 	if err != nil {
@@ -301,21 +319,45 @@ func (c *Client) traceRequest(req *http.Request, url string) error {
 	trace := &httptrace.ClientTrace{
 		DNSStart: func(info httptrace.DNSStartInfo) {
 			c.logger.Tracef(req.Context(), "%s DNS Start: %q", url, info.Host)
+
+			if existing != nil && existing.DNSStart != nil {
+				existing.DNSStart(info)
+			}
 		},
 		DNSDone: func(dnsInfo httptrace.DNSDoneInfo) {
 			c.logger.Tracef(req.Context(), "%s DNS Info: %+v\n", url, dnsInfo)
+
+			if existing != nil && existing.DNSDone != nil {
+				existing.DNSDone(dnsInfo)
+			}
 		},
 		ConnectDone: func(network, addr string, err error) {
 			c.logger.Tracef(req.Context(), "%s Connection Done: network %q, addr %q, err %q", url, network, addr, err)
+
+			if existing != nil && existing.ConnectDone != nil {
+				existing.ConnectDone(network, addr, err)
+			}
 		},
 		GetConn: func(hostPort string) {
 			c.logger.Tracef(req.Context(), "%s Get Conn: %q", url, hostPort)
+
+			if existing != nil && existing.GetConn != nil {
+				existing.GetConn(hostPort)
+			}
 		},
 		GotConn: func(connInfo httptrace.GotConnInfo) {
 			c.logger.Tracef(req.Context(), "%s Got Conn: %+v", url, connInfo)
+
+			if existing != nil && existing.GotConn != nil {
+				existing.GotConn(connInfo)
+			}
 		},
 		TLSHandshakeStart: func() {
 			c.logger.Tracef(req.Context(), "%s TLS Handshake Start", url)
+
+			if existing != nil && existing.TLSHandshakeStart != nil {
+				existing.TLSHandshakeStart()
+			}
 		},
 		TLSHandshakeDone: func(st tls.ConnectionState, err error) {
 			c.logger.Tracef(req.Context(), "%s TLS Handshake Done: complete %t, verified chains %d, server name %q",
@@ -323,6 +365,10 @@ func (c *Client) traceRequest(req *http.Request, url string) error {
 				st.HandshakeComplete,
 				len(st.VerifiedChains),
 				st.ServerName)
+
+			if existing != nil && existing.TLSHandshakeDone != nil {
+				existing.TLSHandshakeDone(st, err)
+			}
 		},
 	}
 	*req = *req.WithContext(httptrace.WithClientTrace(req.Context(), trace))

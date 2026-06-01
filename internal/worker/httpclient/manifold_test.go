@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/goleak"
 
 	corehttp "github.com/juju/juju/core/http"
@@ -55,8 +56,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewHTTPClientWorker: func(c *internalhttp.Client) (worker.Worker, error) {
 			return nil, nil
 		},
-		Clock:  s.clock,
-		Logger: s.logger,
+		PrometheusRegisterer: prometheus.NewRegistry(),
+		NewMetricsCollector:  NewMetricsCollector,
+		Clock:                s.clock,
+		Logger:               s.logger,
 	}
 }
 

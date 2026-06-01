@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -32,10 +33,12 @@ type HTTPClientWorkerFunc func(*internalhttp.Client) (worker.Worker, error)
 
 // ManifoldConfig defines the configuration for the http client manifold.
 type ManifoldConfig struct {
-	NewHTTPClient       NewHTTPClientFunc
-	NewHTTPClientWorker HTTPClientWorkerFunc
-	Clock               clock.Clock
-	Logger              logger.Logger
+	NewHTTPClient        NewHTTPClientFunc
+	NewHTTPClientWorker  HTTPClientWorkerFunc
+	PrometheusRegisterer prometheus.Registerer
+	NewMetricsCollector  func() *Collector
+	Clock                clock.Clock
+	Logger               logger.Logger
 }
 
 // Validate validates the manifold configuration.
@@ -45,6 +48,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewHTTPClientWorker == nil {
 		return errors.NotValidf("nil NewHTTPClientWorker")
+	}
+	if cfg.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if cfg.NewMetricsCollector == nil {
+		return errors.NotValidf("nil NewMetricsCollector")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -65,13 +74,29 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Register the metrics collector against the prometheus register.
+			metricsCollector := config.NewMetricsCollector()
+			if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+				return nil, errors.Trace(err)
+			}
+
 			w, err := NewWorker(WorkerConfig{
 				NewHTTPClient:       config.NewHTTPClient,
 				NewHTTPClientWorker: config.NewHTTPClientWorker,
+				MetricsCollector:    metricsCollector,
 				Clock:               config.Clock,
 				Logger:              config.Logger,
 			})
-			return w, errors.Trace(err)
+			if err != nil {
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+				return nil, errors.Trace(err)
+			}
+			return common.NewCleanupWorker(w, func() {
+				// Clean up the metrics for the worker, so the next time a
+				// worker is created we can safely register the metrics again.
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+			}), nil
 		},
 	}
 }
