@@ -107,7 +107,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"lease-manager",
 			"log-sink",
 			"logging-config-updater",
-			"logging-controller-config-updater",
 			"lxd-container-provisioner",
 			"machine-action-runner",
 			"machine-setup",
@@ -197,7 +196,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"lease-manager",
 			"log-sink",
 			"logging-config-updater",
-			"logging-controller-config-updater",
 			"migration-fortress",
 			"migration-inactive-flag",
 			"migration-minion",
@@ -295,7 +293,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"lease-expiry",
 		"lease-manager",
 		"log-sink",
-		"logging-controller-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -357,7 +354,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"jwt-parser",
-		"logging-controller-config-updater",
 		"query-logger",
 		"ssh-server",
 		"undertaker",
@@ -479,6 +475,30 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 		"file-notify-watcher",
 	})
 	checkNotContains(c, manifold.Inputs, "agent")
+}
+
+func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		secretBackendManifold, ok := manifolds["secret-backend-rotate"]
+		c.Assert(ok, tc.IsTrue)
+		checkContains(c, secretBackendManifold.Inputs, "domain-services")
+		checkContains(c, secretBackendManifold.Inputs, "is-primary-controller-flag")
+		checkNotContains(c, secretBackendManifold.Inputs, "api-caller")
+
+		identityManifold, ok := manifolds["ssh-identity-writer"]
+		c.Assert(ok, tc.IsTrue)
+		checkContains(c, identityManifold.Inputs, "agent")
+		checkContains(c, identityManifold.Inputs, "api-caller")
+	}
 }
 
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
@@ -1181,34 +1201,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"logging-controller-config-updater": {
-		"agent",
-		"api-remote-caller",
-		"change-stream",
-		"clock",
-		"controller-agent-config",
-		"db-accessor",
-		"domain-services",
-		"file-notify-watcher",
-		"http-client",
-		"is-controller-flag",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
-		"object-store-services",
-		"provider-services",
-		"provider-tracker",
-		"query-logger",
-		"state-config-watcher",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"lxd-container-provisioner": {
@@ -2311,34 +2303,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"logging-controller-config-updater": {
-		"agent",
-		"api-remote-caller",
-		"change-stream",
-		"clock",
-		"controller-agent-config",
-		"db-accessor",
-		"domain-services",
-		"file-notify-watcher",
-		"http-client",
-		"is-controller-flag",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
-		"object-store-services",
-		"provider-services",
-		"provider-tracker",
-		"query-logger",
-		"state-config-watcher",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"migration-fortress": {

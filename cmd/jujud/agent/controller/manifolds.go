@@ -77,7 +77,6 @@ import (
 	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
-	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
@@ -455,15 +454,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The logging config updater controls the messages sent via the
 		// log sender, according to changes in environment config.
 		loggingControllerConfigUpdaterName: ifNotMigrating(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
-			DomainServicesName:          domainServicesName,
-			LoggerContext:               internallogger.DefaultContext(),
-			Logger:                      internallogger.GetLogger("juju.worker.logger"),
-			Tag:                         agentTag,
-			LoggingOverride:             agentConfig.LoggingConfig(),
-			UpdateAgentFunc:             config.UpdateLoggerConfig,
-			GetControllerDomainServices: controllerlogger.GetControllerDomainServices,
-			GetModelConfigService:       controllerlogger.GetModelConfigService,
-			NewWorker:                   logger.NewLogger,
+			DomainServicesName: domainServicesName,
+			LoggerContext:      internallogger.DefaultContext(),
+			Logger:             internallogger.GetLogger("juju.worker.logger"),
+			Tag:                agentTag,
+			LoggingOverride:    agentConfig.LoggingConfig(),
+			UpdateAgentFunc:    config.UpdateLoggerConfig,
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
