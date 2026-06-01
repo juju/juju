@@ -51,8 +51,7 @@ CREATE TABLE model_migration_import (
     uuid TEXT NOT NULL PRIMARY KEY,
     model_uuid TEXT NOT NULL,
     source_migration_uuid TEXT NOT NULL,
-    phase TEXT NOT NULL DEFAULT 'importing'
-        CHECK (phase IN ('importing', 'activating', 'aborting')),
+    phase TEXT NOT NULL DEFAULT 'importing' CHECK (phase IN ('importing', 'activating', 'aborting')),
     updated_at TEXT NOT NULL DEFAULT (DATETIME('now', 'utc'))
 );
 
@@ -66,9 +65,9 @@ INSERT INTO model_migration_import (
 SELECT
     uuid,
     model_uuid,
-    uuid,
-    'importing',
-    DATETIME('now', 'utc')
+    uuid AS source_migration_uuid,
+    'importing' AS phase,
+    DATETIME('now', 'utc') AS updated_at
 FROM model_migration_import_old;
 
 DROP TABLE model_migration_import_old;
