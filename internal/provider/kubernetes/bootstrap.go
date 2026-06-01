@@ -730,6 +730,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		CACert:                c.pcfg.APIInfo.CACert,
 		ControllerCert:        c.pcfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  c.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		SystemIdentity:        c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {
