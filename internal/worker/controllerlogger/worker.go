@@ -1,94 +1,124 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controllerlogger
 
 import (
 	"context"
+	"slices"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/worker/v5"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
 
-// modelConfigLoggerAPI adapts a ModelConfigService to the logger.LoggerAPI
-// interface required by the shared logger worker.
-type modelConfigLoggerAPI struct {
-	service ModelConfigService
+// Config contains the information required for the controller logger worker
+// to operate.
+type Config struct {
+	Context        corelogger.LoggerContext
+	ModelConfigSvc ModelConfigService
+	Tag            names.Tag
+	Logger         corelogger.Logger
+	Override       string
+
+	UpdateAgentFunc func(string) error
 }
 
-// LoggingConfig returns the logging configuration string from the controller
-// model config. The agentTag parameter is accepted for interface compatibility
-// but is not used for filtering; the controller model config applies to the
-// controller agent.
-func (a *modelConfigLoggerAPI) LoggingConfig(ctx context.Context, _ names.Tag) (string, error) {
-	cfg, err := a.service.ModelConfig(ctx)
+// Validate ensures all the necessary fields have values.
+func (c *Config) Validate() error {
+	if c.Context == nil {
+		return errors.NotValidf("missing logging context")
+	}
+	if c.ModelConfigSvc == nil {
+		return errors.NotValidf("missing model config service")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing logger")
+	}
+	if c.Tag == nil {
+		return errors.NotValidf("missing tag")
+	}
+	return nil
+}
+
+// NewWorker returns a controller-only logging worker backed by model config
+// domain services.
+func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	l := &loggerWorker{
+		config:     config,
+		lastConfig: config.Context.Config().String(),
+	}
+	config.Logger.Infof(context.Background(), "initial log config: %q", l.lastConfig)
+
+	w, err := watcher.NewStringsWorker(watcher.StringsConfig{Handler: l})
 	if err != nil {
-		return "", err
+		return nil, errors.Trace(err)
 	}
-	return cfg.LoggingConfig(), nil
+	return w, nil
 }
 
-// WatchLoggingConfig returns a notify watcher that fires when the logging
-// config in the controller model changes. It wraps the underlying strings
-// watcher (which returns changed keys) into a notify watcher that fires only
-// when the logging-config key is among the changed keys.
-func (a *modelConfigLoggerAPI) WatchLoggingConfig(ctx context.Context, _ names.Tag) (watcher.NotifyWatcher, error) {
-	sw, err := a.service.Watch(ctx)
-	if err != nil {
-		return nil, err
+type loggerWorker struct {
+	config     Config
+	lastConfig string
+}
+
+func (l *loggerWorker) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
+	l.config.Logger.Infof(ctx, "controller logger worker started for %q", l.config.Tag.String())
+	l.setLogging(ctx)
+	return l.config.ModelConfigSvc.Watch(ctx)
+}
+
+func (l *loggerWorker) Handle(ctx context.Context, changes []string) error {
+	if !slices.Contains(changes, config.LoggingConfigKey) {
+		return nil
 	}
-	return newLoggingConfigWatcher(sw), nil
+	l.setLogging(ctx)
+	return nil
 }
 
-// loggingConfigWatcher wraps a StringsWatcher and converts it to a
-// NotifyWatcher that fires only when the logging-config key changes.
-type loggingConfigWatcher struct {
-	sw      watcher.StringsWatcher
-	changes chan struct{}
-	done    chan struct{}
+func (l *loggerWorker) TearDown() error {
+	l.config.Logger.Infof(context.Background(), "controller logger worker stopped")
+	return nil
 }
 
-func newLoggingConfigWatcher(sw watcher.StringsWatcher) *loggingConfigWatcher {
-	w := &loggingConfigWatcher{
-		sw:      sw,
-		changes: make(chan struct{}, 1),
-		done:    make(chan struct{}),
+func (l *loggerWorker) setLogging(ctx context.Context) {
+	loggingConfig := ""
+	logger := l.config.Logger
+
+	if override := l.config.Override; override != "" {
+		logger.Infof(ctx, "overriding logging config with override from controller config: %q", override)
+		loggingConfig = override
+	} else {
+		cfg, err := l.config.ModelConfigSvc.ModelConfig(ctx)
+		if err != nil {
+			logger.Errorf(ctx, "reading controller model logging config: %v", err)
+			return
+		}
+		loggingConfig = cfg.LoggingConfig()
 	}
-	go w.loop()
-	return w
-}
 
-func (w *loggingConfigWatcher) loop() {
-	defer close(w.done)
-	for keys := range w.sw.Changes() {
-		for _, key := range keys {
-			if key == config.LoggingConfigKey {
-				// Non-blocking send.
-				select {
-				case w.changes <- struct{}{}:
-				default:
-				}
-				break
+	if loggingConfig != l.lastConfig {
+		logger.Infof(ctx, "reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
+		loggerContext := l.config.Context
+		loggerContext.ResetLoggerLevels()
+		if err := loggerContext.ConfigureLoggers(loggingConfig); err != nil {
+			logger.Warningf(ctx, "configure loggers failed: %v", err)
+			_ = loggerContext.ConfigureLoggers(l.lastConfig)
+			return
+		}
+		l.lastConfig = loggingConfig
+		if callback := l.config.UpdateAgentFunc; callback != nil {
+			if err := callback(loggingConfig); err != nil {
+				logger.Errorf(ctx, "%v", err)
 			}
 		}
 	}
-}
-
-// Changes returns the notify channel.
-func (w *loggingConfigWatcher) Changes() watcher.NotifyChannel {
-	return w.changes
-}
-
-// Kill stops the underlying strings watcher.
-func (w *loggingConfigWatcher) Kill() {
-	w.sw.Kill()
-}
-
-// Wait waits for the underlying strings watcher to stop and the loop to exit.
-func (w *loggingConfigWatcher) Wait() error {
-	err := w.sw.Wait()
-	<-w.done
-	return err
 }
