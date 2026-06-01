@@ -42,6 +42,11 @@ type WatcherFactory interface {
 type State interface {
 	ProviderState
 
+	// CloudSupportedAuthTypes returns the auth types supported by the named
+	// cloud. It is used to validate a credential's auth type without needing
+	// to inject the cloud service.
+	CloudSupportedAuthTypes(ctx context.Context, cloudName string) (cloud.AuthTypes, error)
+
 	// GetModelCredentialStatus returns the credential key that is in use by the
 	// model and also if the credential is considered valid or not.
 	// The following errors can be expected:
@@ -316,6 +321,22 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 }
 
 func (s *Service) validateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) ([]CheckCredentialModelResult, bool, error) {
+	// Validate the credential's auth type against the cloud once, before
+	// listing models. Auth-type compatibility is a cloud-level constraint; there
+	// is no need to query models at all if the credential is already invalid.
+	supportedAuthTypes, err := s.st.CloudSupportedAuthTypes(ctx, key.Cloud)
+	if err != nil {
+		return nil, false, errors.Errorf(
+			"getting supported auth types for cloud %q: %w", key.Cloud, err,
+		)
+	}
+	if !supportedAuthTypes.Contains(cred.AuthType()) {
+		return nil, false, errors.Errorf(
+			"validating credential %q for cloud %q: supported auth-types %q, %q %w",
+			key.Name, key.Cloud, supportedAuthTypes, cred.AuthType(), coreerrors.NotSupported,
+		)
+	}
+
 	models, err := s.modelsUsingCredential(ctx, key)
 	if err != nil && !errors.Is(err, credentialerrors.NotFound) {
 		return nil, false, errors.Capture(err)
@@ -373,7 +394,8 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredenti
 		if force {
 			opMessage = "will be deleted but"
 		}
-		s.logger.Debugf(ctx, "credential %v %v it is used by model%v",
+		s.logger.Debugf(
+			ctx, "credential %v %v it is used by model%v",
 			key,
 			opMessage,
 			modelsPretty(models),
@@ -458,7 +480,8 @@ func modelsPretty(in map[coremodel.UUID]string) string {
 		firstLine = " "
 	}
 
-	return fmt.Sprintf("%v%v%v",
+	return fmt.Sprintf(
+		"%v%v%v",
 		plural(len(in)),
 		firstLine,
 		strings.Join(uuids, "\n- "),

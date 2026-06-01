@@ -348,3 +348,44 @@ test_obsolete_revisions() {
 		destroy_model "$model_name"
 	)
 }
+
+# Regression test: a non-leader unit must be able to create and delete
+# its own unit-owned secrets without hitting a "lease not held" error.
+run_secret_nonleader_unit_owned() {
+	echo
+
+	juju --show-log deploy juju-qa-test -n 2
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+
+	# Identify the non-leader unit.
+	if juju exec --unit juju-qa-test/0 -- is-leader 2>/dev/null | grep -q true; then
+		non_leader="juju-qa-test/1"
+	else
+		non_leader="juju-qa-test/0"
+	fi
+	echo "Non-leader unit: $non_leader"
+
+	echo "Checking: non-leader can create and remove its own unit-owned secret"
+	secret_uri=$(juju exec --unit "$non_leader" -- secret-add --owner unit nonleader=secret)
+	juju exec --unit "$non_leader" -- secret-remove "$secret_uri"
+	check_contains "$(juju exec --unit "$non_leader" -- secret-get "$secret_uri" 2>&1)" 'not found'
+}
+
+test_secret_nonleader_unit_owned() {
+	if [ "$(skip 'test_secret_nonleader_unit_owned')" ]; then
+		echo "==> TEST SKIPPED: test_secret_nonleader_unit_owned"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		model_name='model-secrets-nonleader'
+		add_model "$model_name"
+		run_secret_nonleader_unit_owned "$model_name"
+		destroy_model "$model_name"
+	)
+}
