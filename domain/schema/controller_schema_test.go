@@ -148,8 +148,13 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"model_migration_export_phase",
 		"model_migration_export_status",
 		"model_migration_export_minion_sync",
+		"model_migration_export_offer",
+		"model_migration_redirect",
+		"model_migration_redirect_user",
 		"model_authorized_keys",
 		"model_migration_import",
+		"model_migration_import_offer",
+		"model_migration_import_external_controller_model",
 
 		// Upgrade info
 		"upgrade_info",
@@ -392,4 +397,50 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
 		"built-in secret backends are immutable", backendUUID2)
+}
+
+// TestVModelStateMigratingForImportPhases asserts that v_model_state.migrating
+// is true while a model_migration_import claim exists in any of its phases
+// (importing, activating, aborting) and false once the claim is deleted. The
+// migrating signal is purely claim-existence based, so successful activation
+// (which deletes the claim) is the only thing that clears it.
+func (s *controllerSchemaSuite) TestVModelStateMigratingForImportPhases(c *tc.C) {
+	s.applyDDL(c, ControllerDDL())
+
+	cloudUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c,
+		"INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify) VALUES (?, 'test-cloud', 1, '', FALSE);",
+		cloudUUID)
+
+	modelUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c,
+		"INSERT INTO model (uuid, activated, cloud_uuid, model_type_id, life_id, name, qualifier) VALUES (?, TRUE, ?, 0, 0, 'test-model', 'prod');",
+		modelUUID, cloudUUID)
+
+	migrating := func() int {
+		var migrating int
+		row := s.DB().QueryRow("SELECT migrating FROM v_model_state WHERE uuid = ?", modelUUID)
+		c.Assert(row.Scan(&migrating), tc.ErrorIsNil)
+		return migrating
+	}
+
+	// With no import claim, the model is not migrating.
+	c.Check(migrating(), tc.Equals, 0)
+
+	// Every claim phase must surface as migrating=true.
+	for _, phase := range []string{"importing", "activating", "aborting"} {
+		importUUID := utils.MustNewUUID().String()
+		s.assertExecSQL(c,
+			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase) VALUES (?, ?, 'source-migration-uuid', ?);",
+			importUUID, modelUUID, phase)
+		c.Check(migrating(), tc.Equals, 1, tc.Commentf("expected migrating for phase %q", phase))
+
+		s.assertExecSQL(c, "DELETE FROM model_migration_import WHERE uuid = ?;", importUUID)
+		c.Check(migrating(), tc.Equals, 0, tc.Commentf("expected not migrating after deleting %q claim", phase))
+	}
+
+	// Any phase outside the allowed set is rejected by the CHECK constraint.
+	s.assertExecSQLError(c,
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase) VALUES (?, ?, 'source-migration-uuid', 'bogus');",
+		"(?s).*CHECK constraint failed.*", utils.MustNewUUID().String(), modelUUID)
 }

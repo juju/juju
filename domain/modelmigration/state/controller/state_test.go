@@ -159,7 +159,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid) VALUES (?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
 		migratingUUID, s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -218,7 +218,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusVerifyCorrectEntry(c *tc.C) {
 	// Insert a model_migration_import entry with a specific UUID.
 	migratingUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid) VALUES (?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
 		migratingUUID, s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -253,7 +253,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusWrongModelUUID(c *tc.C) {
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid) VALUES (?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
 		migratingUUID, s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -280,7 +280,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusIdempotent(c *tc.C) {
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid) VALUES (?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
 		migratingUUID, s.modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

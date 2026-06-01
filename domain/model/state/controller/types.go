@@ -363,4 +363,10 @@ type dbTargetModelMigration struct {
 	UUID string `db:"uuid"`
 	// ModelUUID is the unique identifier for the model being imported.
 	ModelUUID string `db:"model_uuid"`
+	// SourceMigrationUUID is the migration UUID from the source side. It is
+	// stored for diagnostics and must be non-empty for every claim. This legacy
+	// import path has no new-path source migration UUID, so it reuses the
+	// generated import UUID (matching the upgrade backfill in
+	// 0031-model-migration.PATCH.sql).
+	SourceMigrationUUID string `db:"source_migration_uuid"`
 }

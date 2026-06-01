@@ -236,11 +236,14 @@ func markModelAsImporting(
 	migrationRecord := dbTargetModelMigration{
 		UUID:      migrationUUID.String(),
 		ModelUUID: modelID.String(),
+		// This is the legacy import path with no source-side migration UUID;
+		// reuse the import UUID so the NOT NULL diagnostic column is non-empty.
+		SourceMigrationUUID: migrationUUID.String(),
 	}
 
 	stmt, err := preparer.Prepare(`
-INSERT INTO model_migration_import (uuid, model_uuid)
-VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid, $dbTargetModelMigration.source_migration_uuid)
 	`, migrationRecord)
 	if err != nil {
 		return errors.Capture(err)

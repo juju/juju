@@ -79,7 +79,7 @@ var controllerPostPatchFilesByVersion = []struct {
 		"0030-secret-backend.PATCH.sql",
 	},
 }, {
-	version: semversion.MustParse("4.0.10"),
+	version: semversion.MustParse("4.0.12"),
 	files: []string{
 		"0031-model-migration.PATCH.sql",
 	},
