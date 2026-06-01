@@ -243,20 +243,21 @@ func (st *State) setUnitStateCharm(ctx context.Context, tx *sqlair.TX, id entity
 		return errors.Errorf("preparing charm state delete query: %w", err)
 	}
 
-	keyVals := makeUnitCharmStateKeyVals(id, state)
-
-	q = "INSERT INTO unit_state_charm(*) VALUES ($unitCharmStateKeyVal.*)"
-	iStmt, err := st.Prepare(q, keyVals[0])
-	if err != nil {
-		return errors.Errorf("preparing charm state insert query: %w", err)
-	}
-
 	if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
 		return errors.Errorf("deleting unit charm state: %w", err)
 	}
 
-	if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
-		return errors.Errorf("setting unit charm state: %w", err)
+	keyVals := makeUnitCharmStateKeyVals(id, state)
+	if len(keyVals) != 0 {
+		q = "INSERT INTO unit_state_charm(*) VALUES ($unitCharmStateKeyVal.*)"
+		iStmt, err := st.Prepare(q, keyVals[0])
+		if err != nil {
+			return errors.Errorf("preparing charm state insert query: %w", err)
+		}
+
+		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
+			return errors.Errorf("setting unit charm state: %w", err)
+		}
 	}
 	return nil
 }

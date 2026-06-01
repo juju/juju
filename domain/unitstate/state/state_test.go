@@ -189,6 +189,36 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 	c.Check(gotState, tc.DeepEquals, expState)
 }
 
+func (s *stateSuite) TestUpdateUnitStateCharmEmptyMap(c *tc.C) {
+	ctx := c.Context()
+
+	// Set some initial state. This should be deleted when we set empty state.
+	s.addUnitStateCharm(c, "one-key", "one-val")
+
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setUnitStateCharm(ctx, tx, entityUUID{UUID: s.unitUUID}, map[string]string{})
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var rowCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT key, value FROM unit_state_charm WHERE unit_uuid = ?"
+		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			rowCount++
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(rowCount, tc.DeepEquals, 0)
+}
+
 func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	ctx := c.Context()
 
