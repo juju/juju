@@ -557,7 +557,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
-		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+		identityFileWriterName: ifNotMigrating(identityfilewriter.LegacyManifold(identityfilewriter.LegacyManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
