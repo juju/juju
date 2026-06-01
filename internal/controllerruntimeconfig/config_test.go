@@ -161,6 +161,39 @@ func (s *configSuite) TestWriteAndReadRoundTrip(c *tc.C) {
 	c.Check(got, tc.DeepEquals, cfg)
 }
 
+// TestWriteAndReadRoundTrip_SystemIdentity ensures SystemIdentity is preserved
+// in the write/read round trip.
+func (s *configSuite) TestWriteAndReadRoundTrip_SystemIdentity(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	cfg.SystemIdentity = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest-ssh-key\n-----END OPENSSH PRIVATE KEY-----\n"
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.SystemIdentity, tc.Equals, cfg.SystemIdentity)
+}
+
+// TestWriteAndReadRoundTrip_EmptySystemIdentityOmitted ensures that an empty
+// SystemIdentity is not written to the YAML output, allowing existing runtime
+// config files without the field to read back cleanly.
+func (s *configSuite) TestWriteAndReadRoundTrip_EmptySystemIdentityOmitted(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	// SystemIdentity left empty.
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.SystemIdentity, tc.Equals, "")
+}
+
 // TestWriteAndReadRoundTrip_AllNodeManagerFields confirms that all fields
 // required for NodeManager are preserved after a round-trip.
 func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
