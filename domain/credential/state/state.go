@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -373,6 +374,32 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 
 	}
 	return cred, nil
+}
+
+// CloudSupportedAuthTypes returns the auth types supported by the named cloud.
+// It is used by the credential service to validate a credential's auth type
+// without needing to inject the cloud service.
+func (st *State) CloudSupportedAuthTypes(ctx context.Context, cloudName string) (cloud.AuthTypes, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result authTypes
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		result, err = validAuthTypesForCloud(ctx, tx, cloudName)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	authTypeNames := make(cloud.AuthTypes, len(result))
+	for i, at := range result {
+		authTypeNames[i] = cloud.AuthType(at.Type)
+	}
+	return authTypeNames, nil
 }
 
 func validAuthTypesForCloud(ctx context.Context, tx *sqlair.TX, cloudName string) (authTypes, error) {

@@ -237,20 +237,21 @@ func (s *serviceSuite) TestWatchCredentialInvalidID(c *tc.C) {
 func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := credential.CloudCredentialInfo{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
 		Name:  "foobar",
 	}
 
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, coreerrors.NotFound)
-
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, cred)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, gomock.Any())
 
 	service := s.service(c)
 
-	results, err := service.CheckAndUpdateCredential(c.Context(), key, cloud.Credential{}, false)
+	results, err := service.CheckAndUpdateCredential(c.Context(), key, cloud.NewCredential(cloud.EmptyAuthType, nil), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -266,18 +267,20 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialInvalidKey(c *tc.C) {
 func (s *serviceSuite) TestCheckAndUpdateCredentialModelsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
 		Name:  "foobar",
 	}
 
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, errors.New("cannot get models"))
 
 	service := s.service(c)
 
-	results, err := service.CheckAndUpdateCredential(c.Context(), key, cred, false)
+	results, err := service.CheckAndUpdateCredential(c.Context(), key, cloud.NewCredential(cloud.EmptyAuthType, nil), false)
 	c.Assert(err, tc.ErrorMatches, "cannot get models")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -285,7 +288,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialModelsError(c *tc.C) {
 func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
+	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
@@ -295,8 +298,10 @@ func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{})
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, gomock.Any())
 
 	service := s.service(c)
 
@@ -312,21 +317,22 @@ func (s *serviceSuite) TestCheckAndUpdateCredential(c *tc.C) {
 func (s *serviceSuite) TestCheckAndUpdateNewCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
 		Name:  "foobar",
 	}
 
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, credentialerrors.NotFound)
-
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, credential.CloudCredentialInfo{})
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, gomock.Any())
 
 	service := s.service(c)
 
 	results, err := service.CheckAndUpdateCredential(
-		c.Context(), key, cred, false)
+		c.Context(), key, cloud.NewCredential(cloud.EmptyAuthType, nil), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -584,18 +590,20 @@ func (s *serviceSuite) TestCheckCredentialModelsInvalidKey(c *tc.C) {
 func (s *serviceSuite) TestCheckCredentialModelsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
 		Name:  "foobar",
 	}
 
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, errors.New("cannot get models"))
 
 	service := s.service(c)
 
-	results, err := service.CheckCredentialModels(c.Context(), key, cred)
+	results, err := service.CheckCredentialModels(c.Context(), key, cloud.NewCredential(cloud.EmptyAuthType, nil))
 	c.Assert(err, tc.ErrorMatches, "cannot get models")
 	c.Assert(results, tc.HasLen, 0)
 }
@@ -603,7 +611,7 @@ func (s *serviceSuite) TestCheckCredentialModelsError(c *tc.C) {
 func (s *serviceSuite) TestCheckCredentialModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
+	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
@@ -613,6 +621,9 @@ func (s *serviceSuite) TestCheckCredentialModels(c *tc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
 		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 
 	service := s.service(c)
 
@@ -626,18 +637,90 @@ func (s *serviceSuite) TestCheckCredentialModels(c *tc.C) {
 func (s *serviceSuite) TestCheckCredentialModelsNewCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
 	key := corecredential.Key{
 		Cloud: "cirrus",
 		Owner: usertesting.GenNewName(c, "bob"),
 		Name:  "foobar",
 	}
 
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.EmptyAuthType}, nil,
+	)
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, credentialerrors.NotFound)
 
 	service := s.service(c)
 
-	results, err := service.CheckCredentialModels(c.Context(), key, cred)
+	results, err := service.CheckCredentialModels(c.Context(), key, cloud.NewCredential(cloud.EmptyAuthType, nil))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.HasLen, 0)
+}
+
+// TestCheckAndUpdateCredentialUnsupportedAuthType checks that when the
+// credential uses an auth type not supported by the cloud, validation fails
+// and the credential is not updated.
+func (s *serviceSuite) TestCheckAndUpdateCredentialUnsupportedAuthType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+	cred := cloud.NewCredential(cloud.AuthType("badauthtype"), nil)
+
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.UserPassAuthType}, nil,
+	)
+
+	results, err := s.service(c).CheckAndUpdateCredential(c.Context(), key, cred, false)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(results, tc.IsNil)
+}
+
+// TestCheckAndUpdateCredentialValidAuthType checks that when the credential
+// uses a supported auth type, validation succeeds.
+func (s *serviceSuite) TestCheckAndUpdateCredentialValidAuthType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
+		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
+	}, nil)
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.UserPassAuthType}, nil,
+	)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, gomock.Any())
+
+	results, err := s.service(c).CheckAndUpdateCredential(c.Context(), key, cred, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0].Errors, tc.HasLen, 0)
+}
+
+// TestCheckCredentialModelsUnsupportedAuthType checks that when the credential
+// uses an auth type not supported by the cloud, CheckCredentialModels returns
+// a top-level error without querying models.
+func (s *serviceSuite) TestCheckCredentialModelsUnsupportedAuthType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+	cred := cloud.NewCredential(cloud.AuthType("badauthtype"), nil)
+
+	s.state.EXPECT().CloudSupportedAuthTypes(gomock.Any(), "cirrus").Return(
+		cloud.AuthTypes{cloud.UserPassAuthType}, nil,
+	)
+
+	results, err := s.service(c).CheckCredentialModels(c.Context(), key, cred)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(results, tc.IsNil)
 }
