@@ -178,7 +178,6 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		Guard:                        s.guard,
 		GuardService:                 s.guardService,
 		ControllerService:            s.controllerService,
-		ControllerConfigService:      s.controllerConfigService,
 		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,
 		ControllerObjectStoreService: s.controllerObjectStoreMetadata,
 		ObjectStoreFlusher:           s.objectStoreFlusher,

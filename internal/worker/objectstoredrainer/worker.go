@@ -84,7 +84,6 @@ type Config struct {
 	Guard                        fortress.Guard
 	GuardService                 GuardService
 	ControllerService            ControllerService
-	ControllerConfigService      ControllerConfigService
 	ControllerObjectStoreService objectstore.ObjectStoreMetadata
 	ObjectStoreServicesGetter    ObjectStoreServicesGetter
 	ObjectStoreFlusher           objectstore.ObjectStoreFlusher
@@ -113,9 +112,6 @@ func (config Config) Validate() error {
 	}
 	if config.ControllerService == nil {
 		return errors.Errorf("nil ControllerService").Add(coreerrors.NotValid)
-	}
-	if config.ControllerConfigService == nil {
-		return errors.Errorf("nil ControllerConfigService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerObjectStoreService == nil {
 		return errors.Errorf("nil controllerObjectStoreService").Add(coreerrors.NotValid)
@@ -185,7 +181,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		guardService: config.GuardService,
 
 		controllerService:            config.ControllerService,
-		controllerConfigService:      config.ControllerConfigService,
 		controllerObjectStoreService: config.ControllerObjectStoreService,
 
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
@@ -231,7 +226,6 @@ type Worker struct {
 	guardService GuardService
 
 	controllerService            ControllerService
-	controllerConfigService      ControllerConfigService
 	controllerObjectStoreService objectstore.ObjectStoreMetadata
 
 	objectStoreServicesGetter ObjectStoreServicesGetter
@@ -271,15 +265,6 @@ func (w *Worker) Report(ctx context.Context) map[string]any {
 func (w *Worker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	cfgWatcher, err := w.controllerConfigService.WatchControllerConfig(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := w.catacomb.Add(cfgWatcher); err != nil {
-		return errors.Capture(err)
-	}
-
 	drainingWatcher, err := w.guardService.WatchDraining(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -292,11 +277,6 @@ func (w *Worker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
-		case <-cfgWatcher.Changes():
-			if err := w.handleConfigChange(ctx); err != nil {
-				return errors.Capture(err)
-			}
 
 		case <-drainingWatcher.Changes():
 			phase, err := w.guardService.GetDrainingPhase(ctx)
@@ -370,11 +350,6 @@ func (w *Worker) loop() error {
 // HandleConfigChange starts the whole draining process if the object store
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
-	_, err := w.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	phase, err := w.guardService.GetDrainingPhase(ctx)
 	if err != nil {
 		return errors.Capture(err)
