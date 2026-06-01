@@ -107,7 +107,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"lease-expiry",
 		"lease-manager",
 		"log-sink",
-		"logging-config-updater",
+		"logging-controller-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -973,12 +973,34 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"log-sink": {},
 
-	"logging-config-updater": {
+	"logging-controller-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
+		"change-stream",
+		"clock",
+		"controller-agent-config",
+		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
+		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"query-logger",
+		"storage-registry",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"migration-fortress": {},
@@ -1136,15 +1158,31 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
+		"change-stream",
 		"clock",
 		"controller-agent-config",
 		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
 		"query-logger",
+		"storage-registry",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"ssh-identity-writer": {
@@ -1340,6 +1378,10 @@ func (mc *mockConfig) DataDir() string {
 		return mc.dataPath
 	}
 	return "data-dir"
+}
+
+func (mc *mockConfig) LoggingConfig() string {
+	return ""
 }
 
 func preUpgradeSteps(model.ModelType) upgrades.PreUpgradeStepsFunc { return nil }

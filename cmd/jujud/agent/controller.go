@@ -449,6 +449,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			DependencyEngineMetrics:           metrics,
 			NewEnvironFunc:                    newEnvirons,
+			SystemIdentity:                    controllerRuntimeConfig.SystemIdentity,
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
 		if agentConfig.Value(agent.ProviderType) == k8sconstants.CAASProviderType {
