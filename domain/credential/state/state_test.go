@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"slices"
 	stdtesting "testing"
 
 	"github.com/juju/clock"
@@ -834,4 +835,32 @@ SELECT ?, ?, ?, 0, 0, true,
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsFalse)
 	c.Check(credKey, tc.Equals, key)
+}
+
+// TestCloudSupportedAuthTypes verifies that CloudSupportedAuthTypes returns
+// all auth types registered for an existing cloud.
+func (s *credentialSuite) TestCloudSupportedAuthTypes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// "stratus" is seeded in SetUpTest with AccessKeyAuthType and
+	// UserPassAuthType.
+	authTypes, err := st.CloudSupportedAuthTypes(c.Context(), "stratus")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(authTypes, tc.HasLen, 2)
+
+	// Sort before comparing since the SQL query has no ORDER BY.
+	slices.Sort(authTypes)
+	c.Check(authTypes, tc.DeepEquals, cloud.AuthTypes{
+		cloud.AccessKeyAuthType,
+		cloud.UserPassAuthType,
+	})
+}
+
+// TestCloudSupportedAuthTypesUnknownCloud verifies that CloudSupportedAuthTypes
+// returns an error when the named cloud does not exist.
+func (s *credentialSuite) TestCloudSupportedAuthTypesUnknownCloud(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.CloudSupportedAuthTypes(c.Context(), "no-such-cloud")
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }

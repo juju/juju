@@ -159,6 +159,27 @@ my-action:
         type: string
 ```
 
+### 9. Juju now defaults to provider-specific storage pools for filesystems.
+
+In `3.6`, due to a bug, Juju would also default to the `rootfs` storage pool to
+create filesystems, even if a provider-specific storage pool was available.
+
+In `4.0`, if a provider offers its own storage provider, Juju will default
+to using this pool, e.g., `ebs` for `aws`, `cinder` for `openstack`.
+
+`rootfs` in general shouldn't be used for production deployments, since data is
+stored on a machine's root filesystem instead of a separate dedicated entity.
+
+Filesystems from these pools can sometimes have subtly different properties to
+`rootfs` filesystems. Charm developers should ensure their charms are not
+locked-in to the `rootfs` storage pools.
+
+To replicate the `3.6` behaviour, explicitly set the storage pool to `rootfs` in
+the storage directive. E.g.
+```
+$ juju deploy postgresql --storage pgdata=rootfs,10G
+```
+
 ## Changes for Juju operators
 
 ### 1. Ubuntu fan networking removed

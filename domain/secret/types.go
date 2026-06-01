@@ -235,6 +235,12 @@ func (o CharmSecretOwner) String() string {
 	return fmt.Sprintf("%s-%s", o.Kind, o.ID)
 }
 
+// SecretOwnerInfo pairs a secret ID with its owner kind.
+type SecretOwnerInfo struct {
+	SecretID  string
+	OwnerKind CharmSecretOwnerKind
+}
+
 // SecretAccessorKind represents the kind of an entity which can access a secret.
 type SecretAccessorKind string
 

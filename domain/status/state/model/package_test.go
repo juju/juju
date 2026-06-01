@@ -17,6 +17,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
@@ -384,6 +385,47 @@ func (s *baseSuite) createCAASApplication(
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID, unitUUIDs
+}
+
+func (s *baseSuite) setK8sServiceAddress(
+	c *tc.C, appName, providerID string, addresses ...string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var count int
+		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM subnet").Scan(&count); err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil
+		}
+
+		for _, cidr := range []string{"0.0.0.0/0", "::/0"} {
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO subnet (uuid, cidr) VALUES (?, ?)",
+				uuid.MustNewUUID().String(), cidr,
+			); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appState := applicationstate.NewState(
+		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()),
+		testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	)
+
+	serviceAddresses := make(corenetwork.ProviderAddresses, len(addresses))
+	for i, address := range addresses {
+		serviceAddresses[i] = corenetwork.ProviderAddress{
+			MachineAddress: corenetwork.NewMachineAddress(address),
+		}
+	}
+	err = appState.UpsertK8sService(c.Context(), appName, providerID,
+		serviceAddresses,
+	)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *baseSuite) setApplicationLXDProfile(c *tc.C, appUUID coreapplication.UUID, profile string) {

@@ -1190,20 +1190,21 @@ func (s *Service) decodeApplicationStatusDetails(app status.Application) (Applic
 	}
 
 	return Application{
-		Life:            life,
-		Status:          decodedStatus,
-		Relations:       app.Relations,
-		Subordinate:     app.Subordinate,
-		CharmLocator:    app.CharmLocator,
-		CharmVersion:    app.CharmVersion,
-		Platform:        app.Platform,
-		Channel:         app.Channel,
-		Exposed:         app.Exposed,
-		LXDProfile:      lxdProfile,
-		Scale:           app.Scale,
-		WorkloadVersion: app.WorkloadVersion,
-		K8sProviderID:   app.K8sProviderID,
-		Units:           units,
+		Life:             life,
+		Status:           decodedStatus,
+		Relations:        app.Relations,
+		Subordinate:      app.Subordinate,
+		CharmLocator:     app.CharmLocator,
+		CharmVersion:     app.CharmVersion,
+		Platform:         app.Platform,
+		Channel:          app.Channel,
+		Exposed:          app.Exposed,
+		LXDProfile:       lxdProfile,
+		Scale:            app.Scale,
+		WorkloadVersion:  app.WorkloadVersion,
+		K8sProviderID:    app.K8sProviderID,
+		K8sPublicAddress: app.K8sPublicAddress,
+		Units:            units,
 	}, nil
 }
 
