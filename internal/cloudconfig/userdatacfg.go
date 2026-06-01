@@ -501,6 +501,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		CACert:                w.icfg.APIInfo.CACert,
 		ControllerCert:        w.icfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		SystemIdentity:        w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {
