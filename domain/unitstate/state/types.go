@@ -50,6 +50,9 @@ type secretID struct {
 	ID string `db:"secret_id"`
 }
 
+// secretIDs is a sqlair slice type for batch IN queries on secret_id.
+type secretIDs []string
+
 // entityUUID identifies an entity.
 type entityUUID struct {
 	// UUID is the universally unique identifier for an entity.

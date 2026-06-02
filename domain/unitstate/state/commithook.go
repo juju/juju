@@ -124,12 +124,12 @@ func (st *State) grantSecretsAccess(ctx context.Context, tx *sqlair.TX, grants [
 		return nil
 	}
 
-	// Check secret exists (is local).
-	checkSecretStmt, err := st.Prepare(`
-SELECT &secretID.secret_id
-FROM   secret_metadata
-WHERE  secret_id = $secretID.secret_id
-`, secretID{})
+	// Collect unique secret IDs and batch-check their existence.
+	ids := make(secretIDs, 0, len(grants))
+	for _, g := range grants {
+		ids = append(ids, g.SecretID)
+	}
+	existing, err := st.filterExistingSecrets(ctx, tx, ids)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -164,15 +164,8 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 	}
 
 	for _, g := range grants {
-		// Verify the secret still exists; it may have been deleted
-		// concurrently between the facade access check and this txn.
-		var id secretID
-		err := tx.Query(ctx, checkSecretStmt, secretID{ID: g.SecretID}).Get(&id)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			st.logger.Debugf(ctx, "secret %q no longer exists, skipping grant", g.SecretID)
+		if _, ok := existing[g.SecretID]; !ok {
 			continue
-		} else if err != nil {
-			return errors.Errorf("checking secret %q exists: %w", g.SecretID, err)
 		}
 
 		perm := secretPermissionGrant{
@@ -204,17 +197,48 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 	return nil
 }
 
+// filterExistingSecrets returns the subset of ids that are present in
+// secret_metadata. Any ID absent from the returned set was concurrently
+// deleted; this method logs each such ID at debug level so callers do not
+// need to.
+func (st *State) filterExistingSecrets(ctx context.Context, tx *sqlair.TX, ids secretIDs) (map[string]struct{}, error) {
+	stmt, err := st.Prepare(`
+SELECT &secretID.secret_id
+FROM   secret_metadata
+WHERE  secret_id IN ($secretIDs[:])
+`, secretID{}, secretIDs{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []secretID
+	if err := tx.Query(ctx, stmt, ids).GetAll(&rows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("batch-checking secret existence: %w", err)
+	}
+
+	existing := make(map[string]struct{}, len(rows))
+	for _, r := range rows {
+		existing[r.ID] = struct{}{}
+	}
+	for _, id := range ids {
+		if _, ok := existing[id]; !ok {
+			st.logger.Debugf(ctx, "secret %q no longer exists, skipping", id)
+		}
+	}
+	return existing, nil
+}
+
 func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes []internal.RevokeSecretArg) error {
 	if len(revokes) == 0 {
 		return nil
 	}
 
-	// Check secret exists (is local).
-	checkSecretStmt, err := st.Prepare(`
-SELECT &secretID.secret_id
-FROM   secret_metadata
-WHERE  secret_id = $secretID.secret_id
-`, secretID{})
+	// Collect unique secret IDs and batch-check their existence.
+	ids := make(secretIDs, 0, len(revokes))
+	for _, r := range revokes {
+		ids = append(ids, r.SecretID)
+	}
+	existing, err := st.filterExistingSecrets(ctx, tx, ids)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -231,15 +255,8 @@ AND    subject_uuid = $secretPermissionRevoke.subject_uuid
 	}
 
 	for _, rev := range revokes {
-		// Verify the secret still exists; it may have been deleted
-		// concurrently between the facade access check and this txn.
-		var id secretID
-		err := tx.Query(ctx, checkSecretStmt, secretID{ID: rev.SecretID}).Get(&id)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			st.logger.Debugf(ctx, "secret %q no longer exists, skipping revoke", rev.SecretID)
+		if _, ok := existing[rev.SecretID]; !ok {
 			continue
-		} else if err != nil {
-			return errors.Errorf("checking secret %q exists: %w", rev.SecretID, err)
 		}
 
 		perm := secretPermissionRevoke{
