@@ -314,10 +314,6 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_model_migration_export_phase_update",
 		"trg_log_model_migration_export_phase_delete",
 
-		"trg_log_model_migration_export_status_insert",
-		"trg_log_model_migration_export_status_update",
-		"trg_log_model_migration_export_status_delete",
-
 		"trg_log_model_migration_export_minion_sync_insert",
 		"trg_log_model_migration_export_minion_sync_update",
 		"trg_log_model_migration_export_minion_sync_delete",

@@ -97,6 +97,9 @@ DROP TABLE model_migration_import_old;
 CREATE UNIQUE INDEX idx_model_migration_import
 ON model_migration_import (model_uuid);
 
+CREATE INDEX idx_model_migration_import_phase_updated
+ON model_migration_import (phase_type_id, updated_at);
+
 CREATE TABLE model_migration_import_offer (
     migration_uuid TEXT NOT NULL,
     offer_uuid TEXT NOT NULL,
@@ -128,6 +131,9 @@ CREATE TABLE model_migration_import_external_controller_model (
     FOREIGN KEY (controller_uuid)
     REFERENCES external_controller (uuid)
 );
+
+CREATE INDEX idx_model_migration_import_ecm_controller
+ON model_migration_import_external_controller_model (controller_uuid);
 
 -- v_model_state exists to provide a simple view over the states that are
 -- needed to calculate a model's status.
@@ -240,14 +246,21 @@ WHERE end_time IS NULL;
 CREATE INDEX idx_model_migration_export_model
 ON model_migration_export (model_uuid);
 
--- Per-migration authentication credentials for connecting to the target
--- controller. Held separately from external_controller because credentials
--- are per-migration (they may be rotated, scoped, or JIMM-issued tokens)
--- and external_controller is shared with the cross-model relations domain
--- whose connections do not use user-supplied credentials.
+CREATE INDEX idx_model_migration_export_target_controller
+ON model_migration_export (target_controller_uuid);
+
+-- Per-migration authentication material for connecting to the target
+-- controller. Held separately from external_controller because the material
+-- is per-migration (it may be rotated, scoped, or JIMM-issued) and
+-- external_controller is shared with the cross-model relations domain whose
+-- connections do not use user-supplied authentication material.
+--
+-- Passwords must not be persisted here. Password-based target authentication
+-- is exchanged for macaroons before the migration is recorded; JIMM targets
+-- may use target_token instead.
 --
 -- The dual FK (migration + external_controller) makes the relationship
--- explicit: a row here means "credentials for this migration to connect
+-- explicit: a row here means "auth material for this migration to connect
 -- to that external controller". The service layer is responsible for
 -- ensuring the external_controller_uuid here matches the
 -- target_controller_uuid on the parent model_migration_export row.
@@ -255,7 +268,6 @@ CREATE TABLE model_migration_export_target_auth (
     migration_uuid TEXT NOT NULL PRIMARY KEY,
     external_controller_uuid TEXT NOT NULL,
     target_user TEXT NOT NULL,
-    target_password TEXT,
     target_macaroons TEXT,
     target_token TEXT,
     target_skip_user_checks BOOLEAN NOT NULL DEFAULT FALSE,
@@ -266,6 +278,9 @@ CREATE TABLE model_migration_export_target_auth (
     FOREIGN KEY (external_controller_uuid)
     REFERENCES external_controller (uuid)
 );
+
+CREATE INDEX idx_model_migration_export_target_auth_external_controller
+ON model_migration_export_target_auth (external_controller_uuid);
 
 -- Time-ordered record of which phases an export migration has entered.
 -- Each phase is entered at most once per migration, so (migration_uuid,
@@ -301,6 +316,9 @@ CREATE TABLE model_migration_export_status (
 
 CREATE INDEX idx_model_migration_export_status_recorded_at
 ON model_migration_export_status (migration_uuid, recorded_at);
+
+-- Status messages are intentionally not changelogged. They can update often
+-- during migration and should not amplify model migration watcher traffic.
 
 -- Reports submitted by minion agents (machines/units) confirming or
 -- failing the work for a given phase. entity_key is the agent's tag-like
@@ -391,38 +409,6 @@ AFTER DELETE ON model_migration_export_phase FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, 10020, OLD.migration_uuid, DATETIME('now', 'utc'));
-END;
-
--- insert namespace for ModelMigrationExportStatus
-INSERT INTO change_log_namespace VALUES (10021, 'model_migration_export_status', 'ModelMigrationExportStatus changes based on migration_uuid');
-
--- insert trigger for ModelMigrationExportStatus
-CREATE TRIGGER trg_log_model_migration_export_status_insert
-AFTER INSERT ON model_migration_export_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, 10021, NEW.migration_uuid, DATETIME('now', 'utc'));
-END;
-
--- update trigger for ModelMigrationExportStatus
-CREATE TRIGGER trg_log_model_migration_export_status_update
-AFTER UPDATE ON model_migration_export_status FOR EACH ROW
-WHEN
-    NEW.uuid != OLD.uuid OR
-    NEW.migration_uuid != OLD.migration_uuid OR
-    NEW.message != OLD.message OR
-    NEW.recorded_at != OLD.recorded_at
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, 10021, OLD.migration_uuid, DATETIME('now', 'utc'));
-END;
-
--- delete trigger for ModelMigrationExportStatus
-CREATE TRIGGER trg_log_model_migration_export_status_delete
-AFTER DELETE ON model_migration_export_status FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, 10021, OLD.migration_uuid, DATETIME('now', 'utc'));
 END;
 
 -- insert namespace for ModelMigrationExportMinionSync
