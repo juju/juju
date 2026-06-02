@@ -236,11 +236,14 @@ func markModelAsImporting(
 	migrationRecord := dbTargetModelMigration{
 		UUID:      migrationUUID.String(),
 		ModelUUID: modelID.String(),
+		// This is the legacy import path with no source-side migration UUID;
+		// reuse the import UUID so the NOT NULL diagnostic column is non-empty.
+		SourceMigrationUUID: migrationUUID.String(),
 	}
 
 	stmt, err := preparer.Prepare(`
-INSERT INTO model_migration_import (uuid, model_uuid)
-VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid, $dbTargetModelMigration.source_migration_uuid)
 	`, migrationRecord)
 	if err != nil {
 		return errors.Capture(err)
@@ -415,7 +418,7 @@ SELECT &dbModelState.* FROM v_model_state WHERE uuid = $dbModelUUID.uuid
 	}
 
 	return model.ModelState{
-		Destroying:                   modelState.Destroying,
+		Destroying:                   corelife.Value(modelState.Life) == corelife.Dying,
 		Migrating:                    modelState.Migrating,
 		HasInvalidCloudCredential:    modelState.CredentialInvalid,
 		InvalidCloudCredentialReason: modelState.CredentialInvalidReason,
@@ -1340,9 +1343,9 @@ func (s *State) GetModelSummary(
 	}
 
 	q := `
-SELECT (ms.destroying, ms.cloud_credential_invalid,
+SELECT (ms.cloud_credential_invalid,
         ms.cloud_credential_invalid_reason, ms.migrating,
-        life) AS (&dbModelSummary.*)
+        m.life) AS (&dbModelSummary.*)
 FROM   v_model_state ms
 JOIN   v_model m ON m.uuid = ms.uuid
 WHERE  ms.uuid = $dbModelUUID.uuid
@@ -1383,7 +1386,7 @@ WHERE  ms.uuid = $dbModelUUID.uuid
 	return model.ModelSummary{
 		Life: corelife.Value(modelSummaryVals.Life),
 		State: model.ModelState{
-			Destroying:                   modelSummaryVals.Destroying,
+			Destroying:                   corelife.Value(modelSummaryVals.Life) == corelife.Dying,
 			HasInvalidCloudCredential:    modelSummaryVals.CredentialInvalid,
 			InvalidCloudCredentialReason: modelSummaryVals.CredentialInvalidReason,
 			Migrating:                    modelSummaryVals.Migrating,
@@ -1441,7 +1444,7 @@ func (s *State) GetUserModelSummary(
 	}
 
 	q := `
-SELECT    (p.access_type, mll.time, ms.destroying, ms.cloud_credential_invalid,
+SELECT    (p.access_type, mll.time, ms.cloud_credential_invalid,
            ms.cloud_credential_invalid_reason, ms.migrating,
            m.life) AS (&dbUserModelSummary.*)
 FROM      v_user_auth u
@@ -1505,7 +1508,7 @@ AND       ms.uuid = $dbModelUUID.uuid
 		ModelSummary: model.ModelSummary{
 			Life: corelife.Value(userModelSummaryVals.Life),
 			State: model.ModelState{
-				Destroying:                   userModelSummaryVals.Destroying,
+				Destroying:                   corelife.Value(userModelSummaryVals.Life) == corelife.Dying,
 				Migrating:                    userModelSummaryVals.Migrating,
 				HasInvalidCloudCredential:    userModelSummaryVals.CredentialInvalid,
 				InvalidCloudCredentialReason: userModelSummaryVals.CredentialInvalidReason,
