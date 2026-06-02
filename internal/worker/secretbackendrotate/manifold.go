@@ -66,7 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (c ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,29 +76,10 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 		return nil, errors.Trace(err)
 	}
 	return c.NewWorker(Config{
-		SecretBackendManagerFacade: &secretBackendServiceFacade{svc: svc},
+		SecretBackendManagerFacade: svc,
 		Logger:                     c.Logger,
 		Clock:                      clock.WallClock,
 	})
-}
-
-// secretBackendServiceFacade adapts SecretBackendService to the
-// SecretBackendManagerFacade interface expected by the worker.
-type secretBackendServiceFacade struct {
-	svc SecretBackendService
-}
-
-func (f *secretBackendServiceFacade) WatchTokenRotationChanges(ctx context.Context) (corewatcher.SecretBackendRotateWatcher, error) {
-	return f.svc.WatchSecretBackendRotationChanges(ctx)
-}
-
-func (f *secretBackendServiceFacade) RotateBackendTokens(ctx context.Context, ids ...string) error {
-	for _, id := range ids {
-		if err := f.svc.RotateBackendToken(ctx, id); err != nil {
-			return errors.Annotatef(err, "rotating token for backend %q", id)
-		}
-	}
-	return nil
 }
 
 // GetSecretBackendService retrieves the secret backend service from the

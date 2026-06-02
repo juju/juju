@@ -3,5 +3,5 @@
 
 package secretbackendrotate_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/client_mock.go -source rotate.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/client_mock.go -source manifold.go
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher
