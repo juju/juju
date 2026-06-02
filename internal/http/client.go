@@ -285,10 +285,11 @@ func (c *Client) Get(ctx context.Context, path string) (resp *http.Response, err
 	return c.Do(req)
 }
 
-// Do issues the provided http.Request and returns the http.Response.  It mimics the net/http Do, but allows for enhanced debugging.
+// Do issues the provided http.Request and returns the http.Response.  It mimics
+// the net/http Do, but allows for enhanced debugging.
 //
-// When err is nil, resp always contains a non-nil resp.Body.
-// Caller should close resp.Body when done reading from it.
+// When err is nil, resp always contains a non-nil resp.Body. Caller should
+// close resp.Body when done reading from it.
 func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	if err := c.traceRequest(req, req.URL.String()); err != nil {
 		// No need to fail, but let user know we're not tracing the client request.
