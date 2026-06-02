@@ -11,12 +11,14 @@ import (
 )
 
 // SnapConfinementHint returns a hint message when running as a snap and path
-// is outside the snap's reachable directories (HOME / SNAP_REAL_HOME).
+// is outside the snap's reachable directories (HOME / SNAP_REAL_HOME /
+// SNAP_USER_DATA / SNAP_USER_COMMON).
 // Returns "" if not running as a snap, if the path is under a reachable root,
 // or if path does not look like a filesystem path (no '/' separator).
 //
-// snapEnv is $SNAP, snapRealHome is $SNAP_REAL_HOME, homeDir is $HOME.
-func SnapConfinementHint(path, snapEnv, snapRealHome, homeDir string) string {
+// snapEnv is $SNAP, snapRealHome is $SNAP_REAL_HOME, homeDir is $HOME,
+// snapUserData is $SNAP_USER_DATA, snapUserCommon is $SNAP_USER_COMMON.
+func SnapConfinementHint(path, snapEnv, snapRealHome, homeDir, snapUserData, snapUserCommon string) string {
 	if snapEnv == "" {
 		return ""
 	}
@@ -28,7 +30,8 @@ func SnapConfinementHint(path, snapEnv, snapRealHome, homeDir string) string {
 	if err != nil {
 		abs = path
 	}
-	if isUnderRoot(abs, homeDir) || isUnderRoot(abs, snapRealHome) {
+	if isUnderRoot(abs, homeDir) || isUnderRoot(abs, snapRealHome) ||
+		isUnderRoot(abs, snapUserData) || isUnderRoot(abs, snapUserCommon) {
 		return ""
 	}
 	return fmt.Sprintf(
@@ -39,7 +42,14 @@ func SnapConfinementHint(path, snapEnv, snapRealHome, homeDir string) string {
 
 // SnapConfinementHintFromEnv calls SnapConfinementHint using the process environment.
 func SnapConfinementHintFromEnv(path string) string {
-	return SnapConfinementHint(path, os.Getenv("SNAP"), os.Getenv("SNAP_REAL_HOME"), os.Getenv("HOME"))
+	return SnapConfinementHint(
+		path,
+		os.Getenv("SNAP"),
+		os.Getenv("SNAP_REAL_HOME"),
+		os.Getenv("HOME"),
+		os.Getenv("SNAP_USER_DATA"),
+		os.Getenv("SNAP_USER_COMMON"),
+	)
 }
 
 // isUnderRoot reports whether path is under root (root followed by a path separator).
