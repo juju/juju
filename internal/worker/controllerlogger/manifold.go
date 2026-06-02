@@ -89,7 +89,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	modelService, err := GetControllerDomainServices(getter, config.DomainServicesName)
+	modelService, err := getControllerDomainServices(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -99,7 +99,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigService, err := GetModelConfigService(getter, config.DomainServicesName, controllerModelUUID)
+	modelConfigService, err := getModelConfigService(ctx, getter, config.DomainServicesName, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,12 +112,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Override:        config.LoggingOverride,
 		UpdateAgentFunc: config.UpdateAgentFunc,
 	}
-	return NewWorker(workerConfig)
+	return NewWorker(ctx, workerConfig)
 }
 
-// GetControllerDomainServices retrieves the model service from the controller
+// getControllerDomainServices retrieves the model service from the controller
 // domain services via the dependency getter.
-func GetControllerDomainServices(getter dependency.Getter, name string) (ModelService, error) {
+func getControllerDomainServices(getter dependency.Getter, name string) (ModelService, error) {
 	var controllerServices services.ControllerDomainServices
 	if err := getter.Get(name, &controllerServices); err != nil {
 		return nil, errors.Trace(err)
@@ -125,14 +125,19 @@ func GetControllerDomainServices(getter dependency.Getter, name string) (ModelSe
 	return controllerServices.Model(), nil
 }
 
-// GetModelConfigService retrieves the model config service for the controller
+// getModelConfigService retrieves the model config service for the controller
 // model via the domain services getter.
-func GetModelConfigService(getter dependency.Getter, name string, controllerModelUUID coremodel.UUID) (ModelConfigService, error) {
+func getModelConfigService(
+	ctx context.Context,
+	getter dependency.Getter,
+	name string,
+	controllerModelUUID coremodel.UUID,
+) (ModelConfigService, error) {
 	var domainServicesGetter services.DomainServicesGetter
 	if err := getter.Get(name, &domainServicesGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
-	ds, err := domainServicesGetter.ServicesForModel(context.Background(), controllerModelUUID)
+	ds, err := domainServicesGetter.ServicesForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
