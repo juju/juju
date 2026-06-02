@@ -86,6 +86,12 @@ type State interface {
 	// machine.
 	IsMachineManuallyProvisioned(context.Context, machine.Name) (bool, error)
 
+	// GetMachineLifeAndIsManuallyProvisioned returns both the life status and
+	// whether the machine is manually provisioned in a single round-trip.
+	// It returns a [machineerrors.MachineNotFound] if the machine doesn't
+	// exist.
+	GetMachineLifeAndIsManuallyProvisioned(context.Context, machine.Name) (life.Life, bool, error)
+
 	// ShouldKeepInstance reports whether a machine, when removed from Juju,
 	// should cause the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
@@ -281,6 +287,25 @@ func (s *Service) IsMachineManuallyProvisioned(ctx context.Context, machineName 
 		return false, errors.Errorf("checking if machine %q is a manual machine: %w", machineName, err)
 	}
 	return isManual, nil
+}
+
+// GetMachineLifeAndIsManuallyProvisioned returns the life status and whether
+// the machine is manually provisioned in a single call. It returns a
+// [machineerrors.MachineNotFound] if the machine doesn't exist.
+func (s *Service) GetMachineLifeAndIsManuallyProvisioned(ctx context.Context, machineName machine.Name) (corelife.Value, bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	l, isManual, err := s.st.GetMachineLifeAndIsManuallyProvisioned(ctx, machineName)
+	if err != nil {
+		return corelife.Dead, false, errors.Errorf("getting life and manual status for machine %q: %w", machineName, err)
+	}
+
+	lifeVal, err := l.Value()
+	if err != nil {
+		return corelife.Dead, false, errors.Errorf("getting life and manual status for machine %q: %w", machineName, err)
+	}
+	return lifeVal, isManual, nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause

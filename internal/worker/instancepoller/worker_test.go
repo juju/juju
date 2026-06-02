@@ -175,7 +175,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *tc.C) {
 	// Instance poller will look up machine with id "0" and get back a
 	// non-manual machine.
 	machineName := machine.Name("0")
-	mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil)
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(c.Context(), machineName)
@@ -194,8 +194,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 
 	machineName := machine.Name("0")
 	gomock.InOrder(
-		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
-		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
+		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
 	)
 	updWorker.appendToShortPollGroup(machineName)
 
@@ -224,9 +223,8 @@ func (s *workerSuite) TestQueueingExistingMachineThatBecomesManualRemovesItFromP
 	machineName := machine.Name("0")
 	now := mocked.clock.Now()
 	gomock.InOrder(
-		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
-		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
-		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(true, nil),
+		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
+		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, true, nil),
 		mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Provisioning}, nil),
 		mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
 			Status:  status.Running,
@@ -249,8 +247,8 @@ func (s *workerSuite) TestQueueingExistingMachineThatBecomesManualRemovesItFromP
 }
 
 // TestMachineNotFoundDuringManualCheckRemovesEntry verifies that if a machine
-// disappears (MachineNotFound) when we re-check its manual status in branch
-// (b), it is cleanly removed from the poll group.
+// disappears (MachineNotFound) when we re-check its status, it is cleanly
+// removed from the poll group.
 func (s *workerSuite) TestMachineNotFoundDuringManualCheckRemovesEntry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -262,10 +260,9 @@ func (s *workerSuite) TestMachineNotFoundDuringManualCheckRemovesEntry(c *tc.C) 
 	machineName := machine.Name("0")
 	gomock.InOrder(
 		// First call: machine is alive and not manual → added to short poll group.
-		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, nil),
-		mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil),
-		// Second call (branch b): machine has since disappeared.
-		mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName).Return(false, machineerrors.MachineNotFound),
+		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
+		// Second call: machine has since disappeared.
+		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Value(""), false, machineerrors.MachineNotFound),
 	)
 
 	err := updWorker.queueMachineForPolling(c.Context(), machineName)
@@ -449,7 +446,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *tc.C) {
 	updWorker.appendToShortPollGroup(machineName)
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 
-	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Dead, nil)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Dead, false, nil)
 
 	// Emit a change for the machine so the queueing code detects the
 	// dead machine and removes it.
@@ -474,7 +471,7 @@ func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *tc.C) {
 	updWorker.appendToShortPollGroup(machineName)
 	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 
-	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return("", machineerrors.MachineNotFound)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Value(""), false, machineerrors.MachineNotFound)
 
 	// Emit a change for the machine so the queueing code detects the
 	// dead machine and removes it.
@@ -499,7 +496,7 @@ func (s *workerSuite) TestQueuingOfManualMachines(c *tc.C) {
 	// "started" status. We expect the former to have its instance status
 	// changed to "running".
 	machineName0 := machine.Name("0")
-	mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName0).Return(true, nil)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName0).Return(life.Alive, true, nil)
 	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName0).Return(status.StatusInfo{Status: status.Provisioning}, nil)
 	mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName0, status.StatusInfo{
 		Status:  status.Running,
@@ -508,7 +505,7 @@ func (s *workerSuite) TestQueuingOfManualMachines(c *tc.C) {
 	}).Return(nil)
 
 	machineName1 := machine.Name("1")
-	mocked.machineService.EXPECT().IsMachineManuallyProvisioned(gomock.Any(), machineName1).Return(true, nil)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName1).Return(life.Alive, true, nil)
 	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName1).Return(status.StatusInfo{Status: status.Running}, nil)
 
 	// Emit change for both machines.
