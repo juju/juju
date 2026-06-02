@@ -13,6 +13,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
@@ -168,6 +170,26 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 			continue
 		}
 
+		// Verify subject entity still exists (concurrent removal race).
+		subjectExists, err := st.subjectExists(ctx, tx, g.SubjectUUID, g.SubjectTypeID)
+		if err != nil {
+			return errors.Errorf("checking grant subject %q exists: %w", g.SubjectUUID, err)
+		}
+		if !subjectExists {
+			st.logger.Debugf(ctx, "grant subject %q no longer exists, skipping", g.SubjectUUID)
+			continue
+		}
+
+		// Verify scope entity still exists (concurrent removal race).
+		scopeExists, err := st.scopeExists(ctx, tx, g.ScopeUUID, g.ScopeTypeID)
+		if err != nil {
+			return errors.Errorf("checking grant scope %q exists: %w", g.ScopeUUID, err)
+		}
+		if !scopeExists {
+			st.logger.Debugf(ctx, "grant scope %q no longer exists, skipping", g.ScopeUUID)
+			continue
+		}
+
 		perm := secretPermissionGrant{
 			SecretID:      g.SecretID,
 			SubjectUUID:   g.SubjectUUID,
@@ -185,7 +207,7 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 			return errors.Errorf(
 				"cannot change scope or subject type of existing grant for %q on %q",
 				g.SubjectUUID, g.SecretID,
-			)
+			).Add(secreterrors.InvalidSecretPermissionChange)
 		} else if !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking permission invariant for %q on %q: %w", g.SubjectUUID, g.SecretID, err)
 		}
@@ -195,6 +217,102 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 		}
 	}
 	return nil
+}
+
+// subjectExists checks whether the subject entity referenced by uuid still
+// exists in the database, dispatching to the appropriate table based on type.
+func (st *State) subjectExists(ctx context.Context, tx *sqlair.TX, uuid string, t secret.GrantSubjectType) (bool, error) {
+	switch t {
+	case secret.SubjectUnit:
+		return st.unitExists(ctx, tx, uuid)
+	case secret.SubjectApplication:
+		return st.applicationExists(ctx, tx, uuid)
+	case secret.SubjectModel:
+		return st.modelExists(ctx, tx, uuid)
+	default:
+		return false, errors.Errorf("unknown subject type %d", t)
+	}
+}
+
+// scopeExists checks whether the scope entity referenced by uuid still
+// exists in the database, dispatching to the appropriate table based on type.
+func (st *State) scopeExists(ctx context.Context, tx *sqlair.TX, uuid string, t secret.GrantScopeType) (bool, error) {
+	switch t {
+	case secret.ScopeUnit:
+		return st.unitExists(ctx, tx, uuid)
+	case secret.ScopeApplication:
+		return st.applicationExists(ctx, tx, uuid)
+	case secret.ScopeModel:
+		return st.modelExists(ctx, tx, uuid)
+	case secret.ScopeRelation:
+		return st.relationExists(ctx, tx, uuid)
+	default:
+		return false, errors.Errorf("unknown scope type %d", t)
+	}
+}
+
+// unitExists returns whether a unit with the given UUID exists.
+func (st *State) unitExists(ctx context.Context, tx *sqlair.TX, id string) (bool, error) {
+	stmt, err := st.Prepare(`SELECT &entityUUID.uuid FROM unit WHERE uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result entityUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: id}).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+// applicationExists returns whether an application with the given UUID exists.
+func (st *State) applicationExists(ctx context.Context, tx *sqlair.TX, id string) (bool, error) {
+	stmt, err := st.Prepare(`SELECT &entityUUID.uuid FROM application WHERE uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result entityUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: id}).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+// modelExists returns whether a model with the given UUID exists.
+func (st *State) modelExists(ctx context.Context, tx *sqlair.TX, id string) (bool, error) {
+	stmt, err := st.Prepare(`SELECT &entityUUID.uuid FROM model WHERE uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result entityUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: id}).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+// relationExists returns whether a relation with the given UUID exists.
+func (st *State) relationExists(ctx context.Context, tx *sqlair.TX, id string) (bool, error) {
+	stmt, err := st.Prepare(`SELECT &entityUUID.uuid FROM relation WHERE uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result entityUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: id}).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
 }
 
 // filterExistingSecrets returns the subset of ids that are present in

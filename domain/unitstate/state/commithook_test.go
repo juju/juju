@@ -22,6 +22,8 @@ import (
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -958,8 +960,77 @@ func (s *commitHookSuite) TestGrantSecretsAccessInvariantViolationErrors(c *tc.C
 	// Act
 	err := s.state.CommitHookChanges(ctx, arg)
 
-	// Assert — invariant error must be surfaced.
+	// Assert — invariant error must be surfaced with sentinel.
 	c.Assert(err, tc.ErrorMatches, `.*cannot change scope or subject type.*`)
+	c.Assert(err, tc.ErrorIs, secreterrors.InvalidSecretPermissionChange)
+}
+
+func (s *commitHookSuite) TestGrantSecretsAccessSubjectGoneIsSkipped(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: a secret exists, but the subject UUID does not reference any
+	// real entity (simulates concurrent removal between facade and commit).
+	secretID := "secret-id-grant-subj-gone"
+	s.addSecret(c, secretID)
+
+	nonExistentSubjectUUID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	scopeUUID := s.fakeApplicationUUID1 // exists in application table
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   nonExistentSubjectUUID,
+			SubjectTypeID: secret.SubjectApplication,
+			ScopeUUID:     scopeUUID,
+			ScopeTypeID:   secret.ScopeApplication,
+			RoleID:        0,
+		}},
+	}
+
+	// Act — should succeed; the missing subject is logged and skipped.
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM secret_permission WHERE secret_id = ?", secretID),
+		tc.Equals, 0,
+	)
+}
+
+func (s *commitHookSuite) TestGrantSecretsAccessScopeGoneIsSkipped(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: a secret exists and the subject exists, but the scope UUID
+	// references a non-existent entity.
+	secretID := "secret-id-grant-scope-gone"
+	s.addSecret(c, secretID)
+
+	subjectUUID := s.fakeApplicationUUID1 // exists
+	nonExistentScopeUUID := "ffffffff-1111-2222-3333-444444444444"
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   subjectUUID,
+			SubjectTypeID: secret.SubjectApplication,
+			ScopeUUID:     nonExistentScopeUUID,
+			ScopeTypeID:   secret.ScopeApplication,
+			RoleID:        0,
+		}},
+	}
+
+	// Act — should succeed; the missing scope is logged and skipped.
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM secret_permission WHERE secret_id = ?", secretID),
+		tc.Equals, 0,
+	)
 }
 
 func (s *commitHookSuite) addSecret(c *tc.C, secretID string) {
