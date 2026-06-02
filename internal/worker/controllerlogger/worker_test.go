@@ -58,13 +58,13 @@ func (s *WorkerSuite) SetUpTest(c *tc.C) {
 
 func (s *WorkerSuite) TestValidateMissingModelConfigService(c *tc.C) {
 	s.config.ModelConfigSvc = nil
-	w, err := controllerlogger.NewWorker(s.config)
+	w, err := controllerlogger.NewWorker(c.Context(), s.config)
 	c.Assert(w, tc.IsNil)
 	c.Assert(err, tc.ErrorMatches, "missing model config service not valid")
 }
 
 func (s *WorkerSuite) TestInitialState(c *tc.C) {
-	w, err := controllerlogger.NewWorker(s.config)
+	w, err := controllerlogger.NewWorker(c.Context(), s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(w), tc.ErrorIsNil) }()
 
@@ -74,7 +74,7 @@ func (s *WorkerSuite) TestInitialState(c *tc.C) {
 
 func (s *WorkerSuite) TestConfigOverride(c *tc.C) {
 	s.config.Override = "test=TRACE"
-	w, err := controllerlogger.NewWorker(s.config)
+	w, err := controllerlogger.NewWorker(c.Context(), s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(w), tc.ErrorIsNil) }()
 
@@ -83,7 +83,7 @@ func (s *WorkerSuite) TestConfigOverride(c *tc.C) {
 }
 
 func (s *WorkerSuite) TestWatchedLoggingConfigChange(c *tc.C) {
-	w, err := controllerlogger.NewWorker(s.config)
+	w, err := controllerlogger.NewWorker(c.Context(), s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(w), tc.ErrorIsNil) }()
 
