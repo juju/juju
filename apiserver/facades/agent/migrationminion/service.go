@@ -18,9 +18,9 @@ import (
 type ModelMigrationService interface {
 	// Migration returns status about migration of this model.
 	Migration(ctx context.Context) (modelmigration.Migration, error)
-	// WatchForMigration returns a notification watcher that fires when this model
-	// undergoes migration.
-	WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error)
+	// WatchMigrationPhase returns a notification watcher that fires on each
+	// migration phase transition for this model.
+	WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error)
 	// ReportMinion accepts a phase report from a migration minion agent.
 	ReportMinion(ctx context.Context, entityKey string, phase migration.Phase, success bool) error
 }

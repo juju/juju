@@ -120,41 +120,41 @@ func (c *MockModelMigrationServiceReportMinionCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// WatchForMigration mocks base method.
-func (m *MockModelMigrationService) WatchForMigration(arg0 context.Context) (watcher.Watcher[struct{}], error) {
+// WatchMigrationPhase mocks base method.
+func (m *MockModelMigrationService) WatchMigrationPhase(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchForMigration", arg0)
+	ret := m.ctrl.Call(m, "WatchMigrationPhase", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchForMigration indicates an expected call of WatchForMigration.
-func (mr *MockModelMigrationServiceMockRecorder) WatchForMigration(arg0 any) *MockModelMigrationServiceWatchForMigrationCall {
+// WatchMigrationPhase indicates an expected call of WatchMigrationPhase.
+func (mr *MockModelMigrationServiceMockRecorder) WatchMigrationPhase(arg0 any) *MockModelMigrationServiceWatchMigrationPhaseCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForMigration", reflect.TypeOf((*MockModelMigrationService)(nil).WatchForMigration), arg0)
-	return &MockModelMigrationServiceWatchForMigrationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMigrationPhase", reflect.TypeOf((*MockModelMigrationService)(nil).WatchMigrationPhase), arg0)
+	return &MockModelMigrationServiceWatchMigrationPhaseCall{Call: call}
 }
 
-// MockModelMigrationServiceWatchForMigrationCall wrap *gomock.Call
-type MockModelMigrationServiceWatchForMigrationCall struct {
+// MockModelMigrationServiceWatchMigrationPhaseCall wrap *gomock.Call
+type MockModelMigrationServiceWatchMigrationPhaseCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelMigrationServiceWatchForMigrationCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockModelMigrationServiceWatchForMigrationCall {
+func (c *MockModelMigrationServiceWatchMigrationPhaseCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockModelMigrationServiceWatchMigrationPhaseCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationServiceWatchForMigrationCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelMigrationServiceWatchForMigrationCall {
+func (c *MockModelMigrationServiceWatchMigrationPhaseCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelMigrationServiceWatchMigrationPhaseCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationServiceWatchForMigrationCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelMigrationServiceWatchForMigrationCall {
+func (c *MockModelMigrationServiceWatchMigrationPhaseCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockModelMigrationServiceWatchMigrationPhaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -93,6 +93,24 @@ FROM   controller
 	return versionValue.TargetVersion, nil
 }
 
+// NamespaceForWatchExport returns the changestream namespace that fires when an
+// export migration starts or changes active/terminal state.
+func (s *State) NamespaceForWatchExport() string {
+	return "model_migration_export"
+}
+
+// NamespaceForWatchPhase returns the changestream namespace that fires on each
+// export migration phase transition, keyed by model UUID.
+func (s *State) NamespaceForWatchPhase() string {
+	return "model_migration_export_phase"
+}
+
+// NamespaceForWatchMinionSync returns the changestream namespace that fires
+// when a minion sync report changes, keyed by migration UUID.
+func (s *State) NamespaceForWatchMinionSync() string {
+	return "model_migration_export_minion_sync"
+}
+
 // InsertExport records a new export migration attempt for a model. It ensures
 // the target external_controller row exists, inserts the
 // model_migration_export row in the QUIESCE phase with its companion
@@ -136,6 +154,7 @@ func (s *State) InsertExport(ctx context.Context, spec modelmigrationinternal.Mi
 	}
 	phaseEntry := migrationPhaseEntry{
 		MigrationUUID: spec.MigrationUUID,
+		ModelUUID:     spec.ModelUUID,
 		PhaseID:       quiesceID,
 		ChangedAt:     now,
 	}
@@ -491,7 +510,7 @@ func (s *State) SetPhase(ctx context.Context, migrationUUID string, newPhase mig
 	}
 	migUUID := entityUUID{UUID: migrationUUID}
 	selectPhaseStmt, err := s.Prepare(`
-SELECT &currentPhase.current_phase_id
+SELECT &currentPhase.*
 FROM   model_migration_export
 WHERE  uuid = $entityUUID.uuid
 AND    current_phase_id NOT IN (
@@ -515,14 +534,9 @@ AND    current_phase_id = $phaseUpdate.expected_phase_id
 	}
 
 	now := s.clock.Now().UTC()
-	phaseEntry := migrationPhaseEntry{
-		MigrationUUID: migrationUUID,
-		PhaseID:       newPhaseID,
-		ChangedAt:     now,
-	}
 	insertPhaseStmt, err := s.Prepare(`
 INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
-`, phaseEntry)
+`, migrationPhaseEntry{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -574,6 +588,12 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 			)
 		}
 
+		phaseEntry := migrationPhaseEntry{
+			MigrationUUID: migrationUUID,
+			ModelUUID:     cur.ModelUUID,
+			PhaseID:       newPhaseID,
+			ChangedAt:     now,
+		}
 		if err := tx.Query(ctx, insertPhaseStmt, phaseEntry).Run(); err != nil {
 			return errors.Errorf("recording phase history for migration %q: %w", migrationUUID, err)
 		}
@@ -796,6 +816,18 @@ func (s *State) MarkExportEnded(ctx context.Context, migrationUUID string, termi
 		PhaseID:   phaseID,
 		UpdatedAt: now,
 	}
+	selectExportStmt, err := s.Prepare(`
+SELECT &currentPhase.*
+FROM   model_migration_export
+WHERE  uuid = $endExport.uuid
+AND    current_phase_id NOT IN (
+       $terminalPhaseIDArgs.reap_failed_id,
+       $terminalPhaseIDArgs.done_id,
+       $terminalPhaseIDArgs.abort_done_id)
+`, end, terminalIDs, currentPhase{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 	updateStmt, err := s.Prepare(`
 UPDATE model_migration_export
 SET    current_phase_id = $endExport.current_phase_id,
@@ -810,19 +842,22 @@ AND    current_phase_id NOT IN (
 		return errors.Capture(err)
 	}
 
-	phaseEntry := migrationPhaseEntry{
-		MigrationUUID: migrationUUID,
-		PhaseID:       phaseID,
-		ChangedAt:     now,
-	}
 	insertPhaseStmt, err := s.Prepare(`
 INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
-`, phaseEntry)
+`, migrationPhaseEntry{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var cur currentPhase
+		if err := tx.Query(ctx, selectExportStmt, end, terminalIDs).Get(&cur); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("no active migration %q: %w", migrationUUID, modelmigrationerrors.ErrMigrationNotFound)
+			}
+			return errors.Errorf("reading export migration %q: %w", migrationUUID, err)
+		}
+
 		var outcome sqlair.Outcome
 		if err := tx.Query(ctx, updateStmt, end, terminalIDs).Get(&outcome); err != nil {
 			return errors.Errorf("ending migration %q: %w", migrationUUID, err)
@@ -833,6 +868,12 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 		}
 		if affected == 0 {
 			return errors.Errorf("no active migration %q: %w", migrationUUID, modelmigrationerrors.ErrMigrationNotFound)
+		}
+		phaseEntry := migrationPhaseEntry{
+			MigrationUUID: migrationUUID,
+			ModelUUID:     cur.ModelUUID,
+			PhaseID:       phaseID,
+			ChangedAt:     now,
 		}
 		if err := tx.Query(ctx, insertPhaseStmt, phaseEntry).Run(); err != nil {
 			return errors.Errorf("recording terminal phase for migration %q: %w", migrationUUID, err)

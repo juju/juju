@@ -162,9 +162,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify the entry exists.
@@ -221,9 +222,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusVerifyCorrectEntry(c *tc.C) {
 
 	// Insert a model_migration_import entry with a specific UUID.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify we can query the specific entry by its UUID.
@@ -256,9 +258,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusWrongModelUUID(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to clear with a different (non-existent) model UUID.
@@ -283,9 +286,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusIdempotent(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Clear the importing status multiple times.
