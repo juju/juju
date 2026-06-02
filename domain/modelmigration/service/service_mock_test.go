@@ -14,9 +14,11 @@ import (
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
+	migration "github.com/juju/juju/core/migration"
 	semversion "github.com/juju/juju/core/semversion"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	modelmigration "github.com/juju/juju/domain/modelmigration"
 	instances "github.com/juju/juju/environs/instances"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -167,6 +169,45 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
+// AggregateMinionReports mocks base method.
+func (m *MockControllerState) AggregateMinionReports(arg0 context.Context, arg1 string, arg2 migration.Phase) (modelmigration.MinionReports, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AggregateMinionReports", arg0, arg1, arg2)
+	ret0, _ := ret[0].(modelmigration.MinionReports)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AggregateMinionReports indicates an expected call of AggregateMinionReports.
+func (mr *MockControllerStateMockRecorder) AggregateMinionReports(arg0, arg1, arg2 any) *MockControllerStateAggregateMinionReportsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregateMinionReports", reflect.TypeOf((*MockControllerState)(nil).AggregateMinionReports), arg0, arg1, arg2)
+	return &MockControllerStateAggregateMinionReportsCall{Call: call}
+}
+
+// MockControllerStateAggregateMinionReportsCall wrap *gomock.Call
+type MockControllerStateAggregateMinionReportsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateAggregateMinionReportsCall) Return(arg0 modelmigration.MinionReports, arg1 error) *MockControllerStateAggregateMinionReportsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateAggregateMinionReportsCall) Do(f func(context.Context, string, migration.Phase) (modelmigration.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateAggregateMinionReportsCall) DoAndReturn(f func(context.Context, string, migration.Phase) (modelmigration.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteModelImportingStatus mocks base method.
 func (m *MockControllerState) DeleteModelImportingStatus(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -201,6 +242,45 @@ func (c *MockControllerStateDeleteModelImportingStatusCall) Do(f func(context.Co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerStateDeleteModelImportingStatusCall) DoAndReturn(f func(context.Context, string) error) *MockControllerStateDeleteModelImportingStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetActiveExport mocks base method.
+func (m *MockControllerState) GetActiveExport(arg0 context.Context, arg1 string) (modelmigration.Migration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveExport", arg0, arg1)
+	ret0, _ := ret[0].(modelmigration.Migration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveExport indicates an expected call of GetActiveExport.
+func (mr *MockControllerStateMockRecorder) GetActiveExport(arg0, arg1 any) *MockControllerStateGetActiveExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveExport", reflect.TypeOf((*MockControllerState)(nil).GetActiveExport), arg0, arg1)
+	return &MockControllerStateGetActiveExportCall{Call: call}
+}
+
+// MockControllerStateGetActiveExportCall wrap *gomock.Call
+type MockControllerStateGetActiveExportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetActiveExportCall) Return(arg0 modelmigration.Migration, arg1 error) *MockControllerStateGetActiveExportCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetActiveExportCall) Do(f func(context.Context, string) (modelmigration.Migration, error)) *MockControllerStateGetActiveExportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetActiveExportCall) DoAndReturn(f func(context.Context, string) (modelmigration.Migration, error)) *MockControllerStateGetActiveExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -240,6 +320,197 @@ func (c *MockControllerStateGetControllerTargetVersionCall) Do(f func(context.Co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerStateGetControllerTargetVersionCall) DoAndReturn(f func(context.Context) (string, error)) *MockControllerStateGetControllerTargetVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMigrationMode mocks base method.
+func (m *MockControllerState) GetMigrationMode(arg0 context.Context, arg1 string) (modelmigration.MigrationMode, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMigrationMode", arg0, arg1)
+	ret0, _ := ret[0].(modelmigration.MigrationMode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMigrationMode indicates an expected call of GetMigrationMode.
+func (mr *MockControllerStateMockRecorder) GetMigrationMode(arg0, arg1 any) *MockControllerStateGetMigrationModeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMigrationMode", reflect.TypeOf((*MockControllerState)(nil).GetMigrationMode), arg0, arg1)
+	return &MockControllerStateGetMigrationModeCall{Call: call}
+}
+
+// MockControllerStateGetMigrationModeCall wrap *gomock.Call
+type MockControllerStateGetMigrationModeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetMigrationModeCall) Return(arg0 modelmigration.MigrationMode, arg1 error) *MockControllerStateGetMigrationModeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetMigrationModeCall) Do(f func(context.Context, string) (modelmigration.MigrationMode, error)) *MockControllerStateGetMigrationModeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetMigrationModeCall) DoAndReturn(f func(context.Context, string) (modelmigration.MigrationMode, error)) *MockControllerStateGetMigrationModeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InsertExport mocks base method.
+func (m *MockControllerState) InsertExport(arg0 context.Context, arg1 modelmigration.MigrationSpec) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertExport", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertExport indicates an expected call of InsertExport.
+func (mr *MockControllerStateMockRecorder) InsertExport(arg0, arg1 any) *MockControllerStateInsertExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertExport", reflect.TypeOf((*MockControllerState)(nil).InsertExport), arg0, arg1)
+	return &MockControllerStateInsertExportCall{Call: call}
+}
+
+// MockControllerStateInsertExportCall wrap *gomock.Call
+type MockControllerStateInsertExportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateInsertExportCall) Return(arg0 error) *MockControllerStateInsertExportCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateInsertExportCall) Do(f func(context.Context, modelmigration.MigrationSpec) error) *MockControllerStateInsertExportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateInsertExportCall) DoAndReturn(f func(context.Context, modelmigration.MigrationSpec) error) *MockControllerStateInsertExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InsertMinionReport mocks base method.
+func (m *MockControllerState) InsertMinionReport(arg0 context.Context, arg1 string, arg2 migration.Phase, arg3 string, arg4 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertMinionReport", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertMinionReport indicates an expected call of InsertMinionReport.
+func (mr *MockControllerStateMockRecorder) InsertMinionReport(arg0, arg1, arg2, arg3, arg4 any) *MockControllerStateInsertMinionReportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertMinionReport", reflect.TypeOf((*MockControllerState)(nil).InsertMinionReport), arg0, arg1, arg2, arg3, arg4)
+	return &MockControllerStateInsertMinionReportCall{Call: call}
+}
+
+// MockControllerStateInsertMinionReportCall wrap *gomock.Call
+type MockControllerStateInsertMinionReportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateInsertMinionReportCall) Return(arg0 error) *MockControllerStateInsertMinionReportCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateInsertMinionReportCall) Do(f func(context.Context, string, migration.Phase, string, bool) error) *MockControllerStateInsertMinionReportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateInsertMinionReportCall) DoAndReturn(f func(context.Context, string, migration.Phase, string, bool) error) *MockControllerStateInsertMinionReportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetPhase mocks base method.
+func (m *MockControllerState) SetPhase(arg0 context.Context, arg1 string, arg2 migration.Phase) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPhase", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPhase indicates an expected call of SetPhase.
+func (mr *MockControllerStateMockRecorder) SetPhase(arg0, arg1, arg2 any) *MockControllerStateSetPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPhase", reflect.TypeOf((*MockControllerState)(nil).SetPhase), arg0, arg1, arg2)
+	return &MockControllerStateSetPhaseCall{Call: call}
+}
+
+// MockControllerStateSetPhaseCall wrap *gomock.Call
+type MockControllerStateSetPhaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateSetPhaseCall) Return(arg0 error) *MockControllerStateSetPhaseCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateSetPhaseCall) Do(f func(context.Context, string, migration.Phase) error) *MockControllerStateSetPhaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateSetPhaseCall) DoAndReturn(f func(context.Context, string, migration.Phase) error) *MockControllerStateSetPhaseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetStatusMessage mocks base method.
+func (m *MockControllerState) SetStatusMessage(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetStatusMessage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetStatusMessage indicates an expected call of SetStatusMessage.
+func (mr *MockControllerStateMockRecorder) SetStatusMessage(arg0, arg1, arg2 any) *MockControllerStateSetStatusMessageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusMessage", reflect.TypeOf((*MockControllerState)(nil).SetStatusMessage), arg0, arg1, arg2)
+	return &MockControllerStateSetStatusMessageCall{Call: call}
+}
+
+// MockControllerStateSetStatusMessageCall wrap *gomock.Call
+type MockControllerStateSetStatusMessageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateSetStatusMessageCall) Return(arg0 error) *MockControllerStateSetStatusMessageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateSetStatusMessageCall) Do(f func(context.Context, string, string) error) *MockControllerStateSetStatusMessageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateSetStatusMessageCall) DoAndReturn(f func(context.Context, string, string) error) *MockControllerStateSetStatusMessageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

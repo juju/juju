@@ -85,17 +85,17 @@ func (c *MockModelMigrationServiceMigrationCall) DoAndReturn(f func(context.Cont
 }
 
 // ReportFromMachine mocks base method.
-func (m *MockModelMigrationService) ReportFromMachine(arg0 context.Context, arg1 machine.Name, arg2 migration.Phase) error {
+func (m *MockModelMigrationService) ReportFromMachine(arg0 context.Context, arg1 machine.Name, arg2 migration.Phase, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportFromMachine", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ReportFromMachine", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportFromMachine indicates an expected call of ReportFromMachine.
-func (mr *MockModelMigrationServiceMockRecorder) ReportFromMachine(arg0, arg1, arg2 any) *MockModelMigrationServiceReportFromMachineCall {
+func (mr *MockModelMigrationServiceMockRecorder) ReportFromMachine(arg0, arg1, arg2, arg3 any) *MockModelMigrationServiceReportFromMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFromMachine", reflect.TypeOf((*MockModelMigrationService)(nil).ReportFromMachine), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFromMachine", reflect.TypeOf((*MockModelMigrationService)(nil).ReportFromMachine), arg0, arg1, arg2, arg3)
 	return &MockModelMigrationServiceReportFromMachineCall{Call: call}
 }
 
@@ -111,29 +111,29 @@ func (c *MockModelMigrationServiceReportFromMachineCall) Return(arg0 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationServiceReportFromMachineCall) Do(f func(context.Context, machine.Name, migration.Phase) error) *MockModelMigrationServiceReportFromMachineCall {
+func (c *MockModelMigrationServiceReportFromMachineCall) Do(f func(context.Context, machine.Name, migration.Phase, bool) error) *MockModelMigrationServiceReportFromMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationServiceReportFromMachineCall) DoAndReturn(f func(context.Context, machine.Name, migration.Phase) error) *MockModelMigrationServiceReportFromMachineCall {
+func (c *MockModelMigrationServiceReportFromMachineCall) DoAndReturn(f func(context.Context, machine.Name, migration.Phase, bool) error) *MockModelMigrationServiceReportFromMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReportFromUnit mocks base method.
-func (m *MockModelMigrationService) ReportFromUnit(arg0 context.Context, arg1 unit.Name, arg2 migration.Phase) error {
+func (m *MockModelMigrationService) ReportFromUnit(arg0 context.Context, arg1 unit.Name, arg2 migration.Phase, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportFromUnit", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ReportFromUnit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportFromUnit indicates an expected call of ReportFromUnit.
-func (mr *MockModelMigrationServiceMockRecorder) ReportFromUnit(arg0, arg1, arg2 any) *MockModelMigrationServiceReportFromUnitCall {
+func (mr *MockModelMigrationServiceMockRecorder) ReportFromUnit(arg0, arg1, arg2, arg3 any) *MockModelMigrationServiceReportFromUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFromUnit", reflect.TypeOf((*MockModelMigrationService)(nil).ReportFromUnit), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFromUnit", reflect.TypeOf((*MockModelMigrationService)(nil).ReportFromUnit), arg0, arg1, arg2, arg3)
 	return &MockModelMigrationServiceReportFromUnitCall{Call: call}
 }
 
@@ -149,13 +149,13 @@ func (c *MockModelMigrationServiceReportFromUnitCall) Return(arg0 error) *MockMo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationServiceReportFromUnitCall) Do(f func(context.Context, unit.Name, migration.Phase) error) *MockModelMigrationServiceReportFromUnitCall {
+func (c *MockModelMigrationServiceReportFromUnitCall) Do(f func(context.Context, unit.Name, migration.Phase, bool) error) *MockModelMigrationServiceReportFromUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationServiceReportFromUnitCall) DoAndReturn(f func(context.Context, unit.Name, migration.Phase) error) *MockModelMigrationServiceReportFromUnitCall {
+func (c *MockModelMigrationServiceReportFromUnitCall) DoAndReturn(f func(context.Context, unit.Name, migration.Phase, bool) error) *MockModelMigrationServiceReportFromUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -25,10 +25,10 @@ type ModelMigrationService interface {
 	WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error)
 	// ReportFromUnit accepts a phase report from a migration minion for a unit
 	// agent.
-	ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase) error
+	ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase, success bool) error
 	// ReportFromMachine accepts a phase report from a migration minion for a
 	// machine agent.
-	ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase) error
+	ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase, success bool) error
 }
 
 // ControllerNodeService defines API address functionality required by the
