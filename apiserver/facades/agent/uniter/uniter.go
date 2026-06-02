@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -52,8 +51,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
-	"github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -3049,60 +3046,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	// Convert secret deletes to domain types, filtering out any the unit
 	// does not have manage access on.
 	if len(changes.SecretDeletes) > 0 {
-		secretDeletes := make([]unitstate.DeleteSecretArg, 0, len(changes.SecretDeletes))
-		var deleteErrs []error
-		for _, del := range changes.SecretDeletes {
-			uri, err := coresecrets.ParseURI(del.URI)
-			if err != nil {
-				return apiservererrors.ServerError(err)
-			}
-			if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
-				if errors.Is(err, secreterrors.SecretNotFound) {
-					continue
-				}
-				deleteErrs = append(deleteErrs, err)
-				continue
-			}
-			secretDeletes = append(secretDeletes, unitstate.DeleteSecretArg{
-				URI: uri,
-				DeleteSecretParams: secret.DeleteSecretParams{
-					Revisions: del.Revisions,
-				},
-			})
+		secretDeletes, err := u.prepareSecretDeletes(ctx, unitName, changes.SecretDeletes)
+		if err != nil {
+			return apiservererrors.ServerError(err)
 		}
-		if len(deleteErrs) > 0 {
-			return internalerrors.Errorf("removing secrets: %w", internalerrors.Join(deleteErrs...))
-		}
-
-		// Resolve ownership so RequiresLeadership can distinguish
-		// unit-owned deletes (no lease needed) from app-owned ones.
-		if len(secretDeletes) > 0 {
-			uris := make([]*coresecrets.URI, len(secretDeletes))
-			for i, d := range secretDeletes {
-				uris[i] = d.URI
-			}
-			ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
-			if err != nil {
-				return apiservererrors.ServerError(err)
-			}
-			ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
-			for _, info := range ownerInfos {
-				ownerByID[info.SecretID] = info.OwnerKind
-			}
-			// Filter: secrets that disappeared between the access
-			// check and the ownership query were deleted concurrently.
-			filtered := secretDeletes[:0]
-			for i := range secretDeletes {
-				kind, ok := ownerByID[secretDeletes[i].URI.ID]
-				if !ok {
-					continue
-				}
-				secretDeletes[i].OwnerKind = kind
-				filtered = append(filtered, secretDeletes[i])
-			}
-			secretDeletes = filtered
-		}
-
 		arg.SecretDeletes = secretDeletes
 	}
 

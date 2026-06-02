@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
@@ -3596,129 +3595,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesStorageSizeOverrideUnsuppo
 	c.Assert(err, tc.NotNil)
 	c.Check(params.IsCodeNotSupported(err), tc.IsTrue)
 	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data size override not supported`)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecrets(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uri := coresecrets.NewURI()
-
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
-		Return([]domainsecret.SecretOwnerInfo{{
-			SecretID:  uri.ID,
-			OwnerKind: domainsecret.UnitCharmSecretOwner,
-		}}, nil)
-	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
-			c.Check(arg.UnitName, tc.Equals, unitName)
-			c.Assert(len(arg.SecretDeletes), tc.Equals, 1)
-			c.Check(arg.SecretDeletes[0].URI.String(), tc.Equals, uri.String())
-			c.Check(arg.SecretDeletes[0].Revisions, tc.DeepEquals, []int{1, 3})
-			c.Check(arg.SecretDeletes[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
-			return nil
-		})
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI:       uri.String(),
-				Revisions: []int{1, 3},
-			}},
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsNotFoundSkipped(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uri := coresecrets.NewURI()
-
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.SecretNotFound)
-	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
-			c.Check(arg.SecretDeletes, tc.HasLen, 0)
-			return nil
-		})
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI: uri.String(),
-			}},
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsPermissionDenied(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uri := coresecrets.NewURI()
-
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.PermissionDenied)
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI: uri.String(),
-			}},
-		},
-	)
-	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied`)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsMixed(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uriA := coresecrets.NewURI()
-	uriB := coresecrets.NewURI()
-	uriC := coresecrets.NewURI()
-	uriD := coresecrets.NewURI()
-
-	// A: access granted (success)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriA, unitName).Return(nil)
-	// B: not found (silently skipped)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriB, unitName).
-		Return(secreterrors.SecretNotFound)
-	// C: permission denied (error collected)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriC, unitName).
-		Return(secreterrors.PermissionDenied)
-	// D: permission denied (error collected)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriD, unitName).
-		Return(secreterrors.PermissionDenied)
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{
-				{URI: uriA.String()},
-				{URI: uriB.String()},
-				{URI: uriC.String()},
-				{URI: uriD.String()},
-			},
-		},
-	)
-	// Both permission denied errors are joined.
-	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied\npermission denied`)
 }
 
 func (s *commitHookChangesSuite) TestCommitHookChangesRevokeSecrets(c *tc.C) {

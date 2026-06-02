@@ -547,3 +547,77 @@ func (u *UniterAPI) resolveGrantOwnerKinds(
 	}
 	return filtered, nil
 }
+
+// prepareSecretDeletes validates and resolves a list of delete args from the
+// wire format into domain types ready for CommitHookChanges. It:
+//   - parses the URI
+//   - checks manage access (skips SecretNotFound, accumulates other errors)
+//   - resolves ownership via GetSecretOwnerKinds (filters secrets that
+//     disappeared between the access check and the ownership query)
+func (u *UniterAPI) prepareSecretDeletes(
+	ctx context.Context, unitName coreunit.Name, deletes []params.DeleteSecretArg,
+) ([]unitstate.DeleteSecretArg, error) {
+	secretDeletes := make([]unitstate.DeleteSecretArg, 0, len(deletes))
+	var deleteErrs []error
+
+	for _, del := range deletes {
+		uri, err := coresecrets.ParseURI(del.URI)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				continue
+			}
+			deleteErrs = append(deleteErrs, err)
+			continue
+		}
+		secretDeletes = append(secretDeletes, unitstate.DeleteSecretArg{
+			URI: uri,
+			DeleteSecretParams: secret.DeleteSecretParams{
+				Revisions: del.Revisions,
+			},
+		})
+	}
+	if len(deleteErrs) > 0 {
+		return nil, internalerrors.Errorf(
+			"removing secrets: %w", internalerrors.Join(deleteErrs...))
+	}
+
+	return u.resolveDeleteOwnerKinds(ctx, secretDeletes)
+}
+
+// resolveDeleteOwnerKinds resolves ownership for a slice of delete args,
+// filtering out secrets that disappeared between the access check and the
+// ownership query (deleted concurrently).
+func (u *UniterAPI) resolveDeleteOwnerKinds(
+	ctx context.Context, deletes []unitstate.DeleteSecretArg,
+) ([]unitstate.DeleteSecretArg, error) {
+	if len(deletes) == 0 {
+		return deletes, nil
+	}
+	uris := make([]*coresecrets.URI, len(deletes))
+	for i, d := range deletes {
+		uris[i] = d.URI
+	}
+	ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
+	if err != nil {
+		return nil, err
+	}
+	ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
+	for _, info := range ownerInfos {
+		ownerByID[info.SecretID] = info.OwnerKind
+	}
+	// Filter: secrets that disappeared between the access check and
+	// the ownership query were deleted concurrently.
+	filtered := deletes[:0]
+	for i := range deletes {
+		kind, ok := ownerByID[deletes[i].URI.ID]
+		if !ok {
+			continue
+		}
+		deletes[i].OwnerKind = kind
+		filtered = append(filtered, deletes[i])
+	}
+	return filtered, nil
+}

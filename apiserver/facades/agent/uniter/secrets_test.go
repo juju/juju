@@ -763,3 +763,140 @@ func (s *UniterSecretsSuite) TestResolveGrantOwnerKindsFiltersDisappeared(c *tc.
 	c.Check(result[0].URI.ID, tc.Equals, uri1.ID)
 	c.Check(result[0].OwnerKind, tc.Equals, secret.ApplicationCharmSecretOwner)
 }
+
+// --- prepareSecretDeletes tests ---
+
+func (s *UniterSecretsSuite) TestPrepareSecretDeletesInvalidURI(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	_, err := s.facade.prepareSecretDeletes(c.Context(), unitName, []params.DeleteSecretArg{{
+		URI: "not-a-valid-uri-%%%",
+	}})
+	c.Assert(err, tc.ErrorMatches, `.*invalid URL escape.*`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretDeletesNotFoundSkipped(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
+		Return(secreterrors.SecretNotFound)
+
+	result, err := s.facade.prepareSecretDeletes(c.Context(), unitName, []params.DeleteSecretArg{{
+		URI: uri.String(),
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretDeletesPermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
+		Return(secreterrors.PermissionDenied)
+
+	_, err := s.facade.prepareSecretDeletes(c.Context(), unitName, []params.DeleteSecretArg{{
+		URI: uri.String(),
+	}})
+	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretDeletesMixed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uriA := coresecrets.NewURI()
+	uriB := coresecrets.NewURI()
+	uriC := coresecrets.NewURI()
+
+	// A: access granted
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriA, unitName).Return(nil)
+	// B: not found (silently skipped)
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriB, unitName).
+		Return(secreterrors.SecretNotFound)
+	// C: permission denied (error collected)
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriC, unitName).
+		Return(secreterrors.PermissionDenied)
+
+	_, err := s.facade.prepareSecretDeletes(c.Context(), unitName, []params.DeleteSecretArg{
+		{URI: uriA.String(), Revisions: []int{1}},
+		{URI: uriB.String()},
+		{URI: uriC.String()},
+	})
+	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretDeletesSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]secret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}}, nil)
+
+	result, err := s.facade.prepareSecretDeletes(c.Context(), unitName, []params.DeleteSecretArg{{
+		URI:       uri.String(),
+		Revisions: []int{1, 3},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI.String(), tc.Equals, uri.String())
+	c.Check(result[0].Revisions, tc.DeepEquals, []int{1, 3})
+	c.Check(result[0].OwnerKind, tc.Equals, secret.UnitCharmSecretOwner)
+}
+
+// --- resolveDeleteOwnerKinds tests ---
+
+func (s *UniterSecretsSuite) TestResolveDeleteOwnerKindsEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	result, err := s.facade.resolveDeleteOwnerKinds(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+}
+
+func (s *UniterSecretsSuite) TestResolveDeleteOwnerKindsServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return(nil, errors.New("db gone"))
+
+	_, err := s.facade.resolveDeleteOwnerKinds(c.Context(), []unitstate.DeleteSecretArg{{
+		URI: uri,
+	}})
+	c.Assert(err, tc.ErrorMatches, "db gone")
+}
+
+func (s *UniterSecretsSuite) TestResolveDeleteOwnerKindsFiltersDisappeared(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), gomock.Any()).
+		Return([]secret.SecretOwnerInfo{{
+			SecretID:  uri1.ID,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+		}}, nil)
+
+	result, err := s.facade.resolveDeleteOwnerKinds(c.Context(), []unitstate.DeleteSecretArg{
+		{URI: uri1},
+		{URI: uri2},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI.ID, tc.Equals, uri1.ID)
+	c.Check(result[0].OwnerKind, tc.Equals, secret.ApplicationCharmSecretOwner)
+}
