@@ -53,7 +53,7 @@ func (s *charmSuite) TestAddCharmWithArchitecture(c *tc.C) {
 	}
 
 	_, _, err := service.AddCharm(c.Context(), charm.AddCharmArgs{
-		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
+		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
 		Revision:      1,
@@ -94,7 +94,7 @@ func (s *charmSuite) TestAddCharmWithoutArchitecture(c *tc.C) {
 	}
 
 	_, _, err := service.AddCharm(c.Context(), charm.AddCharmArgs{
-		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
+		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
 		Revision:      1,

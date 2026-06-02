@@ -136,11 +136,6 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
-	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Capture(err)
-	}
-
 	locator := charm.CharmLocator{
 		Name:         ch.ReferenceName,
 		Revision:     ch.Revision,
@@ -153,7 +148,6 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 		&manifest,
 		&config,
 		&actions,
-		&lxdProfile,
 	), locator, nil
 }
 

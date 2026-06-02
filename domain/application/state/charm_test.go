@@ -1650,14 +1650,11 @@ func (s *charmStateSuite) TestAddCharmThenGetCharm(c *tc.C) {
 			},
 		},
 	}
-	expectedLXDProfile := []byte("[{}]")
-
 	id, _, err := st.AddCharm(c.Context(), charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
@@ -1677,7 +1674,6 @@ func (s *charmStateSuite) TestAddCharmThenGetCharm(c *tc.C) {
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
@@ -1787,14 +1783,11 @@ func (s *charmStateSuite) TestAddCharmThenGetCharmWithDifferentReferenceName(c *
 			},
 		},
 	}
-	expectedLXDProfile := []byte("[{}]")
-
 	_, _, err := st.AddCharm(c.Context(), charm.Charm{
 		Metadata:      expectedMetadata,
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "baz",
@@ -1817,7 +1810,6 @@ func (s *charmStateSuite) TestAddCharmThenGetCharmWithDifferentReferenceName(c *
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "baz",

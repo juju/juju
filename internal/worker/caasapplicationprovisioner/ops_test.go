@@ -900,7 +900,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 			},
 		},
 	}
-	ch := charm.NewCharmBase(chMeta, nil, nil, nil, nil)
+	ch := charm.NewCharmBase(chMeta, nil, nil, nil)
 	applicationService.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appId).Return(ch, applicationcharm.CharmLocator{}, nil)
 
 	mysqlImageResource := coreresource.Opened{
