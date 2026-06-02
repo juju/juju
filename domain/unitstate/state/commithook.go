@@ -123,7 +123,53 @@ func (st *State) grantSecretsAccess(ctx context.Context, tx *sqlair.TX, grants [
 	return nil
 }
 
-func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes []unitstate.GrantRevokeSecretArg) error {
+func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes []internal.RevokeSecretArg) error {
+	if len(revokes) == 0 {
+		return nil
+	}
+
+	// Check secret exists (is local).
+	checkSecretStmt, err := st.Prepare(`
+SELECT &secretID.secret_id
+FROM   secret_metadata
+WHERE  secret_id = $secretID.secret_id
+`, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete permission row.
+	deleteStmt, err := st.Prepare(`
+DELETE FROM secret_permission
+WHERE  secret_id = $secretPermissionRevoke.secret_id
+AND    subject_type_id = $secretPermissionRevoke.subject_type_id
+AND    subject_uuid = $secretPermissionRevoke.subject_uuid
+`, secretPermissionRevoke{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, rev := range revokes {
+		// Verify the secret still exists; it may have been deleted
+		// concurrently between the facade access check and this txn.
+		var id secretID
+		err := tx.Query(ctx, checkSecretStmt, secretID{ID: rev.SecretID}).Get(&id)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			st.logger.Debugf(ctx, "secret %q no longer exists, skipping revoke", rev.SecretID)
+			continue
+		} else if err != nil {
+			return errors.Errorf("checking secret %q exists: %w", rev.SecretID, err)
+		}
+
+		perm := secretPermissionRevoke{
+			SecretID:      rev.SecretID,
+			SubjectUUID:   rev.SubjectUUID,
+			SubjectTypeID: rev.SubjectTypeID,
+		}
+		if err := tx.Query(ctx, deleteStmt, perm).Run(); err != nil {
+			return errors.Errorf("deleting secret grant for %q on %q: %w", rev.SubjectUUID, rev.SecretID, err)
+		}
+	}
 	return nil
 }
 

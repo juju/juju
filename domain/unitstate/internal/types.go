@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 )
@@ -91,8 +92,8 @@ type CommitHookChangesArg struct {
 	// SecretGrants contains charm secrets  to grant access on.
 	SecretGrants []unitstate.GrantRevokeSecretArg
 
-	// SecretRevokes contains charm secrets to revoke access on.
-	SecretRevokes []unitstate.GrantRevokeSecretArg
+	// SecretRevokes contains pre-resolved charm secret revoke requests.
+	SecretRevokes []RevokeSecretArg
 
 	// SecretDeletes contains charm secrets to delete, with pre-marshaled
 	// removal job arguments.
@@ -116,6 +117,19 @@ type secretDeletionArg struct {
 	Revisions []int `json:"revisions"`
 }
 
+// RevokeSecretArg holds a pre-resolved secret revoke request ready for the
+// state layer.
+type RevokeSecretArg struct {
+	// SecretID is the secret identifier (the URI ID component).
+	SecretID string
+
+	// SubjectUUID is the resolved UUID of the entity losing access.
+	SubjectUUID string
+
+	// SubjectTypeID is the type of the subject entity.
+	SubjectTypeID secret.GrantSubjectType
+}
+
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct. Does not
 // include RelationSettings.
@@ -123,6 +137,11 @@ func TransformCommitHookChangesArg(
 	in unitstate.CommitHookChangesArg, unitInfo CommitHookUnitInfo,
 ) (CommitHookChangesArg, error) {
 	secretDeletes, err := transformSecretDeletes(in.SecretDeletes)
+	if err != nil {
+		return CommitHookChangesArg{}, err
+	}
+
+	secretRevokes, err := transformSecretRevokes(in.SecretRevokes)
 	if err != nil {
 		return CommitHookChangesArg{}, err
 	}
@@ -138,7 +157,7 @@ func TransformCommitHookChangesArg(
 		TrackLatestSecrets: in.TrackLatestSecrets,
 		SecretUpdates:      in.SecretUpdates,
 		SecretGrants:       in.SecretGrants,
-		SecretRevokes:      in.SecretRevokes,
+		SecretRevokes:      secretRevokes,
 		SecretDeletes:      secretDeletes,
 		AddStorage:         in.AddStorage,
 	}, nil
@@ -170,6 +189,28 @@ func transformSecretDeletes(deletes []unitstate.DeleteSecretArg) ([]DeleteSecret
 			arg.ArgJSON = &s
 		}
 		result = append(result, arg)
+	}
+	return result, nil
+}
+
+// transformSecretRevokes converts domain RevokeSecretArg values into internal
+// RevokeSecretArg values. The domain type carries pre-resolved UUIDs so the
+// transformation is straightforward.
+func transformSecretRevokes(revokes []unitstate.RevokeSecretArg) ([]RevokeSecretArg, error) {
+	if len(revokes) == 0 {
+		return nil, nil
+	}
+
+	result := make([]RevokeSecretArg, 0, len(revokes))
+	for i, rev := range revokes {
+		if rev.URI == nil {
+			return nil, errors.Errorf("revoke secret arg at index %d has nil URI", i)
+		}
+		result = append(result, RevokeSecretArg{
+			SecretID:      rev.URI.ID,
+			SubjectUUID:   rev.SubjectUUID,
+			SubjectTypeID: rev.SubjectTypeID,
+		})
 	}
 	return result, nil
 }

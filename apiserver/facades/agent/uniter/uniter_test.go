@@ -3721,6 +3721,55 @@ func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsMixed(c *tc.C
 	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied\npermission denied`)
 }
 
+func (s *commitHookChangesSuite) TestCommitHookChangesRevokeSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().ResolveRevokeParams(gomock.Any(), []domainsecret.SecretAccessParams{{
+		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
+		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},
+		Subject:  domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "two"},
+		Role:     "",
+	}}).Return([]domainsecret.RevokeResult{{
+		RevokeParams: domainsecret.RevokeParams{
+			SubjectUUID:   "app-uuid-two",
+			SubjectTypeID: domainsecret.SubjectApplication,
+		},
+	}})
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]domainsecret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: domainsecret.UnitCharmSecretOwner,
+		}}, nil)
+	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretRevokes), tc.Equals, 1)
+			c.Check(arg.SecretRevokes[0].URI.String(), tc.Equals, uri.String())
+			c.Check(arg.SecretRevokes[0].SubjectUUID, tc.Equals, "app-uuid-two")
+			c.Check(arg.SecretRevokes[0].SubjectTypeID, tc.Equals, domainsecret.SubjectApplication)
+			c.Check(arg.SecretRevokes[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretRevokes: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+				SubjectTags: []string{names.NewApplicationTag("two").String()},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -3939,6 +3988,9 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.uniter = &UniterAPI{
 		logger: loggertesting.WrapCheckLog(c),
+		auth: &apiservertesting.FakeAuthorizer{
+			Tag: names.NewUnitTag("wordpress/0"),
+		},
 
 		applicationService: s.applicationService,
 		networkService:     s.networkService,

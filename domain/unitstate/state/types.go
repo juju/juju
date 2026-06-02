@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/secret"
 )
 
 // charmSecretRemovalJobTypeID is used when scheduling deletion of unit- or
@@ -23,6 +24,19 @@ type secretRemovalJob struct {
 	EntityUUID    string         `db:"entity_uuid"`
 	ScheduledFor  time.Time      `db:"scheduled_for"`
 	Arg           sql.NullString `db:"arg"`
+}
+
+// secretPermissionRevoke holds the fields needed to delete a permission row
+// from the secret_permission table.
+type secretPermissionRevoke struct {
+	SecretID      string                  `db:"secret_id"`
+	SubjectUUID   string                  `db:"subject_uuid"`
+	SubjectTypeID secret.GrantSubjectType `db:"subject_type_id"`
+}
+
+// secretID is a simple wrapper for querying a secret_id.
+type secretID struct {
+	ID string `db:"secret_id"`
 }
 
 // entityUUID identifies an entity.

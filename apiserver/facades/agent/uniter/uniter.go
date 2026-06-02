@@ -3035,14 +3035,15 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "granting secrets access")
 		}
 	}
+
+	// Convert secret revokes to domain types, filtering out any the unit
+	// does not have manage access on.
 	if len(changes.SecretRevokes) > 0 {
-		result, err := u.secretsRevoke(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
-		if err == nil {
-			err = result.Combine()
-		}
+		secretRevokes, err := u.prepareSecretRevokes(ctx, unitName, changes.SecretRevokes)
 		if err != nil {
-			return errors.Annotate(err, "revoking secrets access")
+			return apiservererrors.ServerError(err)
 		}
+		arg.SecretRevokes = secretRevokes
 	}
 
 	// Convert secret deletes to domain types, filtering out any the unit

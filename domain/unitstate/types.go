@@ -107,6 +107,23 @@ type GrantRevokeSecretArg struct {
 	URI *secrets.URI
 }
 
+// RevokeSecretArg holds the pre-resolved args for revoking access to a
+// secret, including the URI and the resolved subject UUID.
+type RevokeSecretArg struct {
+	// URI identifies the secret to revoke access on.
+	URI *secrets.URI
+
+	// SubjectUUID is the resolved UUID of the entity losing access.
+	SubjectUUID string
+
+	// SubjectTypeID is the type of the subject entity.
+	SubjectTypeID secret.GrantSubjectType
+
+	// OwnerKind indicates whether the secret is owned by the application
+	// or the unit. This drives the leadership requirement.
+	OwnerKind secret.CharmSecretOwnerKind
+}
+
 // DeleteSecretArg holds the args for deleting a secret, including
 // the URI.
 type DeleteSecretArg struct {
@@ -168,8 +185,8 @@ type CommitHookChangesArg struct {
 	// SecretGrants contains charm secrets  to grant access on.
 	SecretGrants []GrantRevokeSecretArg
 
-	// SecretRevokes contains charm secrets to revoke access on.
-	SecretRevokes []GrantRevokeSecretArg
+	// SecretRevokes contains pre-resolved charm secret revoke requests.
+	SecretRevokes []RevokeSecretArg
 
 	// SecretDeletes contains charm secrets to delete.
 	SecretDeletes []DeleteSecretArg
@@ -249,6 +266,10 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 			errs = append(errs, errors.New("secret uri is required for revoke"))
 			break
 		}
+		if secret.SubjectUUID == "" {
+			errs = append(errs, errors.New("subject uuid is required for revoke"))
+			break
+		}
 	}
 	for _, secret := range c.SecretDeletes {
 		hasChanges = true
@@ -284,12 +305,16 @@ func (c CommitHookChangesArg) RequiresLeadership() bool {
 			return true
 		}
 	}
-	// Updates, grants, and revokes currently go through their own
-	// service calls (outside the txn) which handle leadership
-	// internally. Once they move into the transaction, they will
-	// need similar owner-awareness here.
-	if len(c.SecretUpdates) > 0 || len(c.SecretGrants) > 0 ||
-		len(c.SecretRevokes) > 0 {
+	for _, s := range c.SecretRevokes {
+		if s.OwnerKind == secret.ApplicationCharmSecretOwner {
+			return true
+		}
+	}
+	// Updates and grants currently go through their own service calls
+	// (outside the txn) which handle leadership internally. Once they
+	// move into the transaction, they will need similar owner-awareness
+	// here.
+	if len(c.SecretUpdates) > 0 || len(c.SecretGrants) > 0 {
 		return true
 	}
 	return false

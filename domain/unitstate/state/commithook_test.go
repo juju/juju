@@ -722,6 +722,134 @@ func (s *commitHookSuite) TestDeleteSecretsMultiple(c *tc.C) {
 	c.Check(rows[uri3.String()].Arg.String, tc.Equals, `{"revisions":[1]}`)
 }
 
+func (s *commitHookSuite) TestRevokeSecretsAccess(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create a secret and a permission row.
+	secretID := "secret-id-revoke-test"
+	subjectUUID := s.fakeApplicationUUID1
+
+	s.addSecret(c, secretID)
+	s.addSecretPermission(c, secretID, subjectUUID, 1 /* SubjectApplication */, "some-scope-uuid", 3 /* ScopeRelation */, 0 /* RoleView */)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretRevokes: []internal.RevokeSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   subjectUUID,
+			SubjectTypeID: 1, // SubjectApplication
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the permission row was deleted.
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_permission WHERE secret_id = ? AND subject_uuid = ?",
+			secretID, subjectUUID),
+		tc.Equals, 0,
+	)
+}
+
+func (s *commitHookSuite) TestRevokeSecretsAccessMultiple(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create two secrets with permissions.
+	secretID1 := "secret-id-revoke-multi-1"
+	secretID2 := "secret-id-revoke-multi-2"
+	subjectUUID1 := s.fakeApplicationUUID1
+	subjectUUID2 := s.fakeApplicationUUID2
+
+	s.addSecret(c, secretID1)
+	s.addSecret(c, secretID2)
+	s.addSecretPermission(c, secretID1, subjectUUID1, 1, "scope-uuid-1", 3, 0)
+	s.addSecretPermission(c, secretID2, subjectUUID2, 1, "scope-uuid-2", 3, 0)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretRevokes: []internal.RevokeSecretArg{
+			{SecretID: secretID1, SubjectUUID: subjectUUID1, SubjectTypeID: 1},
+			{SecretID: secretID2, SubjectUUID: subjectUUID2, SubjectTypeID: 1},
+		},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_permission WHERE secret_id IN (?, ?)",
+			secretID1, secretID2),
+		tc.Equals, 0,
+	)
+}
+
+func (s *commitHookSuite) TestRevokeSecretsAccessSecretNotFoundIsSkipped(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: use a non-existent secret ID.
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretRevokes: []internal.RevokeSecretArg{{
+			SecretID:      "nonexistent-secret-id",
+			SubjectUUID:   s.fakeApplicationUUID1,
+			SubjectTypeID: 1,
+		}},
+	}
+
+	// Act — should not error; the missing secret is logged and skipped.
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestRevokeSecretsAccessNoPermissionIsIdempotent(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create a secret but no permission row for the subject.
+	secretID := "secret-id-revoke-no-perm"
+	s.addSecret(c, secretID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretRevokes: []internal.RevokeSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   s.fakeApplicationUUID1,
+			SubjectTypeID: 1,
+		}},
+	}
+
+	// Act - should not error even though no permission exists.
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) addSecret(c *tc.C, secretID string) {
+	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
+	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, 1, 0)`,
+		secretID)
+}
+
+func (s *commitHookSuite) addSecretPermission(
+	c *tc.C, secretID, subjectUUID string, subjectTypeID int,
+	scopeUUID string, scopeTypeID, roleID int,
+) {
+	s.query(c, `
+INSERT INTO secret_permission (secret_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id, role_id)
+VALUES (?, ?, ?, ?, ?, ?)`,
+		secretID, subjectUUID, subjectTypeID, scopeUUID, scopeTypeID, roleID)
+}
+
 func (s *commitHookSuite) addStoragePool(
 	c *tc.C,
 	name, providerType string,
