@@ -17,7 +17,6 @@ import (
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
-	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
@@ -792,44 +791,6 @@ func (c *MockConfigNonceCall) Do(f func() string) *MockConfigNonceCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigNonceCall) DoAndReturn(f func() string) *MockConfigNonceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ObjectStoreType mocks base method.
-func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObjectStoreType")
-	ret0, _ := ret[0].(objectstore.BackendType)
-	return ret0
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigMockRecorder) ObjectStoreType() *MockConfigObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfig)(nil).ObjectStoreType))
-	return &MockConfigObjectStoreTypeCall{Call: call}
-}
-
-// MockConfigObjectStoreTypeCall wrap *gomock.Call
-type MockConfigObjectStoreTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigObjectStoreTypeCall) Return(arg0 objectstore.BackendType) *MockConfigObjectStoreTypeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigObjectStoreTypeCall) Do(f func() objectstore.BackendType) *MockConfigObjectStoreTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigObjectStoreTypeCall) DoAndReturn(f func() objectstore.BackendType) *MockConfigObjectStoreTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
