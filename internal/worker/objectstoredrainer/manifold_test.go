@@ -16,7 +16,6 @@ import (
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
-	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -157,18 +156,11 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 
 	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)

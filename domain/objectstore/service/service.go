@@ -99,6 +99,9 @@ type DrainingState interface {
 	// object store is set to use S3 as the backend.
 	TransitionBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
 
+	// GetActiveObjectStoreBackend returns the active object store backend.
+	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
+
 	// InitialWatchBackendTable returns the table for the object store backend.
 	InitialWatchBackendTable() (string, string)
 
@@ -528,11 +531,30 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 // GetActiveObjectStoreBackend returns the active object store backend
 // information.
 func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	info, err := s.st.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting active object store backend: %w", err)
+	}
+
+	backendUUID, err := objectstore.ParseUUID(info.UUID)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("parsing backend uuid: %w", err)
+	}
+
+	backendType, err := objectstore.ParseObjectStoreType(info.ObjectStoreType)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("parsing backend type: %w", err)
+	}
+
 	return BackendInfo{
-		Type: objectstore.FileBackend,
+		UUID:      backendUUID,
+		Type:      backendType,
+		Endpoint:  info.Endpoint,
+		AccessKey: info.AccessKey,
+		SecretKey: info.SecretKey,
 	}, nil
 }
 
@@ -540,12 +562,21 @@ func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Conte
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
 func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	// Validate the credentials before transitioning the backend to S3.
 	if err := credential.Validate(); err != nil {
 		return errors.Errorf("validating S3 credentials: %w", err)
+	}
+
+	active, err := s.GetActiveObjectStoreBackend(ctx)
+	if err == nil {
+		if activeCreds, ok := active.S3Credentials(); ok && activeCreds == credential {
+			return nil
+		}
+	} else if !errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+		return errors.Errorf("getting active object store backend: %w", err)
 	}
 
 	uuid, err := objectstore.NewUUID()

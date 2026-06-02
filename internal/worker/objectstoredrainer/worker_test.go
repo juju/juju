@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
-	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -40,10 +39,6 @@ func TestWorkerSuite(t *stdtesting.T) {
 
 func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
-	})
 
 	draining := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(draining)
@@ -77,10 +72,6 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
-	})
-
 	draining := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
 		return watchertest.NewMockNotifyWatcher(draining), nil
@@ -92,12 +83,6 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, nil)
 	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
 	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
-
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
 
@@ -127,10 +112,6 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 
 func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
-	})
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
@@ -174,14 +155,12 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
-		Agent:                        s.agent,
 		Guard:                        s.guard,
 		GuardService:                 s.guardService,
 		ControllerService:            s.controllerService,
 		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,
 		ControllerObjectStoreService: s.controllerObjectStoreMetadata,
 		ObjectStoreFlusher:           s.objectStoreFlusher,
-		ObjectStoreType:              objectstore.FileBackend,
 		S3Client:                     s.s3Client,
 		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 			return s.hashFileSystemAccessor

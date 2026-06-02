@@ -548,13 +548,27 @@ func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{
+		UUID:            tc.Must(c, objectstore.NewUUID).String(),
+		ObjectStoreType: objectstore.S3Backend.String(),
+		Endpoint:        &endpoint,
+		AccessKey:       &accessKey,
+		SecretKey:       &secretKey,
+	}, nil)
+
 	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.Type, tc.Equals, objectstore.FileBackend)
-	c.Check(info.UUID, tc.Equals, objectstore.UUID(""))
-	c.Check(info.Endpoint, tc.IsNil)
-	c.Check(info.AccessKey, tc.IsNil)
-	c.Check(info.SecretKey, tc.IsNil)
+	c.Check(info.Type, tc.Equals, objectstore.S3Backend)
+	c.Check(info.UUID, tc.Not(tc.Equals), objectstore.UUID(""))
+	c.Assert(info.Endpoint, tc.NotNil)
+	c.Check(*info.Endpoint, tc.Equals, endpoint)
+	c.Assert(info.AccessKey, tc.NotNil)
+	c.Check(*info.AccessKey, tc.Equals, accessKey)
+	c.Assert(info.SecretKey, tc.NotNil)
+	c.Check(*info.SecretKey, tc.Equals, secretKey)
 }
 
 func (s *drainingServiceSuite) TestBackendInfoS3CredentialsNonS3(c *tc.C) {
@@ -603,7 +617,48 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 		SecretKey: "secret-key",
 	}
 
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
 	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3DoesNotStartDrainingSeparately(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3NoopWhenCredentialsAlreadyActive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  endpoint,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+	}
+
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{
+		UUID:            tc.Must(c, objectstore.NewUUID).String(),
+		ObjectStoreType: objectstore.S3Backend.String(),
+		Endpoint:        &endpoint,
+		AccessKey:       &accessKey,
+		SecretKey:       &secretKey,
+	}, nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
@@ -618,6 +673,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3StateError(c *tc.C) {
 		SecretKey: "secret-key",
 	}
 
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
 	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)

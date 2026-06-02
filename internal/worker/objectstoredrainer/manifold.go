@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -60,9 +59,6 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 type ControllerConfigService interface {
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
-
-	// WatchControllerConfig watches the controller config for changes.
-	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ManifoldConfig holds the dependencies and configuration for a

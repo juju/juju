@@ -40,7 +40,7 @@ type workerSuite struct {
 	modelClaimGetter           *MockModelClaimGetter
 	modelMetadataService       *MockMetadataService
 	modelServices              *MockModelServices
-	called                     int64
+	called                     atomic.Int64
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -112,7 +112,7 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *tc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+	c.Assert(s.called.Load(), tc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.C) {
@@ -134,7 +134,7 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *tc.
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
+	c.Assert(s.called.Load(), tc.Equals, int64(10))
 }
 
 func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
@@ -162,7 +162,7 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *tc.C) {
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(10))
+	c.Assert(s.called.Load(), tc.Equals, int64(10))
 
 	workertest.CleanKill(c, w)
 }
@@ -194,7 +194,7 @@ func (s *workerSuite) TestFlushWorkersRemovesCachedWorkers(c *tc.C) {
 	// Create a worker by requesting an object store.
 	_, err := w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+	c.Check(s.called.Load(), tc.Equals, int64(1))
 
 	// Flush should remove all workers.
 	err = w.FlushWorkers(c.Context())
@@ -204,7 +204,7 @@ func (s *workerSuite) TestFlushWorkersRemovesCachedWorkers(c *tc.C) {
 	// proving the cache was cleared.
 	_, err = w.GetObjectStore(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(2))
+	c.Check(s.called.Load(), tc.Equals, int64(2))
 
 	workertest.CleanKill(c, w)
 }
@@ -249,7 +249,7 @@ func (s *workerSuite) newWorker(c *tc.C) *objectStoreWorker {
 			if ns == "denied" {
 				return nil, database.ErrDBNotFound
 			}
-			atomic.AddInt64(&s.called, 1)
+			s.called.Add(1)
 			return newStubTrackedObjectStore(s.trackedObjectStore), nil
 		},
 		NewTrackerWorker: func(modelUUID model.UUID, modelService ModelService, objectStore TrackedObjectStore, tracer trace.Tracer, logger logger.Logger) (worker.Worker, error) {
@@ -275,7 +275,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
-	atomic.StoreInt64(&s.called, 0)
+	s.called.Store(0)
 
 	ctrl := s.baseSuite.setupMocks(c)
 

@@ -694,13 +694,9 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
 	info, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
-	c.Check(info.UUID, tc.Equals, "foo")
 	c.Check(info.ActiveBackendUUID, tc.Equals, backendUUID)
 
 	var fromBackendUUID string
@@ -728,14 +724,11 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
 	info, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetActiveDrainingInfo(c.Context())
@@ -777,9 +770,6 @@ func (s *stateSuite) TestStartDraining(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-
 	err = st.StartDraining(c.Context(), "bar")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
@@ -797,10 +787,10 @@ func (s *stateSuite) TestStartDrainingAndSetDrainingPhase(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	info, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -816,9 +806,12 @@ func (s *stateSuite) TestTransitionBackendToS3CalledTwice(c *tc.C) {
 
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
-
-	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), defaultFileBackendUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.TransitionBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendAlreadyExists)
@@ -839,14 +832,14 @@ func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
 
 	err := st.TransitionBackendToS3(c.Context(), backendUUID0, creds)
 	c.Assert(err, tc.ErrorIsNil)
-
-	// Force the file backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
-
-	err = st.TransitionBackendToS3(c.Context(), backendUUID1, creds)
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), defaultFileBackendUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	err = st.TransitionBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Force the first backend to be marked as dead.
@@ -855,7 +848,11 @@ func (s *stateSuite) TestTransitionBackendToS3MultipleTimes(c *tc.C) {
 	err = st.TransitionBackendToS3(c.Context(), backendUUID2, creds)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	info, err = st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), backendUUID0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.TransitionBackendToS3(c.Context(), backendUUID2, creds)
@@ -877,24 +874,22 @@ func (s *stateSuite) TestTransitionBackendToS3WithActiveDrainingBackend(c *tc.C)
 	// This backend is ignored, as the draining phase is not active.
 	err := st.TransitionBackendToS3(c.Context(), backendUUID0, creds)
 	c.Assert(err, tc.ErrorIsNil)
-
-	// Force the file backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), defaultFileBackendUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.TransitionBackendToS3(c.Context(), backendUUID1, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.StartDraining(c.Context(), "foo")
+	info, err = st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-
-	info, err := st.GetActiveDrainingInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, domainobjectstore.DrainingInfo{
-		Phase:             string(coreobjectstore.PhaseDraining),
-		UUID:              "foo",
-		FromBackendUUID:   new(backendUUID0),
-		ActiveBackendUUID: backendUUID1,
-	})
+	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
+	c.Assert(info.FromBackendUUID, tc.NotNil)
+	c.Check(*info.FromBackendUUID, tc.Equals, backendUUID0)
+	c.Check(info.ActiveBackendUUID, tc.Equals, backendUUID1)
 }
 
 func (s *stateSuite) TestTransitionBackendToS3NoActiveBackend(c *tc.C) {
@@ -965,6 +960,13 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 	c.Check(endpoint, tc.Equals, creds.Endpoint)
 	c.Check(accessKey, tc.Equals, creds.AccessKey)
 	c.Check(secretKey, tc.Equals, creds.SecretKey)
+
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
+	c.Assert(info.FromBackendUUID, tc.NotNil)
+	c.Check(*info.FromBackendUUID, tc.Equals, defaultFileBackendUUID)
+	c.Check(info.ActiveBackendUUID, tc.Equals, backendUUID)
 }
 
 func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
@@ -983,9 +985,14 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	// dying.
 	err := st.TransitionBackendToS3(c.Context(), drainingUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
 
-	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
+	// Mark the old backend as drained before starting the next transition.
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), defaultFileBackendUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Second call marks the first S3 backend as dying and activates a new one.
 	err = st.TransitionBackendToS3(c.Context(), activeUUID, creds)
@@ -1042,9 +1049,14 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	// First promotion marks the default file backend as dying.
 	err := st.TransitionBackendToS3(c.Context(), drainingUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetDrainingPhase(c.Context(), info.UUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
 
-	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
+	// Mark the old backend as drained before starting the next transition.
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), defaultFileBackendUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Second promotion marks the first S3 backend as dying and activates a new
 	// one.

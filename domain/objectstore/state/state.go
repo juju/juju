@@ -851,6 +851,15 @@ func (s *State) TransitionBackendToS3(ctx context.Context, uuid string, credenti
 		return errors.Capture(err)
 	}
 
+	phaseUUID, err := coreobjectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating draining uuid: %w", err)
+	}
+	phaseTypeID, err := encodePhaseTypeID(coreobjectstore.PhaseDraining)
+	if err != nil {
+		return errors.Errorf("encoding draining phase id: %w", err)
+	}
+
 	type s3Credentials struct {
 		UUID      string `db:"object_store_backend_uuid"`
 		Endpoint  string `db:"endpoint"`
@@ -903,6 +912,14 @@ VALUES ($newBackend.uuid, 0, 1, $newBackend.updated_at)`, backend)
 		return errors.Errorf("preparing insert object store backend statement: %w", err)
 	}
 
+	fromBackendStmt, err := s.Prepare(`
+SELECT b.uuid AS &backendUUID.uuid
+FROM object_store_backend AS b
+WHERE b.life_id = 1`, backendUUID{})
+	if err != nil {
+		return errors.Errorf("preparing active object store backend statement: %w", err)
+	}
+
 	s3InsertStmt, err := s.Prepare(`
 INSERT INTO object_store_backend_s3_credential (
     object_store_backend_uuid, 
@@ -915,6 +932,15 @@ VALUES ($s3Credentials.*)
 	if err != nil {
 		return errors.Errorf("preparing insert object store information statement: %w", err)
 	}
+
+	insertDrainingStmt, err := s.Prepare(`
+INSERT INTO object_store_drain_info (uuid, phase_type_id, from_backend_uuid, to_backend_uuid)
+VALUES ($dbSetPhaseInfo.*)
+`, dbSetPhaseInfo{})
+	if err != nil {
+		return errors.Errorf("preparing insert draining phase statement: %w", err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Ensure that we're not currently in a draining phase, as we don't want
 		// to update the backend information while we're in the middle of a
@@ -938,6 +964,13 @@ VALUES ($s3Credentials.*)
 			return errors.Errorf("no object store backend active")
 		}
 
+		var fromBackend backendUUID
+		if err := tx.Query(ctx, fromBackendStmt).Get(&fromBackend); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("migrating from: %w", objectstoreerrors.ErrBackendNotFound)
+		} else if err != nil {
+			return errors.Errorf("selecting draining source backend: %w", err)
+		}
+
 		// Now activate the new backend by inserting the new backend
 		// information, and the credentials for the S3 backend.
 		if err := tx.Query(ctx, insertBackendInfoStmt, backend).Get(&outcome); database.IsErrConstraintPrimaryKey(err) {
@@ -953,6 +986,15 @@ VALUES ($s3Credentials.*)
 
 		if err := tx.Query(ctx, s3InsertStmt, s3Creds).Run(); err != nil {
 			return errors.Errorf("inserting object store information: %w", err)
+		}
+
+		if err := tx.Query(ctx, insertDrainingStmt, dbSetPhaseInfo{
+			UUID:            phaseUUID.String(),
+			PhaseTypeID:     phaseTypeID,
+			FromBackendUUID: fromBackend.UUID,
+			ToBackendUUID:   uuid,
+		}).Run(); err != nil {
+			return errors.Errorf("inserting draining phase: %w", err)
 		}
 		return nil
 	})
