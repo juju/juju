@@ -17,15 +17,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// SecretBackendManagerFacade instances provide a watcher for secret rotation changes.
-type SecretBackendManagerFacade interface {
-	WatchTokenRotationChanges(context.Context) (watcher.SecretBackendRotateWatcher, error)
-	RotateBackendTokens(ctx context.Context, info ...string) error
-}
-
 // Config defines the operation of the Worker.
 type Config struct {
-	SecretBackendManagerFacade SecretBackendManagerFacade
+	SecretBackendManagerFacade SecretBackendService
 	Logger                     logger.Logger
 	Clock                      clock.Clock
 }
@@ -98,7 +92,7 @@ func (w *Worker) loop() (err error) {
 	ctx, cancel := w.scopeContext()
 	defer cancel()
 
-	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges(ctx)
+	changes, err := w.config.SecretBackendManagerFacade.WatchSecretBackendRotationChanges(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -132,7 +126,7 @@ func (w *Worker) rotate(ctx context.Context, now time.Time) error {
 	var toRotate []string
 	for id, info := range w.backendInfo {
 		w.config.Logger.Debugf(ctx, "checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
-		// A one minute granularity is acceptable for secret rotation.
+		// A one-minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
 			w.config.Logger.Debugf(ctx, "rotating token for %s", info.backendName)
 			toRotate = append(toRotate, id)
@@ -143,9 +137,12 @@ func (w *Worker) rotate(ctx context.Context, now time.Time) error {
 		}
 	}
 
-	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(ctx, toRotate...); err != nil {
-		return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
+	for _, id := range toRotate {
+		if err := w.config.SecretBackendManagerFacade.RotateBackendToken(ctx, id); err != nil {
+			return errors.Annotatef(err, "rotating token for backend %q", id)
+		}
 	}
+
 	w.computeNextRotateTime(ctx)
 	return nil
 }

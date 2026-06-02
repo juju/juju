@@ -95,7 +95,6 @@ var facadeVersions = facades.FacadeVersions{
 	"RetryStrategy":                {1},
 	"SecretsTriggerWatcher":        {1},
 	"SecretBackends":               {1},
-	"SecretBackendsManager":        {1},
 	"SecretBackendsRotateWatcher":  {1},
 	"SecretsRevisionWatcher":       {1},
 	"Secrets":                      {1, 2},
