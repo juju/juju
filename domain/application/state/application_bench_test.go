@@ -205,29 +205,25 @@ func addBenchmarkSpaces(ctx context.Context, runner *benchmarkTxnRunner, names .
 
 func benchmarkApplicationConstraints() constraints.Constraints {
 	return constraints.Constraints{
-		Arch:             ptrTo("amd64"),
-		CpuCores:         ptrTo(uint64(2)),
-		CpuPower:         ptrTo(uint64(42)),
-		Mem:              ptrTo(uint64(8)),
-		RootDisk:         ptrTo(uint64(256)),
-		RootDiskSource:   ptrTo("root-disk-source"),
-		InstanceRole:     ptrTo("instance-role"),
-		InstanceType:     ptrTo("instance-type"),
-		Container:        ptrTo(instance.LXD),
-		VirtType:         ptrTo("virt-type"),
-		AllocatePublicIP: ptrTo(true),
-		ImageID:          ptrTo("image-id"),
-		Spaces: ptrTo([]constraints.SpaceConstraint{
+		Arch:             new("amd64"),
+		CpuCores:         new(uint64(2)),
+		CpuPower:         new(uint64(42)),
+		Mem:              new(uint64(8)),
+		RootDisk:         new(uint64(256)),
+		RootDiskSource:   new("root-disk-source"),
+		InstanceRole:     new("instance-role"),
+		InstanceType:     new("instance-type"),
+		Container:        new(instance.LXD),
+		VirtType:         new("virt-type"),
+		AllocatePublicIP: new(true),
+		ImageID:          new("image-id"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space0", Exclude: false},
 			{SpaceName: "space1", Exclude: true},
 		}),
-		Tags:  ptrTo([]string{"tag0", "tag1"}),
-		Zones: ptrTo([]string{"zone0", "zone1"}),
+		Tags:  new([]string{"tag0", "tag1"}),
+		Zones: new([]string{"zone0", "zone1"}),
 	}
-}
-
-func ptrTo[T any](v T) *T {
-	return &v
 }
 
 func setApplicationConstraintsWithStatePrepare(
