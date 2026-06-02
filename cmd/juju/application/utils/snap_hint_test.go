@@ -5,28 +5,35 @@ package utils_test
 
 import (
 	"strings"
+	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/application/utils"
 )
 
 type snapHintSuite struct{}
 
-var _ = gc.Suite(&snapHintSuite{})
+func TestSnapConfinementHintSuite(t *testing.T) {
+	tc.Run(t, &snapHintSuite{})
+}
 
-func (s *snapHintSuite) TestSnapConfinementHint(c *gc.C) {
+func (s *snapHintSuite) TestSnapConfinementHint(c *tc.C) {
 	const (
-		snapEnv      = "/snap/juju/current"
-		snapRealHome = "/home/user"
-		homeDir      = "/home/user"
+		snapEnv        = "/snap/juju/current"
+		snapRealHome   = "/home/user"
+		homeDir        = "/home/user"
+		snapUserData   = "/home/user/snap/juju/current"
+		snapUserCommon = "/home/user/snap/juju/common"
 	)
 
 	tests := []struct {
-		desc     string
-		path     string
-		snapEnv  string
-		wantHint bool
+		desc           string
+		path           string
+		snapEnv        string
+		snapUserData   string
+		snapUserCommon string
+		wantHint       bool
 	}{
 		{
 			// (a) path under HOME, snap set - genuine not-found, no hint
@@ -63,19 +70,35 @@ func (s *snapHintSuite) TestSnapConfinementHint(c *gc.C) {
 			snapEnv:  snapEnv,
 			wantHint: true,
 		},
+		{
+			// (f) path under $SNAP_USER_DATA, snap set - no hint
+			desc:         "path under SNAP_USER_DATA snap set",
+			path:         snapUserData + "/foo.charm",
+			snapEnv:      snapEnv,
+			snapUserData: snapUserData,
+			wantHint:     false,
+		},
+		{
+			// (g) path under $SNAP_USER_COMMON, snap set - no hint
+			desc:           "path under SNAP_USER_COMMON snap set",
+			path:           snapUserCommon + "/foo.charm",
+			snapEnv:        snapEnv,
+			snapUserCommon: snapUserCommon,
+			wantHint:       false,
+		},
 	}
 
 	for _, tt := range tests {
 		c.Logf("case: %s", tt.desc)
-		hint := utils.SnapConfinementHint(tt.path, tt.snapEnv, snapRealHome, homeDir)
+		hint := utils.SnapConfinementHint(tt.path, tt.snapEnv, snapRealHome, homeDir, tt.snapUserData, tt.snapUserCommon)
 		if tt.wantHint {
-			c.Check(hint, gc.Not(gc.Equals), "",
-				gc.Commentf("expected hint for path %q", tt.path))
-			c.Check(strings.Contains(hint, tt.path), gc.Equals, true,
-				gc.Commentf("hint should contain the path %q", tt.path))
+			c.Check(hint, tc.Not(tc.Equals), "",
+				tc.Commentf("expected hint for path %q", tt.path))
+			c.Check(strings.Contains(hint, tt.path), tc.Equals, true,
+				tc.Commentf("hint should contain the path %q", tt.path))
 		} else {
-			c.Check(hint, gc.Equals, "",
-				gc.Commentf("expected no hint for path %q", tt.path))
+			c.Check(hint, tc.Equals, "",
+				tc.Commentf("expected no hint for path %q", tt.path))
 		}
 	}
 }
