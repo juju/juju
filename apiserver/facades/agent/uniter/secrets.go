@@ -310,6 +310,9 @@ func (u *UniterAPI) resolveRevokeSubjects(
 		}
 	}
 	role := coresecrets.SecretRole(rev.Role)
+	if role != "" && !role.IsValid() {
+		return nil, errors.NotValidf("secret role %q", rev.Role)
+	}
 
 	// Build the batch of access params.
 	accessParams := make([]secret.SecretAccessParams, 0, len(rev.SubjectTags))

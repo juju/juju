@@ -412,6 +412,18 @@ func (s *UniterSecretsSuite) TestResolveRevokeSubjectsUnsupportedTag(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*tag kind "machine" not valid for secret accessor`)
 }
 
+func (s *UniterSecretsSuite) TestResolveRevokeSubjectsInvalidRole(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	accessor := secret.SecretAccessor{Kind: secret.UnitAccessor, ID: "mariadb/0"}
+	_, err := s.facade.resolveRevokeSubjects(c.Context(), accessor, params.GrantRevokeSecretArg{
+		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+		SubjectTags: []string{names.NewApplicationTag("app1").String()},
+		Role:        "not-valid",
+	})
+	c.Assert(err, tc.ErrorMatches, `secret role "not-valid" not valid`)
+}
+
 func (s *UniterSecretsSuite) TestResolveRevokeSubjectsResolveParamsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
