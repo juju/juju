@@ -59,6 +59,8 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
 
 	svc, _ := s.setupService(c, factory)
+
+	s.modelIdler.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -123,6 +125,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 
 	s.createLocalOfferForConsumer(c, db, offerUUID)
 
+	s.modelIdler.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -480,6 +483,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	uri2.SourceUUID = s.modelUUID
 	realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c, db)
 
+	s.modelIdler.AssertChangeStreamIdle(c)
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w, tc.NotNil)
