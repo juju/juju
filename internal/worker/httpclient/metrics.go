@@ -40,6 +40,13 @@ var MetricTotalRequestsLabelNames = []string{
 	MetricLabelHost,
 }
 
+// MetricTotalRequestsErrorLabelNames defines a series of labels for the
+// TotalRequestErrors metric.
+var MetricTotalRequestsErrorLabelNames = []string{
+	MetricLabelHost,
+	MetricLabelStatus,
+}
+
 // Collector defines a prometheus collector for the http client worker.
 type Collector struct {
 	TotalRequests         *prometheus.CounterVec
@@ -61,7 +68,7 @@ func NewMetricsCollector() *Collector {
 			Subsystem: metricsSubsystem,
 			Name:      "outbound_request_errors_total",
 			Help:      "Total number of http request errors to outbound APIs",
-		}, MetricTotalRequestsLabelNames),
+		}, MetricTotalRequestsErrorLabelNames),
 		TotalRequestsDuration: prometheus.NewSummaryVec(prometheus.SummaryOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
@@ -94,9 +101,10 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 func (c *Collector) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).
-	c.TotalRequests.WithLabelValues(url.Host, strconv.FormatInt(int64(res.StatusCode), 10)).Inc()
+	statusCode := strconv.FormatInt(int64(res.StatusCode), 10)
+	c.TotalRequests.WithLabelValues(url.Host, statusCode).Inc()
 	if res.StatusCode >= 400 {
-		c.TotalRequestErrors.WithLabelValues(url.Host).Inc()
+		c.TotalRequestErrors.WithLabelValues(url.Host, statusCode).Inc()
 	}
 	c.TotalRequestsDuration.WithLabelValues(url.Host).Observe(rtt.Seconds())
 }
