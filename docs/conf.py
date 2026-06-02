@@ -320,6 +320,7 @@ llms_txt_description = (
 llms_txt_suffix_mode = "url-suffix"
 markdown_http_base = "https://documentation.ubuntu.com/juju/3.6"
 
+new_tab_link_show_external_link_icon = True
 
 # Excludes files or directories from processing
 
@@ -404,7 +405,5 @@ intersphinx_mapping = {
     'charmcraft': ('https://documentation.ubuntu.com/charmcraft/stable/', None),
     'ops': ('https://documentation.ubuntu.com/ops/latest/', None),
 }
-
-new_tab_link_show_external_link_icon = True
 
 rediraffe_redirects = "redirects.txt"

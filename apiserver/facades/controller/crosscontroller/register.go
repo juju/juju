@@ -4,6 +4,7 @@
 package crosscontroller
 
 import (
+	"net"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -57,11 +58,23 @@ func controllerInfo(st controllerInfoGetter) ([]string, string, error) {
 
 	var addrs []string
 	for _, hostPorts := range apiHostPorts {
-		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchPublic)
+		ordered := hostPorts.HostPorts().FilterUnusable().PrioritizedForScope(network.ScopeMatchPublic)
 		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
+			if addr == "" {
+				continue
 			}
+			// Addresses can be recorded without a scope.
+			// Ensure no loopback addresses are included.
+			host, _, err := net.SplitHostPort(addr)
+			if err == nil {
+				if host == "localhost" {
+					continue
+				}
+				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+					continue
+				}
+			}
+			addrs = append(addrs, addr)
 		}
 	}
 
