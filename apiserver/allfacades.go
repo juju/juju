@@ -75,7 +75,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/core/facades"
@@ -208,7 +207,6 @@ func AllFacades() *facade.Registry {
 	retrystrategy.Register(registry)
 	secrets.Register(registry)
 	secretbackends.Register(registry)
-	secretbackendmanager.Register(registry)
 	secretsmanager.Register(registry)
 	secretsdrain.Register(registry)
 	usersecrets.Register(registry)
