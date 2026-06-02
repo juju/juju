@@ -138,19 +138,17 @@ ON model_migration_import_external_controller_model (controller_uuid);
 -- v_model_state exists to provide a simple view over the states that are
 -- needed to calculate a model's status.
 CREATE VIEW v_model_state AS
--- noqa: disable=ST06
 SELECT
     m.uuid,
+    l.value AS life,
     cc.invalid AS cloud_credential_invalid,
     cc.invalid_reason AS cloud_credential_invalid_reason,
-    IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS migrating,
-    l.value AS life
+    IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS migrating
 FROM model AS m
 JOIN life AS l ON m.life_id = l.id
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
 LEFT JOIN model_migration_import AS mmi ON m.uuid = mmi.model_uuid
 WHERE m.activated = TRUE;
--- noqa: enable=ST06
 
 -- Lookup of export-side migration phases. Mirrors core/migration/phase.go,
 -- minus UNKNOWN/NONE (code-only sentinels never written to the DB) and
@@ -177,6 +175,8 @@ INSERT INTO model_migration_phase VALUES
 
 -- One row per export migration attempt for a model. There is no attempt
 -- counter: a retry is just a new migration with a new uuid.
+-- model_uuid deliberately has no FK to model because source REAP deletes the
+-- model row while export history remains available for diagnostics.
 --
 -- current_phase_id and phase_changed_at are denormalised from
 -- model_migration_export_phase so that watchers and "is this migration
