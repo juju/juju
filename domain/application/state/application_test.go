@@ -2284,7 +2284,7 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
 	// Get the applications for the revision updater.
 	apps, err := s.state.GetApplicationsForRevisionUpdater(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apps, tc.DeepEquals, []application.RevisionUpdaterApplication{{
+	c.Check(apps, tc.SameContents, []application.RevisionUpdaterApplication{{
 		Name: "foo",
 		CharmLocator: charm.CharmLocator{
 			Name:         "foo",

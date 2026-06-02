@@ -310,7 +310,7 @@ func (s *State) GetCharmArchiveMetadata(ctx context.Context, id corecharm.ID) (a
 		return "", "", errors.Capture(err)
 	}
 
-	var archivePathAndHashes []charmArchivePathAndHash
+	var archivePathAndHash charmArchivePathAndHash
 	ident := entityUUID{UUID: id.String()}
 
 	query := `
@@ -326,7 +326,7 @@ WHERE charm.uuid = $entityUUID.uuid;
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, ident).GetAll(&archivePathAndHashes); err != nil {
+		if err := tx.Query(ctx, stmt, ident).Get(&archivePathAndHash); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
@@ -336,11 +336,8 @@ WHERE charm.uuid = $entityUUID.uuid;
 	}); err != nil {
 		return "", "", errors.Errorf("getting charm archive metadata: %w", err)
 	}
-	if len(archivePathAndHashes) > 1 {
-		return "", "", errors.Errorf("getting charm archive metadata: %w", applicationerrors.MultipleCharmHashes)
-	}
 
-	return archivePathAndHashes[0].ArchivePath, archivePathAndHashes[0].Hash, nil
+	return archivePathAndHash.ArchivePath, archivePathAndHash.Hash, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.

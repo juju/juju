@@ -82,6 +82,7 @@ var controllerPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.12"),
 	files: []string{
 		"0031-model-migration.PATCH.sql",
+		"0032-view-indexes.PATCH.sql",
 	},
 }}
 
