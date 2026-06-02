@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
@@ -708,16 +707,4 @@ func (*suite) TestSetOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	conf.SetOpenTelemetryTailSamplingThreshold(time.Second)
 	queryTracingTailSamplingThreshold = conf.OpenTelemetryTailSamplingThreshold()
 	c.Assert(queryTracingTailSamplingThreshold, tc.Equals, time.Second, tc.Commentf("open telemetry tail sampling threshold setting not updated"))
-}
-
-func (*suite) TestSetObjectStoreType(c *tc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	objectStoreType := conf.ObjectStoreType()
-	c.Assert(objectStoreType, tc.Equals, attributeParams.ObjectStoreType)
-
-	conf.SetObjectStoreType("s3")
-	objectStoreType = conf.ObjectStoreType()
-	c.Assert(objectStoreType, tc.Equals, objectstore.S3Backend, tc.Commentf("object store type setting not updated"))
 }

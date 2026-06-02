@@ -396,7 +396,7 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
-			internalobjectstore.BackendTypeOrDefault(backendInfo.Type),
+			backendInfo.Type,
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
 			internalobjectstore.WithRootBucket(w.cfg.RootBucket),

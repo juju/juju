@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
-	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -85,12 +84,6 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{"model-uuid1"}, nil)
 	s.objectStoreServicesGetter.EXPECT().ServicesForModel(model.UUID("model-uuid1")).Return(s.objectStoreService)
 	s.objectStoreService.EXPECT().ObjectStore().Return(s.objectStoreMetadata)
-
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
 
@@ -375,7 +368,7 @@ func (s *workerSuite) TestWaitForDrainingModelFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*drain worker for model "model-uuid1" failed.*s3 upload failed.*`)
 }
 
-func (s *workerSuite) TestCompleteDrainingChangeConfigError(c *tc.C) {
+func (s *workerSuite) TestCompleteDrainingSetPhaseError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	draining := make(chan struct{})
@@ -389,9 +382,8 @@ func (s *workerSuite) TestCompleteDrainingChangeConfigError(c *tc.C) {
 	// GetModelNamespaces returns empty so completeDraining is called directly.
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	// ChangeConfig fails — SetDrainingPhase(PhaseCompleted) is never reached
-	// because it comes after ChangeConfig in the new ordering.
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).Return(errors.New("disk full"))
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).Return(errors.New("disk full"))
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -420,12 +412,6 @@ func (s *workerSuite) TestCompleteDrainingFlushWorkersError(c *tc.C) {
 
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
 	// FlushWorkers fails — SetDrainingPhase(PhaseCompleted) is never reached.
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(errors.New("flush failed"))
 
@@ -443,13 +429,13 @@ func (s *workerSuite) TestCompleteDrainingFlushWorkersError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*flush failed.*")
 }
 
-// TestRecoverFromCrashDuringChangeConfig verifies that if the worker crashes
-// (hard kill) during ChangeConfig, on restart the phase is still Draining and
-// the worker re-enters the draining flow and completes successfully.
-func (s *workerSuite) TestRecoverFromCrashDuringChangeConfig(c *tc.C) {
+// TestRecoverFromCrashDuringFlushWorkers verifies that if the worker crashes
+// during FlushWorkers, on restart the phase is still Draining and the worker
+// re-enters the draining flow and completes successfully.
+func (s *workerSuite) TestRecoverFromCrashDuringFlushWorkers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// --- First worker: crashes during ChangeConfig ---
+	// --- First worker: crashes during FlushWorkers ---
 
 	draining1 := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
@@ -460,8 +446,7 @@ func (s *workerSuite) TestRecoverFromCrashDuringChangeConfig(c *tc.C) {
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	// ChangeConfig fails (simulating a crash scenario where error path runs).
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).Return(errors.New("disk full"))
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(errors.New("flush timeout"))
 
 	w1 := s.newWorker(c)
 
@@ -472,7 +457,7 @@ func (s *workerSuite) TestRecoverFromCrashDuringChangeConfig(c *tc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w1)
-	c.Assert(err, tc.ErrorMatches, ".*disk full.*")
+	c.Assert(err, tc.ErrorMatches, ".*flush timeout.*")
 
 	// --- Second worker: simulates restart, phase is still Draining ---
 
@@ -484,12 +469,6 @@ func (s *workerSuite) TestRecoverFromCrashDuringChangeConfig(c *tc.C) {
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	// This time ChangeConfig succeeds.
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
 
 	done := make(chan struct{})
@@ -520,91 +499,10 @@ func (s *workerSuite) TestRecoverFromCrashDuringChangeConfig(c *tc.C) {
 // during FlushWorkers, on restart the phase is still Draining and the worker
 // re-enters the draining flow and completes successfully. ChangeConfig is
 // idempotent so re-applying it on the second attempt is harmless.
-func (s *workerSuite) TestRecoverFromCrashDuringFlushWorkers(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// --- First worker: crashes during FlushWorkers ---
-
-	draining1 := make(chan struct{})
-	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
-		return watchertest.NewMockNotifyWatcher(draining1), nil
-	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).Return(nil)
-	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
-	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
-
-	// ChangeConfig succeeds but FlushWorkers fails.
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(errors.New("flush timeout"))
-
-	w1 := s.newWorker(c)
-
-	select {
-	case draining1 <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for draining event")
-	}
-
-	err := workertest.CheckKilled(c, w1)
-	c.Assert(err, tc.ErrorMatches, ".*flush timeout.*")
-
-	// --- Second worker: simulates restart, phase is still Draining ---
-
-	draining2 := make(chan struct{})
-	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
-		return watchertest.NewMockNotifyWatcher(draining2), nil
-	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
-	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
-
-	// Both ChangeConfig and FlushWorkers succeed on retry.
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
-
-	done := make(chan struct{})
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
-		defer close(done)
-		return nil
-	})
-
-	w2 := s.newWorker(c)
-	defer workertest.DirtyKill(c, w2)
-
-	select {
-	case draining2 <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for draining event")
-	}
-
-	select {
-	case <-done:
-	case <-c.Context().Done():
-		c.Fatalf("timeout waiting for completion")
-	}
-
-	workertest.CleanKill(c, w2)
-}
-
-// TestRecoverFromCrashDuringSetDrainingPhaseCompleted verifies that if the
-// worker crashes after ChangeConfig and FlushWorkers succeed but before
-// SetDrainingPhase(PhaseCompleted) is persisted, on restart the phase is still
-// Draining and the worker can complete the transition. Both ChangeConfig and
-// FlushWorkers are idempotent so re-applying them is safe.
 func (s *workerSuite) TestRecoverFromCrashDuringSetDrainingPhaseCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// --- First worker: ChangeConfig and FlushWorkers succeed, but
-	// SetDrainingPhase(PhaseCompleted) fails (simulating crash before DB write) ---
+	// --- First worker: FlushWorkers succeeds, but completion commit fails ---
 
 	draining1 := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
@@ -615,13 +513,7 @@ func (s *workerSuite) TestRecoverFromCrashDuringSetDrainingPhaseCompleted(c *tc.
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
-	// SetDrainingPhase(PhaseCompleted) fails — simulates crash/network error.
 	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).Return(errors.New("connection reset"))
 
 	w1 := s.newWorker(c)
@@ -645,12 +537,6 @@ func (s *workerSuite) TestRecoverFromCrashDuringSetDrainingPhaseCompleted(c *tc.
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	// All steps succeed on retry (idempotent).
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
 
 	done := make(chan struct{})
@@ -734,12 +620,6 @@ func (s *workerSuite) TestDrainingNoModelsCompletesDirectly(c *tc.C) {
 	// No models — completeDraining called directly after agent binaries.
 	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
 
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.FileBackend)
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
 	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
 
 	done := make(chan struct{})
@@ -813,14 +693,12 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
-		Agent:                        s.agent,
 		Guard:                        s.guard,
 		DrainingService:              s.guardService,
 		ControllerService:            s.controllerService,
 		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,
 		ControllerObjectStoreService: s.controllerObjectStoreMetadata,
 		ObjectStoreFlusher:           s.objectStoreFlusher,
-		ObjectStoreType:              objectstore.FileBackend,
 		S3Client:                     s.s3Client,
 		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 			return s.hashFileSystemAccessor

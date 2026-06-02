@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -310,9 +309,6 @@ type Config interface {
 	// sampling. The lower the threshold, the more spans will be sampled.
 	OpenTelemetryTailSamplingThreshold() time.Duration
 
-	// ObjectStoreType returns the type of object store to use.
-	ObjectStoreType() objectstore.BackendType
-
 	// DqlitePort returns the port that should be used by Dqlite. This should
 	// only be set during testing.
 	DqlitePort() (int, bool)
@@ -385,9 +381,6 @@ type configSetterOnly interface {
 	// SetOpenTelemetryTailSamplingThreshold sets the threshold for tail-based
 	// sampling. The lower the threshold, the more spans will be sampled.
 	SetOpenTelemetryTailSamplingThreshold(time.Duration)
-
-	// SetObjectStoreType sets the type of object store to use.
-	SetObjectStoreType(objectstore.BackendType)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -470,7 +463,6 @@ type configInternal struct {
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
 	openTelemetryTailSamplingThreshold time.Duration
-	objectStoreType                    objectstore.BackendType
 	dqlitePort                         int
 }
 
@@ -499,7 +491,6 @@ type AgentConfigParams struct {
 	OpenTelemetryStackTraces           bool
 	OpenTelemetrySampleRatio           float64
 	OpenTelemetryTailSamplingThreshold time.Duration
-	ObjectStoreType                    objectstore.BackendType
 	DqlitePort                         int
 }
 
@@ -571,7 +562,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
 		openTelemetryTailSamplingThreshold: configParams.OpenTelemetryTailSamplingThreshold,
-		objectStoreType:                    configParams.ObjectStoreType,
 		dqlitePort:                         configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
@@ -954,16 +944,6 @@ func (c *configInternal) OpenTelemetryTailSamplingThreshold() time.Duration {
 // SetOpenTelemetryTailSamplingThreshold implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetryTailSamplingThreshold(v time.Duration) {
 	c.openTelemetryTailSamplingThreshold = v
-}
-
-// ObjectStoreType implements Config.
-func (c *configInternal) ObjectStoreType() objectstore.BackendType {
-	return c.objectStoreType
-}
-
-// SetObjectStoreType implements configSetterOnly.
-func (c *configInternal) SetObjectStoreType(v objectstore.BackendType) {
-	c.objectStoreType = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
