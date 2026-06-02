@@ -214,7 +214,7 @@ Charms that create secrets should _always_ handle the `secret-remove` event. Tha
 
 A user secret has a simpler lifecycle than a charm secret:
 
-1. **Create**: A model admin creates the secret: `juju add-secret <name> <key>=<value>`
+1. **Create**: A model admin creates the secret: `juju add-secret <name> <key>=<value>`.
 2. **Grant**: The admin grants access to an application: `juju grant-secret <name> <app-name>` — this does **not** fire a hook on the observing charm.
 3. **Configure**: The admin sets the application's configuration option to the secret URI: `juju config <app-name> <option>=<secret-uri>` — this triggers a `config-changed` hook on the observing charm.
 4. **Update**: The admin updates the secret content: `juju update-secret <name> <key>=<new-value>` — this triggers `secret-changed` on all observing units.
