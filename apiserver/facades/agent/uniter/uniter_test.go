@@ -3770,6 +3770,62 @@ func (s *commitHookChangesSuite) TestCommitHookChangesRevokeSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), []domainsecret.SecretAccessParams{{
+		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
+		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},
+		Subject:  domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "two"},
+		Role:     coresecrets.RoleView,
+	}}).Return([]domainsecret.GrantResult{{
+		GrantParams: domainsecret.GrantParams{
+			SubjectUUID:   "app-uuid-two",
+			SubjectTypeID: domainsecret.SubjectApplication,
+			ScopeUUID:     "relation-scope-uuid",
+			ScopeTypeID:   domainsecret.ScopeRelation,
+			RoleID:        domainsecret.RoleView,
+		},
+	}})
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]domainsecret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: domainsecret.UnitCharmSecretOwner,
+		}}, nil)
+	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretGrants), tc.Equals, 1)
+			c.Check(arg.SecretGrants[0].URI.String(), tc.Equals, uri.String())
+			c.Check(arg.SecretGrants[0].SubjectUUID, tc.Equals, "app-uuid-two")
+			c.Check(arg.SecretGrants[0].SubjectTypeID, tc.Equals, domainsecret.SubjectApplication)
+			c.Check(arg.SecretGrants[0].ScopeUUID, tc.Equals, "relation-scope-uuid")
+			c.Check(arg.SecretGrants[0].ScopeTypeID, tc.Equals, domainsecret.ScopeRelation)
+			c.Check(arg.SecretGrants[0].RoleID, tc.Equals, domainsecret.RoleView)
+			c.Check(arg.SecretGrants[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretGrants: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+				SubjectTags: []string{names.NewApplicationTag("two").String()},
+				Role:        string(coresecrets.RoleView),
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

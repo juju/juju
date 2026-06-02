@@ -119,7 +119,88 @@ func (st *State) updateSecrets(ctx context.Context, tx *sqlair.TX, updates []uni
 	return nil
 }
 
-func (st *State) grantSecretsAccess(ctx context.Context, tx *sqlair.TX, grants []unitstate.GrantRevokeSecretArg) error {
+func (st *State) grantSecretsAccess(ctx context.Context, tx *sqlair.TX, grants []internal.GrantSecretArg) error {
+	if len(grants) == 0 {
+		return nil
+	}
+
+	// Check secret exists (is local).
+	checkSecretStmt, err := st.Prepare(`
+SELECT &secretID.secret_id
+FROM   secret_metadata
+WHERE  secret_id = $secretID.secret_id
+`, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Check that an existing permission row has compatible scope and subject
+	// type — changing these after initial grant is forbidden.
+	checkInvariantStmt, err := st.Prepare(`
+SELECT sp.secret_id AS &secretID.secret_id
+FROM   secret_permission sp
+WHERE  sp.secret_id = $secretPermissionGrant.secret_id
+AND    sp.subject_uuid = $secretPermissionGrant.subject_uuid
+AND    (sp.subject_type_id <> $secretPermissionGrant.subject_type_id
+        OR sp.scope_uuid <> $secretPermissionGrant.scope_uuid
+        OR sp.scope_type_id <> $secretPermissionGrant.scope_type_id)
+`, secretPermissionGrant{}, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Upsert: insert or update role on existing row.
+	upsertStmt, err := st.Prepare(`
+INSERT INTO secret_permission (*)
+VALUES ($secretPermissionGrant.*)
+ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
+    role_id=excluded.role_id,
+    subject_type_id=excluded.subject_type_id,
+    scope_type_id=excluded.scope_type_id,
+    scope_uuid=excluded.scope_uuid
+`, secretPermissionGrant{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, g := range grants {
+		// Verify the secret still exists; it may have been deleted
+		// concurrently between the facade access check and this txn.
+		var id secretID
+		err := tx.Query(ctx, checkSecretStmt, secretID{ID: g.SecretID}).Get(&id)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			st.logger.Debugf(ctx, "secret %q no longer exists, skipping grant", g.SecretID)
+			continue
+		} else if err != nil {
+			return errors.Errorf("checking secret %q exists: %w", g.SecretID, err)
+		}
+
+		perm := secretPermissionGrant{
+			SecretID:      g.SecretID,
+			SubjectUUID:   g.SubjectUUID,
+			SubjectTypeID: g.SubjectTypeID,
+			ScopeUUID:     g.ScopeUUID,
+			ScopeTypeID:   g.ScopeTypeID,
+			RoleID:        g.RoleID,
+		}
+
+		// Reject attempts to change the scope or subject type of an existing
+		// permission row — this is an invariant in the DB schema.
+		var conflictID secretID
+		err = tx.Query(ctx, checkInvariantStmt, perm).Get(&conflictID)
+		if err == nil {
+			return errors.Errorf(
+				"cannot change scope or subject type of existing grant for %q on %q",
+				g.SubjectUUID, g.SecretID,
+			)
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking permission invariant for %q on %q: %w", g.SubjectUUID, g.SecretID, err)
+		}
+
+		if err := tx.Query(ctx, upsertStmt, perm).Run(); err != nil {
+			return errors.Errorf("upserting secret grant for %q on %q: %w", g.SubjectUUID, g.SecretID, err)
+		}
+	}
 	return nil
 }
 

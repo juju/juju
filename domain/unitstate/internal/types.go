@@ -89,8 +89,8 @@ type CommitHookChangesArg struct {
 	// SecretUpdates contains charm secrets to update.
 	SecretUpdates []unitstate.UpdateSecretArg
 
-	// SecretGrants contains charm secrets  to grant access on.
-	SecretGrants []unitstate.GrantRevokeSecretArg
+	// SecretGrants contains pre-resolved charm secret grant requests.
+	SecretGrants []GrantSecretArg
 
 	// SecretRevokes contains pre-resolved charm secret revoke requests.
 	SecretRevokes []RevokeSecretArg
@@ -115,6 +115,28 @@ type DeleteSecretArg struct {
 // column when scheduling a charm-secret deletion with specific revisions.
 type secretDeletionArg struct {
 	Revisions []int `json:"revisions"`
+}
+
+// GrantSecretArg holds a pre-resolved secret grant request ready for the
+// state layer.
+type GrantSecretArg struct {
+	// SecretID is the secret identifier (the URI ID component).
+	SecretID string
+
+	// SubjectUUID is the resolved UUID of the entity gaining access.
+	SubjectUUID string
+
+	// SubjectTypeID is the type of the subject entity.
+	SubjectTypeID secret.GrantSubjectType
+
+	// ScopeUUID is the resolved UUID of the access scope entity.
+	ScopeUUID string
+
+	// ScopeTypeID is the type of the scope entity.
+	ScopeTypeID secret.GrantScopeType
+
+	// RoleID is the role being granted.
+	RoleID secret.Role
 }
 
 // RevokeSecretArg holds a pre-resolved secret revoke request ready for the
@@ -146,6 +168,11 @@ func TransformCommitHookChangesArg(
 		return CommitHookChangesArg{}, err
 	}
 
+	secretGrants, err := transformSecretGrants(in.SecretGrants)
+	if err != nil {
+		return CommitHookChangesArg{}, err
+	}
+
 	return CommitHookChangesArg{
 		UnitUUID:           unitInfo.UnitUUID,
 		UnitLife:           unitInfo.UnitLife,
@@ -156,7 +183,7 @@ func TransformCommitHookChangesArg(
 		SecretCreates:      in.SecretCreates,
 		TrackLatestSecrets: in.TrackLatestSecrets,
 		SecretUpdates:      in.SecretUpdates,
-		SecretGrants:       in.SecretGrants,
+		SecretGrants:       secretGrants,
 		SecretRevokes:      secretRevokes,
 		SecretDeletes:      secretDeletes,
 		AddStorage:         in.AddStorage,
@@ -210,6 +237,31 @@ func transformSecretRevokes(revokes []unitstate.RevokeSecretArg) ([]RevokeSecret
 			SecretID:      rev.URI.ID,
 			SubjectUUID:   rev.SubjectUUID,
 			SubjectTypeID: rev.SubjectTypeID,
+		})
+	}
+	return result, nil
+}
+
+// transformSecretGrants converts domain GrantSecretArg values into internal
+// GrantSecretArg values. The domain type carries pre-resolved UUIDs so the
+// transformation is straightforward.
+func transformSecretGrants(grants []unitstate.GrantSecretArg) ([]GrantSecretArg, error) {
+	if len(grants) == 0 {
+		return nil, nil
+	}
+
+	result := make([]GrantSecretArg, 0, len(grants))
+	for i, g := range grants {
+		if g.URI == nil {
+			return nil, errors.Errorf("grant secret arg at index %d has nil URI", i)
+		}
+		result = append(result, GrantSecretArg{
+			SecretID:      g.URI.ID,
+			SubjectUUID:   g.SubjectUUID,
+			SubjectTypeID: g.SubjectTypeID,
+			ScopeUUID:     g.ScopeUUID,
+			ScopeTypeID:   g.ScopeTypeID,
+			RoleID:        g.RoleID,
 		})
 	}
 	return result, nil

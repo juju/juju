@@ -3026,14 +3026,14 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "updating secret tracked revisions")
 		}
 	}
+	// Convert secret grants to domain types, filtering out any the unit
+	// does not have manage access on.
 	if len(changes.SecretGrants) > 0 {
-		result, err := u.secretsGrant(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
-		if err == nil {
-			err = result.Combine()
-		}
+		secretGrants, err := u.prepareSecretGrants(ctx, unitName, changes.SecretGrants)
 		if err != nil {
-			return errors.Annotate(err, "granting secrets access")
+			return apiservererrors.ServerError(err)
 		}
+		arg.SecretGrants = secretGrants
 	}
 
 	// Convert secret revokes to domain types, filtering out any the unit

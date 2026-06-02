@@ -190,3 +190,25 @@ func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseRevokeUnitSecret(
 
 	c.Check(requiresLeadership, tc.IsFalse)
 }
+
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueGrantAppSecret(c *tc.C) {
+	requiresLeadership := CommitHookChangesArg{
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretGrants: []GrantSecretArg{{
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+		}},
+	}.RequiresLeadership()
+
+	c.Check(requiresLeadership, tc.IsTrue)
+}
+
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseGrantUnitSecret(c *tc.C) {
+	requiresLeadership := CommitHookChangesArg{
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretGrants: []GrantSecretArg{{
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}.RequiresLeadership()
+
+	c.Check(requiresLeadership, tc.IsFalse)
+}

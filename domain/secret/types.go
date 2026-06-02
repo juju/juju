@@ -113,6 +113,13 @@ type RevokeResult struct {
 	Error error
 }
 
+// GrantResult holds a resolved GrantParams or an error for one entry
+// in a batch resolution.
+type GrantResult struct {
+	GrantParams
+	Error error
+}
+
 // AccessScope is the result of querying secret access scopes.
 type AccessScope struct {
 	ScopeTypeID GrantScopeType

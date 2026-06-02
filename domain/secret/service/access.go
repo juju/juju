@@ -286,6 +286,23 @@ func (s *SecretService) grantParams(ctx context.Context, in domainsecret.SecretA
 	return p, nil
 }
 
+// ResolveGrantParams resolves a batch of SecretAccessParams into GrantResults,
+// looking up subject and scope UUIDs for each entry. Each entry is resolved
+// independently; per-entry errors are returned in the corresponding
+// GrantResult.Error rather than failing the entire call.
+func (s *SecretService) ResolveGrantParams(ctx context.Context, params []domainsecret.SecretAccessParams) []domainsecret.GrantResult {
+	results := make([]domainsecret.GrantResult, len(params))
+	for i, p := range params {
+		gp, err := s.grantParams(ctx, p)
+		if err != nil {
+			results[i].Error = errors.Capture(err)
+			continue
+		}
+		results[i].GrantParams = gp
+	}
+	return results
+}
+
 // ResolveRevokeParams resolves the subject name in the given access params to
 // a UUID, returning the resolved [domainsecret.RevokeParams] ready for use in
 // the state layer. This performs only the lookup, not the access check.

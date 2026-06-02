@@ -34,6 +34,17 @@ type secretPermissionRevoke struct {
 	SubjectTypeID secret.GrantSubjectType `db:"subject_type_id"`
 }
 
+// secretPermissionGrant holds the fields needed to upsert a permission row
+// into the secret_permission table.
+type secretPermissionGrant struct {
+	SecretID      string                  `db:"secret_id"`
+	RoleID        secret.Role             `db:"role_id"`
+	SubjectUUID   string                  `db:"subject_uuid"`
+	SubjectTypeID secret.GrantSubjectType `db:"subject_type_id"`
+	ScopeUUID     string                  `db:"scope_uuid"`
+	ScopeTypeID   secret.GrantScopeType   `db:"scope_type_id"`
+}
+
 // secretID is a simple wrapper for querying a secret_id.
 type secretID struct {
 	ID string `db:"secret_id"`

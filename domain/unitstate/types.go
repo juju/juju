@@ -98,13 +98,30 @@ type UpdateSecretArg struct {
 	URI *secrets.URI
 }
 
-// GrantRevokeSecretArg holds the args for changing access to a secret,
-// including the URI.
-type GrantRevokeSecretArg struct {
-	secret.SecretAccessParams
-
-	// URI identifies the secret to grant.
+// GrantSecretArg holds the pre-resolved args for granting access to a
+// secret, including all fields needed for the secret_permission upsert.
+type GrantSecretArg struct {
+	// URI identifies the secret to grant access on.
 	URI *secrets.URI
+
+	// SubjectUUID is the resolved UUID of the entity gaining access.
+	SubjectUUID string
+
+	// SubjectTypeID is the type of the subject entity.
+	SubjectTypeID secret.GrantSubjectType
+
+	// ScopeUUID is the resolved UUID of the access scope entity.
+	ScopeUUID string
+
+	// ScopeTypeID is the type of the scope entity.
+	ScopeTypeID secret.GrantScopeType
+
+	// RoleID is the role being granted.
+	RoleID secret.Role
+
+	// OwnerKind indicates whether the secret is owned by the application
+	// or the unit. This drives the leadership requirement.
+	OwnerKind secret.CharmSecretOwnerKind
 }
 
 // RevokeSecretArg holds the pre-resolved args for revoking access to a
@@ -182,8 +199,8 @@ type CommitHookChangesArg struct {
 	// SecretUpdates contains charm secrets to update.
 	SecretUpdates []UpdateSecretArg
 
-	// SecretGrants contains charm secrets  to grant access on.
-	SecretGrants []GrantRevokeSecretArg
+	// SecretGrants contains pre-resolved charm secret grant requests.
+	SecretGrants []GrantSecretArg
 
 	// SecretRevokes contains pre-resolved charm secret revoke requests.
 	SecretRevokes []RevokeSecretArg
@@ -259,6 +276,10 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 			errs = append(errs, errors.New("secret uri is required for grant"))
 			break
 		}
+		if secret.SubjectUUID == "" {
+			errs = append(errs, errors.New("subject uuid is required for grant"))
+			break
+		}
 	}
 	for _, secret := range c.SecretRevokes {
 		hasChanges = true
@@ -305,16 +326,21 @@ func (c CommitHookChangesArg) RequiresLeadership() bool {
 			return true
 		}
 	}
+	for _, s := range c.SecretGrants {
+		if s.OwnerKind == secret.ApplicationCharmSecretOwner {
+			return true
+		}
+	}
 	for _, s := range c.SecretRevokes {
 		if s.OwnerKind == secret.ApplicationCharmSecretOwner {
 			return true
 		}
 	}
-	// Updates and grants currently go through their own service calls
+	// Updates currently go through their own service calls
 	// (outside the txn) which handle leadership internally. Once they
 	// move into the transaction, they will need similar owner-awareness
 	// here.
-	if len(c.SecretUpdates) > 0 || len(c.SecretGrants) > 0 {
+	if len(c.SecretUpdates) > 0 {
 		return true
 	}
 	return false

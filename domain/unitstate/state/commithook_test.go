@@ -834,6 +834,134 @@ func (s *commitHookSuite) TestRevokeSecretsAccessNoPermissionIsIdempotent(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *commitHookSuite) TestGrantSecretsAccess(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: create a secret with no pre-existing permission.
+	secretID := "secret-id-grant-test"
+	subjectUUID := s.fakeApplicationUUID1
+	scopeUUID := s.fakeApplicationUUID2
+
+	s.addSecret(c, secretID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   subjectUUID,
+			SubjectTypeID: 1, // SubjectApplication
+			ScopeUUID:     scopeUUID,
+			ScopeTypeID:   1, // ScopeApplication
+			RoleID:        0, // RoleView
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_permission WHERE secret_id = ? AND subject_uuid = ? AND role_id = 0",
+			secretID, subjectUUID),
+		tc.Equals, 1,
+	)
+}
+
+func (s *commitHookSuite) TestGrantSecretsAccessMultiple(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: two secrets, no pre-existing permissions.
+	secretID1 := "secret-id-grant-multi-1"
+	secretID2 := "secret-id-grant-multi-2"
+	subjectUUID1 := s.fakeApplicationUUID1
+	subjectUUID2 := s.fakeApplicationUUID2
+	scopeUUID := s.fakeApplicationUUID1
+
+	s.addSecret(c, secretID1)
+	s.addSecret(c, secretID2)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{
+			{SecretID: secretID1, SubjectUUID: subjectUUID1, SubjectTypeID: 1, ScopeUUID: scopeUUID, ScopeTypeID: 1, RoleID: 0},
+			{SecretID: secretID2, SubjectUUID: subjectUUID2, SubjectTypeID: 1, ScopeUUID: scopeUUID, ScopeTypeID: 1, RoleID: 0},
+		},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_permission WHERE secret_id IN (?, ?)",
+			secretID1, secretID2),
+		tc.Equals, 2,
+	)
+}
+
+func (s *commitHookSuite) TestGrantSecretsAccessSecretNotFoundIsSkipped(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: use a non-existent secret ID.
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{{
+			SecretID:      "nonexistent-secret-id",
+			SubjectUUID:   s.fakeApplicationUUID1,
+			SubjectTypeID: 1,
+			ScopeUUID:     s.fakeApplicationUUID2,
+			ScopeTypeID:   1,
+			RoleID:        0,
+		}},
+	}
+
+	// Act — should not error; the missing secret is logged and skipped.
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM secret_permission WHERE subject_uuid = ?", s.fakeApplicationUUID1),
+		tc.Equals, 0,
+	)
+}
+
+func (s *commitHookSuite) TestGrantSecretsAccessInvariantViolationErrors(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: a secret with an existing permission using scopeUUID1/scopeTypeID=1.
+	// Attempting to re-grant with a different scope uuid should fail.
+	secretID := "secret-id-grant-invar"
+	subjectUUID := s.fakeApplicationUUID1
+	scopeUUID1 := s.fakeApplicationUUID1
+	scopeUUID2 := s.fakeApplicationUUID2
+
+	s.addSecret(c, secretID)
+	s.addSecretPermission(c, secretID, subjectUUID, 1, scopeUUID1, 1, 0)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretGrants: []internal.GrantSecretArg{{
+			SecretID:      secretID,
+			SubjectUUID:   subjectUUID,
+			SubjectTypeID: 1,
+			ScopeUUID:     scopeUUID2, // different scope — invariant violation
+			ScopeTypeID:   1,
+			RoleID:        0,
+		}},
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+
+	// Assert — invariant error must be surfaced.
+	c.Assert(err, tc.ErrorMatches, `.*cannot change scope or subject type.*`)
+}
+
 func (s *commitHookSuite) addSecret(c *tc.C, secretID string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
 	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, 1, 0)`,

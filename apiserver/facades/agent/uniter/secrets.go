@@ -25,7 +25,6 @@ type SecretService interface {
 	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
 	UpdateCharmSecret(context.Context, *coresecrets.URI, secret.UpdateCharmSecretParams) error
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
-	GrantSecretAccess(context.Context, *coresecrets.URI, secret.SecretAccessParams) error
 	GetConsumedRevision(
 		ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
@@ -43,6 +42,10 @@ type SecretService interface {
 	// ResolveRevokeParams resolves a batch of access params, looking up
 	// subject UUIDs. Per-entry errors are in RevokeResult.Error.
 	ResolveRevokeParams(ctx context.Context, params []secret.SecretAccessParams) []secret.RevokeResult
+
+	// ResolveGrantParams resolves a batch of access params, looking up
+	// subject and scope UUIDs. Per-entry errors are in GrantResult.Error.
+	ResolveGrantParams(ctx context.Context, params []secret.SecretAccessParams) []secret.GrantResult
 }
 
 // createSecrets creates new secrets.
@@ -179,13 +182,6 @@ func appFromTag(tag names.Tag) string {
 	return ""
 }
 
-type grantRevokeFunc func(context.Context, *coresecrets.URI, secret.SecretAccessParams) error
-
-// secretsGrant grants access to a secret for the specified subjects.
-func (u *UniterAPI) secretsGrant(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
-	return u.secretsGrantRevoke(ctx, args, u.secretService.GrantSecretAccess)
-}
-
 func accessorFromTag(tag names.Tag) (secret.SecretAccessor, error) {
 	result := secret.SecretAccessor{
 		ID: tag.Id(),
@@ -220,64 +216,6 @@ func accessScopeFromTag(tag names.Tag) (secret.SecretAccessScope, error) {
 		return secret.SecretAccessScope{}, errors.Errorf("tag kind %q not valid for secret access scope", kind)
 	}
 	return result, nil
-}
-
-func (u *UniterAPI) secretsGrantRevoke(ctx context.Context, args params.GrantRevokeSecretArgs, op grantRevokeFunc) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	one := func(arg params.GrantRevokeSecretArg) error {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		var scope secret.SecretAccessScope
-		if arg.ScopeTag != "" {
-			scopeTag, err := names.ParseTag(arg.ScopeTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			scope, err = accessScopeFromTag(scopeTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		role := coresecrets.SecretRole(arg.Role)
-		if role != "" && !role.IsValid() {
-			return errors.NotValidf("secret role %q", arg.Role)
-		}
-
-		accessor := secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   u.auth.GetAuthTag().Id(),
-		}
-
-		for _, tagStr := range arg.SubjectTags {
-			subjectTag, err := names.ParseTag(tagStr)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			subject, err := accessorFromTag(subjectTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := op(ctx, uri, secret.SecretAccessParams{
-				Accessor: accessor,
-				Scope:    scope,
-				Subject:  subject,
-				Role:     role,
-			}); err != nil {
-				return errors.Annotatef(err, "cannot change access to %q for %q", uri, tagStr)
-			}
-		}
-		return nil
-	}
-	for i, arg := range args.Args {
-		var result params.ErrorResult
-		result.Error = apiServerErrors.ServerError(one(arg))
-		results.Results[i] = result
-	}
-	return results, nil
 }
 
 // updateTrackedRevisions updates the consumer info to track the latest
@@ -447,6 +385,165 @@ func (u *UniterAPI) resolveSecretOwnerKinds(
 		}
 		revokes[i].OwnerKind = kind
 		filtered = append(filtered, revokes[i])
+	}
+	return filtered, nil
+}
+
+// prepareSecretGrants converts wire-format grant args to domain types,
+// filtering out secrets the unit cannot manage and resolving subject/scope
+// UUIDs and ownership.
+func (u *UniterAPI) prepareSecretGrants(
+	ctx context.Context, unitName coreunit.Name, grants []params.GrantRevokeSecretArg,
+) ([]unitstate.GrantSecretArg, error) {
+	secretGrants := make([]unitstate.GrantSecretArg, 0, len(grants))
+	var grantErrs []error
+
+	accessor := secret.SecretAccessor{
+		Kind: secret.UnitAccessor,
+		ID:   u.auth.GetAuthTag().Id(),
+	}
+
+	for _, g := range grants {
+		uri, err := coresecrets.ParseURI(g.URI)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				continue
+			}
+			grantErrs = append(grantErrs, err)
+			continue
+		}
+
+		args, err := u.resolveGrantSubjects(ctx, accessor, g)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range args {
+			if a.err != nil {
+				grantErrs = append(grantErrs, a.err)
+				continue
+			}
+			secretGrants = append(secretGrants, unitstate.GrantSecretArg{
+				URI:           uri,
+				SubjectUUID:   a.SubjectUUID,
+				SubjectTypeID: a.SubjectTypeID,
+				ScopeUUID:     a.ScopeUUID,
+				ScopeTypeID:   a.ScopeTypeID,
+				RoleID:        a.RoleID,
+			})
+		}
+	}
+	if len(grantErrs) > 0 {
+		return nil, internalerrors.Errorf(
+			"granting secrets access: %w", internalerrors.Join(grantErrs...))
+	}
+
+	return u.resolveGrantOwnerKinds(ctx, secretGrants)
+}
+
+// grantSubjectResult holds the resolved grant params or an error.
+type grantSubjectResult struct {
+	SubjectUUID   string
+	SubjectTypeID secret.GrantSubjectType
+	ScopeUUID     string
+	ScopeTypeID   secret.GrantScopeType
+	RoleID        secret.Role
+	err           error
+}
+
+// resolveGrantSubjects resolves the subject and scope tags in a single grant
+// arg into UUIDs via the secret service (single bulk call).
+func (u *UniterAPI) resolveGrantSubjects(
+	ctx context.Context, accessor secret.SecretAccessor, g params.GrantRevokeSecretArg,
+) ([]grantSubjectResult, error) {
+	var scope secret.SecretAccessScope
+	if g.ScopeTag != "" {
+		scopeTag, err := names.ParseTag(g.ScopeTag)
+		if err != nil {
+			return nil, err
+		}
+		scope, err = accessScopeFromTag(scopeTag)
+		if err != nil {
+			return nil, err
+		}
+	}
+	role := coresecrets.SecretRole(g.Role)
+	if role != "" && !role.IsValid() {
+		return nil, errors.NotValidf("secret role %q", g.Role)
+	}
+
+	// Build the batch of access params.
+	accessParams := make([]secret.SecretAccessParams, 0, len(g.SubjectTags))
+	for _, tagStr := range g.SubjectTags {
+		subjectTag, err := names.ParseTag(tagStr)
+		if err != nil {
+			return nil, err
+		}
+		subject, err := accessorFromTag(subjectTag)
+		if err != nil {
+			return nil, err
+		}
+		accessParams = append(accessParams, secret.SecretAccessParams{
+			Accessor: accessor,
+			Scope:    scope,
+			Subject:  subject,
+			Role:     role,
+		})
+	}
+
+	// Resolve all subjects in one call.
+	resolved := u.secretService.ResolveGrantParams(ctx, accessParams)
+
+	results := make([]grantSubjectResult, len(resolved))
+	for i, r := range resolved {
+		if r.Error != nil {
+			results[i] = grantSubjectResult{err: r.Error}
+			continue
+		}
+		results[i] = grantSubjectResult{
+			SubjectUUID:   r.SubjectUUID,
+			SubjectTypeID: r.SubjectTypeID,
+			ScopeUUID:     r.ScopeUUID,
+			ScopeTypeID:   r.ScopeTypeID,
+			RoleID:        r.RoleID,
+		}
+	}
+	return results, nil
+}
+
+// resolveGrantOwnerKinds resolves ownership for a slice of grant args,
+// filtering out secrets that disappeared between the access check and the
+// ownership query (deleted concurrently).
+func (u *UniterAPI) resolveGrantOwnerKinds(
+	ctx context.Context, grants []unitstate.GrantSecretArg,
+) ([]unitstate.GrantSecretArg, error) {
+	if len(grants) == 0 {
+		return grants, nil
+	}
+	uris := make([]*coresecrets.URI, len(grants))
+	for i, g := range grants {
+		uris[i] = g.URI
+	}
+	ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
+	if err != nil {
+		return nil, err
+	}
+	ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
+	for _, info := range ownerInfos {
+		ownerByID[info.SecretID] = info.OwnerKind
+	}
+	// Filter: secrets that disappeared between the access check and
+	// the ownership query were deleted concurrently.
+	filtered := grants[:0]
+	for i := range grants {
+		kind, ok := ownerByID[grants[i].URI.ID]
+		if !ok {
+			continue
+		}
+		grants[i].OwnerKind = kind
+		filtered = append(filtered, grants[i])
 	}
 	return filtered, nil
 }
