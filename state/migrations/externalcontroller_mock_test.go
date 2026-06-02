@@ -162,6 +162,36 @@ func (mr *MockExternalControllerSourceMockRecorder) ControllerForModel(arg0 any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockExternalControllerSource)(nil).ControllerForModel), arg0)
 }
 
+// LocalControllerInfo mocks base method.
+func (m *MockExternalControllerSource) LocalControllerInfo(arg0 []string) (MigrationExternalController, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LocalControllerInfo", arg0)
+	ret0, _ := ret[0].(MigrationExternalController)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LocalControllerInfo indicates an expected call of LocalControllerInfo.
+func (mr *MockExternalControllerSourceMockRecorder) LocalControllerInfo(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalControllerInfo", reflect.TypeOf((*MockExternalControllerSource)(nil).LocalControllerInfo), arg0)
+}
+
+// ModelExists mocks base method.
+func (m *MockExternalControllerSource) ModelExists(arg0 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelExists", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelExists indicates an expected call of ModelExists.
+func (mr *MockExternalControllerSourceMockRecorder) ModelExists(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockExternalControllerSource)(nil).ModelExists), arg0)
+}
+
 // MockExternalControllerModel is a mock of ExternalControllerModel interface.
 type MockExternalControllerModel struct {
 	ctrl     *gomock.Controller

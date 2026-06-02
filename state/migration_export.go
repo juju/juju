@@ -6,6 +6,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -1433,46 +1434,33 @@ type externalControllerShim struct {
 	st *State
 }
 
-// externalControllerInfoShim is used to align to an interface with in the
-// migrations package.
-type externalControllerInfoShim struct {
-	info externalControllerDoc
+// externalControllerInfo implements MigrationExternalController for use
+// during migration export.
+type externalControllerInfo struct {
+	id     string
+	alias  string
+	addrs  []string
+	caCert string
+	models []string
 }
 
-// ID holds the controller ID from the external controller
-func (e externalControllerInfoShim) ID() string {
-	return e.info.Id
-}
-
-// Alias holds an alias (human friendly) name for the controller.
-func (e externalControllerInfoShim) Alias() string {
-	return e.info.Alias
-}
-
-// Addrs holds the host:port values for the external
-// controller's API server.
-func (e externalControllerInfoShim) Addrs() []string {
-	return e.info.Addrs
-}
-
-// CACert holds the certificate to validate the external
-// controller's target API server's TLS certificate.
-func (e externalControllerInfoShim) CACert() string {
-	return e.info.CACert
-}
-
-// Models holds model UUIDs hosted on this controller.
-func (e externalControllerInfoShim) Models() []string {
-	return e.info.Models
-}
+func (e externalControllerInfo) ID() string       { return e.id }
+func (e externalControllerInfo) Alias() string    { return e.alias }
+func (e externalControllerInfo) Addrs() []string  { return e.addrs }
+func (e externalControllerInfo) CACert() string   { return e.caCert }
+func (e externalControllerInfo) Models() []string { return e.models }
 
 func (s externalControllerShim) ControllerForModel(uuid string) (migrations.MigrationExternalController, error) {
 	entity, err := s.st.ExternalControllerForModel(uuid)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return externalControllerInfoShim{
-		info: entity.doc,
+	return externalControllerInfo{
+		id:     entity.doc.Id,
+		alias:  entity.doc.Alias,
+		addrs:  entity.doc.Addrs,
+		caCert: entity.doc.CACert,
+		models: entity.doc.Models,
 	}, nil
 }
 
@@ -1487,6 +1475,59 @@ func (s externalControllerShim) AllRemoteApplications() ([]migrations.MigrationR
 		result[k] = remoteApplicationShim{RemoteApplication: v}
 	}
 	return result, nil
+}
+
+// ModelExists returns true if the model with the given UUID is hosted on
+// this controller.
+func (s externalControllerShim) ModelExists(uuid string) (bool, error) {
+	return s.st.ModelExists(uuid)
+}
+
+// LocalControllerInfo returns a MigrationExternalController representing the
+// current controller. The provided modelUUIDs are set as the hosted models.
+func (s externalControllerShim) LocalControllerInfo(modelUUIDs []string) (migrations.MigrationExternalController, error) {
+	apiHostPorts, err := s.st.APIHostPortsForClients()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var addrs []string
+	for _, hostPorts := range apiHostPorts {
+		ordered := hostPorts.HostPorts().FilterUnusable().PrioritizedForScope(network.ScopeMatchPublic)
+		for _, addr := range ordered {
+			if addr == "" {
+				continue
+			}
+			// Addresses can be recorded without a scope.
+			// Ensure no loopback addresses are included.
+			host, _, err := net.SplitHostPort(addr)
+			if err == nil {
+				if host == "localhost" {
+					continue
+				}
+				if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+					continue
+				}
+			}
+			addrs = append(addrs, addr)
+		}
+	}
+
+	controllerConfig, err := s.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	caCert, _ := controllerConfig.CACert()
+	alias := controllerConfig.ControllerName()
+
+	return externalControllerInfo{
+		id:     s.st.ControllerUUID(),
+		alias:  alias,
+		addrs:  addrs,
+		caCert: caCert,
+		models: modelUUIDs,
+	}, nil
 }
 
 func (e *exporter) externalControllers() error {
