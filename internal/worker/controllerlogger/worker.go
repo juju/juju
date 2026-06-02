@@ -47,7 +47,7 @@ func (c *Config) Validate() error {
 
 // NewWorker returns a controller-only logging worker backed by model config
 // domain services.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -56,7 +56,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config:     config,
 		lastConfig: config.Context.Config().String(),
 	}
-	config.Logger.Infof(context.Background(), "initial log config: %q", l.lastConfig)
+	config.Logger.Infof(ctx, "initial log config: %q", l.lastConfig)
 
 	w, err := watcher.NewStringsWorker(watcher.StringsConfig{Handler: l})
 	if err != nil {
@@ -89,6 +89,12 @@ func (l *loggerWorker) TearDown() error {
 	return nil
 }
 
+// setLogging applies the current logging configuration to the logger context.
+// NOTE: This function is a near-duplicate of the setLogging method in
+// internal/worker/logger/logger.go. That worker serves the same purpose but
+// uses a facade (LoggerAPI) and a NotifyWatcher, whereas this one uses a
+// domain service (ModelConfigService) and a StringsWatcher. Any logic
+// changes here should be considered for the other implementation too.
 func (l *loggerWorker) setLogging(ctx context.Context) {
 	loggingConfig := ""
 	logger := l.config.Logger
