@@ -613,7 +613,13 @@ func (s *State) addCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 		return errors.Errorf("preparing query: %w", err)
 	}
 
-	if err := tx.Query(ctx, hashStmt, setHash).Run(); err != nil {
+	if err := tx.Query(ctx, hashStmt, setHash).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) ||
+		internaldatabase.IsErrConstraintUnique(err) {
+		return errors.Errorf(
+			"charm hash for charm %q already exists",
+			id,
+		).Add(applicationerrors.CharmHashAlreadyExists)
+	} else if err != nil {
 		return errors.Errorf("inserting charm hash: %w", err)
 	}
 

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -2911,7 +2910,7 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadata(c *tc.C) {
 	c.Check(hash, tc.DeepEquals, "hash")
 }
 
-func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c *tc.C) {
+func (s *charmStateSuite) TestCharmHashIsSingleRowPerCharm(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock,
 		loggertesting.WrapCheckLog(c))
 
@@ -2929,13 +2928,10 @@ func (s *charmStateSuite) TestGetCharmArchiveMetadataInsertAdditionalHashKind(c 
 	}, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return insertAdditionalHashKindForCharm(ctx, c, tx, id, "sha386", "hash386")
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.addCharmHash(ctx, tx, id, "hash386")
 	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, _, err = st.GetCharmArchiveMetadata(c.Context(), id)
-	c.Assert(err, tc.ErrorIs, applicationerrors.MultipleCharmHashes)
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmHashAlreadyExists)
 }
 
 func (s *charmStateSuite) TestGetCharmArchiveMetadataCharmNotFound(c *tc.C) {
@@ -3581,28 +3577,6 @@ func insertCharmManifest(ctx context.Context, c *tc.C, tx *sql.Tx, uuid string) 
 	}
 
 	return charm.Manifest{}, nil
-}
-
-func insertAdditionalHashKindForCharm(ctx context.Context, c *tc.C, tx *sql.Tx, charmId corecharm.ID, kind, hash string) error {
-	var kindId int
-	rows, err := tx.QueryContext(ctx, `SELECT id FROM hash_kind`)
-	c.Assert(err, tc.ErrorIsNil)
-	for rows.Next() {
-		var id int
-		err := rows.Scan(&id)
-		c.Assert(err, tc.ErrorIsNil)
-		kindId = max(kindId, id)
-	}
-	kindId++
-	defer func() { _ = rows.Close() }()
-
-	_, err = tx.ExecContext(ctx, `INSERT INTO hash_kind (id, name) VALUES (?, ?)`, kindId, kind)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = tx.ExecContext(ctx, `INSERT INTO charm_hash (charm_uuid, hash_kind_id, hash) VALUES (?, ?, ?)`, charmId, kindId, hash)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return nil
 }
 
 func insertMinimalApplication(ctx context.Context, c *tc.C, tx *sql.Tx, uuid, charm_uuid string) error {
