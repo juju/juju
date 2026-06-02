@@ -74,7 +74,9 @@ copyright = "%s CC-BY-SA, %s" % (datetime.date.today().year, author)
 # NOTE: The Open Graph Protocol (OGP) enhances page display in a social graph
 #       and is used by social media platforms; see https://ogp.me/
 
-# ogp_site_url = "https://canonical-starter-pack.readthedocs-hosted.com/"
+version_slug = f"{os.environ.get('READTHEDOCS_VERSION', 'local')}"
+
+ogp_site_url = f"https://canonical.com/juju/docs/juju-cli/{version_slug}/"
 
 
 # Preview name of the documentation website
@@ -178,7 +180,7 @@ html_context = {
 # TODO: If your documentation is hosted on https://docs.ubuntu.com/,
 #       uncomment and update as needed.
 
-slug = 'juju'
+slug = 'juju/docs/juju-cli'
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
@@ -186,7 +188,7 @@ slug = 'juju'
 
 # Use RTD canonical URL to ensure duplicate pages have a specific canonical URL
 
-html_baseurl = 'https://documentation.ubuntu.com/juju/'
+html_baseurl = f'https://canonical.com/juju/docs/juju-cli/{version_slug}/'
 
 # URL scheme. Add language and version scheme elements.
 # When configured with RTD variables, check for RTD environment so manual runs succeed:
@@ -196,6 +198,8 @@ if 'READTHEDOCS_VERSION' in os.environ:
     sitemap_url_scheme = '{version}{link}'
 else:
     sitemap_url_scheme = 'MANUAL/{link}'
+
+sitemap_filename = "doc-sitemap.xml"
 
 # Include `lastmod` dates in the sitemap:
 
@@ -340,6 +344,7 @@ html_css_files = [
 
 html_js_files = [
     "https://assets.ubuntu.com/v1/287a5e8f-bundle.js",
+    'js/overwrite_links.js',
 ]
 
 # Specifies a reST snippet to be appended to each .rst file
