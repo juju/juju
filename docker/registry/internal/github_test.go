@@ -5,6 +5,7 @@ package internal_test
 
 import (
 	"encoding/base64"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -60,9 +61,9 @@ func (s *githubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controlle
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
 					authToken := base64.StdEncoding.EncodeToString([]byte("pwd"))
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
+					c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
+					c.Check(req.Method, gc.Equals, `GET`)
+					c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
 					return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
 				},
 			),
@@ -154,9 +155,9 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -171,9 +172,9 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 		// Refresh OAuth Token without credential.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=ghcr.io`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=ghcr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -182,9 +183,9 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				Header:     http.Header{http.CanonicalHeaderKey("Link"): []string{`/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0; rel="next"`}},
@@ -194,8 +195,8 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 			return resps, nil
 		}),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0`)
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -213,6 +214,141 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 	})
 }
 
+func (s *githubSuite) TestTagsPublicRegistryWithAbsolutePaginationLink(c *gc.C) {
+	// Use anonymous login for public repository.
+	s.isPrivate = false
+	reg, ctrl := s.getRegistry(c)
+	defer ctrl.Finish()
+
+	data := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2"]}
+`[1:]
+	data2 := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10"]}
+`[1:]
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusUnauthorized,
+				Body:       io.NopCloser(nil),
+				Header: http.Header{
+					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+						`Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
+					},
+				},
+			}, nil
+		}),
+		// Refresh OAuth Token without credential.
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Check(req.Header, jc.DeepEquals, http.Header{})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=ghcr.io`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			resps := &http.Response{
+				Request: req,
+				Header: http.Header{http.CanonicalHeaderKey("Link"): []string{
+					`<https://ghcr.io/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0>; rel="next"`,
+				}},
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0`)
+			resps := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(data2)),
+			}
+			return resps, nil
+		}),
+	)
+	vers, err := reg.Tags("jujud-operator")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, jc.DeepEquals, tools.Versions{
+		image.NewImageInfo(version.MustParse("2.9.10.1")),
+		image.NewImageInfo(version.MustParse("2.9.10.2")),
+		image.NewImageInfo(version.MustParse("2.9.10")),
+	})
+}
+
+func (s *githubSuite) TestTagsPublicRegistryWithInvalidPaginationLink(c *gc.C) {
+	// Use anonymous login for public repository.
+	s.isPrivate = false
+	reg, ctrl := s.getRegistry(c)
+	defer ctrl.Finish()
+
+	data := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2"]}
+`[1:]
+
+	gomock.InOrder(
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusUnauthorized,
+				Body:       io.NopCloser(nil),
+				Header: http.Header{
+					http.CanonicalHeaderKey("WWW-Authenticate"): []string{
+						`Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:jujuqa/jujud-operator:pull"`,
+					},
+				},
+			}, nil
+		}),
+		// Refresh OAuth Token without credential.
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Check(req.Header, jc.DeepEquals, http.Header{})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=ghcr.io`)
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"token": "jwt-token", "access_token": "jwt-token","expires_in": 300}`)),
+				}, nil
+			},
+		),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			resps := &http.Response{
+				Request: req,
+				Header: http.Header{http.CanonicalHeaderKey("Link"): []string{
+					`<https://[::1>; rel="next"`,
+				}},
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+	)
+
+	_, err := reg.Tags("jujud-operator")
+	c.Assert(err, gc.ErrorMatches, `.*invalid link URL "https://\[::1".*`)
+}
+
 func (s *githubSuite) TestTagsPrivateRegistry(c *gc.C) {
 	// Use v2 for private repository.
 	s.isPrivate = true
@@ -226,9 +362,9 @@ func (s *githubSuite) TestTagsPrivateRegistry(c *gc.C) {
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			authToken := base64.StdEncoding.EncodeToString([]byte("pwd"))
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -258,9 +394,9 @@ func (s *githubSuite) TestTagsErrorResponse(c *gc.C) {
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 			authToken := base64.StdEncoding.EncodeToString([]byte("pwd"))
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + authToken}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
