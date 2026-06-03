@@ -552,6 +552,32 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["object-store"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{
+			"trace",
+			"object-store-services",
+			"lease-manager",
+			"object-store-s3-caller",
+			"api-remote-caller",
+			"upgrade-database-flag",
+		})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "clock")
+	}
+}
+
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 	ag := &mockAgent{
 		conf: mockConfig{
