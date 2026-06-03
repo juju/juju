@@ -408,6 +408,25 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["object-store-services"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{"change-stream"})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "clock")
+	}
+}
+
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
