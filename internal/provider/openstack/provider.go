@@ -844,13 +844,13 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		} else {
 			authMode = identity.AuthUserPass
 		}
+		if err := validateTrustCredentialScope(cred); err != nil {
+			return identity.Credentials{}, 0, errors.Trace(err)
+		}
 	case cloud.AccessKeyAuthType:
 		cred.User = credAttrs[CredAttrAccessKey]
 		cred.Secrets = credAttrs[CredAttrSecretKey]
 		authMode = identity.AuthKeyPair
-	}
-	if err := validateTrustCredentialScope(cred); err != nil {
-		return identity.Credentials{}, 0, errors.Trace(err)
 	}
 	return cred, authMode, nil
 }

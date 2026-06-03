@@ -86,6 +86,8 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	s.PatchEnvironment("OS_ACCESS_KEY", "key-id")
 	s.PatchEnvironment("OS_SECRET_KEY", "secret-access-key")
 	s.PatchEnvironment("OS_REGION_NAME", "east")
+	// Trust auth only applies to userpass; it must not reject access keys.
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
 
 	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, tc.ErrorIsNil)

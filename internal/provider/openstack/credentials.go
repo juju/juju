@@ -177,9 +177,6 @@ func (c OpenstackCredentials) detectCredential(ctx context.Context) (*cloud.Cred
 	if creds.Secrets == "" {
 		return nil, "", "", errors.NewNotFound(nil, "OS_PASSWORD and OS_SECRET_KEY environment variables are not set")
 	}
-	if err := validateTrustCredentialScope(*creds); err != nil {
-		return nil, "", "", errors.Trace(err)
-	}
 
 	user, err := utils.LocalUsername()
 	if err != nil {
@@ -195,6 +192,9 @@ func (c OpenstackCredentials) detectCredential(ctx context.Context) (*cloud.Cred
 	// If OS_USERNAME or NOVA_USERNAME is set, assume userpass.
 	var credential cloud.Credential
 	if os.Getenv("OS_USERNAME") != "" || os.Getenv("NOVA_USERNAME") != "" {
+		if err := validateTrustCredentialScope(*creds); err != nil {
+			return nil, "", "", errors.Trace(err)
+		}
 		user = creds.User
 		credential = cloud.NewCredential(
 			cloud.UserPassAuthType,
