@@ -467,28 +467,27 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 }
 
 // completeDraining flushes the object store workers and marks the draining
-// phase as completed so the guard can be unlocked.
-// The worker itself is run only on the singular primary controller.
+// phase as completed so the guard can be unlocked. The worker itself is run
+// only on the singular primary controller.
 //
 // The ordering is important for crash recovery:
 // 1. Flush workers (idempotent, re-applied on restart if missed)
 // 2. Set phase to completed (atomic commit point, marks old backend dead)
 //
-// SetDrainingPhase(PhaseCompleted) is deliberately last because it
-// atomically marks the old backend as dead in the database. If step 1
-// fail, the phase remains Draining, the old backend is still alive,
-// and the error path can set PhaseError. On retry or restart the
-// idempotent steps are simply re-applied.
+// SetDrainingPhase(PhaseCompleted) is deliberately last because it atomically
+// marks the old backend as dead in the database. If step 1 fails, the phase
+// remains Draining, the old backend is still alive, and the error path can set
+// PhaseError. On retry or restart the idempotent steps are simply re-applied.
 //
 // NOTE: The fortress guard ensures no new objectstore operations can begin
 // during draining (all callers go through the objectStoreFacade which uses
-// fortress.Guest.Visit). However, callers that obtained an io.ReadCloser
-// from a Get() call before lockdown may still be streaming data when
-// FlushWorkers kills the underlying objectstore child workers. This is a
-// known limitation — such readers will receive an IO error. The practical
-// risk is low because draining is a rare operational event and callers
-// handle read errors. Fixing this would require reference-counting active
-// readers, which is disproportionate to the risk.
+// fortress.Guest.Visit). However, callers that obtained an io.ReadCloser from
+// a Get() call before lockdown may still be streaming data when FlushWorkers
+// kills the underlying objectstore child workers. This is a known limitation —
+// such readers will receive an IO error. The practical risk is low because
+// draining is a rare operational event and callers handle read errors. Fixing
+// this would require reference-counting active readers, which is
+// disproportionate to the risk.
 func (w *Worker) completeDraining(ctx context.Context) error {
 	// Flush the object store workers to ensure that they are all stopped and
 	// removed. This is necessary to ensure that the object store is in a clean

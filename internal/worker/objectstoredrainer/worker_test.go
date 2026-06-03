@@ -495,10 +495,10 @@ func (s *workerSuite) TestRecoverFromCrashDuringFlushWorkers(c *tc.C) {
 	workertest.CleanKill(c, w2)
 }
 
-// TestRecoverFromCrashDuringFlushWorkers verifies that if the worker crashes
-// during FlushWorkers, on restart the phase is still Draining and the worker
-// re-enters the draining flow and completes successfully. ChangeConfig is
-// idempotent so re-applying it on the second attempt is harmless.
+// TestRecoverFromCrashDuringSetDrainingPhaseCompleted verifies that if the
+// worker crashes after FlushWorkers succeeds but before the draining phase is
+// committed as Completed, on restart the phase is still Draining and the
+// worker re-enters the draining flow and completes successfully.
 func (s *workerSuite) TestRecoverFromCrashDuringSetDrainingPhaseCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
