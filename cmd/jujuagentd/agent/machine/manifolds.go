@@ -928,10 +928,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// in progress.
 		objectStoreFortressName: fortress.Manifold(),
 		objectStoreDrainerName: ifPrimaryController(objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
-			AgentName:                       agentName,
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
+			ObjectStoreRootDir:              config.ObjectStoreRootDir,
 			FortressName:                    objectStoreFortressName,
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
@@ -943,7 +943,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SelectFileHash:                  internalobjectstore.SelectFileHash,
 			NewWorker:                       objectstoredrainer.NewWorker,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
-			Clock:                           config.Clock,
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
