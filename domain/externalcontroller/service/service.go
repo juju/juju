@@ -71,7 +71,9 @@ func (s *Service) Controller(
 
 	controllerInfo, err := s.st.Controller(ctx, controllerUUID)
 	if err != nil {
-		return controllerInfo, errors.Errorf("retrieving external controller %s: %w", controllerUUID, err)
+		err = errors.Errorf("retrieving external controller %s: %w", controllerUUID, err)
+		span.RecordError(err)
+		return controllerInfo, err
 	}
 	return controllerInfo, nil
 }
@@ -87,11 +89,15 @@ func (s *Service) ControllerForModel(
 
 	controllers, err := s.st.ControllersForModels(ctx, modelUUID)
 	if err != nil {
-		return nil, errors.Errorf("retrieving external controller for model %s: %w", modelUUID, err)
+		err = errors.Errorf("retrieving external controller for model %s: %w", modelUUID, err)
+		span.RecordError(err)
+		return nil, err
 	}
 
 	if len(controllers) == 0 {
-		return nil, errors.Errorf("external controller for model %q %w", modelUUID, coreerrors.NotFound)
+		err := errors.Errorf("external controller for model %q %w", modelUUID, coreerrors.NotFound)
+		span.RecordError(err)
+		return nil, err
 	}
 
 	return &controllers[0], nil
@@ -104,9 +110,17 @@ func (s *Service) UpdateExternalController(
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"controller.update",
+		trace.StringAttr("controller_uuid", ec.ControllerUUID),
+		trace.IntAttr("address_count", len(ec.Addrs)),
+		trace.IntAttr("model_count", len(ec.ModelUUIDs)),
+	)
 
 	if err := s.st.UpdateExternalController(ctx, ec); err != nil {
-		return errors.Errorf("updating external controller state: %w", err)
+		err = errors.Errorf("updating external controller state: %w", err)
+		span.RecordError(err)
+		return err
 	}
 	return nil
 }
@@ -119,8 +133,16 @@ func (s *Service) ImportExternalControllers(
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"controllers.import",
+		trace.IntAttr("controller_count", len(externalControllers)),
+	)
 
-	return s.st.ImportExternalControllers(ctx, externalControllers)
+	if err := s.st.ImportExternalControllers(ctx, externalControllers); err != nil {
+		span.RecordError(err)
+		return err
+	}
+	return nil
 }
 
 // ModelsForController returns the list of model UUIDs for
@@ -134,7 +156,9 @@ func (s *Service) ModelsForController(
 
 	models, err := s.st.ModelsForController(ctx, controllerUUID)
 	if err != nil {
-		return models, errors.Errorf("retrieving model UUIDs for controller %s: %w", controllerUUID, err)
+		err = errors.Errorf("retrieving model UUIDs for controller %s: %w", controllerUUID, err)
+		span.RecordError(err)
+		return models, err
 	}
 	return models, nil
 }
@@ -149,7 +173,13 @@ func (s *Service) ControllersForModels(
 ) ([]crossmodel.ControllerInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	return s.st.ControllersForModels(ctx, modelUUIDs...)
+
+	controllers, err := s.st.ControllersForModels(ctx, modelUUIDs...)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+	return controllers, nil
 }
 
 // WatchableService provides the API for working with external controllers
@@ -173,11 +203,17 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	namespace := s.st.NamespaceForWatchExternalController()
 
-	return s.watcherFactory.NewUUIDsWatcher(
+	w, err := s.watcherFactory.NewUUIDsWatcher(
 		ctx,
-		s.st.NamespaceForWatchExternalController(),
+		namespace,
 		"external controller watcher",
 		changestream.Changed,
 	)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+	return w, nil
 }

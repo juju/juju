@@ -148,6 +148,11 @@ func (s *Service) AdoptResources(
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"resource-adoption",
+		trace.StringAttr("model_uuid", s.modelUUID),
+		trace.StringAttr("source_controller_version", sourceControllerVersion.String()),
+	)
 
 	provider, err := s.resourceProviderGetter(ctx)
 
@@ -155,18 +160,22 @@ func (s *Service) AdoptResources(
 	if errors.Is(err, coreerrors.NotSupported) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"getting resource provider for adopting model cloud resources: %w",
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
 
 	controllerUUID, err := s.modelState.GetControllerUUID(ctx)
 	if err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"cannot get controller uuid while adopting model cloud resources: %w",
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
 
 	err = provider.AdoptResources(
@@ -180,7 +189,9 @@ func (s *Service) AdoptResources(
 		return nil
 	}
 	if err != nil {
-		return errors.Errorf("cannot adopt cloud resources for model: %w", err)
+		err = errors.Errorf("cannot adopt cloud resources for model: %w", err)
+		span.RecordError(err)
+		return err
 	}
 	return nil
 }
@@ -197,10 +208,12 @@ func (s *Service) CheckMachines(
 
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
-		return nil, errors.Errorf(
+		err = errors.Errorf(
 			"cannot get provider for model when checking for machine discrepancies in migrated model: %w",
 			err,
 		)
+		span.RecordError(err)
+		return nil, err
 	}
 
 	// If the provider doesn't support machines we can bail out early.
@@ -210,10 +223,12 @@ func (s *Service) CheckMachines(
 
 	providerInstances, err := provider.AllInstances(ctx)
 	if err != nil {
-		return nil, errors.Errorf(
+		err = errors.Errorf(
 			"cannot get all provider instances for model when checking machines: %w",
 			err,
 		)
+		span.RecordError(err)
+		return nil, err
 	}
 
 	// Build the sets of provider instance IDs and model machine instance IDs.
@@ -224,18 +239,23 @@ func (s *Service) CheckMachines(
 
 	instanceIDsSet, err := s.modelState.GetAllInstanceIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
+		err = errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
+		span.RecordError(err)
+		return nil, err
 	}
 	// First check that all the instance IDs in the model are in the provider.
 	if difference := instanceIDsSet.Difference(providerInstanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("instance IDs %q are not part of the provider instance IDs", difference.Values())
+		err := errors.Errorf("instance IDs %q are not part of the provider instance IDs", difference.Values())
+		span.RecordError(err)
+		return nil, err
 	}
 	// Then check that all the instance ids in the provider correspond to model
 	// machines instance IDs
 	if difference := providerInstanceIDsSet.Difference(instanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("provider instance IDs %q are not part of the model machines instance IDs", difference.Values())
+		err := errors.Errorf("provider instance IDs %q are not part of the model machines instance IDs", difference.Values())
+		span.RecordError(err)
+		return nil, err
 	}
-
 	return nil, nil
 }
 
@@ -258,11 +278,19 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 }
 
 // InitiateMigration kicks off migrating this model to the target controller.
-func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, userName string) (string, error) {
+func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.TargetInfo, _ string) (string, error) {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"migration-initiation",
+		trace.StringAttr("model_uuid", s.modelUUID),
+		trace.StringAttr("target_controller_uuid", targetInfo.ControllerUUID),
+		trace.IntAttr("target_address_count", len(targetInfo.Addrs)),
+	)
 	// TODO(modelmigration): implement migration info reporting.
-	return "", errors.ConstError("migration is not implemented")
+	err := errors.ConstError("migration is not implemented")
+	span.RecordError(err)
+	return "", err
 }
 
 // WatchForMigration returns a notification watcher that fires when this model
@@ -270,16 +298,22 @@ func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.Ta
 func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	namespace := s.modelState.GetNamespaceModelMigrating()
 
-	return s.watcherFactory.NewNotifyWatcher(
+	w, err := s.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"watch for model migration",
 		eventsource.PredicateFilter(
-			s.modelState.GetNamespaceModelMigrating(),
+			namespace,
 			changestream.All,
 			eventsource.EqualsPredicate(s.modelUUID),
 		),
 	)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+	return w, nil
 }
 
 // WatchMigrationPhase returns a notification watcher that fires when this
@@ -296,8 +330,15 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 func (s *Service) ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase) error {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"minion-report.unit",
+		trace.StringAttr("unit_name", unitName.String()),
+		trace.StringAttr("phase", phase.String()),
+	)
 	// TODO(modelmigration): implement reporting phase from a unit.
-	return errors.ConstError("migration report from a unit is not implemented")
+	err := errors.ConstError("migration report from a unit is not implemented")
+	span.RecordError(err)
+	return err
 }
 
 // ReportFromMachine accepts a phase report from a migration minion for a
@@ -305,16 +346,29 @@ func (s *Service) ReportFromUnit(ctx context.Context, unitName unit.Name, phase 
 func (s *Service) ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase) error {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"minion-report.machine",
+		trace.StringAttr("machine_name", machineName.String()),
+		trace.StringAttr("phase", phase.String()),
+	)
 	// TODO(modelmigration): implement reporting phase from a machine.
-	return errors.ConstError("migration report from a machine is not implemented")
+	err := errors.ConstError("migration report from a machine is not implemented")
+	span.RecordError(err)
+	return err
 }
 
 // SetMigrationPhase is called by the migration master to progress migration.
 func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) error {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"migration-phase-set",
+		trace.StringAttr("phase", phase.String()),
+	)
 	// TODO(modelmigration): implement reporting phase from migration master.
-	return errors.ConstError("setting migration phase is not implemented")
+	err := errors.ConstError("setting migration phase is not implemented")
+	span.RecordError(err)
+	return err
 }
 
 // SetMigrationStatusMessage is called by the migration master to report on
@@ -322,8 +376,14 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 func (s *Service) SetMigrationStatusMessage(ctx context.Context, message string) error {
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	span.AddEvent(
+		"migration-status-message",
+		trace.IntAttr("message_length", len(message)),
+	)
 	// TODO(modelmigration): implement setting migration status message.
-	return errors.ConstError("setting migration status message is not implemented")
+	err := errors.ConstError("setting migration status message is not implemented")
+	span.RecordError(err)
+	return err
 }
 
 // WatchMinionReports returns a notification watcher that fires when any minion
@@ -340,7 +400,9 @@ func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, e
 	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 	// TODO(modelmigration): implement getting minion reports.
-	return migration.MinionReports{}, errors.ConstError("getting minion reports is not implemented")
+	err := errors.ConstError("getting minion reports is not implemented")
+	span.RecordError(err)
+	return migration.MinionReports{}, err
 }
 
 // ActivateImport finalises the import of the model by clearing the
@@ -358,33 +420,41 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 
 	desiredTargetVersionStr, err := s.controllerState.GetControllerTargetVersion(ctx)
 	if err != nil {
-		return errors.Errorf("getting current controller agent version: %w", err)
+		err = errors.Errorf("getting current controller agent version: %w", err)
+		span.RecordError(err)
+		return err
 	} else if desiredTargetVersionStr == "" {
 		// This shouldn't happen, and indicates a programming error somewhere.
-		return errors.Errorf("current controller agent version is not set")
+		err := errors.Errorf("current controller agent version is not set")
+		span.RecordError(err)
+		return err
 	}
-
 	desiredTargetVersion, err := semversion.Parse(desiredTargetVersionStr)
 	if err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"parsing current controller agent version %q: %w",
 			desiredTargetVersionStr,
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
 
 	currentTargetVersionStr, err := s.modelState.GetModelTargetAgentVersion(ctx)
 	if err != nil {
-		return errors.Errorf("getting current model agent version: %w", err)
+		err = errors.Errorf("getting current model agent version: %w", err)
+		span.RecordError(err)
+		return err
 	}
-
 	currentTargetVersion, err := semversion.Parse(currentTargetVersionStr)
 	if err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"parsing current model agent version %q: %w",
 			currentTargetVersionStr,
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
 
 	// TODO (stickupkid): We should validate if we have all the binaries
@@ -393,12 +463,19 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 	// If the current target version doesn't match the desired target version,
 	// we need to update it.
 	if currentTargetVersion != desiredTargetVersion {
+		span.AddEvent(
+			"import-activation.model-target-version-update",
+			trace.StringAttr("from_version", currentTargetVersion.String()),
+			trace.StringAttr("to_version", desiredTargetVersion.String()),
+		)
 		// Update the model target agent version to match the controller's
 		// target agent version.
 		if err = s.modelState.SetModelTargetAgentVersion(
 			ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
 		); err != nil {
-			return errors.Capture(err)
+			err = errors.Capture(err)
+			span.RecordError(err)
+			return err
 		}
 	}
 
@@ -416,18 +493,30 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 	// it shouldn't prevent the model from being used (in theory).
 
 	if err := s.modelState.DeleteModelImportingStatus(ctx); err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"deleting model importing status from model database: %w",
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
+	span.AddEvent(
+		"import-activation.model-import-status-cleared",
+		trace.StringAttr("model_uuid", s.modelUUID),
+	)
 
 	if err := s.controllerState.DeleteModelImportingStatus(ctx, s.modelUUID); err != nil {
-		return errors.Errorf(
+		err = errors.Errorf(
 			"deleting model importing status from controller database: %w",
 			err,
 		)
+		span.RecordError(err)
+		return err
 	}
+	span.AddEvent(
+		"import-activation.controller-import-status-cleared",
+		trace.StringAttr("model_uuid", s.modelUUID),
+	)
 
 	return nil
 }
