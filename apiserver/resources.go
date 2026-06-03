@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/wrench"
 )
 
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.
@@ -141,6 +143,11 @@ func (h *ResourcesUploadHandler) upload(backend ResourcesBackend, req *http.Requ
 	uploaded, err := h.readResource(backend, req)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if wrench.IsActive("resources", "upload-delay") {
+		logger.Warningf("delaying resource upload due to wrench resources/upload-delay")
+		time.Sleep(30 * time.Second)
 	}
 
 	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
