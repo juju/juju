@@ -832,7 +832,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
-			Clock:                        config.Clock,
 			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
 			NewWorker:                    objectstoreservices.NewWorker,
 			NewObjectStoreServices:       objectstoreservices.NewObjectStoreServices,
