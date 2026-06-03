@@ -185,7 +185,11 @@ func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args 
 	ver := version.String()
 	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	// Ensure we don't double up the version in the final URL.
-	pathSuffix = strings.TrimLeft(pathSuffix, ver+"/")
+	pathSuffix = strings.TrimPrefix(pathSuffix, "/"+ver+"/")
+	pathSuffix = strings.TrimPrefix(pathSuffix, ver+"/")
+	if pathSuffix == "/"+ver || pathSuffix == ver {
+		pathSuffix = ""
+	}
 
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
 		url.Path = path.Join(url.Path, ver)
@@ -193,7 +197,11 @@ func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args 
 	if url.Scheme == "" {
 		url.Scheme = "https"
 	}
-	url.Path = path.Join(url.Path, pathSuffix)
+	if pathSuffix == "/" {
+		url.Path = url.Path + pathSuffix
+	} else {
+		url.Path = path.Join(url.Path, pathSuffix)
+	}
 	return url.String()
 }
 
@@ -246,13 +254,25 @@ func (c *baseClient) getPaginatedJSON(reqURL string, response interface{}) (stri
 		return "", err
 	}
 	logger.Tracef("paginatedJSON link %q", link)
+	nextURL, err := pageLinkURL(resp, link)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return nextURL, nil
+}
+
+func pageLinkURL(resp *http.Response, link string) (string, error) {
 	linkURL, err := url.Parse(link)
 	if err != nil {
 		return "", errors.Annotatef(err, "invalid link URL %q", link)
 	}
-	nextURL := c.url("%s", linkURL.Path)
-	nextURL += "?" + linkURL.RawQuery
-	return nextURL, nil
+	if linkURL.Scheme != "" {
+		return linkURL.String(), nil
+	}
+	if resp.Request == nil || resp.Request.URL == nil {
+		return "", errors.NotValidf("pagination response request URL")
+	}
+	return resp.Request.URL.ResolveReference(linkURL).String(), nil
 }
 
 var (

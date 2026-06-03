@@ -52,9 +52,9 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 		// registry.Ping() 1st try failed - bearer token was missing.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
@@ -71,10 +71,10 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				if s.isPrivate {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+					c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
 				}
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -85,9 +85,9 @@ func (s *dockerhubSuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Contro
 		// registry.Ping()
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/`)
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
@@ -127,9 +127,9 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -144,9 +144,9 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 		// Refresh OAuth Token without credential.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -156,9 +156,9 @@ func (s *dockerhubSuite) TestTagsPublicRegistry(c *gc.C) {
 		),
 
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -188,9 +188,9 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -205,9 +205,9 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -217,9 +217,9 @@ func (s *dockerhubSuite) TestTagsPrivateRegistry(c *gc.C) {
 		),
 
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -248,9 +248,9 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -265,9 +265,9 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.docker.io/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.docker.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -276,9 +276,9 @@ func (s *dockerhubSuite) TestTagsErrorResponse(c *gc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://index.docker.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
