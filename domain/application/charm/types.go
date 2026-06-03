@@ -175,9 +175,6 @@ type Charm struct {
 	Actions Actions
 	// Config holds the configuration options of the charm.
 	Config Config
-	// LXDProfile holds the LXD profile of the charm. It allows the charm to
-	// specify the LXD profile that should be used when deploying the charm.
-	LXDProfile []byte
 	// Source is the source of the charm.
 	Source CharmSource
 	// ReferenceName is the given name of the charm that is stored in the

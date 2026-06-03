@@ -2188,7 +2188,7 @@ options:
 	manifest := &internalcharm.Manifest{
 		Bases: []internalcharm.Base{b},
 	}
-	charm := internalcharm.NewCharmBase(metadata, manifest, cfg, nil, nil)
+	charm := internalcharm.NewCharmBase(metadata, manifest, cfg, nil)
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(charm, locator, true, nil)
 
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)

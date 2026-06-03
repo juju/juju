@@ -324,7 +324,6 @@ type setCharmState struct {
 	SourceID        int             `db:"source_id"`
 	ArchitectureID  sql.Null[int64] `db:"architecture_id"`
 	Version         string          `db:"version"`
-	LXDProfile      []byte          `db:"lxd_profile"`
 }
 
 // resolveCharmState is used to resolve the charm state. This will make the
@@ -332,7 +331,6 @@ type setCharmState struct {
 type resolveCharmState struct {
 	ObjectStoreUUID string `db:"object_store_uuid"`
 	ArchivePath     string `db:"archive_path"`
-	LXDProfile      []byte `db:"lxd_profile"`
 }
 
 // charmDownloadInfo is used to get the download info of a charm.
@@ -364,7 +362,6 @@ type charmMetadata struct {
 }
 
 // setCharmMetadata is used to set the metadata of a charm.
-// This includes the setting of the LXD profile.
 type setCharmMetadata struct {
 	CharmUUID      string `db:"charm_uuid"`
 	Name           string `db:"name"`
@@ -630,13 +627,6 @@ type setCharmManifest struct {
 	Branch         string `db:"branch"`
 	OSID           int    `db:"os_id"`
 	ArchitectureID int    `db:"architecture_id"`
-}
-
-// charmLXDProfile is used to get the LXD profile of a charm.
-type charmLXDProfile struct {
-	UUID       string `db:"uuid"`
-	LXDProfile []byte `db:"lxd_profile"`
-	Revision   int    `db:"revision"`
 }
 
 // charmConfig is used to get the config of a charm.
