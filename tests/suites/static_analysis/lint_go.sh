@@ -149,13 +149,6 @@ run_govulncheck() {
 		#
 		# https://pkg.go.dev/vuln/GO-2025-4121
 		"GO-2025-4121"
-		# The vulnerabilities below are fixed in the version of
-		# golang.org/x/crypto we now use but the govuln db
-		# seems out of date at the time of writing.
-		# https://pkg.go.dev/vuln/GO-2025-4134
-		# https://pkg.go.dev/vuln/GO-2025-4135
-		"GO-2025-4134"
-		"GO-2025-4135"
 		# LXD daemon vulnerability not client
 		# https://pkg.go.dev/vuln/GO-2026-4595
 		"GO-2026-4595"
