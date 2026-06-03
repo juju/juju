@@ -414,6 +414,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			PreviousAgentVersion:        previousAgentVersion,
 			AgentName:                   agentName,
 			ControllerID:                a.agentTag.Id(),
+			ObjectStoreRootDir:          controllerRuntimeConfig.DataDir,
 			ControllerRuntimeConfigPath: controllerRuntimeConfigPath,
 			ControllerAgentTag:          a.agentTag,
 			LogDir:                      controllerRuntimeConfig.LogDir,
