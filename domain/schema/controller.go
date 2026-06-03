@@ -14,7 +14,7 @@ import (
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
@@ -31,8 +31,8 @@ const (
 	tableControllerNode
 	tableControllerConfig
 	tableControllerAPIAddress
-	tableModelMigrationStatus
-	tableModelMigrationMinionSync
+	tableModelMigrationExport
+	tableModelMigrationExportPhase
 	tableUpgradeInfo
 	tableCloud
 	tableCloudCACert
@@ -48,6 +48,7 @@ const (
 	tableUserAuthentication
 	tableObjectStoreBackend
 	tableLoggingLokiConfig
+	tableModelMigrationExportMinionSync
 )
 
 // controllerPostPatchFilesByVersion is used to categorise the post patch files
@@ -90,8 +91,9 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
 		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
-		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
-		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
+		triggers.ChangeLogTriggersForModelMigrationExport("model_uuid", tableModelMigrationExport),
+		triggers.ChangeLogTriggersForModelMigrationExportPhase("migration_uuid", tableModelMigrationExportPhase),
+		triggers.ChangeLogTriggersForModelMigrationExportMinionSync("migration_uuid", tableModelMigrationExportMinionSync),
 		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
 		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),

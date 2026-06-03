@@ -492,3 +492,9 @@ SELECT
     candidate.is_secondary,
     candidate.device_type_id
 FROM candidate;
+
+CREATE INDEX idx_provider_link_layer_device_device_uuid
+ON provider_link_layer_device (device_uuid);
+
+CREATE INDEX idx_provider_ip_address_address_uuid
+ON provider_ip_address (address_uuid);

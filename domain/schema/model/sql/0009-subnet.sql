@@ -58,3 +58,9 @@ CREATE TABLE availability_zone_subnet (
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid)
 );
+
+CREATE INDEX idx_subnet_space_uuid
+ON subnet (space_uuid);
+
+CREATE INDEX idx_availability_zone_subnet_subnet_uuid
+ON availability_zone_subnet (subnet_uuid);

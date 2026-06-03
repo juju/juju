@@ -18,6 +18,9 @@ CREATE TABLE object_store_metadata_path (
     REFERENCES object_store_metadata (uuid)
 );
 
+CREATE INDEX idx_object_store_metadata_path_metadata_uuid
+ON object_store_metadata_path (metadata_uuid);
+
 CREATE VIEW v_object_store_metadata AS
 SELECT
     osm.uuid,

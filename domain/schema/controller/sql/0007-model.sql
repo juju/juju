@@ -59,13 +59,6 @@ CREATE TABLE model (
 CREATE UNIQUE INDEX idx_model_qualified_name ON model (name, qualifier);
 CREATE INDEX idx_model_activated ON model (activated);
 
-CREATE TABLE model_migration_import (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    model_uuid TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_model_migration_import ON model_migration_import (model_uuid);
-
 -- v_model_all is a view that provides a simple way to access models
 -- that have not been activated. This is useful for the model creation process
 -- where we need to access the model to update it but we do not want to show it
@@ -144,10 +137,10 @@ WHERE activated = TRUE;
 CREATE VIEW v_model_state AS
 SELECT
     m.uuid,
+    l.value AS life,
     cc.invalid AS cloud_credential_invalid,
     cc.invalid_reason AS cloud_credential_invalid_reason,
-    IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS migrating,
-    IIF(l.id = 1, TRUE, FALSE) AS destroying
+    IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS migrating
 FROM model AS m
 JOIN life AS l ON m.life_id = l.id
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid

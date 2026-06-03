@@ -285,3 +285,9 @@ SELECT
     rs.updated_at
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;
+
+CREATE INDEX idx_application_endpoint_charm_relation_uuid
+ON application_endpoint (charm_relation_uuid);
+
+CREATE INDEX idx_relation_endpoint_endpoint_uuid
+ON relation_endpoint (endpoint_uuid);

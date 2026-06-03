@@ -27,3 +27,6 @@ FROM agent_binary_store AS abs
 JOIN architecture AS a ON abs.architecture_id = a.id
 JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
 JOIN object_store_metadata_path AS osmp ON osm.uuid = osmp.metadata_uuid;
+
+CREATE INDEX idx_agent_binary_store_object_store_uuid
+ON agent_binary_store (object_store_uuid);
