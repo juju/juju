@@ -168,6 +168,44 @@ func (s *stateSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+// TestGetMachineLifeAndIsManuallyProvisioned asserts the happy path for a
+// non-manual machine.
+func (s *stateSuite) TestGetMachineLifeAndIsManuallyProvisioned(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	lifeVal, isManual, err := s.state.GetMachineLifeAndIsManuallyProvisioned(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeVal, tc.Equals, life.Alive)
+	c.Check(isManual, tc.IsFalse)
+}
+
+// TestGetMachineLifeAndIsManuallyProvisionedManual asserts that a machine
+// with a machine_manual row is reported as manually provisioned.
+func (s *stateSuite) TestGetMachineLifeAndIsManuallyProvisionedManual(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO machine_manual (machine_uuid)
+VALUES ((SELECT uuid FROM machine WHERE name=?))
+`, machineName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	lifeVal, isManual, err := s.state.GetMachineLifeAndIsManuallyProvisioned(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeVal, tc.Equals, life.Alive)
+	c.Check(isManual, tc.IsTrue)
+}
+
+// TestGetMachineLifeAndIsManuallyProvisionedNotFound asserts that a
+// MachineNotFound error is returned when the machine does not exist.
+func (s *stateSuite) TestGetMachineLifeAndIsManuallyProvisionedNotFound(c *tc.C) {
+	_, _, err := s.state.GetMachineLifeAndIsManuallyProvisioned(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 // TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
 // when the machine is not found.
 func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *tc.C) {

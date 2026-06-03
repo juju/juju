@@ -111,12 +111,6 @@ bootstrap() {
 			exit 1
 		fi
 		;;
-	"manual")
-		manual_name=${1}
-		shift
-
-		cloud="${manual_name}"
-		;;
   "unmanaged")
     unmanaged_name=${1}
     shift
