@@ -889,6 +889,8 @@ func (st *State) GetRelationsStatusForUnit(
 	var relationUnitStatuses []domainrelation.RelationUnitStatusResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var statuses []relationUnitStatus
+		var txnRelationUnitStatuses []domainrelation.RelationUnitStatusResult
+
 		err := tx.Query(ctx, stmt, uuid).GetAll(&statuses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
@@ -900,12 +902,14 @@ func (st *State) GetRelationsStatusForUnit(
 				return errors.Errorf("getting endpoints of relation %q: %w", status.RelationUUID, err)
 			}
 
-			relationUnitStatuses = append(relationUnitStatuses, domainrelation.RelationUnitStatusResult{
+			txnRelationUnitStatuses = append(txnRelationUnitStatuses, domainrelation.RelationUnitStatusResult{
 				Endpoints: endpoints,
 				InScope:   status.InScope,
 				Suspended: status.Suspended,
 			})
 		}
+
+		relationUnitStatuses = txnRelationUnitStatuses
 
 		return nil
 	})

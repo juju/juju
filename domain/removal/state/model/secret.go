@@ -369,8 +369,9 @@ WHERE     sm.auto_prune = true AND sro.obsolete = true`
 	var deletedRevisionIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var (
-			dbSecrets    secretIDList
-			dbsecretRevs secretExternalRevisions
+			dbSecrets             secretIDList
+			dbsecretRevs          secretExternalRevisions
+			txnDeletedRevisionIDs []string
 		)
 		err = tx.Query(ctx, stmt).GetAll(&dbSecrets, &dbsecretRevs)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -393,8 +394,9 @@ WHERE     sm.auto_prune = true AND sro.obsolete = true`
 			if err != nil {
 				return errors.Capture(err)
 			}
-			deletedRevisionIDs = append(deletedRevisionIDs, deleted...)
+			txnDeletedRevisionIDs = append(txnDeletedRevisionIDs, deleted...)
 		}
+		deletedRevisionIDs = txnDeletedRevisionIDs
 		return nil
 	})
 	if err != nil {

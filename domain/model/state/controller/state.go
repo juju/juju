@@ -1037,13 +1037,16 @@ func (s *State) GetModelTypes(ctx context.Context) ([]coremodel.ModelType, error
 			return errors.Capture(err)
 		}
 
+		txnRval := make([]coremodel.ModelType, 0, len(result))
 		for _, r := range result {
 			mt := coremodel.ModelType(r.Type)
 			if !mt.IsValid() {
 				return errors.Errorf("invalid model type %q", r.Type)
 			}
-			rval = append(rval, mt)
+			txnRval = append(txnRval, mt)
 		}
+
+		rval = txnRval
 		return nil
 	})
 }
@@ -1073,14 +1076,17 @@ ORDER BY name`, dbModel{})
 			return errors.Capture(err)
 		}
 
+		txnRval := make([]coremodel.Model, 0, len(result))
 		for _, r := range result {
 			model, err := r.toCoreModel()
 			if err != nil {
 				return errors.Capture(err)
 			}
 
-			rval = append(rval, model)
+			txnRval = append(txnRval, model)
 		}
+
+		rval = txnRval
 
 		return nil
 	})
@@ -1253,14 +1259,17 @@ WHERE  uuid IN (SELECT grant_on
 			return errors.Capture(err)
 		}
 
+		txnRval := make([]coremodel.Model, 0, len(result))
 		for _, r := range result {
 			mod, err := r.toCoreModel()
 			if err != nil {
 				return errors.Capture(err)
 			}
 
-			rval = append(rval, mod)
+			txnRval = append(txnRval, mod)
 		}
+
+		rval = txnRval
 
 		return nil
 	})
