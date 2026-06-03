@@ -397,6 +397,8 @@ WHERE  subnet_cidr = $M.cidr`
 
 	var resultSubnets subnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var txnResultSubnets subnetRows
+
 		for _, cidr := range cidrs {
 			var rows subnetRows
 			if err := tx.Query(ctx, s, sqlair.M{"cidr": cidr}).GetAll(&rows); err != nil {
@@ -405,8 +407,10 @@ WHERE  subnet_cidr = $M.cidr`
 				}
 				return errors.Errorf("retrieving subnets by CIDR %v: %w", cidr, err)
 			}
-			resultSubnets = append(resultSubnets, rows...)
+			txnResultSubnets = append(txnResultSubnets, rows...)
 		}
+
+		resultSubnets = txnResultSubnets
 		return nil
 	}); err != nil {
 		return nil, errors.Capture(err)
