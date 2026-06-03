@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/agent"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -95,14 +94,12 @@ type ControllerService interface {
 
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
-	Agent                        agent.Agent
 	Guard                        fortress.Guard
 	DrainingService              DrainingService
 	ControllerService            ControllerService
 	ControllerObjectStoreService objectstore.ObjectStoreMetadata
 	ObjectStoreServicesGetter    ObjectStoreServicesGetter
 	ObjectStoreFlusher           objectstore.ObjectStoreFlusher
-	ObjectStoreType              objectstore.BackendType
 	NewHashFileSystemAccessor    NewHashFileSystemAccessorFunc
 	NewDrainerWorker             NewDrainerWorkerFunc
 	S3Client                     objectstore.Client
@@ -116,9 +113,6 @@ type Config struct {
 // Validate returns an error if the config cannot be expected to
 // drive a functional Worker.
 func (config Config) Validate() error {
-	if config.Agent == nil {
-		return errors.Errorf("nil Agent").Add(coreerrors.NotValid)
-	}
 	if config.Guard == nil {
 		return errors.Errorf("nil Guard").Add(coreerrors.NotValid)
 	}
@@ -190,8 +184,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		runner: runner,
 
-		agent: config.Agent,
-
 		guard:           config.Guard,
 		drainingService: config.DrainingService,
 
@@ -200,7 +192,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
 		objectStoreFlusher:        config.ObjectStoreFlusher,
-		objectStoreType:           config.ObjectStoreType,
 
 		newDrainWorker: config.NewDrainerWorker,
 		newFileSystem:  config.NewHashFileSystemAccessor,
@@ -236,8 +227,6 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
-	agent agent.Agent
-
 	guard           fortress.Guard
 	drainingService DrainingService
 
@@ -246,7 +235,6 @@ type Worker struct {
 
 	objectStoreServicesGetter ObjectStoreServicesGetter
 	objectStoreFlusher        objectstore.ObjectStoreFlusher
-	objectStoreType           objectstore.BackendType
 
 	newFileSystem  NewHashFileSystemAccessorFunc
 	newDrainWorker NewDrainerWorkerFunc
@@ -478,45 +466,29 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan drainResult,
 	}
 }
 
-// completeDraining updates the agent configuration to indicate that the
-// object store type has changed and then flushes the object store workers.
-// It sets the draining phase to completed, which will cause the main loop
-// to unlock the guard and allow the object store to be used again.
-// The worker itself is run only on the singular primary controller.
+// completeDraining flushes the object store workers and marks the draining
+// phase as completed so the guard can be unlocked. The worker itself is run
+// only on the singular primary controller.
 //
 // The ordering is important for crash recovery:
-// 1. Update agent config (idempotent, re-applied on restart if missed)
-// 2. Flush workers (idempotent, re-applied on restart if missed)
-// 3. Set phase to completed (atomic commit point, marks old backend dead)
+// 1. Flush workers (idempotent, re-applied on restart if missed)
+// 2. Set phase to completed (atomic commit point, marks old backend dead)
 //
-// SetDrainingPhase(PhaseCompleted) is deliberately last because it
-// atomically marks the old backend as dead in the database. If steps 1
-// or 2 fail, the phase remains Draining, the old backend is still alive,
-// and the error path can set PhaseError. On retry or restart the
-// idempotent steps are simply re-applied.
+// SetDrainingPhase(PhaseCompleted) is deliberately last because it atomically
+// marks the old backend as dead in the database. If step 1 fails, the phase
+// remains Draining, the old backend is still alive, and the error path can set
+// PhaseError. On retry or restart the idempotent steps are simply re-applied.
 //
 // NOTE: The fortress guard ensures no new objectstore operations can begin
 // during draining (all callers go through the objectStoreFacade which uses
-// fortress.Guest.Visit). However, callers that obtained an io.ReadCloser
-// from a Get() call before lockdown may still be streaming data when
-// FlushWorkers kills the underlying objectstore child workers. This is a
-// known limitation — such readers will receive an IO error. The practical
-// risk is low because draining is a rare operational event and callers
-// handle read errors. Fixing this would require reference-counting active
-// readers, which is disproportionate to the risk.
+// fortress.Guest.Visit). However, callers that obtained an io.ReadCloser from
+// a Get() call before lockdown may still be streaming data when FlushWorkers
+// kills the underlying objectstore child workers. This is a known limitation —
+// such readers will receive an IO error. The practical risk is low because
+// draining is a rare operational event and callers handle read errors. Fixing
+// this would require reference-counting active readers, which is
+// disproportionate to the risk.
 func (w *Worker) completeDraining(ctx context.Context) error {
-	w.logger.Infof(ctx, "completing object store draining")
-
-	// Update the agent configuration to reflect the new object store type.
-	// This is idempotent — if it was already written, re-writing is harmless.
-	if err := w.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
-		w.logger.Debugf(ctx, "setting object store type: %q => %q", setter.ObjectStoreType(), w.objectStoreType)
-		setter.SetObjectStoreType(w.objectStoreType)
-		return nil
-	}); err != nil {
-		return errors.Capture(err)
-	}
-
 	// Flush the object store workers to ensure that they are all stopped and
 	// removed. This is necessary to ensure that the object store is in a clean
 	// state before we start using it again. Safe to call while the DB still

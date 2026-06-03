@@ -17,11 +17,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
-	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
@@ -62,9 +59,6 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 type ControllerConfigService interface {
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
-
-	// WatchControllerConfig watches the controller config for changes.
-	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ManifoldConfig holds the dependencies and configuration for a
@@ -203,53 +197,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	phase, err := drainingService.GetDrainingPhase(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var (
-		objectStoreTypeChanged                       bool
-		agentsObjectStoreType, configObjectStoreType coreobjectstore.BackendType
-	)
-	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
-		agentsObjectStoreType = cfg.ObjectStoreType()
-		configObjectStoreType = coreobjectstore.FileBackend
-		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
-
-		// We've bounced whilst draining, so we need to ensure that we don't
-		// change the object store type if we're still draining.
-		if phase.IsDraining() && objectStoreTypeChanged {
-			objectStoreTypeChanged = false
-		}
-
-		if objectStoreTypeChanged {
-			config.Logger.Debugf(ctx, "setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
-			cfg.SetObjectStoreType(configObjectStoreType)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// If the object store type has changed whilst we're starting the worker,
-	// crash the agent and come back up clean.
-	if objectStoreTypeChanged {
-		config.Logger.Infof(ctx, "restarting agent for new object store type")
-		return nil, internalerrors.Errorf("object store type changed from %q to %q", agentsObjectStoreType, configObjectStoreType).
-			Add(internalworker.ErrRestartAgent)
-	}
-
 	worker, err := config.NewWorker(Config{
-		Agent:                        a,
 		Guard:                        fortress,
 		DrainingService:              drainingService,
 		ControllerService:            controllerService,
 		ControllerObjectStoreService: controllerObjectStoreSerivce,
 		ObjectStoreServicesGetter:    objectStoreServicesGetter,
 		ObjectStoreFlusher:           objectStoreFlusher,
-		ObjectStoreType:              configObjectStoreType,
 		NewHashFileSystemAccessor:    config.NewHashFileSystemAccessor,
 		NewDrainerWorker:             config.NewDrainerWorker,
 		SelectFileHash:               config.SelectFileHash,

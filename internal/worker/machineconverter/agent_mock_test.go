@@ -18,7 +18,6 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
@@ -793,44 +792,6 @@ func (c *MockConfigNonceCall) Do(f func() string) *MockConfigNonceCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigNonceCall) DoAndReturn(f func() string) *MockConfigNonceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ObjectStoreType mocks base method.
-func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObjectStoreType")
-	ret0, _ := ret[0].(objectstore.BackendType)
-	return ret0
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigMockRecorder) ObjectStoreType() *MockConfigObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfig)(nil).ObjectStoreType))
-	return &MockConfigObjectStoreTypeCall{Call: call}
-}
-
-// MockConfigObjectStoreTypeCall wrap *gomock.Call
-type MockConfigObjectStoreTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigObjectStoreTypeCall) Return(arg0 objectstore.BackendType) *MockConfigObjectStoreTypeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigObjectStoreTypeCall) Do(f func() objectstore.BackendType) *MockConfigObjectStoreTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigObjectStoreTypeCall) DoAndReturn(f func() objectstore.BackendType) *MockConfigObjectStoreTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2117,44 +2078,6 @@ func (c *MockConfigSetterNonceCall) DoAndReturn(f func() string) *MockConfigSett
 	return c
 }
 
-// ObjectStoreType mocks base method.
-func (m *MockConfigSetter) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObjectStoreType")
-	ret0, _ := ret[0].(objectstore.BackendType)
-	return ret0
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigSetterMockRecorder) ObjectStoreType() *MockConfigSetterObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfigSetter)(nil).ObjectStoreType))
-	return &MockConfigSetterObjectStoreTypeCall{Call: call}
-}
-
-// MockConfigSetterObjectStoreTypeCall wrap *gomock.Call
-type MockConfigSetterObjectStoreTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterObjectStoreTypeCall) Return(arg0 objectstore.BackendType) *MockConfigSetterObjectStoreTypeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterObjectStoreTypeCall) Do(f func() objectstore.BackendType) *MockConfigSetterObjectStoreTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterObjectStoreTypeCall) DoAndReturn(f func() objectstore.BackendType) *MockConfigSetterObjectStoreTypeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // OldPassword mocks base method.
 func (m *MockConfigSetter) OldPassword() string {
 	m.ctrl.T.Helper()
@@ -2675,42 +2598,6 @@ func (c *MockConfigSetterSetLoggingConfigCall) Do(f func(string)) *MockConfigSet
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockConfigSetterSetLoggingConfigCall) DoAndReturn(f func(string)) *MockConfigSetterSetLoggingConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetObjectStoreType mocks base method.
-func (m *MockConfigSetter) SetObjectStoreType(arg0 objectstore.BackendType) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetObjectStoreType", arg0)
-}
-
-// SetObjectStoreType indicates an expected call of SetObjectStoreType.
-func (mr *MockConfigSetterMockRecorder) SetObjectStoreType(arg0 any) *MockConfigSetterSetObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetObjectStoreType", reflect.TypeOf((*MockConfigSetter)(nil).SetObjectStoreType), arg0)
-	return &MockConfigSetterSetObjectStoreTypeCall{Call: call}
-}
-
-// MockConfigSetterSetObjectStoreTypeCall wrap *gomock.Call
-type MockConfigSetterSetObjectStoreTypeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterSetObjectStoreTypeCall) Return() *MockConfigSetterSetObjectStoreTypeCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterSetObjectStoreTypeCall) Do(f func(objectstore.BackendType)) *MockConfigSetterSetObjectStoreTypeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterSetObjectStoreTypeCall) DoAndReturn(f func(objectstore.BackendType)) *MockConfigSetterSetObjectStoreTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

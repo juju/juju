@@ -105,8 +105,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
 			OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
 
-			ObjectStoreType: controller.DefaultObjectStoreType,
-
 			DqlitePort: dqlitePort,
 		},
 	)
@@ -187,8 +185,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
 			OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
 			OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
-
-			ObjectStoreType: controller.DefaultObjectStoreType,
 
 			DqlitePort: dqlitePort,
 		},
