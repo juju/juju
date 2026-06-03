@@ -303,9 +303,6 @@ func (s *SecretService) ResolveGrantParams(ctx context.Context, params []domains
 	return results
 }
 
-// ResolveRevokeParams resolves the subject name in the given access params to
-// a UUID, returning the resolved [domainsecret.RevokeParams] ready for use in
-// the state layer. This performs only the lookup, not the access check.
 // ResolveRevokeParams resolves a batch of SecretAccessParams into
 // RevokeResults. Each entry is resolved independently; per-entry errors
 // are returned in the corresponding RevokeResult.Error rather than

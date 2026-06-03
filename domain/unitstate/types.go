@@ -280,6 +280,10 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 			errs = append(errs, errors.New("subject uuid is required for grant"))
 			break
 		}
+		if secret.ScopeUUID == "" {
+			errs = append(errs, errors.New("scope uuid is required for grant"))
+			break
+		}
 	}
 	for _, secret := range c.SecretRevokes {
 		hasChanges = true

@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"maps"
+	"slices"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -127,10 +129,14 @@ func (st *State) grantSecretsAccess(ctx context.Context, tx *sqlair.TX, grants [
 	}
 
 	// Collect unique secret IDs and batch-check their existence.
-	ids := make(secretIDs, 0, len(grants))
+	seen := make(map[string]struct{}, len(grants))
 	for _, g := range grants {
-		ids = append(ids, g.SecretID)
+		if _, ok := seen[g.SecretID]; ok {
+			continue
+		}
+		seen[g.SecretID] = struct{}{}
 	}
+	ids := slices.Collect(maps.Keys(seen))
 	existing, err := st.filterExistingSecrets(ctx, tx, ids)
 	if err != nil {
 		return errors.Capture(err)
@@ -352,10 +358,14 @@ func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes
 	}
 
 	// Collect unique secret IDs and batch-check their existence.
-	ids := make(secretIDs, 0, len(revokes))
+	seen := make(map[string]struct{}, len(revokes))
 	for _, r := range revokes {
-		ids = append(ids, r.SecretID)
+		if _, ok := seen[r.SecretID]; ok {
+			continue
+		}
+		seen[r.SecretID] = struct{}{}
 	}
+	ids := slices.Collect(maps.Keys(seen))
 	existing, err := st.filterExistingSecrets(ctx, tx, ids)
 	if err != nil {
 		return errors.Capture(err)
@@ -383,7 +393,7 @@ AND    subject_uuid = $secretPermissionRevoke.subject_uuid
 			SubjectTypeID: rev.SubjectTypeID,
 		}
 		if err := tx.Query(ctx, deleteStmt, perm).Run(); err != nil {
-			return errors.Errorf("deleting secret grant for %q on %q: %w", rev.SubjectUUID, rev.SecretID, err)
+			return errors.Errorf("revoking secret access for %q on %q: %w", rev.SubjectUUID, rev.SecretID, err)
 		}
 	}
 	return nil
