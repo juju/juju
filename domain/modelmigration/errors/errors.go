@@ -25,4 +25,10 @@ const (
 	// or CA certificate). The migration must not silently overwrite the live
 	// record.
 	ErrExternalControllerConflict = errors.ConstError("external controller already exists with different details")
+
+	// ErrConflictingMinionReport indicates that a minion submitted a report for
+	// a (migration, phase, entity) triple that already has a report with a
+	// different success value. Reports are idempotent for an identical value but
+	// must never silently overwrite a conflicting one.
+	ErrConflictingMinionReport = errors.ConstError("conflicting minion report")
 )

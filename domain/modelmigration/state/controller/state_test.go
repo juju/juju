@@ -666,9 +666,30 @@ func (s *stateSuite) TestMinionReports(c *tc.C) {
 	c.Check(reports.Failed, tc.SameContents, []string{"unit-foo-0"})
 }
 
-// TestInsertMinionReportOverwrites asserts a re-submitted report for the same
-// agent and phase overwrites the previous success value.
-func (s *stateSuite) TestInsertMinionReportOverwrites(c *tc.C) {
+// TestInsertMinionReportIdempotent asserts that re-submitting a report for the
+// same agent and phase with the same success value is an idempotent no-op.
+func (s *stateSuite) TestInsertMinionReportIdempotent(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	spec := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.InsertMinionReport(c.Context(), spec.MigrationUUID, migration.QUIESCE, "machine-0", true)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.InsertMinionReport(c.Context(), spec.MigrationUUID, migration.QUIESCE, "machine-0", true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	reports, err := st.AggregateMinionReports(c.Context(), spec.MigrationUUID, migration.QUIESCE)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(reports.Succeeded, tc.SameContents, []string{"machine-0"})
+	c.Check(reports.Failed, tc.HasLen, 0)
+}
+
+// TestInsertMinionReportConflictRejected asserts that a re-submitted report for
+// the same agent and phase with a different success value is rejected rather
+// than silently overwriting the originally recorded result.
+func (s *stateSuite) TestInsertMinionReportConflictRejected(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	spec := s.newMigrationSpec()
@@ -678,12 +699,13 @@ func (s *stateSuite) TestInsertMinionReportOverwrites(c *tc.C) {
 	err = st.InsertMinionReport(c.Context(), spec.MigrationUUID, migration.QUIESCE, "machine-0", false)
 	c.Assert(err, tc.ErrorIsNil)
 	err = st.InsertMinionReport(c.Context(), spec.MigrationUUID, migration.QUIESCE, "machine-0", true)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrConflictingMinionReport)
 
+	// The originally recorded result is preserved.
 	reports, err := st.AggregateMinionReports(c.Context(), spec.MigrationUUID, migration.QUIESCE)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(reports.Succeeded, tc.SameContents, []string{"machine-0"})
-	c.Check(reports.Failed, tc.HasLen, 0)
+	c.Check(reports.Failed, tc.SameContents, []string{"machine-0"})
+	c.Check(reports.Succeeded, tc.HasLen, 0)
 }
 
 // TestMarkExportEnded asserts an export can be force-ended and is then no longer

@@ -344,6 +344,11 @@ AND    end_time IS NULL
 		addrs  []addressValue
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		export = migrationExport{}
+		auth = migrationTargetAuth{}
+		ctrl = externalControllerUpsert{}
+		addrs = nil
+
 		err := tx.Query(ctx, selectExportStmt, mUUID).Get(&export)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("no active migration for model %q: %w", modelUUID, modelmigrationerrors.ErrMigrationNotFound)
@@ -585,8 +590,12 @@ INSERT INTO model_migration_export_status (*) VALUES ($migrationStatus.*)
 }
 
 // InsertMinionReport records a phase report from a single minion agent. The
-// (migration, phase, entity) triple is unique, so a repeated report for the
-// same agent and phase overwrites the previous success value.
+// (migration, phase, entity) triple is unique. A minion may resubmit a report
+// for the same phase: an identical success value is an idempotent no-op, but a
+// conflicting one is rejected with [modelmigrationerrors.ErrConflictingMinionReport]
+// rather than silently overwriting the recorded result. This mirrors the legacy
+// (3.6) behaviour and preserves the migration master's view of each minion's
+// outcome for a phase.
 func (s *State) InsertMinionReport(
 	ctx context.Context, migrationUUID string, phase migration.Phase, entityKey string, success bool,
 ) error {
@@ -607,20 +616,51 @@ func (s *State) InsertMinionReport(
 		Success:       success,
 		ReportedAt:    s.clock.Now().UTC(),
 	}
-	// A minion may resubmit a report for the same phase; update the recorded
-	// success/timestamp on conflict rather than failing the unique constraint.
-	stmt, err := s.Prepare(`
+	// Insert if no report exists yet for this triple. On conflict do nothing so
+	// the originally recorded value is preserved; we then read it back to decide
+	// whether this is an idempotent resubmission or a genuine conflict.
+	insertStmt, err := s.Prepare(`
 INSERT INTO model_migration_export_minion_sync (*) VALUES ($migrationMinionSync.*)
-ON CONFLICT (migration_uuid, phase_id, entity_key) DO UPDATE SET
-    success = excluded.success,
-    reported_at = excluded.reported_at
+ON CONFLICT (migration_uuid, phase_id, entity_key) DO NOTHING
 `, report)
 	if err != nil {
 		return errors.Capture(err)
 	}
+	selectStmt, err := s.Prepare(`
+SELECT &minionReportRow.*
+FROM   model_migration_export_minion_sync
+WHERE  migration_uuid = $migrationMinionSync.migration_uuid
+AND    phase_id = $migrationMinionSync.phase_id
+AND    entity_key = $migrationMinionSync.entity_key
+`, report, minionReportRow{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, report).Run(); err != nil {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, insertStmt, report).Get(&outcome); err != nil {
 			return errors.Errorf("inserting minion report for migration %q: %w", migrationUUID, err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if affected == 1 {
+			// Newly recorded report.
+			return nil
+		}
+
+		// A report already existed for this triple: it is only acceptable if it
+		// carries the same success value (idempotent resubmission).
+		var existing minionReportRow
+		if err := tx.Query(ctx, selectStmt, report).Get(&existing); err != nil {
+			return errors.Errorf("reading existing minion report for migration %q: %w", migrationUUID, err)
+		}
+		if existing.Success != success {
+			return errors.Errorf(
+				"minion report for migration %q phase %q entity %q already recorded with a different result: %w",
+				migrationUUID, phase, entityKey, modelmigrationerrors.ErrConflictingMinionReport,
+			)
 		}
 		return nil
 	})
@@ -655,6 +695,7 @@ AND    phase_id = $phaseIDArg.phase_id
 
 	var rows []minionReportRow
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
 		err := tx.Query(ctx, stmt, migUUID, phaseArg).GetAll(&rows)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying minion reports for migration %q: %w", migrationUUID, err)
