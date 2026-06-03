@@ -234,6 +234,68 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	c.Check(opened.ReadCloser, gc.IsNil)
 }
 
+func (s *OpenerSuite) TestOpenPendingUploadedResourceNotAvailableYet(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := resources.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: -1,
+		},
+		ApplicationID: "postgresql",
+	}
+	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "workload-image").Return(resources.Resource{}, nil, errors.NotFoundf("workload-image"))
+	s.resources.EXPECT().GetResource("postgresql", "workload-image").Return(res, nil)
+
+	opened, err := s.newOpener(0).OpenResource("workload-image")
+	c.Check(err, jc.ErrorIs, errors.NotProvisioned)
+	c.Check(opened, gc.NotNil)
+	c.Check(opened.ReadCloser, gc.IsNil)
+}
+
+func (s *OpenerSuite) TestOpenUploadedResourceDataMissing(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := resources.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: 666,
+		},
+		ApplicationID: "postgresql",
+	}
+	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "workload-image").Return(resources.Resource{}, nil, errors.NotFoundf("workload-image"))
+	s.resources.EXPECT().GetResource("postgresql", "workload-image").Return(res, nil)
+
+	_, err := s.newOpener(0).OpenResource("workload-image")
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *OpenerSuite) TestOpenUploadedResourceCacheError(c *gc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := resources.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: 666,
+		},
+		ApplicationID: "postgresql",
+	}
+	s.resources.EXPECT().OpenResourceForUniter("postgresql/0", "workload-image").Return(resources.Resource{}, nil, errors.NotFoundf("workload-image"))
+	s.resources.EXPECT().GetResource("postgresql", "workload-image").Return(res, errors.New("boom"))
+
+	_, err := s.newOpener(0).OpenResource("workload-image")
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
 func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {
 	tag, _ := names.ParseUnitTag("postgresql/0")
 	var limiter resource.ResourceDownloadLock = resource.NewResourceDownloadLimiter(maxRequests, 0)

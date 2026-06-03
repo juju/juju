@@ -14,14 +14,14 @@ test_resources() {
 	bootstrap "test-resources" "${file}"
 
 	test_basic_resources
-	test_upgrade_resources
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
 		test_container_resources
 		;;
 	*)
-		echo "==> TEST SKIPPED: test_container_resources - tests for k8s only"
+		test_attach_resources
+		test_upgrade_resources
 		;;
 	esac
 

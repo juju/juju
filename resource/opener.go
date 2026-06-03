@@ -200,6 +200,17 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.R
 		return res, reader, nil
 	}
 
+	// If the resource is being uploaded from the client, it may not be there
+	// yet so we need to force a retry.
+	if res.Origin == charmresource.OriginUpload {
+		if res.Revision == -1 {
+			logger.Debugf("resource %q is being uploaded but is not yet available", res.Name)
+			return resources.Resource{}, nil, errors.NewNotProvisioned(
+				nil, fmt.Sprintf("resource %q data not uploaded yet", res.Name))
+		}
+		return resources.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
+	}
+
 	// Otherwise, just the info was found in the cache. So we read the
 	// data from charmhub through a new resourceClient and set the data
 	// for the resource in the cache.
