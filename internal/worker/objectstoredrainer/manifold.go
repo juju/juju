@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -64,7 +63,6 @@ type ControllerConfigService interface {
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
 type ManifoldConfig struct {
-	AgentName               string
 	ObjectStoreServicesName string
 	ObjectStoreName         string
 	FortressName            string
@@ -79,16 +77,13 @@ type ManifoldConfig struct {
 	NewHashFileSystemAccessor       NewHashFileSystemAccessorFunc
 	NewDrainerWorker                NewDrainerWorkerFunc
 	SelectFileHash                  SelectFileHashFunc
+	ObjectStoreRootDir              string
 
 	Logger logger.Logger
-	Clock  clock.Clock
 }
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.FortressName == "" {
 		return errors.NotValidf("empty FortressName")
 	}
@@ -125,11 +120,11 @@ func (config ManifoldConfig) Validate() error {
 	if config.SelectFileHash == nil {
 		return errors.NotValidf("nil SelectFileHash")
 	}
+	if config.ObjectStoreRootDir == "" {
+		return errors.NotValidf("empty ObjectStoreRootDir")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -137,11 +132,6 @@ func (config ManifoldConfig) Validate() error {
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var a agent.Agent
-	if err := getter.Get(config.AgentName, &a); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -194,9 +184,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	currentConfig := a.CurrentConfig()
-	dataDir := currentConfig.DataDir()
-
 	worker, err := config.NewWorker(Config{
 		Guard:                        fortress,
 		DrainingService:              drainingService,
@@ -208,10 +195,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		NewDrainerWorker:             config.NewDrainerWorker,
 		SelectFileHash:               config.SelectFileHash,
 		S3Client:                     s3Client,
-		RootDir:                      dataDir,
+		RootDir:                      config.ObjectStoreRootDir,
 		RootBucketName:               rootBucketName,
 		Logger:                       config.Logger,
-		Clock:                        config.Clock,
+		Clock:                        clock.WallClock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -223,7 +210,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.FortressName,
 			config.ObjectStoreName,
 			config.ObjectStoreServicesName,
