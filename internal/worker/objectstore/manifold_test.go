@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
@@ -42,10 +41,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.TraceName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -66,7 +61,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
+	cfg.ObjectStoreRootDir = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerNodeID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -88,17 +87,21 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.GetMetadataService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.IsBootstrapController = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:               "agent",
 		TraceName:               "trace",
 		ObjectStoreServicesName: "object-store-services",
 		LeaseManagerName:        "lease-manager",
 		S3ClientName:            "s3-client",
 		APIRemoteCallerName:     "api-remote-caller",
-		Clock:                   s.clock,
+		ObjectStoreRootDir:      "/var/lib/juju",
+		ControllerNodeID:        "0",
 		Logger:                  s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
@@ -120,7 +123,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":                 s.agent,
 		"trace":                 &stubTracerGetter{},
 		"object-store-services": &stubObjectStoreServicesGetter{},
 		"lease-manager":         s.leaseManager,
@@ -130,7 +132,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client", "api-remote-caller"}
+var expectedInputs = []string{"trace", "object-store-services", "lease-manager", "s3-client", "api-remote-caller"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -139,19 +141,12 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig(c)
 	s.expectControllerConfig()
 	s.expectBackendInfo()
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
 }
 
 func (s *manifoldSuite) expectBackendInfo() {

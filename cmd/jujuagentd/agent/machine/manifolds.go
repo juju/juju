@@ -141,6 +141,12 @@ type ManifoldsConfig struct {
 	// through the agent manifold.
 	ControllerID string
 
+	// ObjectStoreRootDir is the local filesystem root used by the
+	// file-backed object-store worker. It is sourced from
+	// agentConfig.DataDir() and passed directly to object-store
+	// manifolds instead of being read from agent config.
+	ObjectStoreRootDir string
+
 	// ControllerRuntimeConfigPath is the absolute path to the
 	// controller runtime config file (runtime.conf) written at
 	// bootstrap. It is passed to the db-accessor manifold so that the
@@ -838,13 +844,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
-			AgentName:                  agentName,
 			TraceName:                  controllerTraceName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			APIRemoteCallerName:        apiRemoteCallerName,
-			Clock:                      config.Clock,
+			ObjectStoreRootDir:         config.ObjectStoreRootDir,
+			ControllerNodeID:           config.ControllerID,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
