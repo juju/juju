@@ -45,10 +45,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig(c)
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig(c)
 	cfg.FortressName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -89,6 +85,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
+	cfg.ObjectStoreRootDir = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.NewDrainerWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -103,7 +103,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:               "agent",
 		FortressName:            "fortress",
 		ObjectStoreServicesName: "object-store-services",
 		ObjectStoreName:         "object-store",
@@ -133,14 +132,13 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(config Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
-		Clock:  clock.WallClock,
+		ObjectStoreRootDir: "/var/lib/juju",
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":                 s.agent,
 		"fortress":              s.guard,
 		"s3-client":             s.s3Client,
 		"object-store":          s.objectStoreFlusher,
@@ -149,7 +147,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "fortress", "s3-client", "object-store-services", "object-store"}
+var expectedInputs = []string{"fortress", "s3-client", "object-store-services", "object-store"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig(c)).Inputs, tc.SameContents, expectedInputs)
@@ -157,9 +155,6 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
 
@@ -194,7 +189,6 @@ func (s *stubObjectStoreServices) ObjectStore() *objectstoreservice.WatchableSer
 // crash-recovery flow.
 func (s *manifoldSuite) getConfigWithRealWorker(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:               "agent",
 		FortressName:            "fortress",
 		ObjectStoreServicesName: "object-store-services",
 		ObjectStoreName:         "object-store",
@@ -223,19 +217,41 @@ func (s *manifoldSuite) getConfigWithRealWorker(c *tc.C) ManifoldConfig {
 		NewDrainerWorker: func(completed chan<- drainResult, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, clk clock.Clock, logger logger.Logger) worker.Worker {
 			return newTestWorker(completed)
 		},
-		NewWorker: NewWorker,
-		Logger:    loggertesting.WrapCheckLog(c),
-		Clock:     clock.WallClock,
+		NewWorker:          NewWorker,
+		ObjectStoreRootDir: "/var/lib/juju",
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 
 // setupManifoldStartExpectations sets up the common expectations for the
-// manifold start method (controller config, agent config, data dir).
+// manifold start method.
 func (s *manifoldSuite) setupManifoldStartExpectations(c *tc.C) {
 	cfg := internaltesting.FakeControllerConfig()
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+}
+
+func (s *manifoldSuite) TestStartUsesExplicitRootDirAndWallClock(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rootDir := c.MkDir()
+	cfg := s.getConfig(c)
+	cfg.ObjectStoreRootDir = rootDir
+
+	newWorkerCalled := false
+	cfg.NewWorker = func(workerConfig Config) (worker.Worker, error) {
+		newWorkerCalled = true
+		c.Check(workerConfig.RootDir, tc.Equals, rootDir)
+		c.Check(workerConfig.Clock, tc.Equals, clock.WallClock)
+		return workertest.NewErrorWorker(nil), nil
+	}
+
+	controllerCfg := internaltesting.FakeControllerConfig()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+
+	w, err := Manifold(cfg).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newWorkerCalled, tc.IsTrue)
+	workertest.CleanKill(c, w)
 }
 
 // TestManifoldRecoverFromFlushWorkersCrash exercises the full manifold start →
