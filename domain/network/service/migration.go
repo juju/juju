@@ -245,24 +245,34 @@ func (s *MigrationService) getPlaceholderSubnetUUIDByAddressType(ctx context.Con
 		return nil, errors.Errorf("getting all subnets: %w", err)
 	}
 
-	// Note: Today there are only two k8s subnets, which are a placeholders.
-	// Finding the subnet for the ip address will be more complex
-	// in the future.
-	if len(subnets) != 2 {
-		return nil, errors.Errorf("expected 2 subnet uuid, got %d", len(subnets))
+	if len(subnets) == 0 {
+		return nil, errors.Errorf("expected at least 1 subnet uuid, got 0")
 	}
 
 	result := make(map[corenetwork.AddressType]string)
+	// Prefer placeholder CIDRs when available to remain compatible with models
+	// that still rely on fallback subnet semantics.
 	for _, subnet := range subnets {
 		switch subnet.CIDR {
 		case "0.0.0.0/0":
 			result[corenetwork.IPv4Address] = subnet.ID.String()
 		case "::/0":
 			result[corenetwork.IPv6Address] = subnet.ID.String()
-		default:
-			return nil, errors.Errorf("unexpected k8s subnet CIDR %q", subnet.CIDR)
 		}
 	}
+
+	// Fill in any missing address families from discovered provider subnets.
+	for _, subnet := range subnets {
+		addrType, err := corenetwork.CIDRAddressType(subnet.CIDR)
+		if err != nil {
+			return nil, errors.Errorf("determining address type for subnet CIDR %q: %w", subnet.CIDR, err)
+		}
+		if _, exists := result[addrType]; exists {
+			continue
+		}
+		result[addrType] = subnet.ID.String()
+	}
+
 	return result, nil
 }
 

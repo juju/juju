@@ -21,7 +21,7 @@ Initializes a cloud environment.
 | `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
 | `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
 | `--constraints` | [] | Set model constraints |
-| `--controller-charm-channel` | 4.0/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
+| `--controller-charm-channel` | 4.1/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
 | `--controller-charm-path` |  | Path to a locally built controller charm |
 | `--credential` |  | Credentials to use when bootstrapping |
 | `--force` | false | Allow the bypassing of checks such as supported base |
@@ -356,21 +356,6 @@ Controller configuration keys:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    object-store-s3-endpoint:
-      type: string
-      description: The s3 endpoint for the object store backend
-    object-store-s3-static-key:
-      type: string
-      description: The s3 static key for the object store backend
-    object-store-s3-static-secret:
-      type: string
-      description: The s3 static secret for the object store backend
-    object-store-s3-static-session:
-      type: string
-      description: The s3 static session for the object store backend
-    object-store-type:
-      type: string
-      description: The type of object store backend to use for storing blobs
     open-telemetry-enabled:
       type: bool
       description: Enable open telemetry tracing

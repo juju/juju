@@ -9,6 +9,10 @@ const (
 	// ErrTerminalPhase is the error returned when the object store is already
 	// in a terminal phase.
 	ErrTerminalPhase = errors.ConstError("object store is already in a terminal phase")
+
+	// ErrInvalidTransition is the error returned when the object store cannot
+	// transition from the current phase to the new phase.
+	ErrInvalidTransition = errors.ConstError("invalid phase transition")
 )
 
 // Phase is the type to identify the phase of the object store.
@@ -84,7 +88,7 @@ func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
 			return p, ErrTerminalPhase
 		}
 	}
-	return "", errors.Errorf("invalid transition from %q to %q", p, newPhase)
+	return "", errors.Errorf("invalid transition from %q to %q", p, newPhase).Add(ErrInvalidTransition)
 }
 
 // IsValid returns true if the phase is a valid phase.
@@ -116,4 +120,21 @@ func ParsePhase(value string) (Phase, error) {
 	default:
 		return "", errors.Errorf("invalid phase %q", value)
 	}
+}
+
+// DrainingPhaseInfo represents the information about the draining process,
+// including the phase of the draining process, and the uuids of the backends
+// that are being drained from and to. This information can be used to correlate
+// with logs and other information about the draining process.
+type DrainingPhaseInfo struct {
+	// Phase is the phase of the draining process.
+	Phase Phase
+	// FromBackendUUID is the uuid of the backend that is being drained from.
+	// This is optional, as there might not be a draining process, so you'll
+	// get the current backend UUID only.
+	FromBackendUUID *UUID
+	// ActiveBackendUUID is the uuid of the backend that is currently active to.
+	// It will also indicate the backend that is being drained to, if there is a
+	// draining process.
+	ActiveBackendUUID UUID
 }

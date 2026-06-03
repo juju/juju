@@ -7,7 +7,7 @@ import (
 	"context"
 	"maps"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
@@ -29,11 +29,11 @@ func (c loggoLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Criticalf(msg, args...)
+		_ = c.logger.Criticalf(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.CRITICAL, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.CRITICAL, msg, labels, args...)
 }
 
 // Errorf logs a message at the error level.
@@ -42,11 +42,11 @@ func (c loggoLogger) Errorf(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Errorf(msg, args...)
+		_ = c.logger.Errorf(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.ERROR, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.ERROR, msg, labels, args...)
 }
 
 // Warningf logs a message at the warning level.
@@ -55,11 +55,11 @@ func (c loggoLogger) Warningf(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Warningf(msg, args...)
+		_ = c.logger.Warningf(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.WARNING, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.WARNING, msg, labels, args...)
 }
 
 // Infof logs a message at the info level.
@@ -68,11 +68,11 @@ func (c loggoLogger) Infof(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Infof(msg, args...)
+		_ = c.logger.Infof(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.INFO, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.INFO, msg, labels, args...)
 }
 
 // Debugf logs a message at the debug level.
@@ -81,11 +81,11 @@ func (c loggoLogger) Debugf(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Debugf(msg, args...)
+		_ = c.logger.Debugf(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.DEBUG, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.DEBUG, msg, labels, args...)
 }
 
 // Tracef logs a message at the trace level.
@@ -94,11 +94,11 @@ func (c loggoLogger) Tracef(ctx context.Context, msg string, args ...any) {
 
 	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Tracef(msg, args...)
+		_ = c.logger.Tracef(ctx, msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.TRACE, msg, labels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.TRACE, msg, labels, args...)
 }
 
 // Logf logs some information into the test error output. The labels are
@@ -114,7 +114,7 @@ func (c loggoLogger) Logf(ctx context.Context, level logger.Level, labels logger
 		maps.Copy(ctxLabels, labels)
 	}
 
-	c.logger.LogWithLabelsf(loggo.Level(level), msg, ctxLabels, args...)
+	_ = c.logger.LogWithLabelsf(ctx, loggo.Level(level), msg, ctxLabels, args...)
 }
 
 // IsLevelEnabled returns true if the given level is enabled for the logger.

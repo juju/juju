@@ -151,34 +151,14 @@ func newAPIHandler(
 	connectionID uint64,
 	serverHost string,
 	crossModelAuthContext facade.CrossModelAuthContext,
-) (*apiHandler, error) {
-	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !exists {
-		// If this model used to be hosted on this controller but got
-		// migrated allow clients to connect and wait for a login
-		// request to decide whether the users should be redirected to
-		// the new controller for this model or not.
-		if _, migErr := domainServices.Model().ModelRedirection(ctx, modelUUID); migErr != nil {
-			// Return not found on any error.
-			// TODO (stickupkid): This is very brute force. What if there
-			// is an error with the database? The caller will assume that it
-			// is no longer on this controller. If we return a different error
-			// then it can at least retry the request.
-			return nil, errors.NotFoundf("model %q", modelUUID)
-		}
-	}
-
-	r := &apiHandler{
+) *apiHandler {
+	return &apiHandler{
 		domainServices:           domainServices,
 		domainServicesGetter:     domainServicesGetter,
 		tracer:                   tracer,
 		objectStore:              objectStore,
 		objectStoreGetter:        objectStoreGetter,
 		controllerObjectStore:    controllerObjectStore,
-		ephemeralProviderTracker: ephemeralProviderTracker,
 		watcherRegistry:          watcherRegistry,
 		shared:                   srv.shared,
 		rpcConn:                  rpcConn,
@@ -187,9 +167,8 @@ func newAPIHandler(
 		connectionID:             connectionID,
 		serverHost:               serverHost,
 		crossModelAuthContext:    crossModelAuthContext,
+		ephemeralProviderTracker: ephemeralProviderTracker,
 	}
-
-	return r, nil
 }
 
 // WatcherRegistry returns the watcher registry for tracking watchers between

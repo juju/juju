@@ -65,6 +65,22 @@ ON k8s_service (application_uuid);
 CREATE UNIQUE INDEX idx_k8s_service_net_node
 ON k8s_service (net_node_uuid);
 
+
+CREATE TABLE operator_status (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    data TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_application_status_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_workload_status_value_status
+    FOREIGN KEY (status_id)
+    REFERENCES workload_status_value (id)
+);
+
+
 -- Application scale is currently only targeting k8s applications.
 CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -257,6 +273,13 @@ CREATE TABLE device_constraint_attribute (
     PRIMARY KEY (device_constraint_uuid, "key")
 );
 
+CREATE TABLE application_k8s_resources_managed (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_application_k8s_resources_managed_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
 CREATE VIEW v_application_constraint AS
 SELECT
     ac.application_uuid,
@@ -273,9 +296,12 @@ SELECT
     c.allocate_public_ip,
     c.image_id,
     ctag.tag,
+    ctag.rowid AS tag_order,
     cspace.space AS space_name,
     cspace."exclude" AS space_exclude,
-    czone.zone
+    cspace.rowid AS space_order,
+    czone.zone,
+    czone.rowid AS zone_order
 FROM application_constraint AS ac
 JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid
 LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id

@@ -66,9 +66,9 @@ VALUES (?, ?, (SELECT id FROM secret_backend_type WHERE type = 'vault'))`,
 func (s *secretSuite) insertSecretBackendReference(c *tc.C, backendID, modelUUID, secretRevisionID string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO secret_backend_reference (secret_backend_uuid, model_uuid, secret_revision_uuid)
-VALUES (?, ?, ?)`,
-			backendID, modelUUID, secretRevisionID)
+INSERT INTO secret_backend_reference (secret_backend_uuid, model_uuid, secret_revision_uuid, secret_id)
+VALUES (?, ?, ?, ?)`,
+			backendID, modelUUID, secretRevisionID, secretRevisionID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

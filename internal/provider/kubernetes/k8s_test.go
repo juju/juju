@@ -231,6 +231,31 @@ func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	c.Assert(s.broker.Config(), tc.DeepEquals, s.cfg)
 }
 
+func (s *K8sBrokerSuite) TestSubnets(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.mockNodes.EXPECT().List(gomock.Any(), v1.ListOptions{}).Return(&core.NodeList{
+		Items: []core.Node{
+			{Spec: core.NodeSpec{PodCIDR: "10.20.0.0/24"}},
+			{Spec: core.NodeSpec{PodCIDRs: []string{"fd20::/64"}}},
+		},
+	}, nil)
+
+	result, err := s.broker.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+		{
+			CIDR:       "10.20.0.0/24",
+			ProviderId: "10.20.0.0/24",
+		},
+		{
+			CIDR:       "fd20::/64",
+			ProviderId: "fd20::/64",
+		},
+	})
+}
+
 func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

@@ -55,11 +55,9 @@ var logger = internallogger.GetLogger("juju.kubernetes.provider")
 const (
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
-	labelResourceLifeCycleValueModel      = "model"
 	labelResourceLifeCycleValuePersistent = "persistent"
 
-	operatorInitContainerName = "juju-init"
-	operatorContainerName     = "juju-operator"
+	operatorContainerName = "juju-operator"
 
 	// InformerResyncPeriod is the default resync period set on IndexInformers
 	InformerResyncPeriod = time.Minute * 5
@@ -81,7 +79,7 @@ type kubernetesClient struct {
 	envCfgUnlocked              *config.Config
 	k8sCfgUnlocked              *rest.Config
 	clientUnlocked              kubernetes.Interface
-	apiextensionsClientUnlocked apiextensionsclientset.Interface
+	apiExtensionsClientUnlocked apiextensionsclientset.Interface
 	dynamicClientUnlocked       dynamic.Interface
 
 	newClient     NewK8sClientFunc
@@ -147,7 +145,7 @@ func newK8sBroker(
 	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
-	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
+	k8sClient, apiExtensionsClient, dynamicClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -177,7 +175,7 @@ func newK8sBroker(
 	client := &kubernetesClient{
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
-		apiextensionsClientUnlocked: apiextensionsClient,
+		apiExtensionsClientUnlocked: apiExtensionsClient,
 		dynamicClientUnlocked:       dynamicClient,
 		envCfgUnlocked:              newCfg.Config,
 		k8sCfgUnlocked:              k8sRestConfig,
@@ -197,7 +195,7 @@ func newK8sBroker(
 		annotations: k8sannotations.New(nil).
 			Add(utils.AnnotationModelUUIDKey(labelVersion), modelUUID),
 		labelVersion:      labelVersion,
-		environNetworking: environNetworking{},
+		environNetworking: newEnvironNetworking(k8sClient),
 	}
 	if len(controllerUUID) > 0 {
 		client.annotations.Add(utils.AnnotationControllerUUIDKey(labelVersion), controllerUUID)
@@ -303,7 +301,7 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	client := k.apiextensionsClientUnlocked
+	client := k.apiExtensionsClientUnlocked
 	return client
 }
 
@@ -347,7 +345,7 @@ func (k *kubernetesClient) SetCloudSpec(_ context.Context, spec environscloudspe
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
 
-	k.clientUnlocked, k.apiextensionsClientUnlocked, k.dynamicClientUnlocked, err = k.newClient(k8sRestConfig)
+	k.clientUnlocked, k.apiExtensionsClientUnlocked, k.dynamicClientUnlocked, err = k.newClient(k8sRestConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}

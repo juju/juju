@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -104,12 +105,25 @@ type TracingService interface {
 	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
 }
 
+// LoggingService is the interface for the logging service.
+type LoggingService interface {
+	// SetLokiEndpoint sets the Loki push API endpoint.
+	SetLokiEndpoint(ctx context.Context, endpoint string) error
+
+	// DeleteLokiEndpoint removes the configured Loki push API endpoint.
+	DeleteLokiEndpoint(ctx context.Context) error
+}
+
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// AccessService is the user access service for the model.
 	AccessService AccessService
 	// TracingService is the tracing service for the model.
 	TracingService TracingService
+	// LoggingService is the logging service for the controller.
+	LoggingService LoggingService
+	// ObjectStoreService is the object store service for the controller.
+	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -124,6 +138,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.AccessService == nil {
 		return internalerrors.New("nil AccessService").Add(coreerrors.NotValid)
+	}
+	if config.ObjectStoreService == nil {
+		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -144,8 +161,10 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService  AccessService
-	tracingService TracingService
+	accessService      AccessService
+	tracingService     TracingService
+	loggingService     LoggingService
+	objectStoreService ControllerObjectStoreService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -167,6 +186,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		accessService:       config.AccessService,
 		tracingService:      config.TracingService,
+		loggingService:      config.LoggingService,
+		objectStoreService:  config.ObjectStoreService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
@@ -248,6 +269,37 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// charm tracing configuration.
 	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
 		Methods(http.MethodPost)
+
+	// s3-credentials endpoint for managing object store credentials when S3 is
+	// used as the backend. This is a POST endpoint that accepts a JSON body
+	// with the following format:
+	//
+	// {
+	//   "endpoint": <string>,
+	//   "access_key": <string>,
+	//   "secret_key": <string>,
+	// }
+	//
+	// The worker will update the object store configuration with the provided
+	// S3 credentials.
+	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
+		Methods(http.MethodPost)
+	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+		Methods(http.MethodDelete)
+
+	// loki-endpoint endpoint for managing the Loki push API endpoint. This
+	// is a POST endpoint that accepts a JSON body with the following format:
+	//
+	// {
+	//   "url": <string>,
+	// }
+	//
+	// The worker will persist the Loki endpoint in the controller database
+	// so it can be distributed to agents for direct log shipping.
+	r.Handle("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint)).
+		Methods(http.MethodPost)
+	r.HandleFunc("/loki-endpoint", w.handleRemoveLokiEndpoint).
+		Methods(http.MethodDelete)
 }
 
 type addMetricsUserBody struct {
@@ -270,7 +322,7 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
 			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
-				internalerrors.Errorf("request body is not valid JSON: %v", err))
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
 		}
 		return
 	}
@@ -316,7 +368,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
 			return http.StatusInternalServerError,
-				fmt.Errorf("retrieving existing user %q: %v", username, err)
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		}
 
 		// We want this operation to be idempotent, but at the same time, this
@@ -335,7 +387,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
 		if err != nil {
 			return http.StatusInternalServerError,
-				fmt.Errorf("retrieving existing user %q: %v", username, err)
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		} else if accessLevel != permission.ReadAccess {
 			return http.StatusNotFound, fmt.Errorf(
 				"unexpected permission for user %q, expected %q, got %q",
@@ -408,7 +460,7 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
 			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
-				internalerrors.Errorf("request body is not valid JSON: %v", err))
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
 		}
 		return
 	}
@@ -424,6 +476,100 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 	}
 
 	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
+}
+
+type s3CredentialsRequest struct {
+	Endpoint  string `json:"endpoint"`
+	AccessKey string `json:"access_key"`
+	SecretKey string `json:"secret_key"`
+}
+
+func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody s3CredentialsRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if err := w.objectStoreService.TransitionBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Endpoint:  parsedBody.Endpoint,
+		AccessKey: parsedBody.AccessKey,
+		SecretKey: parsedBody.SecretKey,
+	}); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 credentials: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 credentials: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 credentials"))
+}
+
+func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	// We currently don't allow you to move to another s3 provider. This will
+	// be fixed in future requests.
+	w.writeErrorResponse(req.Context(), resp, http.StatusNotImplemented,
+		internalerrors.New("removing s3 credentials is not supported at this time"))
+}
+
+type lokiEndpointRequest struct {
+	URL string `json:"url"`
+}
+
+func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody lokiEndpointRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if err := w.loggingService.SetLokiEndpoint(ctx, parsedBody.URL); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated loki endpoint"))
+}
+
+func (w *Worker) handleRemoveLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	if err := w.loggingService.DeleteLokiEndpoint(ctx); err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("removing loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("removed loki endpoint"))
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {

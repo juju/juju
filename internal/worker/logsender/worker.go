@@ -9,7 +9,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 

@@ -1107,6 +1107,28 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+	deleteUnit := func(c *tc.C, name string) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			var unitUUID string
+			if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", name).Scan(&unitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_agent_status WHERE unit_uuid=?", unitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit WHERE uuid=?", unitUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	harness.AddTest(c, func(c *tc.C) {
 		s.createIAASApplication(c, svc, "foo",
@@ -1140,27 +1162,13 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
-		c.Assert(err, tc.ErrorIsNil)
-		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), false)
-		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
-		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteUnit(ctx, unitUUID.String(), false)
-		c.Assert(err, tc.ErrorIsNil)
+		deleteUnit(c, "foo/0")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
-		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/1")
-		c.Assert(err, tc.ErrorIsNil)
-		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), false)
-		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
-		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteUnit(ctx, unitUUID.String(), false)
-		c.Assert(err, tc.ErrorIsNil)
+		deleteUnit(c, "foo/1")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})

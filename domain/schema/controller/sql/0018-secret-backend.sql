@@ -16,11 +16,23 @@ INSERT INTO secret_backend_type VALUES
 (1, 'kubernetes', 'the kubernetes secret backend'),
 (2, 'vault', 'the vault secret backend');
 
+CREATE TABLE secret_backend_origin (
+    id INT NOT NULL PRIMARY KEY,
+    origin TEXT NOT NULL UNIQUE,
+    CONSTRAINT chk_secret_backend_origin_not_empty
+    CHECK (origin != '')
+);
+
+INSERT INTO secret_backend_origin (id, origin) VALUES
+(0, 'built-in'),
+(1, 'user');
+
 CREATE TABLE secret_backend (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     backend_type_id INT NOT NULL,
     token_rotate_interval INT,
+    origin_id INT NOT NULL DEFAULT 1,
     CONSTRAINT chk_empty_name
     CHECK (name != ''),
     CONSTRAINT fk_secret_backend_type_id
@@ -58,6 +70,7 @@ CREATE TABLE secret_backend_reference (
     secret_backend_uuid TEXT NOT NULL,
     model_uuid TEXT NOT NULL,
     secret_revision_uuid TEXT NOT NULL,
+    secret_id TEXT NOT NULL,
     CONSTRAINT pk_secret_backend_reference
     PRIMARY KEY (secret_backend_uuid, model_uuid, secret_revision_uuid),
     CONSTRAINT fk_secret_backend_reference_model_uuid

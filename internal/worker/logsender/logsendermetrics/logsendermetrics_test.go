@@ -6,7 +6,7 @@ package logsendermetrics_test
 import (
 	"testing"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -54,11 +54,11 @@ func (s *bufferedLogWriterSuite) TestDescribe(c *tc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestCollect(c *tc.C) {
-	s.writer.Write(loggo.Entry{})
-	s.writer.Write(loggo.Entry{})
-	s.writer.Write(loggo.Entry{})
-	s.writer.Write(loggo.Entry{})
-	s.writer.Write(loggo.Entry{}) // causes first to be dropped
+	c.Assert(s.writer.Write(c.Context(), loggo.Entry{}), tc.ErrorIsNil)
+	c.Assert(s.writer.Write(c.Context(), loggo.Entry{}), tc.ErrorIsNil)
+	c.Assert(s.writer.Write(c.Context(), loggo.Entry{}), tc.ErrorIsNil)
+	c.Assert(s.writer.Write(c.Context(), loggo.Entry{}), tc.ErrorIsNil)
+	c.Assert(s.writer.Write(c.Context(), loggo.Entry{}), tc.ErrorIsNil) // causes first to be dropped
 
 	for range maxLen {
 		<-s.writer.Logs()

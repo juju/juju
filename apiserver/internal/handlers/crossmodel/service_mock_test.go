@@ -10,7 +10,6 @@
 package crossmodel
 
 import (
-	context "context"
 	reflect "reflect"
 
 	facade "github.com/juju/juju/apiserver/facade"
@@ -41,18 +40,18 @@ func (m *MockCrossModelAuthContextProvider) EXPECT() *MockCrossModelAuthContextP
 }
 
 // NewCrossModelAuthContext mocks base method.
-func (m *MockCrossModelAuthContextProvider) NewCrossModelAuthContext(arg0 context.Context, arg1 string) (facade.CrossModelAuthContext, error) {
+func (m *MockCrossModelAuthContextProvider) NewCrossModelAuthContext(arg0 string) (facade.CrossModelAuthContext, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewCrossModelAuthContext", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewCrossModelAuthContext", arg0)
 	ret0, _ := ret[0].(facade.CrossModelAuthContext)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewCrossModelAuthContext indicates an expected call of NewCrossModelAuthContext.
-func (mr *MockCrossModelAuthContextProviderMockRecorder) NewCrossModelAuthContext(arg0, arg1 any) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
+func (mr *MockCrossModelAuthContextProviderMockRecorder) NewCrossModelAuthContext(arg0 any) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCrossModelAuthContext", reflect.TypeOf((*MockCrossModelAuthContextProvider)(nil).NewCrossModelAuthContext), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCrossModelAuthContext", reflect.TypeOf((*MockCrossModelAuthContextProvider)(nil).NewCrossModelAuthContext), arg0)
 	return &MockCrossModelAuthContextProviderNewCrossModelAuthContextCall{Call: call}
 }
 
@@ -68,13 +67,13 @@ func (c *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall) Return(a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall) Do(f func(context.Context, string) (facade.CrossModelAuthContext, error)) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
+func (c *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall) Do(f func(string) (facade.CrossModelAuthContext, error)) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall) DoAndReturn(f func(context.Context, string) (facade.CrossModelAuthContext, error)) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
+func (c *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall) DoAndReturn(f func(string) (facade.CrossModelAuthContext, error)) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

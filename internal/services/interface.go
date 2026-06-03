@@ -30,6 +30,7 @@ import (
 	flagservice "github.com/juju/juju/domain/flag/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
+	loggingservice "github.com/juju/juju/domain/logging/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -99,6 +100,8 @@ type ControllerDomainServices interface {
 	ControllerChangeStream() *changestreamservice.Service
 	// Tracing returns the service for accessing tracing configuration.
 	Tracing() *tracingservice.Service
+	// Logging returns the service for accessing logging configuration.
+	Logging() *loggingservice.WatchableService
 }
 
 // ModelDomainServices provides access to the services required by the

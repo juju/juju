@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
@@ -41,13 +42,16 @@ type trackerWorker struct {
 	logger logger.Logger
 }
 
-func newTrackerWorker(
+// NewTrackerWorker creates a new trackerWorker for the given model UUID. The
+// worker will watch the model state and automatically remove all objects from
+// the object store if the model is removed or becomes dead.
+func NewTrackerWorker(
 	modelUUID model.UUID,
 	modelService ModelService,
 	objectStore TrackedObjectStore,
 	tracer coretrace.Tracer,
 	logger logger.Logger,
-) (*trackerWorker, error) {
+) (worker.Worker, error) {
 	w := &trackerWorker{
 		modelUUID:    modelUUID,
 		objectStore:  objectStore,
@@ -208,29 +212,52 @@ func (t *trackerWorker) loop() error {
 		return errors.Annotate(err, "adding model watcher to catacomb")
 	}
 
+	// Consume the initial event from the watcher. The watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching for changes.
+	if _, err := eventsource.ConsumeInitialEvent(ctx, modelWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Check the initial model state after consuming the initial event.
+	if done, err := t.checkModel(ctx); err != nil {
+		return errors.Trace(err)
+	} else if done {
+		return nil
+	}
+
 	for {
 		select {
 		case <-t.catacomb.Dying():
 			return t.catacomb.ErrDying()
 
 		case <-modelWatcher.Changes():
-			model, err := t.modelService.Model(ctx)
-			if errors.Is(err, modelerrors.NotFound) {
-				// The model has been removed, we can stop the worker.
-				t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
-				t.removeObjects(ctx)
-				return nil
-			} else if err != nil {
-				return errors.Annotate(err, "reading model")
-			}
-			if corelife.IsDead(model.Life) {
-				// The model is dead, we can stop the worker.
-				t.logger.Infof(ctx, "model %q (%s) is dead, stopping tracker worker", model.Name, model.UUID)
-				t.removeObjects(ctx)
+			if done, err := t.checkModel(ctx); err != nil {
+				return errors.Trace(err)
+			} else if done {
 				return nil
 			}
 		}
 	}
+}
+
+// checkModel checks the model state and returns true if the worker
+// should stop (model is dead or not found).
+func (t *trackerWorker) checkModel(ctx context.Context) (bool, error) {
+	m, err := t.modelService.Model(ctx)
+	if errors.Is(err, modelerrors.NotFound) {
+		t.logger.Infof(ctx, "model %q has been removed, stopping tracker worker", t.modelUUID)
+		t.removeObjects(ctx)
+		return true, nil
+	} else if err != nil {
+		return false, errors.Annotate(err, "reading model")
+	}
+	if corelife.IsDead(m.Life) {
+		t.logger.Infof(ctx, "model %q (%s) is dead, stopping tracker worker", m.Name, m.UUID)
+		t.removeObjects(ctx)
+		return true, nil
+	}
+	return false, nil
 }
 
 func (t *trackerWorker) removeObjects(ctx context.Context) {

@@ -16,7 +16,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/internal/worker/objectstore TrackedObjectStore,MetadataServiceGetter,MetadataService,ModelClaimGetter,ControllerConfigService,ModelService,ModelServiceGetter,ModelServices
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/internal/worker/objectstore TrackedObjectStore,MetadataServiceGetter,MetadataService,ModelClaimGetter,ControllerConfigService,ModelService,ModelServiceGetter,ModelServices,ObjectStoreService
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination claimer_mock_test.go github.com/juju/juju/internal/objectstore Claimer
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
@@ -36,6 +36,7 @@ type baseSuite struct {
 	apiRemoteCaller *MockAPIRemoteCallers
 
 	controllerConfigService *MockControllerConfigService
+	objectStoreService      *MockObjectStoreService
 	metadataService         *MockMetadataService
 	modelService            *MockModelService
 
@@ -54,6 +55,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.apiRemoteCaller = NewMockAPIRemoteCallers(ctrl)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.objectStoreService = NewMockObjectStoreService(ctrl)
 	s.metadataService = NewMockMetadataService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 
@@ -70,6 +72,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.s3Client = nil
 		s.apiRemoteCaller = nil
 		s.controllerConfigService = nil
+		s.objectStoreService = nil
 		s.metadataService = nil
 		s.modelService = nil
 		s.trackedObjectStore = nil

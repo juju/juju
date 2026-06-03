@@ -5,112 +5,54 @@ package agent
 
 import (
 	"testing"
-	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-
-	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/arch"
-	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/environs/filestorage"
-	envstorage "github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type MachineSuite struct {
-	commonMachineSuite
-
-	agentStorage envstorage.Storage
 }
 
 func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &MachineSuite{})
 }
 
-// DefaultVersions returns a slice of unique 'versions' for the current
-// environment's host architecture. Additionally, it ensures that 'versions'
-// for amd64 are returned if that is not the current host's architecture.
-func defaultVersions(agentVersion semversion.Number) []semversion.Binary {
-	osTypes := set.NewStrings("ubuntu")
-	osTypes.Add(coreos.HostOSTypeName())
-	var versions []semversion.Binary
-	for _, osType := range osTypes.Values() {
-		versions = append(versions, semversion.Binary{
-			Number:  agentVersion,
-			Arch:    arch.HostArch(),
-			Release: osType,
-		})
-		if arch.HostArch() != "amd64" {
-			versions = append(versions, semversion.Binary{
-				Number:  agentVersion,
-				Arch:    "amd64",
-				Release: osType,
-			})
-
-		}
-	}
-	return versions
-}
-
-func (s *MachineSuite) SetUpTest(c *tc.C) {
-	s.ControllerConfigAttrs = map[string]any{
-		controller.AuditingEnabled: true,
-	}
-	s.ControllerModelConfigAttrs = map[string]any{
-		"agent-version": coretesting.CurrentVersion().Number.String(),
-	}
-	s.WithLeaseManager = true
-	s.commonMachineSuite.SetUpTest(c)
-
-	storageDir := c.MkDir()
-	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, tc.ErrorIsNil)
-	// Upload tools to both release and devel streams since config will dictate that we
-	// end up looking in both places.
-	versions := defaultVersions(coretesting.CurrentVersion().Number)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", versions...)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", versions...)
-	s.agentStorage = stor
-
-	// Restart failed workers much faster for the tests.
-	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
-}
-
-func (s *MachineSuite) TestParseNonsense(c *tc.C) {
-	aCfg := agentconf.NewAgentConf(s.DataDir)
-	err := ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, nil)
-	c.Assert(err, tc.ErrorMatches, "either machine-id or controller-id must be set")
-	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
-	c.Assert(err, tc.ErrorMatches, "--machine-id option must be a non-negative integer")
-	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--controller-id", "-4004"})
-	c.Assert(err, tc.ErrorMatches, "--controller-id option must be a non-negative integer")
-}
-
-func (s *MachineSuite) TestParseUnknown(c *tc.C) {
-	aCfg := agentconf.NewAgentConf(s.DataDir)
-	a := &machineAgentCommand{agentInitializer: aCfg}
-	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
-	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
-}
-
 func (s *MachineSuite) TestStub(c *tc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
- - Test agent tools version set when upgrading a controller
- - Test agent tools version set when upgrading a model
- - Test upgrade request upgrading a model
- - Test the machine agent includes the api address updater worker
- - Test the machine agent includes the disk manager worker
- - Test the machine agent includes the machine storage worker
- - Test the machine agent is running correct workers when not migrating
- - Test upgrade is not triggered if not required
- - Creating a machine agent with successfully parsed CLI arguments.
- - Starting and stopping a basic machine agent.
+
+- Test parsing invalid machine-id and controller-id
+- Test parsing valid machine-id and controller-id
+- Test ensure that the stderr is a lumberjack logger - essentially that the machine log can be rotated
+- Test that the lumberjack logger is not used when the logToStdErr flag is set
+- Test that the agent can run then stopped
+- Test that the agent can be upgraded (goes the upgrade request flow: stop, upgrade, start)
+- Test that no upgrade is required when the agent is already at the latest version
+- Test that the agent sets the tools version for manage-model
+- Test that the agent sets the tools version for host units
+- Test that machine agent runs the disk manager worker (this could be generalised for all known workers)
+- Test that certificate DNS names are updated when the agent starts
+- Test that certificate DNS names are updated when the agent starts with an invalid private key
+- Test that all machine workers are started
+`)
+}
+
+func (s *MachineSuite) TestIntegrationStub(c *tc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Testing that the controller runs the cleaner worker by removing an application and watching it's unit disapear.
+  This is a very silly test.
+- Testing that the controller runs the instance poller by doing a great song and dance to add tools, deploy units of an
+  application etc using the dummy provider. It then checks that the deployed machine's addresses are updated by said
+  poller. This is also a very silly test.
+- Test that the audit log is written to the correct location with the correct calls.
+- Test that the hosted model workers are started, with the correct set of workers.
+- Test that the hosted model handles the case where the cloud credential is invalid.
+- Test that the hosted model handles the case where the cloud credential is deleted.
+- Test that the hosted model workers are started, when the cloud credential becomes valid.
+- Test that the migrating model workers are started, with the correct set of workers.
+- Test that the dying model workers are cleaned up, when the model is destroyed.
+- Test that machine agent symlinks are created in the correct location.
+- Test juju-exec symlink is created in the correct location.
+- Test controller model workers are started, with the correct set of workers.
+- Test model workers respect the singular responsibility flag, by claiming the lease for the model and checking that
+  the correct set of workers are started.
 `)
 }

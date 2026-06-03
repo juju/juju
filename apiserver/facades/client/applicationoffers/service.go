@@ -63,12 +63,12 @@ type CrossModelRelationService interface {
 	// GetOfferUUID returns the uuid for the provided offer URL.
 	GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL) (offer.UUID, error)
 
-	// GetOffers returns offer details for all offers satisfying any of the
-	// provided filters.
-	GetOffers(
+	// GetOffersWithConnections returns offer details for all offers satisfying any of the
+	// provided filters, including offer connections
+	GetOffersWithConnections(
 		ctx context.Context,
 		filters []crossmodelrelationservice.OfferFilter,
-	) ([]*crossmodelrelation.OfferDetail, error)
+	) ([]*crossmodelrelation.OfferDetailWithConnections, error)
 
 	// CreateOffer updates an existing offer, or creates a new offer if it does
 	// not exist. Permissions are created for a new offer only.
@@ -76,13 +76,6 @@ type CrossModelRelationService interface {
 		ctx context.Context,
 		args crossmodelrelation.ApplicationOfferArgs,
 	) error
-
-	// GetOfferConnections returns the connection details for all offers with
-	// the given UUIDs. An empty result is returned if no connections are found.
-	GetOfferConnections(
-		ctx context.Context,
-		offerUUIDs []string,
-	) ([]crossmodelrelation.OfferConnectionDetail, error)
 }
 
 // RemovalService defines operations for removing juju entities,

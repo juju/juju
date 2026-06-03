@@ -41,7 +41,8 @@ WHEN
 	(NEW.in_use != OLD.in_use OR (NEW.in_use IS NOT NULL AND OLD.in_use IS NULL) OR (NEW.in_use IS NULL AND OLD.in_use IS NOT NULL)) OR
 	(NEW.filesystem_label != OLD.filesystem_label OR (NEW.filesystem_label IS NOT NULL AND OLD.filesystem_label IS NULL) OR (NEW.filesystem_label IS NULL AND OLD.filesystem_label IS NOT NULL)) OR
 	(NEW.host_filesystem_uuid != OLD.host_filesystem_uuid OR (NEW.host_filesystem_uuid IS NOT NULL AND OLD.host_filesystem_uuid IS NULL) OR (NEW.host_filesystem_uuid IS NULL AND OLD.host_filesystem_uuid IS NOT NULL)) OR
-	(NEW.filesystem_type != OLD.filesystem_type OR (NEW.filesystem_type IS NOT NULL AND OLD.filesystem_type IS NULL) OR (NEW.filesystem_type IS NULL AND OLD.filesystem_type IS NOT NULL)) 
+	(NEW.filesystem_type != OLD.filesystem_type OR (NEW.filesystem_type IS NOT NULL AND OLD.filesystem_type IS NULL) OR (NEW.filesystem_type IS NULL AND OLD.filesystem_type IS NOT NULL)) OR
+	NEW.provenance_id != OLD.provenance_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

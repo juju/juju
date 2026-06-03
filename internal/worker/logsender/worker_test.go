@@ -14,7 +14,7 @@ import (
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"

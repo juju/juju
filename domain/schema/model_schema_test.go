@@ -731,8 +731,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_remote_consumer_insert",
 		"trg_log_application_remote_consumer_update",
 
-		"trg_log_model_migrating_delete",
 		"trg_log_model_migrating_insert",
+		"trg_log_model_migrating_update",
+		"trg_log_model_migrating_delete",
 
 		"trg_log_application_status_delete",
 		"trg_log_application_status_insert",
@@ -827,7 +828,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_custom_relation_life_suspended_update",
 		"trg_log_custom_relation_life_suspended_delete",
 
-		"trg_custom_relation_uuid_empty_constraint",
+		"trg_model_migrating_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

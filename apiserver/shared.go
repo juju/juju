@@ -193,9 +193,8 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 
 // NewCrossModelAuthContext returns a new CrossModelAuthContext for the given
 // server host.
-func (c *sharedServerContext) NewCrossModelAuthContext(ctx context.Context, serverHost string) (facade.CrossModelAuthContext, error) {
+func (c *sharedServerContext) NewCrossModelAuthContext(serverHost string) (facade.CrossModelAuthContext, error) {
 	crossModelAuthContext, err := newOfferAuthContext(
-		ctx,
 		c.controllerDomainServices.Access(),
 		c.controllerDomainServices.Macaroon(),
 		c.offersThirdPartyKeyPair,

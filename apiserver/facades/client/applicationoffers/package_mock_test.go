@@ -366,45 +366,6 @@ func (c *MockCrossModelRelationServiceGetConsumeDetailsCall) DoAndReturn(f func(
 	return c
 }
 
-// GetOfferConnections mocks base method.
-func (m *MockCrossModelRelationService) GetOfferConnections(arg0 context.Context, arg1 []string) ([]crossmodelrelation.OfferConnectionDetail, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOfferConnections", arg0, arg1)
-	ret0, _ := ret[0].([]crossmodelrelation.OfferConnectionDetail)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetOfferConnections indicates an expected call of GetOfferConnections.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetOfferConnections(arg0, arg1 any) *MockCrossModelRelationServiceGetOfferConnectionsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferConnections", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetOfferConnections), arg0, arg1)
-	return &MockCrossModelRelationServiceGetOfferConnectionsCall{Call: call}
-}
-
-// MockCrossModelRelationServiceGetOfferConnectionsCall wrap *gomock.Call
-type MockCrossModelRelationServiceGetOfferConnectionsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetOfferConnectionsCall) Return(arg0 []crossmodelrelation.OfferConnectionDetail, arg1 error) *MockCrossModelRelationServiceGetOfferConnectionsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetOfferConnectionsCall) Do(f func(context.Context, []string) ([]crossmodelrelation.OfferConnectionDetail, error)) *MockCrossModelRelationServiceGetOfferConnectionsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetOfferConnectionsCall) DoAndReturn(f func(context.Context, []string) ([]crossmodelrelation.OfferConnectionDetail, error)) *MockCrossModelRelationServiceGetOfferConnectionsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetOfferUUID mocks base method.
 func (m *MockCrossModelRelationService) GetOfferUUID(arg0 context.Context, arg1 crossmodel.OfferURL) (offer.UUID, error) {
 	m.ctrl.T.Helper()
@@ -444,41 +405,41 @@ func (c *MockCrossModelRelationServiceGetOfferUUIDCall) DoAndReturn(f func(conte
 	return c
 }
 
-// GetOffers mocks base method.
-func (m *MockCrossModelRelationService) GetOffers(arg0 context.Context, arg1 []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
+// GetOffersWithConnections mocks base method.
+func (m *MockCrossModelRelationService) GetOffersWithConnections(arg0 context.Context, arg1 []service.OfferFilter) ([]*crossmodelrelation.OfferDetailWithConnections, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOffers", arg0, arg1)
-	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetail)
+	ret := m.ctrl.Call(m, "GetOffersWithConnections", arg0, arg1)
+	ret0, _ := ret[0].([]*crossmodelrelation.OfferDetailWithConnections)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetOffers indicates an expected call of GetOffers.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetOffers(arg0, arg1 any) *MockCrossModelRelationServiceGetOffersCall {
+// GetOffersWithConnections indicates an expected call of GetOffersWithConnections.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetOffersWithConnections(arg0, arg1 any) *MockCrossModelRelationServiceGetOffersWithConnectionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffers", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetOffers), arg0, arg1)
-	return &MockCrossModelRelationServiceGetOffersCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffersWithConnections", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetOffersWithConnections), arg0, arg1)
+	return &MockCrossModelRelationServiceGetOffersWithConnectionsCall{Call: call}
 }
 
-// MockCrossModelRelationServiceGetOffersCall wrap *gomock.Call
-type MockCrossModelRelationServiceGetOffersCall struct {
+// MockCrossModelRelationServiceGetOffersWithConnectionsCall wrap *gomock.Call
+type MockCrossModelRelationServiceGetOffersWithConnectionsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCrossModelRelationServiceGetOffersCall) Return(arg0 []*crossmodelrelation.OfferDetail, arg1 error) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersWithConnectionsCall) Return(arg0 []*crossmodelrelation.OfferDetailWithConnections, arg1 error) *MockCrossModelRelationServiceGetOffersWithConnectionsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelRelationServiceGetOffersCall) Do(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersWithConnectionsCall) Do(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetailWithConnections, error)) *MockCrossModelRelationServiceGetOffersWithConnectionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelRelationServiceGetOffersCall) DoAndReturn(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error)) *MockCrossModelRelationServiceGetOffersCall {
+func (c *MockCrossModelRelationServiceGetOffersWithConnectionsCall) DoAndReturn(f func(context.Context, []service.OfferFilter) ([]*crossmodelrelation.OfferDetailWithConnections, error)) *MockCrossModelRelationServiceGetOffersWithConnectionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

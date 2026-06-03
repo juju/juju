@@ -85,6 +85,13 @@ CREATE TABLE offer_connection (
     REFERENCES relation (uuid)
 );
 
+CREATE INDEX IF NOT EXISTS idx_offer_connection_offer_uuid
+ON offer_connection (offer_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_offer_connection_remote_relation_offer
+ON offer_connection (remote_relation_uuid, offer_uuid);
+
+
 -- application_remote_consumer represents a remote consumer application
 -- inside of the offering model.
 CREATE TABLE application_remote_consumer (

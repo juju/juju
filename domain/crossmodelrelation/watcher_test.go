@@ -59,6 +59,8 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelUUID)
 
 	svc, _ := s.setupService(c, factory)
+
+	s.modelIdler.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -123,6 +125,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 
 	s.createLocalOfferForConsumer(c, db, offerUUID)
 
+	s.modelIdler.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -404,8 +407,8 @@ func (s *watcherSuite) createSecret(c *tc.C, db database.TxnRunner, uri *coresec
 		}
 		revisionUUID := uuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx,
-			`INSERT INTO secret_revision (uuid, secret_id, revision, create_time) VALUES (?, ?, ?, ?)`,
-			revisionUUID, uri.ID, 1, now,
+			`INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) VALUES (?, ?, ?, ?, ?)`,
+			revisionUUID, uri.ID, 1, now, now,
 		)
 		if err != nil {
 			return err
@@ -433,9 +436,9 @@ func (s *watcherSuite) addRevision(c *tc.C, db database.TxnRunner, uri *coresecr
 		revisionUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx,
 			`
-INSERT INTO secret_revision (uuid, secret_id, revision, create_time) 
-VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?)`,
-			revisionUUID, uri.ID, uri.ID, now,
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
+VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?, ?)`,
+			revisionUUID, uri.ID, uri.ID, now, now,
 		)
 		if err != nil {
 			return err
@@ -480,6 +483,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	uri2.SourceUUID = s.modelUUID
 	realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c, db)
 
+	s.modelIdler.AssertChangeStreamIdle(c)
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w, tc.NotNil)

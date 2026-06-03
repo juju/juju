@@ -186,7 +186,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 
 	// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
-	securitylog.LogLoginSuccess(securitylog.LoginSuccessSecurityEvent{
+	securitylog.LogLoginSuccess(ctx, securitylog.LoginSuccessSecurityEvent{
 		User: req.AuthTag,
 	})
 

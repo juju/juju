@@ -11,8 +11,10 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type serviceSuite struct {
@@ -27,6 +29,98 @@ func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 
+// TestControllerConfig asserts the happy path for reading controller config
+// including schema-known fields that exercise the deserializeMap coercion
+// branch.
+func (s *serviceSuite) TestControllerConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ctrlUUID := jujutesting.ControllerTag.Id()
+	caCert := jujutesting.CACert
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
+		controller.ControllerUUIDKey: ctrlUUID,
+		controller.CACertKey:         caCert,
+		controller.AuditingEnabled:   "true",
+		controller.AuditLogMaxSize:   "100",
+	}, nil)
+
+	cfg, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.ControllerUUID(), tc.Equals, ctrlUUID)
+	gotCACert, ok := cfg.CACert()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(gotCACert, tc.Equals, caCert)
+	c.Check(cfg.AuditingEnabled(), tc.IsTrue)
+	c.Check(cfg.AuditLogMaxSizeMB(), tc.Equals, 100)
+}
+
+// TestControllerConfigStateError asserts that a state-layer error is
+// propagated when reading the controller config.
+func (s *serviceSuite) TestControllerConfigStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "unable to get controller config: boom")
+}
+
+// TestControllerConfigMissingUUID asserts that a NotFound error is returned
+// when the controller UUID is absent from the state map.
+func (s *serviceSuite) TestControllerConfigMissingUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
+		controller.CACertKey: jujutesting.CACert,
+	}, nil)
+
+	_, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+// TestControllerConfigMissingCACert asserts that a NotFound error is returned
+// when the CA cert is absent from the state map.
+func (s *serviceSuite) TestControllerConfigMissingCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+	}, nil)
+
+	_, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+// TestControllerConfigDeserializeError asserts that an error from
+// deserializeMap (invalid value for a known schema field) is propagated.
+func (s *serviceSuite) TestControllerConfigDeserializeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+		controller.AuditingEnabled:   "not-a-bool",
+	}, nil)
+
+	_, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, `unable to coerce controller config: .*`)
+}
+
+// TestControllerConfigNewConfigError asserts that an error from
+// controller.NewConfig (e.g. invalid controller UUID) is propagated.
+func (s *serviceSuite) TestControllerConfigNewConfigError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
+		controller.ControllerUUIDKey: "not-a-valid-uuid",
+		controller.CACertKey:         jujutesting.CACert,
+	}, nil)
+
+	_, err := NewService(s.state).ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, `unable to create controller config: .*`)
+}
+
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -35,7 +129,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	k1 := controller.AuditingEnabled
 	k2 := controller.PublicDNSAddress
 
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}, gomock.Any()).Return(nil)
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}).Return(nil)
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, []string{k1, k2})
 	c.Assert(err, tc.ErrorIsNil)
@@ -46,113 +140,90 @@ func (s *serviceSuite) TestUpdateControllerError(c *tc.C) {
 
 	cfg, coerced := makeDefaultConfig("file")
 
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).Return(errors.New("boom"))
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil).Return(errors.New("boom"))
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorMatches, "updating controller config state: boom")
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationNoError(c *tc.C) {
+// TestUpdateControllerConfigUnknownKey asserts that updating with a key
+// that is not a controller-only attribute is rejected.
+func (s *serviceSuite) TestUpdateControllerConfigUnknownKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure that we allow changes to the object-store-type config key, from
-	// file to s3.
-
-	cfg, coerced := makeDefaultConfig("s3")
-	_, current := makeDefaultConfig("file")
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
+	cfg := controller.Config{
+		"not-a-real-key": "value",
+	}
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `unknown controller config setting "not-a-real-key"`)
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *tc.C) {
+// TestUpdateControllerConfigImmutableKey asserts that updating a controller
+// config key that is not in AllowedUpdateConfigAttributes is rejected.
+func (s *serviceSuite) TestUpdateControllerConfigImmutableKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure that we error out if we've not got enough s3 config to validate
-	// the change.
-
-	cfg, coerced := makeMinimalConfig("s3")
-	_, current := makeMinimalConfig("file")
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
+	cfg := controller.Config{
+		controller.APIPort: 1234,
+	}
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorMatches, `.*without complete s3 config: missing S3 endpoint`)
+	c.Assert(err, tc.ErrorMatches, `can not change "api-port" after bootstrap`)
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationOnlyObjectStoreType(c *tc.C) {
+// TestUpdateControllerConfigCoercionError asserts that a value which
+// fails schema coercion for a known field is rejected.
+func (s *serviceSuite) TestUpdateControllerConfigCoercionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure we allow config to be updated one value at a time
-
-	coerced := map[string]string{controller.ObjectStoreType: "s3"}
-	cfg := controller.Config{controller.ObjectStoreType: "s3"}
-	_, current := makeDefaultConfig("file")
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
+	cfg := controller.Config{
+		controller.AuditingEnabled: "not-a-bool",
+	}
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `unable to coerce controller config key .*`)
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationAllAtOnce(c *tc.C) {
+// TestUpdateControllerConfigRemoveUnknownKey asserts that removing a key
+// that is not a controller-only attribute is rejected.
+func (s *serviceSuite) TestUpdateControllerConfigRemoveUnknownKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure we allow the setting of all s3 config values in one
+	cfg := controller.Config{}
 
-	cfg, coerced := makeDefaultConfig("s3")
-	_, current := makeMinimalConfig("file")
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
-
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, []string{"not-a-real-key"})
+	c.Assert(err, tc.ErrorMatches, `unknown controller config setting "not-a-real-key"`)
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationError(c *tc.C) {
+// TestUpdateControllerConfigRemoveImmutableKey asserts that removing a
+// key not in AllowedUpdateConfigAttributes is rejected.
+func (s *serviceSuite) TestUpdateControllerConfigRemoveImmutableKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure that we prevent and reject changes to the object-store-type
-	// config key, from s3 to file.
+	cfg := controller.Config{}
 
-	cfg, coerced := makeDefaultConfig("file")
-	_, current := makeDefaultConfig("s3")
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
-
-	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
-	c.Assert(err, tc.ErrorMatches, `updating controller config state: can not change "object-store-type" from "s3" to "file"`)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, []string{controller.CACertKey})
+	c.Assert(err, tc.ErrorMatches, `can not change "ca-cert" after bootstrap`)
 }
 
-func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *tc.C) {
+// TestUpdateControllerConfigStripsControllerUUID asserts that the
+// controller-uuid key is removed from the attrs passed to state, as
+// it must never be updated.
+func (s *serviceSuite) TestUpdateControllerConfigStripsControllerUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Test that not sending anything doesn't cause the validation to error.
+	cfg := controller.Config{
+		controller.AuditingEnabled: true,
+	}
 
-	cfg, coerced := makeDefaultConfig("does not matter")
-	_, current := makeDefaultConfig("file")
-
-	// Remove the object-store-type from the current config, and ensure that
-	// we don't error out.
-	delete(cfg, controller.ObjectStoreType)
-	delete(coerced, controller.ObjectStoreType)
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
-		return validateModification(current)
-	})
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, updateAttrs map[string]string, _ []string) error {
+			_, hasUUID := updateAttrs[controller.ControllerUUIDKey]
+			c.Check(hasUUID, tc.IsFalse)
+			return nil
+		},
+	)
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(c.Context(), cfg, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -172,6 +243,30 @@ func (s *serviceSuite) TestWatchControllerConfig(c *tc.C) {
 	c.Assert(w, tc.NotNil)
 }
 
+// TestWatchControllerConfigNoNamespaces asserts that an error is returned
+// when the state reports no namespaces to watch.
+func (s *serviceSuite) TestWatchControllerConfigNoNamespaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().NamespacesForWatchControllerConfig().Return(nil)
+
+	_, err := NewWatchableService(s.state, s.watcherFactory).WatchControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "no namespaces for watching controller config")
+}
+
+// TestWatchControllerConfigWatcherFactoryError asserts that a watcher
+// factory error is propagated.
+func (s *serviceSuite) TestWatchControllerConfigWatcherFactoryError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AllKeysQuery().Return("query")
+	s.state.EXPECT().NamespacesForWatchControllerConfig().Return([]string{"controller_config", "controller"})
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("watcher boom"))
+
+	_, err := NewWatchableService(s.state, s.watcherFactory).WatchControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "watcher boom")
+}
+
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -184,38 +279,14 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func makeDefaultConfig(objectType string) (controller.Config, map[string]string) {
 	return controller.Config{
-			controller.AuditingEnabled:           true,
-			controller.AuditLogCaptureArgs:       false,
-			controller.AuditLogMaxBackups:        10,
-			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.ObjectStoreType:           objectType,
-			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
-			controller.ObjectStoreS3StaticKey:    "static-key",
-			controller.ObjectStoreS3StaticSecret: "static-secret",
-		}, map[string]string{
-			controller.AuditingEnabled:           "true",
-			controller.AuditLogCaptureArgs:       "false",
-			controller.AuditLogMaxBackups:        "10",
-			controller.PublicDNSAddress:          "controller.test.com:1234",
-			controller.ObjectStoreType:           objectType,
-			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
-			controller.ObjectStoreS3StaticKey:    "static-key",
-			controller.ObjectStoreS3StaticSecret: "static-secret",
-		}
-}
-
-func makeMinimalConfig(objectType string) (controller.Config, map[string]string) {
-	return controller.Config{
 			controller.AuditingEnabled:     true,
 			controller.AuditLogCaptureArgs: false,
 			controller.AuditLogMaxBackups:  10,
 			controller.PublicDNSAddress:    "controller.test.com:1234",
-			controller.ObjectStoreType:     objectType,
 		}, map[string]string{
 			controller.AuditingEnabled:     "true",
 			controller.AuditLogCaptureArgs: "false",
 			controller.AuditLogMaxBackups:  "10",
 			controller.PublicDNSAddress:    "controller.test.com:1234",
-			controller.ObjectStoreType:     objectType,
 		}
 }
