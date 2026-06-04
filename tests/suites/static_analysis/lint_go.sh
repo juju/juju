@@ -133,10 +133,6 @@ join() {
 
 run_govulncheck() {
 	ignore=(
-		# The vulnerability below is for a method not used since Juju 1.x.
-		#
-		# https://pkg.go.dev/vuln/GO-2025-3798
-		"GO-2025-3798"
 		# false positive vulnerabilities in github.com/canonical/lxd. These are
 		# resolved in lxd-5.21.4.
 		#
