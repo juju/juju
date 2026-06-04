@@ -918,6 +918,27 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 	})
 }
 
+func (s *workerSuite) TestWorkloadTracingConfigInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.tracingService.EXPECT().SetWorkloadTracingConfig(gomock.Any(), gomock.Any()).Return(
+		internalerrors.New("open telemetry sample ratio value 1.42 must be a ratio between 0 and 1").Add(coreerrors.NotValid),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       `{"open_telemetry_sample_ratio":1.42}`,
+		statusCode: http.StatusBadRequest,
+		response:   `.*invalid workload tracing config.*`,
+	})
+}
+
 func (s *workerSuite) TestWorkloadTracingConfigServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

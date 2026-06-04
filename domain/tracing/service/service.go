@@ -6,7 +6,9 @@ package service
 import (
 	"context"
 	"strconv"
+	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 )
@@ -100,6 +102,10 @@ func (s *Service) SetWorkloadTracingConfig(ctx context.Context, config WorkloadT
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := validateWorkloadTracingConfig(config); err != nil {
+		return err
+	}
+
 	insertions, deletions := splitTracingConfig(config.HTTPEndpoint, config.GRPCEndpoint, config.CACertificate)
 	if config.OpenTelemetryStackTraces != nil {
 		insertions[openTelemetryStackTracesKey] = strconv.FormatBool(*config.OpenTelemetryStackTraces)
@@ -186,4 +192,42 @@ func splitTracingConfig(httpEndpoint, grpcEndpoint, caCertificate string) (map[s
 	}
 
 	return insertions, deletions
+}
+
+func validateWorkloadTracingConfig(config WorkloadTracingConfig) error {
+	if err := validateOpenTelemetrySampleRatio(config.OpenTelemetrySampleRatio); err != nil {
+		return err
+	}
+	if err := validateOpenTelemetryTailSamplingThreshold(config.OpenTelemetryTailSamplingThreshold); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateOpenTelemetrySampleRatio(sampleRatio *float64) error {
+	if sampleRatio == nil {
+		return nil
+	}
+	if *sampleRatio < 0 || *sampleRatio > 1 {
+		return errors.Errorf("%s value %f must be a ratio between 0 and 1",
+			openTelemetrySampleRatioKey, *sampleRatio).Add(coreerrors.NotValid)
+	}
+	return nil
+}
+
+func validateOpenTelemetryTailSamplingThreshold(tailSamplingThreshold *string) error {
+	if tailSamplingThreshold == nil || *tailSamplingThreshold == "" {
+		return nil
+	}
+
+	v, err := time.ParseDuration(*tailSamplingThreshold)
+	if err != nil {
+		return errors.Errorf("%s value %q must be a valid duration",
+			openTelemetryTailSamplingThresholdKey, *tailSamplingThreshold).Add(coreerrors.NotValid)
+	}
+	if v < 0 {
+		return errors.Errorf("%s value %q must be a positive duration",
+			openTelemetryTailSamplingThresholdKey, v).Add(coreerrors.NotValid)
+	}
+	return nil
 }

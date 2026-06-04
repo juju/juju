@@ -538,6 +538,10 @@ func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *h
 		OpenTelemetrySampleRatio:           parsedBody.OpenTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: parsedBody.OpenTelemetryTailSamplingThreshold,
 	})
+	if internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid workload tracing config: %w", err))
+		return
+	}
 	if err != nil {
 		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, err)
 		return

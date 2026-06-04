@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -196,6 +197,36 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigPartialFields(c *tc.C) {
 
 	err := NewService(s.st).SetWorkloadTracingConfig(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetWorkloadTracingConfigInvalidSampleRatio(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openTelemetrySampleRatio := 1.42
+	err := NewService(s.st).SetWorkloadTracingConfig(c.Context(), WorkloadTracingConfig{
+		OpenTelemetrySampleRatio: &openTelemetrySampleRatio,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetWorkloadTracingConfigInvalidTailSamplingThreshold(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openTelemetryTailSamplingThreshold := "not-a-duration"
+	err := NewService(s.st).SetWorkloadTracingConfig(c.Context(), WorkloadTracingConfig{
+		OpenTelemetryTailSamplingThreshold: &openTelemetryTailSamplingThreshold,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetWorkloadTracingConfigNegativeTailSamplingThreshold(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openTelemetryTailSamplingThreshold := "-1s"
+	err := NewService(s.st).SetWorkloadTracingConfig(c.Context(), WorkloadTracingConfig{
+		OpenTelemetryTailSamplingThreshold: &openTelemetryTailSamplingThreshold,
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestSetWorkloadTracingConfigStateError(c *tc.C) {
