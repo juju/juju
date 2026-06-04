@@ -32,11 +32,11 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{
+			c.Check(req.Header, jc.DeepEquals, http.Header{
 				"Accept": expectedManifestAcceptHeader,
 			})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -51,9 +51,9 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -62,12 +62,12 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{
+			c.Check(req.Header, jc.DeepEquals, http.Header{
 				"Authorization": []string{"Bearer jwt-token"},
 				"Accept":        expectedManifestAcceptHeader,
 			})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{
 				Header: http.Header{
 					http.CanonicalHeaderKey("Content-Type"): []string{contentType},
@@ -170,9 +170,9 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals,
+			c.Check(req.Header, jc.DeepEquals, http.Header{})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals,
 				`https://example.com/v2/jujuqa/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
 			)
 			return &http.Response{
@@ -189,9 +189,9 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 		// Refresh OAuth Token.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.getAuthToken("username", "pwd")}})
+				c.Check(req.Method, gc.Equals, `GET`)
+				c.Check(req.URL.String(), gc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -200,9 +200,9 @@ func (s *baseSuite) TestGetBlobs(c *gc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals,
+			c.Check(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, gc.Equals, `GET`)
+			c.Check(req.URL.String(), gc.Equals,
 				`https://example.com/v2/jujuqa/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
 			)
 			resps := &http.Response{
