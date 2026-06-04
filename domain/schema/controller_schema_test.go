@@ -206,6 +206,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Tracing config
 		"charm_tracing_config",
+		"workload_tracing_config",
 
 		// Logging config
 		"logging_loki_config",
