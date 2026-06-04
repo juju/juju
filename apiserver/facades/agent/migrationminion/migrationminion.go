@@ -11,9 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -76,13 +74,10 @@ func (api *API) Report(ctx context.Context, info params.MinionReport) error {
 	}
 
 	tag := api.authorizer.GetAuthTag()
-	switch t := tag.(type) {
-	case names.UnitTag:
-		return api.modelMigrationService.ReportFromUnit(
-			ctx, unit.Name(t.Id()), phase, info.Success)
-	case names.MachineTag:
-		return api.modelMigrationService.ReportFromMachine(
-			ctx, machine.Name(t.Id()), phase, info.Success)
+	switch tag.(type) {
+	case names.UnitTag, names.MachineTag:
+		return api.modelMigrationService.ReportMinion(
+			ctx, tag.String(), phase, info.Success)
 	default:
 		return errors.NotSupportedf("reporting minion status for %v", tag)
 	}

@@ -6,19 +6,17 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelmigration"
@@ -152,9 +150,9 @@ type ModelState interface {
 	// model has started or stopped undergoing a migration.
 	GetNamespaceModelMigrating() string
 
-	// GetMigrationAgents returns all agent tags that must report migration
+	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
-	GetMigrationAgents(ctx context.Context) (set.Strings, error)
+	GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -429,27 +427,11 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 	return watcher.TODO[struct{}](), nil
 }
 
-// ReportFromUnit accepts a phase report from a migration minion for a unit
-// agent.
-func (s *Service) ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase, success bool) error {
+// ReportMinion accepts a phase report from a migration minion agent.
+func (s *Service) ReportMinion(ctx context.Context, entityKey string, phase migration.Phase, success bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.reportMinion(ctx, names.NewUnitTag(unitName.String()).String(), phase, success)
-}
-
-// ReportFromMachine accepts a phase report from a migration minion for a
-// machine agent.
-func (s *Service) ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase, success bool) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.reportMinion(ctx, names.NewMachineTag(machineName.String()).String(), phase, success)
-}
-
-// reportMinion records a single minion report against the model's active export
-// migration, keyed by the agent's tag string.
-func (s *Service) reportMinion(ctx context.Context, entityKey string, phase migration.Phase, success bool) error {
 	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -507,10 +489,11 @@ func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, e
 		return migration.MinionReports{}, errors.Capture(err)
 	}
 
-	allAgents, err := s.modelState.GetMigrationAgents(ctx)
+	migrationAgents, err := s.modelState.GetMigrationAgents(ctx)
 	if err != nil {
 		return migration.MinionReports{}, errors.Capture(err)
 	}
+	allAgents := migrationAgentKeys(migrationAgents)
 
 	succeeded := set.NewStrings(aggregated.Succeeded...)
 	failed := set.NewStrings(aggregated.Failed...)
@@ -551,27 +534,83 @@ func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, e
 	return reports, nil
 }
 
+func migrationAgentKeys(agents modelmigrationinternal.MigrationAgents) set.Strings {
+	result := set.NewStrings()
+	for _, machineName := range agents.Machines {
+		result.Add(machineMinionReportKey(machineName))
+	}
+	for _, unitName := range agents.Units {
+		result.Add(unitMinionReportKey(unitName))
+	}
+	for _, applicationName := range agents.Applications {
+		result.Add(applicationMinionReportKey(applicationName))
+	}
+	return result
+}
+
+const (
+	machineMinionReportKeyPrefix     = "machine-"
+	unitMinionReportKeyPrefix        = "unit-"
+	applicationMinionReportKeyPrefix = "application-"
+	minionReportKeySeparator         = "-"
+)
+
+func machineMinionReportKey(name string) string {
+	return machineMinionReportKeyPrefix + strings.ReplaceAll(name, "/", minionReportKeySeparator)
+}
+
+func unitMinionReportKey(name string) string {
+	return unitMinionReportKeyPrefix + strings.ReplaceAll(name, "/", minionReportKeySeparator)
+}
+
+func applicationMinionReportKey(name string) string {
+	return applicationMinionReportKeyPrefix + name
+}
+
 func addMinionReportEntity(
 	key string,
 	machines *[]string,
 	units *[]string,
 	applications *[]string,
 ) error {
-	tag, err := names.ParseTag(key)
-	if err != nil {
-		return errors.Errorf("parsing reported entity %q: %w", key, err)
+	if name, ok := strings.CutPrefix(key, machineMinionReportKeyPrefix); ok {
+		*machines = append(*machines, machineNameFromMinionReportKey(name))
+		return nil
 	}
-	switch tag.Kind() {
-	case names.MachineTagKind:
-		*machines = append(*machines, tag.Id())
-	case names.UnitTagKind:
-		*units = append(*units, tag.Id())
-	case names.ApplicationTagKind:
-		*applications = append(*applications, tag.Id())
-	default:
-		return errors.Errorf("unsupported migration minion tag %q", key)
+	if name, ok := strings.CutPrefix(key, unitMinionReportKeyPrefix); ok {
+		unitName, err := unitNameFromMinionReportKey(name)
+		if err != nil {
+			return errors.Errorf("parsing reported entity %q: %w", key, err)
+		}
+		*units = append(*units, unitName)
+		return nil
 	}
-	return nil
+	if name, ok := strings.CutPrefix(key, applicationMinionReportKeyPrefix); ok && name != "" {
+		*applications = append(*applications, name)
+		return nil
+	}
+	return errors.Errorf("unsupported migration minion entity key %q", key)
+}
+
+func machineNameFromMinionReportKey(key string) string {
+	parts := strings.Split(key, minionReportKeySeparator)
+	if len(parts) == 1 {
+		return key
+	}
+	return parts[0] + "/" + strings.Join(parts[1:], "/")
+}
+
+func unitNameFromMinionReportKey(key string) (string, error) {
+	appName, unitNumber, ok := strings.Cut(key, minionReportKeySeparator)
+	for ok {
+		nextAppName, nextUnitNumber, nextOk := strings.Cut(unitNumber, minionReportKeySeparator)
+		if !nextOk {
+			return appName + "/" + unitNumber, nil
+		}
+		appName += minionReportKeySeparator + nextAppName
+		unitNumber = nextUnitNumber
+	}
+	return "", errors.Errorf("missing unit number")
 }
 
 // ActivateImport finalises the import of the model by clearing the

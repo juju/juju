@@ -216,7 +216,9 @@ func (s *migrationSuite) TestGetMigrationAgentsIAAS(c *tc.C) {
 
 	agents, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMigrationAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(agents.Values(), tc.SameContents, []string{"machine-0", "unit-foo-0"})
+	c.Check(agents.Machines, tc.SameContents, []string{"0"})
+	c.Check(agents.Units, tc.SameContents, []string{"foo/0"})
+	c.Check(agents.Applications, tc.HasLen, 0)
 }
 
 func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
@@ -256,7 +258,9 @@ func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
 
 	agents, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMigrationAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(agents.Values(), tc.SameContents, []string{"application-legacy", "unit-sidecar-0"})
+	c.Check(agents.Machines, tc.HasLen, 0)
+	c.Check(agents.Units, tc.SameContents, []string{"sidecar/0"})
+	c.Check(agents.Applications, tc.SameContents, []string{"legacy"})
 }
 
 // TestDeleteModelImportingStatusSuccess tests that clearing an existing

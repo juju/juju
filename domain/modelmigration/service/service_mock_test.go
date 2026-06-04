@@ -656,10 +656,10 @@ func (c *MockModelStateGetControllerUUIDCall) DoAndReturn(f func(context.Context
 }
 
 // GetMigrationAgents mocks base method.
-func (m *MockModelState) GetMigrationAgents(arg0 context.Context) (set.Strings, error) {
+func (m *MockModelState) GetMigrationAgents(arg0 context.Context) (internal.MigrationAgents, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMigrationAgents", arg0)
-	ret0, _ := ret[0].(set.Strings)
+	ret0, _ := ret[0].(internal.MigrationAgents)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -677,19 +677,19 @@ type MockModelStateGetMigrationAgentsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetMigrationAgentsCall) Return(arg0 set.Strings, arg1 error) *MockModelStateGetMigrationAgentsCall {
+func (c *MockModelStateGetMigrationAgentsCall) Return(arg0 internal.MigrationAgents, arg1 error) *MockModelStateGetMigrationAgentsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetMigrationAgentsCall) Do(f func(context.Context) (set.Strings, error)) *MockModelStateGetMigrationAgentsCall {
+func (c *MockModelStateGetMigrationAgentsCall) Do(f func(context.Context) (internal.MigrationAgents, error)) *MockModelStateGetMigrationAgentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetMigrationAgentsCall) DoAndReturn(f func(context.Context) (set.Strings, error)) *MockModelStateGetMigrationAgentsCall {
+func (c *MockModelStateGetMigrationAgentsCall) DoAndReturn(f func(context.Context) (internal.MigrationAgents, error)) *MockModelStateGetMigrationAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

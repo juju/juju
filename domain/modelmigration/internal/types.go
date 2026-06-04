@@ -59,3 +59,11 @@ type MinionReports struct {
 	Succeeded []string
 	Failed    []string
 }
+
+// MigrationAgents contains the raw names of agents that must report migration
+// minion progress for a model.
+type MigrationAgents struct {
+	Machines     []string
+	Units        []string
+	Applications []string
+}

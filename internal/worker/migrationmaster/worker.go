@@ -119,9 +119,13 @@ type CharmService interface {
 	GetCharmArchive(context.Context, charm.CharmLocator) (io.ReadCloser, string, error)
 }
 
+// ModelMigrationService exposes model migration domain operations that the
+// worker needs locally. Minion report validation needs the model agent
+// inventory, so the worker uses the domain service instead of the controller
+// facade for this path.
 type ModelMigrationService interface {
 	// WatchMinionReports returns a notification watcher that fires when any
-	// minion reports a update to their phase.
+	// minion reports an update to their phase.
 	WatchMinionReports(context.Context) (watcher.NotifyWatcher, error)
 
 	// MinionReports returns phase information about minions in this model.

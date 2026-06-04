@@ -8,11 +8,11 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -114,12 +114,12 @@ FROM   machine_cloud_instance`
 	return instanceIDs, nil
 }
 
-// GetMigrationAgents returns all agent tags that must report migration minion
+// GetMigrationAgents returns all agents that must report migration minion
 // progress for this model.
-func (s *State) GetMigrationAgents(ctx context.Context) (set.Strings, error) {
+func (s *State) GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return nil, errors.Errorf("cannot get database to retrieve migration agents: %w", err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Errorf("cannot get database to retrieve migration agents: %w", err)
 	}
 
 	modelTypeStmt, err := s.Prepare(`
@@ -127,21 +127,21 @@ SELECT &modelType.*
 FROM   model
 `, modelType{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
 	machineStmt, err := s.Prepare(`
 SELECT &agentName.name
 FROM   machine
 `, agentName{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
 	unitStmt, err := s.Prepare(`
 SELECT &agentName.name
 FROM   unit
 `, agentName{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
 	applicationAgentStmt, err := s.Prepare(`
 SELECT &agentName.name
@@ -149,7 +149,7 @@ FROM   application AS a
 JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
 `, agentName{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
 
 	var (
@@ -159,6 +159,11 @@ JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
 		applications   []agentName
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelTypeValue = modelType{}
+		machines = nil
+		units = nil
+		applications = nil
+
 		if err := tx.Query(ctx, modelTypeStmt).Get(&modelTypeValue); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.New("model information is missing from database")
@@ -182,18 +187,22 @@ JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Capture(err)
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
 
-	agents := set.NewStrings()
+	agents := modelmigrationinternal.MigrationAgents{
+		Machines:     make([]string, 0, len(machines)),
+		Units:        make([]string, 0, len(units)),
+		Applications: make([]string, 0, len(applications)),
+	}
 	for _, m := range machines {
-		agents.Add(names.NewMachineTag(m.Name).String())
+		agents.Machines = append(agents.Machines, m.Name)
 	}
 	for _, u := range units {
-		agents.Add(names.NewUnitTag(u.Name).String())
+		agents.Units = append(agents.Units, u.Name)
 	}
 	for _, a := range applications {
-		agents.Add(names.NewApplicationTag(a.Name).String())
+		agents.Applications = append(agents.Applications, a.Name)
 	}
 	return agents, nil
 }

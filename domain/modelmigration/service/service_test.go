@@ -15,13 +15,11 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -485,8 +483,9 @@ func (s *serviceSuite) TestSetMigrationStatusMessage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestReportFromMachine asserts a machine report is keyed by its machine tag.
-func (s *serviceSuite) TestReportFromMachine(c *tc.C) {
+// TestReportMinion asserts a minion report is recorded with the entity key
+// supplied by the facade.
+func (s *serviceSuite) TestReportMinion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	migUUID := tc.Must(c, uuid.NewUUID).String()
@@ -497,23 +496,7 @@ func (s *serviceSuite) TestReportFromMachine(c *tc.C) {
 			gomock.Any(), migUUID, migration.IMPORT, "machine-0", true).Return(nil),
 	)
 
-	err := s.service().ReportFromMachine(c.Context(), machine.Name("0"), migration.IMPORT, true)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestReportFromUnit asserts a unit report is keyed by its unit tag.
-func (s *serviceSuite) TestReportFromUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	migUUID := tc.Must(c, uuid.NewUUID).String()
-	gomock.InOrder(
-		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigrationinternal.Migration{UUID: migUUID}, nil),
-		s.controllerState.EXPECT().InsertMinionReport(
-			gomock.Any(), migUUID, migration.IMPORT, "unit-foo-0", false).Return(nil),
-	)
-
-	err := s.service().ReportFromUnit(c.Context(), unit.Name("foo/0"), migration.IMPORT, false)
+	err := s.service().ReportMinion(c.Context(), "machine-0", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -533,13 +516,11 @@ func (s *serviceSuite) TestMinionReports(c *tc.C) {
 				Failed:    []string{"machine-1", "unit-bar-0"},
 			}, nil),
 		s.modelState.EXPECT().GetMigrationAgents(gomock.Any()).Return(
-			set.NewStrings(
-				"machine-0",
-				"unit-foo-0",
-				"machine-1",
-				"unit-bar-0",
-				"application-legacy",
-			), nil),
+			modelmigrationinternal.MigrationAgents{
+				Machines:     []string{"0", "1"},
+				Units:        []string{"foo/0", "bar/0"},
+				Applications: []string{"legacy"},
+			}, nil),
 	)
 
 	reports, err := s.service().MinionReports(c.Context())
@@ -567,7 +548,9 @@ func (s *serviceSuite) TestMinionReportsDoesNotValidateReportedAgentInventory(c 
 				Succeeded: []string{"machine-0", "machine-42"},
 			}, nil),
 		s.modelState.EXPECT().GetMigrationAgents(gomock.Any()).Return(
-			set.NewStrings("machine-0"), nil),
+			modelmigrationinternal.MigrationAgents{
+				Machines: []string{"0"},
+			}, nil),
 	)
 
 	reports, err := s.service().MinionReports(c.Context())
