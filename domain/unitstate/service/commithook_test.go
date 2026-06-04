@@ -11,9 +11,11 @@ import (
 
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -116,6 +118,96 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 	err := s.svc.CommitHookChanges(c.Context(), arg)
 
 	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesLeadershipGrantAppSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.leadershipEnsurer.EXPECT().WithLeader(gomock.Any(), "test", "test/0", gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretGrants: []unitstate.GrantSecretArg{{
+			URI:         coresecrets.NewURI(),
+			SubjectUUID: "subject-uuid",
+			ScopeUUID:   "scope-uuid",
+			OwnerKind:   secret.ApplicationCharmSecretOwner,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesNoLeadershipGrantUnitSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretGrants: []unitstate.GrantSecretArg{{
+			URI:         coresecrets.NewURI(),
+			SubjectUUID: "subject-uuid",
+			ScopeUUID:   "scope-uuid",
+			OwnerKind:   secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesLeadershipRevokeAppSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.leadershipEnsurer.EXPECT().WithLeader(gomock.Any(), "test", "test/0", gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretRevokes: []unitstate.RevokeSecretArg{{
+			URI:         coresecrets.NewURI(),
+			SubjectUUID: "subject-uuid",
+			OwnerKind:   secret.ApplicationCharmSecretOwner,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesNoLeadershipRevokeUnitSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretRevokes: []unitstate.RevokeSecretArg{{
+			URI:         coresecrets.NewURI(),
+			SubjectUUID: "subject-uuid",
+			OwnerKind:   secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

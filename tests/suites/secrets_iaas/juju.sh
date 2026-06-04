@@ -354,15 +354,18 @@ test_obsolete_revisions() {
 run_secret_nonleader_unit_owned() {
 	echo
 
-	juju --show-log deploy juju-qa-test -n 2
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 0)"
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 1)"
+	juju --show-log deploy juju-qa-dummy-source -n 2
+	juju --show-log deploy juju-qa-dummy-sink
+	juju --show-log integrate dummy-sink dummy-source
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
 
 	# Identify the non-leader unit.
-	if juju exec --unit juju-qa-test/0 -- is-leader 2>/dev/null | grep -q true; then
-		non_leader="juju-qa-test/1"
+	if juju exec --unit dummy-source/0 -- is-leader 2>/dev/null | grep -q true; then
+		non_leader="dummy-source/1"
 	else
-		non_leader="juju-qa-test/0"
+		non_leader="dummy-source/0"
 	fi
 	echo "Non-leader unit: $non_leader"
 
@@ -370,6 +373,21 @@ run_secret_nonleader_unit_owned() {
 	secret_uri=$(juju exec --unit "$non_leader" -- secret-add --owner unit nonleader=secret)
 	juju exec --unit "$non_leader" -- secret-remove "$secret_uri"
 	check_contains "$(juju exec --unit "$non_leader" -- secret-get "$secret_uri" 2>&1)" 'not found'
+
+	echo "Checking: non-leader can grant its own unit-owned secret"
+	secret_uri=$(juju exec --unit "$non_leader" -- secret-add --owner unit grantme=value)
+	relation_id=$(juju --show-log show-unit "$non_leader" --format json | yq ".\"${non_leader}\".\"relation-info\"[0].\"relation-id\"")
+	juju exec --unit "$non_leader" -- secret-grant "$secret_uri" -r "$relation_id"
+
+	echo "Checking: consumer can read the granted secret"
+	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri")" 'grantme: value'
+
+	echo "Checking: non-leader can revoke its own unit-owned secret"
+	juju exec --unit "$non_leader" -- secret-revoke "$secret_uri" --app dummy-sink
+	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
+
+	echo "Cleaning up non-leader secret"
+	juju exec --unit "$non_leader" -- secret-remove "$secret_uri"
 }
 
 test_secret_nonleader_unit_owned() {
