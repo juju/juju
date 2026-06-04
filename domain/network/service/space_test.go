@@ -148,13 +148,8 @@ func (s *spaceSuite) TestAddSpace(c *tc.C) {
 
 	var expectedUUID network.SpaceUUID
 	// Verify that the passed UUID is also returned.
-<<<<<<< HEAD
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string(nil)).
-		Do(
-=======
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string{}).
 		DoAndReturn(
->>>>>>> origin/canonical-gomock
 			func(
 				ctx context.Context,
 				uuid network.SpaceUUID,
@@ -573,23 +568,13 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
 	var (
 		spUUID0, spUUID1 network.SpaceUUID
 	)
-<<<<<<< HEAD
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[0].Name, twoSpaces[0].ProviderId, []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
+		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			spUUID0 = uuid
 			return nil
 		})
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[1].Name, twoSpaces[1].ProviderId, []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
-=======
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[0].Name, twoSpaces[0].ProviderId, []string{}).
 		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
-			spUUID0 = uuid
-			return nil
-		})
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[1].Name, twoSpaces[1].ProviderId, []string{}).
-		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
->>>>>>> origin/canonical-gomock
 			spUUID1 = uuid
 			return nil
 		})
@@ -741,13 +726,8 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *tc.C) {
 	}
 
 	var receivedSpaceID network.SpaceUUID
-<<<<<<< HEAD
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
-=======
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string{}).
 		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
->>>>>>> origin/canonical-gomock
 			receivedSpaceID = uuid
 			return nil
 		})
@@ -937,13 +917,8 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 	}
 
 	var receivedSpaceID network.SpaceUUID
-<<<<<<< HEAD
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
-=======
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string{}).
 		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
->>>>>>> origin/canonical-gomock
 			receivedSpaceID = uuid
 			return nil
 		})
