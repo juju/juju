@@ -59,12 +59,15 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 
 **Key principles:**
 - **Title**: Just cloud name (e.g., "Microsoft Azure"), rely on docs tree for context
+- **Introduction**: Start with "In Juju, <Cloud> is a {ref}`machine cloud <cloud-differences>`."
 - **Entity-based structure**: Organize by Juju entities (Cloud, Credential, Controller, Model, Machine, Storage)
 - **Sections describe cloud properties**: "Requirements this cloud has", "Constraints this cloud understands"
 - **"Other" subsections**: For cloud-specific features that don't fit standard template
 - **"Supported" prefix**: Make clear when only showing supported items (e.g., "Supported constraints")
 - **Anchor pattern**: Use `<cloud>-section-subsection` for uniqueness (e.g., `azure-cloud-requirements`)
 - **Appendices for workflows**: Keep command sequences separate from attribute reference
+- **Punctuation**: Sentential bullets end with periods. Use ` -- ` (space-hyphen-hyphen-space) for em-dashes.
+- **Subsection ordering**: Within each entity section, follow a consistent order (see section templates below)
 
 ---
 
@@ -290,7 +293,12 @@ See more: {ref}`constraint-xxx`
 
 **Location**: Fifth major section
 
-**Structure**:
+**Structure** (follow this order):
+
+1. Supported constraints
+2. Supported placement directives
+3. Resources created per machine
+4. Networking behavior (if relevant)
 
 ### Supported constraints
 

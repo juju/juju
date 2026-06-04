@@ -7,7 +7,7 @@ myst:
 (cloud-maas)=
 # MAAS
 
-MAAS is a {ref}`machine cloud <cloud-differences>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
+In Juju, MAAS is a {ref}`machine cloud <cloud-differences>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [MAAS](https://maas.io/)
@@ -36,11 +36,11 @@ Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
 MAAS differs fundamentally from public cloud providers. Instead of provisioning new infrastructure on-demand, MAAS **allocates existing machines from a pre-configured inventory**. When Juju requests a machine, MAAS finds one that matches the requirements and deploys the OS to it.
 
 Key implications:
-- All machines, networks, and storage must exist in MAAS before use
-- "Creating" a machine means allocating from inventory, not provisioning new hardware
-- Machines are released back to inventory when removed from Juju
-- Network topology must be pre-configured in MAAS (spaces, subnets, VLANs)
-- Storage must exist on machine hardware—cannot be dynamically provisioned
+- All machines, networks, and storage must exist in MAAS before use.
+- "Creating" a machine means allocating from inventory, not provisioning new hardware.
+- Machines are released back to inventory when removed from Juju.
+- Network topology must be pre-configured in MAAS (spaces, subnets, VLANs).
+- Storage must exist on machine hardware -- cannot be dynamically provisioned.
 
 (maas-credential)=
 ## Credential
@@ -82,26 +82,6 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 (maas-machine)=
 ## Machine
 
-(maas-machine-resources-created-per-machine)=
-### Resources created per machine
-
-Each machine (controller or application) receives:
-
-- **Bare metal or virtual machine**: Allocated from MAAS inventory matching hardware constraints
-- **Network interfaces**: Pre-configured NICs with IP addresses allocated from MAAS subnets
-- **Storage**: Physical disks on the machine matching storage constraints
-- **OS deployment**: Ubuntu image deployed via MAAS with Juju agent installed via cloud-init
-
-**Machine tags:** Machines tagged with `juju-controller-uuid`, `juju-model-uuid`, `juju-machine-id`, and `juju-units-deployed`.
-
-(maas-machine-networking-behavior)=
-### Networking behavior
-
-- **IP addressing**: MAAS allocates IPs from configured subnet pools (static, DHCP, or auto)
-- **Spaces**: Machines allocated based on required spaces from endpoint bindings and constraints
-- **Network topology**: Uses pre-existing MAAS network configuration (VLANs, subnets, spaces)
-- **No provisioning**: Juju does not create networks—all networking must be pre-configured in MAAS
-
 (maas-machine-supported-constraints)=
 ### Supported constraints
 
@@ -123,6 +103,26 @@ Each machine (controller or application) receives:
 - {ref}`placement-directive-system-id`
 - {ref}`placement-directive-zone`: If there's no '=' delimiter, assume it's a node name.
 
+(maas-machine-resources-created-per-machine)=
+### Resources created per machine
+
+Each machine (controller or application) receives:
+
+- **Bare metal or virtual machine**: Allocated from MAAS inventory matching hardware constraints.
+- **Network interfaces**: Pre-configured NICs with IP addresses allocated from MAAS subnets.
+- **Storage**: Physical disks on the machine matching storage constraints.
+- **OS deployment**: Ubuntu image deployed via MAAS with Juju agent installed via cloud-init.
+
+**Machine tags:** Machines tagged with `juju-controller-uuid`, `juju-model-uuid`, `juju-machine-id`, and `juju-units-deployed`.
+
+(maas-machine-networking-behavior)=
+### Networking behavior
+
+- **IP addressing**: MAAS allocates IPs from configured subnet pools (static, DHCP, or auto).
+- **Spaces**: Machines allocated based on required spaces from endpoint bindings and constraints.
+- **Network topology**: Uses pre-existing MAAS network configuration (VLANs, subnets, spaces).
+- **No provisioning**: Juju does not create networks -- all networking must be pre-configured in MAAS.
+
 (maas-storage)=
 ## Cloud-specific storage providers
 
@@ -134,10 +134,10 @@ Each machine (controller or application) receives:
 The MAAS storage provider is static-only—it cannot dynamically create or release volumes. Storage must exist on the machine's hardware and can only be requested at deploy time.
 
 **Behavior:**
-- Volumes are allocated from physical disks on the MAAS machine
-- Storage cannot be detached and moved to another machine
-- Volumes are removed when the machine is removed from the model
-- Cannot allocate storage to existing machines (deploy-time only)
+- Volumes are allocated from physical disks on the MAAS machine.
+- Storage cannot be detached and moved to another machine.
+- Volumes are removed when the machine is removed from the model.
+- Cannot allocate storage to existing machines (deploy-time only).
 
 **Limitations:** Juju cannot dissociate a MAAS disk from its machine, so attempting to deploy a unit with storage to an existing MAAS machine will return an error.
 

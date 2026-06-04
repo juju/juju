@@ -1,6 +1,6 @@
 # Microsoft Azure
 
-Azure is a {ref}`machine cloud <cloud-differences>`. This document describes Azure-specific behaviors, configuration options, and limitations.
+In Juju, Azure is a {ref}`machine cloud <cloud-differences>`. This document describes Azure-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
@@ -29,7 +29,7 @@ Name in Juju: `azure`
 - `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff)
 - `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join)
 - `Microsoft.Compute/availabilitySets` (write, read, delete)
-- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) — optional for public-facing services
+- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) -- optional for public-facing services
 - `Microsoft.Network/networkInterfaces` (write, read, delete, join)
 - `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate)
 - `Microsoft.Compute/disks` (write, read, delete)
