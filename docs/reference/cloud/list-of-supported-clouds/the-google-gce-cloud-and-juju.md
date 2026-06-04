@@ -5,181 +5,271 @@ myst:
 ---
 
 (cloud-gce)=
-# The Google GCE cloud and Juju
+# Google GCE
 
-This document describes details specific to using your existing Google GCE cloud with Juju.
+In Juju, Google GCE is a {ref}`machine cloud <cloud-differences>`. This document describes GCE-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Google GCE](https://cloud.google.com/compute)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
+(gce-cloud)=
+## Cloud
 
-```{ibnote}
-See more: {ref}`cloud-differences`
-```
-
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
-## Requirements:
-
-Permissions: Service Account Key Admin, Compute Instance Admin, and Compute Security Admin. <br> See more: [Google \| Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam).
-
-## Notes on `juju add-cloud`
+(gce-cloud-definition)=
+### Definition
 
 Type in Juju: `gce`
 
-Name in Juju: `google`
+Name in Juju: `google` (predefined)
 
-## Notes on `juju add-credential`
+(gce-cloud-requirements)=
+### Requirements
 
-### Authentication types
-
-#### `oauth2`
-Attributes:
-- `client-id`: client ID (required)
-- `client-email`: client e-mail address (required)
-- `private-key`: client secret (required)
-- `project-id`: project ID (required)
-
-#### `jsonfile`
-Attributes:
-- `file`: path to the `.json` file containing a service account key for your project
-Path (required)
+**IAM permissions:** Service Account Key Admin, Compute Instance Admin, and Compute Security Admin.
 
 ```{ibnote}
-See more:
-- {ref}`gce-appendix-workflow-2`
+See more: [Google | Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam)
 ```
 
-### If you want to use environment variables:
+(gce-cloud-other)=
+### Other
 
-`CLOUDSDK_COMPUTE_REGION` <p> - `GOOGLE_APPLICATION_CREDENTIALS=<link to JSON credentials file>`
+(gce-cloud-vpc-requirements)=
+#### VPC requirements
 
+When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
+
+- At least one subnet with status `READY`, OR
+- `AutoCreateSubnetworks=true` enabled
+- SSH access enabled (firewall rule for port 22)
+
+(gce-credential)=
+## Credential
+
+**Environment variables (optional):**
+
+- `CLOUDSDK_COMPUTE_REGION`
+- `GOOGLE_APPLICATION_CREDENTIALS=<path to JSON credentials file>`
+
+(gce-credential-supported-authentication-types)=
+### Supported authentication types
+
+(gce-credential-oauth2)=
+#### `oauth2`
+
+Attributes:
+
+- `client-id`: Client ID (required).
+- `client-email`: Client e-mail address (required).
+- `private-key`: Client secret (required).
+- `project-id`: Project ID (required).
+
+(gce-credential-jsonfile)=
+#### `jsonfile`
+
+Attributes:
+
+- `file`: Path to the `.json` file containing a service account key for your project (required).
+
+```{ibnote}
+See more: {ref}`gce-appendix-workflow-2`
+```
+
+(gce-credential-service-account)=
 #### `service-account`
-> *Requirements:*
-> - Juju 3.6+.
-> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
-> - The `add-credential` steps must be run from a jump host running in Google Cloud in order to allow the cloud metadata endpoint to be reached.
+
+**Requirements:**
+
+- Juju 3.6+
+- A service account with sufficient privileges. See: {ref}`gce-appendix-service-account`
+- The `add-credential` steps must be run from a jump host running in Google Cloud to reach the cloud metadata endpoint.
 
 ```{ibnote}
 See more: {ref}`gce-appendix-workflow-1`
 ```
 
-## Cloud-specific model configuration keys
+(gce-controller)=
+## Controller
 
-### base-image-path
-Base path to look for machine disk images.
+(gce-controller-bootstrap-behavior)=
+### Bootstrap behavior
 
-|               |               |
-|---------------|---------------|
-| type          | string        |
-| default value | schema.omit{} |
-| immutable     | false         |
-| mandatory     | false         |
+Creates a controller instance on GCE via single `InsertInstanceRequest` API call. Uses imperative GCE API calls to create resources -- no templates.
 
-### vpc-id-force
-Force Juju to use the GCE VPC ID specified with vpc-id, when it fails the minimum validation criteria.
+(gce-controller-resources-created-at-bootstrap)=
+### Resources created at bootstrap
 
-| | |
-|-|-|
-| type | bool |
-| default value | false |
-| immutable | true |
-| mandatory | false |
+- **Compute instance**: Ubuntu LTS instance. Machine type selected based on hardware constraints (default `n1-standard-1`). Instance creation includes boot disk inline (not separate API call).
+- **Boot disk**: Persistent disk, device name auto-assigned. Default 10 GiB minimum (expanded if constraint/image requires). Type `pd-standard` (default) or `pd-ssd`. Auto-deleted when instance terminates.
+- **Network interface**: Primary interface in specified VPC/subnet or default network. Private IP auto-assigned from subnet CIDR. External NAT with public IP if `allocate-public-ip=true` (default).
+- **Firewall rule**: Global rule `juju-<model-uuid>` targeting instances with tag `juju-<model-uuid>`. Allows ingress from instances with same tag.
+- **Service account** (optional): Attached if credential type is `service-account` or `instance-role` constraint specified. Scopes: `compute`, `devstorage.full_control`. Enables metadata service credentials.
+- **Instance metadata**: Tagged with `juju-controller-uuid`, `juju-is-controller: true`. Cloud-init data stored gzipped+base64 encoded.
+- **Instance tags**: `juju-<model-uuid>` (for firewall targeting), hostname.
 
-### vpc-id
-Use a specific VPC network (optional). When not specified, Juju requires a default VPC to be available for the account.
+(gce-controller-other)=
+### Other
 
-Example: vpc-a1b2c3d4
-| | |
-|-|-|
-| type | string |
-| default value | "" |
-| immutable | true |
-| mandatory | false |
+(gce-controller-service-accounts)=
+#### Service accounts
 
-## Supported constraints
-
-| {ref}`CONSTRAINT <constraint>`         |                                                     |
-|----------------------------------------|-----------------------------------------------------|
-| conflicting:                           | `instance-type` vs. `[arch, cores, cpu-power, mem]` |
-| supported?                             |                                                     |
-| - {ref}`constraint-allocate-public-ip` | &#10003;                                            |
-| - {ref}`constraint-arch`               | &#10003;                                            |
-| - {ref}`constraint-container`          | &#10003;                                            |
-| - {ref}`constraint-cores`              | &#10003;                                            |
-| - {ref}`constraint-cpu-power`          | &#10003;                                            |
-| - {ref}`constraint-image-id`           | &#10005;                                            |
-| - {ref}`constraint-instance-role`      | &#10005;                                            |
-| - {ref}`constraint-instance-type`      | &#10003;                                            |
-| - {ref}`constraint-mem`                | &#10003;                                            |
-| - {ref}`constraint-root-disk`          | &#10003;                                            |
-| - {ref}`constraint-root-disk-source`   | &#10003;                                            |
-| - {ref}`constraint-spaces`             | &#10003;                                            |
-| - {ref}`constraint-tags`               | &#10005;                                            |
-| - {ref}`constraint-virt-type`          | &#10005;                                            |
-| - {ref}`constraint-zones`              | &#10003;                                            |
-
-## Supported placement directives
-
-| {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
-|--------------------------------------------------|----------|
-| {ref}`placement-directive-machine`               | TBA      |
-| {ref}`placement-directive-subnet`                | &#10003; |
-| {ref}`placement-directive-system-id`             | &#10005; |
-| {ref}`placement-directive-zone`                  | &#10003; |
-
-## Cloud-specific storage providers
+Bootstrap with service accounts using `juju bootstrap --bootstrap-constraints="instance-role=<service-account-email>"`. Use `instance-role=auto` to use project's default service account.
 
 ```{ibnote}
-See first: {ref}`storage-provider`
+See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authentication-workflows`
 ```
+
+(gce-model)=
+## Model
+
+(gce-model-cloud-specific-configuration-keys)=
+### Cloud-specific configuration keys
+
+(gce-model-vpc-id)=
+#### `vpc-id`
+
+Use a specific VPC network. When not specified, Juju requires a default VPC to be available for the account. Example: `vpc-a1b2c3d4`.
+
+- **Type**: `string`
+- **Default value**: `""`
+- **Immutable**: `true`
+- **Mandatory**: `false`
+
+(gce-model-vpc-id-force)=
+#### `vpc-id-force`
+
+Force Juju to use the GCE VPC ID specified with `vpc-id`, when it fails the minimum validation criteria.
+
+- **Type**: `bool`
+- **Default value**: `false`
+- **Immutable**: `true`
+- **Mandatory**: `false`
+
+(gce-model-base-image-path)=
+#### `base-image-path`
+
+Base path to look for machine disk images.
+
+- **Type**: `string`
+- **Default value**: (omitted)
+- **Immutable**: `false`
+- **Mandatory**: `false`
+
+(gce-machine)=
+## Machine
+
+(gce-machine-supported-constraints)=
+### Supported constraints
+
+```{note}
+The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive.
+```
+
+- {ref}`constraint-allocate-public-ip`
+- {ref}`constraint-arch`
+- {ref}`constraint-container`
+- {ref}`constraint-cores`
+- {ref}`constraint-cpu-power`
+- {ref}`constraint-instance-type`: Valid values: Any GCE machine type. Default: `n1-standard-1`.
+- {ref}`constraint-mem`
+- {ref}`constraint-root-disk`
+- {ref}`constraint-root-disk-source`
+- {ref}`constraint-spaces`
+- {ref}`constraint-zones`
+
+(gce-machine-supported-placement-directives)=
+### Supported placement directives
+
+- {ref}`placement-directive-machine`
+- {ref}`placement-directive-subnet`: Matches subnet by name or CIDR range.
+- {ref}`placement-directive-zone`
+
+(gce-machine-resources-created-per-machine)=
+### Resources created per machine
+
+Each machine (controller or application) receives:
+
+- **Compute instance**: Instance with name `<model-uuid><machine-id>`. Machine type selected based on constraints. Status sequence: `PROVISIONING` → `STAGING` → `RUNNING`.
+- **Boot disk**: Persistent disk attached inline. Size: max(10 GiB, constraint, image minimum). Type: `pd-standard` (default) or `pd-ssd` via `root-disk-source` constraint. Auto-deleted when instance terminates.
+- **Network interface**: Primary interface in VPC/subnet. Private IP auto-assigned. External NAT with public IP if `allocate-public-ip=true`.
+- **Service account** (optional): Attached if `instance-role` constraint specified. Enables metadata service credentials.
+- **Additional persistent disks** (optional): Created when storage specified via storage constraints. Formatted name `<zone>--<uuid>`. Attached with device name `<zone>-<disk-id>`. Must reside in same zone as instance.
+- **Instance metadata**: Cloud-init data (gzipped+base64), controller UUID, model UUID.
+- **Instance tags**: `juju-<model-uuid>`, hostname (for firewall targeting).
+- **Disk labels**: `juju-model`, `juju-controller` (set via upgrade step).
+
+(gce-machine-networking-behavior)=
+### Networking behavior
+
+- **VPC/subnet selection**: Uses VPC configured via `vpc-id` model config or default network (`global/networks/default`). Subnet selection driven by `zone` or `subnet` placement directives. Random selection from available subnets in region. Space constraints filter to valid subnets.
+- **Public IP handling**: Assigned via external NAT (`ONE_TO_ONE_NAT`) if `allocate-public-ip=true` (default). Ephemeral public IP auto-assigned by GCE.
+- **Firewall rules**: Environment-level rule (`juju-<model-uuid>`) allows traffic between instances with same tag. Per-machine rules target instance by hostname tag. User-defined port rules via `open-ports` create additional firewall rules.
+- **Address resolution**: Returns private address (cloud-local scope, from subnet CIDR) and public address (if NAT configured).
+
+(gce-storage)=
+## Cloud-specific storage providers
 
 (storage-provider-gce)=
 ### `gce`
 
-Configuration options:
+**Type:** GCE persistent disks
 
-- `disk-type`. Value is `pd-ssd`. Warning: [bug](https://github.com/juju/juju/issues/20349).
+**Configuration options:**
+
+- `disk-type`: Disk type. Valid values: `pd-standard` (default), `pd-ssd`.
+
+```{caution}
+Known issue with `pd-ssd`: See [GitHub issue #20349](https://github.com/juju/juju/issues/20349).
+```
 
 (gce-appendix-example-authentication-workflows)=
 ## Appendix: Example authentication workflows
 
 (gce-appendix-workflow-1)=
 ### Workflow 1 -- Service account only (recommended)
-> *Requirements:*
-> - Juju 3.6+.
-> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
-> - The `add-credential` steps must be run from a jump host running in Google Cloud in order to allow the cloud metadata endpoint to be reached.
+
+**Requirements:**
+
+- Juju 3.6+
+- A service account with sufficient privileges (see {ref}`gce-appendix-service-account`)
+- The `add-credential` steps must be run from a jump host in Google Cloud to reach the metadata endpoint
+
+**Steps:**
 
 1. Run `juju add-credential google`; choose `service-account`; supply the service account email.
 2. Bootstrap as usual.
 
 ```{tip}
-**Did you know?** With this workflow where you provide the service account during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
+With this workflow you avoid storing credential secrets in either your Juju client or controller. The user running `add-credential`/`bootstrap` doesn't need credential secrets.
 ```
+
 ```{tip}
-To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non controller) machines in the model.
+To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non-controller) machines.
 ```
 
 (gce-appendix-workflow-2)=
 ### Workflow 2 -- Bootstrap using normal credential; use service account thereafter
-> *Requirements:*
-> - Juju 3.6+.
-> - A service account with sufficient privileges. See more: {ref}`gce-appendix-service-account`
 
-1. Bootstrap with the arg `--bootstrap-constraints="instance-role=auto"`
+**Requirements:**
+
+- Juju 3.6+
+- A service account with sufficient privileges (see {ref}`gce-appendix-service-account`)
+
+**Steps:**
+
+1. Bootstrap with the arg `--bootstrap-constraints="instance-role=auto"`.
 2. The controller machines will be created and attached to the project's default service account.
-3. Alternatively you can specify a different service account instead of `auto`.
+3. Alternatively, specify a different service account instead of `auto`.
 
 ```{tip}
-To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non controller) machines in the model.
+To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non-controller) machines.
 ```
 
 (gce-appendix-service-account)=
 ## Appendix: Service account requirements
 
-To enlist a service account to provide the privileges required by Juju, the following scopes must be assigned:
+To configure a service account with the privileges required by Juju, assign the following scopes:
+
 - `https://www.googleapis.com/auth/compute`
 - `https://www.googleapis.com/auth/devstorage.full_control`
