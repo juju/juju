@@ -5,56 +5,73 @@ myst:
 ---
 
 (cloud-manual)=
-# The Manual cloud and Juju
+# Manual
 
-This document describes details specific to using the Manual (`manual`) cloud with Juju.
+In Juju, Manual is a {ref}`machine cloud <cloud-differences>` that adopts existing machines via SSH. This document describes Manual-specific behaviors, configuration options, and limitations.
 
 ```{important}
-The Manual (`manual`) cloud is a cloud you create with Juju from existing machines.
+The Manual cloud is a cloud you create with Juju from existing machines. Manual does not provision new infrastructure -- it brings existing Ubuntu/Debian systems under Juju management via SSH.
 
 The purpose of the Manual cloud is to cater to the situation where you have machines (of any nature) at your disposal and you want to create a backing cloud out of them.
 
 If this collection of machines is composed solely of bare metal you might opt for a {ref}`MAAS cloud <cloud-maas>`. However, recall that such machines would also require [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS infrastructure. In contrast, the Manual cloud can make use of a collection of disparate hardware as well as of machines of varying natures (bare metal or virtual), all without any extra overhead/infrastructure.
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
+(manual-cloud)=
+## Cloud
 
-```{ibnote}
-See more: {ref}`cloud-differences`
-```
-
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
-## Requirements
-
-- At least two pre-existing machines (one for the controller and one where charms will be deployed).<br> - The machines must be running on Ubuntu.<br> - The machines must be accessible over SSH from the terminal you're running the Juju client from  using public key authentication (in whichever way you want to make that possible using generic Linux mechanisms).<p> (`sudo` rights will suffice if this provides root access. If a password is required for `sudo`, `juju` will ask for it on the command line.) <p> - The machines must be able to ping one another.
-
-## Notes on `juju add-cloud`
+(manual-cloud-definition)=
+### Definition
 
 Type in Juju: `manual`
 
-Name in Juju: User-defined.
+Name in Juju: User-defined
 
-Enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
+A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privileges. Machines are not created by Juju -- they must be provisioned externally and brought under Juju management via SSH credentials.
 
-## Notes on `juju add-credential`
+(manual-cloud-requirements)=
+### Requirements
 
-### Authentication types
+- At least two pre-existing machines (one for the controller and one where charms will be deployed).
+- The machines must be running Ubuntu.
+- The machines must be accessible over SSH from the terminal you're running the Juju client from using public key authentication.
+- SSH user must have sudo rights (passwordless sudo preferred, but Juju will prompt for password if needed).
+- The machines must be able to ping one another.
 
-No preset authentication types. Just make sure you can SSH into the controller machine.
+(manual-credential)=
+## Credential
 
-## Notes on `juju bootstrap`
+(manual-credential-supported-authentication-types)=
+### Supported authentication types
 
-The machine that will be allocated to run the controller on is the one specified during the `add-cloud` step.
+No preset authentication types. Ensure you can SSH into the controller machine using public key authentication. Juju uses standard SSH mechanisms (private key, optionally password auth, PTY enablement).
 
-````{dropdown} Troubleshooting
+(manual-controller)=
+## Controller
+
+When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
+
+(manual-controller-bootstrap-behavior)=
+### Bootstrap behavior
+
+Bootstrap initializes the remote machine by creating an `ubuntu` user with passwordless sudo, detecting hardware characteristics via SSH, and configuring the Juju agent through cloud-init-style bash scripts executed remotely.
+
+**SSH operations during bootstrap:**
+
+1. **Ubuntu user setup**: SSH to `ubuntu@host` (or provided user). If `ubuntu` user doesn't exist, creates it with passwordless sudo via `sudo /bin/bash` script.
+2. **Provisioning check**: Verifies no jujud service already exists (fails if found).
+3. **Hardware detection**: SSH script reads `/etc/os-release`, `uname`, `/proc/meminfo`, `/proc/cpuinfo` to detect OS, architecture, memory, CPU cores.
+4. **Machine configuration**: Generates cloud-init bash script and runs via `ssh ubuntu@host "sudo /bin/bash" < script`. Installs packages, downloads jujud binary, configures systemd service, enables auto-start.
+5. **Bootstrap instance**: Instance ID: `"manual:"` (constant). Status: Always `Running`. Address derived from hostname/IP.
+
+```{dropdown} Troubleshooting
 
 **If you encounter an error of the form `initializing ubuntu user: subprocess encountered error code 255 (ubuntu@{IP}: Permission denied (publickey).)`:**
 
 Edit your `~/.ssh/config` to include the following:
 
 ```text
-Host <TARGET_IP_ADDRESS>`
+Host <TARGET_IP_ADDRESS>
   IdentityFile ~/.ssh/id_ed25519
   ControlMaster no
 ```
@@ -62,51 +79,92 @@ Host <TARGET_IP_ADDRESS>`
 ```{ibnote}
 See more: https://bugs.launchpad.net/juju/+bug/2030507
 ```
+```
 
-````
+(manual-controller-resources-created-at-bootstrap)=
+### Resources created at bootstrap
 
-## Notes on `juju deploy`
+Manual does not create infrastructure resources. It configures existing machines:
 
-With any other cloud, the Juju client can trigger the creation of a backing machine (e.g. a cloud instance) as they become necessary. In addition, the client can also cause charms to be deployed automatically onto those newly-created machines. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during charm deployment.
+- **Ubuntu user**: Created with passwordless sudo if doesn't exist.
+- **Juju agent**: jujud binary downloaded and configured as systemd service.
+- **Machine record**: Instance ID `"manual:"`, status `Running`, address from hostname/IP.
 
-(Note: A MAAS cloud must also have pre-existing backing machines. However, Juju, by default, can deploy charms onto those machines, or add a machine to its pool of managed machines, without any extra effort.)
+(manual-model)=
+## Model
 
-Machines must be added manually, unless they are LXD. Example: <p>  `juju add-machine ssh:bob@10.55.60.93` <br> `juju add-machine lxd -n 2`
+(manual-model-cloud-specific-configuration-keys)=
+### Cloud-specific configuration keys
 
-Further notes: <br> - Juju machines are always managed on a per-model basis. With a Manual cloud the `add-machine` process will need to be repeated if the model hosting those machines is destroyed. <br> -   To improve the performance of provisioning newly-added machines consider running an APT proxy or an APT mirror. See more: {ref}`take-your-deployment-offline`.
+None.
 
-## Cloud-specific model configuration keys
+(manual-machine)=
+## Machine
 
-N/A
+```{important}
+With any other cloud, the Juju client can trigger the creation of a backing machine (e.g., a cloud instance) as they become necessary. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during deployment.
 
-## Supported constraints
+Machines must be added manually, unless they are LXD. Examples:
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                                  |
-|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| conflicting:                           |                                                                                                                  |
-| supported?                             |                                                                                                                  |
-| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                         |
-| - {ref}`constraint-arch`               | &#10003;  <br> Valid values: For controller: the host architecture. For other machines: the architecture from the machine hardware. |
-| - {ref}`constraint-container`          | &#10003;                                                                                                         |
-| - {ref}`constraint-cores`              | &#10003;                                                                                                         |
-| - {ref}`constraint-cpu-power`          | &#10005;                                                                                                         |
-| - {ref}`constraint-image-id`           | &#10005;                                                                                                         |
-| - {ref}`constraint-instance-role`      | &#10005;                                                                                                         |
-| - {ref}`constraint-instance-type`      | &#10005;                                                                                                         |
-| - {ref}`constraint-mem`                | &#10003;                                                                                                         |
-| - {ref}`constraint-root-disk`          | &#10003;                                                                                                         |
-| - {ref}`constraint-root-disk-source`   | &#10005;                                                                                                         |
-| - {ref}`constraint-spaces`             | &#10005;                                                                                                         |
-| - {ref}`constraint-tags`               | &#10005;                                                                                                         |
-| - {ref}`constraint-virt-type`          | &#10005;                                                                                                         |
-| - {ref}`constraint-zones`              | &#10003;                                                                                                         |
+- `juju add-machine ssh:bob@10.55.60.93`
+- `juju add-machine lxd -n 2`
 
-## Supported placement directives
+**Further notes:**
 
-| {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
-|--------------------------------------------------|----------|
-| {ref}`placement-directive-machine`               | TBA      |
-| {ref}`placement-directive-subnet`                | &#10005; |
-| {ref}`placement-directive-system-id`             | &#10005; |
-| {ref}`placement-directive-zone`                  | TBA      |
+- Juju machines are always managed on a per-model basis. With a Manual cloud the `add-machine` process will need to be repeated if the model hosting those machines is destroyed.
+- To improve the performance of provisioning newly-added machines consider running an APT proxy or an APT mirror.
+
+```{ibnote}
+See more: {ref}`take-your-deployment-offline`
+```
+```
+
+(manual-machine-supported-constraints)=
+### Supported constraints
+
+Constraints are limited to detectable hardware attributes:
+
+- {ref}`constraint-arch`: For controller: the host architecture. For other machines: the architecture from the machine hardware.
+- {ref}`constraint-container`
+- {ref}`constraint-cores`: Detected from `/proc/cpuinfo`.
+- {ref}`constraint-mem`: Detected from `/proc/meminfo`.
+- {ref}`constraint-root-disk`
+- {ref}`constraint-zones`
+
+(manual-machine-supported-placement-directives)=
+### Supported placement directives
+
+- {ref}`placement-directive-machine`
+- {ref}`placement-directive-zone`
+
+(manual-machine-how-machines-are-added)=
+### How machines are added
+
+Adding machines with `juju add-machine ssh:[user@]<host>` requires the target to be an existing Ubuntu system. Juju verifies it's not already provisioned, detects hardware, records it in state, and installs the agent via SSH.
+
+**SSH operations when adding a machine:**
+
+1. **Verify pre-existence**: SSH checks if machine already has jujud.
+2. **Gather machine info**: Detects base, hardware characteristics. Generates instance ID `"manual:hostname"`.
+3. **Record in state**: Calls AddMachines API with detected specs.
+4. **Install agent**: Runs provisioning script (same cloud-init model as bootstrap).
+
+**Error on constraints-based placement**: Manual rejects placement specs without explicit `ssh:[user@]<host>` scheme.
+
+(manual-machine-limitations)=
+### Limitations
+
+- **No infrastructure creation**: Manual cannot create new machines. Use `juju add-machine ssh:[user@]<host>` to adopt existing machines.
+- **No StartInstance**: Returns `errNoStartInstance`.
+- **No StopInstances**: Returns `errNoStopInstance`.
+- **No firewall control**: All firewall ops (`open-ports`, `close-ports`) are no-ops.
+- **No storage providers**: `StorageProviderTypes()` returns `nil`. Users must pre-configure storage or manage it outside Juju.
+- **Limited network discovery**: Subnets, network interfaces, spaces routing not supported. Address detection uses DNS lookup to verify hostname is resolvable.
+- **No scaling**: Manual cannot auto-scale. Each machine must be added explicitly.
+- **Destroy is limited**: Killing controller kills jujud via SSH and stops juju-db service. Model destroy is no-op (nothing to destroy).
+
+(manual-storage)=
+## Cloud-specific storage providers
+
+None. Manual has no storage support. Users must pre-configure storage or manage it outside Juju.
 
