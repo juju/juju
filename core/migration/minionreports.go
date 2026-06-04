@@ -12,9 +12,13 @@ type MinionReports struct {
 	// Phases indicates the migration phase the reports relate to.
 	Phase Phase
 
-	// SuccesCount indicates how many agents have successfully
+	// SuccessCount indicates how many agents have successfully
 	// completed the migration phase.
 	SuccessCount int
+
+	// TotalCount indicates how many agents are expected to report
+	// regarding the migration phase.
+	TotalCount int
 
 	// UnknownCount indicates how many agents are yet to report
 	// regarding the migration phase.

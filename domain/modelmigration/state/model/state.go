@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -111,6 +112,90 @@ FROM   machine_cloud_instance`
 		instanceIDs.Add(instanceID.ID)
 	}
 	return instanceIDs, nil
+}
+
+// GetMigrationAgents returns all agent tags that must report migration minion
+// progress for this model.
+func (s *State) GetMigrationAgents(ctx context.Context) (set.Strings, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get database to retrieve migration agents: %w", err)
+	}
+
+	modelTypeStmt, err := s.Prepare(`
+SELECT &modelType.*
+FROM   model
+`, modelType{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	machineStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   machine
+`, agentName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	unitStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   unit
+`, agentName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	applicationAgentStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   application AS a
+JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+`, agentName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var (
+		modelTypeValue modelType
+		machines       []agentName
+		units          []agentName
+		applications   []agentName
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, modelTypeStmt).Get(&modelTypeValue); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.New("model information is missing from database")
+			}
+			return errors.Errorf("querying model type: %w", err)
+		}
+
+		if model.ModelType(modelTypeValue.Type) == model.CAAS {
+			if err := tx.Query(ctx, applicationAgentStmt).GetAll(&applications); err != nil &&
+				!errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("querying application agents: %w", err)
+			}
+		} else if err := tx.Query(ctx, machineStmt).GetAll(&machines); err != nil &&
+			!errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying machine agents: %w", err)
+		}
+
+		if err := tx.Query(ctx, unitStmt).GetAll(&units); err != nil &&
+			!errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit agents: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	agents := set.NewStrings()
+	for _, m := range machines {
+		agents.Add(names.NewMachineTag(m.Name).String())
+	}
+	for _, u := range units {
+		agents.Add(names.NewUnitTag(u.Name).String())
+	}
+	for _, a := range applications {
+		agents.Add(names.NewApplicationTag(a.Name).String())
+	}
+	return agents, nil
 }
 
 // DeleteModelImportingStatus removes the entry from the model_migrating table

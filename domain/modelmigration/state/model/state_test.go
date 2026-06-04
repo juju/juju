@@ -33,8 +33,19 @@ type migrationSuite struct {
 	modelUUID      coremodel.UUID
 }
 
+type caasMigrationSuite struct {
+	schematesting.ModelSuite
+
+	controllerUUID uuid.UUID
+	modelUUID      coremodel.UUID
+}
+
 func TestMigrationSuite(t *testing.T) {
 	tc.Run(t, &migrationSuite{})
+}
+
+func TestCAASMigrationSuite(t *testing.T) {
+	tc.Run(t, &caasMigrationSuite{})
 }
 
 func (s *migrationSuite) SetUpTest(c *tc.C) {
@@ -56,6 +67,33 @@ func (s *migrationSuite) SetUpTest(c *tc.C) {
 		Type:               coremodel.IAAS,
 		Cloud:              "aws",
 		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
+		CredentialName:     "mycredential",
+	}
+	err := state.Create(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *caasMigrationSuite) SetUpTest(c *tc.C) {
+	s.ModelSuite.SetUpTest(c)
+	s.controllerUUID = uuid.MustNewUUID()
+	s.modelUUID = tc.Must0(c, coremodel.NewUUID)
+
+	runner := s.TxnRunnerFactory()
+	state := statemodel.NewState(runner, loggertesting.WrapCheckLog(c))
+
+	args := model.ModelDetailArgs{
+		UUID:               s.modelUUID,
+		AgentStream:        domainagentbinary.AgentStreamReleased,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+		ControllerUUID:     s.controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.CAAS,
+		Cloud:              "k8s",
+		CloudType:          "kubernetes",
 		CloudRegion:        "myregion",
 		CredentialOwner:    usertesting.GenNewName(c, "myowner"),
 		CredentialName:     "mycredential",
@@ -139,6 +177,86 @@ func (s *migrationSuite) TestEmptyInstanceIDs(c *tc.C) {
 	instanceIDs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAllInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(instanceIDs, tc.HasLen, 0)
+}
+
+func (s *migrationSuite) TestGetMigrationAgentsIAAS(c *tc.C) {
+	db := s.DB()
+
+	machineNetNodeUUID := uuid.MustNewUUID().String()
+	machineUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO net_node (uuid) VALUES (?)",
+		machineNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)",
+		machineUUID, "0", machineNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmUUID := uuid.MustNewUUID().String()
+	appUUID := uuid.MustNewUUID().String()
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	unitUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		appUUID, "foo", charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO net_node (uuid) VALUES (?)",
+		unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, 0, ?, ?, ?)",
+		unitUUID, "foo/0", appUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	agents, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMigrationAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agents.Values(), tc.SameContents, []string{"machine-0", "unit-foo-0"})
+}
+
+func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
+	db := s.DB()
+
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	legacyAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		legacyAppUUID, "legacy", charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_agent (application_uuid) VALUES (?)",
+		legacyAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	sidecarAppUUID := uuid.MustNewUUID().String()
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	unitUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		sidecarAppUUID, "sidecar", charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO net_node (uuid) VALUES (?)",
+		unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, 0, ?, ?, ?)",
+		unitUUID, "sidecar/0", sidecarAppUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	agents, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMigrationAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agents.Values(), tc.SameContents, []string{"application-legacy", "unit-sidecar-0"})
 }
 
 // TestDeleteModelImportingStatusSuccess tests that clearing an existing

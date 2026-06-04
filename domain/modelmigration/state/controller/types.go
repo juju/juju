@@ -34,7 +34,7 @@ type migrationExport struct {
 	ModelUUID            string    `db:"model_uuid"`
 	TargetControllerUUID string    `db:"target_controller_uuid"`
 	CurrentPhaseID       int       `db:"current_phase_id"`
-	PhaseChangedAt       time.Time `db:"phase_changed_at"`
+	UpdatedAt            time.Time `db:"updated_at"`
 	StartTime            time.Time `db:"start_time"`
 }
 
@@ -58,7 +58,6 @@ type migrationPhaseEntry struct {
 
 // migrationStatus maps a model_migration_export_status row.
 type migrationStatus struct {
-	UUID          string    `db:"uuid"`
 	MigrationUUID string    `db:"migration_uuid"`
 	Message       string    `db:"message"`
 	RecordedAt    time.Time `db:"recorded_at"`
@@ -89,33 +88,32 @@ type currentPhase struct {
 	CurrentPhaseID int `db:"current_phase_id"`
 }
 
+// terminalPhaseIDArgs carries the persisted ids for terminal export phases.
+type terminalPhaseIDArgs struct {
+	ReapFailedID int `db:"reap_failed_id"`
+	DoneID       int `db:"done_id"`
+	AbortDoneID  int `db:"abort_done_id"`
+}
+
 // phaseUpdate carries the arguments for an optimistic phase update.
 type phaseUpdate struct {
 	UUID            string    `db:"uuid"`
 	NewPhaseID      int       `db:"new_phase_id"`
 	ExpectedPhaseID int       `db:"expected_phase_id"`
-	PhaseChangedAt  time.Time `db:"phase_changed_at"`
+	UpdatedAt       time.Time `db:"updated_at"`
 }
 
 // endExport carries the arguments for marking an export as ended.
 type endExport struct {
-	UUID           string    `db:"uuid"`
-	PhaseID        int       `db:"current_phase_id"`
-	PhaseChangedAt time.Time `db:"phase_changed_at"`
-	EndTime        time.Time `db:"end_time"`
+	UUID      string    `db:"uuid"`
+	PhaseID   int       `db:"current_phase_id"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// externalControllerUpsert maps a model_migration external_controller row used
-// by the compare-or-insert helper.
-type externalControllerUpsert struct {
+// externalControllerInfo maps a model_migration external_controller row.
+type externalControllerInfo struct {
 	UUID   string `db:"uuid"`
 	Alias  string `db:"alias"`
-	CACert string `db:"ca_cert"`
-}
-
-// externalControllerCACert is the projection used to compare an existing
-// external controller's CA certificate.
-type externalControllerCACert struct {
 	CACert string `db:"ca_cert"`
 }
 

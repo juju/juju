@@ -19,6 +19,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
+	internal "github.com/juju/juju/domain/modelmigration/internal"
 	instances "github.com/juju/juju/environs/instances"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -170,10 +171,10 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 }
 
 // AggregateMinionReports mocks base method.
-func (m *MockControllerState) AggregateMinionReports(arg0 context.Context, arg1 string, arg2 migration.Phase) (modelmigration.MinionReports, error) {
+func (m *MockControllerState) AggregateMinionReports(arg0 context.Context, arg1 string, arg2 migration.Phase) (internal.MinionReports, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AggregateMinionReports", arg0, arg1, arg2)
-	ret0, _ := ret[0].(modelmigration.MinionReports)
+	ret0, _ := ret[0].(internal.MinionReports)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -191,19 +192,19 @@ type MockControllerStateAggregateMinionReportsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateAggregateMinionReportsCall) Return(arg0 modelmigration.MinionReports, arg1 error) *MockControllerStateAggregateMinionReportsCall {
+func (c *MockControllerStateAggregateMinionReportsCall) Return(arg0 internal.MinionReports, arg1 error) *MockControllerStateAggregateMinionReportsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateAggregateMinionReportsCall) Do(f func(context.Context, string, migration.Phase) (modelmigration.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
+func (c *MockControllerStateAggregateMinionReportsCall) Do(f func(context.Context, string, migration.Phase) (internal.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateAggregateMinionReportsCall) DoAndReturn(f func(context.Context, string, migration.Phase) (modelmigration.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
+func (c *MockControllerStateAggregateMinionReportsCall) DoAndReturn(f func(context.Context, string, migration.Phase) (internal.MinionReports, error)) *MockControllerStateAggregateMinionReportsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -247,10 +248,10 @@ func (c *MockControllerStateDeleteModelImportingStatusCall) DoAndReturn(f func(c
 }
 
 // GetActiveExport mocks base method.
-func (m *MockControllerState) GetActiveExport(arg0 context.Context, arg1 string) (modelmigration.Migration, error) {
+func (m *MockControllerState) GetActiveExport(arg0 context.Context, arg1 string) (internal.Migration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActiveExport", arg0, arg1)
-	ret0, _ := ret[0].(modelmigration.Migration)
+	ret0, _ := ret[0].(internal.Migration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -268,19 +269,19 @@ type MockControllerStateGetActiveExportCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetActiveExportCall) Return(arg0 modelmigration.Migration, arg1 error) *MockControllerStateGetActiveExportCall {
+func (c *MockControllerStateGetActiveExportCall) Return(arg0 internal.Migration, arg1 error) *MockControllerStateGetActiveExportCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetActiveExportCall) Do(f func(context.Context, string) (modelmigration.Migration, error)) *MockControllerStateGetActiveExportCall {
+func (c *MockControllerStateGetActiveExportCall) Do(f func(context.Context, string) (internal.Migration, error)) *MockControllerStateGetActiveExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetActiveExportCall) DoAndReturn(f func(context.Context, string) (modelmigration.Migration, error)) *MockControllerStateGetActiveExportCall {
+func (c *MockControllerStateGetActiveExportCall) DoAndReturn(f func(context.Context, string) (internal.Migration, error)) *MockControllerStateGetActiveExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -364,7 +365,7 @@ func (c *MockControllerStateGetMigrationModeCall) DoAndReturn(f func(context.Con
 }
 
 // InsertExport mocks base method.
-func (m *MockControllerState) InsertExport(arg0 context.Context, arg1 modelmigration.MigrationSpec) error {
+func (m *MockControllerState) InsertExport(arg0 context.Context, arg1 internal.MigrationSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertExport", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -390,13 +391,13 @@ func (c *MockControllerStateInsertExportCall) Return(arg0 error) *MockController
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerStateInsertExportCall) Do(f func(context.Context, modelmigration.MigrationSpec) error) *MockControllerStateInsertExportCall {
+func (c *MockControllerStateInsertExportCall) Do(f func(context.Context, internal.MigrationSpec) error) *MockControllerStateInsertExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateInsertExportCall) DoAndReturn(f func(context.Context, modelmigration.MigrationSpec) error) *MockControllerStateInsertExportCall {
+func (c *MockControllerStateInsertExportCall) DoAndReturn(f func(context.Context, internal.MigrationSpec) error) *MockControllerStateInsertExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -650,6 +651,45 @@ func (c *MockModelStateGetControllerUUIDCall) Do(f func(context.Context) (string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetControllerUUIDCall) DoAndReturn(f func(context.Context) (string, error)) *MockModelStateGetControllerUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMigrationAgents mocks base method.
+func (m *MockModelState) GetMigrationAgents(arg0 context.Context) (set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMigrationAgents", arg0)
+	ret0, _ := ret[0].(set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMigrationAgents indicates an expected call of GetMigrationAgents.
+func (mr *MockModelStateMockRecorder) GetMigrationAgents(arg0 any) *MockModelStateGetMigrationAgentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMigrationAgents", reflect.TypeOf((*MockModelState)(nil).GetMigrationAgents), arg0)
+	return &MockModelStateGetMigrationAgentsCall{Call: call}
+}
+
+// MockModelStateGetMigrationAgentsCall wrap *gomock.Call
+type MockModelStateGetMigrationAgentsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetMigrationAgentsCall) Return(arg0 set.Strings, arg1 error) *MockModelStateGetMigrationAgentsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetMigrationAgentsCall) Do(f func(context.Context) (set.Strings, error)) *MockModelStateGetMigrationAgentsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetMigrationAgentsCall) DoAndReturn(f func(context.Context) (set.Strings, error)) *MockModelStateGetMigrationAgentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

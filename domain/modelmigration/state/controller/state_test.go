@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -316,19 +317,19 @@ func (s *stateSuite) TestGetControllerTargetVersion(c *tc.C) {
 
 // newMigrationSpec builds a migration spec targeting a freshly-generated
 // external controller UUID.
-func (s *stateSuite) newMigrationSpec() modelmigration.MigrationSpec {
-	return modelmigration.MigrationSpec{
-		MigrationUUID: uuid.MustNewUUID().String(),
-		ModelUUID:     s.modelUUID.String(),
-		Target: migration.TargetInfo{
-			ControllerUUID:  uuid.MustNewUUID().String(),
-			ControllerAlias: "target-controller",
-			Addrs:           []string{"10.0.0.1:17070", "10.0.0.2:17070"},
-			CACert:          "ca-cert-data",
-			User:            "admin",
-			Token:           "super-token",
-			SkipUserChecks:  false,
+func (s *stateSuite) newMigrationSpec() modelmigrationinternal.MigrationSpec {
+	return modelmigrationinternal.MigrationSpec{
+		MigrationUUID:         uuid.MustNewUUID().String(),
+		ModelUUID:             s.modelUUID.String(),
+		TargetControllerUUID:  uuid.MustNewUUID().String(),
+		TargetControllerAlias: "target-controller",
+		TargetAddrs: []modelmigrationinternal.ExternalControllerAddress{
+			{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.1:17070"},
+			{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.2:17070"},
 		},
+		TargetCACert: "ca-cert-data",
+		TargetUser:   "admin",
+		TargetToken:  "super-token",
 	}
 }
 
@@ -343,21 +344,19 @@ func (s *stateSuite) TestInsertExport(c *tc.C) {
 	err := st.InsertExport(c.Context(), spec)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Export row exists, in QUIESCE (phase id 1), not ended.
+	// Export row exists, in QUIESCE (phase id 1).
 	var (
 		modelUUID  string
 		targetUUID string
 		phaseID    int
-		endTime    sql.NullString
 	)
 	err = db.QueryRowContext(c.Context(),
-		"SELECT model_uuid, target_controller_uuid, current_phase_id, end_time FROM model_migration_export WHERE uuid = ?",
-		spec.MigrationUUID).Scan(&modelUUID, &targetUUID, &phaseID, &endTime)
+		"SELECT model_uuid, target_controller_uuid, current_phase_id FROM model_migration_export WHERE uuid = ?",
+		spec.MigrationUUID).Scan(&modelUUID, &targetUUID, &phaseID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelUUID, tc.Equals, s.modelUUID.String())
-	c.Check(targetUUID, tc.Equals, spec.Target.ControllerUUID)
+	c.Check(targetUUID, tc.Equals, spec.TargetControllerUUID)
 	c.Check(phaseID, tc.Equals, 1)
-	c.Check(endTime.Valid, tc.IsFalse)
 
 	// Target auth companion row exists.
 	var user, token string
@@ -379,13 +378,13 @@ func (s *stateSuite) TestInsertExport(c *tc.C) {
 	// Target external controller + addresses created.
 	var caCert string
 	err = db.QueryRowContext(c.Context(),
-		"SELECT ca_cert FROM external_controller WHERE uuid = ?", spec.Target.ControllerUUID).Scan(&caCert)
+		"SELECT ca_cert FROM external_controller WHERE uuid = ?", spec.TargetControllerUUID).Scan(&caCert)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(caCert, tc.Equals, "ca-cert-data")
 
 	var addrCount int
 	err = db.QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", spec.Target.ControllerUUID).Scan(&addrCount)
+		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", spec.TargetControllerUUID).Scan(&addrCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addrCount, tc.Equals, 2)
 }
@@ -419,82 +418,77 @@ func (s *stateSuite) TestInsertExportAfterEnded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestEnsureExternalControllerInsert asserts the helper inserts a controller and
-// its addresses when none exists.
-func (s *stateSuite) TestEnsureExternalControllerInsert(c *tc.C) {
+func (s *stateSuite) TestInsertExportUpdatesExternalController(c *tc.C) {
 	db := s.DB()
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	info := modelmigration.ExternalControllerInfo{
-		UUID:      uuid.MustNewUUID().String(),
-		Alias:     "ctrl",
-		CACert:    "ca",
-		Addresses: []string{"1.2.3.4:17070"},
-	}
-	err := st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
+	first := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkExportEnded(c.Context(), first.MigrationUUID, migration.ABORTDONE)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var count int
+	second := s.newMigrationSpec()
+	second.TargetControllerUUID = first.TargetControllerUUID
+	second.TargetControllerAlias = "updated-controller"
+	second.TargetCACert = "updated-ca"
+	second.TargetAddrs = []modelmigrationinternal.ExternalControllerAddress{
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.1.1:17070"},
+	}
+	err = st.InsertExport(c.Context(), second)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var alias, caCert string
 	err = db.QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?", info.UUID).Scan(&count)
+		"SELECT alias, ca_cert FROM external_controller WHERE uuid = ?",
+		first.TargetControllerUUID).Scan(&alias, &caCert)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
+	c.Check(alias, tc.Equals, "updated-controller")
+	c.Check(caCert, tc.Equals, "updated-ca")
+
+	var addresses []string
+	rows, err := db.QueryContext(c.Context(),
+		"SELECT address FROM external_controller_address WHERE controller_uuid = ?",
+		first.TargetControllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+	for rows.Next() {
+		var address string
+		err := rows.Scan(&address)
+		c.Assert(err, tc.ErrorIsNil)
+		addresses = append(addresses, address)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(addresses, tc.SameContents, []string{"10.0.1.1:17070"})
 }
 
-// TestEnsureExternalControllerMatchNoOp asserts re-inserting an identical
-// controller is a no-op rather than an error.
-func (s *stateSuite) TestEnsureExternalControllerMatchNoOp(c *tc.C) {
+func (s *stateSuite) TestInsertExportExternalControllerMatchNoDuplicate(c *tc.C) {
+	db := s.DB()
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	info := modelmigration.ExternalControllerInfo{
-		UUID:      uuid.MustNewUUID().String(),
-		Alias:     "ctrl",
-		CACert:    "ca",
-		Addresses: []string{"1.2.3.4:17070", "5.6.7.8:17070"},
+	first := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkExportEnded(c.Context(), first.MigrationUUID, migration.ABORTDONE)
+	c.Assert(err, tc.ErrorIsNil)
+
+	second := s.newMigrationSpec()
+	second.TargetControllerUUID = first.TargetControllerUUID
+	second.TargetControllerAlias = first.TargetControllerAlias
+	second.TargetCACert = first.TargetCACert
+	second.TargetAddrs = []modelmigrationinternal.ExternalControllerAddress{
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.2:17070"},
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.1:17070"},
 	}
-	err := st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
+	err = st.InsertExport(c.Context(), second)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Same details, different address order: still a match.
-	info.Addresses = []string{"5.6.7.8:17070", "1.2.3.4:17070"}
-	err = st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
+	var addrCount int
+	err = db.QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?",
+		first.TargetControllerUUID).Scan(&addrCount)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestEnsureExternalControllerCACertConflict asserts a UUID collision with a
-// different CA certificate is rejected.
-func (s *stateSuite) TestEnsureExternalControllerCACertConflict(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	info := modelmigration.ExternalControllerInfo{
-		UUID:      uuid.MustNewUUID().String(),
-		CACert:    "ca",
-		Addresses: []string{"1.2.3.4:17070"},
-	}
-	err := st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
-	c.Assert(err, tc.ErrorIsNil)
-
-	info.CACert = "different-ca"
-	err = st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerConflict)
-}
-
-// TestEnsureExternalControllerAddressConflict asserts a UUID collision with
-// different addresses is rejected.
-func (s *stateSuite) TestEnsureExternalControllerAddressConflict(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	info := modelmigration.ExternalControllerInfo{
-		UUID:      uuid.MustNewUUID().String(),
-		CACert:    "ca",
-		Addresses: []string{"1.2.3.4:17070"},
-	}
-	err := st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
-	c.Assert(err, tc.ErrorIsNil)
-
-	info.Addresses = []string{"9.9.9.9:17070"}
-	err = st.EnsureExternalControllerMatchesOrInsert(c.Context(), info)
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerConflict)
+	c.Check(addrCount, tc.Equals, 2)
 }
 
 // TestGetActiveExport asserts the active export is returned with its
@@ -510,7 +504,7 @@ func (s *stateSuite) TestGetActiveExport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.UUID, tc.Equals, spec.MigrationUUID)
 	c.Check(mig.Phase, tc.Equals, migration.QUIESCE)
-	c.Check(mig.Target.ControllerUUID, tc.Equals, spec.Target.ControllerUUID)
+	c.Check(mig.Target.ControllerUUID, tc.Equals, spec.TargetControllerUUID)
 	c.Check(mig.Target.ControllerAlias, tc.Equals, "target-controller")
 	c.Check(mig.Target.CACert, tc.Equals, "ca-cert-data")
 	c.Check(mig.Target.User, tc.Equals, "admin")
@@ -610,18 +604,18 @@ func (s *stateSuite) TestSetPhaseFullSuccessCycle(c *tc.C) {
 	}
 
 	// Reaching DONE ends the export.
-	var endTime sql.NullString
+	var phaseID int
 	err = db.QueryRowContext(c.Context(),
-		"SELECT end_time FROM model_migration_export WHERE uuid = ?", spec.MigrationUUID).Scan(&endTime)
+		"SELECT current_phase_id FROM model_migration_export WHERE uuid = ?", spec.MigrationUUID).Scan(&phaseID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(endTime.Valid, tc.IsTrue)
+	c.Check(phaseID, tc.Equals, 8)
 
 	// No active export remains.
 	_, err = st.GetActiveExport(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
 }
 
-// TestSetStatusMessage asserts a status message is appended to the history.
+// TestSetStatusMessage asserts the current status message is updated in place.
 func (s *stateSuite) TestSetStatusMessage(c *tc.C) {
 	db := s.DB()
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
@@ -639,7 +633,13 @@ func (s *stateSuite) TestSetStatusMessage(c *tc.C) {
 	err = db.QueryRowContext(c.Context(),
 		"SELECT COUNT(*) FROM model_migration_export_status WHERE migration_uuid = ?", spec.MigrationUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 2)
+	c.Check(count, tc.Equals, 1)
+
+	var message string
+	err = db.QueryRowContext(c.Context(),
+		"SELECT message FROM model_migration_export_status WHERE migration_uuid = ?", spec.MigrationUUID).Scan(&message)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(message, tc.Equals, "import complete")
 }
 
 // TestMinionReports asserts minion reports are recorded and aggregated by
@@ -721,15 +721,11 @@ func (s *stateSuite) TestMarkExportEnded(c *tc.C) {
 	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.ABORTDONE)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var (
-		phaseID int
-		endTime sql.NullString
-	)
+	var phaseID int
 	err = db.QueryRowContext(c.Context(),
-		"SELECT current_phase_id, end_time FROM model_migration_export WHERE uuid = ?", spec.MigrationUUID).Scan(&phaseID, &endTime)
+		"SELECT current_phase_id FROM model_migration_export WHERE uuid = ?", spec.MigrationUUID).Scan(&phaseID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(phaseID, tc.Equals, 10)
-	c.Check(endTime.Valid, tc.IsTrue)
 
 	// Ending an already-ended export reports not found.
 	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.ABORTDONE)

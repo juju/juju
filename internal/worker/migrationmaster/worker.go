@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
@@ -100,14 +101,6 @@ type Facade interface {
 	// connection.
 	Reap(context.Context) error
 
-	// WatchMinionReports returns a watcher which reports when a migration
-	// minion has made a report for the current migration phase.
-	WatchMinionReports(context.Context) (watcher.NotifyWatcher, error)
-
-	// MinionReports returns details of the reports made by migration
-	// minions to the controller for the current migration phase.
-	MinionReports(context.Context) (coremigration.MinionReports, error)
-
 	// MinionReportTimeout returns the maximum time to wait for minion workers
 	// to report on a migration phase.
 	MinionReportTimeout(context.Context) (time.Duration, error)
@@ -126,6 +119,17 @@ type CharmService interface {
 	GetCharmArchive(context.Context, charm.CharmLocator) (io.ReadCloser, string, error)
 }
 
+type ModelMigrationService interface {
+	// WatchMinionReports returns a notification watcher that fires when any
+	// minion reports a update to their phase.
+	WatchMinionReports(context.Context) (watcher.NotifyWatcher, error)
+
+	// MinionReports returns phase information about minions in this model.
+	MinionReports(context.Context) (coremigration.MinionReports, error)
+}
+
+var _ ModelMigrationService = (*modelmigrationservice.Service)(nil)
+
 // AgentBinaryStore provides an interface for interacting with the stored agent
 // binaries within a controller and model.
 type AgentBinaryStore interface {
@@ -138,14 +142,15 @@ type AgentBinaryStore interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID        string
-	Facade           Facade
-	CharmService     CharmService
-	Guard            fortress.Guard
-	APIOpen          func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
-	UploadBinaries   func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
-	AgentBinaryStore AgentBinaryStore
-	Clock            clock.Clock
+	ModelUUID             string
+	Facade                Facade
+	CharmService          CharmService
+	ModelMigrationService ModelMigrationService
+	Guard                 fortress.Guard
+	APIOpen               func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	UploadBinaries        func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
+	AgentBinaryStore      AgentBinaryStore
+	Clock                 clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -158,6 +163,9 @@ func (config Config) Validate() error {
 	}
 	if config.CharmService == nil {
 		return errors.NotValidf("nil CharmService")
+	}
+	if config.ModelMigrationService == nil {
+		return errors.NotValidf("nil ModelMigrationService")
 	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
@@ -772,7 +780,7 @@ func (w *Worker) waitForMinions(
 	w.logger.Infof(ctx, "waiting for agents to report back for migration phase %s (will wait up to %s)",
 		status.Phase, truncDuration(w.minionReportTimeout))
 
-	watch, err := w.config.Facade.WatchMinionReports(ctx)
+	watch, err := w.config.ModelMigrationService.WatchMinionReports(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -795,7 +803,7 @@ func (w *Worker) waitForMinions(
 
 		case <-watch.Changes():
 			var err error
-			reports, err = w.config.Facade.MinionReports(ctx)
+			reports, err = w.config.ModelMigrationService.MinionReports(ctx)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -846,6 +854,14 @@ func validateMinionReports(reports coremigration.MinionReports, status coremigra
 	if reports.Phase != status.Phase {
 		return errors.Errorf("minion reports phase (%s) does not match migration phase (%s)",
 			reports.Phase, status.Phase)
+	}
+	failedCount := len(reports.FailedMachines) + len(reports.FailedUnits) + len(reports.FailedApplications)
+	if reports.SuccessCount+failedCount > reports.TotalCount {
+		return errors.Annotatef(
+			coremigration.ErrMinionReportsInvalid,
+			"minion report counts exceed total agents: %d succeeded, %d failed, %d total",
+			reports.SuccessCount, failedCount, reports.TotalCount,
+		)
 	}
 	return nil
 }

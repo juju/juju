@@ -7,8 +7,9 @@ import "github.com/juju/juju/internal/errors"
 
 const (
 	// ErrMigrationAlreadyActive indicates that the model already has an
-	// in-progress export migration (a row in model_migration_export with a
-	// NULL end_time). Only one active export per model is permitted.
+	// in-progress export migration (a row in model_migration_export whose
+	// current phase is not terminal). Only one active export per model is
+	// permitted.
 	ErrMigrationAlreadyActive = errors.ConstError("model already has an active migration")
 
 	// ErrMigrationNotFound indicates that no active export migration exists for
@@ -20,10 +21,8 @@ const (
 	// the migration's phase changed concurrently (optimistic-lock conflict).
 	ErrPhaseTransitionInvalid = errors.ConstError("invalid migration phase transition")
 
-	// ErrExternalControllerConflict indicates that an external controller with
-	// the same UUID already exists with different connection details (addresses
-	// or CA certificate). The migration must not silently overwrite the live
-	// record.
+	// ErrExternalControllerConflict indicates that an external controller record
+	// cannot be reconciled with supplied migration details.
 	ErrExternalControllerConflict = errors.ConstError("external controller already exists with different details")
 
 	// ErrConflictingMinionReport indicates that a minion submitted a report for

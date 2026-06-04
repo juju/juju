@@ -5,9 +5,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -21,8 +23,10 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -95,11 +99,11 @@ type ControllerState interface {
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
 	// has an active export.
-	InsertExport(ctx context.Context, spec modelmigration.MigrationSpec) error
+	InsertExport(ctx context.Context, spec modelmigrationinternal.MigrationSpec) error
 
-	// GetActiveExport returns the active (non-ended) export migration for the
+	// GetActiveExport returns the active export migration for the
 	// model, or [modelmigrationerrors.ErrMigrationNotFound] if none exists.
-	GetActiveExport(ctx context.Context, modelUUID string) (modelmigration.Migration, error)
+	GetActiveExport(ctx context.Context, modelUUID string) (modelmigrationinternal.Migration, error)
 
 	// GetMigrationMode derives the migration mode for the model.
 	GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error)
@@ -116,7 +120,7 @@ type ControllerState interface {
 
 	// AggregateMinionReports returns the succeeded and failed entity keys
 	// reported for the given migration and phase.
-	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigration.MinionReports, error)
+	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigrationinternal.MinionReports, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -147,6 +151,10 @@ type ModelState interface {
 	// changestream namespace. A change in this namespace indicates that this
 	// model has started or stopped undergoing a migration.
 	GetNamespaceModelMigrating() string
+
+	// GetMigrationAgents returns all agent tags that must report migration
+	// minion progress for this model.
+	GetMigrationAgents(ctx context.Context) (set.Strings, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -293,7 +301,7 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 	} else if err != nil {
 		return modelmigration.Migration{}, errors.Capture(err)
 	}
-	return mig, nil
+	return decodeMigration(mig)
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,
@@ -313,15 +321,86 @@ func (s *Service) InitiateMigration(ctx context.Context, targetInfo migration.Ta
 		return "", errors.Capture(err)
 	}
 
-	spec := modelmigration.MigrationSpec{
-		MigrationUUID: migrationUUID.String(),
-		ModelUUID:     s.modelUUID,
-		Target:        targetInfo,
+	macaroonsJSON, err := marshalMacaroons(targetInfo.Macaroons)
+	if err != nil {
+		return "", errors.Errorf("marshalling target macaroons: %w", err)
+	}
+
+	targetAddrs := make([]modelmigrationinternal.ExternalControllerAddress, len(targetInfo.Addrs))
+	for i, addr := range targetInfo.Addrs {
+		addrUUID, err := uuid.NewUUID()
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		targetAddrs[i] = modelmigrationinternal.ExternalControllerAddress{
+			UUID:    addrUUID.String(),
+			Address: addr,
+		}
+	}
+
+	spec := modelmigrationinternal.MigrationSpec{
+		MigrationUUID:         migrationUUID.String(),
+		ModelUUID:             s.modelUUID,
+		TargetControllerUUID:  targetInfo.ControllerUUID,
+		TargetControllerAlias: targetInfo.ControllerAlias,
+		TargetAddrs:           targetAddrs,
+		TargetCACert:          targetInfo.CACert,
+		TargetUser:            targetInfo.User,
+		TargetMacaroons:       macaroonsJSON,
+		TargetToken:           targetInfo.Token,
+		TargetSkipUserChecks:  targetInfo.SkipUserChecks,
 	}
 	if err := s.controllerState.InsertExport(ctx, spec); err != nil {
 		return "", errors.Capture(err)
 	}
 	return migrationUUID.String(), nil
+}
+
+func decodeMigration(mig modelmigrationinternal.Migration) (modelmigration.Migration, error) {
+	macaroons, err := unmarshalMacaroons(mig.Target.Macaroons)
+	if err != nil {
+		return modelmigration.Migration{}, errors.Errorf("unmarshalling target macaroons: %w", err)
+	}
+	return modelmigration.Migration{
+		UUID:             mig.UUID,
+		Phase:            mig.Phase,
+		PhaseChangedTime: mig.PhaseChangedTime,
+		Target: migration.TargetInfo{
+			ControllerUUID:  mig.Target.ControllerUUID,
+			ControllerAlias: mig.Target.ControllerAlias,
+			Addrs:           mig.Target.Addrs,
+			CACert:          mig.Target.CACert,
+			User:            mig.Target.User,
+			Macaroons:       macaroons,
+			Token:           mig.Target.Token,
+			SkipUserChecks:  mig.Target.SkipUserChecks,
+		},
+	}, nil
+}
+
+// marshalMacaroons serialises a slice of macaroon slices to the JSON form
+// stored in model_migration_export_target_auth.target_macaroons.
+func marshalMacaroons(macaroons []macaroon.Slice) (string, error) {
+	if len(macaroons) == 0 {
+		return "", nil
+	}
+	b, err := json.Marshal(macaroons)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return string(b), nil
+}
+
+// unmarshalMacaroons reverses marshalMacaroons.
+func unmarshalMacaroons(data string) ([]macaroon.Slice, error) {
+	if data == "" {
+		return nil, nil
+	}
+	var macaroons []macaroon.Slice
+	if err := json.Unmarshal([]byte(data), &macaroons); err != nil {
+		return nil, errors.Capture(err)
+	}
+	return macaroons, nil
 }
 
 // WatchForMigration returns a notification watcher that fires when this model
@@ -414,11 +493,6 @@ func (s *Service) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher
 
 // MinionReports returns phase information about minions in this model for the
 // active migration's current phase.
-//
-// Only the reported agents are aggregated here; the set of agents that have not
-// yet reported (UnknownCount / SomeUnknown*) is computed by the migration
-// master against the model's agent inventory and is intentionally left unset by
-// this method.
 func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -433,26 +507,71 @@ func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, e
 		return migration.MinionReports{}, errors.Capture(err)
 	}
 
+	allAgents, err := s.modelState.GetMigrationAgents(ctx)
+	if err != nil {
+		return migration.MinionReports{}, errors.Capture(err)
+	}
+
+	succeeded := set.NewStrings(aggregated.Succeeded...)
+	failed := set.NewStrings(aggregated.Failed...)
+	unknown := allAgents.Difference(succeeded).Difference(failed)
+
 	reports := migration.MinionReports{
 		MigrationId:  mig.UUID,
 		Phase:        mig.Phase,
-		SuccessCount: len(aggregated.Succeeded),
+		TotalCount:   allAgents.Size(),
+		SuccessCount: succeeded.Size(),
+		UnknownCount: unknown.Size(),
 	}
-	for _, key := range aggregated.Failed {
-		tag, err := names.ParseTag(key)
-		if err != nil {
-			return migration.MinionReports{}, errors.Errorf("parsing reported entity %q: %w", key, err)
+	for _, key := range naturalsort.Sort(failed.Values()) {
+		if err := addMinionReportEntity(
+			key,
+			&reports.FailedMachines,
+			&reports.FailedUnits,
+			&reports.FailedApplications,
+		); err != nil {
+			return migration.MinionReports{}, errors.Capture(err)
 		}
-		switch tag.Kind() {
-		case names.MachineTagKind:
-			reports.FailedMachines = append(reports.FailedMachines, tag.Id())
-		case names.UnitTagKind:
-			reports.FailedUnits = append(reports.FailedUnits, tag.Id())
-		case names.ApplicationTagKind:
-			reports.FailedApplications = append(reports.FailedApplications, tag.Id())
+	}
+	for _, key := range naturalsort.Sort(unknown.Values()) {
+		if len(reports.SomeUnknownMachines)+
+			len(reports.SomeUnknownUnits)+
+			len(reports.SomeUnknownApplications) >= 10 {
+			break
+		}
+		if err := addMinionReportEntity(
+			key,
+			&reports.SomeUnknownMachines,
+			&reports.SomeUnknownUnits,
+			&reports.SomeUnknownApplications,
+		); err != nil {
+			return migration.MinionReports{}, errors.Capture(err)
 		}
 	}
 	return reports, nil
+}
+
+func addMinionReportEntity(
+	key string,
+	machines *[]string,
+	units *[]string,
+	applications *[]string,
+) error {
+	tag, err := names.ParseTag(key)
+	if err != nil {
+		return errors.Errorf("parsing reported entity %q: %w", key, err)
+	}
+	switch tag.Kind() {
+	case names.MachineTagKind:
+		*machines = append(*machines, tag.Id())
+	case names.UnitTagKind:
+		*units = append(*units, tag.Id())
+	case names.ApplicationTagKind:
+		*applications = append(*applications, tag.Id())
+	default:
+		return errors.Errorf("unsupported migration minion tag %q", key)
+	}
+	return nil
 }
 
 // ActivateImport finalises the import of the model by clearing the

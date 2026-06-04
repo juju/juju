@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -383,9 +384,9 @@ func (s *serviceSuite) validTargetInfo() migration.TargetInfo {
 func (s *serviceSuite) TestInitiateMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var captured modelmigration.MigrationSpec
+	var captured modelmigrationinternal.MigrationSpec
 	s.controllerState.EXPECT().InsertExport(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, spec modelmigration.MigrationSpec) error {
+		func(_ context.Context, spec modelmigrationinternal.MigrationSpec) error {
 			captured = spec
 			return nil
 		},
@@ -396,7 +397,12 @@ func (s *serviceSuite) TestInitiateMigration(c *tc.C) {
 	c.Check(migUUID, tc.Not(tc.Equals), "")
 	c.Check(captured.MigrationUUID, tc.Equals, migUUID)
 	c.Check(captured.ModelUUID, tc.Equals, s.modelUUID)
-	c.Check(captured.Target.ControllerUUID, tc.Equals, s.controllerUUID)
+	c.Check(captured.TargetControllerUUID, tc.Equals, s.controllerUUID)
+	c.Check(captured.TargetUser, tc.Equals, "admin")
+	c.Check(captured.TargetMacaroons, tc.Equals, "")
+	c.Check(captured.TargetAddrs, tc.HasLen, 1)
+	c.Check(captured.TargetAddrs[0].UUID, tc.Not(tc.Equals), "")
+	c.Check(captured.TargetAddrs[0].Address, tc.Equals, "10.0.0.1:17070")
 }
 
 // TestInitiateMigrationInvalidTarget asserts an invalid target is rejected
@@ -414,12 +420,13 @@ func (s *serviceSuite) TestMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	migUUID := tc.Must(c, uuid.NewUUID).String()
-	expected := modelmigration.Migration{UUID: migUUID, Phase: migration.IMPORT}
-	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(expected, nil)
+	stateMig := modelmigrationinternal.Migration{UUID: migUUID, Phase: migration.IMPORT}
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(stateMig, nil)
 
 	mig, err := s.service().Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(mig, tc.DeepEquals, expected)
+	c.Check(mig.UUID, tc.Equals, migUUID)
+	c.Check(mig.Phase, tc.Equals, migration.IMPORT)
 }
 
 // TestMigrationNone asserts a model with no active migration reports phase NONE.
@@ -427,7 +434,7 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-		modelmigration.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
+		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
 	mig, err := s.service().Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -454,7 +461,7 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigration.Migration{UUID: migUUID}, nil),
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
 		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.IMPORT).Return(nil),
 	)
 
@@ -470,7 +477,7 @@ func (s *serviceSuite) TestSetMigrationStatusMessage(c *tc.C) {
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigration.Migration{UUID: migUUID}, nil),
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
 		s.controllerState.EXPECT().SetStatusMessage(gomock.Any(), migUUID, "hello").Return(nil),
 	)
 
@@ -485,7 +492,7 @@ func (s *serviceSuite) TestReportFromMachine(c *tc.C) {
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigration.Migration{UUID: migUUID}, nil),
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
 		s.controllerState.EXPECT().InsertMinionReport(
 			gomock.Any(), migUUID, migration.IMPORT, "machine-0", true).Return(nil),
 	)
@@ -501,7 +508,7 @@ func (s *serviceSuite) TestReportFromUnit(c *tc.C) {
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigration.Migration{UUID: migUUID}, nil),
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
 		s.controllerState.EXPECT().InsertMinionReport(
 			gomock.Any(), migUUID, migration.IMPORT, "unit-foo-0", false).Return(nil),
 	)
@@ -511,29 +518,63 @@ func (s *serviceSuite) TestReportFromUnit(c *tc.C) {
 }
 
 // TestMinionReports asserts the aggregated reports are mapped into a
-// core/migration.MinionReports, splitting failed entities by kind.
+// core/migration.MinionReports, splitting failed and unknown entities by kind.
 func (s *serviceSuite) TestMinionReports(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigration.Migration{UUID: migUUID, Phase: migration.QUIESCE}, nil),
+			modelmigrationinternal.Migration{UUID: migUUID, Phase: migration.QUIESCE}, nil),
 		s.controllerState.EXPECT().AggregateMinionReports(gomock.Any(), migUUID, migration.QUIESCE).Return(
-			modelmigration.MinionReports{
+			modelmigrationinternal.MinionReports{
 				Phase:     migration.QUIESCE,
 				Succeeded: []string{"machine-0", "unit-foo-0"},
 				Failed:    []string{"machine-1", "unit-bar-0"},
 			}, nil),
+		s.modelState.EXPECT().GetMigrationAgents(gomock.Any()).Return(
+			set.NewStrings(
+				"machine-0",
+				"unit-foo-0",
+				"machine-1",
+				"unit-bar-0",
+				"application-legacy",
+			), nil),
 	)
 
 	reports, err := s.service().MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reports.MigrationId, tc.Equals, migUUID)
 	c.Check(reports.Phase, tc.Equals, migration.QUIESCE)
+	c.Check(reports.TotalCount, tc.Equals, 5)
 	c.Check(reports.SuccessCount, tc.Equals, 2)
+	c.Check(reports.UnknownCount, tc.Equals, 1)
 	c.Check(reports.FailedMachines, tc.SameContents, []string{"1"})
 	c.Check(reports.FailedUnits, tc.SameContents, []string{"bar/0"})
+	c.Check(reports.SomeUnknownApplications, tc.SameContents, []string{"legacy"})
+}
+
+func (s *serviceSuite) TestMinionReportsDoesNotValidateReportedAgentInventory(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+			modelmigrationinternal.Migration{UUID: migUUID, Phase: migration.QUIESCE}, nil),
+		s.controllerState.EXPECT().AggregateMinionReports(gomock.Any(), migUUID, migration.QUIESCE).Return(
+			modelmigrationinternal.MinionReports{
+				Phase:     migration.QUIESCE,
+				Succeeded: []string{"machine-0", "machine-42"},
+			}, nil),
+		s.modelState.EXPECT().GetMigrationAgents(gomock.Any()).Return(
+			set.NewStrings("machine-0"), nil),
+	)
+
+	reports, err := s.service().MinionReports(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(reports.TotalCount, tc.Equals, 1)
+	c.Check(reports.SuccessCount, tc.Equals, 2)
+	c.Check(reports.UnknownCount, tc.Equals, 0)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
