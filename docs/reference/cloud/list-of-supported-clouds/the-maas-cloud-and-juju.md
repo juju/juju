@@ -5,87 +5,143 @@ myst:
 ---
 
 (cloud-maas)=
-# The MAAS cloud and Juju
+# MAAS
 
-This document describes details specific to using your existing MAAS cloud with Juju.
+MAAS is a {ref}`machine cloud <cloud-differences>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [MAAS](https://maas.io/)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
+(maas-cloud)=
+## Cloud
 
-```{ibnote}
-See more: {ref}`cloud-differences`
-```
-
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
-## Requirements
-
-Starting with `juju v.3.0`, versions of MAAS <2 are no longer supported.
-
-## Notes on `juju add-cloud`
+(maas-cloud-definition)=
+### Definition
 
 Type in Juju: `maas`
 
 Name in Juju: User-defined.
 
-## Notes on `juju add-credential`
+(maas-cloud-requirements)=
+### Requirements
 
-### Authentication types
+Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
 
+(maas-cloud-other)=
+### Other
+
+#### Resource model
+
+MAAS differs fundamentally from public cloud providers. Instead of provisioning new infrastructure on-demand, MAAS **allocates existing machines from a pre-configured inventory**. When Juju requests a machine, MAAS finds one that matches the requirements and deploys the OS to it.
+
+Key implications:
+- All machines, networks, and storage must exist in MAAS before use
+- "Creating" a machine means allocating from inventory, not provisioning new hardware
+- Machines are released back to inventory when removed from Juju
+- Network topology must be pre-configured in MAAS (spaces, subnets, VLANs)
+- Storage must exist on machine hardware—cannot be dynamically provisioned
+
+(maas-credential)=
+## Credential
+
+(maas-credential-supported-authentication-types)=
+### Supported authentication types
+
+(maas-credential-oauth1)=
 #### `oauth1`
+
 Attributes:
 - `maas-oauth`: OAuth/API-key credentials for MAAS (required)
 
 ```{note}
-
-`maas-oauth` is your MAAS API key. See more: MAAS | How to add an API key for a user](https://maas.io/docs/how-to-enhance-maas-security#p-9102-manage-api-keys)
+`maas-oauth` is your MAAS API key. See more: [MAAS | How to add an API key for a user](https://maas.io/docs/how-to-enhance-maas-security#p-9102-manage-api-keys)
 ```
 
-## Supported constraints
+(maas-controller)=
+## Controller
 
-| {ref}`CONSTRAINT <constraint>`         |                                                                                                                                                               |
-|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| conflicting:                           |                                                                                                                                                               |
-| supported?                             |                                                                                                                                                               |
-| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                                                                      |
-| - {ref}`constraint-arch`               | &#10003; <br> Valid values: See cloud provider.                                                                                                               |
-| - {ref}`constraint-container`          | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-cores`              | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-cpu-power`          | &#10005;                                                                                                                                                      |
-| - {ref}`constraint-image-id`           | &#10003; (Starting with Juju 3.2) <br> Type: String. <br> Valid values: An image name from MAAS.                                                              |
-| - {ref}`constraint-instance-role`      | &#10005;                                                                                                                                                      |
-| - {ref}`constraint-instance-type`      | &#10005;                                                                                                                                                      |
-| - {ref}`constraint-mem`                | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-root-disk`          | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-root-disk-source`   | &#10005;                                                                                                                                                      |
-| - {ref}`constraint-spaces`             | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-tags`               | &#10003;                                                                                                                                                      |
-| - {ref}`constraint-virt-type`          | &#10003; (Starting with Juju 3.6.22) <br> Valid values: `[virtual-machine]`. <br> Default value: "". <br> Use `virtual-machine` to provision a VM from a pod. |
-| - {ref}`constraint-zones`              | &#10003;                                                                                                                                                      |
+(maas-controller-bootstrap-behavior)=
+### Bootstrap behavior
 
-## Supported placement directives
+Allocates a machine from MAAS inventory that meets the specified hardware constraints. After allocation, MAAS deploys the Ubuntu OS to the machine and executes cloud-init configuration containing the controller setup.
 
-| {ref}`PLACEMENT DIRECTIVE <placement-directive>` |                                                                     |
-|--------------------------------------------------|---------------------------------------------------------------------|
-| - {ref}`placement-directive-machine`             | TBA                                                                 |
-| - {ref}`placement-directive-subnet`              | &#10005;                                                            |
-| - {ref}`placement-directive-system-id`           | &#10003;                                                            |
-| - {ref}`placement-directive-zone`                | &#10003; <br> If there's no '=' delimiter, assume it's a node name. |
+(maas-controller-resources-created-at-bootstrap)=
+### Resources created at bootstrap
 
+MAAS does not create resources—it allocates existing machines from its inventory. The bootstrap process:
+
+- **Machine allocation**: Requests a machine from MAAS matching hardware constraints (CPU, RAM, architecture)
+- **Network interfaces**: Allocated machine must have NICs matching any space requirements from constraints
+- **Storage**: Allocated machine must have disks matching root disk size requirements
+- **Deployment**: MAAS deploys OS image and injects cloud-init userdata
+- **Tagging**: Machine tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`
+
+All infrastructure (machines, networks, storage) must already exist in MAAS before bootstrap.
+
+(maas-machine)=
+## Machine
+
+(maas-machine-resources-created-per-machine)=
+### Resources created per machine
+
+Each machine (controller or application) receives:
+
+- **Bare metal or virtual machine**: Allocated from MAAS inventory matching hardware constraints
+- **Network interfaces**: Pre-configured NICs with IP addresses allocated from MAAS subnets
+- **Storage**: Physical disks on the machine matching storage constraints
+- **OS deployment**: Ubuntu image deployed via MAAS with Juju agent installed via cloud-init
+
+**Machine tags:** Machines tagged with `juju-controller-uuid`, `juju-model-uuid`, `juju-machine-id`, and `juju-units-deployed`.
+
+(maas-machine-networking-behavior)=
+### Networking behavior
+
+- **IP addressing**: MAAS allocates IPs from configured subnet pools (static, DHCP, or auto)
+- **Spaces**: Machines allocated based on required spaces from endpoint bindings and constraints
+- **Network topology**: Uses pre-existing MAAS network configuration (VLANs, subnets, spaces)
+- **No provisioning**: Juju does not create networks—all networking must be pre-configured in MAAS
+
+(maas-machine-supported-constraints)=
+### Supported constraints
+
+- {ref}`constraint-arch`: Valid values: See cloud provider.
+- {ref}`constraint-container`
+- {ref}`constraint-cores`
+- {ref}`constraint-image-id`: Starting with Juju 3.2. Valid values: An image name from MAAS.
+- {ref}`constraint-mem`
+- {ref}`constraint-root-disk`
+- {ref}`constraint-spaces`
+- {ref}`constraint-tags`
+- {ref}`constraint-virt-type`: Starting with Juju 3.6.22. Valid values: `virtual-machine`. Default value: empty string. Use `virtual-machine` to provision a VM from a pod.
+- {ref}`constraint-zones`
+
+(maas-machine-supported-placement-directives)=
+### Supported placement directives
+
+- {ref}`placement-directive-machine`
+- {ref}`placement-directive-system-id`
+- {ref}`placement-directive-zone`: If there's no '=' delimiter, assume it's a node name.
+
+(maas-storage)=
 ## Cloud-specific storage providers
 
-```{ibnote}
-See first: {ref}`storage-provider`
-```
 (storage-provider-maas)=
 ### `maas`
 
-Caveats: As Juju cannot dissociate a MAAS disk from its respective MAAS node, the `maas` storage provider is static-only. This means it can only be requested at deploy time and will be removed when the machine it is associated with is removed from the model. This also means that, if you try to deploy a unit to an existing MAAS machine while attempting to allocate storage, Juju will return an error.
+**Type:** Physical/virtual disks on MAAS machines
 
-Configuration options:
+The MAAS storage provider is static-only—it cannot dynamically create or release volumes. Storage must exist on the machine's hardware and can only be requested at deploy time.
+
+**Behavior:**
+- Volumes are allocated from physical disks on the MAAS machine
+- Storage cannot be detached and moved to another machine
+- Volumes are removed when the machine is removed from the model
+- Cannot allocate storage to existing machines (deploy-time only)
+
+**Limitations:** Juju cannot dissociate a MAAS disk from its machine, so attempting to deploy a unit with storage to an existing MAAS machine will return an error.
+
+**Configuration options:**
 
 - `tags`: A comma-separated list of tags to match on the disks in MAAS. For example, you might tag some disks as `fast`; you can then create a storage pool in Juju that will draw from the disks with those tags.
 

@@ -774,9 +774,15 @@ From Juju paradigm perspective, users primarily work through Juju abstractions a
 ### For Each New Cloud:
 
 1. **Research phase**:
-   - Understand what resources Juju provisions
+   - **Study provider code**: Examine `/home/dora/git/juju/internal/provider/<cloud>/` to understand:
+     - What resources Juju provisions during bootstrap vs machine creation
+     - How networking is set up (spaces, subnets, IP allocation)
+     - How storage is allocated and configured
+     - What cloud-specific tags or metadata Juju uses
+     - Key differences between bootstrap and regular machine provisioning
+   - Understand what resources the cloud provides vs what Juju provisions
    - Identify cloud-native equivalents to Juju concepts
-   - Determine cost drivers
+   - Determine cost drivers (for public clouds)
    - Note security implications
    - Find integration points
 
