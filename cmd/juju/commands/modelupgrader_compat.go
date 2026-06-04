@@ -15,12 +15,11 @@ type newModelUpgraderRootFunc func(ctx context.Context) (api.Connection, error)
 
 // modelUpgraderAPIRoot is a compatibility shim for commands using the
 // ModelUpgrader facade.
-// Facade versions > 0 were added as part of the Juju 4
-// Dqlite migration, and selectively depend on model scope for their service
-// backings.
-// Version 0 of the facade was a controller-only facade.
-// This sniffs the best facade version and returns a model-based client if > 0,
-// falling back to the legacy controller-based client otherwise.
+// Version 1 is the model-based Juju 4 facade. Version 2 restores a
+// controller-based facade that can route requests to the target model.
+// A best version of 0 means the facade is absent from the probed root.
+// This returns a model-based client for version 1, falling back to a
+// controller-based client otherwise.
 func modelUpgraderAPIRoot(
 	ctx context.Context,
 	newModelRoot newModelUpgraderRootFunc,
@@ -31,7 +30,7 @@ func modelUpgraderAPIRoot(
 		return nil, errors.Trace(err)
 	}
 
-	if root.BestFacadeVersion("ModelUpgrader") > 0 {
+	if root.BestFacadeVersion("ModelUpgrader") == 1 {
 		return root, nil
 	}
 

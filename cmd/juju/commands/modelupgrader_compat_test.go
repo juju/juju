@@ -21,7 +21,7 @@ func TestModelUpgraderCompatSuite(t *testing.T) {
 	tc.Run(t, &modelUpgraderCompatSuite{})
 }
 
-func (s *modelUpgraderCompatSuite) TestModelUpgraderAPIRootUsesModelRootWhenFacadeAdvertised(c *tc.C) {
+func (s *modelUpgraderCompatSuite) TestModelUpgraderAPIRootUsesModelRootWhenFacadeV1Advertised(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -41,6 +41,32 @@ func (s *modelUpgraderCompatSuite) TestModelUpgraderAPIRootUsesModelRootWhenFaca
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(root, tc.Equals, modelRoot)
+}
+
+func (s *modelUpgraderCompatSuite) TestModelUpgraderAPIRootFallsBackWhenModelRootAdvertisesV2(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelRoot := modelcmdmocks.NewMockConnection(ctrl)
+	modelRoot.EXPECT().BestFacadeVersion("ModelUpgrader").Return(2)
+	modelRoot.EXPECT().Close().Return(nil)
+	controllerRoot := modelcmdmocks.NewMockConnection(ctrl)
+
+	controllerCalled := false
+	root, err := modelUpgraderAPIRoot(
+		c.Context(),
+		func(context.Context) (api.Connection, error) {
+			return modelRoot, nil
+		},
+		func(context.Context) (api.Connection, error) {
+			controllerCalled = true
+			return controllerRoot, nil
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(root, tc.Equals, controllerRoot)
+	c.Check(controllerCalled, tc.IsTrue)
 }
 
 func (s *modelUpgraderCompatSuite) TestModelUpgraderAPIRootFallsBackWhenFacadeMissing(c *tc.C) {
