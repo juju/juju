@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"

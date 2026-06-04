@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"

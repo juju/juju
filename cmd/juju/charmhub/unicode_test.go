@@ -6,8 +6,8 @@ package charmhub
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/internal/testhelpers"

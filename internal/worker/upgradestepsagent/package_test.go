@@ -6,9 +6,9 @@ package upgradestepsagent
 import (
 	time "time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/semversion"

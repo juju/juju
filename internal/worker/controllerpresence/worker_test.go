@@ -7,11 +7,11 @@ import (
 	"context"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api"
 	coreerrors "github.com/juju/juju/core/errors"

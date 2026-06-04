@@ -6,8 +6,8 @@ package space_test
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/space/mocks"

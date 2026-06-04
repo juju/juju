@@ -7,11 +7,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/api"
 	corebase "github.com/juju/juju/core/base"

@@ -6,8 +6,8 @@ package service
 import (
 	"context"
 
-	"github.com/juju/tc"
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"

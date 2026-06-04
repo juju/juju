@@ -6,8 +6,8 @@ package changestream
 import (
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 )

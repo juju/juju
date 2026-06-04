@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"

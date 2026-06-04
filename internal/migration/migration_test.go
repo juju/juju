@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"

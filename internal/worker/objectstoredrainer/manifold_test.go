@@ -6,6 +6,7 @@ package objectstoredrainer
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -14,7 +15,6 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	controller "github.com/juju/juju/controller"

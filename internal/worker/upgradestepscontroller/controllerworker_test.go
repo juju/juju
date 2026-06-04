@@ -9,9 +9,9 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"

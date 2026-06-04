@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	corebase "github.com/juju/juju/core/base"

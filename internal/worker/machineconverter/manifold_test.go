@@ -8,12 +8,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	watcher "github.com/juju/juju/core/watcher"

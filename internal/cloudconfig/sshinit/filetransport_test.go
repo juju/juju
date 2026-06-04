@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
-	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 )

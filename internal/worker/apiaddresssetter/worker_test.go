@@ -8,11 +8,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"

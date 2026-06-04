@@ -6,9 +6,9 @@ package upgradestepscontroller
 import (
 	time "time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	version "github.com/juju/juju/core/semversion"

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
 )

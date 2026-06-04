@@ -8,12 +8,12 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"

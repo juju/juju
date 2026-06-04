@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremodel "github.com/juju/juju/core/model"

@@ -6,8 +6,8 @@ package eventmultiplexer
 import (
 	"sync/atomic"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	domaintesting "github.com/juju/juju/domain/schema/testing"

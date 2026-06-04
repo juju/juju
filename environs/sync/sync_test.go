@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/tar"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"

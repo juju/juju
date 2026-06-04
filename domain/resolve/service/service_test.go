@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/juju/tc"
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	vault "github.com/mittwald/vaultgo"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets/provider"

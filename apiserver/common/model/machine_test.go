@@ -6,8 +6,8 @@ package model_test
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/core/instance"

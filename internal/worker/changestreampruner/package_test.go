@@ -6,8 +6,8 @@ package changestreampruner
 import (
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema"

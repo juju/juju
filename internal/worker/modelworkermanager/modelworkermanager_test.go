@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"

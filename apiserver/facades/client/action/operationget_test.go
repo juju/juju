@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )

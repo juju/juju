@@ -9,11 +9,11 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/containermanager"

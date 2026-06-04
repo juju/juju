@@ -8,9 +8,9 @@ import (
 	"slices"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )

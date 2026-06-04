@@ -4,8 +4,8 @@
 package service
 
 import (
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	modelerrors "github.com/juju/juju/domain/model/errors"
 )

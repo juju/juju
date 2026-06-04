@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"

@@ -6,9 +6,9 @@ package resources
 import (
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/apiserver/internal/charms"

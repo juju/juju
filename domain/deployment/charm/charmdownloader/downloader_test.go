@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"

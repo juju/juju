@@ -8,11 +8,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"

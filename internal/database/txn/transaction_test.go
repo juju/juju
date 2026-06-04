@@ -12,10 +12,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/testing"

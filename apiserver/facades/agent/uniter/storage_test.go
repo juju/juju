@@ -7,9 +7,9 @@ import (
 	"context"
 	stdtesting "testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/common"
 	coreblockdevice "github.com/juju/juju/core/blockdevice"

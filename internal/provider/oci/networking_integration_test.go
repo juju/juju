@@ -6,9 +6,9 @@ package oci_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

@@ -6,9 +6,9 @@ package modelmigration
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/errors"

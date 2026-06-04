@@ -6,8 +6,8 @@ package application
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/storage"
 	applicationservice "github.com/juju/juju/domain/application/service"

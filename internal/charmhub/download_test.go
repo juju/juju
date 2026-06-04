@@ -16,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/testcharms/repo"
 )

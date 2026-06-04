@@ -4,9 +4,9 @@
 package lease
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

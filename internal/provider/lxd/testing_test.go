@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"

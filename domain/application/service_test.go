@@ -8,9 +8,9 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"

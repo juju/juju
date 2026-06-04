@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	gomock "github.com/canonical/gomock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 

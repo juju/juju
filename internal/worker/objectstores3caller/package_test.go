@@ -7,8 +7,8 @@ import (
 	"context"
 	time "time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	controller "github.com/juju/juju/controller"
 	corehttp "github.com/juju/juju/core/http"

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/worker/v5"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"

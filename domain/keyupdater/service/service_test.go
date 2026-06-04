@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"

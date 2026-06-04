@@ -6,8 +6,8 @@ package usersecretsdrain_test
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/usersecretsdrain"
 	"github.com/juju/juju/api/controller/usersecretsdrain/mocks"

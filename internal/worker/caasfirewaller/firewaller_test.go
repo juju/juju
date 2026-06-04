@@ -5,13 +5,13 @@ package caasfirewaller
 
 import (
 	"testing"
-	"testing/synctest"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
+	"testing/synctest"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"

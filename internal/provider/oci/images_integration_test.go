@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"

@@ -4,10 +4,10 @@
 package bootstrap
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"

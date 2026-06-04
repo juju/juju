@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"

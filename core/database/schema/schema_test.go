@@ -8,8 +8,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/testhelpers"

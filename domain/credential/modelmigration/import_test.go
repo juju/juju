@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"

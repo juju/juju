@@ -6,8 +6,8 @@ package storageprovisioner
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 )
 
 type registerSuite struct{}

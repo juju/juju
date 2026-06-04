@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/juju/tc"
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/domain/annotation"

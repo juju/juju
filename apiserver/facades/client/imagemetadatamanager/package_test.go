@@ -4,8 +4,8 @@
 package imagemetadatamanager
 
 import (
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	coretesting "github.com/juju/juju/internal/testing"

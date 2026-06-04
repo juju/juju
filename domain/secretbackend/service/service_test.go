@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"

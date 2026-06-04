@@ -6,9 +6,9 @@ package machinemanager
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/instances"

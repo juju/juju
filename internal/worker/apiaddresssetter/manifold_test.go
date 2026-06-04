@@ -6,11 +6,11 @@ package apiaddresssetter
 import (
 	stdtesting "testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"go.uber.org/goleak"
-	gomock "github.com/canonical/gomock/gomock"
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/errors"

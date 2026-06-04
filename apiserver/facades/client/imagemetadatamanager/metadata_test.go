@@ -7,9 +7,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/cloudimagemetadata"

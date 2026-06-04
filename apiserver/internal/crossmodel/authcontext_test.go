@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"

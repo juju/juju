@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	apicharm "github.com/juju/juju/api/common/charm"

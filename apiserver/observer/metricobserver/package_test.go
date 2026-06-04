@@ -4,8 +4,8 @@
 package metricobserver_test
 
 import (
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
 )

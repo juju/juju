@@ -6,10 +6,10 @@ package caasfirewaller
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"

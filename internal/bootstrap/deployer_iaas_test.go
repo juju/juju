@@ -6,9 +6,9 @@ package bootstrap
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	corebase "github.com/juju/juju/core/base"
 )

@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"

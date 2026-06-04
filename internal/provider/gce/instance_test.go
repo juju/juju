@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

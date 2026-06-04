@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/juju/juju/caas"

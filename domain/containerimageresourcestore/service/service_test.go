@@ -9,8 +9,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
 	resourcestore "github.com/juju/juju/core/resource/store"

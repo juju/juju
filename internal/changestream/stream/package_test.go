@@ -6,8 +6,8 @@ package stream
 import (
 	time "time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/schema"
 	domaintesting "github.com/juju/juju/domain/schema/testing"

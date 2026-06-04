@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/docker"

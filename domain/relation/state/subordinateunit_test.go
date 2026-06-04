@@ -8,10 +8,10 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"

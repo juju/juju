@@ -12,10 +12,10 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"

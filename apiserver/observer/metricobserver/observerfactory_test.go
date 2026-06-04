@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/internal/testhelpers"

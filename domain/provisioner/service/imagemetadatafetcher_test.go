@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/provisioner"

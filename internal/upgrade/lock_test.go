@@ -6,8 +6,8 @@ package upgrade
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/testhelpers"

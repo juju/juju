@@ -7,9 +7,9 @@ package machineactions
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	apiServerErrors "github.com/juju/juju/apiserver/errors"
 	coremachine "github.com/juju/juju/core/machine"

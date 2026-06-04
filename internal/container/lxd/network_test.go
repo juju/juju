@@ -7,9 +7,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/lxd"

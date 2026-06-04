@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/life"

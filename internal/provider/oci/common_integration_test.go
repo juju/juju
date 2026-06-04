@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/semversion"

@@ -6,9 +6,9 @@ package lxd_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"

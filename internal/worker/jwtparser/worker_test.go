@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testhelpers"

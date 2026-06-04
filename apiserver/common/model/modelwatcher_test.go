@@ -10,8 +10,8 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver/common/model"

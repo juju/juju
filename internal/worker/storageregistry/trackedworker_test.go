@@ -6,10 +6,10 @@ package storageregistry
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/internal/storage"
 )

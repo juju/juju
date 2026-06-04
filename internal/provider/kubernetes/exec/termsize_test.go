@@ -10,8 +10,8 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 	"golang.org/x/sys/unix"
 	"k8s.io/client-go/tools/remotecommand"
 

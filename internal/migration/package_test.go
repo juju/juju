@@ -6,9 +6,9 @@ package migration_test
 import (
 	"context"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/semversion"

@@ -4,9 +4,9 @@
 package bootstrap
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"

@@ -6,9 +6,9 @@ package lease
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/testhelpers"

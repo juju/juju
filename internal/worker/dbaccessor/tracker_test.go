@@ -12,6 +12,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"github.com/canonical/gomock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
 )

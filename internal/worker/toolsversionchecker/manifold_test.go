@@ -6,11 +6,11 @@ package toolsversionchecker
 import (
 	"context"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
-	gomock "github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"

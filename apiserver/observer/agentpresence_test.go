@@ -6,9 +6,9 @@ package observer
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"

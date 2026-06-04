@@ -6,8 +6,8 @@ package storage
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"

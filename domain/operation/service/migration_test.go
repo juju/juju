@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/operation/internal"
