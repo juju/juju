@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -816,15 +816,16 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	app1, _ := s.addApplication(ctrl, "wordpress", true)
 	u1UUID, u1, m1, _ := s.addUnit(c, ctrl, app1)
-	s.startInstance(c, ctrl, m1)
 
 	app2, _ := s.addApplication(ctrl, "mysql", true)
 	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app2)
+
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, ctrl, m1)
 	s.startInstance(c, ctrl, m2)
 
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
