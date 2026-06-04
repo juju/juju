@@ -441,11 +441,21 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
+		// For a machine that was never provisioned (instance_id IS NULL) there
+		// is no cloud resource to protect, so the unit dependency check is
+		// intentionally skipped. Containers and storage are still checked
+		// because their own removal jobs must complete regardless. DeleteMachine
+		// retains its own full dependency guards.
+		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Errorf("checking if machine is provisioned: %w", err)
+		}
+		skipUnitsCheck := !provisioned
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, skipUnitsCheck); err != nil {
 			return errors.Capture(err)
 		}
 
-		err := tx.Query(ctx, updateStmt, machineUUID).Run()
+		err = tx.Query(ctx, updateStmt, machineUUID).Run()
 		if err != nil {
 			return errors.Errorf("marking machine as dead: %w", err)
 		}
@@ -485,11 +495,20 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
+		// For a machine that was never provisioned (instance_id IS NULL) there
+		// is no cloud resource to protect, so the unit dependency check is
+		// intentionally skipped. Containers and storage are still checked.
+		// DeleteMachine retains its own full dependency guards.
+		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Errorf("checking if machine is provisioned: %w", err)
+		}
+		skipUnitsCheck := !provisioned
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, skipUnitsCheck); err != nil {
 			return errors.Capture(err)
 		}
 
-		err := tx.Query(ctx, updateStmt, machineUUID).Run()
+		err = tx.Query(ctx, updateStmt, machineUUID).Run()
 		if err != nil {
 			return errors.Errorf("marking machine instance as dead: %w", err)
 		}
@@ -571,7 +590,7 @@ WHERE uuid = $machine.uuid;
 
 			// If force is not set, check for dependents before allowing deletion.
 			// This prevents accidental data loss.
-			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam); err != nil {
+			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam, false); err != nil {
 				return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 			}
 		}
@@ -631,7 +650,14 @@ WHERE  net_node_uuid = $node.uuid`, count{}, node)
 	return nil
 }
 
-func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+// checkNoMachineDependents returns an error if the machine still has
+// containers, units (unless skipUnitsCheck is true), filesystems, or volumes
+// that would prevent safe deletion. skipUnitsCheck should be set when the
+// machine was never provisioned: there is no cloud resource to protect so
+// blocking on living units serves no purpose.
+func (st *State) checkNoMachineDependents(
+	ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID, skipUnitsCheck bool,
+) error {
 	countContainersOnMachine, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM machine_parent
@@ -697,13 +723,15 @@ SELECT SUM(count) AS &count.count FROM (
 			Add(removalerrors.MachineHasContainers)
 	}
 
-	var unitCount count
-	err = tx.Query(ctx, countUnitsOnMachine, machineUUIDParam).Get(&unitCount)
-	if err != nil {
-		return errors.Errorf("getting unit count: %w", err)
-	} else if unitCount.Count > 0 {
-		return errors.Errorf("cannot delete machine %q, it hosts has %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
-			Add(removalerrors.MachineHasUnits)
+	if !skipUnitsCheck {
+		var unitCount count
+		err = tx.Query(ctx, countUnitsOnMachine, machineUUIDParam).Get(&unitCount)
+		if err != nil {
+			return errors.Errorf("getting unit count: %w", err)
+		} else if unitCount.Count > 0 {
+			return errors.Errorf("cannot delete machine %q, it hosts has %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
+				Add(removalerrors.MachineHasUnits)
+		}
 	}
 
 	var filesystemCount count
@@ -873,6 +901,25 @@ WHERE  net_node_uuid = $node.uuid`
 		}
 	}
 	return nil
+}
+
+// machineIsProvisioned returns true if a cloud instance has been assigned to
+// the machine (i.e. instance_id IS NOT NULL). Machines that have never been
+// successfully started by a provisioner will have a NULL instance_id.
+func (st *State) machineIsProvisioned(ctx context.Context, tx *sqlair.TX, machineUUID entityUUID) (bool, error) {
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_cloud_instance
+WHERE  machine_uuid = $entityUUID.uuid
+AND    instance_id IS NOT NULL`, count{}, machineUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing machine provisioned check: %w", err)
+	}
+	var c count
+	if err := tx.Query(ctx, stmt, machineUUID).Get(&c); err != nil {
+		return false, errors.Errorf("checking if machine is provisioned: %w", err)
+	}
+	return c.Count > 0, nil
 }
 
 func (st *State) getMachineLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {

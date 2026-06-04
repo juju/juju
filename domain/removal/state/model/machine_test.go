@@ -1277,13 +1277,37 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasContainers(c *tc.C) {
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 }
 
-func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
+// TestMarkMachineAsDeadNotProvisionedMachineHasUnits verifies that a machine
+// that was never provisioned (instance_id IS NULL) can be marked as dead even
+// when it still has living units. The dependency check is intentionally skipped
+// for unprovisioned machines because there is no cloud resource to protect.
+func (s *machineSuite) TestMarkMachineAsDeadNotProvisionedMachineHasUnits(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIsNil)
+
+	s.checkMachineLife(c, machineUUID.String(), life.Dead)
+}
+
+// TestMarkMachineAsDeadProvisionedMachineHasUnits verifies that a provisioned
+// machine (instance_id IS NOT NULL) cannot be marked as dead while it still
+// has living units. The cloud instance must be protected until dependents are
+// cleaned up.
+func (s *machineSuite) TestMarkMachineAsDeadProvisionedMachineHasUnits(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.setMachineInstanceID(c, machineUUID, "i-abc123")
 	s.advanceMachineLife(c, machineUUID, life.Dying)
 
 	err := st.MarkMachineAsDead(c.Context(), machineUUID.String())
@@ -1431,13 +1455,38 @@ func (s *machineSuite) TestMarkInstanceAsDeadMachineHasContainers(c *tc.C) {
 	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
 }
 
-func (s *machineSuite) TestMarkInstanceAsDeadMachineHasUnits(c *tc.C) {
+// TestMarkInstanceAsDeadNotProvisionedMachineHasUnits verifies that the cloud
+// instance record for a machine that was never provisioned (instance_id IS
+// NULL) can be marked as dead even when the machine still has living units.
+// The dependency check is intentionally skipped for unprovisioned machines
+// because there is no cloud resource to protect.
+func (s *machineSuite) TestMarkInstanceAsDeadNotProvisionedMachineHasUnits(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	err := st.MarkInstanceAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIsNil)
+
+	s.checkInstanceLife(c, machineUUID.String(), life.Dead)
+}
+
+// TestMarkInstanceAsDeadProvisionedMachineHasUnits verifies that the cloud
+// instance record for a provisioned machine (instance_id IS NOT NULL) cannot
+// be marked as dead while it still has living units. The cloud resource must
+// be protected until its dependents are cleaned up.
+func (s *machineSuite) TestMarkInstanceAsDeadProvisionedMachineHasUnits(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.setMachineInstanceID(c, machineUUID, "i-abc123")
 	s.advanceInstanceLife(c, machineUUID, life.Dying)
 
 	err := st.MarkInstanceAsDead(c.Context(), machineUUID.String())

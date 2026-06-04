@@ -835,6 +835,13 @@ func (s *baseSuite) advanceInstanceLife(c *tc.C, machineUUID machine.UUID, newLi
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// setMachineInstanceID simulates a successfully provisioned machine by setting
+// a non-NULL instance_id on the machine_cloud_instance row.
+func (s *baseSuite) setMachineInstanceID(c *tc.C, machineUUID machine.UUID, instanceID string) {
+	_, err := s.DB().Exec("UPDATE machine_cloud_instance SET instance_id = ? WHERE machine_uuid = ?", instanceID, machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *baseSuite) advanceModelLife(c *tc.C, modelUUID string, newLife life.Life) {
 	_, err := s.DB().Exec("UPDATE model_life SET life_id = ? WHERE model_uuid = ?", newLife, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
