@@ -24,44 +24,61 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 
 See {ref}`list-of-supported-clouds`.
 
+## Cloud taxonomy
+
+(machine-cloud)=
+### Machine cloud
+
+A **machine cloud** is a cloud based on bare metal machines (e.g., MAAS), virtual machines (e.g., Amazon EC2, Google GCE, Microsoft Azure), or system containers (e.g., LXD).
+
+When you deploy to a machine cloud, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys machine charms onto those resources.
+
+```{ibnote}
+See more: {ref}`list-of-supported-clouds` -- Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere, MAAS, LXD, Manual, Equinix Metal
+```
+
+(kubernetes-cloud)=
+### Kubernetes cloud
+
+A **Kubernetes cloud** is a cloud based on an existing Kubernetes cluster (e.g., Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes).
+
+When you deploy to a Kubernetes cloud, Juju does not provision the cluster infrastructure itself. Instead, it manages application workloads within the cluster by deploying Kubernetes charms as pods, services, and other Kubernetes resources.
+
+```{ibnote}
+See more: {ref}`kubernetes-clouds-and-juju`, {ref}`list-of-supported-clouds` -- Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes
+```
+
 (cloud-differences)=
 ## Cloud differences
 
-While Juju aims to make all clouds feel the same, some differences still persist depending on whether the cloud is a machine cloud or a Kubernetes cloud or a specific cloud as opposed to another.
+While Juju aims to make all clouds feel the same, some differences still persist.
 
-(machine-clouds-vs-kubernetes-clouds)=
-### Machine clouds vs. Kubernetes clouds
+(differences-between-machine-and-kubernetes-clouds)=
+### Differences between machine clouds and Kubernetes clouds
 
-Juju makes a fundamental distinction between **'machine' clouds** -- that is, clouds based on bare metal machines (BMs; e.g., MAAS), virtual machines (VMs; e.g., AWS EC2), or system containers (e.g., LXD) -- and **'Kubernetes' clouds** -- that is, based on containers (e.g., AWS EKS).
+While the user experience is mostly the same -- bootstrap a Juju controller into the cloud, add a model, deploy charms, scale, upgrade, etc. -- the distinction between {ref}`machine clouds <machine-cloud>` and {ref}`Kubernetes clouds <kubernetes-cloud>` affects:
 
-While the user experience is still mostly the same -- bootstrap a Juju controller into the cloud, add a model, deploy charms, scale, upgrade, etc. -- this difference affects:
- - the required system requirements (e.g., for a Juju controller, 4GB vs. 6GB memory)
-- the way you connect the cloud to Juju (`add-cloud` + `add-credentials` vs. `add-k8s`)
-- what charms you can deploy ('machine' charms vs. 'Kubernetes' charms)
+- The required system requirements (e.g., for a Juju controller: 4GB vs. 6GB memory).
+- The way you connect the cloud to Juju (`add-cloud` + `add-credentials` vs. `add-k8s`).
+- What charms you can deploy ({ref}`machine charms <machine-charm>` vs. {ref}`Kubernetes charms <kubernetes-charm>`).
 
-and, occasionally
+And, occasionally:
 
-- what operations you may perform, e.g.,
-    - `enable-ha` is currently supported just for machine controllers
-    - scaling an application is done via `add-unit` on machines and via `scale-application` on Kubernetes).
+- What operations you may perform, e.g.:
+  - `enable-ha` is currently supported just for machine controllers.
+  - Scaling an application is done via `add-unit` on machines and via `scale-application` on Kubernetes.
 
 Juju's vision is to eventually make this distinction irrelevant.
 
-(cloud-foo-vs-cloud-bar)=
-### Cloud foo vs. cloud bar
+(differences-between-specific-clouds)=
+### Differences between specific clouds
 
 As a Juju user you will sometimes also notice small differences tied to a cloud's specific identity, beyond the machine-Kubernetes divide.
 
-This usually affects the setup phase (the information you have to supply to Juju to connect Juju to your cloud, and whether Juju can retrieve any of that automatically for you) and, later on, the customisations you can make to your deployment (e.g., small differences in configurations, constraints, placement directives, subnets, spaces, storage, etc., depending on the features available / supported for a given cloud).
+This usually affects the setup phase (the information you have to supply to Juju to connect Juju to your cloud, and whether Juju can retrieve any of that automatically for you) and, later on, the customizations you can make to your deployment (e.g., small differences in configurations, constraints, placement directives, subnets, spaces, storage, etc., depending on the features available / supported for a given cloud).
 
 ```{ibnote}
 See more: {ref}`list-of-supported-clouds` > `<cloud name>`
-```
-
-However, note that all Kubernetes clouds are fundamentally the same.
-
-```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju`
 ```
 
 (cloud-definition)=

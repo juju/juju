@@ -13,15 +13,17 @@ This document describes details specific to using a Canonical Kubernetes cloud w
 See more: [Canonical Kubernetes documentation](https://documentation.ubuntu.com/canonical-kubernetes/)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) Kubernetes cloud and (2) not some other cloud.
+In Juju, Canonical Kubernetes is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`cloud-differences`
+See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
 ```
 
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
+## Cloud-specific notes
 
-## Requirements
+## Cloud-specific notes
+
+### Requirements
 
 ### Services that must enabled
 

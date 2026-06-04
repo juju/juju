@@ -83,7 +83,7 @@ See more: {ref}`manage-metadata`
 ### Resources created at bootstrap
 
 - **Nova instance**: Ubuntu LTS compute instance. Flavor selected based on hardware constraints.
-- **Security groups**: 
+- **Security groups**:
   - Model-wide group: `juju-<controller-uuid>-<model-uuid>`
   - Machine or global group based on `firewall-mode` config
   - Tagged with `juju-controller=<uuid>` and `juju-model-uuid=<uuid>`

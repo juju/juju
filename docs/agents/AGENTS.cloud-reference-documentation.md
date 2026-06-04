@@ -1,9 +1,9 @@
 # Cloud Reference Documentation Pattern
 
-This file documents the pattern for cloud-specific reference documentation based on entity-based restructuring of Azure documentation.
+This file documents the pattern for cloud-specific reference documentation based on entity-based restructuring.
 
 **Date**: 2026-06-04
-**Status**: Pattern established, implemented for Azure, ready for other clouds
+**Status**: Patterns established for both machine clouds and Kubernetes clouds
 
 ---
 
@@ -12,6 +12,17 @@ This file documents the pattern for cloud-specific reference documentation based
 Cloud-specific reference docs describe **the cloud entity in Juju** from the perspective of its properties and capabilities, using **descriptive (not imperative) language**, following the Diataxis framework's reference documentation pattern.
 
 Document answers "What does this cloud require/support/create?" not "How do I use this cloud with Juju?"
+
+---
+
+## Two Templates: Machine Clouds vs. Kubernetes Clouds
+
+There are **two** entity-based templates:
+
+1. **Machine Cloud Template**: For clouds where Juju provisions or adopts infrastructure (VMs, BMs, containers)
+2. **Kubernetes Cloud Template**: For clouds where Juju deploys to existing Kubernetes clusters
+
+Both follow the same entity-based structure with key adaptations for their different provisioning models.
 
 ---
 
@@ -935,3 +946,315 @@ Potential enhancements to consider:
 | 2026-06-04 | Merged Concepts and Resources into unified "\<Cloud name\> and Juju" section with bidirectional mapping (Cloud→Juju concepts, Juju→Cloud resources); updated title to just cloud name; documented rationale for bidirectional approach |
 | 2026-06-04 | Entity-based restructuring: Adopted Cloud/Credential/Controller/Model/Machine/Storage structure with "Other" subsections for cloud-specific features; removed former Concepts/Resources unified section in favor of integrating Concepts under Cloud > Other; documented anchor naming pattern |
 | 2026-06-04 | Simplified cross-referencing: Link to constraint/placement directive sections rather than individual rows, keeping users in cloud-specific context |
+| 2026-06-04 | Added Kubernetes cloud template: Adapted entity-based structure with Application section instead of Machine section for K8s-specific deployment patterns |
+
+---
+
+## Standard Structure for Kubernetes Cloud Reference Docs
+
+The Kubernetes cloud template follows the same entity-based approach as machine clouds, but with key adaptations for Kubernetes' fundamentally different architecture.
+
+### Template Structure
+
+```markdown
+# Kubernetes clouds and Juju
+
+<Short intro describing this as a {ref}`kubernetes-cloud`>
+
+## Cloud
+  ### Definition
+  ### Requirements
+  ### Juju-to-Kubernetes concept mapping
+
+## Credential
+  ### Supported authentication types
+    #### <auth-type-1>
+    #### <auth-type-2>
+
+## Controller
+  ### Bootstrap behavior
+  ### Resources created at bootstrap
+  ### Service type by cloud (if relevant)
+
+## Model
+  ### Model configuration keys
+
+## Application
+  ### Supported constraints
+  ### Placement directives
+  ### Resources created per application
+  ### Pod deployment patterns
+
+## Cloud-specific storage providers
+  ### <provider-name>
+```
+
+### Key Differences from Machine Cloud Template
+
+1. **Section 1: Cloud**
+   - **Definition**: Similar to machine clouds
+   - **Requirements**: K8s-specific (running cluster, kubectl, RBAC)
+   - **Juju-to-Kubernetes concept mapping**: Instead of "Other", this is a standard subsection showing model→namespace, unit→pod, etc.
+
+2. **Section 2: Credential**
+   - Similar structure but K8s auth types (certificate, clientcertificate, oauth2, oauth2withcert, userpass)
+   - Note about `juju add-k8s` adding both cloud and credentials
+
+3. **Section 3: Controller**
+   - **Bootstrap behavior**: Describes namespace creation and StatefulSet deployment
+   - **Resources created**: K8s-specific (Namespace, Service, ServiceAccount, ClusterRoleBinding, StatefulSet, Secrets, ConfigMaps, PVC, Proxy resources)
+   - **Service type by cloud**: Documents LoadBalancer vs ClusterIP patterns
+
+4. **Section 5: Application (not Machine)**
+   - This is the critical adaptation
+   - **Supported constraints**: cpu-power, mem, tags (much more limited than machine clouds)
+   - **Placement directives**: Typically "not supported" (Kubernetes handles scheduling)
+   - **Resources created per application**: Deployment/StatefulSet/DaemonSet, Pod, Service, ConfigMap, Secret, PVC
+   - **Pod deployment patterns**: Init container, operator container, workload containers
+
+5. **Section 6: Storage**
+   - kubernetes storage provider using StorageClasses and PVCs
+   - Different configuration options (storage-class, storage-provisioner, parameters)
+
+### Anchor Pattern for Kubernetes Docs
+
+Follow the same `<cloud>-section-subsection` pattern:
+- `(kubernetes-cloud-definition)=`
+- `(kubernetes-credential-certificate)=`
+- `(kubernetes-controller-bootstrap-behavior)=`
+- `(kubernetes-model-config-operator-storage)=`
+- `(kubernetes-application-supported-constraints)=`
+- `(storage-provider-kubernetes)=`
+
+### Kubernetes-Specific Templates
+
+#### SECTION: Cloud
+
+```markdown
+(kubernetes-cloud)=
+## Cloud
+
+(kubernetes-definition)=
+### Definition
+
+A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
+
+(kubernetes-requirements)=
+### Requirements
+
+- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
+- kubectl configured with cluster access
+- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
+
+(kubernetes-concept-mapping)=
+### Juju-to-Kubernetes concept mapping
+
+If you are familiar with Kubernetes, the following maps Juju concepts to their Kubernetes equivalents:
+
+| Juju | Kubernetes |
+| - | - |
+| {ref}`model <model>` | [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) |
+| {ref}`machine <machine>` (not managed by Juju) | [node](https://kubernetes.io/docs/concepts/architecture/nodes/) |
+| {ref}`unit <unit>` | [pod](https://kubernetes.io/docs/concepts/workloads/pods/) |
+| process in a unit | container |
+| {ref}`application <application>` | [service](https://kubernetes.io/docs/concepts/services-networking/service/) |
+```
+
+#### SECTION: Credential
+
+```markdown
+(kubernetes-credential)=
+## Credential
+
+On Kubernetes clouds, both the cloud definition and the credentials are added through `juju add-k8s`, which reads from your kubeconfig file.
+
+(kubernetes-supported-authentication-types)=
+### Supported authentication types
+
+(kubernetes-auth-certificate)=
+- **`certificate`**: Kubernetes service account token with certificate.
+  - ClientCertificateData: The kubernetes certificate data (required).
+  - Token: The kubernetes service account bearer token (required).
+  - rbac-id: The unique ID key name of the rbac resources (optional).
+
+<...other auth types...>
+```
+
+#### SECTION: Controller
+
+```markdown
+(kubernetes-controller)=
+## Controller
+
+(kubernetes-bootstrap-behavior)=
+### Bootstrap behavior
+
+When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace for the controller and deploys the controller as a StatefulSet with associated resources. The controller manages the Juju state database (MongoDB) and API server within Kubernetes pods.
+
+(kubernetes-resources-created-at-bootstrap)=
+### Resources created at bootstrap
+
+- **Namespace**: A dedicated namespace for the controller (named `controller-<controller-name>`).
+- **Service**: A Kubernetes Service to expose the controller API (type depends on the cloud: LoadBalancer for public clouds, ClusterIP for localhost clouds).
+- **ServiceAccount**: A service account for the controller with cluster-admin privileges.
+- **ClusterRoleBinding**: Binds the controller service account to the cluster-admin ClusterRole.
+- **StatefulSet**: A StatefulSet with the controller pod containing two containers: `mongodb` (Juju's state database) and `api-server` (Juju API server).
+- **Secrets**: Multiple secrets for TLS certificates (`server.pem`), shared secrets, and optionally docker registry credentials for private image registries.
+- **ConfigMaps**: Configuration maps for bootstrap parameters and agent configuration.
+- **PersistentVolumeClaim**: Storage for the controller's operator-storage (MongoDB data and API server state).
+- **Proxy resources** (if using ClusterIP service): Additional ConfigMap, Role, RoleBinding, and ServiceAccount for cluster IP proxy access.
+
+(kubernetes-bootstrap-service-type)=
+### Service type by cloud
+
+The controller Service type varies by cloud:
+
+- **Public clouds** (EKS, GKE, AKS, OpenStack): `LoadBalancer` -- creates a cloud load balancer with a public IP.
+- **Localhost clouds** (MicroK8s, LXD): `ClusterIP` -- uses internal cluster networking with optional proxy.
+- **MAAS**: `LoadBalancer` (experimental).
+- **Other**: `ClusterIP` (default).
+```
+
+#### SECTION: Model
+
+```markdown
+(kubernetes-model)=
+## Model
+
+(kubernetes-model-configuration-keys)=
+### Model configuration keys
+
+(kubernetes-model-config-operator-storage)=
+- **`operator-storage`**: The storage class used to provision operator storage. Type: string. Default: "" (uses cluster default storage class). Immutable: true. Mandatory: false.
+
+(kubernetes-model-config-workload-storage)=
+- **`workload-storage`**: The preferred storage class used to provision workload storage. Type: string. Default: "" (uses cluster default storage class). Immutable: false. Mandatory: false.
+```
+
+#### SECTION: Application
+
+```markdown
+(kubernetes-application)=
+## Application
+
+(kubernetes-supported-constraints)=
+### Supported constraints
+
+Kubernetes clouds support a limited subset of constraints compared to machine clouds:
+
+- {ref}`constraint-cpu-power`: CPU resource request/limit for pods.
+- {ref}`constraint-mem`: Memory resource request/limit for pods.
+- {ref}`constraint-tags`: Used for pod affinity and anti-affinity rules.
+
+\```{ibnote}
+Constraints like `arch`, `cores`, `instance-type`, `root-disk`, `zones`, and others are not supported on Kubernetes clouds. Kubernetes manages node resources and pod scheduling.
+\```
+
+(kubernetes-placement-directives)=
+### Placement directives
+
+Placement directives are not supported on Kubernetes clouds. Pod placement is controlled by Kubernetes scheduling, node selectors, and affinity rules (configured via constraints).
+
+(kubernetes-resources-per-application)=
+### Resources created per application
+
+When deploying an application to a Kubernetes model, Juju creates:
+
+- **Deployment, StatefulSet, or DaemonSet**: Depending on the charm specification and application type. StatefulSets are used for applications requiring stable network identities and persistent storage. Deployments are used for stateless applications. DaemonSets run one pod per node.
+- **Pod**: One or more pods containing the application's charm containers. Each pod typically includes an init container (`juju-init`) and a main container (`juju-operator`).
+- **Service**: A Kubernetes Service to expose the application within the cluster or externally.
+- **ConfigMap**: Configuration data for the application.
+- **Secret**: Sensitive data like credentials.
+- **PersistentVolumeClaim**: If the charm requires storage, one PVC per unit is created based on the configured storage class.
+
+(kubernetes-pod-deployment-patterns)=
+### Pod deployment patterns
+
+Kubernetes application pods in Juju follow these patterns:
+
+- **Init container** (`juju-init`): Prepares the pod environment before the main container starts.
+- **Operator container** (`juju-operator`): Runs the charm logic and manages the application lifecycle.
+- **Workload containers**: Additional containers defined by the charm (e.g., database, web server).
+```
+
+#### SECTION: Storage
+
+```markdown
+(kubernetes-storage)=
+## Cloud-specific storage providers
+
+\```{ibnote}
+See first: {ref}`storage-provider`
+\```
+
+Kubernetes-based models have access to the `kubernetes` storage provider.
+
+(storage-provider-kubernetes)=
+### `kubernetes`
+
+\```{ibnote}
+See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
+\```
+
+The `kubernetes` storage provider provisions storage using Kubernetes PersistentVolumeClaims (PVCs). The underlying storage is provided by the cluster's configured storage classes.
+
+Configuration options:
+
+- **`storage-class`**: The storage class for the Kubernetes cluster to use. It can be any storage class defined in your cluster, for example: `juju-unit-storage`, `juju-charm-storage`, `microk8s-hostpath`, `gp2`, `standard`, etc.
+
+- **`storage-provisioner`**: The Kubernetes storage provisioner. For example: `kubernetes.io/no-provisioner`, `kubernetes.io/aws-ebs`, `kubernetes.io/gce-pd`, `microk8s.io/hostpath`, etc.
+
+- **`parameters.type`**: Extra parameters passed to the storage provisioner. For example: `gp2`, `pd-standard`, etc.
+```
+
+### Implementation Notes for Kubernetes-Specific Cloud Docs
+
+Kubernetes-specific cloud docs (EKS, GKE, AKS, MicroK8s, Canonical Kubernetes) should be **minimal stubs** that:
+
+1. **Identify cloud type**: State "X is a {ref}`kubernetes-cloud`"
+2. **Reference generic doc**: "For complete documentation, see {ref}`kubernetes-clouds-and-juju`"
+3. **Document cloud-specific notes only**:
+   - EKS/GKE/AKS: `add-k8s` with 'raw' client due to snap confinement
+   - MicroK8s: Required services (dns, hostpath-storage)
+   - Canonical Kubernetes: Required services, containerd path, /run resizing
+4. **Reference storage**: Link to {ref}`storage-provider-kubernetes`
+
+**Example minimal stub template**:
+```markdown
+(cloud-kubernetes-<cloud>)=
+# The <Cloud Name> cloud and Juju
+
+This document describes details specific to using your existing <Cloud Name> cloud with Juju.
+
+\```{ibnote}
+See more: [<Cloud Name>](upstream-link)
+\```
+
+In Juju, <Cloud Name> is a {ref}`kubernetes-cloud`.
+
+\```{ibnote}
+See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
+\```
+
+## Cloud-specific notes
+
+### Notes on `add-k8s`
+
+<Cloud-specific add-k8s notes if any>
+
+### Requirements
+
+<Cloud-specific requirements if any>
+
+## Cloud-specific storage providers
+
+\```{ibnote}
+See first: {ref}`storage-provider`
+\```
+
+As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.
+```
+
+**Rationale**: All Kubernetes clouds use the same single provider (`internal/provider/kubernetes/`). Cloud-specific differences are minimal configuration variations, not fundamental architectural differences.
+
+---

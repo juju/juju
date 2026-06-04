@@ -7,21 +7,23 @@ myst:
 (cloud-kubernetes-microk8s)=
 # The MicroK8s cloud and Juju
 
-This document describes details specific to using your a MicroK8s cloud with Juju.
+This document describes details specific to using a MicroK8s cloud with Juju.
 
 ```{ibnote}
 See more: [Getting started on Microk8s](https://microk8s.io/docs/getting-started)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) Kubernetes cloud and (2) not some other cloud.
+In Juju, MicroK8s is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`cloud-differences`
+See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
 ```
 
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
+## Cloud-specific notes
 
-## Requirements
+## Cloud-specific notes
+
+### Requirements
 
 ### MicroK8s snap
 

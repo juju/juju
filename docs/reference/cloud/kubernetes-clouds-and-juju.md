@@ -11,7 +11,7 @@ myst:
 See also: {ref}`list-of-supported-kubernetes-clouds`
 ```
 
-In Juju, a Kubernetes cloud is a {ref}`Kubernetes cloud <cloud-differences>`. Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike machine clouds, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+In Juju, a Kubernetes cloud is a {ref}`kubernetes-cloud`. Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
 
 (kubernetes-cloud)=
 ## Cloud
