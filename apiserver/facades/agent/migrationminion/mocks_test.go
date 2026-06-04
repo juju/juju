@@ -13,12 +13,11 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
-
 	controller "github.com/juju/juju/controller"
 	migration "github.com/juju/juju/core/migration"
 	watcher "github.com/juju/juju/core/watcher"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockModelMigrationService is a mock of ModelMigrationService interface.
