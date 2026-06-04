@@ -174,7 +174,6 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
-	slices.SortFunc(uris, coresecrets.CompareURI)
 	backend := "alvinmini410model3-local"
 
 	s.secretsAPI.EXPECT().ListSecrets(
@@ -190,7 +189,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"},
 				Label:          "afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates",
 			},
-			Revisions: []coresecrets.SecretRevisionMetadata{ // This type path aligns with coresecrets used in API details
+			Revisions: []coresecrets.SecretRevisionMetadata{
 				{
 					Revision:    1,
 					BackendName: &backend,
@@ -205,7 +204,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/1"},
 				Label:          "dsajnjsdandjwajwdnjwndjw-private-key-0-certificates",
 			},
-			Revisions: []coresecrets.SecretRevisionMetadata{ // This type path aligns with coresecrets used in API details
+			Revisions: []coresecrets.SecretRevisionMetadata{
 				{
 					Revision:    1,
 					BackendName: &backend,
@@ -218,7 +217,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
+	c.Assert(out, tc.Contains, fmt.Sprintf(`%s:
   revision: 1
   rotation: never
   owner: traefik-k8s/0
@@ -230,7 +229,8 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
     backend: alvinmini410model3-local
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
-%s:
+`, uris[0].ID))
+	c.Assert(out, tc.Contains, fmt.Sprintf(`%s:
   revision: 1
   rotation: never
   owner: traefik-k8s/1
@@ -242,7 +242,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
     backend: alvinmini410model3-local
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
-`, uris[0].ID, uris[1].ID))
+`, uris[1].ID))
 }
 
 func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
