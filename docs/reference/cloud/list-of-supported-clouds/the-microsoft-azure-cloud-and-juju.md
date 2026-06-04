@@ -1,171 +1,238 @@
----
-myst:
-  html_meta:
-    description: "Configure Microsoft Azure cloud with Juju, including required IAM permissions, resource group management, and authentication setup."
----
+# Microsoft Azure
 
-(cloud-azure)=
-# The Microsoft Azure cloud and Juju
-
-This document describes details specific to using your existing Microsoft Azure cloud with Juju.
+Azure is a {ref}`machine cloud <cloud-differences>`. This document describes Azure-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
+(azure-cloud)=
+## Cloud
+
+(azure-cloud-definition)=
+### Definition
+
+Type in Juju: `azure`
+
+Name in Juju: `azure`
+
+(azure-cloud-requirements)=
+### Requirements
+
+**Required Azure API permissions:**
+
+- `Microsoft.Compute/skus` (read)
+- `Microsoft.Resources/subscriptions/resourceGroups` (read, write, delete)
+- `Microsoft.Resources/deployments/*` (write, read, delete, cancel, validate)
+- `Microsoft.Network/networkSecurityGroups` (write, read, delete, join)
+- `Microsoft.Network/virtualNetworks/*` (write, read, delete)
+- `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff)
+- `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join)
+- `Microsoft.Compute/availabilitySets` (write, read, delete)
+- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) — optional for public-facing services
+- `Microsoft.Network/networkInterfaces` (write, read, delete, join)
+- `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate)
+- `Microsoft.Compute/disks` (write, read, delete)
+
+(azure-cloud-other)=
+### Other
+
+#### Concepts
+
+The following table shows how Azure's native abstractions map to Juju concepts:
+
+| Azure | Juju |
+| - | - |
+| [Resource Group](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/overview#resource-groups) | {ref}`model <model>` (roughly) |
+| [Virtual Machine](https://learn.microsoft.com/en-us/azure/virtual-machines/) | {ref}`machine <machine>` |
+| Process or container within a VM | {ref}`unit <unit>` |
+| Collection of VMs running the same workload | {ref}`application <application>` |
+| [Managed Disk](https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview) | {ref}`storage <storage>` |
+| [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
 
 ```{ibnote}
-See more: {ref}`cloud-differences`
+See also: {ref}`cloud-differences`
 ```
 
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
+(azure-credential)=
+## Credential
 
-## Requirements
+(azure-credential-supported-authentication-types)=
+### Supported authentication types
 
-**If you're in a locked-down environment:** <br> Permissions: <p>- `Microsoft.Compute/skus (read)` <p> - `Microsoft.Resources/subscriptions/resourceGroups (read, write, delete)` <p> - `Microsoft.Resources/deployments/ (write/read/delete/cancel/validate)` <p> - `Microsoft.Network/networkSecurityGroups (write, read, delete, other - join)` <p> - `Microsoft.Network/virtualNetworks/ (write, read, delete)` <p> - `Microsoft.Compute/virtualMachineScaleSets/ (write, read, delete, other - start action, other - deallocate action, other - restart action, other powerOff action)` <p> - `Microsoft.Network/virtualNetworks/subnets/ (read, write, delete, other - join)` <p> - `Microsoft.Compute/availabilitySets (write, read, delete)` <p> - `Microsoft.Network/publicIPAddresses (write, read, delete, other - join - optional for public services)` <p> - `Microsoft.Network/networkInterfaces (write, read, delete, other - join)` <p> - `Microsoft.Compute/virtualMachines (write, read, delete, other - start, power off, restart, deallocate)` <p> - `Microsoft.Compute/disks (write, read, delete)`
+(azure-credential-managed-identity)=
+#### `managed-identity`
 
-## Notes on `juju add-cloud`
+**Requirements:**
+- Juju 3.6+
+- Managed identity created in Azure
+- Same subscription for managed identity and Juju resources
+- Credential addition must occur from Azure Cloud Shell or Azure-hosted jump host (for cloud metadata endpoint access)
 
-Type in Juju: `azure`.
-
-Name in Juju: `azure`.
-
-## Notes on `juju add-credential`
-
-```{note}
-Credentials for the `azure` cloud have been reported to occasionally stop working over time. If this happens, try `juju update-credential` (passing as an argument the same credential) or `juju add-credential` (passing as an argument a new credential) + `juju default-credential`.
-```
-
-### Authentication types
-
-#### `managed-identity` (preferred)
-> *Requirements:*
-> - Juju 3.6+.
-> - A managed identity. See more: Appendix: How to create a managed identity.
-> - The managed identity and the Juju resources must be created on the same subscription.
-> - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
-
-This is the recommended way to authenticate with Azure as this way you are never touching your cloud credentials directly.
+**Behavior:** Controller uses managed identity for Azure API operations without storing credential secrets.
 
 ```{ibnote}
-See more: {ref}`azure-appendix-workflow-1`
+See more: {ref}`azure-appendix-create-a-managed-identity`, {ref}`azure-appendix-workflow-1`
 ```
 
-#### `interactive` = "service-principal-secret-via-browser"
+(azure-credential-interactive)=
+#### `interactive`
 
-This is the recommended way to authenticate with Azure if you want to use a service principal secret.
+Browser-based OAuth flow. If using unconfined `juju` snap with Azure CLI logged in, subscription ID can be auto-filled.
 
-When you add the credential in this way and provide the subscription ID, Juju will open up a browser and you’ll be prompted to log in to Azure.
+**Note:** Optional fields `application-name` and `role-definition-name` must have unique values if specified.
 
-Note: If you are using the unconfined `juju` snap `/snap/juju/current/bin/juju add-credential azure` and have the `azure` CLI and you are logged in and you want to use the currently logged in user: You may leave the subscription ID empty -- Juju will fill it in for you.
-
-Caution: If you decide to fill in the optional fields as well: Make sure to set them to unique values (i.e., the `application-name` and `role-definition-name` fields cannot be the same).
-
-Tip: Starting with Juju 3.6, you can also combine this authentication type with a managed identity by bootstrapping with the `instance-role` constraint.
+**Version note:** Starting with Juju 3.6, can be combined with managed identity via `instance-role` constraint during bootstrap.
 
 ```{ibnote}
-See more:
-- {ref}`azure-appendix-workflow-2`
-- {ref}`azure-appendix-workflow-3`
+See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
 ```
 
-#### `service-principal-secret` (dispreferred)
+(azure-credential-service-principal-secret)=
+#### `service-principal-secret`
 
-Starting with Juju 3.6, you can also combine this with a managed identity by bootstrapping with the `instance-role` constraint.
+Requires application ID, subscription ID, and client secret.
+
+**Version note:** Starting with Juju 3.6, can be combined with managed identity via `instance-role` constraint during bootstrap.
 
 ```{ibnote}
-See more:
-- {ref}`azure-appendix-workflow-2`
-- {ref}`azure-appendix-workflow-3`
+See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
 ```
 
-## Notes on `juju bootstrap`
+(azure-credential-known-issues)=
+### Known issues
 
-If during `juju add-credential` you chose `interactive` (= "service-principal-secret-via-browser") or `service-principal-secret`: You can still combine this with a managed identity by running `juju bootstrap` with `--constraints instance-role=...`.
+Credentials occasionally stop working over time. Refresh using credential update or re-add credential.
+
+(azure-controller)=
+## Controller
+
+(azure-controller-bootstrap-behavior)=
+### Bootstrap behavior
+
+Creates controller and initial model on Azure.
+
+(azure-controller-resources-created-at-bootstrap)=
+### Resources created at bootstrap
+
+- **Resource group**: Contains all resources for the model. Auto-generated name or user-specified via `resource-group-name` config.
+- **Virtual network**: Named "juju-internal-network" with 192.168.0.0/16 address space. User-configurable via `network` config.
+- **Subnets**:
+  - Controller subnet (192.168.16.0/20) for controller machines
+  - Internal subnet (192.168.0.0/20) for application machines
+- **Network security group**: Named "juju-internal-nsg". Rules: SSH (port 22) to all machines, Juju API (port 17070) to controller subnet.
+- **Controller virtual machine**: Ubuntu LTS. Size configurable via `instance-type` constraint.
+
+(azure-controller-other)=
+### Other
+
+#### Instance role integration
+
+Service principal authentication types can be combined with managed identity via `instance-role` constraint. Allows controller to use managed identity for Azure API operations without storing credential secrets in the controller.
 
 ```{ibnote}
-See more: {ref}`azure-appendix-workflow-1`, Supported constraints
+See more: {ref}`azure-machine-supported-constraints`
 ```
 
-## Cloud-specific model configuration keys
+(azure-model)=
+## Model
 
-### `load-balancer-sku-name`
+(azure-model-cloud-specific-configuration-keys)=
+### Cloud-specific configuration keys
+
+(azure-model-load-balancer-sku-name)=
+#### `load-balancer-sku-name`
+
 Mirrors the LoadBalancerSkuName type in the Azure SDK.
 
-| | |
-|-|-|
-| type | `string` |
-| default value | `"Standard"` |
-| immutable | `false` |
-| mandatory | `true` |
+- **Type**: `string`
+- **Default value**: `"Standard"`
+- **Immutable**: `false`
+- **Mandatory**: `true`
 
-### `resource-group-name`
-If set, use the specified resource group for all model artefacts instead of creating one based on the model UUID.
+(azure-model-resource-group-name)=
+#### `resource-group-name`
 
-| | |
-|-|-|
-| type | `string` |
-| default value | `schema.omit{}` |
-| immutable | `true` |
-| mandatory | `false` |
+If set, use the specified resource group for all model resources instead of creating one based on the model UUID.
 
-### `network`
+- **Type**: `string`
+- **Default value**: none
+- **Immutable**: `true`
+- **Mandatory**: `false`
+
+(azure-model-network)=
+#### `network`
+
 If set, use the specified virtual network for all model machines instead of creating one.
 
-| | |
-|-|-|
-| type | `string` |
-| default value | `schema.omit{}` |
-| immutable | `true` |
-| mandatory | `false` |
-## Supported constraints
+- **Type**: `string`
+- **Default value**: none
+- **Immutable**: `true`
+- **Mandatory**: `false`
 
-| {ref}`CONSTRAINT <constraint>`         |                                                |
-|----------------------------------------|------------------------------------------------|
-| conflicting:                           | `[instance-type]` vs `[arch, cores, mem]` |
-| supported?                             |                                                |
-| - {ref}`constraint-allocate-public-ip` | &#10003;                                       |
-| - {ref}`constraint-arch`               | &#10003; <br> Valid values: `amd64`            |
-| - {ref}`constraint-container`          | &#10003;                                       |
-| - {ref}`constraint-cores`              | &#10003;                                       |
-| - {ref}`constraint-cpu-power`          | &#10005;                                       |
-| - {ref}`constraint-image-id`           | &#10005;                                       |
-| - {ref}`constraint-instance-role`      | *Starting with Juju 3.6:* &#10003; <p> Valid values: `auto` (Juju creates a managed identity for you) or a [managed identity^](https://www.google.com/url?q=https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview&sa=D&source=docs&ust=1720105912478784&usg=AOvVaw2eioSYvtSn1pn-BWstI6AU) name in one of the following formats:<p> - **If the managed identity is created in a resource group on the same subscription:** <br>`<resource group>/<identity name>` <p> - **If the managed identity is created in a resource group on a different subscription:** <br> `<subscription>/<resource group>/<identity name>` <p> - **If the managed identity is created in a resource group and that resource group is used to host the controller model:** <br>`<identity name>` <br> e.g., `juju bootstrap azure --config resource-group-name=<resource group> --constraints instance-role=<identity name>` <p> Note: If you want your controller to be in the same resource group as the one used for the managed identity, during bootstrap also specify `--config resource-group-name=<theresourcegroup>`.  <p> > See more: Appendix: Supported authentication types: Example workflows.  |
-| - {ref}`constraint-instance-type`      | &#10003; <br> Valid values: See cloud provider. |
-| - {ref}`constraint-mem`                | &#10003;                                       |
-| - {ref}`constraint-root-disk`          | &#10003;                                       |
-| - {ref}`constraint-root-disk-source`   | &#10003;  <br> Represents the juju {ref}`storage pool <storage-pool>` for the root disk. By specifying a storage pool, the root disk can be configured to use encryption.                                      |
-| - {ref}`constraint-spaces`             | &#10005;                                       |
-| - {ref}`constraint-tags`               | &#10005;                                       |
-| - {ref}`constraint-virt-type`          | &#10005;                                       |
-| - {ref}`constraint-zones`              | &#10003;                                       |
+(azure-machine)=
+## Machine
 
-## Supported placement directives
+(azure-machine-supported-constraints)=
+### Supported constraints
 
-| {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
-|--------------------------------------------------|----------|
-| {ref}`placement-directive-machine`               | TBA      |
-| {ref}`placement-directive-subnet`                | &#10003; |
-| {ref}`placement-directive-system-id`             | &#10005; |
-| {ref}`placement-directive-zone`                  | TBA      |
-
-## Cloud-specific storage providers
-
-```{ibnote}
-See first: {ref}`storage-provider`
+```{note}
+The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 ```
+
+- {ref}`constraint-allocate-public-ip`: Controls public IP address creation.
+- {ref}`constraint-arch`: Valid values: `amd64`.
+- {ref}`constraint-container`
+- {ref}`constraint-cores`
+- {ref}`constraint-instance-role`: Juju 3.6+. Valid values: `auto` or managed identity name in format `<resource-group>/<identity-name>` or `<subscription>/<resource-group>/<identity-name>`.
+- {ref}`constraint-instance-type`: See Azure VM sizes documentation.
+- {ref}`constraint-mem`
+- {ref}`constraint-root-disk`: Minimum 30 GiB.
+- {ref}`constraint-root-disk-source`: Specifies {ref}`storage pool <storage-pool>` for root disk. Enables encryption configuration.
+- {ref}`constraint-zones`
+
+(azure-machine-supported-placement-directives)=
+### Supported placement directives
+
+- {ref}`placement-directive-subnet`
+
+(azure-machine-resources-created-per-machine)=
+### Resources created per machine
+
+Each machine (controller or application) receives:
+
+- **Virtual machine**: Type configurable via `instance-type` constraint.
+- **OS disk**: 30 GiB minimum, StandardSSD_LRS type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.
+- **Network interface**: Connected to appropriate subnet (controller or internal) with dynamically-allocated private IP address.
+- **Public IP address**: Static IPv4 address created by default. Disable via `allocate-public-ip` constraint.
+- **Additional storage**: Created when requested via storage specifications.
+
+**Resource tags:** All resources tagged with `juju-model` (model UUID), `juju-controller` (controller UUID), `juju-machine-name` (machine identifier).
+
+(azure-machine-networking-behavior)=
+### Networking behavior
+
+- **IP addressing**: Private IPs allocated dynamically via DHCP. Public IPs use static allocation.
+- **Subnet placement**: Controller machines → 192.168.16.0/20; application machines → 192.168.0.0/20
+- **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
+
+(azure-storage)=
+## Cloud-specific storage providers
 
 (storage-provider-azure)=
 ### `azure`
 
-Configuration options:
+**Type:** Azure Managed Disks
 
-- `account-type` The account type. Accepts one of two values:
-    - `Standard_LRS`, associated with Juju pool `azure`
-    - `Premium_LRS`, associated with Juju pool `azure-premium`.
+**Configuration options:**
 
-Newly-created models configured in this way use "Azure Managed Disks". See [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview) for information on what this entails (in particular, what the difference is between standard and premium disk types).
+- `account-type`: Disk type
+  - `Standard_LRS`: Standard HDD (associated with pool `azure`)
+  - `Premium_LRS`: Premium SSD (associated with pool `azure-premium`)
+
+```{ibnote}
+See more: [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview)
+```
 
 (azure-appendix-example-authentication-workflows)=
 ## Appendix: Example authentication workflows
@@ -176,13 +243,13 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 > - Juju 3.6+.
 > - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
 > - The managed identity and the Juju resources must be created on the same subscription.
-> - The `add-credential` steps must be run from either [the Azure Cloud Shell^](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
+> - The `add-credential` steps must be run from either [the Azure Cloud Shell](https://shell.azure.com/) or a jump host running in Azure in order to allow the cloud metadata endpoint to be reached.
 
 1. Run `juju add-credential azure`; choose `managed-identity`; supply the requested information (the `managed-identity-path` must be of the form `<resourcegroup>/<identityname>`).
 2. Bootstrap as usual.
 
 ```{tip}
-**Did you know?** With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
+With this workflow where you provide the managed identity during `add-credential` you avoid the need for either your Juju client or your Juju controller to store your credential secrets. Relatedly, the user running `add-credential` / `bootstrap` doesn't need to have any credential secrets supplied to them.
 ```
 
 (azure-appendix-workflow-2)=
@@ -194,14 +261,12 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):
         - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
-         - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
+         - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you'll be prompted to log in to Azure.
     - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
 2. During bootstrap, provide the managed identity to the controller by using the `instance-role` constraint.
 
 ```{tip}
-
-**Did you know?** With this workflow where you provide the managed identity during `bootstrap` you avoid the need for your Juju controller to store your credential secrets. Relatedly, the user running / `bootstrap` doesn't need to have any credential secrets supplied to them.
-
+With this workflow where you provide the managed identity during `bootstrap` you avoid the need for your Juju controller to store your credential secrets. Relatedly, the user running / `bootstrap` doesn't need to have any credential secrets supplied to them.
 ```
 
 (azure-appendix-workflow-3)=
@@ -210,7 +275,7 @@ Newly-created models configured in this way use "Azure Managed Disks". See [Azur
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):
         - If you have the `azure` CLI and you are logged in and you want to use the currently logged in user: Run `/snap/juju/current/bin/juju add-credential azure`; choose `interactive`, then leave the subscription ID field empty -- Juju will fill this in for you.
-         - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you’ll be prompted to log in to Azure.
+         - Otherwise: Run `juju add-credential azure`, choose `interactive`, then provide the subscription ID -- Juju will open up a browser and you'll be prompted to log in to Azure.
     - `service-principal-secret`: Run `juju add-credential azure`, then choose `service-principal-secret` and supply all the requested information.
 2. Bootstrap as usual.
 
