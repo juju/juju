@@ -415,7 +415,7 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
-// - [removalerrors.MachineHasUnits] if the machine hosts units.
+// - [removalerrors.MachineHasUnits] if the machine is provisioned and hosts units.
 // - [removalerrors.MachineHasStorage] if the machine hosts storage.
 func (st *State) MarkMachineAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB(ctx)
@@ -432,6 +432,14 @@ AND    life_id = 1`, machineUUID)
 	if err != nil {
 		return errors.Errorf("preparing machine life update: %w", err)
 	}
+	provisionedStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_cloud_instance
+WHERE  machine_uuid = $entityUUID.uuid
+AND    instance_id IS NOT NULL`, count{}, machineUUID)
+	if err != nil {
+		return errors.Errorf("preparing machine provisioned check: %w", err)
+	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
 			return errors.Errorf("getting machine life: %w", err)
@@ -446,7 +454,7 @@ AND    life_id = 1`, machineUUID)
 		// intentionally skipped. Containers and storage are still checked
 		// because their own removal jobs must complete regardless. DeleteMachine
 		// retains its own full dependency guards.
-		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID)
+		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID, provisionedStmt)
 		if err != nil {
 			return errors.Errorf("checking if machine is provisioned: %w", err)
 		}
@@ -470,7 +478,7 @@ AND    life_id = 1`, machineUUID)
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [removalerrors.EntityStillAlive] if the machine is alive.
 // - [removalerrors.MachineHasContainers] if the machine hosts containers.
-// - [removalerrors.MachineHasUnits] if the machine hosts units.
+// - [removalerrors.MachineHasUnits] if the machine is provisioned and hosts units.
 func (st *State) MarkInstanceAsDead(ctx context.Context, mUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -486,6 +494,14 @@ AND    life_id = 1`, machineUUID)
 	if err != nil {
 		return errors.Errorf("preparing instance life update: %w", err)
 	}
+	provisionedStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_cloud_instance
+WHERE  machine_uuid = $entityUUID.uuid
+AND    instance_id IS NOT NULL`, count{}, machineUUID)
+	if err != nil {
+		return errors.Errorf("preparing machine provisioned check: %w", err)
+	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if l, err := st.getInstanceLife(ctx, tx, mUUID); err != nil {
 			return errors.Errorf("getting machine instance life: %w", err)
@@ -497,9 +513,10 @@ AND    life_id = 1`, machineUUID)
 
 		// For a machine that was never provisioned (instance_id IS NULL) there
 		// is no cloud resource to protect, so the unit dependency check is
-		// intentionally skipped. Containers and storage are still checked.
-		// DeleteMachine retains its own full dependency guards.
-		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID)
+		// intentionally skipped. Containers and storage are still checked
+		// because their own removal jobs must complete regardless. DeleteMachine
+		// retains its own full dependency guards.
+		provisioned, err := st.machineIsProvisioned(ctx, tx, machineUUID, provisionedStmt)
 		if err != nil {
 			return errors.Errorf("checking if machine is provisioned: %w", err)
 		}
@@ -515,6 +532,19 @@ AND    life_id = 1`, machineUUID)
 
 		return nil
 	}))
+}
+
+// machineIsProvisioned returns true if a cloud instance has been assigned to
+// the machine (i.e. instance_id IS NOT NULL). Machines that have never been
+// successfully started by a provisioner will have a NULL instance_id.
+// The caller is responsible for preparing stmt with the appropriate query
+// outside the transaction to avoid repeated preparation on retries.
+func (st *State) machineIsProvisioned(ctx context.Context, tx *sqlair.TX, machineUUID entityUUID, stmt *sqlair.Statement) (bool, error) {
+	var c count
+	if err := tx.Query(ctx, stmt, machineUUID).Get(&c); err != nil {
+		return false, errors.Errorf("querying machine_cloud_instance for provisioned check: %w", err)
+	}
+	return c.Count > 0, nil
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
@@ -672,7 +702,7 @@ SELECT COUNT(*) AS &count.count
 FROM unit
 JOIN machine ON machine.net_node_uuid = unit.net_node_uuid
 WHERE machine.uuid = $entityUUID.uuid
-AND unit.life_id != 2
+AND unit.life_id != 2  -- 2 = Dead
 `, count{}, machineUUIDParam)
 	if err != nil {
 		return errors.Capture(err)
@@ -719,7 +749,7 @@ SELECT SUM(count) AS &count.count FROM (
 	if err != nil {
 		return errors.Errorf("getting container count: %w", err)
 	} else if containerCount.Count > 0 {
-		return errors.Errorf("cannot delete machine %q, it hosts has %d container(s)", machineUUIDParam.UUID, containerCount.Count).
+		return errors.Errorf("cannot delete machine %q, it hosts %d container(s)", machineUUIDParam.UUID, containerCount.Count).
 			Add(removalerrors.MachineHasContainers)
 	}
 
@@ -729,7 +759,7 @@ SELECT SUM(count) AS &count.count FROM (
 		if err != nil {
 			return errors.Errorf("getting unit count: %w", err)
 		} else if unitCount.Count > 0 {
-			return errors.Errorf("cannot delete machine %q, it hosts has %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
+			return errors.Errorf("cannot delete machine %q, it hosts %d unit(s)", machineUUIDParam.UUID, unitCount.Count).
 				Add(removalerrors.MachineHasUnits)
 		}
 	}
@@ -901,25 +931,6 @@ WHERE  net_node_uuid = $node.uuid`
 		}
 	}
 	return nil
-}
-
-// machineIsProvisioned returns true if a cloud instance has been assigned to
-// the machine (i.e. instance_id IS NOT NULL). Machines that have never been
-// successfully started by a provisioner will have a NULL instance_id.
-func (st *State) machineIsProvisioned(ctx context.Context, tx *sqlair.TX, machineUUID entityUUID) (bool, error) {
-	stmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM   machine_cloud_instance
-WHERE  machine_uuid = $entityUUID.uuid
-AND    instance_id IS NOT NULL`, count{}, machineUUID)
-	if err != nil {
-		return false, errors.Errorf("preparing machine provisioned check: %w", err)
-	}
-	var c count
-	if err := tx.Query(ctx, stmt, machineUUID).Get(&c); err != nil {
-		return false, errors.Errorf("checking if machine is provisioned: %w", err)
-	}
-	return c.Count > 0, nil
 }
 
 func (st *State) getMachineLife(ctx context.Context, tx *sqlair.TX, mUUID string) (life.Life, error) {

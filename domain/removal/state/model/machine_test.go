@@ -1316,6 +1316,63 @@ func (s *machineSuite) TestMarkMachineAsDeadProvisionedMachineHasUnits(c *tc.C) 
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
 }
 
+// TestMarkMachineAsDeadNotProvisionedMachineHasContainers verifies that even
+// for an unprovisioned machine the container dependency check still applies:
+// the caller must drain containers before the machine can be marked dead.
+func (s *machineSuite) TestMarkMachineAsDeadNotProvisionedMachineHasContainers(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Machine is not provisioned: instance_id remains NULL.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+
+	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+}
+
+// TestMarkMachineAsDeadNotProvisionedMachineHasStorage verifies that even for
+// an unprovisioned machine the storage dependency check still applies: the
+// caller must drain storage before the machine can be marked dead.
+func (s *machineSuite) TestMarkMachineAsDeadNotProvisionedMachineHasStorage(c *tc.C) {
+	machineUUID := s.addMachine(c, "0")
+	s.createMachineFilesystem(c, machineUUID)
+
+	// Machine is not provisioned: instance_id remains NULL.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, coremachine.UUID(machineUUID), life.Dying)
+
+	err := st.MarkMachineAsDead(c.Context(), machineUUID)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasStorage)
+
+	s.checkMachineLife(c, machineUUID, life.Dying)
+}
+
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnitsWithDeadUnits(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
