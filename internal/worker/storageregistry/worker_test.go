@@ -121,10 +121,15 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 
 	s.expectClock()
 
-	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	const count = 10
+	for i := range count {
+		name := fmt.Sprintf("anything-%d", i)
 
-	s.ensureStartup(c)
+		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
+			atomic.AddInt64(&s.called, 1)
+			return providerTrackerProvider{}, nil
+		})
+	}
 
 	done := make(chan struct{})
 	s.trackedWorker.EXPECT().Kill().AnyTimes()
@@ -133,15 +138,14 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 		return nil
 	}).AnyTimes()
 
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
 	worker := w.(*storageRegistryWorker)
-	for i := range 10 {
+	for i := range count {
 		name := fmt.Sprintf("anything-%d", i)
-
-		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
-			atomic.AddInt64(&s.called, 1)
-			return providerTrackerProvider{}, nil
-		})
-
 		_, err := worker.GetStorageRegistry(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -165,6 +169,15 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 		return nil
 	}).AnyTimes()
 
+	const count = 10
+	for i := range count {
+		name := fmt.Sprintf("anything-%d", i)
+		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
+			atomic.AddInt64(&s.called, 1)
+			return providerTrackerProvider{}, nil
+		})
+	}
+
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -173,12 +186,8 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 	var wg sync.WaitGroup
 
 	worker := w.(*storageRegistryWorker)
-	for i := range 10 {
+	for i := range count {
 		name := fmt.Sprintf("anything-%d", i)
-		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
-			atomic.AddInt64(&s.called, 1)
-			return providerTrackerProvider{}, nil
-		})
 		wg.Go(func() {
 			_, err := worker.GetStorageRegistry(c.Context(), name)
 			c.Check(err, tc.ErrorIsNil)
