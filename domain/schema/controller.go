@@ -14,7 +14,10 @@ import (
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
+// TODO(modelmigration): re-enable migration trigger generation if triggergen
+// can target tables before post-patches. Patch 0031 drops the legacy tables
+// whose trigger functions are still needed before that patch is applied.
+//disabled go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
@@ -74,6 +77,12 @@ var controllerPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.6"),
 	files: []string{
 		"0030-secret-backend.PATCH.sql",
+	},
+}, {
+	version: semversion.MustParse("4.0.12"),
+	files: []string{
+		"0031-model-migration.PATCH.sql",
+		"0032-view-indexes.PATCH.sql",
 	},
 }}
 

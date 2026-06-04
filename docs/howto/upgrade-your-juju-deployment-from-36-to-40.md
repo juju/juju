@@ -159,6 +159,27 @@ my-action:
         type: string
 ```
 
+### 9. Juju now defaults to provider-specific storage pools for filesystems.
+
+In `3.6`, due to a bug, Juju would also default to the `rootfs` storage pool to
+create filesystems, even if a provider-specific storage pool was available.
+
+In `4.0`, if a provider offers its own storage provider, Juju will default
+to using this pool, e.g., `ebs` for `aws`, `cinder` for `openstack`.
+
+`rootfs` in general shouldn't be used for production deployments, since data is
+stored on a machine's root filesystem instead of a separate dedicated entity.
+
+Filesystems from these pools can sometimes have subtly different properties to
+`rootfs` filesystems. Charm developers should ensure their charms are not
+locked-in to the `rootfs` storage pools.
+
+To replicate the `3.6` behaviour, explicitly set the storage pool to `rootfs` in
+the storage directive. E.g.
+```
+$ juju deploy postgresql --storage pgdata=rootfs,10G
+```
+
 ## Changes for Juju operators
 
 ### 1. Ubuntu fan networking removed
@@ -370,6 +391,25 @@ watch --color -n 1 juju status --color
 # or any thirdparty watcher. For example
 # viddy github: https://github.com/sachaos/viddy 
 viddy juju status
+```
+
+### 14. Volume-backed storage pools are preferred by default
+
+Where possible, Juju defaults to use volume-backed storage pools to create filesystems.
+
+**Juju 3.6**
+```bash
+juju deploy postgresql --storage pgdata=10G
+# This will result in a `rootfs` filesystem
+```
+
+**Juju 4.0**
+```bash
+juju deploy postgresql --storage pgdata=10G
+# This will result in `ebs`, `azure`, `gce`, `cinder`, etc. volume-backed filesystems for the providers `aws`, `azure`, `gce`, `openstack`, etc. respectively
+
+# To replicate the 3.6 behaviour, set the storage pool to `rootfs` in the storage directive
+juju deploy postgresql --storage pgdata=rootfs,10G
 ```
 
 ### 15. Spaces are explicit

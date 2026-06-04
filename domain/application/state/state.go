@@ -226,7 +226,6 @@ func (s *State) addCharmState(
 		Version:         ch.Version,
 		SourceID:        sourceID,
 		ArchitectureID:  nullableArchitectureID,
-		LXDProfile:      ch.LXDProfile,
 	}
 
 	charmQuery := `INSERT INTO charm (*) VALUES ($setCharmState.*);`
@@ -613,7 +612,13 @@ func (s *State) addCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 		return errors.Errorf("preparing query: %w", err)
 	}
 
-	if err := tx.Query(ctx, hashStmt, setHash).Run(); err != nil {
+	if err := tx.Query(ctx, hashStmt, setHash).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) ||
+		internaldatabase.IsErrConstraintUnique(err) {
+		return errors.Errorf(
+			"charm hash for charm %q already exists",
+			id,
+		).Add(applicationerrors.CharmHashAlreadyExists)
+	} else if err != nil {
 		return errors.Errorf("inserting charm hash: %w", err)
 	}
 
@@ -622,7 +627,7 @@ func (s *State) addCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 
 // getCharm returns the charm for the given charm ID.
 // This will delegate to the various get methods to get the charm metadata,
-// config, manifest, actions and LXD profile.
+// config, manifest and actions.
 func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident entityUUID) (charm.Charm, *charm.DownloadInfo, error) {
 	ch, err := s.getCharmState(ctx, tx, ident)
 	if err != nil {
@@ -642,10 +647,6 @@ func (s *State) getCharm(ctx context.Context, tx *sqlair.TX, ident entityUUID) (
 	}
 
 	if ch.Actions, err = s.getCharmActions(ctx, tx, ident); err != nil {
-		return ch, nil, errors.Capture(err)
-	}
-
-	if ch.LXDProfile, _, err = s.getCharmLXDProfile(ctx, tx, ident); err != nil {
 		return ch, nil, errors.Capture(err)
 	}
 
@@ -861,59 +862,6 @@ ORDER BY array_index ASC, nested_array_index ASC;
 	}
 
 	return decodeManifest(manifests)
-}
-
-// getCharmLXDProfile returns the LXD profile for the charm using the
-// charm ID.
-// If the charm does not exist, a [errors.CharmNotFound] error is returned.
-// It's safe to do this in the transaction loop, the query will cached against
-// the state base, and if the decode fails, the retry logic won't be triggered,
-// as it doesn't satisfy the retry error types.
-func (s *State) getCharmLXDProfile(ctx context.Context, tx *sqlair.TX, ident entityUUID) ([]byte, charm.Revision, error) {
-	charmQuery := `
-SELECT &entityUUID.*
-FROM charm
-WHERE uuid = $entityUUID.uuid;
-	`
-
-	lxdProfileQuery := `
-SELECT &charmLXDProfile.*
-FROM charm
-JOIN charm_metadata AS cm ON charm.uuid = cm.charm_uuid
-WHERE uuid = $entityUUID.uuid;
-	`
-
-	charmStmt, err := s.Prepare(charmQuery, ident)
-	if err != nil {
-		return nil, -1, errors.Errorf("preparing charm query: %w", err)
-	}
-	var profile charmLXDProfile
-	lxdProfileStmt, err := s.Prepare(lxdProfileQuery, profile, ident)
-	if err != nil {
-		return nil, -1, errors.Errorf("preparing lxd profile query: %w", err)
-	}
-
-	if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, -1, applicationerrors.CharmNotFound
-		}
-		return nil, -1, errors.Errorf("getting charm: %w", err)
-	}
-
-	if err := tx.Query(ctx, lxdProfileStmt, ident).Get(&profile); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, -1, applicationerrors.LXDProfileNotFound
-		}
-		return nil, -1, errors.Errorf("getting charm lxd profile: %w", err)
-	}
-
-	// TODO - figure out why this is happening
-	// Sometimes we get an empty slice, sometimes a nil slice.
-	// Cater for both cases.
-	if len(profile.LXDProfile) == 0 {
-		profile.LXDProfile = nil
-	}
-	return profile.LXDProfile, profile.Revision, nil
 }
 
 // getCharmConfig returns the config for the charm using the charm ID.

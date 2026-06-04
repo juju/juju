@@ -33,6 +33,7 @@ type State interface {
 	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams) error
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
+	GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]domainsecret.SecretOwnerInfo, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
 	GetLatestRevisions(ctx context.Context, uris []*secrets.URI) (map[string]int, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
@@ -127,13 +128,6 @@ type State interface {
 	// NamespaceForWatchSecretRevisionObsolete returns namespace identifier for
 	// obsolete secret revision watcher.
 	NamespaceForWatchSecretRevisionObsolete() string
-
-	// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-	// unit has made that have not been claimed, and it also expires any tokens
-	// the unit has requested at the time provided.
-	RemoveUnitReservationsAndTokens(
-		ctx context.Context, unitName string, expireAt time.Time,
-	) error
 }
 
 // SecretBackendReferenceMutator describes methods

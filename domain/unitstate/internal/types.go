@@ -4,10 +4,13 @@
 package internal
 
 import (
+	"encoding/json"
+
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RelationSettings holds a relation uuid and local unit and
@@ -91,16 +94,39 @@ type CommitHookChangesArg struct {
 	// SecretRevokes contains charm secrets to revoke access on.
 	SecretRevokes []unitstate.GrantRevokeSecretArg
 
-	// SecretDeletes contains charm secrets to delete.
-	SecretDeletes []unitstate.DeleteSecretArg
+	// SecretDeletes contains charm secrets to delete, with pre-marshaled
+	// removal job arguments.
+	SecretDeletes []DeleteSecretArg
+}
+
+// DeleteSecretArg holds a secret deletion request ready for the state layer,
+// with the JSON arg already serialized.
+type DeleteSecretArg struct {
+	// URI is the stringified secret URI identifying the secret to delete.
+	URI string
+
+	// ArgJSON is the pre-marshaled JSON for the removal job's arg column.
+	// A nil value means no arg (delete all revisions).
+	ArgJSON *string
+}
+
+// secretDeletionArg is the JSON payload stored in the removal table's arg
+// column when scheduling a charm-secret deletion with specific revisions.
+type secretDeletionArg struct {
+	Revisions []int `json:"revisions"`
 }
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct. Does not
-// include RelationSettings
+// include RelationSettings.
 func TransformCommitHookChangesArg(
 	in unitstate.CommitHookChangesArg, unitInfo CommitHookUnitInfo,
-) CommitHookChangesArg {
+) (CommitHookChangesArg, error) {
+	secretDeletes, err := transformSecretDeletes(in.SecretDeletes)
+	if err != nil {
+		return CommitHookChangesArg{}, err
+	}
+
 	return CommitHookChangesArg{
 		UnitUUID:           unitInfo.UnitUUID,
 		UnitLife:           unitInfo.UnitLife,
@@ -113,7 +139,37 @@ func TransformCommitHookChangesArg(
 		SecretUpdates:      in.SecretUpdates,
 		SecretGrants:       in.SecretGrants,
 		SecretRevokes:      in.SecretRevokes,
-		SecretDeletes:      in.SecretDeletes,
+		SecretDeletes:      secretDeletes,
 		AddStorage:         in.AddStorage,
+	}, nil
+}
+
+// transformSecretDeletes converts domain DeleteSecretArg values into internal
+// DeleteSecretArg values, marshaling the revisions JSON outside the
+// transaction.
+func transformSecretDeletes(deletes []unitstate.DeleteSecretArg) ([]DeleteSecretArg, error) {
+	if len(deletes) == 0 {
+		return nil, nil
 	}
+
+	result := make([]DeleteSecretArg, 0, len(deletes))
+	for i, del := range deletes {
+		if del.URI == nil {
+			return nil, errors.Errorf("delete secret arg at index %d has nil URI", i)
+		}
+
+		arg := DeleteSecretArg{
+			URI: del.URI.String(),
+		}
+		if len(del.Revisions) > 0 {
+			j, err := json.Marshal(secretDeletionArg{Revisions: del.Revisions})
+			if err != nil {
+				return nil, errors.Errorf("marshalling revisions arg for %q: %w", del.URI, err)
+			}
+			s := string(j)
+			arg.ArgJSON = &s
+		}
+		result = append(result, arg)
+	}
+	return result, nil
 }

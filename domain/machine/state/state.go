@@ -353,6 +353,47 @@ WHERE      m.uuid = $entityUUID.uuid
 	return result.Count == 1, nil
 }
 
+// GetMachineLifeAndIsManuallyProvisioned returns both the life status and
+// whether the machine is manually provisioned in a single database round-trip.
+// It returns a [machineerrors.MachineNotFound] if the given machine doesn't
+// exist.
+func (st *State) GetMachineLifeAndIsManuallyProvisioned(ctx context.Context, mName machine.Name) (life.Life, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return -1, false, errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     m.life_id AS &machineLifeAndManual.life_id,
+           COUNT(mm.machine_uuid) AS &machineLifeAndManual.is_manual
+FROM       machine AS m
+LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
+WHERE      m.name = $machineName.name
+GROUP BY   m.uuid
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineLifeAndManual{})
+	if err != nil {
+		return -1, false, errors.Capture(err)
+	}
+
+	var result machineLifeAndManual
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("looking up life and manual status for machine %q: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return -1, false, errors.Errorf("getting life and manual status for machine %q: %w", mName, err)
+	}
+	return result.LifeID, result.IsManual > 0, nil
+}
+
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
 	machineNameParam := machineName{Name: mName.String()}
 	machineUUIDOutput := entityUUID{}

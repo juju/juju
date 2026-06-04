@@ -160,7 +160,11 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *tc.C) {
 
 		signerPem, err := pki.UnmarshalSignerFromPemBlock(block)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(signerPem.Public(), tc.DeepEquals, signer.Public())
+		mc := tc.NewMultiChecker()
+		// Ignore the computed speedups for RSA since comparing byte for byte
+		// of bignumbers may fail due to superfluous zeros (despite the numbers matching)
+		mc.AddExpr("_.Precomputed", tc.Ignore)
+		c.Assert(signerPem, mc, signer)
 	}
 }
 

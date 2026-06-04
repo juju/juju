@@ -719,6 +719,53 @@ WHERE  secret_id = $secretID.id
 	return domainsecret.Owner{UUID: o.OwnerUUID, Kind: coresecrets.OwnerKind(o.OwnerKind)}, nil
 }
 
+// GetSecretOwnerKinds returns the owner kind for each of the given secret URIs.
+// Secrets not found in the database are silently omitted from the result.
+func (st State) GetSecretOwnerKinds(ctx context.Context, uris []*coresecrets.URI) ([]domainsecret.SecretOwnerInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(uris) == 0 {
+		return nil, nil
+	}
+
+	type secretIDs []string
+	ids := make(secretIDs, len(uris))
+	for i, uri := range uris {
+		ids[i] = uri.ID
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &secretOwner.*
+FROM   v_secret_owner
+WHERE  secret_id IN ($secretIDs[:])
+`, ids, secretOwner{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []secretOwner
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("querying secret owner kinds: %w", err)
+	}
+
+	result := make([]domainsecret.SecretOwnerInfo, len(rows))
+	for i, row := range rows {
+		result[i] = domainsecret.SecretOwnerInfo{
+			SecretID:  row.SecretID,
+			OwnerKind: domainsecret.CharmSecretOwnerKind(row.OwnerKind),
+		}
+	}
+	return result, nil
+}
+
 // createSecret creates the records needed to store secret data,
 // excluding secret owner records.
 func (st State) updateSecret(
@@ -3980,18 +4027,4 @@ func (st State) ScheduleObsoleteUserSecretRevisionsPruning(ctx context.Context, 
 		}
 		return nil
 	}))
-}
-
-// RemoveUnitReservationsAndTokens cleans up any left over reservations the
-// unit has made that have not been claimed, and it also expires any tokens
-// the unit has requested at the time provided.
-//
-// The following errors can be expected:
-// - [applicationerrors.UnitNotFound] when the unit is not found.
-func (st State) RemoveUnitReservationsAndTokens(
-	ctx context.Context, unitName string, expireAt time.Time,
-) error {
-	// TODO(secrets): remove reserved secret ids and expire tokens for this
-	// unit.
-	return nil
 }

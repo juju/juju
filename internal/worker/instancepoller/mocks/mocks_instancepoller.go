@@ -95,11 +95,11 @@ type MockMachineService struct {
 
 // MockMachineServiceMockRecorder is the mock recorder for MockMachineService.
 type MockMachineServiceMockRecorder struct {
-	mock                                      *MockMachineService
-	getMachineLifeExpects                     []*gomock.Call2_2[context.Context, machine.Name, life.Value, error]
-	getPollingInfosExpects                    []*gomock.Call2_2[context.Context, []machine.Name, machine0.PollingInfos, error]
-	isMachineManuallyProvisionedExpects       []*gomock.Call2_2[context.Context, machine.Name, bool, error]
-	watchModelMachineLifeAndStartTimesExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                                          *MockMachineService
+	getMachineLifeExpects                         []*gomock.Call2_2[context.Context, machine.Name, life.Value, error]
+	getMachineLifeAndIsManuallyProvisionedExpects []*gomock.Call2_3[context.Context, machine.Name, life.Value, bool, error]
+	getPollingInfosExpects                        []*gomock.Call2_2[context.Context, []machine.Name, machine0.PollingInfos, error]
+	watchModelMachineLifeAndStartTimesExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockMachineService creates a new mock instance.
@@ -132,6 +132,24 @@ func (mr *MockMachineServiceMockRecorder) GetMachineLife(arg0, arg1 any) *MockMa
 // MockMachineServiceGetMachineLifeCall is the typed call wrapper for GetMachineLife.
 type MockMachineServiceGetMachineLifeCall = gomock.Call2_2[context.Context, machine.Name, life.Value, error]
 
+// GetMachineLifeAndIsManuallyProvisioned mocks base method.
+func (m *MockMachineService) GetMachineLifeAndIsManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (life.Value, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getMachineLifeAndIsManuallyProvisionedExpects, m.ctrl, m, "GetMachineLifeAndIsManuallyProvisioned", arg0, arg1)
+}
+
+// GetMachineLifeAndIsManuallyProvisioned indicates an expected call of GetMachineLifeAndIsManuallyProvisioned.
+func (mr *MockMachineServiceMockRecorder) GetMachineLifeAndIsManuallyProvisioned(arg0, arg1 any) *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, machine.Name, life.Value, bool, error](mr.mock.ctrl.T, mr.mock, "GetMachineLifeAndIsManuallyProvisioned", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getMachineLifeAndIsManuallyProvisionedExpects = append(mr.getMachineLifeAndIsManuallyProvisionedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall is the typed call wrapper for GetMachineLifeAndIsManuallyProvisioned.
+type MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall = gomock.Call2_3[context.Context, machine.Name, life.Value, bool, error]
+
 // GetPollingInfos mocks base method.
 func (m *MockMachineService) GetPollingInfos(ctx context.Context, machineNames []machine.Name) (machine0.PollingInfos, error) {
 	m.ctrl.T.Helper()
@@ -149,24 +167,6 @@ func (mr *MockMachineServiceMockRecorder) GetPollingInfos(ctx, machineNames any)
 
 // MockMachineServiceGetPollingInfosCall is the typed call wrapper for GetPollingInfos.
 type MockMachineServiceGetPollingInfosCall = gomock.Call2_2[context.Context, []machine.Name, machine0.PollingInfos, error]
-
-// IsMachineManuallyProvisioned mocks base method.
-func (m *MockMachineService) IsMachineManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.isMachineManuallyProvisionedExpects, m.ctrl, m, "IsMachineManuallyProvisioned", arg0, arg1)
-}
-
-// IsMachineManuallyProvisioned indicates an expected call of IsMachineManuallyProvisioned.
-func (mr *MockMachineServiceMockRecorder) IsMachineManuallyProvisioned(arg0, arg1 any) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, machine.Name, bool, error](mr.mock.ctrl.T, mr.mock, "IsMachineManuallyProvisioned", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.isMachineManuallyProvisionedExpects = append(mr.isMachineManuallyProvisionedExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockMachineServiceIsMachineManuallyProvisionedCall is the typed call wrapper for IsMachineManuallyProvisioned.
-type MockMachineServiceIsMachineManuallyProvisionedCall = gomock.Call2_2[context.Context, machine.Name, bool, error]
 
 // WatchModelMachineLifeAndStartTimes mocks base method.
 func (m *MockMachineService) WatchModelMachineLifeAndStartTimes(arg0 context.Context) (watcher.StringsWatcher, error) {

@@ -21,7 +21,14 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	internalerors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
+
+// ErrNotContainerHost is returned by machineSupportsContainers when the
+// machine should not run a container provisioner. Call sites that manage the
+// manifold lifecycle must map this to dependency.ErrUninstall.
+const ErrNotContainerHost = internalerors.ConstError("not a container host")
 
 // GetContainerWatcherFunc is a function that returns a watcher for
 // the containers on a machine.
@@ -95,6 +102,9 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	pr := apiprovisioner.NewClient(apiCaller)
 
 	machine, err := cfg.machineSupportsContainers(ctx, &containerShim{api: pr}, mTag)
+	if errors.Is(err, ErrNotContainerHost) || errors.Is(err, errors.NotFound) {
+		return nil, dependency.ErrUninstall
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +140,7 @@ type ContainerMachineGetter interface {
 
 type ContainerMachineResult struct {
 	Machine ContainerMachine
-	Err     error
+	Err     *params.Error
 }
 
 type containerShim struct {
@@ -153,12 +163,23 @@ func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) 
 }
 
 func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	// Container machines cannot provision further containers.
+	if names.IsContainerMachine(mTag.Id()) {
+		cfg.Logger.Infof(ctx, "uninstalling container provisioner: machine %q is itself a container", mTag)
+		return nil, internalerors.Errorf("machine %q is itself a container", mTag).Add(ErrNotContainerHost)
+	}
+
 	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "loading machine %s from state", mTag)
+	} else if len(result) == 0 {
+		return nil, errors.Errorf("loading machine %s from state: no results", mTag)
 	}
-	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
-		return nil, dependency.ErrUninstall
+	if result[0].Err != nil {
+		return nil, errors.Annotatef(result[0].Err, "loading machine %s from state", mTag)
+	}
+	if result[0].Machine.Life() == life.Dead {
+		return nil, internalerors.Errorf("machine %s is dead", mTag).Add(ErrNotContainerHost)
 	}
 	machine := result[0].Machine
 	types, known, err := machine.SupportedContainers(ctx)
@@ -170,7 +191,7 @@ func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr Cont
 	}
 	if len(types) == 0 {
 		cfg.Logger.Infof(ctx, "uninstalling no supported containers on %q", mTag)
-		return nil, dependency.ErrUninstall
+		return nil, internalerors.Errorf("no supported container types on %s", mTag).Add(ErrNotContainerHost)
 	}
 
 	cfg.Logger.Debugf(ctx, "%s supported containers types set as %q", mTag, types)
@@ -181,7 +202,7 @@ func (cfg ManifoldConfig) machineSupportsContainers(ctx context.Context, pr Cont
 	}
 	if !typeSet.Contains(string(cfg.ContainerType)) {
 		cfg.Logger.Infof(ctx, "%s does not support %s container", mTag, string(cfg.ContainerType))
-		return nil, dependency.ErrUninstall
+		return nil, internalerors.Errorf("%s does not support %s containers", mTag, cfg.ContainerType).Add(ErrNotContainerHost)
 	}
 	return machine, nil
 }

@@ -57,8 +57,9 @@ type MachineService interface {
 	// machine names for changes to machine life or agent start times.
 	WatchModelMachineLifeAndStartTimes(context.Context) (watcher.StringsWatcher, error)
 
-	// IsMachineManuallyProvisioned returns whether the machine is a manual machine.
-	IsMachineManuallyProvisioned(context.Context, machine.Name) (bool, error)
+	// GetMachineLifeAndIsManuallyProvisioned returns both the life status and
+	// whether the machine is manually provisioned in a single call.
+	GetMachineLifeAndIsManuallyProvisioned(context.Context, machine.Name) (corelife.Value, bool, error)
 
 	// GetMachineLife returns the GetMachineLife status of the specified machine.
 	GetMachineLife(context.Context, machine.Name) (corelife.Value, error)
@@ -269,22 +270,37 @@ func (u *updaterWorker) loop() error {
 }
 
 func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName machine.Name) error {
-	// If we are already polling this machine, check whether it is still alive
-	// and remove it from its poll group if it is now dead.
-	if entry, groupType := u.lookupPolledMachine(machineName); entry != nil {
-		life, err := u.config.MachineService.GetMachineLife(ctx, machineName)
-		if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
+	// Lookup existing poll state once upfront.
+	entry, groupType := u.lookupPolledMachine(machineName)
+
+	// 1. Get life and manual-provisioning state in one call.
+	life, isManual, err := u.config.MachineService.GetMachineLifeAndIsManuallyProvisioned(ctx, machineName)
+
+	// 2. Handle not-found or dead: remove from poll group if present.
+	// Note: we check error not nil to compare life, because result should be ignored if error is present.
+	if (err == nil && life == corelife.Dead) || errors.Is(err, machineerrors.MachineNotFound) {
+		if entry != nil {
 			u.config.Logger.Debugf(ctx, "removing dead machine %q (instance ID %q)", entry.machineName, entry.instanceID)
 			delete(u.pollGroup[groupType], machineName)
-			return nil
-		} else if err != nil {
-			return errors.Trace(err)
 		}
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
 
-		// Something has changed with the machine state. Reset short
-		// poll interval for the machine and move it to the short poll
-		// group (if not already there) so we immediately poll its
-		// status at the next interval.
+	// Handle manual machines: remove from poll group if present and set
+	// their status to running since we have no provider info.
+	if isManual {
+		if entry != nil {
+			u.config.Logger.Debugf(ctx, "machine %q is now manually provisioned, removing from poll group", entry.machineName)
+			delete(u.pollGroup[groupType], machineName)
+		}
+		return u.setManualMachineRunning(ctx, machineName)
+	}
+
+	// 3. If already being polled, move to short poll group so we
+	// immediately re-check its status on the next interval.
+	if entry != nil {
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
 			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to short poll group", entry.machineName, entry.instanceID)
@@ -292,26 +308,17 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		return nil
 	}
 
-	// We don't poll manual machines, instead we're setting the status to
-	// 'running' as we don't have any better information from the provider, see
-	// lp:1678981
-	isManual, err := u.config.MachineService.IsMachineManuallyProvisioned(ctx, machineName)
+	// 4. New machine: add to the short poll group for immediate polling.
+	u.appendToShortPollGroup(machineName)
+	return nil
+}
+
+func (u *updaterWorker) setManualMachineRunning(ctx context.Context, machineName machine.Name) error {
+	machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		u.config.Logger.Debugf(ctx, "machine %q not found, skipping polling", machineName)
+		// Machine was removed concurrently; nothing to update.
 		return nil
 	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	if !isManual {
-		// Add all new machines to the short poll group and arrange for them to
-		// be polled as soon as possible.
-		u.appendToShortPollGroup(machineName)
-		return nil
-	}
-
-	machineStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
-	if err != nil {
 		return errors.Trace(err)
 	}
 	if machineStatus.Status != status.Running {
@@ -320,9 +327,12 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 			Status:  status.Running,
 			Message: "Manually provisioned machine",
 			Since:   &now,
-		}); err != nil {
+		}); errors.Is(err, machineerrors.MachineNotFound) {
+			// Machine was removed concurrently; nothing to update.
+			return nil
+		} else if err != nil {
 			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -451,19 +461,23 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
-	netList, err := u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
-	if err != nil && !isPartialOrNoInstancesError(err) {
-		// NOTE(achilleasa): 2022-01-24: all existing providers (with the
-		// exception of "manual" which we don't care about in this context)
-		// implement the NetworkInterfaces method.
-		//
-		// This error is meant as a hint to folks working on new providers
-		// in the future to ensure that they implement this method.
-		if errors.Is(err, errors.NotSupported) {
-			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
-		}
+	var netList []network.InterfaceInfos
+	if len(instanceWithDevices) > 0 {
+		var err error
+		netList, err = u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
+		if err != nil && !isPartialOrNoInstancesError(err) {
+			// NOTE(achilleasa): 2022-01-24: all existing providers (with the
+			// exception of "manual" which we don't care about in this context)
+			// implement the NetworkInterfaces method.
+			//
+			// This error is meant as a hint to folks working on new providers
+			// in the future to ensure that they implement this method.
+			if errors.Is(err, errors.NotSupported) {
+				return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
+			}
 
-		return errors.Annotate(err, "enumerating network interface list for instances")
+			return errors.Annotate(err, "enumerating network interface list for instances")
+		}
 	}
 
 	for idx, info := range infoList {

@@ -13,6 +13,7 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+	cloud "github.com/juju/juju/cloud"
 	credential "github.com/juju/juju/core/credential"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
@@ -37,6 +38,7 @@ type MockStateMockRecorder struct {
 	allCloudCredentialsForOwnerExpects    []*gomock.Call2_2[context.Context, user.Name, map[credential.Key]credential0.CloudCredentialResult, error]
 	cloudCredentialExpects                []*gomock.Call2_2[context.Context, credential.Key, credential0.CloudCredentialResult, error]
 	cloudCredentialsForOwnerExpects       []*gomock.Call3_2[context.Context, user.Name, string, map[string]credential0.CloudCredentialResult, error]
+	cloudSupportedAuthTypesExpects        []*gomock.Call2_2[context.Context, string, cloud.AuthTypes, error]
 	credentialUUIDForKeyExpects           []*gomock.Call2_2[context.Context, credential.Key, credential.UUID, error]
 	getModelCredentialStatusExpects       []*gomock.Call2_3[context.Context, model.UUID, credential.Key, bool, error]
 	invalidateCloudCredentialExpects      []*gomock.Call3_1[context.Context, credential.UUID, string, error]
@@ -112,6 +114,24 @@ func (mr *MockStateMockRecorder) CloudCredentialsForOwner(ctx, owner, cloudName 
 
 // MockStateCloudCredentialsForOwnerCall is the typed call wrapper for CloudCredentialsForOwner.
 type MockStateCloudCredentialsForOwnerCall = gomock.Call3_2[context.Context, user.Name, string, map[string]credential0.CloudCredentialResult, error]
+
+// CloudSupportedAuthTypes mocks base method.
+func (m *MockState) CloudSupportedAuthTypes(ctx context.Context, cloudName string) (cloud.AuthTypes, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.cloudSupportedAuthTypesExpects, m.ctrl, m, "CloudSupportedAuthTypes", ctx, cloudName)
+}
+
+// CloudSupportedAuthTypes indicates an expected call of CloudSupportedAuthTypes.
+func (mr *MockStateMockRecorder) CloudSupportedAuthTypes(ctx, cloudName any) *MockStateCloudSupportedAuthTypesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, cloud.AuthTypes, error](mr.mock.ctrl.T, mr.mock, "CloudSupportedAuthTypes", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(cloudName))
+	mr.cloudSupportedAuthTypesExpects = append(mr.cloudSupportedAuthTypesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateCloudSupportedAuthTypesCall is the typed call wrapper for CloudSupportedAuthTypes.
+type MockStateCloudSupportedAuthTypesCall = gomock.Call2_2[context.Context, string, cloud.AuthTypes, error]
 
 // CredentialUUIDForKey mocks base method.
 func (m *MockState) CredentialUUIDForKey(arg0 context.Context, arg1 credential.Key) (credential.UUID, error) {

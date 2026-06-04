@@ -9,7 +9,7 @@ DEBUG_MODE=${DEBUG_MODE:-false}
 
 is_darwin() {
 	OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-	if [[ "${OS}" =~ ^darwin* ]]; then
+	if [[ ${OS} =~ ^darwin* ]]; then
 		echo true
 	else
 		echo false
@@ -18,19 +18,19 @@ is_darwin() {
 
 current_arch() {
 	case $(uname -m) in
-		x86_64) echo amd64 ;;
-		aarch64) echo arm64 ;;
-		s390x) echo s390x ;;
-		ppc64le) echo ppc64le ;;
-		riscv64) echo riscv64 ;;
-		arm64)
-			if [[ $(is_darwin) = true  ]]; then
-				echo "arm64"
-			else
-				echo "Unsupported OS: ${OS}" && exit 1
-			fi
-			;;
-		*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
+	x86_64) echo amd64 ;;
+	aarch64) echo arm64 ;;
+	s390x) echo s390x ;;
+	ppc64le) echo ppc64le ;;
+	riscv64) echo riscv64 ;;
+	arm64)
+		if [[ $(is_darwin) == true ]]; then
+			echo "arm64"
+		else
+			echo "Unsupported OS: ${OS}" && exit 1
+		fi
+		;;
+	*) echo "Unsupported architecture $(uname -m)" && exit 1 ;;
 	esac
 }
 
@@ -66,7 +66,7 @@ TAG_LIBNSL=v2.0.1
 TAG_LIBUV=v1.51.0
 TAG_LIBLZ4=v1.9.4
 TAG_SQLITE=version-3.47.0
-TAG_DQLITE=v1.18.5
+TAG_DQLITE=v1.18.6
 
 S3_BUCKET=s3://dqlite-static-libs
 S3_ARCHIVE_NAME=$(date -u +"%Y-%m-%d")-dqlite-deps-${BUILD_ARCH}.tar.bz2

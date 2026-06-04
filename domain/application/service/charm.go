@@ -168,7 +168,7 @@ type CharmStore interface {
 	// archive.
 	StoreFromReader(ctx context.Context, reader io.Reader, sha256Prefix string) (store.StoreFromReaderResult, store.Digest, error)
 
-	// GetCharm retrieves a ReadCloser for the charm archive at the give path
+	// Get retrieves a ReadCloser for the charm archive at the give path
 	// from the underlying storage.
 	Get(ctx context.Context, archivePath string) (io.ReadCloser, error)
 
@@ -322,11 +322,6 @@ func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) 
 		return nil, charm.CharmLocator{}, false, errors.Capture(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
-	if err != nil {
-		return nil, charm.CharmLocator{}, false, errors.Capture(err)
-	}
-
 	returnedLocator := charm.CharmLocator{
 		Name:         ch.ReferenceName,
 		Revision:     ch.Revision,
@@ -339,7 +334,6 @@ func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) 
 		&manifest,
 		&config,
 		&actions,
-		&lxdProfile,
 	)
 	charmBase.SetVersion(ch.Version)
 
@@ -1044,20 +1038,11 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 		return charm.Charm{}, warnings, errors.Errorf("encoding config: %w", err)
 	}
 
-	var profile []byte
-	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok && lxdProfile != nil {
-		profile, err = encodeLXDProfile(lxdProfile.LXDProfile())
-		if err != nil {
-			return charm.Charm{}, warnings, errors.Errorf("encoding lxd profile: %w", err)
-		}
-	}
-
 	return charm.Charm{
-		Metadata:   metadata,
-		Manifest:   manifest,
-		Actions:    actions,
-		Config:     config,
-		LXDProfile: profile,
+		Metadata: metadata,
+		Manifest: manifest,
+		Actions:  actions,
+		Config:   config,
 	}, warnings, nil
 }
 

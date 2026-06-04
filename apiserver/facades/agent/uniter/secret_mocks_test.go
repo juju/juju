@@ -27,15 +27,15 @@ type MockSecretService struct {
 
 // MockSecretServiceMockRecorder is the mock recorder for MockSecretService.
 type MockSecretServiceMockRecorder struct {
-	mock                                   *MockSecretService
-	createCharmSecretExpects               []*gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
-	deleteSecretExpects                    []*gomock.Call3_1[context.Context, *secrets.URI, secret.DeleteSecretParams, error]
-	getConsumedRevisionExpects             []*gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
-	getSecretValueExpects                  []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
-	grantSecretAccessExpects               []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-	removeUnitReservationsAndTokensExpects []*gomock.Call2_1[context.Context, unit.Name, error]
-	revokeSecretAccessExpects              []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-	updateCharmSecretExpects               []*gomock.Call3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error]
+	mock                           *MockSecretService
+	checkSecretManageAccessExpects []*gomock.Call3_1[context.Context, *secrets.URI, unit.Name, error]
+	createCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
+	getConsumedRevisionExpects     []*gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
+	getSecretOwnerKindsExpects     []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
+	getSecretValueExpects          []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
+	grantSecretAccessExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
+	revokeSecretAccessExpects      []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
+	updateCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error]
 }
 
 // NewMockSecretService creates a new mock instance.
@@ -49,6 +49,24 @@ func NewMockSecretService(ctrl *gomock.Controller) *MockSecretService {
 func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 	return m.recorder
 }
+
+// CheckSecretManageAccess mocks base method.
+func (m *MockSecretService) CheckSecretManageAccess(ctx context.Context, uri *secrets.URI, unitName unit.Name) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.checkSecretManageAccessExpects, m.ctrl, m, "CheckSecretManageAccess", ctx, uri, unitName)
+}
+
+// CheckSecretManageAccess indicates an expected call of CheckSecretManageAccess.
+func (mr *MockSecretServiceMockRecorder) CheckSecretManageAccess(ctx, uri, unitName any) *MockSecretServiceCheckSecretManageAccessCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, *secrets.URI, unit.Name, error](mr.mock.ctrl.T, mr.mock, "CheckSecretManageAccess", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(unitName))
+	mr.checkSecretManageAccessExpects = append(mr.checkSecretManageAccessExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSecretServiceCheckSecretManageAccessCall is the typed call wrapper for CheckSecretManageAccess.
+type MockSecretServiceCheckSecretManageAccessCall = gomock.Call3_1[context.Context, *secrets.URI, unit.Name, error]
 
 // CreateCharmSecret mocks base method.
 func (m *MockSecretService) CreateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.CreateCharmSecretParams) error {
@@ -68,24 +86,6 @@ func (mr *MockSecretServiceMockRecorder) CreateCharmSecret(arg0, arg1, arg2 any)
 // MockSecretServiceCreateCharmSecretCall is the typed call wrapper for CreateCharmSecret.
 type MockSecretServiceCreateCharmSecretCall = gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
 
-// DeleteSecret mocks base method.
-func (m *MockSecretService) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.DeleteSecretParams) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.deleteSecretExpects, m.ctrl, m, "DeleteSecret", arg0, arg1, arg2)
-}
-
-// DeleteSecret indicates an expected call of DeleteSecret.
-func (mr *MockSecretServiceMockRecorder) DeleteSecret(arg0, arg1, arg2 any) *MockSecretServiceDeleteSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.DeleteSecretParams, error](mr.mock.ctrl.T, mr.mock, "DeleteSecret", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.deleteSecretExpects = append(mr.deleteSecretExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretServiceDeleteSecretCall is the typed call wrapper for DeleteSecret.
-type MockSecretServiceDeleteSecretCall = gomock.Call3_1[context.Context, *secrets.URI, secret.DeleteSecretParams, error]
-
 // GetConsumedRevision mocks base method.
 func (m *MockSecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh, peek bool, labelToUpdate *string) (int, error) {
 	m.ctrl.T.Helper()
@@ -103,6 +103,24 @@ func (mr *MockSecretServiceMockRecorder) GetConsumedRevision(ctx, uri, unitName,
 
 // MockSecretServiceGetConsumedRevisionCall is the typed call wrapper for GetConsumedRevision.
 type MockSecretServiceGetConsumedRevisionCall = gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
+
+// GetSecretOwnerKinds mocks base method.
+func (m *MockSecretService) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]secret.SecretOwnerInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getSecretOwnerKindsExpects, m.ctrl, m, "GetSecretOwnerKinds", ctx, uris)
+}
+
+// GetSecretOwnerKinds indicates an expected call of GetSecretOwnerKinds.
+func (mr *MockSecretServiceMockRecorder) GetSecretOwnerKinds(ctx, uris any) *MockSecretServiceGetSecretOwnerKindsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error](mr.mock.ctrl.T, mr.mock, "GetSecretOwnerKinds", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uris))
+	mr.getSecretOwnerKindsExpects = append(mr.getSecretOwnerKindsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSecretServiceGetSecretOwnerKindsCall is the typed call wrapper for GetSecretOwnerKinds.
+type MockSecretServiceGetSecretOwnerKindsCall = gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 
 // GetSecretValue mocks base method.
 func (m *MockSecretService) GetSecretValue(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 secret.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error) {
@@ -139,24 +157,6 @@ func (mr *MockSecretServiceMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any)
 
 // MockSecretServiceGrantSecretAccessCall is the typed call wrapper for GrantSecretAccess.
 type MockSecretServiceGrantSecretAccessCall = gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-
-// RemoveUnitReservationsAndTokens mocks base method.
-func (m *MockSecretService) RemoveUnitReservationsAndTokens(ctx context.Context, unitName unit.Name) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.removeUnitReservationsAndTokensExpects, m.ctrl, m, "RemoveUnitReservationsAndTokens", ctx, unitName)
-}
-
-// RemoveUnitReservationsAndTokens indicates an expected call of RemoveUnitReservationsAndTokens.
-func (mr *MockSecretServiceMockRecorder) RemoveUnitReservationsAndTokens(ctx, unitName any) *MockSecretServiceRemoveUnitReservationsAndTokensCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, unit.Name, error](mr.mock.ctrl.T, mr.mock, "RemoveUnitReservationsAndTokens", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
-	mr.removeUnitReservationsAndTokensExpects = append(mr.removeUnitReservationsAndTokensExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretServiceRemoveUnitReservationsAndTokensCall is the typed call wrapper for RemoveUnitReservationsAndTokens.
-type MockSecretServiceRemoveUnitReservationsAndTokensCall = gomock.Call2_1[context.Context, unit.Name, error]
 
 // RevokeSecretAccess mocks base method.
 func (m *MockSecretService) RevokeSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {

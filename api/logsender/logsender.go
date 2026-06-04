@@ -5,9 +5,11 @@ package logsender
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"net/url"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -64,7 +66,7 @@ func newWriter(conn base.Stream) *writer {
 
 // readLoop is necessary for the client to process websocket control messages.
 // If we get an error, enqueue it so that if a subsequent call to WriteLog
-// fails do to our closure of the socket, we can enhance the resulting error.
+// fails due to our closure of the socket, we can enhance the resulting error.
 // Close() is safe to call concurrently.
 func (w *writer) readLoop() {
 	for {
@@ -94,10 +96,18 @@ func (w *writer) WriteLog(m *params.LogRecord) error {
 		default:
 		}
 
-		if readErr != nil {
-			err = errors.Annotate(err, readErr.Error())
+		// Join all errors so callers can check with errors.Is
+		// without losing context.
+		joinedErr := stderrors.Join(err, readErr)
+		if gorillaws.IsCloseError(readErr,
+			gorillaws.CloseNormalClosure,
+			gorillaws.CloseGoingAway,
+			gorillaws.CloseNoStatusReceived,
+			gorillaws.CloseAbnormalClosure,
+		) {
+			joinedErr = stderrors.Join(joinedErr, io.EOF)
 		}
-		return errors.Annotate(err, "sending log message")
+		return errors.Annotate(joinedErr, "sending log message")
 	}
 	return nil
 }

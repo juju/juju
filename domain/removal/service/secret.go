@@ -50,10 +50,10 @@ type SecretModelState interface {
 	// for secret revisions owned by the application with the input UUID.
 	GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error)
 
-	// DeleteUserSecretRevisions deletes the specified revisions of the user
-	// secret with the input URI. If revisions is nil or empty, all revisions
-	// are deleted. Returns the revision UUIDs that were deleted.
-	DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) ([]string, error)
+	// DeleteSecretRevisions deletes the specified revisions of the secret with
+	// the input URI. If revisions is nil or empty, all revisions are deleted.
+	// Returns the revision UUIDs that were deleted.
+	DeleteSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) ([]string, error)
 
 	// DeleteObsoleteUserSecretRevisions deletes all obsolete revisions of
 	// auto-prune user secrets. Returns the deleted revision UUIDs for
@@ -69,12 +69,12 @@ type SecretModelState interface {
 	DeleteUserSecretRevisionRef(ctx context.Context, revisionUUID string) error
 }
 
-// processUserSecretRemovalJob deletes a user secret or specific revisions.
-// The EntityUUID in the job contains the full secret URI string.
+// processSecretRemovalJob deletes a user or charm secret, or specific
+// revisions. The EntityUUID in the job contains the full secret URI string.
 // Optional revisions can be specified in job.Arg["revisions"] as []int.
-func (s *Service) processUserSecretRemovalJob(ctx context.Context, job removal.Job) error {
-	if job.RemovalType != removal.UserSecretJob {
-		return errors.Errorf("job type: %q not valid for user secret removal", job.RemovalType).
+func (s *Service) processSecretRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.UserSecretJob && job.RemovalType != removal.CharmSecretJob {
+		return errors.Errorf("job type: %q not valid for secret removal", job.RemovalType).
 			Add(removalerrors.RemovalJobTypeNotValid)
 	}
 
@@ -113,8 +113,8 @@ func (s *Service) processUserSecretRemovalJob(ctx context.Context, job removal.J
 		}
 	}
 
-	if err := s.deleteUserSecretRevisions(ctx, uri, revisions); err != nil {
-		return errors.Errorf("deleting user secret %q revisions %v: %w", job.EntityUUID, revisions, err)
+	if err := s.deleteSecretRevisions(ctx, uri, revisions); err != nil {
+		return errors.Errorf("deleting secret %q revisions %v: %w", job.EntityUUID, revisions, err)
 	}
 
 	return nil
@@ -235,9 +235,9 @@ func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend
 	return sb, errors.Capture(err)
 }
 
-func (s *Service) deleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) error {
+func (s *Service) deleteSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) error {
 	// Delete the specified revisions (or all if revisions is nil)
-	deletedRevisionUUIDs, err := s.modelState.DeleteUserSecretRevisions(ctx, uri, revisions)
+	deletedRevisionUUIDs, err := s.modelState.DeleteSecretRevisions(ctx, uri, revisions)
 	if err != nil {
 		return errors.Errorf("deleting secret revisions: %w", err)
 	}

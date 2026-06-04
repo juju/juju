@@ -368,6 +368,87 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
+func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	x := gomock.Any()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	scaleChan := make(chan struct{}, 1)
+	settingsChan := make(chan struct{}, 1)
+	provisioningInfoChan := make(chan struct{}, 1)
+	appUnitsChan := make(chan []string, 1)
+	appChan := make(chan struct{}, 1)
+	appReplicasChan := make(chan struct{}, 1)
+
+	firstRefresh := make(chan struct{}, 1)
+	done := make(chan struct{})
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
+		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+
+		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),
+
+		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(x, "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(x, "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		// handleChange (triggered by initial a.changes event)
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
+		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
+		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
+		app.EXPECT().WatchReplicas().Return(watchertest.NewMockNotifyWatcher(appReplicasChan), nil),
+
+		ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
+			select {
+			case firstRefresh <- struct{}{}:
+			default:
+			}
+			return errors.ConstError("units churning")
+		}),
+		ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
+			close(done)
+			return nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+
+	clk.Advance(0)
+	<-firstRefresh
+
+	clk.Advance(9 * time.Second)
+	select {
+	case <-done:
+		c.Fatalf("refresh fired before interval elapsed")
+	default:
+	}
+
+	clk.Advance(1 * time.Second)
+	s.waitDone(c, done)
+
+	workertest.CleanKill(c, appWorker)
+}
+
 func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

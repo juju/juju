@@ -173,9 +173,6 @@ type dbUserModelSummary struct {
 
 	// Model state related members
 
-	// Destroying indicates if the model is in the process of being destroyed.
-	Destroying bool `db:"destroying"`
-
 	// CredentialInvalid indicates if the model is using a credential that is
 	// invalid.
 	CredentialInvalid bool `db:"cloud_credential_invalid"`
@@ -196,9 +193,6 @@ type dbModelSummary struct {
 	Life string `db:"life"`
 
 	// -- Model state related members --
-
-	// Destroying indicates if the model is in the process of being destroyed.
-	Destroying bool `db:"destroying"`
 
 	// CredentialInvalid indicates if the model is using a credential that is
 	// invalid.
@@ -326,7 +320,7 @@ type dbModelSecretBackend struct {
 // dbModelState is used to represent a single row from the
 // v_model_status_state view. This information is used to feed a model's status.
 type dbModelState struct {
-	Destroying              bool   `db:"destroying"`
+	Life                    string `db:"life"`
 	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
 	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
 	Migrating               bool   `db:"migrating"`
@@ -363,4 +357,10 @@ type dbTargetModelMigration struct {
 	UUID string `db:"uuid"`
 	// ModelUUID is the unique identifier for the model being imported.
 	ModelUUID string `db:"model_uuid"`
+	// SourceMigrationUUID is the migration UUID from the source side. It is
+	// stored for diagnostics and must be non-empty for every claim. This legacy
+	// import path has no new-path source migration UUID, so it reuses the
+	// generated import UUID (matching the upgrade backfill in
+	// 0031-model-migration.PATCH.sql).
+	SourceMigrationUUID string `db:"source_migration_uuid"`
 }

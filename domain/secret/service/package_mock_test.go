@@ -65,6 +65,7 @@ type MockStateMockRecorder struct {
 	getSecretByURIExpects                                       []*gomock.Call3_3[context.Context, secrets.URI, *int, *secrets.SecretMetadata, []*secrets.SecretRevisionMetadata, error]
 	getSecretConsumerExpects                                    []*gomock.Call3_3[context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata, int, error]
 	getSecretGrantsExpects                                      []*gomock.Call3_2[context.Context, *secrets.URI, secrets.SecretRole, []secret.GrantDetails, error]
+	getSecretOwnerKindsExpects                                  []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 	getSecretRevisionIDExpects                                  []*gomock.Call3_2[context.Context, *secrets.URI, int, string, error]
 	getSecretValueExpects                                       []*gomock.Call3_3[context.Context, *secrets.URI, int, secrets.SecretData, *secrets.ValueRef, error]
 	getSecretsRevisionExpiryChangesExpects                      []*gomock.Call3V_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, string, []secret.ExpiryInfo, error]
@@ -88,7 +89,6 @@ type MockStateMockRecorder struct {
 	listUserSecretsToDrainExpects                               []*gomock.Call1_2[context.Context, []*secrets.SecretMetadataForDrain, error]
 	namespaceForWatchSecretMetadataExpects                      []*gomock.Call0_1[string]
 	namespaceForWatchSecretRevisionObsoleteExpects              []*gomock.Call0_1[string]
-	removeUnitReservationsAndTokensExpects                      []*gomock.Call3_1[context.Context, string, time.Time, error]
 	revokeAccessExpects                                         []*gomock.Call3_1[context.Context, *secrets.URI, secret.RevokeParams, error]
 	saveSecretConsumerExpects                                   []*gomock.Call4_1[context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata, error]
 	scheduleObsoleteUserSecretRevisionsPruningExpects           []*gomock.Call3_1[context.Context, string, time.Time, error]
@@ -615,6 +615,24 @@ func (mr *MockStateMockRecorder) GetSecretGrants(ctx, uri, role any) *MockStateG
 // MockStateGetSecretGrantsCall is the typed call wrapper for GetSecretGrants.
 type MockStateGetSecretGrantsCall = gomock.Call3_2[context.Context, *secrets.URI, secrets.SecretRole, []secret.GrantDetails, error]
 
+// GetSecretOwnerKinds mocks base method.
+func (m *MockState) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]secret.SecretOwnerInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getSecretOwnerKindsExpects, m.ctrl, m, "GetSecretOwnerKinds", ctx, uris)
+}
+
+// GetSecretOwnerKinds indicates an expected call of GetSecretOwnerKinds.
+func (mr *MockStateMockRecorder) GetSecretOwnerKinds(ctx, uris any) *MockStateGetSecretOwnerKindsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error](mr.mock.ctrl.T, mr.mock, "GetSecretOwnerKinds", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uris))
+	mr.getSecretOwnerKindsExpects = append(mr.getSecretOwnerKindsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetSecretOwnerKindsCall is the typed call wrapper for GetSecretOwnerKinds.
+type MockStateGetSecretOwnerKindsCall = gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
+
 // GetSecretRevisionID mocks base method.
 func (m *MockState) GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error) {
 	m.ctrl.T.Helper()
@@ -1030,24 +1048,6 @@ func (mr *MockStateMockRecorder) NamespaceForWatchSecretRevisionObsolete() *Mock
 
 // MockStateNamespaceForWatchSecretRevisionObsoleteCall is the typed call wrapper for NamespaceForWatchSecretRevisionObsolete.
 type MockStateNamespaceForWatchSecretRevisionObsoleteCall = gomock.Call0_1[string]
-
-// RemoveUnitReservationsAndTokens mocks base method.
-func (m *MockState) RemoveUnitReservationsAndTokens(ctx context.Context, unitName string, expireAt time.Time) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.removeUnitReservationsAndTokensExpects, m.ctrl, m, "RemoveUnitReservationsAndTokens", ctx, unitName, expireAt)
-}
-
-// RemoveUnitReservationsAndTokens indicates an expected call of RemoveUnitReservationsAndTokens.
-func (mr *MockStateMockRecorder) RemoveUnitReservationsAndTokens(ctx, unitName, expireAt any) *MockStateRemoveUnitReservationsAndTokensCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, time.Time, error](mr.mock.ctrl.T, mr.mock, "RemoveUnitReservationsAndTokens", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(expireAt))
-	mr.removeUnitReservationsAndTokensExpects = append(mr.removeUnitReservationsAndTokensExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateRemoveUnitReservationsAndTokensCall is the typed call wrapper for RemoveUnitReservationsAndTokens.
-type MockStateRemoveUnitReservationsAndTokensCall = gomock.Call3_1[context.Context, string, time.Time, error]
 
 // RevokeAccess mocks base method.
 func (m *MockState) RevokeAccess(ctx context.Context, uri *secrets.URI, params secret.RevokeParams) error {

@@ -209,6 +209,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		NewHTTPClientWorker: func(c *internalhttp.Client) (worker.Worker, error) {
 			return s.trackedWorker, nil
 		},
+		MetricsCollector: NewMetricsCollector(),
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	return w

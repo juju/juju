@@ -791,6 +791,38 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresent(c *tc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
+func (s *modelStateSuite) TestGetMachineAgentStatusPresentViaChildMachine(c *tc.C) {
+	_, parentName, _, childName := s.createContainerMachine(c)
+
+	status := status.StatusInfo[status.MachineStatusType]{
+		Status:  status.MachineStatusStarted,
+		Message: "it's starting",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   new(time.Now()),
+	}
+
+	err := s.state.SetMachineStatus(c.Context(), parentName.String(), status)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetMachinePresence(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetMachineStatus(c.Context(), parentName.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, tc.IsTrue)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
+
+	err = s.state.DeleteMachinePresence(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetMachineStatus(c.Context(), parentName.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, tc.IsFalse)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
+}
+
 func (s *modelStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *tc.C) {
 	_, err := s.state.GetUnitWorkloadStatus(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -1977,6 +2009,153 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 	})
 }
 
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	appUUID, _ := s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "1.2.3.4")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, map[string]status.Application{
+		"foo": {
+			ID:     appUUID,
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Scale:            new(1),
+			K8sProviderID:    new("provider-id"),
+			K8sPublicAddress: new("1.2.3.4"),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/0": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceMultipleAddresses(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"1.2.3.4",
+		"1.2.3.5",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("1.2.3.4"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceLocalCloudAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "10.0.0.10")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesPublicAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"8.8.8.8",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("8.8.8.8"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesIPv4Address(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"fd00::10",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceSelectsAlphabeticalAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id",
+		"10.0.0.20",
+		"10.0.0.10",
+	)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.DeepEquals, new("10.0.0.10"))
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceNonLocalAddress(c *tc.C) {
+	now := time.Now()
+	appStatus := s.workloadStatus(now)
+	s.createCAASApplication(
+		c, "foo", life.Alive, appStatus,
+		s.createCAASUnitArg(c),
+	)
+	s.setK8sServiceAddress(c, "foo", "provider-id", "255.255.255.255")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].K8sPublicAddress, tc.IsNil)
+}
+
 func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.UUID, unitUUID coreunit.UUID, version string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {
@@ -2792,6 +2971,33 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 	c.Assert(err, tc.ErrorIsNil)
 
 	return mUUID, name
+}
+
+func (s *modelStateSuite) createContainerMachine(c *tc.C) (coremachine.UUID, coremachine.Name, coremachine.UUID, coremachine.Name) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+		},
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.AMD64,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineNames, tc.HasLen, 2)
+
+	parentName := machineNames[0]
+	parentUUID, err := machineState.GetMachineUUID(c.Context(), parentName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	childName := machineNames[1]
+	childUUID, err := machineState.GetMachineUUID(c.Context(), childName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return parentUUID, parentName, childUUID, childName
 }
 
 func (s *modelStateSuite) assertUnitStatus(c *tc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {

@@ -382,6 +382,5 @@ user/reference/telemetry reference/telemetry
 user/reference/unit reference/unit
 user/reference/upgrading-things reference/upgrading-things
 user/reference/user reference/user
-user/reference/worker reference/worker
 user/reference/zone reference/zone
 user/tutorial tutorial

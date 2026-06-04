@@ -15,15 +15,14 @@ type charmBase struct {
 	revision   int
 }
 
-// NewCharmBase creates a new charmBase with the given metadata, config,
-// actions, lxdProfile, and manifest.
-func NewCharmBase(meta *Meta, manifest *Manifest, config *ConfigSpec, actions *Actions, lxdProfile *LXDProfile) *charmBase {
+// NewCharmBase creates a new charmBase with the given metadata, manifest,
+// config and actions.
+func NewCharmBase(meta *Meta, manifest *Manifest, config *ConfigSpec, actions *Actions) *charmBase {
 	return &charmBase{
-		meta:       meta,
-		manifest:   manifest,
-		config:     config,
-		actions:    actions,
-		lxdProfile: lxdProfile,
+		meta:     meta,
+		manifest: manifest,
+		config:   config,
+		actions:  actions,
 	}
 }
 

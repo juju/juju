@@ -88,13 +88,52 @@ func (s *commitHookChangesArgSuite) TestValidateAndHasChangesErrorInvalidClosePo
 	c.Check(hasChanges, tc.Equals, true)
 }
 
-func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueCreateSecret(c *tc.C) {
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueCreateAppSecret(c *tc.C) {
 	requiresLeadership := CommitHookChangesArg{
-		UnitName:      unittesting.GenNewName(c, "testing/0"),
-		SecretCreates: []CreateSecretArg{{CreateCharmSecretParams: secret.CreateCharmSecretParams{}}},
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretCreates: []CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				CharmOwner: secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner},
+			},
+		}},
 	}.RequiresLeadership()
 
-	c.Check(requiresLeadership, tc.Equals, true)
+	c.Check(requiresLeadership, tc.IsTrue)
+}
+
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseCreateUnitSecret(c *tc.C) {
+	requiresLeadership := CommitHookChangesArg{
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretCreates: []CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				CharmOwner: secret.CharmSecretOwner{Kind: secret.UnitCharmSecretOwner},
+			},
+		}},
+	}.RequiresLeadership()
+
+	c.Check(requiresLeadership, tc.IsFalse)
+}
+
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueDeleteAppSecret(c *tc.C) {
+	requiresLeadership := CommitHookChangesArg{
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretDeletes: []DeleteSecretArg{{
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+		}},
+	}.RequiresLeadership()
+
+	c.Check(requiresLeadership, tc.IsTrue)
+}
+
+func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseDeleteUnitSecret(c *tc.C) {
+	requiresLeadership := CommitHookChangesArg{
+		UnitName: unittesting.GenNewName(c, "testing/0"),
+		SecretDeletes: []DeleteSecretArg{{
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}.RequiresLeadership()
+
+	c.Check(requiresLeadership, tc.IsFalse)
 }
 
 func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueApplicationSettings(c *tc.C) {
@@ -105,7 +144,7 @@ func (s *commitHookChangesArgSuite) TestRequiresLeadershipTrueApplicationSetting
 		}},
 	}.RequiresLeadership()
 
-	c.Check(requiresLeadership, tc.Equals, true)
+	c.Check(requiresLeadership, tc.IsTrue)
 }
 
 func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseUnitSettings(c *tc.C) {
@@ -116,7 +155,7 @@ func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseUnitSettings(c *t
 		}},
 	}.RequiresLeadership()
 
-	c.Check(requiresLeadership, tc.Equals, false)
+	c.Check(requiresLeadership, tc.IsFalse)
 }
 
 func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseOpenPorts(c *tc.C) {
@@ -127,5 +166,5 @@ func (s *commitHookChangesArgSuite) TestRequiresLeadershipFalseOpenPorts(c *tc.C
 		},
 	}.RequiresLeadership()
 
-	c.Check(requiresLeadership, tc.Equals, false)
+	c.Check(requiresLeadership, tc.IsFalse)
 }

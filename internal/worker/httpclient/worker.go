@@ -28,6 +28,7 @@ const (
 type WorkerConfig struct {
 	NewHTTPClient       NewHTTPClientFunc
 	NewHTTPClientWorker HTTPClientWorkerFunc
+	MetricsCollector    *Collector
 	Clock               clock.Clock
 	Logger              logger.Logger
 }
@@ -39,6 +40,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewHTTPClientWorker == nil {
 		return errors.NotValidf("nil NewHTTPClientWorker")
+	}
+	if c.MetricsCollector == nil {
+		return errors.NotValidf("nil MetricsCollector")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -233,9 +237,10 @@ func (w *httpClientWorker) workerFromCache(purpose corehttp.Purpose) (corehttp.H
 
 func (w *httpClientWorker) initHTTPClient(ctx context.Context, purpose corehttp.Purpose) error {
 	err := w.runner.StartWorker(ctx, purpose.String(), func(ctx context.Context) (worker.Worker, error) {
-		// TODO (stickupkid): We can pass in additional configuration here if
-		// needed.
-		httpClient := w.cfg.NewHTTPClient(purpose, internalhttp.WithLogger(w.cfg.Logger))
+		httpClient := w.cfg.NewHTTPClient(purpose,
+			internalhttp.WithLogger(w.cfg.Logger),
+			internalhttp.WithRequestRecorder(w.cfg.MetricsCollector),
+		)
 
 		worker, err := w.cfg.NewHTTPClientWorker(httpClient)
 		if err != nil {

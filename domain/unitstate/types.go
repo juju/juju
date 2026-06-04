@@ -112,8 +112,13 @@ type GrantRevokeSecretArg struct {
 type DeleteSecretArg struct {
 	secret.DeleteSecretParams
 
-	// URI identifies the secret to grant.
+	// URI identifies the secret to delete.
 	URI *secrets.URI
+
+	// OwnerKind indicates whether the secret is owned by the application
+	// or the unit. This drives the leadership requirement: only
+	// application-owned deletes need the lease held during the transaction.
+	OwnerKind secret.CharmSecretOwnerKind
 }
 
 // PreparedStorageAdd holds a storage add request prepared for transactional
@@ -258,18 +263,33 @@ func (c CommitHookChangesArg) ValidateAndHasChanges() (bool, error) {
 	return hasChanges, errors.Join(errs...)
 }
 
-// RequiresLeadership returns true if there are secrets or
-// application setting changes. Assumes that the structure
-// has been validated.
+// RequiresLeadership returns true if the commit requires the unit to
+// hold the application lease during the transaction. This is needed for
+// application-level relation settings and for application-owned secret
+// operations. Unit-owned secret operations are allowed without
+// leadership since the unit is the sole authority over its own secrets.
 func (c CommitHookChangesArg) RequiresLeadership() bool {
 	for _, settings := range c.RelationSettings {
 		if len(settings.ApplicationSettings) > 0 {
 			return true
 		}
 	}
-	if len(c.SecretCreates) > 0 || len(c.SecretUpdates) > 0 ||
-		len(c.SecretGrants) > 0 || len(c.SecretRevokes) > 0 ||
-		len(c.SecretDeletes) > 0 {
+	for _, s := range c.SecretCreates {
+		if s.CharmOwner.Kind == secret.ApplicationCharmSecretOwner {
+			return true
+		}
+	}
+	for _, s := range c.SecretDeletes {
+		if s.OwnerKind == secret.ApplicationCharmSecretOwner {
+			return true
+		}
+	}
+	// Updates, grants, and revokes currently go through their own
+	// service calls (outside the txn) which handle leadership
+	// internally. Once they move into the transaction, they will
+	// need similar owner-awareness here.
+	if len(c.SecretUpdates) > 0 || len(c.SecretGrants) > 0 ||
+		len(c.SecretRevokes) > 0 {
 		return true
 	}
 	return false

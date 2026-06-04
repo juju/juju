@@ -270,7 +270,7 @@ Note that units only receive `relation-changed` events for **other** units' chan
 
 `relation-created` is a "setup" event and, emitted when an application is related to another. Its purpose is to inform the newly related charms that they are entering the relation.
 
-If Juju is aware of the existence of the relation "early enough", before the application has started (i.e. *before* the application has started, i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
+If Juju is aware of the existence of the relation "early enough", before the application has started (i.e., before the {ref}`start hook <hook-start>` has run), this event will be fired as part of the setup phase. An important consequence of this fact is, that for all peer-type relations, since Juju is aware of their existence from the start, those `relation-created`  events will always fire before `start`.
 
 Similarly, if an application is being scaled up, the new unit will see `relation-created` events for all relations the application already has during the Setup phase.
 
@@ -736,7 +736,7 @@ When the networking on a machine has changed, any units deployed to that machine
 
 The `install` hook always runs once, and only once, before any other hook.
 
-fired when Juju is done provisioning the unit.
+It is fired when Juju is done provisioning the unit.
 
 The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
 
@@ -748,17 +748,6 @@ Therefore, ways to cause `install` to occur are:
 Note:
 - Typically, operations performed on {ref}`hook-install` should also be considered for {ref}`hook-upgrade-charm`.
 - In some cases, the {ref}`config-changed <hook-config-changed>` hook  can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
-
-The `install` event is emitted once per unit at the beginning of a charm's lifecycle. Associated callbacks should be used to perform one-time initial setup operations and prepare the unit to execute the application. Depending on the charm, this may include installing packages, configuring the underlying machine or provisioning cloud-specific resources.
-
-Therefore, ways to cause `install` to occur are:
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
-
-Note:
-- Typically, operations performed on `install` should also be considered for {ref}`hook-upgrade-charm`.
-- In some cases, {ref}`hook-config-changed` can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
 (hook-remove)=
 #### `remove`
@@ -792,8 +781,6 @@ This can occur:
 - (Kubernetes:) on pod churn
 - (Kubernetes:) on cluster reboot
 - on charm upgrades
-
-For Kubernetes charms, this occurs on pod churn as well.
 
 Callback methods bound to the event should be used to ensure that the charm’s software is in a running state. Note that the charm’s software should be configured to persist in a started state without further intervention from Juju or an administrator.
 

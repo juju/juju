@@ -839,11 +839,6 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
-	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Capture(err)
-	}
-
 	locator := charm.CharmLocator{
 		Name:         ch.ReferenceName,
 		Revision:     ch.Revision,
@@ -856,11 +851,10 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 		&manifest,
 		&config,
 		&actions,
-		&lxdProfile,
 	), locator, nil
 }
 
-// UpsertK8sService updates the cloud service for the specified application.
+// UpdateK8sService updates the cloud service for the specified application.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
@@ -1202,7 +1196,6 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appUUID coreapplicat
 	// Resolve the charm download, which will set itself to available.
 	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, application.ResolvedCharmDownload{
 		Actions:         domainCharm.Actions,
-		LXDProfile:      domainCharm.LXDProfile,
 		ObjectStoreUUID: result.ObjectStoreUUID,
 
 		// This is correct, we want to use the unique name of the stored charm
@@ -1223,7 +1216,7 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 		return application.ResolvedControllerCharmDownload{}, errors.Errorf("reading charm archive %q: %w", resolve.Path, err)
 	}
 
-	// Use the hash from the reservation, incase the caller has the wrong hash.
+	// Use the hash from the reservation, in case the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
 	result, err := s.charmStore.Store(ctx, resolve.Path, resolve.Size, resolve.SHA384)

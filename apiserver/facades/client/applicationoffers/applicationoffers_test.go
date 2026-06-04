@@ -1001,6 +1001,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	filters := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -1108,6 +1109,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelationservice.OfferFilter{{}}).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	filters := params.OfferFilters{Filters: []params.OfferFilter{{}}}
 
@@ -1521,6 +1523,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred@external/test-model.hosted-db2", "fred@external/test-model.testing"},
 	}
@@ -1614,6 +1617,7 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), gomock.Any()).Return(nil, nil)
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred@external/test-model.hosted-db2:endpoint", "fred@external/test-model.testing"},
 	}
@@ -1683,6 +1687,87 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 	c.Check(obtainedOffers.Results[0].Error, tc.DeepEquals, &params.Error{
 		Message: `application offer "fred@external/test-model.testing"`,
 		Code:    params.CodeNotFound,
+	})
+}
+
+// TestApplicationOffersWithConnections tests that connections are populated
+// for admin users when querying a single offer by URL.
+func (s *offerSuite) TestApplicationOffersWithConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerAPI := s.offerAPI(c)
+	adminTag := s.setupAuthUser("admin")
+	s.expectEntityHasPermission(adminTag, permission.SuperuserAccess)
+	adminUser := user.User{DisplayName: "fred smith"}
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), user.NameFromTag(adminTag)).Return(adminUser, nil)
+
+	modelName := "prod"
+	modelOwnerTag := names.NewUserTag("fred@external")
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
+		UUID:      tc.Must0(c, model.NewUUID),
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+
+	offerUUID := uuid.MustNewUUID().String()
+	consumerModelUUID := uuid.MustNewUUID().String()
+
+	charmLocator := charm.CharmLocator{
+		Name:         "app",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUID,
+			OfferName:              "hosted-db2",
+			ApplicationName:        "test-app",
+			ApplicationDescription: "testing application",
+			CharmLocator:           charmLocator,
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{Name: "db"},
+			},
+			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+		},
+	}
+	domainFilters := []crossmodelrelationservice.OfferFilter{{OfferName: "hosted-db2"}}
+	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
+
+	connections := []crossmodelrelation.OfferConnectionDetail{
+		{
+			OfferUUID:       offerUUID,
+			SourceModelUUID: consumerModelUUID,
+			RelationID:      42,
+			Username:        "consumer-user",
+			Endpoint:        "db",
+			Status:          "joined",
+			IngressSubnets:  []string{"10.0.0.0/24"},
+		},
+	}
+	s.crossModelRelationService.EXPECT().GetOfferConnections(gomock.Any(), []string{offerUUID}).Return(connections, nil)
+
+	args := params.OfferURLs{
+		OfferURLs: []string{"fred@external/prod.hosted-db2"},
+	}
+
+	obtained, err := offerAPI.ApplicationOffers(c.Context(), args)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.Results, tc.HasLen, 1)
+	c.Assert(obtained.Results[0].Result, tc.NotNil)
+	c.Assert(obtained.Results[0].Result.Connections, tc.HasLen, 1)
+	c.Check(obtained.Results[0].Result.Connections[0], tc.DeepEquals, params.OfferConnection{
+		SourceModelTag: names.NewModelTag(consumerModelUUID).String(),
+		RelationId:     42,
+		Username:       "consumer-user",
+		Endpoint:       "db",
+		Status: params.EntityStatus{
+			Status: status.Status("joined"),
+		},
+		IngressSubnets: []string{"10.0.0.0/24"},
 	})
 }
 

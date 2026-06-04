@@ -446,6 +446,55 @@ func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {
 	})
 }
 
+func (s *fullStatusSuite) TestFullStatusCAASApplicationAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := s.client(false)
+	s.expectCheckCanRead(client, true)
+	s.expectCheckIsAdmin(client, false)
+
+	s.applicationService.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(nil, nil)
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Cloud:     "k8s",
+		CloudType: "k8s",
+		Type:      model.CAAS,
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status: status.Available,
+	}, nil)
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
+		"postgresql-k8s": {
+			CharmLocator: charm.CharmLocator{
+				Name:         "postgresql-k8s",
+				Revision:     774,
+				Source:       charm.CharmHubSource,
+				Architecture: architecture.AMD64,
+			},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			Scale:            new(3),
+			K8sProviderID:    new("provider-id"),
+			K8sPublicAddress: new("10.102.137.7"),
+		},
+	}, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+
+	output, err := client.FullStatus(c.Context(), params.StatusParams{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(output.Applications["postgresql-k8s"].PublicAddress, tc.Equals, "10.102.137.7")
+	c.Check(output.Applications["postgresql-k8s"].ProviderId, tc.Equals, "provider-id")
+}
+
 func (s *fullStatusSuite) TestFullStatusFilteredByApplicationName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

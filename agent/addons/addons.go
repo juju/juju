@@ -72,10 +72,8 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 	}
 	go func() {
 		_ = cfg.Engine.Wait()
-		cfg.Logger.Debugf(context.TODO(), "engine stopped, stopping introspection")
 		w.Kill()
 		_ = w.Wait()
-		cfg.Logger.Debugf(context.TODO(), "introspection stopped")
 	}()
 
 	return nil

@@ -1466,10 +1466,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 					Risk:   deployment.RiskCandidate,
 					Branch: "test",
 				},
-				LXDProfile:    []byte(`{}`),
-				Exposed:       true,
-				Scale:         new(2),
-				K8sProviderID: new("k8s-provider-id"),
+				LXDProfile:       []byte(`{}`),
+				Exposed:          true,
+				Scale:            new(2),
+				K8sProviderID:    new("k8s-provider-id"),
+				K8sPublicAddress: new("10.102.137.7"),
 				Units: map[coreunit.Name]status.Unit{
 					"foo/666": {
 						Life: life.Alive,
@@ -1541,10 +1542,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				Risk:   deployment.RiskCandidate,
 				Branch: "test",
 			},
-			LXDProfile:    &internalcharm.LXDProfile{},
-			Exposed:       true,
-			Scale:         new(2),
-			K8sProviderID: new("k8s-provider-id"),
+			LXDProfile:       &internalcharm.LXDProfile{},
+			Exposed:          true,
+			Scale:            new(2),
+			K8sProviderID:    new("k8s-provider-id"),
+			K8sPublicAddress: new("10.102.137.7"),
 			Units: map[coreunit.Name]Unit{
 				"foo/666": {
 					Life: corelife.Alive,
@@ -1619,10 +1621,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 					Risk:   deployment.RiskCandidate,
 					Branch: "test",
 				},
-				LXDProfile:    []byte(`{}`),
-				Exposed:       true,
-				Scale:         new(2),
-				K8sProviderID: new("k8s-provider-id"),
+				LXDProfile:       []byte(`{}`),
+				Exposed:          true,
+				Scale:            new(2),
+				K8sProviderID:    new("k8s-provider-id"),
+				K8sPublicAddress: new("10.102.137.7"),
 				Units: map[coreunit.Name]status.Unit{
 					"foo/666": {
 						Life: life.Alive,
@@ -1694,10 +1697,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 				Risk:   deployment.RiskCandidate,
 				Branch: "test",
 			},
-			LXDProfile:    &internalcharm.LXDProfile{},
-			Exposed:       true,
-			Scale:         new(2),
-			K8sProviderID: new("k8s-provider-id"),
+			LXDProfile:       &internalcharm.LXDProfile{},
+			Exposed:          true,
+			Scale:            new(2),
+			K8sProviderID:    new("k8s-provider-id"),
+			K8sPublicAddress: new("10.102.137.7"),
 			Units: map[coreunit.Name]Unit{
 				"foo/666": {
 					Life: corelife.Alive,

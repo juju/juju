@@ -327,7 +327,6 @@ type ResolvedCharmDownload struct {
 	//
 	// Deprecated: should be filled in by the charm store.
 	Actions         domaincharm.Actions
-	LXDProfile      []byte
 	ObjectStoreUUID objectstore.UUID
 	ArchivePath     string
 }
@@ -488,7 +487,7 @@ type SetCharmParams struct {
 	StorageDirectiveOverrides map[string]ApplicationStorageDirectiveOverride
 }
 
-// SetCharmParams contains the parameters for updating
+// SetCharmStateParams contains the parameters for updating
 // an application's charm and storage in the state.
 type SetCharmStateParams struct {
 	// Channel contains the channel information for the application. The track,

@@ -56,6 +56,9 @@ const (
 	// ObsoleteUserSecretRevisionsJob indicates a job to prune obsolete
 	// user secret revisions.
 	ObsoleteUserSecretRevisionsJob
+	// CharmSecretJob indicates a job to remove a charm secret
+	// (unit-owned or application-owned).
+	CharmSecretJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -98,6 +101,8 @@ func (t JobType) String() string {
 		return "user secret"
 	case ObsoleteUserSecretRevisionsJob:
 		return "obsolete user secret revisions"
+	case CharmSecretJob:
+		return "charm secret"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}

@@ -394,6 +394,25 @@ juju set-constraints apache2 mem=
 See more: {ref}`command-juju-set-constraints`
 ```
 
+(manage-storage-for-an-application)=
+## Manage storage for an application
+
+```{ibnote}
+See also: {ref}`storage`
+```
+
+**Set values.** You can set storage directives for an application during deployment or later.
+
+- To set storage directives for an application during deployment, run the `deploy` command with the `--storage` flag followed by the relevant key-value pair or a quotes-enclosed list of key-value pairs. For example, to deploy MySQL with a storage volume that has at least 6 GiB of memory using the `rootfs` pool:
+
+``` text
+juju deploy mysql --storage pgdata=6G,rootfs,1
+```
+
+```{ibnote}
+See more: {ref}`command-juju-deploy`
+```
+
 ## Change space bindings for an application
 
 You can set space bindings for an application during deployment or post-deployment. In both cases you can set either a default space for the entire application or a specific space for one or more individual application endpoints or both.

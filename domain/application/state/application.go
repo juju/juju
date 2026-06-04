@@ -2183,14 +2183,12 @@ WHERE uuid = $entityUUID.uuid
 	chState := resolveCharmState{
 		ArchivePath:     info.ArchivePath,
 		ObjectStoreUUID: info.ObjectStoreUUID.String(),
-		LXDProfile:      info.LXDProfile,
 	}
 
 	charmQuery := `
 UPDATE charm
 SET    archive_path = $resolveCharmState.archive_path,
 	   object_store_uuid = $resolveCharmState.object_store_uuid,
-	   lxd_profile = $resolveCharmState.lxd_profile,
 	   available = TRUE
 WHERE  uuid = $entityUUID.uuid;`
 	charmStmt, err := st.Prepare(charmQuery, charmUUID, chState)

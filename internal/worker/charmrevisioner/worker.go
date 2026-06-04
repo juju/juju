@@ -527,9 +527,9 @@ func (w *revisionUpdateWorker) storeNewCharmRevision(ctx context.Context, info l
 			essentialMetadata.Meta,
 			essentialMetadata.Manifest,
 			essentialMetadata.Config,
-			// These will be filled in once we have all the data in the
+			// This will be filled in once we have all the data in the
 			// response from the charmhub.
-			nil, nil,
+			nil,
 		),
 		// This will always be a charmhub charm.
 		Source:        corecharm.CharmHub,

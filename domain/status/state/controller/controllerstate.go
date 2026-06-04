@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
+	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
@@ -75,7 +76,7 @@ WHERE uuid = $modelUUID.uuid
 	}
 
 	return status.ModelStatusContext{
-		IsDestroying:                 modelStatusCtxResult.Destroying,
+		IsDestroying:                 corelife.Value(modelStatusCtxResult.Life) == corelife.Dying,
 		IsMigrating:                  modelStatusCtxResult.Migrating,
 		HasInvalidCloudCredential:    modelStatusCtxResult.CredentialInvalid,
 		InvalidCloudCredentialReason: modelStatusCtxResult.CredentialInvalidReason,

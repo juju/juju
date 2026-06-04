@@ -146,11 +146,12 @@ func (st *State) initialEntityRemovalQuery() eventsource.NamespaceQuery {
 			return nil, errors.Errorf("preparing select machines query: %w", err)
 		}
 
-		var (
-			units, apps, relations, machines []entityUUID
-			entities                         []string
-		)
+		var entities []string
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			var (
+				units, apps, relations, machines []entityUUID
+				txnEntities                      []string
+			)
 			if err := tx.Query(ctx, selectUnits).GetAll(&units); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("selecting units: %w", err)
 			}
@@ -165,17 +166,19 @@ func (st *State) initialEntityRemovalQuery() eventsource.NamespaceQuery {
 			}
 
 			for _, u := range units {
-				entities = append(entities, "unit:"+u.UUID)
+				txnEntities = append(txnEntities, "unit:"+u.UUID)
 			}
 			for _, a := range apps {
-				entities = append(entities, "application:"+a.UUID)
+				txnEntities = append(txnEntities, "application:"+a.UUID)
 			}
 			for _, r := range relations {
-				entities = append(entities, "relation:"+r.UUID)
+				txnEntities = append(txnEntities, "relation:"+r.UUID)
 			}
 			for _, m := range machines {
-				entities = append(entities, "machine:"+m.UUID)
+				txnEntities = append(txnEntities, "machine:"+m.UUID)
 			}
+
+			entities = txnEntities
 			return nil
 		})
 		if err != nil {

@@ -1720,7 +1720,6 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *tc.C) {
 	}
 	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
-	lxdProfile := &internalcharm.LXDProfile{}
 
 	downloadInfo := &charm.DownloadInfo{
 		Provenance:         charm.ProvenanceDownload,
@@ -1729,7 +1728,7 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *tc.C) {
 		DownloadSize:       42,
 	}
 
-	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions)
 	ch, _, err := encodeCharm(charmBase)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1767,9 +1766,8 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExists(c *tc.C) {
 	}
 	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
-	lxdProfile := &internalcharm.LXDProfile{}
 
-	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions)
 
 	// We don't check the expected, we only care about the result
 	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
@@ -1801,9 +1799,8 @@ func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExistsGetCharmIdError
 	}
 	config := &internalcharm.ConfigSpec{}
 	actions := &internalcharm.Actions{}
-	lxdProfile := &internalcharm.LXDProfile{}
 
-	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions)
 	expectedError := errors.New("boom")
 
 	// We don't check the expected, we only care about the result

@@ -49,6 +49,7 @@ type MockStateMockRecorder struct {
 	getMachineBaseExpects                                     []*gomock.Call2_2[context.Context, string, base.Base, error]
 	getMachineContainersExpects                               []*gomock.Call2_2[context.Context, string, []string, error]
 	getMachineLifeExpects                                     []*gomock.Call2_2[context.Context, machine.Name, life.Life, error]
+	getMachineLifeAndIsManuallyProvisionedExpects             []*gomock.Call2_3[context.Context, machine.Name, life.Life, bool, error]
 	getMachineParentUUIDExpects                               []*gomock.Call2_2[context.Context, string, machine.UUID, error]
 	getMachinePrincipalApplicationsExpects                    []*gomock.Call2_2[context.Context, machine.Name, []string, error]
 	getMachineProvisioningInfoExpects                         []*gomock.Call2_4[context.Context, string, base.Base, *string, constraints.Constraints, error]
@@ -342,6 +343,24 @@ func (mr *MockStateMockRecorder) GetMachineLife(arg0, arg1 any) *MockStateGetMac
 
 // MockStateGetMachineLifeCall is the typed call wrapper for GetMachineLife.
 type MockStateGetMachineLifeCall = gomock.Call2_2[context.Context, machine.Name, life.Life, error]
+
+// GetMachineLifeAndIsManuallyProvisioned mocks base method.
+func (m *MockState) GetMachineLifeAndIsManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (life.Life, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getMachineLifeAndIsManuallyProvisionedExpects, m.ctrl, m, "GetMachineLifeAndIsManuallyProvisioned", arg0, arg1)
+}
+
+// GetMachineLifeAndIsManuallyProvisioned indicates an expected call of GetMachineLifeAndIsManuallyProvisioned.
+func (mr *MockStateMockRecorder) GetMachineLifeAndIsManuallyProvisioned(arg0, arg1 any) *MockStateGetMachineLifeAndIsManuallyProvisionedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, machine.Name, life.Life, bool, error](mr.mock.ctrl.T, mr.mock, "GetMachineLifeAndIsManuallyProvisioned", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getMachineLifeAndIsManuallyProvisionedExpects = append(mr.getMachineLifeAndIsManuallyProvisionedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetMachineLifeAndIsManuallyProvisionedCall is the typed call wrapper for GetMachineLifeAndIsManuallyProvisioned.
+type MockStateGetMachineLifeAndIsManuallyProvisionedCall = gomock.Call2_3[context.Context, machine.Name, life.Life, bool, error]
 
 // GetMachineParentUUID mocks base method.
 func (m *MockState) GetMachineParentUUID(ctx context.Context, machineUUID string) (machine.UUID, error) {

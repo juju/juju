@@ -162,10 +162,6 @@ const (
 	// found.
 	CharmNotFound = errors.ConstError("charm not found")
 
-	// LXDProfileNotFound describes an error that occurs when an LXD profile
-	// cannot be found.
-	LXDProfileNotFound = errors.ConstError("LXD profile not found")
-
 	// CharmAlreadyExists describes an error that occurs when a charm already
 	// exists for the given natural key.
 	CharmAlreadyExists = errors.ConstError("charm already exists")
@@ -210,11 +206,6 @@ const (
 	// wrong value.
 	CharmRelationRoleNotValid = errors.ConstError("charm relation role not valid")
 
-	// MultipleCharmHashes describes and error that occurs when a charm has
-	// multiple hash values. At the moment, we only support sha256 hash format,
-	// so if another is found, an error is returned.
-	MultipleCharmHashes = errors.ConstError("multiple charm hashes found")
-
 	// CharmAlreadyAvailable describes an error that occurs when a charm is
 	// already been made available. There is no need to download it again.
 	CharmAlreadyAvailable = errors.ConstError("charm already available")
@@ -248,6 +239,10 @@ const (
 	// CharmHashNotFound describes an error that occurs when the charm hash is
 	// not found.
 	CharmHashNotFound = errors.ConstError("charm hash not found")
+
+	// CharmHashAlreadyExists describes an error that occurs when setting the
+	// hash for a charm that already has one.
+	CharmHashAlreadyExists = errors.ConstError("charm hash already exists")
 
 	// CharmProvenanceNotValid describes an error that occurs when the
 	// charm download provenance is not valid.

@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -438,11 +437,6 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 		return nil, errors.Errorf("import charm manifest: %w", err)
 	}
 
-	lxdProfile, err := i.importCharmLXDProfile(data.Metadata)
-	if err != nil {
-		return nil, errors.Errorf("import charm lxd profile: %w", err)
-	}
-
 	config, err := i.importCharmConfig(data.Config)
 	if err != nil {
 		return nil, errors.Errorf("import charm config: %w", err)
@@ -455,7 +449,7 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 
 	// Return a valid charm base that can then be used to create the
 	// application.
-	return internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile), nil
+	return internalcharm.NewCharmBase(metadata, manifest, config, actions), nil
 }
 
 func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
@@ -554,24 +548,6 @@ func (i *importOperation) importCharmManifest(data description.CharmManifest) (*
 	return &internalcharm.Manifest{
 		Bases: bases,
 	}, nil
-}
-
-func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) (*internalcharm.LXDProfile, error) {
-	// LXDProfile is optional, so if we don't have any data, we can just return
-	// nil. If it does exist, then it's JSON encoded blob that we need to
-	// unmarshal into the internalcharm.LXDProfile struct.
-
-	lxdProfile := data.LXDProfile()
-	if lxdProfile == "" {
-		return nil, nil
-	}
-
-	var profile internalcharm.LXDProfile
-	if err := json.Unmarshal([]byte(lxdProfile), &profile); err != nil {
-		return nil, errors.Errorf("unmarshal lxd profile: %w", err)
-	}
-
-	return &profile, nil
 }
 
 func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.ConfigSpec, error) {

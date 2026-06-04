@@ -49,11 +49,8 @@ func (s *charmInfoSuite) TestCharmInfo(c *tc.C) {
 	actions := &internalcharm.Actions{
 		ActionSpecs: map[string]internalcharm.ActionSpec{"bar": {Description: "baz"}},
 	}
-	lxdProfile := &internalcharm.LXDProfile{
-		Config: map[string]string{"foo": "bar"},
-	}
 
-	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
 	s.charmService.EXPECT().GetCharm(gomock.Any(), charm.CharmLocator{
 		Name:     "foo",
@@ -72,7 +69,7 @@ func (s *charmInfoSuite) TestCharmInfo(c *tc.C) {
 	c.Check(charmInfo.Manifest, tc.DeepEquals, &params.CharmManifest{Bases: []params.CharmBase{{Name: "ubuntu", Channel: "22.04/stable"}}})
 	c.Check(charmInfo.Config, tc.DeepEquals, map[string]params.CharmOption{"foo": {Type: "string"}})
 	c.Check(charmInfo.Actions, tc.DeepEquals, &params.CharmActions{ActionSpecs: map[string]params.CharmActionSpec{"bar": {Description: "baz"}}})
-	c.Check(charmInfo.LXDProfile, tc.DeepEquals, &params.CharmLXDProfile{Config: map[string]string{"foo": "bar"}, Devices: map[string]map[string]string{}})
+	c.Check(charmInfo.LXDProfile, tc.IsNil)
 }
 
 func (s *charmInfoSuite) TestCharmInfoMinimal(c *tc.C) {
@@ -82,7 +79,7 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *tc.C) {
 
 	metadata := &internalcharm.Meta{Name: "foo"}
 
-	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
+	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
 	s.charmService.EXPECT().GetCharm(gomock.Any(), charm.CharmLocator{
 		Name:     "foo",

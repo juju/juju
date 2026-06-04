@@ -202,8 +202,8 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ControllerModelJob:
 		err = s.processControllerModelJob(ctx, job)
 
-	case removal.UserSecretJob:
-		err = s.processUserSecretRemovalJob(ctx, job)
+	case removal.UserSecretJob, removal.CharmSecretJob:
+		err = s.processSecretRemovalJob(ctx, job)
 
 	case removal.ObsoleteUserSecretRevisionsJob:
 		err = s.processObsoleteUserSecretRevisionsJob(ctx, job)

@@ -34,9 +34,6 @@ func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
 		`"FormatVersion":0,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -81,9 +78,9 @@ func (s *metadataSuite) assertMetadata(c *tc.C, meta *backups.Metadata, expected
 	c.Check(buf.(*bytes.Buffer).String(), tc.DeepEquals, expected)
 }
 
-func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *tc.C) {
+func (s *metadataSuite) TestAsJSONBufferV2NonHA(c *tc.C) {
 	meta := s.createTestMetadata(c)
-	meta.FormatVersion = 1
+	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
 		UUID:              "controller-uuid",
 		MachineInstanceID: "inst-10101010",
@@ -91,10 +88,7 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *tc.C) {
 	}
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
-		`"FormatVersion":1,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
+		`"FormatVersion":2,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -111,9 +105,9 @@ func (s *metadataSuite) TestAsJSONBufferV1NonHA(c *tc.C) {
 		`}`+"\n")
 }
 
-func (s *metadataSuite) TestAsJSONBufferV1HA(c *tc.C) {
+func (s *metadataSuite) TestAsJSONBufferV2HA(c *tc.C) {
 	meta := s.createTestMetadata(c)
-	meta.FormatVersion = 1
+	meta.FormatVersion = 2
 	meta.Controller = backups.ControllerMetadata{
 		UUID:              "controller-uuid",
 		MachineInstanceID: "inst-10101010",
@@ -123,10 +117,7 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *tc.C) {
 
 	s.assertMetadata(c, meta, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
-		`"FormatVersion":1,`+
-		`"Checksum":"123af2cef",`+
-		`"ChecksumFormat":"SHA-1, base64 encoded",`+
-		`"Size":10,`+
+		`"FormatVersion":2,`+
 		`"Stored":"0001-01-01T00:00:00Z",`+
 		`"Started":"2014-09-09T11:59:34Z",`+
 		`"Finished":"2014-09-09T12:00:34Z",`+
@@ -143,13 +134,10 @@ func (s *metadataSuite) TestAsJSONBufferV1HA(c *tc.C) {
 		`}`+"\n")
 }
 
-func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *tc.C) {
+func (s *metadataSuite) TestNewMetadataJSONReaderV2(c *tc.C) {
 	file := bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
-		`"FormatVersion":1,` +
-		`"Checksum":"123af2cef",` +
-		`"ChecksumFormat":"SHA-1, base64 encoded",` +
-		`"Size":10,` +
+		`"FormatVersion":2,` +
 		`"Stored":"0001-01-01T00:00:00Z",` +
 		`"Started":"2014-09-09T11:59:34Z",` +
 		`"Finished":"2014-09-09T12:00:34Z",` +
@@ -167,9 +155,9 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta.ID(), tc.Equals, "20140909-115934.asdf-zxcv-qwe")
-	c.Check(meta.Checksum(), tc.Equals, "123af2cef")
-	c.Check(meta.ChecksumFormat(), tc.Equals, "SHA-1, base64 encoded")
-	c.Check(meta.Size(), tc.Equals, int64(10))
+	c.Check(meta.Checksum(), tc.Equals, "")
+	c.Check(meta.ChecksumFormat(), tc.Equals, "")
+	c.Check(meta.Size(), tc.Equals, int64(0))
 	c.Check(meta.Stored(), tc.IsNil)
 	c.Check(meta.Started.Unix(), tc.Equals, int64(1410263974))
 	c.Check(meta.Finished.Unix(), tc.Equals, int64(1410264034))
@@ -178,7 +166,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *tc.C) {
 	c.Check(meta.Origin.Machine, tc.Equals, "0")
 	c.Check(meta.Origin.Hostname, tc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), tc.Equals, "1.21-alpha3")
-	c.Check(meta.FormatVersion, tc.Equals, int64(1))
+	c.Check(meta.FormatVersion, tc.Equals, int64(2))
 	c.Check(meta.Controller.UUID, tc.Equals, "controller-uuid")
 	c.Check(meta.Controller.HANodes, tc.Equals, int64(3))
 	c.Check(meta.Controller.MachineInstanceID, tc.Equals, "inst-10101010")
@@ -188,7 +176,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *tc.C) {
 func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *tc.C) {
 	file := bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
-		`"FormatVersion":2,` +
+		`"FormatVersion":3,` +
 		`"Checksum":"123af2cef",` +
 		`"ChecksumFormat":"SHA-1, base64 encoded",` +
 		`"Size":10,` +

@@ -119,9 +119,8 @@ type ControllerMetadata struct {
 	HANodes int64
 }
 
-// All un-versioned metadata is considered to be version 0,
-// so the versions start with 1.
-const currentFormatVersion = 1
+// currentFormatVersion is the most recent metadata version.
+const currentFormatVersion = 2
 
 // NewMetadata returns a new Metadata for a backup archive,
 // in the most current format.
@@ -166,10 +165,7 @@ type flatMetadata struct {
 
 	// file storage
 
-	Checksum       string
-	ChecksumFormat string
-	Size           int64
-	Stored         time.Time
+	Stored time.Time
 
 	// backup
 
@@ -190,9 +186,6 @@ type flatMetadata struct {
 func (m *Metadata) flat() flatMetadata {
 	flat := flatMetadata{
 		ID:                          m.ID(),
-		Checksum:                    m.Checksum(),
-		ChecksumFormat:              m.ChecksumFormat(),
-		Size:                        m.Size(),
 		Started:                     m.Started,
 		Notes:                       m.Notes,
 		ModelUUID:                   m.Origin.Model,
@@ -221,11 +214,6 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 	meta := NewMetadata()
 	meta.SetID(flat.ID)
 	meta.FormatVersion = flat.FormatVersion
-
-	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 
 	if !flat.Stored.IsZero() {
 		meta.SetStored(&flat.Stored)
@@ -269,17 +257,23 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	// We always want to decode into the most recent format version.
-	var flat flatMetadata
-	if err := json.Unmarshal(data, &flat); err != nil {
+	var versioned struct {
+		FormatVersion int64
+	}
+	if err := json.Unmarshal(data, &versioned); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	switch flat.FormatVersion {
-	case 1:
+	// We always want to decode into the most recent format version.
+	switch versioned.FormatVersion {
+	case 2:
+		var flat flatMetadata
+		if err := json.Unmarshal(data, &flat); err != nil {
+			return nil, errors.Capture(err)
+		}
 		return flat.inflate()
 	default:
-		return nil, errors.Errorf("backup format %d %w", flat.FormatVersion, coreerrors.NotSupported)
+		return nil, errors.Errorf("backup format %d %w", versioned.FormatVersion, coreerrors.NotSupported)
 	}
 }
 

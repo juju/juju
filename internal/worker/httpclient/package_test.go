@@ -16,6 +16,7 @@ import (
 
 //go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination httpclient_mock_test.go github.com/juju/juju/internal/worker/httpclient HTTPClientWorker
 
 type baseSuite struct {

@@ -370,6 +370,11 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 		available []coreresource.Resource
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		var (
+			txnPotential []charmresource.Resource
+			txnAvailable []coreresource.Resource
+		)
+
 		// Resources found linked to the application.
 		var resources []resourceView
 
@@ -396,7 +401,7 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 					return errors.Capture(err)
 				}
 				// Add potential resource.
-				potential = append(potential, charmRes)
+				txnPotential = append(txnPotential, charmRes)
 				continue
 			}
 
@@ -405,8 +410,11 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 				return errors.Capture(err)
 			}
 			// Add available resource.
-			available = append(available, r)
+			txnAvailable = append(txnAvailable, r)
 		}
+
+		potential = txnPotential
+		available = txnAvailable
 		return nil
 	})
 	return potential, available, errors.Capture(err)
@@ -448,6 +456,8 @@ func (st *State) listUnitResources(
 
 	var unitResources []coreresource.UnitResources
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		var txnUnitResources []coreresource.UnitResources
+
 		// Units linked to the application.
 		var units []unitUUIDAndName
 
@@ -476,11 +486,13 @@ func (st *State) listUnitResources(
 				}
 				resources = append(resources, r)
 			}
-			unitResources = append(unitResources, coreresource.UnitResources{
+			txnUnitResources = append(txnUnitResources, coreresource.UnitResources{
 				Name:      coreunit.Name(unit.Name),
 				Resources: resources,
 			})
 		}
+
+		unitResources = txnUnitResources
 		return nil
 	})
 

@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	stdtesting "testing"
@@ -3206,6 +3207,100 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			},
 		},
 	})
+}
+
+// TestUnitsWithEmptyDirStorage verifies that only Juju-managed emptyDir volumes
+// are included in the unit's filesystem info and that unrelated emptyDir
+// volumes are ignored.
+func (s *applicationSuite) TestUnitsWithEmptyDirStorage(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	podSpec := getPodSpec31()
+	podSpec.Volumes = append(podSpec.Volumes,
+		corev1.Volume{
+			Name: "gitlab-config",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}, corev1.Volume{
+			Name: "vol",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      "gitlab-config",
+		MountPath: "/config",
+	}, corev1.VolumeMount{
+		Name:      "vol",
+		MountPath: "/vol",
+	})
+
+	pod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   s.namespace,
+			Name:        "gitlab-0",
+			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		},
+		Spec: podSpec,
+		Status: corev1.PodStatus{
+			PodIP: "10.10.10.10",
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodScheduled,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   corev1.ContainersReady,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	_, err := s.client.CoreV1().Pods(s.namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := app.Units()
+	c.Assert(err, tc.ErrorIsNil)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].Status.Since`, tc.Ignore)
+	mc.AddExpr(`_[_].FilesystemInfo[_].Status.Since`, tc.Ignore)
+	mc.AddExpr(`_[_].FilesystemInfo[_].Volume.Status.Since`, tc.Ignore)
+
+	c.Assert(units, mc, []caas.Unit{{
+		Id:       "gitlab-0",
+		Address:  "10.10.10.10",
+		Ports:    []string(nil),
+		Dying:    false,
+		Stateful: true,
+		Status: status.StatusInfo{
+			Status: "running",
+		},
+		FilesystemInfo: []caas.FilesystemInfo{{
+			StorageName:               "config",
+			PersistentVolumeClaimName: "gitlab-config",
+			Size:                      0,
+			MountPoint:                "/config",
+			ReadOnly:                  false,
+			Status: status.StatusInfo{
+				Status: "attached",
+			},
+			Volume: caas.VolumeInfo{
+				PersistentVolumeName: "gitlab-config",
+				Size:                 0,
+				Persistent:           false,
+				Status: status.StatusInfo{
+					Status: "attached",
+				},
+			},
+		}},
+	}})
 }
 
 func (s *applicationSuite) TestServiceActive(c *tc.C) {

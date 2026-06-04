@@ -861,7 +861,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *tc.C) {
 			essentialMetadata.Config,
 			// These will be filled in once we have all the data in the
 			// response from the charmhub.
-			nil, nil,
+			nil,
 		),
 
 		Source:        charm.CharmHub,

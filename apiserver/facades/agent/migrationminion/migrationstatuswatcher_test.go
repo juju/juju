@@ -70,9 +70,8 @@ func (s *MigrationStatusWatcherSuite) TestWatcher(c *tc.C) {
 	s.watcherRegistry.EXPECT().Get("123").Return(w, nil)
 
 	mig := modelmigration.Migration{
-		UUID:    "id",
-		Phase:   coremigration.IMPORT,
-		Attempt: 2,
+		UUID:  "id",
+		Phase: coremigration.IMPORT,
 		Target: coremigration.TargetInfo{
 			Addrs:  []string{"192.0.2.1:5555"},
 			CACert: "trust me",
@@ -105,7 +104,6 @@ func (s *MigrationStatusWatcherSuite) TestWatcher(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
-		Attempt:        2,
 		Phase:          "IMPORT",
 		SourceAPIAddrs: []string{"192.0.2.2:5555", "192.0.2.3:5555", "192.0.2.4:5555"},
 		SourceCACert:   "no worries",

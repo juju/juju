@@ -288,13 +288,13 @@ type MockModelDBStateMockRecorder struct {
 	deleteRelationWithRemoteConsumerExpects                 []*gomock.Call2_1[context.Context, string, error]
 	deleteRelationWithRemoteOffererExpects                  []*gomock.Call2_1[context.Context, string, error]
 	deleteRemoteApplicationOffererExpects                   []*gomock.Call2_1[context.Context, string, error]
+	deleteSecretRevisionsExpects                            []*gomock.Call3_2[context.Context, *secrets.URI, []int, []string, error]
 	deleteStorageAttachmentExpects                          []*gomock.Call2_1[context.Context, string, error]
 	deleteStorageInstanceExpects                            []*gomock.Call2_1[context.Context, string, error]
 	deleteUnitExpects                                       []*gomock.Call3_1[context.Context, string, bool, error]
 	deleteUnitOwnedSecretContentExpects                     []*gomock.Call2_1[context.Context, string, error]
 	deleteUnitOwnedSecretsExpects                           []*gomock.Call2_1[context.Context, string, error]
 	deleteUserSecretRevisionRefExpects                      []*gomock.Call2_1[context.Context, string, error]
-	deleteUserSecretRevisionsExpects                        []*gomock.Call3_2[context.Context, *secrets.URI, []int, []string, error]
 	deleteVolumeExpects                                     []*gomock.Call2_1[context.Context, string, error]
 	deleteVolumeAttachmentExpects                           []*gomock.Call2_1[context.Context, string, error]
 	deleteVolumeAttachmentPlanExpects                       []*gomock.Call2_1[context.Context, string, error]
@@ -773,6 +773,24 @@ func (mr *MockModelDBStateMockRecorder) DeleteRemoteApplicationOfferer(ctx, rUUI
 // MockModelDBStateDeleteRemoteApplicationOffererCall is the typed call wrapper for DeleteRemoteApplicationOfferer.
 type MockModelDBStateDeleteRemoteApplicationOffererCall = gomock.Call2_1[context.Context, string, error]
 
+// DeleteSecretRevisions mocks base method.
+func (m *MockModelDBState) DeleteSecretRevisions(ctx context.Context, uri *secrets.URI, revisions []int) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.deleteSecretRevisionsExpects, m.ctrl, m, "DeleteSecretRevisions", ctx, uri, revisions)
+}
+
+// DeleteSecretRevisions indicates an expected call of DeleteSecretRevisions.
+func (mr *MockModelDBStateMockRecorder) DeleteSecretRevisions(ctx, uri, revisions any) *MockModelDBStateDeleteSecretRevisionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, *secrets.URI, []int, []string, error](mr.mock.ctrl.T, mr.mock, "DeleteSecretRevisions", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(revisions))
+	mr.deleteSecretRevisionsExpects = append(mr.deleteSecretRevisionsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateDeleteSecretRevisionsCall is the typed call wrapper for DeleteSecretRevisions.
+type MockModelDBStateDeleteSecretRevisionsCall = gomock.Call3_2[context.Context, *secrets.URI, []int, []string, error]
+
 // DeleteStorageAttachment mocks base method.
 func (m *MockModelDBState) DeleteStorageAttachment(ctx context.Context, rUUID string) error {
 	m.ctrl.T.Helper()
@@ -880,24 +898,6 @@ func (mr *MockModelDBStateMockRecorder) DeleteUserSecretRevisionRef(ctx, revisio
 
 // MockModelDBStateDeleteUserSecretRevisionRefCall is the typed call wrapper for DeleteUserSecretRevisionRef.
 type MockModelDBStateDeleteUserSecretRevisionRefCall = gomock.Call2_1[context.Context, string, error]
-
-// DeleteUserSecretRevisions mocks base method.
-func (m *MockModelDBState) DeleteUserSecretRevisions(ctx context.Context, uri *secrets.URI, revisions []int) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.deleteUserSecretRevisionsExpects, m.ctrl, m, "DeleteUserSecretRevisions", ctx, uri, revisions)
-}
-
-// DeleteUserSecretRevisions indicates an expected call of DeleteUserSecretRevisions.
-func (mr *MockModelDBStateMockRecorder) DeleteUserSecretRevisions(ctx, uri, revisions any) *MockModelDBStateDeleteUserSecretRevisionsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, *secrets.URI, []int, []string, error](mr.mock.ctrl.T, mr.mock, "DeleteUserSecretRevisions", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(revisions))
-	mr.deleteUserSecretRevisionsExpects = append(mr.deleteUserSecretRevisionsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelDBStateDeleteUserSecretRevisionsCall is the typed call wrapper for DeleteUserSecretRevisions.
-type MockModelDBStateDeleteUserSecretRevisionsCall = gomock.Call3_2[context.Context, *secrets.URI, []int, []string, error]
 
 // DeleteVolume mocks base method.
 func (m *MockModelDBState) DeleteVolume(ctx context.Context, volUUID string) error {

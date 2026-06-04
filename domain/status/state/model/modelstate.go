@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"net"
+	"slices"
 	"sort"
 	"time"
 
@@ -1595,35 +1596,62 @@ func (st *ModelState) GetApplicationAndUnitStatuses(ctx context.Context) (map[st
 func (st *ModelState) getApplicationsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
 	// Get all the applications.
 	query, err := st.Prepare(`
+WITH selected_k8s_service_address AS (
+  -- Pick one CAAS app address for status by display priority, then
+  -- alphabetical order within the chosen class.
+  SELECT DISTINCT
+    svc.application_uuid,
+    (
+      SELECT ipa.address_value
+      FROM   k8s_service AS candidate_svc
+      JOIN   link_layer_device AS lld
+             ON lld.net_node_uuid = candidate_svc.net_node_uuid
+      JOIN   ip_address AS ipa ON ipa.device_uuid = lld.uuid
+      WHERE  candidate_svc.application_uuid = svc.application_uuid
+      AND    ipa.scope_id IN (1, 2) /* public, local-cloud */
+      AND    ipa.type_id IN (0, 1) /* IPv4, IPv6 */
+      ORDER BY
+        CASE
+          WHEN ipa.scope_id = 1 AND ipa.type_id = 0 THEN 1
+          WHEN ipa.scope_id = 1 AND ipa.type_id = 1 THEN 2
+          WHEN ipa.scope_id = 2 AND ipa.type_id = 0 THEN 3
+          WHEN ipa.scope_id = 2 AND ipa.type_id = 1 THEN 4
+        END,
+        ipa.address_value
+      LIMIT 1
+    ) AS address_value
+  FROM   k8s_service AS svc
+)
 SELECT
-	a.name AS &applicationStatusDetails.name,
-	a.uuid AS &applicationStatusDetails.uuid,
-	a.life_id AS &applicationStatusDetails.life_id,
-	ap.os_id AS &applicationStatusDetails.platform_os_id,
-	ap.channel AS &applicationStatusDetails.platform_channel,
-	ap.architecture_id AS &applicationStatusDetails.platform_architecture_id,
-	ac.track AS &applicationStatusDetails.channel_track,
-	ac.risk AS &applicationStatusDetails.channel_risk,
-	ac.branch AS &applicationStatusDetails.channel_branch,
-	cm.subordinate AS &applicationStatusDetails.subordinate,
-	s.status_id AS &applicationStatusDetails.status_id,
-	s.message AS &applicationStatusDetails.message,
-	s.data AS &applicationStatusDetails.data,
-	s.updated_at AS &applicationStatusDetails.updated_at,
-	re.relation_uuid AS &applicationStatusDetails.relation_uuid,
-	c.reference_name AS &applicationStatusDetails.charm_reference_name,
-	c.revision AS &applicationStatusDetails.charm_revision,
-	cs.name AS &applicationStatusDetails.charm_source,
-	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
-	c.version AS &applicationStatusDetails.charm_version,
-	c.lxd_profile AS &applicationStatusDetails.lxd_profile,
-	aps.scale AS &applicationStatusDetails.scale,
-	k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
-	EXISTS(
-		SELECT 1 FROM v_application_exposed_endpoint AS ae
-		WHERE ae.application_uuid = a.uuid
-	) AS &applicationStatusDetails.exposed,
-	awv.version AS &applicationStatusDetails.workload_version
+  a.name AS &applicationStatusDetails.name,
+  a.uuid AS &applicationStatusDetails.uuid,
+  a.life_id AS &applicationStatusDetails.life_id,
+  ap.os_id AS &applicationStatusDetails.platform_os_id,
+  ap.channel AS &applicationStatusDetails.platform_channel,
+  ap.architecture_id AS &applicationStatusDetails.platform_architecture_id,
+  ac.track AS &applicationStatusDetails.channel_track,
+  ac.risk AS &applicationStatusDetails.channel_risk,
+  ac.branch AS &applicationStatusDetails.channel_branch,
+  cm.subordinate AS &applicationStatusDetails.subordinate,
+  s.status_id AS &applicationStatusDetails.status_id,
+  s.message AS &applicationStatusDetails.message,
+  s.data AS &applicationStatusDetails.data,
+  s.updated_at AS &applicationStatusDetails.updated_at,
+  re.relation_uuid AS &applicationStatusDetails.relation_uuid,
+  c.reference_name AS &applicationStatusDetails.charm_reference_name,
+  c.revision AS &applicationStatusDetails.charm_revision,
+  cs.name AS &applicationStatusDetails.charm_source,
+  c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
+  c.version AS &applicationStatusDetails.charm_version,
+  c.lxd_profile AS &applicationStatusDetails.lxd_profile,
+  aps.scale AS &applicationStatusDetails.scale,
+  k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
+  svc_addr.address_value AS &applicationStatusDetails.k8s_public_address,
+  EXISTS(
+    SELECT 1 FROM v_application_exposed_endpoint AS ae
+    WHERE ae.application_uuid = a.uuid
+  ) AS &applicationStatusDetails.exposed,
+  awv.version AS &applicationStatusDetails.workload_version
 FROM application AS a
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
 LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
@@ -1632,6 +1660,7 @@ JOIN charm_source AS cs ON cs.id = c.source_id
 JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
+LEFT JOIN selected_k8s_service_address AS svc_addr ON svc_addr.application_uuid = a.uuid
 LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
@@ -1659,16 +1688,12 @@ ORDER BY a.name, re.relation_uuid;
 			}
 		}
 
-		// If the application already exists, append the relation UUID to its
-		// relations.
-		if entry, exists := result[appName]; exists && s.RelationUUID.Valid {
-			entry.Relations = append(entry.Relations, relationUUID)
+		if entry, exists := result[appName]; exists {
+			if s.RelationUUID.Valid && !slices.Contains(entry.Relations, relationUUID) {
+				entry.Relations = append(entry.Relations, relationUUID)
+			}
 			result[appName] = entry
 			continue
-		} else if exists {
-			// This should never happen, but if it does, we have a duplicate
-			// application name with no relation UUID. This is a problem.
-			return nil, errors.Errorf("duplicate application name %q", appName)
 		}
 
 		// We've got a new application, so create a new status.
@@ -1712,6 +1737,14 @@ ORDER BY a.name, re.relation_uuid;
 			k8sProviderID = &s.K8sProviderID.V
 		}
 
+		// It is possible for a service to have multiple IP addresses, but for
+		// now we just want to return one. Pick one deterministically but
+		// arbitrarily
+		var k8sPublicAddress *string
+		if s.K8sPublicAddress.Valid {
+			k8sPublicAddress = &s.K8sPublicAddress.V
+		}
+
 		var workloadVersion *string
 		if s.WorkloadVersion.Valid && s.WorkloadVersion.V != "" {
 			workloadVersion = &s.WorkloadVersion.V
@@ -1727,16 +1760,17 @@ ORDER BY a.name, re.relation_uuid;
 				Data:    s.Data,
 				Since:   s.UpdatedAt,
 			},
-			Relations:       relations,
-			CharmLocator:    charmLocator,
-			CharmVersion:    s.CharmVersion,
-			LXDProfile:      lxdProfile,
-			Platform:        platform,
-			Channel:         channel,
-			Exposed:         s.Exposed,
-			Scale:           scale,
-			WorkloadVersion: workloadVersion,
-			K8sProviderID:   k8sProviderID,
+			Relations:        relations,
+			CharmLocator:     charmLocator,
+			CharmVersion:     s.CharmVersion,
+			LXDProfile:       lxdProfile,
+			Platform:         platform,
+			Channel:          channel,
+			Exposed:          s.Exposed,
+			Scale:            scale,
+			WorkloadVersion:  workloadVersion,
+			K8sProviderID:    k8sProviderID,
+			K8sPublicAddress: k8sPublicAddress,
 		}
 	}
 

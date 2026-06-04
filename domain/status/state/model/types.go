@@ -189,6 +189,7 @@ type applicationStatusDetails struct {
 	Scale                  sql.Null[int]        `db:"scale"`
 	WorkloadVersion        sql.Null[string]     `db:"workload_version"`
 	K8sProviderID          sql.Null[string]     `db:"k8s_provider_id"`
+	K8sPublicAddress       sql.Null[string]     `db:"k8s_public_address"`
 }
 
 type unitStatusDetails struct {

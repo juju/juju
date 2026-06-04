@@ -419,6 +419,63 @@ func (s *stateSuite) TestGetLatestRevisionsNone(c *tc.C) {
 	c.Check(got, tc.HasLen, 0)
 }
 
+func (s *stateSuite) TestGetSecretOwnerKinds(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: new(uuid.MustNewUUID().String()),
+	}
+
+	// Create one app-owned and one unit-owned secret.
+	appURI := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, appURI, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	sp.RevisionID = new(uuid.MustNewUUID().String())
+	unitURI := coresecrets.NewURI()
+	err = s.createCharmUnitSecret(c, 1, unitURI, "mysql/0", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetSecretOwnerKinds(c.Context(), []*coresecrets.URI{appURI, unitURI})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 2)
+
+	byID := make(map[string]domainsecret.CharmSecretOwnerKind, len(got))
+	for _, info := range got {
+		byID[info.SecretID] = info.OwnerKind
+	}
+	c.Check(byID[appURI.ID], tc.Equals, domainsecret.CharmSecretOwnerKind("application"))
+	c.Check(byID[unitURI.ID], tc.Equals, domainsecret.CharmSecretOwnerKind("unit"))
+}
+
+func (s *stateSuite) TestGetSecretOwnerKindsNotFoundOmitted(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar"},
+		RevisionID: new(uuid.MustNewUUID().String()),
+	}
+	existingURI := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, existingURI, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A URI that doesn't correspond to any secret in the DB.
+	missingURI := coresecrets.NewURI()
+
+	got, err := s.state.GetSecretOwnerKinds(c.Context(), []*coresecrets.URI{existingURI, missingURI})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 1)
+	c.Check(got[0].SecretID, tc.Equals, existingURI.ID)
+	c.Check(got[0].OwnerKind, tc.Equals, domainsecret.CharmSecretOwnerKind("application"))
+}
+
+func (s *stateSuite) TestGetSecretOwnerKindsEmpty(c *tc.C) {
+	got, err := s.state.GetSecretOwnerKinds(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.IsNil)
+}
+
 func (s *stateSuite) TestGetRotatePolicy(c *tc.C) {
 	s.setupUnits(c, "mysql")
 

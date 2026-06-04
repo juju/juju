@@ -429,9 +429,25 @@ func extractRelationKeys(model description.Model) (map[string]relation.Key, erro
 			})
 		}
 
+		key = relationKeyOrdered(key)
 		relationKeys[rel.Key()] = key
 	}
 	return relationKeys, nil
+}
+
+func relationKeyOrdered(key relation.Key) relation.Key {
+	if len(key) != 2 {
+		return key
+	}
+
+	// The 4.0 relation state queries return endpoints in canonical relation
+	// key order, but model migration imports relation data from a description
+	// exported by an older controller. Its endpoint order is not guaranteed to
+	// match the 4.0 key contract, so canonicalise it at the import boundary.
+	if key[0].Role == deploymentcharm.RoleProvider && key[1].Role == deploymentcharm.RoleRequirer {
+		return relation.Key{key[1], key[0]}
+	}
+	return key
 }
 
 func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {

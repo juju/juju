@@ -317,7 +317,7 @@ type OutputWriter interface {
 
 func printPorts(w OutputWriter, ps []string) {
 	sorted := append([]string(nil), ps...)
-	sort.Strings(sorted)
+	sort.Sort(sortablePorts(sorted))
 
 	protocols := map[string]*protocol{}
 	proto := func(p string) *protocol {

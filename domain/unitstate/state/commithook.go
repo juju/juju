@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -16,6 +17,7 @@ import (
 	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // CommitHookChanges persists a set of changes after a hook successfully
@@ -67,6 +69,10 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		if err := st.revokeSecretsAccess(ctx, tx, arg.SecretRevokes); err != nil {
 			return errors.Errorf("revoke secrets access:%w", err)
 		}
+
+		// TODO(secrets): clean up unit secret reservations and tokens here,
+		// inside the transaction, once the state-layer implementation is
+		// provided (currently a no-op in domain/secret/state).
 
 		if err := st.deleteSecrets(ctx, tx, arg.SecretDeletes); err != nil {
 			return errors.Errorf("delete secrets:%w", err)
@@ -121,7 +127,44 @@ func (st *State) revokeSecretsAccess(ctx context.Context, tx *sqlair.TX, revokes
 	return nil
 }
 
-func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []unitstate.DeleteSecretArg) error {
+func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []internal.DeleteSecretArg) error {
+	if len(deletes) == 0 {
+		return nil
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($secretRemovalJob.*)", secretRemovalJob{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	now := st.clock.Now().UTC()
+	jobs := make([]secretRemovalJob, 0, len(deletes))
+	for _, del := range deletes {
+		jobUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		rec := secretRemovalJob{
+			UUID:          jobUUID.String(),
+			RemovalTypeID: charmSecretRemovalJobTypeID,
+			EntityUUID:    del.URI,
+			ScheduledFor:  now,
+		}
+
+		if del.ArgJSON != nil {
+			rec.Arg = sql.NullString{
+				String: *del.ArgJSON,
+				Valid:  true,
+			}
+		}
+
+		jobs = append(jobs, rec)
+	}
+
+	if err := tx.Query(ctx, stmt, jobs).Run(); err != nil {
+		return errors.Errorf("inserting secret removal jobs: %w", err)
+	}
 	return nil
 }
 

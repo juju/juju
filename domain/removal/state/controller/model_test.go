@@ -72,8 +72,8 @@ func (s *modelSuite) TestIsMigratingModel(c *tc.C) {
 	// Set the model as migrating.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid)
-VALUES ('foo', ?)`, modelUUID)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -117,8 +117,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadStillAlive(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid)
-VALUES ('foo', ?)`, modelUUID); err != nil {
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
 			return err
 		}
 		return nil
@@ -139,8 +139,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadDying(c *tc.C) {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid)
-VALUES ('foo', ?)`, modelUUID); err != nil {
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
 			return err
 		}
 		return nil
@@ -257,7 +257,7 @@ func (s *modelSuite) TestDeleteMigratingModel(c *tc.C) {
 			return err
 		}
 
-		_, err := tx.ExecContext(ctx, "INSERT INTO model_migration_import (uuid, model_uuid) VALUES ('blah', ?)", modelUUID)
+		_, err := tx.ExecContext(ctx, "INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES ('blah', ?, 'source-migration-uuid')", modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
