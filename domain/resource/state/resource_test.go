@@ -191,6 +191,8 @@ func (s *resourceSuite) TestDeleteApplicationResources(c *tc.C) {
 	var remainingResources []resourceData
 	var noRowsInResourceRetrievedBy bool
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		remainingResources = nil
+
 		// fetch resources
 		rows, err := tx.Query(`
 SELECT uuid, charm_resource_name, application_uuid
@@ -401,6 +403,8 @@ func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 			errors.ErrorStack(err)))
 	var obtained []resourceData
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		obtained = nil
+
 		// fetch resources
 		rows, err := tx.Query(`
 SELECT uuid, name, application_uuid, unit_uuid
@@ -841,15 +845,19 @@ func (s *resourceSuite) TestSetRepositoryResource(c *tc.C) {
 	newCharmUUID := "new-charm-uuid"
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		resourcesToCheck := make([]resourceData, 0, len(notPolled)+len(alreadyPolled))
+		resourcesToCheck = append(resourcesToCheck, notPolled...)
+		resourcesToCheck = append(resourcesToCheck, alreadyPolled...)
+
 		// add the new charm
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, reference_name, architecture_id, revision) VALUES (?, 'app',0, 1)
-`, newCharmUUID)
+	`, newCharmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		// populate charm resources table for existing resources
-		for _, d := range append(notPolled, alreadyPolled...) {
+		for _, d := range resourcesToCheck {
 			_, err = tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description)
 VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
@@ -859,7 +867,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 			}
 		}
 
-		for _, input := range append(notPolled, alreadyPolled...) {
+		for _, input := range resourcesToCheck {
 			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
 			}
@@ -896,6 +904,8 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 	}
 	var obtained []obtainedRow
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		obtained = nil
+
 		rows, err := tx.Query(`SELECT uuid, revision, charm_uuid, last_polled FROM resource WHERE state_id = 1`)
 		if err != nil {
 			return err
@@ -1492,6 +1502,9 @@ func (s *resourceSuite) TestSetUnitResourceUnsetExisting(c *tc.C) {
 	var addedAts []time.Time
 	var uuids []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		addedAts = nil
+		uuids = nil
+
 		rows, err := tx.Query(`
 SELECT added_at, resource_uuid FROM unit_resource
 WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)

@@ -1218,6 +1218,8 @@ func nilEmpty(s *string) string {
 func (s *applicationEndpointStateSuite) fetchApplicationEndpoints(c *tc.C) []applicationEndpoint {
 	var endpoints []applicationEndpoint
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		endpoints = nil
+
 		rows, err := tx.Query(`
 SELECT ae.charm_relation_uuid, s.name
 FROM application_endpoint ae
@@ -1253,6 +1255,8 @@ type appEndpointSpace struct {
 func (s *applicationEndpointStateSuite) fetchApplicationEndpointAndSpaceUUID(c *tc.C, appID string) []appEndpointSpace {
 	var endpoints []appEndpointSpace
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		endpoints = nil
+
 		rows, err := tx.Query(`
 SELECT cr.name, s.name
 FROM application_endpoint AS ae
@@ -1284,6 +1288,8 @@ ORDER BY s.name`, appID)
 func (s *applicationEndpointStateSuite) fetchApplicationExtraEndpointAndSpaceUUID(c *tc.C, appID string) []appEndpointSpace {
 	var endpoints []appEndpointSpace
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		endpoints = nil
+
 		rows, err := tx.Query(`
 SELECT cr.name, s.name
 FROM application_extra_endpoint AS ae
@@ -1315,6 +1321,8 @@ ORDER BY s.name`, appID)
 func (s *applicationEndpointStateSuite) fetchApplicationExtraEndpoints(c *tc.C) []applicationEndpoint {
 	var endpoints []applicationEndpoint
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		endpoints = nil
+
 		rows, err := tx.Query(`
 SELECT ae.charm_extra_binding_uuid, s.name
 FROM application_extra_endpoint ae

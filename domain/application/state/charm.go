@@ -652,6 +652,7 @@ WHERE c.uuid = $entityUUID.uuid;
 			return errors.Capture(err)
 		}
 
+		revision := ch.Revision
 		// If the charm requires sequencing, get the next revision from
 		// the reference name.
 		if requiresSequencing {
@@ -660,10 +661,12 @@ WHERE c.uuid = $entityUUID.uuid;
 			if err != nil {
 				return errors.Errorf("getting next charm revision: %w", err)
 			}
-			ch.Revision = int(rev)
+			revision = int(rev)
 		}
 
-		if err := s.addCharm(ctx, tx, id, ch, downloadInfo); err != nil {
+		charmToAdd := ch
+		charmToAdd.Revision = revision
+		if err := s.addCharm(ctx, tx, id, charmToAdd, downloadInfo); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -900,8 +903,8 @@ WHERE model_uuid = $modelMigrating.model_uuid
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query the model_migrating table to check if this model has an entry.
-		migrationCheck.ModelUUID = s.modelUUID.String()
-		err = tx.Query(ctx, migrationStmt, migrationCheck).Get(&count)
+		migrationCheckArgs := modelMigrating{ModelUUID: s.modelUUID.String()}
+		err = tx.Query(ctx, migrationStmt, migrationCheckArgs).Get(&count)
 		if err != nil {
 			return errors.Errorf("checking if model is importing: %w", err)
 		}

@@ -83,6 +83,8 @@ func (s *commitHookSuite) TestUpdateCharmState(c *tc.C) {
 	// Assert
 	gotState := make(map[string]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		gotState = map[string]string{}
+
 		q := "SELECT key, value FROM unit_state_charm WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
 		if err != nil {
@@ -692,6 +694,8 @@ func (s *commitHookSuite) TestDeleteSecretsMultiple(c *tc.C) {
 	}
 	rows := make(map[string]row)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rows = map[string]row{}
+
 		r, err := tx.QueryContext(ctx,
 			"SELECT entity_uuid, arg FROM removal WHERE removal_type_id = ? ORDER BY entity_uuid",
 			int(removal.CharmSecretJob),

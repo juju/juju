@@ -168,6 +168,8 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *tc.C) {
 
 	gotState := make(map[string]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		gotState = map[string]string{}
+
 		q := "SELECT key, value FROM unit_state_charm WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
 		if err != nil {
@@ -202,6 +204,8 @@ func (s *stateSuite) TestUpdateUnitStateCharmEmptyMap(c *tc.C) {
 
 	var rowCount int
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rowCount = 0
+
 		q := "SELECT key, value FROM unit_state_charm WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
 		if err != nil {
@@ -237,6 +241,8 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 
 	gotState := make(map[int]string)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		gotState = map[int]string{}
+
 		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
 		if err != nil {
@@ -272,6 +278,8 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 
 	var rowCount int
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		rowCount = 0
+
 		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
 		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
 		if err != nil {

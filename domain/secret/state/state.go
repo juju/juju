@@ -2345,10 +2345,6 @@ func (st State) GetSecretConsumer(
 		return nil, 0, errors.Capture(err)
 	}
 
-	consumer := secretUnitConsumer{
-		SecretID: uri.ID,
-	}
-
 	query := `
 SELECT suc.label AS &secretUnitConsumer.label,
        suc.current_revision AS &secretUnitConsumer.current_revision
@@ -2392,11 +2388,16 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 			return errors.Capture(err)
 		}
 
-		consumer.UnitUUID, err = st.getUnitUUID(ctx, tx, unitName)
+		unitUUID, err := st.getUnitUUID(ctx, tx, unitName)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = tx.Query(ctx, queryStmt, consumer).GetAll(&dbSecretConsumers)
+		consumerLookup := secretUnitConsumer{
+			SecretID: uri.ID,
+			UnitUUID: unitUUID,
+		}
+		secretConsumers := secretUnitConsumers{}
+		err = tx.Query(ctx, queryStmt, consumerLookup).GetAll(&secretConsumers)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying secret consumers: %w", err)
 		}
@@ -2416,6 +2417,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		} else if err != nil {
 			return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
 		}
+		dbSecretConsumers = secretConsumers
 		latestRevision = latest.Revision
 		migrated = latest.Migrated
 
@@ -2453,12 +2455,6 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	consumer := secretUnitConsumer{
-		SecretID:        uri.ID,
-		SourceModelUUID: uri.SourceUUID,
-		Label:           md.Label,
-		CurrentRevision: md.CurrentRevision,
-	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		isLocal, err := st.checkExistsIfLocal(ctx, tx, uri)
 		if err != nil {
@@ -2467,11 +2463,18 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 		if !isLocal {
 			return secreterrors.SecretIsNotLocal
 		}
-		consumer.UnitUUID, err = st.getUnitUUID(ctx, tx, unitName)
+		unitUUID, err := st.getUnitUUID(ctx, tx, unitName)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
+		consumer := secretUnitConsumer{
+			SecretID:        uri.ID,
+			SourceModelUUID: uri.SourceUUID,
+			Label:           md.Label,
+			CurrentRevision: md.CurrentRevision,
+			UnitUUID:        unitUUID,
+		}
 		if err := tx.Query(ctx, insertStmt, consumer).Run(); err != nil {
 			return errors.Capture(err)
 		}
@@ -2903,11 +2906,7 @@ WHERE  secret_id = $secretPermission.secret_id
 AND    subject_type_id = $secretPermission.subject_type_id
 AND    subject_uuid = $secretPermission.subject_uuid`
 
-	perm := secretPermission{
-		SecretID:      uri.ID,
-		SubjectTypeID: params.SubjectTypeID,
-	}
-	deleteStmt, err := st.Prepare(deleteQuery, perm)
+	deleteStmt, err := st.Prepare(deleteQuery, secretPermission{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2923,8 +2922,12 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 		if err := st.checkSubjectUUIDExists(ctx, tx, params.SubjectUUID, params.SubjectTypeID); err != nil {
 			return errors.Capture(err)
 		}
-		perm.SubjectUUID = params.SubjectUUID
-		err = tx.Query(ctx, deleteStmt, perm).Run()
+		permissionToDelete := secretPermission{
+			SecretID:      uri.ID,
+			SubjectTypeID: params.SubjectTypeID,
+			SubjectUUID:   params.SubjectUUID,
+		}
+		err = tx.Query(ctx, deleteStmt, permissionToDelete).Run()
 		if err != nil {
 			return errors.Errorf("deleting secret grant for %q on %q: %w", params.SubjectUUID, uri, err)
 		}

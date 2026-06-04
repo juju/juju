@@ -310,6 +310,8 @@ func (s *watcherSuite) createIAASApplication(
 
 	var unitUUIDs = make([]coreunit.UUID, 0, len(units))
 	err = s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = nil
+
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
 			return err
@@ -332,7 +334,9 @@ func (s *watcherSuite) createIAASApplication(
 
 		for rows.Next() {
 			var unitUUID string
-			c.Assert(rows.Scan(&unitUUID), tc.ErrorIsNil)
+			if err := rows.Scan(&unitUUID); err != nil {
+				return err
+			}
 			unitUUIDs = append(unitUUIDs, coreunit.UUID(unitUUID))
 		}
 		return nil

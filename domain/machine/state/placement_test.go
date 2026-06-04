@@ -199,6 +199,8 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *tc.C) {
 	total := 10
 	netNodes := make([]string, 0, total)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		netNodes = nil
+
 		for range total {
 			netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 			_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
@@ -238,7 +240,10 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 
 	netNodes := make([]string, 0, stepTotal*2)
 	createMachines := func() {
+		var createdNetNodes []string
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			createdNetNodes = nil
+
 			for range stepTotal {
 				netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 				_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
@@ -251,11 +256,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *t
 				if err != nil {
 					return err
 				}
-				netNodes = append(netNodes, netNodeUUID.String())
+				createdNetNodes = append(createdNetNodes, netNodeUUID.String())
 			}
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
+		netNodes = append(netNodes, createdNetNodes...)
 	}
 	deleteLastMachine := func() {
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -476,6 +482,8 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *tc.C)
 
 	netNodes := make([]string, 0, total)
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		netNodes = nil
+
 		for range total {
 			netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 			_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
@@ -519,7 +527,10 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 
 	netNodes := make([]string, 0, stepTotal*2)
 	createMachines := func() {
+		var createdNetNodes []string
 		err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			createdNetNodes = nil
+
 			for range stepTotal {
 				netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 				_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
@@ -533,11 +544,12 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 				if err != nil {
 					return err
 				}
-				netNodes = append(netNodes, netNodeUUID.String())
+				createdNetNodes = append(createdNetNodes, netNodeUUID.String())
 			}
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
+		netNodes = append(netNodes, createdNetNodes...)
 	}
 	deleteLastMachine := func() {
 		// Delete the parent and the child.
@@ -895,6 +907,8 @@ WHERE m.name = ?
 func (s *placementSuite) checkContainerTypeForMachine(c *tc.C, name machine.Name, expected ...string) {
 	var containerTypes []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		containerTypes = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT ct.value
 FROM machine AS m

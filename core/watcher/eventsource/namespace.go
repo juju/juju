@@ -188,6 +188,8 @@ func InitialNamespaceChanges(selectAll string, args ...any) NamespaceQuery {
 
 		var keys []string
 		err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			keys = nil
+
 			rows, err := tx.QueryContext(ctx, selectAll, args...)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {

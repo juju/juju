@@ -123,33 +123,18 @@ func (st *State) CreateStorageInstanceWithExistingFilesystem(
 		return "", errors.Capture(err)
 	}
 
-	storageInstance := insertStorageInstance{
-		UUID:             args.UUID.String(),
-		LifeID:           int(life.Alive),
-		StorageName:      args.Name.String(),
-		StorageKindID:    int(domainstorage.StorageKindFilesystem),
-		StoragePoolUUID:  args.StoragePoolUUID.String(),
-		RequestedSizeMiB: args.RequestedSizeMiB,
-	}
 	insertStorageInstanceStmt, err := st.Prepare(`
 INSERT INTO storage_instance (*)
 VALUES ($insertStorageInstance.*)
-`, storageInstance)
+`, insertStorageInstance{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	filesystem := insertStorageFilesystem{
-		UUID:             args.FilesystemUUID.String(),
-		LifeID:           int(life.Alive),
-		ProvisionScopeID: int(args.FilesystemProvisionScope),
-		ProviderID:       args.FilesystemProviderID,
-		SizeMiB:          args.FilesystemSize,
-	}
 	insertFilesystemStmt, err := st.Prepare(`
 INSERT INTO storage_filesystem (*)
 VALUES ($insertStorageFilesystem.*)
-`, filesystem)
+`, insertStorageFilesystem{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -180,7 +165,10 @@ VALUES ($insertStorageFilesystemStatus.*)
 		return "", errors.Capture(err)
 	}
 
+	var storageID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		storageID = ""
+
 		exists, err := st.checkStoragePoolExists(
 			ctx, tx, args.StoragePoolUUID.String())
 		if err != nil {
@@ -201,7 +189,7 @@ VALUES ($insertStorageFilesystemStatus.*)
 		if err != nil {
 			return errors.Errorf("creating unique storage instance id: %w", err)
 		}
-		storageInstance.StorageID = corestorage.MakeID(
+		storageIDToInsert := corestorage.MakeID(
 			corestorage.Name(args.Name), storageSeq,
 		).String()
 
@@ -211,13 +199,31 @@ VALUES ($insertStorageFilesystemStatus.*)
 		if err != nil {
 			return errors.Errorf("creating unique filesystem id: %w", err)
 		}
-		filesystem.FilesystemID = fmt.Sprintf("%d", filesystemSeq)
+		filesystemID := fmt.Sprintf("%d", filesystemSeq)
 
-		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstance).Run()
+		storageInstanceToInsert := insertStorageInstance{
+			UUID:             args.UUID.String(),
+			StorageName:      args.Name.String(),
+			StorageKindID:    int(domainstorage.StorageKindFilesystem),
+			StorageID:        storageIDToInsert,
+			LifeID:           int(life.Alive),
+			StoragePoolUUID:  args.StoragePoolUUID.String(),
+			RequestedSizeMiB: args.RequestedSizeMiB,
+		}
+		filesystemToInsert := insertStorageFilesystem{
+			UUID:             args.FilesystemUUID.String(),
+			FilesystemID:     filesystemID,
+			LifeID:           int(life.Alive),
+			ProvisionScopeID: int(args.FilesystemProvisionScope),
+			ProviderID:       args.FilesystemProviderID,
+			SizeMiB:          args.FilesystemSize,
+		}
+
+		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstanceToInsert).Run()
 		if err != nil {
 			return errors.Errorf("inserting storage instance: %w", err)
 		}
-		err = tx.Query(ctx, insertFilesystemStmt, filesystem).Run()
+		err = tx.Query(ctx, insertFilesystemStmt, filesystemToInsert).Run()
 		if err != nil {
 			return errors.Errorf("inserting filesystem: %w", err)
 		}
@@ -230,13 +236,14 @@ VALUES ($insertStorageFilesystemStatus.*)
 			return errors.Errorf("inserting storage filesystem status: %w", err)
 		}
 
+		storageID = storageIDToInsert
 		return nil
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	return storageInstance.StorageID, nil
+	return storageID, nil
 }
 
 // CreateStorageInstanceWithExistingVolumeBackedFilesystem creates a new
@@ -256,33 +263,18 @@ func (st *State) CreateStorageInstanceWithExistingVolumeBackedFilesystem(
 		return "", errors.Capture(err)
 	}
 
-	storageInstance := insertStorageInstance{
-		UUID:             args.UUID.String(),
-		LifeID:           int(life.Alive),
-		StorageName:      args.Name.String(),
-		StorageKindID:    int(domainstorage.StorageKindFilesystem),
-		StoragePoolUUID:  args.StoragePoolUUID.String(),
-		RequestedSizeMiB: args.RequestedSizeMiB,
-	}
 	insertStorageInstanceStmt, err := st.Prepare(`
 INSERT INTO storage_instance (*)
 VALUES ($insertStorageInstance.*)
-`, storageInstance)
+`, insertStorageInstance{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	filesystem := insertStorageFilesystem{
-		UUID:             args.FilesystemUUID.String(),
-		LifeID:           int(life.Alive),
-		ProvisionScopeID: int(args.FilesystemProvisionScope),
-		ProviderID:       args.FilesystemProviderID,
-		SizeMiB:          args.FilesystemSize,
-	}
 	insertFilesystemStmt, err := st.Prepare(`
 INSERT INTO storage_filesystem (*)
 VALUES ($insertStorageFilesystem.*)
-`, filesystem)
+`, insertStorageFilesystem{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -313,20 +305,10 @@ VALUES ($insertStorageFilesystemStatus.*)
 		return "", errors.Capture(err)
 	}
 
-	volume := insertStorageVolume{
-		UUID:             args.VolumeUUID.String(),
-		LifeID:           int(life.Alive),
-		ProvisionScopeID: int(args.VolumeProvisionScope),
-		ProviderID:       args.VolumeProviderID,
-		SizeMiB:          args.VolumeSize,
-		HardwareID:       args.VolumeHardwareID,
-		WWN:              args.VolumeWWN,
-		Persistent:       args.VolumePersistent,
-	}
 	insertVolumeStmt, err := st.Prepare(`
 INSERT INTO storage_volume (*)
 VALUES ($insertStorageVolume.*)
-`, volume)
+`, insertStorageVolume{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -357,7 +339,10 @@ VALUES ($insertStorageVolumeStatus.*)
 		return "", errors.Capture(err)
 	}
 
+	var storageID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		storageID = ""
+
 		exists, err := st.checkStoragePoolExists(
 			ctx, tx, args.StoragePoolUUID.String())
 		if err != nil {
@@ -377,7 +362,7 @@ VALUES ($insertStorageVolumeStatus.*)
 		if err != nil {
 			return errors.Errorf("creating unique storage instance id: %w", err)
 		}
-		storageInstance.StorageID = corestorage.MakeID(
+		storageIDToInsert := corestorage.MakeID(
 			corestorage.Name(args.Name), storageSeq,
 		).String()
 
@@ -387,7 +372,7 @@ VALUES ($insertStorageVolumeStatus.*)
 		if err != nil {
 			return errors.Errorf("creating unique filesystem id: %w", err)
 		}
-		filesystem.FilesystemID = fmt.Sprintf("%d", filesystemSeq)
+		filesystemID := fmt.Sprintf("%d", filesystemSeq)
 
 		volumeSeq, err := sequencestate.NextValue(
 			ctx, st, tx, domainstorage.VolumeSequenceNamespace,
@@ -395,13 +380,42 @@ VALUES ($insertStorageVolumeStatus.*)
 		if err != nil {
 			return errors.Errorf("creating unique volume id: %w", err)
 		}
-		volume.VolumeID = fmt.Sprintf("%d", volumeSeq)
+		volumeID := fmt.Sprintf("%d", volumeSeq)
 
-		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstance).Run()
+		storageInstanceToInsert := insertStorageInstance{
+			UUID:             args.UUID.String(),
+			StorageName:      args.Name.String(),
+			StorageKindID:    int(domainstorage.StorageKindFilesystem),
+			StorageID:        storageIDToInsert,
+			LifeID:           int(life.Alive),
+			StoragePoolUUID:  args.StoragePoolUUID.String(),
+			RequestedSizeMiB: args.RequestedSizeMiB,
+		}
+		filesystemToInsert := insertStorageFilesystem{
+			UUID:             args.FilesystemUUID.String(),
+			FilesystemID:     filesystemID,
+			LifeID:           int(life.Alive),
+			ProvisionScopeID: int(args.FilesystemProvisionScope),
+			ProviderID:       args.FilesystemProviderID,
+			SizeMiB:          args.FilesystemSize,
+		}
+		volumeToInsert := insertStorageVolume{
+			UUID:             args.VolumeUUID.String(),
+			VolumeID:         volumeID,
+			LifeID:           int(life.Alive),
+			ProvisionScopeID: int(args.VolumeProvisionScope),
+			ProviderID:       args.VolumeProviderID,
+			SizeMiB:          args.VolumeSize,
+			HardwareID:       args.VolumeHardwareID,
+			WWN:              args.VolumeWWN,
+			Persistent:       args.VolumePersistent,
+		}
+
+		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstanceToInsert).Run()
 		if err != nil {
 			return errors.Errorf("inserting storage instance: %w", err)
 		}
-		err = tx.Query(ctx, insertFilesystemStmt, filesystem).Run()
+		err = tx.Query(ctx, insertFilesystemStmt, filesystemToInsert).Run()
 		if err != nil {
 			return errors.Errorf("inserting filesystem: %w", err)
 		}
@@ -415,7 +429,7 @@ VALUES ($insertStorageVolumeStatus.*)
 		if err != nil {
 			return errors.Errorf("inserting storage filesystem status: %w", err)
 		}
-		err = tx.Query(ctx, insertVolumeStmt, volume).Run()
+		err = tx.Query(ctx, insertVolumeStmt, volumeToInsert).Run()
 		if err != nil {
 			return errors.Errorf("inserting volume: %w", err)
 		}
@@ -428,11 +442,12 @@ VALUES ($insertStorageVolumeStatus.*)
 			return errors.Errorf("inserting storage volume status: %w", err)
 		}
 
+		storageID = storageIDToInsert
 		return nil
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	return storageInstance.StorageID, nil
+	return storageID, nil
 }

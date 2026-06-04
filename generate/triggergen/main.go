@@ -137,6 +137,8 @@ func initDBRunner(ctx context.Context, db *sql.DB, dbType string) (*txnRunner, e
 func readTableColumns(ctx context.Context, runner *txnRunner, tables []string) (map[string][]columnInfo, error) {
 	tableColumns := make(map[string][]columnInfo)
 	if err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		tableColumns = map[string][]columnInfo{}
+
 		for _, table := range tables {
 			columns, err := func(table string) ([]string, error) {
 				rows, err := tx.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s", table))

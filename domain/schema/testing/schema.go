@@ -40,6 +40,8 @@ func DumpChangeLogState(c *tc.C, runner database.TxnRunner) {
 		witness changeLogWitnessRow
 	)
 	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		logs = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT id, edit_type_id, namespace_id, changed, created_at FROM change_log")
 		if err != nil {
 			return err

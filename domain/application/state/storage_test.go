@@ -240,6 +240,8 @@ WHERE name=?`, "666").Scan(&charmUUID)
 	)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		foundCharmStorage = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT cs.name, csk.kind
 FROM charm_storage cs
@@ -261,6 +263,8 @@ WHERE charm_uuid=?`, charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		foundAppStorage = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT storage_name, storage_pool_uuid, size_mib, count
 FROM   application_storage_directive

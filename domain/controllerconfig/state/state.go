@@ -41,6 +41,8 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 
 	result := make(map[string]string)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = map[string]string{}
+
 		var keyValues []KeyValue
 		if err := tx.Query(ctx, stmt).GetAll(&keyValues); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

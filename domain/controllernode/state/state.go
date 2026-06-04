@@ -90,8 +90,8 @@ WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, cID := range delete {
-			controllerNode.ControllerID = cID
-			if err := tx.Query(ctx, deleteStmt, controllerNode).Run(); err != nil {
+			controllerNodeToDelete := dbControllerNode{ControllerID: cID}
+			if err := tx.Query(ctx, deleteStmt, controllerNodeToDelete).Run(); err != nil {
 				return errors.Errorf("deleting controller node %q: %w", cID, err)
 			}
 		}
@@ -155,25 +155,18 @@ func (st *State) SetRunningAgentBinaryVersion(
 		return errors.Capture(err)
 	}
 
-	arch := architecture{Name: version.Arch}
-
 	selectArchIdStmt, err := st.Prepare(`
 SELECT id AS &architecture.id FROM architecture WHERE name = $architecture.name
-`, arch)
+`, architecture{})
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	controllerNodeAgentVer := controllerNodeAgentVersion{
-		ControllerID: controllerID,
-		Version:      version.Number.String(),
 	}
 
 	selectControllerNodeStmt, err := st.Prepare(`
 SELECT controller_id AS &controllerNodeAgentVersion.*
 FROM controller_node
 WHERE controller_id = $controllerNodeAgentVersion.controller_id
-	`, controllerNodeAgentVer)
+	`, controllerNodeAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -184,15 +177,15 @@ WHERE controller_id = $controllerNodeAgentVersion.controller_id
 INSERT INTO controller_node_agent_version (*) VALUES ($controllerNodeAgentVersion.*)
 ON CONFLICT (controller_id) DO
 UPDATE SET version = excluded.version
-`, controllerNodeAgentVer)
+`, controllerNodeAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
 		// Ensure controller id exists in controller node before upserting controller node agent version.
-		err = tx.Query(ctx, selectControllerNodeStmt, controllerNodeAgentVer).Get(&controllerNodeAgentVer)
+		controllerNode := controllerNodeAgentVersion{ControllerID: controllerID}
+		err := tx.Query(ctx, selectControllerNodeStmt, controllerNode).Get(&controllerNode)
 
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -205,6 +198,7 @@ UPDATE SET version = excluded.version
 			)
 		}
 
+		arch := architecture{Name: version.Arch}
 		err = tx.Query(ctx, selectArchIdStmt, arch).Get(&arch)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -216,8 +210,12 @@ UPDATE SET version = excluded.version
 			)
 		}
 
-		controllerNodeAgentVer.ArchitectureID = arch.ID
-		return tx.Query(ctx, upsertControllerNodeAgentVerStmt, controllerNodeAgentVer).Run()
+		controllerNodeAgentVersionToSet := controllerNodeAgentVersion{
+			ControllerID:   controllerID,
+			Version:        version.Number.String(),
+			ArchitectureID: arch.ID,
+		}
+		return tx.Query(ctx, upsertControllerNodeAgentVerStmt, controllerNodeAgentVersionToSet).Run()
 	})
 
 	if err != nil {

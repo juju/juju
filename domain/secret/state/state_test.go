@@ -1004,6 +1004,8 @@ func (s *stateSuite) setupUnits(c *tc.C, appName string) (string, []string) {
 func (s *stateSuite) addUnits(c *tc.C, appName, charmUUID string) []string {
 	unitUUIDs := make([]string, 2)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = make([]string, 2)
+
 		// Do 2 units.
 		for i := range 2 {
 			netNodeUUID := uuid.MustNewUUID().String()
