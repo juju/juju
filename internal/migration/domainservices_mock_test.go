@@ -2129,10 +2129,10 @@ func (c *MockDomainServicesStorageProvisioningCall) DoAndReturn(f func() *servic
 }
 
 // Tracing mocks base method.
-func (m *MockDomainServices) Tracing() *service45.Service {
+func (m *MockDomainServices) Tracing() *service45.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tracing")
-	ret0, _ := ret[0].(*service45.Service)
+	ret0, _ := ret[0].(*service45.WatchableService)
 	return ret0
 }
 
@@ -2149,19 +2149,19 @@ type MockDomainServicesTracingCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDomainServicesTracingCall) Return(arg0 *service45.Service) *MockDomainServicesTracingCall {
+func (c *MockDomainServicesTracingCall) Return(arg0 *service45.WatchableService) *MockDomainServicesTracingCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesTracingCall) Do(f func() *service45.Service) *MockDomainServicesTracingCall {
+func (c *MockDomainServicesTracingCall) Do(f func() *service45.WatchableService) *MockDomainServicesTracingCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesTracingCall) DoAndReturn(f func() *service45.Service) *MockDomainServicesTracingCall {
+func (c *MockDomainServicesTracingCall) DoAndReturn(f func() *service45.WatchableService) *MockDomainServicesTracingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

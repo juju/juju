@@ -99,7 +99,7 @@ type ControllerDomainServices interface {
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
 	// Tracing returns the service for accessing tracing configuration.
-	Tracing() *tracingservice.Service
+	Tracing() *tracingservice.WatchableService
 	// Logging returns the service for accessing logging configuration.
 	Logging() *loggingservice.WatchableService
 }

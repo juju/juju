@@ -45,6 +45,12 @@ func (st *State) GetWorkloadTracingConfig(ctx context.Context) (map[string]strin
 	return st.getWorkloadTracingConfig(ctx)
 }
 
+// NamespaceForWatchWorkloadTracingConfig returns the namespace identifier used
+// for watching workload tracing configuration changes.
+func (*State) NamespaceForWatchWorkloadTracingConfig() string {
+	return "workload_tracing_config"
+}
+
 func (st *State) setCharmTracingConfig(
 	ctx context.Context,
 	insertions map[string]string,

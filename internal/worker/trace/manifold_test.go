@@ -82,10 +82,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		defer s.setupMocks(c).Finish()
 
 		s.expectCurrentConfig(enabled)
-
-		if enabled {
-			s.expectOpenTelemetry()
-		}
+		s.expectOpenTelemetry()
 
 		w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 		c.Assert(err, tc.ErrorIsNil)
@@ -101,9 +98,9 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 func (s *manifoldSuite) expectOpenTelemetry() {
 	s.config.EXPECT().Tag().Return(names.NewControllerAgentTag("0"))
-	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah")
-	s.config.EXPECT().OpenTelemetryInsecure().Return(false)
-	s.config.EXPECT().OpenTelemetryStackTraces().Return(true)
-	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5)
-	s.config.EXPECT().OpenTelemetryTailSamplingThreshold().Return(time.Second)
+	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah").AnyTimes()
+	s.config.EXPECT().OpenTelemetryInsecure().Return(false).AnyTimes()
+	s.config.EXPECT().OpenTelemetryStackTraces().Return(true).AnyTimes()
+	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5).AnyTimes()
+	s.config.EXPECT().OpenTelemetryTailSamplingThreshold().Return(time.Second).AnyTimes()
 }
