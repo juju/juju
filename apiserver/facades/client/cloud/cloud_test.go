@@ -479,6 +479,42 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 
 }
 
+func (s *cloudSuite) TestAddCloudNoAuthTypesAddsEmptyAuthType(c *gc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	controllerCloud := jujucloud.Cloud{
+		Name: "dummy-controller",
+		Type: "dummy",
+	}
+	newCloud := jujucloud.Cloud{
+		Name:     "newcloudname",
+		Type:     "dummy",
+		Endpoint: "fake-endpoint",
+		AuthTypes: []jujucloud.AuthType{
+			jujucloud.EmptyAuthType,
+		},
+		Regions: []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	}
+
+	backend := s.backend.EXPECT()
+	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "dummy-controller"}, nil)
+	backend.Cloud("dummy-controller").Return(controllerCloud, nil)
+	backend.AddCloud(newCloud, adminTag.Name()).Return(nil)
+
+	force := true
+	err := s.api.AddCloud(params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:     "dummy",
+			Endpoint: "fake-endpoint",
+			Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		},
+		Force: &force,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
 	frankTag := names.NewUserTag("frank")
 	defer s.setup(c, frankTag).Finish()
@@ -525,6 +561,73 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudNoRegion(c *gc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	expectedCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: jujucloud.DefaultCloudRegion}},
+	}
+
+	backend := s.backend.EXPECT()
+	backend.UpdateCloud(expectedCloud).Return(nil)
+
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		Clouds: []params.AddCloudArgs{{
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:      "dummy",
+				AuthTypes: []string{"empty", "userpass"},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudNoAuthTypesAddsEmptyAuthType(c *gc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	expectedCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType},
+		Endpoint:  "fake-endpoint",
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}
+
+	backend := s.backend.EXPECT()
+	backend.Cloud("dummy").Return(jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil).Times(1)
+	backend.UpdateCloud(expectedCloud).Return(nil).Times(2)
+
+	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+		Clouds: []params.AddCloudArgs{{
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:     "dummy",
+				Endpoint: "fake-endpoint",
+				Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			},
+		}, {
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:     "dummy",
+				Endpoint: "fake-endpoint",
+				Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.IsNil)
 }
 
 func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {

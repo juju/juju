@@ -372,7 +372,11 @@ func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.
 		return err
 	}
 	ctxt.Infof("Cloud %q added to controller %q.", c.Cloud, c.ControllerName)
-	// Add a credential for the newly added cloud.
+	// Add a credential for the newly added cloud, if needed.
+	if len(newCloud.AuthTypes) == 0 ||
+		len(newCloud.AuthTypes) == 1 && newCloud.AuthTypes[0] == jujucloud.EmptyAuthType {
+		return nil
+	}
 	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
 		logger.Warningf("%v", err)

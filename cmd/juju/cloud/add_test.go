@@ -441,6 +441,21 @@ func (s *addSuite) TestForceAddToController(c *gc.C) {
 	s.asssertAddToController(c, true)
 }
 
+func (s *addSuite) TestAddToControllerSingleEmptyAuthSkipsCredential(c *gc.C) {
+	const emptyAuthCloudYAML = `
+        clouds:
+          local-manual:
+            type: manual
+            auth-types: [empty]
+            endpoint: "http://dummy"`
+
+	cloudFileName, command, _, api, _, _ := s.setupControllerCloudScenarioWithFile(c, emptyAuthCloudYAML)
+	ctx, err := cmdtesting.RunCommand(c, command, "local-manual", cloudFileName, "-c", "mycontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	api.CheckCallNames(c, "AddCloud", "Close")
+	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, "Cloud \"local-manual\" added to controller \"mycontroller\".\n")
+}
+
 func (s *addSuite) TestAddLocal(c *gc.C) {
 	cloudFileName, command, _, api, _, numCalls := s.setupControllerCloudScenario(c)
 

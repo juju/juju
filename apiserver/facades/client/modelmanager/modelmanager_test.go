@@ -451,6 +451,18 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.CloudCredentialTag{})
 }
 
+func (s *modelManagerSuite) TestCreateModelEmptyCredentialAdmin(c *gc.C) {
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+	}
+	_, err := s.api.CreateModel(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModelArgs := s.getModelArgs(c)
+	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.CloudCredentialTag{})
+}
+
 func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) {
 	s.st.cloud.AuthTypes = nil
 	args := params.ModelCreateArgs{

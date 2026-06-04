@@ -731,6 +731,17 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	if len(aCloud.Regions) == 0 {
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
+	// Add the empty auth type if needed.
+	if len(aCloud.AuthTypes) == 0 {
+		aProvider, err := environs.Provider(aCloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		schema := aProvider.CredentialSchemas()
+		if _, ok := schema[jujucloud.EmptyAuthType]; ok {
+			aCloud.AuthTypes = []cloud.AuthType{jujucloud.EmptyAuthType}
+		}
+	}
 
 	err = api.backend.AddCloud(aCloud, api.apiUser.Id())
 	return errors.Trace(err)
@@ -747,8 +758,41 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	} else if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}
+
+	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
+	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
+		if s, ok := schemaCache[cloudName]; ok {
+			return s, nil
+		}
+		aCloud, err := api.backend.Cloud(cloudName)
+		if err != nil {
+			return nil, err
+		}
+		aProvider, err := environs.Provider(aCloud.Type)
+		if err != nil {
+			return nil, err
+		}
+		schema := aProvider.CredentialSchemas()
+		schemaCache[cloudName] = schema
+		return schema, nil
+	}
 	for i, aCloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(cloudFromParams(aCloud.Name, aCloud.Cloud))
+		aCloud := cloudFromParams(aCloud.Name, aCloud.Cloud)
+		// All clouds must have at least one 'default' region, lp#1819409.
+		if len(aCloud.Regions) == 0 {
+			aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
+		}
+		// Add the empty auth type if needed.
+		if len(aCloud.AuthTypes) == 0 {
+			schema, err := credentialSchemas(aCloud.Name)
+			if err != nil {
+				results.Results[i].Error = apiservererrors.ServerError(err)
+			}
+			if _, ok := schema[jujucloud.EmptyAuthType]; ok {
+				aCloud.AuthTypes = []cloud.AuthType{jujucloud.EmptyAuthType}
+			}
+		}
+		err := api.backend.UpdateCloud(aCloud)
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
