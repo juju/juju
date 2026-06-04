@@ -111,6 +111,53 @@ func (s *State) NamespaceForWatchMinionSync() string {
 	return "model_migration_export_minion_sync"
 }
 
+// GetActiveExportUUID returns the UUID of the active export migration for the
+// given model. If no active export exists [modelmigrationerrors.ErrMigrationNotFound]
+// is returned.
+func (s *State) GetActiveExportUUID(ctx context.Context, modelUUID string) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	terminalIDs, err := terminalPhaseIDs()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &entityUUID.uuid
+FROM   model_migration_export
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+AND    current_phase_id NOT IN (
+       $terminalPhaseIDArgs.reap_failed_id,
+       $terminalPhaseIDArgs.done_id,
+       $terminalPhaseIDArgs.abort_done_id)
+`, mUUID, terminalIDs, entityUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = entityUUID{}
+
+		err := tx.Query(ctx, stmt, mUUID, terminalIDs).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("no active migration for model %q: %w", modelUUID, modelmigrationerrors.ErrMigrationNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying active export for model %q: %w", modelUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.UUID, nil
+}
+
 // InsertExport records a new export migration attempt for a model. It ensures
 // the target external_controller row exists, inserts the
 // model_migration_export row in the QUIESCE phase with its companion

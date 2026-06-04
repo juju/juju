@@ -396,8 +396,7 @@ func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
 	migUUID := tc.Must(c, uuid.NewUUID).String()
 	ch := make(chan struct{}, 1)
 	gomock.InOrder(
-		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigrationinternal.Migration{UUID: migUUID}, nil),
+		s.controllerState.EXPECT().GetActiveExportUUID(gomock.Any(), s.modelUUID).Return(migUUID, nil),
 		s.controllerState.EXPECT().NamespaceForWatchMinionSync().Return("model_migration_export_minion_sync"),
 		s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {

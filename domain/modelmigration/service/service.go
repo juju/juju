@@ -115,6 +115,10 @@ type ControllerState interface {
 	// model, or [modelmigrationerrors.ErrMigrationNotFound] if none exists.
 	GetActiveExport(ctx context.Context, modelUUID string) (modelmigrationinternal.Migration, error)
 
+	// GetActiveExportUUID returns the UUID of the active export migration for
+	// the model, or [modelmigrationerrors.ErrMigrationNotFound] if none exists.
+	GetActiveExportUUID(ctx context.Context, modelUUID string) (string, error)
+
 	// GetMigrationMode derives the migration mode for the model.
 	GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error)
 
@@ -488,7 +492,7 @@ func (s *Service) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
+	migUUID, err := s.controllerState.GetActiveExportUUID(ctx, s.modelUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -499,7 +503,7 @@ func (s *Service) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher
 		eventsource.PredicateFilter(
 			s.controllerState.NamespaceForWatchMinionSync(),
 			changestream.All,
-			eventsource.EqualsPredicate(mig.UUID),
+			eventsource.EqualsPredicate(migUUID),
 		),
 	)
 }

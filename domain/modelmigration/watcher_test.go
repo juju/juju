@@ -116,6 +116,15 @@ func (s *exportWatcherSuite) TestWatchMigrationPhase(c *tc.C) {
 		w.AssertChange()
 	})
 
+	// A change on the export row itself (namespace 10019) must NOT fire the
+	// phase watcher (namespace 10020): the two surfaces are deliberately
+	// isolated, mirroring the converse assertion in TestWatchForMigration.
+	harness.AddTest(c, func(c *tc.C) {
+		s.endExport(c, migrationUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
 	harness.Run(c, struct{}{})
 }
 

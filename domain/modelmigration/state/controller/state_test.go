@@ -422,6 +422,45 @@ func (s *stateSuite) TestInsertExportAfterEnded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestGetActiveExportUUID returns the UUID of the active export migration for
+// the model.
+func (s *stateSuite) TestGetActiveExportUUID(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	spec := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, spec.MigrationUUID)
+}
+
+// TestGetActiveExportUUIDNotFound asserts ErrMigrationNotFound is returned when
+// the model has no export migration.
+func (s *stateSuite) TestGetActiveExportUUIDNotFound(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	_, err := st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+}
+
+// TestGetActiveExportUUIDIgnoresTerminalExport asserts a terminal export is no
+// longer considered active.
+func (s *stateSuite) TestGetActiveExportUUIDIgnoresTerminalExport(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	spec := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.ABORTDONE)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+}
+
 func (s *stateSuite) TestInsertExportUpdatesExternalController(c *tc.C) {
 	db := s.DB()
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
