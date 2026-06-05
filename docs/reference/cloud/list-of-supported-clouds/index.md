@@ -5,15 +5,6 @@ myst:
 ---
 
 (list-of-supported-clouds)=
-(list-of-supported-machine-clouds)=
-(list-of-supported-kubernetes-clouds)=
 # List of supported clouds
-
-```{toctree}
-:titlesonly:
-
-Machine clouds <machine-clouds/index>
-Kubernetes clouds <kubernetes-clouds/index>
-```
 
 Juju supports two types of clouds: {ref}`machine clouds <machine-clouds>` and {ref}`Kubernetes clouds <kubernetes-clouds>`.
