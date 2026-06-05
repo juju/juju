@@ -7,14 +7,12 @@ myst:
 (cloud-ec2)=
 # Amazon EC2
 
-In Juju, Amazon EC2 is a {ref}`machine cloud <machine-cloud>`. This document describes EC2-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs)
-```
+In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (ec2-cloud)=
-## Cloud
+## The cloud
+
+The Amazon EC2 cloud in Juju.
 
 (ec2-cloud-definition)=
 ### Definition
@@ -40,10 +38,12 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 Use `vpc-id-force=true` to skip validation.
 
 (ec2-credential)=
-## Credential
+## Credentials
 
-(ec2-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the Amazon EC2 cloud.
+
+(ec2-credential-authentication-types)=
+### Authentication types
 
 (ec2-credential-instance-role)=
 #### `instance-role`
@@ -61,7 +61,9 @@ Attributes:
 - `secret-key`: The EC2 secret key (required).
 
 (ec2-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the Amazon EC2 cloud.
 
 (ec2-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -94,10 +96,12 @@ See more: [Discourse | Using AWS instance profiles with Juju](https://discourse.
 ```
 
 (ec2-model)=
-## Model
+## Models
 
-(ec2-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+Models connected to the Amazon EC2 cloud.
+
+(ec2-model-configuration-keys)=
+### Configuration keys
 
 (ec2-model-vpc-id)=
 #### `vpc-id`
@@ -120,10 +124,12 @@ Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the mini
 - **Mandatory**: `false`
 
 (ec2-machine)=
-## Machine
+## Machines
 
-(ec2-machine-supported-constraints)=
-### Supported constraints
+Machines provisioned on the Amazon EC2 cloud.
+
+(ec2-machine-constraints)=
+### Constraints
 
 ```{note}
 The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclusive.
@@ -143,8 +149,8 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`
 
-(ec2-machine-supported-placement-directives)=
-### Supported placement directives
+(ec2-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`: If the query looks like a CIDR, matches subnets with the same CIDR. If it follows syntax `subnet-XXXX`, matches the Subnet ID. Otherwise matches subnet Name tag.
@@ -174,7 +180,11 @@ Each machine (controller or application) receives:
 - **Space-aware networking**: Supports space constraints for subnet selection.
 
 (ec2-storage)=
-## Cloud-specific storage providers
+## Storage
+
+Storage provisioned on the Amazon EC2 cloud.
+
+### Storage providers
 
 (storage-provider-ebs)=
 ### `ebs`

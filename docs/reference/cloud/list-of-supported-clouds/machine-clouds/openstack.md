@@ -7,14 +7,12 @@ myst:
 (cloud-openstack)=
 # OpenStack
 
-In Juju, OpenStack is a {ref}`machine cloud <machine-cloud>`. This document describes OpenStack-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [OpenStack](https://www.openstack.org/)
-```
+In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (openstack-cloud)=
-## Cloud
+## The cloud
+
+The OpenStack cloud in Juju.
 
 (openstack-cloud-definition)=
 ### Definition
@@ -39,14 +37,16 @@ Any version that supports:
 Source the OpenStack RC file (`source <path to file>`). This allows Juju to detect values from preset OpenStack environment variables. Run `juju add-cloud` in interactive mode and accept the suggested defaults.
 
 (openstack-credential)=
-## Credential
+## Credentials
+
+Credentials for the OpenStack cloud.
 
 ```{important}
 **If you want to use environment variables (recommended):** Source the OpenStack RC file. Run `juju add-credential` and accept the suggested defaults.
 ```
 
-(openstack-credential-supported-authentication-types)=
-### Supported authentication types
+(openstack-credential-authentication-types)=
+### Authentication types
 
 (openstack-credential-userpass)=
 #### `userpass`
@@ -63,7 +63,9 @@ Attributes:
 - `user-domain-name`: The OpenStack user domain name (optional).
 
 (openstack-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the OpenStack cloud.
 
 (openstack-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -99,10 +101,13 @@ See more: {ref}`manage-metadata`
 - ICMP: Ingress from same group (IPv4 & IPv6)
 
 (openstack-model)=
-## Model
+## Models
+
+Models connected to the OpenStack cloud.
 
 (openstack-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(openstack-model-configuration-keys)=
+### Configuration keys
 
 (openstack-model-external-network)=
 #### `external-network`
@@ -155,10 +160,13 @@ The network label or UUID to bring machines up on when multiple networks exist.
 - **Mandatory**: `false`
 
 (openstack-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the OpenStack cloud.
 
 (openstack-machine-supported-constraints)=
-### Supported constraints
+(openstack-machine-constraints)=
+### Constraints
 
 ```{note}
 The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
@@ -177,7 +185,8 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 - {ref}`constraint-zones`
 
 (openstack-machine-supported-placement-directives)=
-### Supported placement directives
+(openstack-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
@@ -207,7 +216,12 @@ Each machine (controller or application) receives:
 - **Port security**: Respects `port_security_enabled` network attribute. Skips security group creation if port security disabled.
 
 (openstack-storage)=
-## Cloud-specific storage providers
+(openstack-storage)=
+## Storage
+
+Storage provisioned on the OpenStack cloud.
+
+### Storage providers
 
 (storage-provider-cinder)=
 ### `cinder`

@@ -7,14 +7,12 @@ myst:
 (cloud-gce)=
 # Google GCE
 
-In Juju, Google GCE is a {ref}`machine cloud <machine-cloud>`. This document describes GCE-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [Google GCE](https://cloud.google.com/compute)
-```
+In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (gce-cloud)=
-## Cloud
+## The cloud
+
+The Google GCE cloud in Juju.
 
 (gce-cloud-definition)=
 ### Definition
@@ -45,15 +43,17 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 - SSH access enabled (firewall rule for port 22)
 
 (gce-credential)=
-## Credential
+## Credentials
+
+Credentials for the Google GCE cloud.
 
 **Environment variables (optional):**
 
 - `CLOUDSDK_COMPUTE_REGION`
 - `GOOGLE_APPLICATION_CREDENTIALS=<path to JSON credentials file>`
 
-(gce-credential-supported-authentication-types)=
-### Supported authentication types
+(gce-credential-authentication-types)=
+### Authentication types
 
 (gce-credential-oauth2)=
 #### `oauth2`
@@ -90,7 +90,9 @@ See more: {ref}`gce-appendix-workflow-1`
 ```
 
 (gce-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the Google GCE cloud.
 
 (gce-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -121,10 +123,13 @@ See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authen
 ```
 
 (gce-model)=
-## Model
+## Models
+
+Models connected to the Google GCE cloud.
 
 (gce-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(gce-model-configuration-keys)=
+### Configuration keys
 
 (gce-model-vpc-id)=
 #### `vpc-id`
@@ -157,10 +162,13 @@ Base path to look for machine disk images.
 - **Mandatory**: `false`
 
 (gce-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the Google GCE cloud.
 
 (gce-machine-supported-constraints)=
-### Supported constraints
+(gce-machine-constraints)=
+### Constraints
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive.
@@ -179,7 +187,8 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-zones`
 
 (gce-machine-supported-placement-directives)=
-### Supported placement directives
+(gce-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`: Matches subnet by name or CIDR range.
@@ -208,7 +217,12 @@ Each machine (controller or application) receives:
 - **Address resolution**: Returns private address (cloud-local scope, from subnet CIDR) and public address (if NAT configured).
 
 (gce-storage)=
-## Cloud-specific storage providers
+(gce-storage)=
+## Storage
+
+Storage provisioned on the Google GCE cloud.
+
+### Storage providers
 
 (storage-provider-gce)=
 ### `gce`

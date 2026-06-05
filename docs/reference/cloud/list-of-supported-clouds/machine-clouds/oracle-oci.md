@@ -7,14 +7,12 @@ myst:
 (cloud-oci)=
 # Oracle OCI
 
-In Juju, Oracle OCI is a {ref}`machine cloud <machine-cloud>`. This document describes OCI-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm)
-```
+In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (oci-cloud)=
-## Cloud
+## The cloud
+
+The Oracle OCI cloud in Juju.
 
 (oci-cloud-definition)=
 ### Definition
@@ -39,10 +37,12 @@ Example: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracl
 OCI organizes resources into availability domains (ADs) within each region. Juju creates one subnet per availability domain during bootstrap. Machines are launched in the first available AD unless constrained otherwise.
 
 (oci-credential)=
-## Credential
+## Credentials
 
-(oci-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the Oracle OCI cloud.
+
+(oci-credential-authentication-types)=
+### Authentication types
 
 (oci-credential-httpsig)=
 #### `httpsig`
@@ -57,7 +57,9 @@ Attributes:
 - `region`: DEPRECATED -- Region to log into (required).
 
 (oci-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the Oracle OCI cloud.
 
 (oci-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -76,10 +78,13 @@ Creates a controller instance on OCI via imperative API calls. Uses polling-base
 - **Freeform tags**: All resources tagged with `JujuController=<controller-uuid>`, `JujuModel=<model-uuid>`. Controller instances also tagged `JujuIsController=true`.
 
 (oci-model)=
-## Model
+## Models
+
+Models connected to the Oracle OCI cloud.
 
 (oci-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(oci-model-configuration-keys)=
+### Configuration keys
 
 (oci-model-compartment-id)=
 #### `compartment-id`
@@ -102,10 +107,13 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 - **Mandatory**: `false`
 
 (oci-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the Oracle OCI cloud.
 
 (oci-machine-supported-constraints)=
-### Supported constraints
+(oci-machine-constraints)=
+### Constraints
 
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-arch`: Valid values: `amd64`, `arm64`.
@@ -117,7 +125,8 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 - {ref}`constraint-zones`: Specifies availability domain. Example: `zones=us-phoenix-1:AD-1`.
 
 (oci-machine-supported-placement-directives)=
-### Supported placement directives
+(oci-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
@@ -146,7 +155,12 @@ Each machine (controller or application) receives:
 - **Public IP allocation**: Not guaranteed immediately. Juju polls up to 30 seconds after instance reaches Running state.
 
 (oci-storage)=
-## Cloud-specific storage providers
+(oci-storage)=
+## Storage
+
+Storage provisioned on the Oracle OCI cloud.
+
+### Storage providers
 
 (storage-provider-oracle)=
 ### `oracle`

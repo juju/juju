@@ -7,7 +7,7 @@ myst:
 (cloud-lxd)=
 # LXD
 
-In Juju, LXD is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. This document describes LXD-specific behaviors, configuration options, and limitations.
+In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
 
@@ -39,7 +39,9 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 ```
 
 (lxd-cloud)=
-## Cloud
+## The cloud
+
+The LXD cloud in Juju.
 
 (lxd-cloud-definition)=
 ### Definition
@@ -81,7 +83,9 @@ See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/cl
 LXD projects provide isolated namespaces for models (multi-tenancy). Configured via cloud spec `Project` field. Profile, network, storage, and container APIs are scoped to the project.
 
 (lxd-credential)=
-## Credential
+## Credentials
+
+Credentials for the LXD cloud.
 
 **Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
 
@@ -91,8 +95,8 @@ LXD projects provide isolated namespaces for models (multi-tenancy). Configured 
 See more: [LXD | How to add remote servers](https://documentation.ubuntu.com/lxd/en/latest/remotes/), {ref}`lxd-appendix-remote-bootstrap`
 ```
 
-(lxd-credential-supported-authentication-types)=
-### Supported authentication types
+(lxd-credential-authentication-types)=
+### Authentication types
 
 (lxd-credential-certificate)=
 #### `certificate`
@@ -116,7 +120,9 @@ See more: [LXD | Adding client certificates using tokens](https://documentation.
 ```
 
 (lxd-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the LXD cloud.
 
 (lxd-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -135,10 +141,13 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 - **Controller instance**: Created via `CreateInstanceFromImage()`. Profiles: `default` (LXD built-in) + model profile. Devices: network NICs (bridged to default network), storage (root disk). Started via `StartContainer()` (`UpdateInstanceState` with action="start"). Instance name: `juju-<modeluuid>-<machinenum>`.
 
 (lxd-model)=
-## Model
+## Models
+
+Models connected to the LXD cloud.
 
 (lxd-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(lxd-model-configuration-keys)=
+### Configuration keys
 
 (lxd-model-project)=
 #### `project`
@@ -151,7 +160,9 @@ The LXD project name to use for Juju's resources.
 - **Mandatory**: `false`
 
 (lxd-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the LXD cloud.
 
 ```{note}
 With LXD system containers, constraints are interpreted as resource *maximums* (as opposed to *minimums*).
@@ -160,7 +171,8 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 ```
 
 (lxd-machine-supported-constraints)=
-### Supported constraints
+(lxd-machine-constraints)=
+### Constraints
 
 - {ref}`constraint-arch`: Valid values: Host architecture.
 - {ref}`constraint-cores`
@@ -172,7 +184,8 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 - {ref}`constraint-zones`: LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
 
 (lxd-machine-supported-placement-directives)=
-### Supported placement directives
+(lxd-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: If there's no '=' delimiter, assume it's a node name.
@@ -198,7 +211,12 @@ Each machine (controller or application) receives:
 - **IP assignment**: Static via host bridge DHCP from LXD host. Container network detection via `ContainerAddresses()`.
 
 (lxd-storage)=
-## Cloud-specific storage providers
+(lxd-storage)=
+## Storage
+
+Storage provisioned on the LXD cloud.
+
+### Storage providers
 
 (storage-provider-lxd)=
 ### `lxd`

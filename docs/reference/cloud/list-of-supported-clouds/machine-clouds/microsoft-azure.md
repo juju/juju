@@ -1,13 +1,11 @@
 # Microsoft Azure
 
-In Juju, Azure is a {ref}`machine cloud <machine-cloud>`. This document describes Azure-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
-```
+In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (azure-cloud)=
-## Cloud
+## The cloud
+
+The Microsoft Azure cloud in Juju.
 
 (azure-cloud-definition)=
 ### Definition
@@ -51,10 +49,12 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 | [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
 
 (azure-credential)=
-## Credential
+## Credentials
 
-(azure-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the Microsoft Azure cloud.
+
+(azure-credential-authentication-types)=
+### Authentication types
 
 (azure-credential-managed-identity)=
 #### `managed-identity`
@@ -101,7 +101,9 @@ See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
 Credentials occasionally stop working over time. Refresh using credential update or re-add credential.
 
 (azure-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the Microsoft Azure cloud.
 
 (azure-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -131,10 +133,13 @@ See more: {ref}`azure-machine-supported-constraints`
 ```
 
 (azure-model)=
-## Model
+## Models
+
+Models connected to the Microsoft Azure cloud.
 
 (azure-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(azure-model-configuration-keys)=
+### Configuration keys
 
 (azure-model-load-balancer-sku-name)=
 #### `load-balancer-sku-name`
@@ -167,10 +172,13 @@ If set, use the specified virtual network for all model machines instead of crea
 - **Mandatory**: `false`
 
 (azure-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the Microsoft Azure cloud.
 
 (azure-machine-supported-constraints)=
-### Supported constraints
+(azure-machine-constraints)=
+### Constraints
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
@@ -188,7 +196,8 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 - {ref}`constraint-zones`
 
 (azure-machine-supported-placement-directives)=
-### Supported placement directives
+(azure-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-subnet`
 
@@ -213,7 +222,12 @@ Each machine (controller or application) receives:
 - **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
 
 (azure-storage)=
-## Cloud-specific storage providers
+(azure-storage)=
+## Storage
+
+Storage provisioned on the Microsoft Azure cloud.
+
+### Storage providers
 
 (storage-provider-azure)=
 ### `azure`

@@ -5,19 +5,9 @@ myst:
 ---
 
 (cloud-kubernetes-gke)=
-# The Google GKE cloud and Juju
+# Google GKE
 
-This document describes details specific to using your existing Google GKE cloud with Juju.
-
-```{ibnote}
-See more: [Google GKE](https://cloud.google.com/kubernetes-engine/docs)
-```
-
-In Juju, Google GKE is a {ref}`kubernetes-cloud`.
-
-```{ibnote}
-See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
-```
+In Juju, [Google GKE](https://cloud.google.com/kubernetes-engine/docs) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes and storage providers, described below.
 
 ## Cloud-specific notes
 
@@ -25,7 +15,9 @@ See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
 
 Starting with Juju 3.0, because of the  fact that the `juju` client snap is strictly confined but the GKE cloud CLI snap is not, you must run the `add-k8s` command with the 'raw' client. See note in {ref}`add-a-kubernetes-cloud`.
 
-## Cloud-specific storage providers
+## Storage
+
+Storage provisioned on the Google GKE cloud.
 
 ```{ibnote}
 See first: {ref}`storage-provider`

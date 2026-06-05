@@ -5,17 +5,9 @@ myst:
 ---
 
 (cloud-equinix)=
-# The Equinix Metal cloud and Juju
+# Equinix Metal
 
-This document describes details specific to using your existing Equinix Metal cloud with Juju.
-
-```{ibnote}
-See more: [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/)
-```
-
-When using this cloud with Juju, it is important to keep in mind that it is a (1) {ref}`machine cloud <machine-cloud>` and (2) not some other cloud.
-
-As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
+In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ## Notes on `juju add-cloud`
 

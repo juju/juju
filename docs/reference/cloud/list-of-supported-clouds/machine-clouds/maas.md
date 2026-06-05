@@ -7,14 +7,12 @@ myst:
 (cloud-maas)=
 # MAAS
 
-In Juju, MAAS is a {ref}`machine cloud <machine-cloud>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [MAAS](https://maas.io/)
-```
+In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (maas-cloud)=
-## Cloud
+## The cloud
+
+The MAAS cloud in Juju.
 
 (maas-cloud-definition)=
 ### Definition
@@ -43,10 +41,12 @@ Key implications:
 - Storage must exist on machine hardware -- cannot be dynamically provisioned.
 
 (maas-credential)=
-## Credential
+## Credentials
 
-(maas-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the MAAS cloud.
+
+(maas-credential-authentication-types)=
+### Authentication types
 
 (maas-credential-oauth1)=
 #### `oauth1`
@@ -59,7 +59,9 @@ Attributes:
 ```
 
 (maas-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the MAAS cloud.
 
 (maas-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -80,10 +82,13 @@ MAAS does not create resources—it allocates existing machines from its invento
 All infrastructure (machines, networks, storage) must already exist in MAAS before bootstrap.
 
 (maas-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the MAAS cloud.
 
 (maas-machine-supported-constraints)=
-### Supported constraints
+(maas-machine-constraints)=
+### Constraints
 
 - {ref}`constraint-arch`: Valid values: See cloud provider.
 - {ref}`constraint-container`
@@ -97,7 +102,8 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 - {ref}`constraint-zones`
 
 (maas-machine-supported-placement-directives)=
-### Supported placement directives
+(maas-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-system-id`
@@ -124,7 +130,12 @@ Each machine (controller or application) receives:
 - **No provisioning**: Juju does not create networks -- all networking must be pre-configured in MAAS.
 
 (maas-storage)=
-## Cloud-specific storage providers
+(maas-storage)=
+## Storage
+
+Storage provisioned on the MAAS cloud.
+
+### Storage providers
 
 (storage-provider-maas)=
 ### `maas`

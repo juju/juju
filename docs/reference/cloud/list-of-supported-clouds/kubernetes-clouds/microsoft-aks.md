@@ -5,19 +5,9 @@ myst:
 ---
 
 (cloud-kubernetes-aks)=
-# The Microsoft AKS cloud and Juju
+# Microsoft AKS
 
-This document describes details specific to using your existing Microsoft AKS cloud with Juju.
-
-```{ibnote}
-See more: [Microsoft AKS](https://azure.microsoft.com/en-us/products/kubernetes-service)
-```
-
-In Juju, Microsoft AKS is a {ref}`kubernetes-cloud`.
-
-```{ibnote}
-See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
-```
+In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes and storage providers, described below.
 
 ## Cloud-specific notes
 

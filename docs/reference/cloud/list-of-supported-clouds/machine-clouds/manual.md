@@ -7,7 +7,7 @@ myst:
 (cloud-manual)=
 # Manual
 
-In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. This document describes Manual-specific behaviors, configuration options, and limitations.
+In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{important}
 The Manual cloud is a cloud you create with Juju from existing machines. Manual does not provision new infrastructure -- it brings existing Ubuntu/Debian systems under Juju management via SSH.
@@ -18,7 +18,9 @@ If this collection of machines is composed solely of bare metal you might opt fo
 ```
 
 (manual-cloud)=
-## Cloud
+## The cloud
+
+The Manual cloud in Juju.
 
 (manual-cloud-definition)=
 ### Definition
@@ -39,15 +41,19 @@ A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privile
 - The machines must be able to ping one another.
 
 (manual-credential)=
-## Credential
+## Credentials
 
-(manual-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the Manual cloud.
+
+(manual-credential-authentication-types)=
+### Authentication types
 
 No preset authentication types. Ensure you can SSH into the controller machine using public key authentication. Juju uses standard SSH mechanisms (private key, optionally password auth, PTY enablement).
 
 (manual-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the Manual cloud.
 
 When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
 
@@ -91,15 +97,20 @@ Manual does not create infrastructure resources. It configures existing machines
 - **Machine record**: Instance ID `"manual:"`, status `Running`, address from hostname/IP.
 
 (manual-model)=
-## Model
+## Models
+
+Models connected to the Manual cloud.
 
 (manual-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(manual-model-configuration-keys)=
+### Configuration keys
 
 None.
 
 (manual-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the Manual cloud.
 
 ```{important}
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g., a cloud instance) as they become necessary. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during deployment.
@@ -120,7 +131,8 @@ See more: {ref}`take-your-deployment-offline`
 ```
 
 (manual-machine-supported-constraints)=
-### Supported constraints
+(manual-machine-constraints)=
+### Constraints
 
 Constraints are limited to detectable hardware attributes:
 
@@ -132,7 +144,8 @@ Constraints are limited to detectable hardware attributes:
 - {ref}`constraint-zones`
 
 (manual-machine-supported-placement-directives)=
-### Supported placement directives
+(manual-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`

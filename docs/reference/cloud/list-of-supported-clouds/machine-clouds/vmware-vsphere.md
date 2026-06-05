@@ -7,14 +7,12 @@ myst:
 (cloud-vsphere)=
 # VMware vSphere
 
-In Juju, VMware vSphere is a {ref}`machine cloud <machine-cloud>`. This document describes vSphere-specific behaviors, configuration options, and limitations.
-
-```{ibnote}
-See more: [VMware vSphere](https://docs.vmware.com/)
-```
+In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (vsphere-cloud)=
-## Cloud
+## The cloud
+
+The VMware vSphere cloud in Juju.
 
 (vsphere-cloud-definition)=
 ### Definition
@@ -36,10 +34,12 @@ In order to add a vSphere cloud you will need an existing vSphere installation w
 Juju supports both high-availability vSAN deployments and standard deployments.
 
 (vsphere-credential)=
-## Credential
+## Credentials
 
-(vsphere-credential-supported-authentication-types)=
-### Supported authentication types
+Credentials for the VMware vSphere cloud.
+
+(vsphere-credential-authentication-types)=
+### Authentication types
 
 (vsphere-credential-userpass)=
 ####  `userpass`
@@ -51,7 +51,9 @@ Attributes:
 - `vmfolder`: The folder to add VMs from the model (optional).
 
 (vsphere-controller)=
-## Controller
+## Controllers
+
+Controllers bootstrapped on the VMware vSphere cloud.
 
 (vsphere-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -87,10 +89,13 @@ See more: {ref}`vsphere-appendix-using-templates`
 ```
 
 (vsphere-model)=
-## Model
+## Models
+
+Models connected to the VMware vSphere cloud.
 
 (vsphere-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(vsphere-model-configuration-keys)=
+### Configuration keys
 
 (vsphere-model-datastore)=
 #### `datastore`
@@ -153,10 +158,13 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 - **Mandatory**: `false`
 
 (vsphere-machine)=
-## Machine
+## Machines
+
+Machines provisioned on the VMware vSphere cloud.
 
 (vsphere-machine-supported-constraints)=
-### Supported constraints
+(vsphere-machine-constraints)=
+### Constraints
 
 - {ref}`constraint-arch`: Valid values: `amd64`.
 - {ref}`constraint-container`
@@ -169,7 +177,8 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 - {ref}`constraint-zones`: Specifies resource pools within a host or cluster. Examples: `zones=myhost`, `zones=myfolder/myhost`, `zones=mycluster/mypool`, `zones=mycluster/myparent/mypool`.
 
 (vsphere-machine-supported-placement-directives)=
-### Supported placement directives
+(vsphere-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: Valid values: `<cluster|host>`.
@@ -200,7 +209,12 @@ Each machine (controller or application) receives:
 - **Port groups/VLANs**: No explicit VLAN configuration. Relies on vSphere port group mapping.
 
 (vsphere-storage)=
-## Cloud-specific storage providers
+(vsphere-storage)=
+## Storage
+
+Storage provisioned on the VMware vSphere cloud.
+
+### Storage providers
 
 No custom storage providers. All storage operations use VMDK provisioning from templates. Only root disk supported -- no secondary volumes, snapshots, or persistent volume creation.
 
