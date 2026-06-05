@@ -423,8 +423,6 @@ reference/cloud/list-of-supported-clouds/the-microsoft-azure-cloud-and-juju refe
 reference/cloud/list-of-supported-clouds/the-openstack-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/openstack
 reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/oracle-oci
 reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/vmware-vsphere
-reference/cloud/machine-clouds-and-juju#machine-clouds-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/index#machine-clouds
-reference/cloud/kubernetes-clouds-and-juju#kubernetes-clouds-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/index#kubernetes-clouds
 
 
 
