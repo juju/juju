@@ -28,10 +28,10 @@ Name in Juju: User-defined
 
 In order to add a vSphere cloud you will need an existing vSphere installation which supports, or has access to, the following:
 
-- VMware Hardware Version 8 or greater
-- ESXi 5.0 or greater
-- Internet access
-- DNS and DHCP
+- VMware Hardware Version 8 or greater.
+- ESXi 5.0 or greater.
+- Internet access.
+- DNS and DHCP.
 
 Juju supports both high-availability vSAN deployments and standard deployments.
 

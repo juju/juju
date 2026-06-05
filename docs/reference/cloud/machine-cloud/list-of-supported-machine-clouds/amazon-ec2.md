@@ -31,11 +31,11 @@ Name in Juju: `aws` (predefined)
 
 When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
 
-- State: `available`
-- Internet Gateway attached
-- Main route table with default route (`0.0.0.0/0`) to the Internet Gateway
-- At least one subnet with `MapPublicIPOnLaunch=true`
-- All subnets using the main route table (not per-subnet route tables)
+- State: `available`.
+- Internet Gateway attached.
+- Main route table with default route (`0.0.0.0/0`) to the Internet Gateway.
+- At least one subnet with `MapPublicIPOnLaunch=true`.
+- All subnets using the main route table (not per-subnet route tables).
 
 Use `vpc-id-force=true` to skip validation.
 

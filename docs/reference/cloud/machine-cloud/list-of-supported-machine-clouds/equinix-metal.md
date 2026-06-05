@@ -23,8 +23,8 @@ Equinix Metal supports the following authentication types:
 
 #### `access-key`
 Attributes:
-- `project-id`: Packet project ID (required)
-- `api-token`: Packet API token (required)
+- `project-id`: Packet project ID (required).
+- `api-token`: Packet API token (required).
 
 ## Supported constraints
 

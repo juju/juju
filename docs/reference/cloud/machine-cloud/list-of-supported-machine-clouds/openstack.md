@@ -29,10 +29,10 @@ Name in Juju: User-defined.
 **Supported cloud versions:**
 
 Any version that supports:
-- Compute v2 (Nova)
-- Network v2 (Neutron) (optional, but required for Queens or newer)
-- Volume v2 (Cinder) (optional)
-- Identity v2 or v3 (Keystone)
+- Compute v2 (Nova).
+- Network v2 (Neutron) (optional, but required for Queens or newer).
+- Volume v2 (Cinder) (optional).
+- Identity v2 or v3 (Keystone).
 
 **OpenStack RC file usage (recommended):**
 
@@ -104,9 +104,9 @@ See more: {ref}`manage-metadata`
 - **Instance metadata**: Tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`.
 
 **Security group rules (model-wide):**
-- TCP ports 1-65535: Ingress from same group (IPv4 & IPv6)
-- UDP ports 1-65535: Ingress from same group (IPv4 & IPv6)
-- ICMP: Ingress from same group (IPv4 & IPv6)
+- TCP ports 1-65535: Ingress from same group (IPv4 & IPv6).
+- UDP ports 1-65535: Ingress from same group (IPv4 & IPv6).
+- ICMP: Ingress from same group (IPv4 & IPv6).
 
 (openstack-model)=
 ## Models

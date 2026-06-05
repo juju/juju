@@ -40,9 +40,9 @@ See more: [Google | Compute Engine IAM roles and permissions](https://cloud.goog
 
 When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
 
-- At least one subnet with status `READY`, OR
-- `AutoCreateSubnetworks=true` enabled
-- SSH access enabled (firewall rule for port 22)
+- At least one subnet with status `READY`, OR.
+- `AutoCreateSubnetworks=true` enabled.
+- SSH access enabled (firewall rule for port 22).
 
 (gce-credential)=
 ## Credentials
@@ -173,7 +173,7 @@ Force Juju to use the GCE VPC ID specified with `vpc-id`, when it fails the mini
 Base path to look for machine disk images.
 
 - **Type**: `string`
-- **Default value**: (omitted)
+- **Default value**: (omitted)..
 - **Immutable**: `false`
 - **Mandatory**: `false`
 

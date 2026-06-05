@@ -27,10 +27,10 @@ See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/)
 
 The LXD cloud, especially when used locally, is great for:
 
-- creating a repeatable deployment: Juju enables you to quickly iterate to construct the optimal deployment for your situation, then distribute that across your team
-- local development: Juju's localhost cloud can mirror the production ops environment (without incurring the costs involved with duplicating it)
-- learning Juju: LXD is a lightweight tool for exploring Juju and how it operates
-- rapid prototyping: LXD is great for when you're creating a new charm and want to be able to quickly provision capacity and tear it down
+- creating a repeatable deployment: Juju enables you to quickly iterate to construct the optimal deployment for your situation, then distribute that across your team.
+- local development: Juju's localhost cloud can mirror the production ops environment (without incurring the costs involved with duplicating it).
+- learning Juju: LXD is a lightweight tool for exploring Juju and how it operates.
+- rapid prototyping: LXD is great for when you're creating a new charm and want to be able to quickly provision capacity and tear it down.
 ```
 
 ```{dropdown} Expand to find out why Docker wouldn't work

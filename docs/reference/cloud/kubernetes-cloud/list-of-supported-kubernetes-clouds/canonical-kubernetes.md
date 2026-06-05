@@ -21,7 +21,7 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 **Services that must be enabled:**
 
 - `dns`
-- `ingress` (technically not required, but you need it if you want to do anything meaningful)
+- `ingress` (technically not required, but you need it if you want to do anything meaningful).
 - `local-storage`
 - `network`
 

@@ -21,18 +21,18 @@ Name in Juju: `azure`
 
 **Required Azure API permissions:**
 
-- `Microsoft.Compute/skus` (read)
-- `Microsoft.Resources/subscriptions/resourceGroups` (read, write, delete)
-- `Microsoft.Resources/deployments/*` (write, read, delete, cancel, validate)
-- `Microsoft.Network/networkSecurityGroups` (write, read, delete, join)
-- `Microsoft.Network/virtualNetworks/*` (write, read, delete)
-- `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff)
-- `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join)
-- `Microsoft.Compute/availabilitySets` (write, read, delete)
-- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) -- optional for public-facing services
-- `Microsoft.Network/networkInterfaces` (write, read, delete, join)
-- `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate)
-- `Microsoft.Compute/disks` (write, read, delete)
+- `Microsoft.Compute/skus` (read).
+- `Microsoft.Resources/subscriptions/resourceGroups` (read, write, delete).
+- `Microsoft.Resources/deployments/*` (write, read, delete, cancel, validate).
+- `Microsoft.Network/networkSecurityGroups` (write, read, delete, join).
+- `Microsoft.Network/virtualNetworks/*` (write, read, delete).
+- `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff).
+- `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join).
+- `Microsoft.Compute/availabilitySets` (write, read, delete).
+- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) -- optional for public-facing services.
+- `Microsoft.Network/networkInterfaces` (write, read, delete, join).
+- `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate).
+- `Microsoft.Compute/disks` (write, read, delete).
 
 (azure-cloud-other)=
 ### Other
@@ -67,8 +67,8 @@ Microsoft Azure supports the following authentication types:
 
 **Requirements:**
 - Juju 3.6+
-- Managed identity created in Azure
-- Same subscription for managed identity and Juju resources
+- Managed identity created in Azure.
+- Same subscription for managed identity and Juju resources.
 - Credential addition must occur from Azure Cloud Shell or Azure-hosted jump host (for cloud metadata endpoint access).
 
 **Behavior:** Controller uses managed identity for Azure API operations without storing credential secrets.
@@ -261,7 +261,7 @@ In addition to {ref}`generic storage providers <storage-provider>`, Microsoft Az
 
 **Configuration options:**
 
-- `account-type`: Disk type
+- `account-type`: Disk type.
   - `Standard_LRS`: Standard HDD (associated with pool `azure`)
   - `Premium_LRS`: Premium SSD (associated with pool `azure-premium`)
 

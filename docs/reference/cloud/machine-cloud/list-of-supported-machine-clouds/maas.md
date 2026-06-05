@@ -58,7 +58,7 @@ MAAS supports the following authentication types:
 #### `oauth1`
 
 Attributes:
-- `maas-oauth`: OAuth/API-key credentials for MAAS (required)
+- `maas-oauth`: OAuth/API-key credentials for MAAS (required).
 
 ```{note}
 `maas-oauth` is your MAAS API key. See more: [MAAS | How to add an API key for a user](https://maas.io/docs/how-to-enhance-maas-security#p-9102-manage-api-keys)
@@ -81,7 +81,7 @@ Allocates a machine from MAAS inventory that meets the specified hardware constr
 
 MAAS does not create resources—it allocates existing machines from its inventory. The bootstrap process:
 
-- **Machine allocation**: Requests a machine from MAAS matching hardware constraints (CPU, RAM, architecture)
+- **Machine allocation**: Requests a machine from MAAS matching hardware constraints (CPU, RAM, architecture).
 - **Network interfaces**: Allocated machine must have NICs matching any space requirements from constraints.
 - **Storage**: Allocated machine must have disks matching root disk size requirements.
 - **Deployment**: MAAS deploys OS image and injects cloud-init userdata.
