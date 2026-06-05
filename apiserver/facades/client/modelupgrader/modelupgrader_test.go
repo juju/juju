@@ -727,24 +727,28 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 }
 
 func (u *modelUpgradeSuite) TestRouteUpgradeModelControllerModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
 	targetVersion := semversion.MustParse("4.0.1")
 
-	controllerCalled := false
-	modelGetterCalled := false
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	controllerUpgrader.EXPECT().UpgradeModel(
+		gomock.Any(),
+		params.UpgradeModelParams{
+			ModelTag:      controllerModelTag.String(),
+			TargetVersion: targetVersion,
+		},
+	).Return(params.UpgradeModelResult{
+		ChosenVersion: targetVersion,
+	}, nil)
+
 	api := NewModelUpgraderAPI(
 		controllerModelTag,
-		fakeUpgraderAPI{
-			upgrade: func(ctx context.Context, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
-				controllerCalled = true
-				c.Check(arg.ModelTag, tc.Equals, controllerModelTag.String())
-				return params.UpgradeModelResult{
-					ChosenVersion: targetVersion,
-				}, nil
-			},
-		},
+		controllerUpgrader,
 		func(context.Context, names.ModelTag) (UpgraderAPI, error) {
-			modelGetterCalled = true
+			c.Fatalf("model getter should not be called")
 			return nil, nil
 		},
 	)
@@ -756,37 +760,36 @@ func (u *modelUpgradeSuite) TestRouteUpgradeModelControllerModel(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.ChosenVersion, tc.Equals, targetVersion)
-	c.Check(controllerCalled, tc.IsTrue)
-	c.Check(modelGetterCalled, tc.IsFalse)
 }
 
 func (u *modelUpgradeSuite) TestRouteUpgradeModelHostedModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
 	hostedModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
 	targetVersion := semversion.MustParse("4.0.1")
 
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	hostedUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	hostedUpgrader.EXPECT().UpgradeModel(
+		gomock.Any(),
+		params.UpgradeModelParams{
+			ModelTag:      hostedModelTag.String(),
+			TargetVersion: targetVersion,
+		},
+	).Return(params.UpgradeModelResult{
+		ChosenVersion: targetVersion,
+	}, nil)
+
 	modelGetterCalled := false
-	modelUpgraderCalled := false
 	api := NewModelUpgraderAPI(
 		controllerModelTag,
-		fakeUpgraderAPI{
-			upgrade: func(context.Context, params.UpgradeModelParams) (params.UpgradeModelResult, error) {
-				c.Fatalf("controller upgrader should not be called")
-				return params.UpgradeModelResult{}, nil
-			},
-		},
+		controllerUpgrader,
 		func(ctx context.Context, tag names.ModelTag) (UpgraderAPI, error) {
 			modelGetterCalled = true
 			c.Check(tag, tc.Equals, hostedModelTag)
-			return fakeUpgraderAPI{
-				upgrade: func(ctx context.Context, arg params.UpgradeModelParams) (params.UpgradeModelResult, error) {
-					modelUpgraderCalled = true
-					c.Check(arg.ModelTag, tc.Equals, hostedModelTag.String())
-					return params.UpgradeModelResult{
-						ChosenVersion: targetVersion,
-					}, nil
-				},
-			}, nil
+			return hostedUpgrader, nil
 		},
 	)
 
@@ -798,15 +801,18 @@ func (u *modelUpgradeSuite) TestRouteUpgradeModelHostedModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.ChosenVersion, tc.Equals, targetVersion)
 	c.Check(modelGetterCalled, tc.IsTrue)
-	c.Check(modelUpgraderCalled, tc.IsTrue)
 }
 
 func (u *modelUpgradeSuite) TestRouteUpgradeModelInvalidModelTag(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
 
 	api := NewModelUpgraderAPI(
 		controllerModelTag,
-		fakeUpgraderAPI{},
+		controllerUpgrader,
 		func(context.Context, names.ModelTag) (UpgraderAPI, error) {
 			c.Fatalf("model getter should not be called")
 			return nil, nil
@@ -819,26 +825,4 @@ func (u *modelUpgradeSuite) TestRouteUpgradeModelInvalidModelTag(c *tc.C) {
 
 	c.Check(result, tc.DeepEquals, params.UpgradeModelResult{})
 	c.Check(err, tc.ErrorMatches, `"not-a-model-tag" is not a valid tag`)
-}
-
-type fakeUpgraderAPI struct {
-	abort   func(context.Context, params.ModelParam) error
-	upgrade func(context.Context, params.UpgradeModelParams) (params.UpgradeModelResult, error)
-}
-
-func (f fakeUpgraderAPI) AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error {
-	if f.abort == nil {
-		return nil
-	}
-	return f.abort(ctx, arg)
-}
-
-func (f fakeUpgraderAPI) UpgradeModel(
-	ctx context.Context,
-	arg params.UpgradeModelParams,
-) (params.UpgradeModelResult, error) {
-	if f.upgrade == nil {
-		return params.UpgradeModelResult{}, nil
-	}
-	return f.upgrade(ctx, arg)
 }
