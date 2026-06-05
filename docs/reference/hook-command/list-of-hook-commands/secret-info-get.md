@@ -1,5 +1,3 @@
-(hook-command-secret-info-get)=
-# `secret-info-get`
 ## Summary
 Gets a secret's metadata info.
 
@@ -23,3 +21,6 @@ Gets a secret's metadata info.
 
 Get the metadata of a secret with a given secret ID.
 Either the ID or label can be used to identify the secret.
+
+
+

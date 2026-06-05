@@ -7,6 +7,12 @@ myst:
 (machine-cloud)=
 # Machine cloud
 
+```{toctree}
+:hidden:
+
+list-of-supported-machine-clouds/index
+```
+
 A **machine cloud** is a cloud based on bare metal machines (e.g., MAAS), virtual machines (e.g., Amazon EC2, Google GCE, Microsoft Azure), or system containers (e.g., LXD). Juju can provision or adopt existing machines on these cloud platforms.
 
 On machine clouds, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.

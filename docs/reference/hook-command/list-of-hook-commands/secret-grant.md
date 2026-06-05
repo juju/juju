@@ -1,5 +1,3 @@
-(hook-command-secret-grant)=
-# `secret-grant`
 ## Summary
 Grants access to a secret.
 
@@ -26,3 +24,6 @@ earlier, once the relation is removed, so too is the access grant.
 
 By default, all units of the related application are granted access.
 Optionally specify a unit name to limit access to just that unit.
+
+
+

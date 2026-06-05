@@ -1,5 +1,3 @@
-(hook-command-relation-list)=
-# `relation-list`
 ## Summary
 Lists relation units.
 
@@ -21,3 +19,6 @@ Lists relation units.
 `relation-list` outputs a list of all the related units for a relation identifier.
 If not running in a relation hook context, `-r` needs to be specified with a
 relation identifier similar to the `relation-get` and `relation-set` commands.
+
+
+

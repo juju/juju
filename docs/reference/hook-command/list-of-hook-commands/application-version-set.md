@@ -1,5 +1,3 @@
-(hook-command-application-version-set)=
-# `application-version-set`
 ## Summary
 Specifies which version of the application is deployed.
 
@@ -23,3 +21,6 @@ charm revision.)
 
 The version set will be displayed in `juju status`
 output for the application.
+
+
+

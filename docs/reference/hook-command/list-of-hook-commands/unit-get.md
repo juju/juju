@@ -1,5 +1,3 @@
-(hook-command-unit-get)=
-# `unit-get`
 ## Summary
 Prints public-address or private-address.
 
@@ -24,3 +22,6 @@ Note that if a unit has been deployed with
 `--bind space` then the address returned from
 `unit-get private-address` will get the address
 from this space, not the `default` space.
+
+
+

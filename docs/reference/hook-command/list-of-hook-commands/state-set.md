@@ -1,5 +1,3 @@
-(hook-command-state-set)=
-# `state-set`
 > See also: [state-delete](#state-delete), [state-get](#state-get)
 
 ## Summary
@@ -27,3 +25,6 @@ means `<stdin>`.
 The following fixed size limits apply:
 - Length of stored keys cannot exceed 256 bytes.
 - Length of stored values cannot exceed 65536 bytes.
+
+
+

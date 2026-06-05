@@ -1,5 +1,3 @@
-(hook-command-storage-add)=
-# `storage-add`
 ## Summary
 Adds storage instances.
 
@@ -20,3 +18,6 @@ and an optional storage count.
 
 The count is a positive integer indicating how many instances of the storage to create.
 If unspecified, the count defaults to 1.
+
+
+

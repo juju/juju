@@ -1,5 +1,3 @@
-(hook-command-juju-reboot)=
-# `juju-reboot`
 ## Summary
 Reboots the host machine.
 
@@ -37,3 +35,6 @@ be sure to terminate on unexpected errors, so as to guarantee expected behaviour
 in all situations.
 
 `juju-reboot` is not supported when running actions.
+
+
+

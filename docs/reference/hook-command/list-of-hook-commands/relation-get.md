@@ -1,5 +1,3 @@
-(hook-command-relation-get)=
-# `relation-get`
 ## Summary
 Get relation settings.
 
@@ -69,3 +67,6 @@ that depends on remote unit settings.
 
 Key value pairs for remote units that have departed remain accessible for the lifetime
 of the relation.
+
+
+

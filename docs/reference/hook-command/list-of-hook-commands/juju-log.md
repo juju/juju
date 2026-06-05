@@ -1,5 +1,3 @@
-(hook-command-juju-log)=
-# `juju-log`
 ## Summary
 Writes a message to Juju logs.
 
@@ -16,3 +14,6 @@ Writes a message to Juju logs.
 ## Examples
 
     juju-log -l 'WARN' Something has transpired
+
+
+

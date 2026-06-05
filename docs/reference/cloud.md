@@ -14,21 +14,27 @@ See also: {ref}`manage-clouds`
 :hidden:
 
 cloud/kubernetes-cloud/index
-cloud/kubernetes-cloud/list-of-supported-kubernetes-clouds/index
 cloud/machine-cloud/index
-cloud/machine-cloud/list-of-supported-machine-clouds/index
 ```
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
-(cloud-taxonomy)=
-## Cloud types
+(cloud-types)=
+## Supported clouds
 
-Juju supports two fundamental cloud types:
+Juju supports Kubernetes and machine clouds. Each cloud type has distinct characteristics and supported providers.
 
-- **{ref}`Machine cloud <machine-cloud>`**: Clouds where Juju provisions and manages machines (bare metal, VMs, or containers). See {ref}`list-of-supported-machine-clouds` for supported platforms.
+Kubernetes clouds deploy applications into existing Kubernetes clusters. You can choose from many Kubernetes distributions.
 
-- **{ref}`Kubernetes cloud <kubernetes-cloud>`**: Clouds where Juju deploys applications into an existing Kubernetes cluster. See {ref}`list-of-supported-kubernetes-clouds` for supported distributions.
+```{ibnote}
+See more: {ref}`kubernetes-cloud`, {ref}`list-of-supported-kubernetes-clouds`
+```
+
+Machine clouds provision and manage machines on various platforms. You can choose from bare metal, virtual machine, or container-based clouds.
+
+```{ibnote}
+See more: {ref}`machine-cloud`, {ref}`list-of-supported-machine-clouds`
+```
 
 (cloud-definition)=
 ## Cloud definition
@@ -38,9 +44,5 @@ In Juju, cloud definitions can be provided either interactively or via a YAML fi
 - `clouds.yaml` for user-defined clouds (on Linux: `~/.local/share/juju/clouds.yaml`)
 
 For YAML file templates and schema details, see:
-- {ref}`machine-cloud` > Cloud > Cloud definition file
-- {ref}`kubernetes-cloud` > Cloud > Cloud definition file
-
-```{ibnote}
-See more: {ref}`manage-clouds`
-```
+- {ref}`machine-cloud` > Clouds > Cloud definition file
+- {ref}`kubernetes-cloud` > Clouds > Cloud definition file
