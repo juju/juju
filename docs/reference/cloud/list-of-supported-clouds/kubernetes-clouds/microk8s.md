@@ -7,13 +7,9 @@ myst:
 (cloud-kubernetes-microk8s)=
 # MicroK8s
 
-In Juju, [MicroK8s](https://microk8s.io/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes and storage providers, described below.
+In Juju, [MicroK8s](https://microk8s.io/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes described below.
 
 ## Cloud-specific notes
-
-## Cloud-specific notes
-
-### Requirements
 
 ### MicroK8s snap
 
@@ -23,21 +19,7 @@ For a localhost MicroK8s cloud, if you would like to be able to skip `juju add-k
 See more: [MicroK8s | Strict MicroK8s](https://microk8s.io/docs/install-strict)
 ```
 
-### Services that must enabled
+### Services that must be enabled
 
 - `dns`
 - `hostpath-storage`
-
-## Storage
-
-```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
-```
-
-Storage provisioned on the MicroK8s cloud.
-
-```{ibnote}
-See first: {ref}`storage-provider`
-```
-
-As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.

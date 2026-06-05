@@ -13,6 +13,6 @@ Juju supports many cloud platforms. While Juju tries to make your experience wit
 :maxdepth: 2
 :titlesonly:
 
-machine-clouds/index
 kubernetes-clouds/index
+machine-clouds/index
 ```

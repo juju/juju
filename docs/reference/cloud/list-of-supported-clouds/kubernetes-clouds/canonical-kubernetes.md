@@ -7,22 +7,18 @@ myst:
 (cloud-canonical-k8s)=
 # Canonical Kubernetes
 
-In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kubernetes/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes and storage providers, described below.
+In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kubernetes/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes described below.
 
 ## Cloud-specific notes
 
-## Cloud-specific notes
-
-### Requirements
-
-### Services that must enabled
+### Services that must be enabled
 
 - `dns`
 - `ingress` (technically not required, but you need it if you want to do anything meaningful)
 - `local-storage`
 - `network`
 
-## Notes on `juju add-k8s`
+### Notes on `juju add-k8s`
 
 Before you bootstrap:
 
@@ -33,17 +29,3 @@ Before you bootstrap:
 ```{ibnote}
 See more: https://github.com/canonical/k8s-snap/issues/1612
 ```
-
-## Storage
-
-```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
-```
-
-Storage provisioned on the Canonical Kubernetes cloud.
-
-```{ibnote}
-See first: {ref}`storage-provider`
-```
-
-As for all Kubernetes clouds. See {ref}`storage-provider-kubernetes`.
