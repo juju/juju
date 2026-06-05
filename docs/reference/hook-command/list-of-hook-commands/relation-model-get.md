@@ -1,23 +1,23 @@
-(hook-command-relation-list)=
-# `relation-list`
+(hook-command-relation-model-get)=
+# `relation-model-get`
 ## Summary
-Lists relation units.
+Gets details about the model housing a related application.
 
 ## Usage
-``` relation-list [options] ```
+``` relation-model-get [options] ```
 
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--app` | false | Lists remote application instead of participating units. |
 | `--format` | smart | Specify output format (json&#x7c;smart&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 | `-r`, `--relation` |  | Specifies a relation by ID. |
 
 ## Details
 
-`-r` must be specified when not in a relation hook
+`-r` must be specified when not in a relation hook.
 
-`relation-list` outputs a list of all the related units for a relation identifier.
+`relation-model-get` outputs details about the model hosting the application
+on the other end of a unit relation.
 If not running in a relation hook context, `-r` needs to be specified with a
 relation identifier similar to the `relation-get` and `relation-set` commands.

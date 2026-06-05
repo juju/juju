@@ -1,3 +1,5 @@
+(hook-command-secret-set)=
+# `secret-set`
 ## Summary
 Updates an existing secret.
 
@@ -43,6 +45,3 @@ If a value has the `#base64` suffix, it is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
 prior to being stored.
 To just update selected metadata like rotate policy, do not specify any secret value.
-
-
-

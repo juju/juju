@@ -274,7 +274,7 @@ Known issue with `pd-ssd`: See [GitHub issue #20349](https://github.com/juju/juj
 
 - Juju 3.6+
 - A service account with sufficient privileges (see {ref}`gce-appendix-service-account`)
-- The `add-credential` steps must be run from a jump host in Google Cloud to reach the metadata endpoint
+- The `add-credential` steps must be run from a jump host in Google Cloud to reach the metadata endpoint.
 
 **Steps:**
 

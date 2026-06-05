@@ -13,9 +13,11 @@ myst:
 list-of-supported-machine-clouds/index
 ```
 
-A **machine cloud** is a cloud based on bare metal machines (e.g., MAAS), virtual machines (e.g., Amazon EC2, Google GCE, Microsoft Azure), or system containers (e.g., LXD). Juju can provision or adopt existing machines on these cloud platforms.
+In Juju, a **machine cloud** is a source of compute infrastructure: bare metal, virtual machines, or system containers.
 
-On machine clouds, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
+Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines (Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere), and system containers (LXD).
+
+Despite their differences, Juju tries to fit all machine clouds into a common logic. This page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
 
 ```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
@@ -24,22 +26,22 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 See {ref}`list-of-supported-machine-clouds` for detailed information on each supported machine cloud platform.
 
 (machine-cloud-entity)=
-## Cloud
+## The cloud
 
 (machine-requirements)=
 ### Requirements
 
 Common requirements across machine clouds:
 
-- **API access**: Credentials with sufficient permissions to provision resources
-- **Network connectivity**: Juju controller must reach provisioned machines
-- **SSH access**: For agent installation and management
-- **Cloud quotas**: Sufficient quota for compute, network, storage resources
+- **API access**: Credentials with sufficient permissions to provision resources.
+- **Network connectivity**: Juju controller must reach provisioned machines.
+- **SSH access**: For agent installation and management.
+- **Cloud quotas**: Sufficient quota for compute, network, storage resources.
 
 Specific requirements vary by cloud -- see individual cloud documentation.
 
 ```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>`
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>`
 ```
 
 (machine-definition)=
@@ -66,10 +68,10 @@ Juju makes direct API calls to create resources (e.g., "create instance", "attac
 **Examples**: Amazon EC2, Google GCE, OpenStack, Oracle OCI
 
 **Characteristics**:
-- Juju explicitly creates each resource via API calls
-- Resources created incrementally as needed
-- Polling used to wait for resource readiness
-- Direct control over resource creation order
+- Juju explicitly creates each resource via API calls.
+- Resources created incrementally as needed.
+- Polling used to wait for resource readiness.
+- Direct control over resource creation order.
 
 (machine-provisioning-template-based)=
 #### Template-based
@@ -79,10 +81,10 @@ Juju generates declarative templates that the cloud provider processes to create
 **Examples**: Microsoft Azure (ARM templates), VMware vSphere (VM cloning from templates)
 
 **Characteristics**:
-- Cloud provider interprets template to create resources
-- Resources typically created in parallel by provider
-- Abstraction layer between Juju and resource creation
-- May offer better atomicity (all-or-nothing creation)
+- Cloud provider interprets template to create resources.
+- Resources typically created in parallel by provider.
+- Abstraction layer between Juju and resource creation.
+- May offer better atomicity (all-or-nothing creation).
 
 (machine-provisioning-profile-based)=
 #### Profile-based
@@ -92,10 +94,10 @@ Juju applies profiles that define resource characteristics; the cloud provider c
 **Examples**: LXD (profiles define container/VM configuration)
 
 **Characteristics**:
-- Profiles define resource constraints and configuration
-- Cloud provider selects appropriate resources
-- Flexible resource allocation within profile bounds
-- Efficient reuse of profile definitions
+- Profiles define resource constraints and configuration.
+- Cloud provider selects appropriate resources.
+- Flexible resource allocation within profile bounds.
+- Efficient reuse of profile definitions.
 
 (machine-provisioning-allocation)=
 #### Allocation
@@ -105,10 +107,10 @@ Juju allocates pre-existing resources from an inventory rather than creating new
 **Examples**: MAAS (allocates machines from pool of bare metal)
 
 **Characteristics**:
-- Resources must pre-exist in the cloud
-- Juju allocates from available pool
-- No actual provisioning, just assignment
-- Requires capacity planning upfront
+- Resources must pre-exist in the cloud.
+- Juju allocates from available pool.
+- No actual provisioning, just assignment.
+- Requires capacity planning upfront.
 
 (machine-provisioning-adoption)=
 #### Adoption
@@ -118,10 +120,10 @@ Juju adopts existing machines via SSH without provisioning any infrastructure.
 **Examples**: Manual cloud (SSH-based adoption)
 
 **Characteristics**:
-- No infrastructure provisioning
-- Machines must be prepared externally
-- SSH-based agent installation
-- Limited control over infrastructure
+- No infrastructure provisioning.
+- Machines must be prepared externally.
+- SSH-based agent installation.
+- Limited control over infrastructure.
 
 (machine-cloud-definition-file)=
 ### Cloud definition file
@@ -145,7 +147,7 @@ clouds:
 ```
 
 ```{ibnote}
-See more: {ref}`manage-clouds`, {ref}`list-of-supported-clouds` > `<cloud name>` for cloud-specific values (type, auth-types, endpoint format)
+See more: {ref}`manage-clouds`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` for cloud-specific values (type, auth-types, endpoint format)
 ```
 
 (machine-credential)=
@@ -164,9 +166,9 @@ Uses static API keys or access keys with secrets.
 **Examples**: Amazon EC2 (`access-key`), OpenStack (`userpass`)
 
 **Characteristics**:
-- Static credentials stored by Juju
-- Requires careful secret management
-- May support key rotation policies
+- Static credentials stored by Juju.
+- Requires careful secret management.
+- May support key rotation policies.
 
 (machine-credential-oauth)=
 #### OAuth/service principal
@@ -176,9 +178,9 @@ Uses OAuth2 flows or service principal identities.
 **Examples**: Microsoft Azure (`service-principal-secret`), Google GCE (`oauth2`, `jsonfile`)
 
 **Characteristics**:
-- Time-limited tokens with refresh capability
-- May support interactive flows
-- Often recommended for production use
+- Time-limited tokens with refresh capability.
+- May support interactive flows.
+- Often recommended for production use.
 
 (machine-credential-instance-identity)=
 #### Instance identity
@@ -188,10 +190,10 @@ Uses cloud-native instance identity mechanisms (no static credentials).
 **Examples**: Amazon EC2 (`instance-role`), Microsoft Azure (`managed-identity`)
 
 **Characteristics**:
-- No credentials stored by Juju
-- Cloud provider validates instance identity
-- Most secure option when available
-- Requires controller running on same cloud
+- No credentials stored by Juju.
+- Cloud provider validates instance identity.
+- Most secure option when available.
+- Requires controller running on same cloud.
 
 (machine-credential-certificate)=
 #### Certificate-based
@@ -201,12 +203,12 @@ Uses PKI certificates for authentication.
 **Examples**: LXD (`certificate`), VMware vSphere (`userpass` with certificate validation)
 
 **Characteristics**:
-- Certificate-based trust model
-- May require certificate management
-- Often used for private clouds
+- Certificate-based trust model.
+- May require certificate management.
+- Often used for private clouds.
 
 ```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Credential
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Credential
 ```
 
 (machine-controller)=
@@ -232,32 +234,32 @@ The bootstrap process creates shared infrastructure (networks, security rules, e
 
 Most machine clouds require Juju to create or configure networking:
 
-- **Virtual networks/VPCs**: Isolated network spaces for the controller and models
-- **Subnets**: Separate subnets for different machine types or purposes
-- **Security groups/firewalls**: Ingress/egress rules for API access and inter-machine communication
-- **Public IPs**: Optional public IP allocation for controller accessibility
+- **Virtual networks/VPCs**: Isolated network spaces for the controller and models.
+- **Subnets**: Separate subnets for different machine types or purposes.
+- **Security groups/firewalls**: Ingress/egress rules for API access and inter-machine communication.
+- **Public IPs**: Optional public IP allocation for controller accessibility.
 
 (machine-bootstrap-storage-setup)=
 #### Storage setup
 
 Controllers require persistent storage for the MongoDB state database:
 
-- **Boot/root disk**: Operating system and Juju agent installation
-- **Data disk**: Optional separate disk for MongoDB data (higher-end deployments)
-- **Storage provisioning**: Via cloud-specific storage systems (EBS, Persistent Disk, Managed Disk, Cinder, etc.)
+- **Boot/root disk**: Operating system and Juju agent installation.
+- **Data disk**: Optional separate disk for MongoDB data (higher-end deployments).
+- **Storage provisioning**: Via cloud-specific storage systems (EBS, Persistent Disk, Managed Disk, Cinder, etc.).
 
 (machine-bootstrap-instance-creation)=
 #### Instance creation
 
 The controller machine itself is provisioned with:
 
-- **Instance type/size**: Constrained by `bootstrap-constraints` or defaults
-- **Operating system**: Ubuntu (Juju's supported OS)
-- **Cloud-init**: Initial configuration and agent installation
-- **Metadata/tags**: Identification and organization (model UUID, controller UUID, etc.)
+- **Instance type/size**: Constrained by `bootstrap-constraints` or defaults.
+- **Operating system**: Ubuntu (Juju's supported OS).
+- **Cloud-init**: Initial configuration and agent installation.
+- **Metadata/tags**: Identification and organization (model UUID, controller UUID, etc.).
 
 ```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Controller
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Controller
 ```
 
 (machine-model)=
@@ -271,10 +273,10 @@ Machine clouds support various model-level configurations that affect resource p
 (machine-model-config-network)=
 #### Network configuration
 
-- **VPC/network selection**: Which virtual network to use for machines
-- **Subnet selection**: Which subnets to place machines in
-- **DNS settings**: Custom DNS servers or search domains
-- **Proxy settings**: HTTP/HTTPS proxy configuration for agent communication
+- **VPC/network selection**: Which virtual network to use for machines.
+- **Subnet selection**: Which subnets to place machines in.
+- **DNS settings**: Custom DNS servers or search domains.
+- **Proxy settings**: HTTP/HTTPS proxy configuration for agent communication.
 
 (machine-model-config-resource)=
 #### Resource configuration
@@ -291,7 +293,7 @@ Machine clouds support various model-level configurations that affect resource p
 - **Container networking**: Configuration for nested containers (LXD)
 
 ```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Model
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Model
 ```
 
 (machine-machine)=
@@ -433,10 +435,10 @@ Block storage provides volumes that can be attached to machines:
 - **LXD**: `lxd` -- zfs, btrfs, lvm, ceph, dir
 
 Block storage volumes:
-- Can be attached and detached from machines
-- Persist independently of machine lifecycle
-- Support snapshotting and backup
-- Performance varies by storage tier
+- Can be attached and detached from machines.
+- Persist independently of machine lifecycle.
+- Support snapshotting and backup.
+- Performance varies by storage tier.
 
 (machine-storage-filesystem)=
 ### Filesystem storage
@@ -458,7 +460,7 @@ When requesting storage, charms specify:
 Storage is typically created on-demand when deploying charms that require it, with volumes attached to machines and mounted at charm-specified paths.
 
 ```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Cloud-specific storage providers
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Cloud-specific storage providers
 ```
 
 (machine-differences)=
@@ -496,7 +498,7 @@ While all machine clouds follow the entity-based pattern documented here, signif
 - **Nested virtualization**: Support for containers or VMs within machines varies
 
 ```{ibnote}
-For cloud-specific details on these differences, see: {ref}`list-of-supported-clouds` > `<cloud name>`
+For cloud-specific details on these differences, see: {ref}`list-of-supported-machine-clouds` > `<cloud name>`
 ```
 
 (machine-best-practices)=

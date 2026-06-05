@@ -69,7 +69,7 @@ Microsoft Azure supports the following authentication types:
 - Juju 3.6+
 - Managed identity created in Azure
 - Same subscription for managed identity and Juju resources
-- Credential addition must occur from Azure Cloud Shell or Azure-hosted jump host (for cloud metadata endpoint access)
+- Credential addition must occur from Azure Cloud Shell or Azure-hosted jump host (for cloud metadata endpoint access).
 
 **Behavior:** Controller uses managed identity for Azure API operations without storing credential secrets.
 
@@ -239,7 +239,7 @@ Each machine (controller or application) receives:
 ### Networking behavior
 
 - **IP addressing**: Private IPs allocated dynamically via DHCP. Public IPs use static allocation.
-- **Subnet placement**: Controller machines → 192.168.16.0/20; application machines → 192.168.0.0/20
+- **Subnet placement**: Controller machines → 192.168.16.0/20; application machines → 192.168.0.0/20.
 - **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
 
 (azure-storage)=

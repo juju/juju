@@ -7,9 +7,7 @@ myst:
 (list-of-supported-machine-clouds)=
 # List of supported machine clouds
 
-Juju supports provisioning on many machine cloud platforms. See {ref}`machine-cloud` for detailed information on how machine clouds work with Juju, including concept mappings, authentication types, model configuration, provisioning models, and storage options.
-
-For each supported cloud, refer to the corresponding documentation for cloud-specific requirements, credentials configuration, provisioning behavior, and best practices.
+Juju supports all of the following {ref}`machine clouds <machine-cloud>`:
 
 ```{toctree}
 :titlesonly:

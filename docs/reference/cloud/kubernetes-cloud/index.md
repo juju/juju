@@ -13,17 +13,15 @@ myst:
 list-of-supported-kubernetes-clouds/index
 ```
 
-A **Kubernetes cloud** is a cloud based on an existing Kubernetes cluster. Kubernetes clouds support many distributions, including Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, and Canonical Kubernetes.
+In Juju, a **Kubernetes cloud** is a Kubernetes cluster: managed services like EKS, GKE, and AKS, or distributions like MicroK8s and Canonical Kubernetes.
 
-On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes, and others.
 
-```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
-```
+Kubernetes clouds are very similar in Juju. This page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
 
 See {ref}`list-of-supported-kubernetes-clouds` for detailed information on each supported Kubernetes distribution.
 
-## Cloud
+## The cloud
 
 ```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
@@ -36,9 +34,9 @@ On Kubernetes clouds, both the cloud definition and the credentials are typicall
 (kubernetes-requirements)=
 ### Requirements
 
-- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
-- kubectl configured with cluster access
-- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
+- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.).
+- kubectl configured with cluster access.
+- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources.
 
 (kubernetes-definition)=
 ### Definition
@@ -155,13 +153,13 @@ When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace 
 
 When bootstrapping a controller, Juju creates a Kubernetes Service to expose the controller API. The Service type depends on the host cloud platform where the Kubernetes cluster is running:
 
-- **LoadBalancer**: For managed Kubernetes on public clouds
+- **LoadBalancer**: For managed Kubernetes on public clouds.
   - Amazon EKS (on EC2)
   - Google GKE (on GCE)
   - Microsoft AKS (on Azure)
   - Charmed Kubernetes on OpenStack
   - Charmed Kubernetes on MAAS (experimental)
-- **ClusterIP**: For localhost and development environments
+- **ClusterIP**: For localhost and development environments.
   - MicroK8s
   - Kubernetes on LXD
   - Other/unrecognized host clouds (default)

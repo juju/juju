@@ -1,3 +1,5 @@
+(hook-command-relation-ids)=
+# `relation-ids`
 ## Summary
 Lists all relation IDs for the given endpoint.
 
@@ -24,6 +26,3 @@ to the name of the current relation. The output is useful as input to the
 to read or write other relation values.
 
 Only relation ids for relations which are not broken are included.
-
-
-

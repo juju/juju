@@ -82,9 +82,9 @@ Allocates a machine from MAAS inventory that meets the specified hardware constr
 MAAS does not create resources—it allocates existing machines from its inventory. The bootstrap process:
 
 - **Machine allocation**: Requests a machine from MAAS matching hardware constraints (CPU, RAM, architecture)
-- **Network interfaces**: Allocated machine must have NICs matching any space requirements from constraints
-- **Storage**: Allocated machine must have disks matching root disk size requirements
-- **Deployment**: MAAS deploys OS image and injects cloud-init userdata
+- **Network interfaces**: Allocated machine must have NICs matching any space requirements from constraints.
+- **Storage**: Allocated machine must have disks matching root disk size requirements.
+- **Deployment**: MAAS deploys OS image and injects cloud-init userdata.
 - **Tagging**: Machine tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`
 
 All infrastructure (machines, networks, storage) must already exist in MAAS before bootstrap.

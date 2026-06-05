@@ -5,7 +5,7 @@ myst:
 ---
 
 (cloud)=
-# Cloud (substrate)
+# Cloud
 ```{ibnote}
 See also: {ref}`manage-clouds`
 ```

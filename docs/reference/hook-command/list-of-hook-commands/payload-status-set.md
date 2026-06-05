@@ -1,3 +1,5 @@
+(hook-command-payload-status-set)=
+# `payload-status-set`
 ## Summary
 Updates the status of a payload.
 
@@ -18,6 +20,3 @@ registered with Juju using `payload-register`.
 
 The `<status>` must be one of the
 follow: `starting`, `started`, `stopping`, `stopped`.
-
-
-

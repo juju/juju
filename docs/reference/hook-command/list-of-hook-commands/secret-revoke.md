@@ -1,3 +1,5 @@
+(hook-command-secret-revoke)=
+# `secret-revoke`
 ## Summary
 Revokes access to a secret.
 
@@ -27,6 +29,3 @@ that application lose access), or from a specified unit.
 If run in a relation hook, the related application's 
 access is revoked, unless a uni is specified, in which
 case just that unit's access is revoked.'
-
-
-
