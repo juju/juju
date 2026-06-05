@@ -7,13 +7,15 @@ myst:
 (kubernetes-cloud)=
 # Kubernetes cloud
 
+A **Kubernetes cloud** is a cloud based on an existing Kubernetes cluster. Kubernetes clouds support many distributions, including Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, and Canonical Kubernetes.
+
+On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+
 ```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
-
-See {ref}`list-of-supported-kubernetes-clouds` for a list of Kubernetes distributions that Juju supports.
+See {ref}`list-of-supported-kubernetes-clouds` for detailed information on each supported Kubernetes distribution.
 
 ## Cloud
 

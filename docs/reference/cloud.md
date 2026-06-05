@@ -21,34 +21,14 @@ cloud/machine-cloud/list-of-supported-machine-clouds/index
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
-## Supported clouds
-
-See {ref}`kubernetes-cloud` and {ref}`machine-cloud` for detailed information on cloud types. For a complete list of supported clouds, see {ref}`list-of-supported-kubernetes-clouds` and {ref}`list-of-supported-machine-clouds`.
-
 (cloud-taxonomy)=
-## Cloud taxonomy
+## Cloud types
 
-(machine-cloud)=
-### Machine cloud
+Juju supports two fundamental cloud types:
 
-A **machine cloud** is a cloud based on bare metal machines (e.g., MAAS), virtual machines (e.g., Amazon EC2, Google GCE, Microsoft Azure), or system containers (e.g., LXD).
+- **{ref}`Machine cloud <machine-cloud>`**: Clouds where Juju provisions and manages machines (bare metal, VMs, or containers). See {ref}`list-of-supported-machine-clouds` for supported platforms.
 
-When you deploy to a machine cloud, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys machine charms onto those resources.
-
-```{ibnote}
-See more: {ref}`machine-cloud`, {ref}`list-of-supported-machine-clouds`
-```
-
-(kubernetes-cloud)=
-### Kubernetes cloud
-
-A **Kubernetes cloud** is a cloud based on an existing Kubernetes cluster (e.g., Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes).
-
-When you deploy to a Kubernetes cloud, Juju does not provision the cluster infrastructure itself. Instead, it manages application workloads within the cluster by deploying Kubernetes charms as pods, services, and other Kubernetes resources.
-
-```{ibnote}
-See more: {ref}`kubernetes-cloud`, {ref}`list-of-supported-kubernetes-clouds`
-```
+- **{ref}`Kubernetes cloud <kubernetes-cloud>`**: Clouds where Juju deploys applications into an existing Kubernetes cluster. See {ref}`list-of-supported-kubernetes-clouds` for supported distributions.
 
 (cloud-definition)=
 ## Cloud definition
