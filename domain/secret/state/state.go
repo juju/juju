@@ -900,10 +900,10 @@ GROUP BY sm.secret_id`
 	return nil
 }
 
-// markObsoleteRevisions obsoletes the revisions and sets the pending_delete
-// to true in the secret_revision table for the specified secret if the
-// revision is not the latest revision and there are no consumers for the
-// revision.
+// markObsoleteRevisions marks secret revisions that are no longer in use as
+// obsolete with pending_delete=true. A revision is considered "in use" if at
+// least one local or remote consumer currently tracks it, or if it is the
+// latest revision for the secret.
 func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query, err := st.Prepare(`
 SELECT sr.uuid AS &secretRevision.uuid
@@ -948,19 +948,15 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	for _, revisionUUID := range revisionUUIIDs {
-		// TODO: use bulk insert.
-		obsolete := secretRevisionObsolete{
-			ID:            revisionUUID.ID,
+	obsoletes := make([]secretRevisionObsolete, len(revisionUUIIDs))
+	for i, rev := range revisionUUIIDs {
+		obsoletes[i] = secretRevisionObsolete{
+			ID:            rev.ID,
 			Obsolete:      true,
 			PendingDelete: true,
 		}
-		err = tx.Query(ctx, stmt, obsolete).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
 	}
-	return nil
+	return errors.Capture(tx.Query(ctx, stmt, obsoletes).Run())
 }
 
 func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string, owner secretOwner) error {

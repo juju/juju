@@ -237,7 +237,8 @@ juju ssh juju-qa-test/0 sh <<EOF
 juju_engine_report
 EOF
 	)
-	 out=$(echo "${yaml_out}" | sed 1d | yq "..style=\"flow\" | .manifolds.deployer.report.handler.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions.\"${secret_id}\"")
+	 out=$(echo "${yaml_out}" | sed 1d | yq -r -c ".manifolds.deployer.report.handler.units.workers.\"juju-qa-test/0\"
+	 .report.manifolds.uniter.report.secrets.\"obsolete-revisions\".\"${secret_id}\"")
 	 echo "${out}"
 }
 
@@ -404,6 +405,80 @@ test_secret_nonleader_unit_owned() {
 		model_name='model-secrets-nonleader'
 		add_model "$model_name"
 		run_secret_nonleader_unit_owned "$model_name"
+		destroy_model "$model_name"
+	)
+}
+
+# run_track_latest_revision verifies that CommitHookChanges correctly updates
+# the consumer tracking record to the latest revision when a unit updates a
+# secret and refreshes in the same hook execution.
+#
+# Sequence:
+#   1. secret-add (rev 1) + secret-get  -> consumer record at current_revision=1
+#   2. secret-set (rev 2) + secret-get --refresh in ONE juju exec invocation
+#      -> pendingTrackLatest fires -> CommitHookChanges -> trackSecrets
+#      -> consumer record updated to current_revision=2
+#      -> markSecretRevisionsObsolete inserts rev 1 -> WatchObsolete fires
+#      -> rev 1 appears in the engine report obsolete-revisions
+#   3. secret-get (no --refresh) in a fresh hook -> must return rev 2 value;
+#      returning rev 1 value would mean tracking was not updated.
+run_track_latest_revision() {
+	echo
+
+	juju --show-log deploy juju-qa-test
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	# Step 1: create secret at rev 1 and read it.
+	# Reading establishes a consumer record at current_revision=1.
+	secret_uri=$(juju exec --unit juju-qa-test/0 -- secret-add val=one)
+	secret_id=${secret_uri##*/}
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: one'
+
+	# Step 2: update to rev 2 and refresh tracking in a single hook execution
+	# (single CommitHookChanges call). trackSecrets must update the consumer
+	# record to current_revision=2 inside the DB transaction, and
+	# markSecretRevisionsObsolete must insert rev 1 into secret_revision_obsolete.
+	check_contains "$(juju exec --unit juju-qa-test/0 \
+		-- "secret-set $secret_uri val=two; secret-get $secret_uri --refresh")" 'val: two'
+
+	# Revision 1 must appear in the engine report's obsolete-revisions map.
+	# WatchObsolete fires asynchronously after the DB write, so retry briefly.
+	echo "Checking: revision 1 is marked obsolete after CommitHookChanges"
+	attempt=0
+	while true; do
+		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		if [ "$obsolete" = "[1]" ]; then break; fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected '[1]' in obsolete-revisions, got '$obsolete'")
+			exit 1
+		fi
+		sleep 2
+	done
+
+	# Step 3: fresh hook, no --refresh flag. GetConsumedRevision returns
+	# current_revision=2 from the consumer record, so the unit sees rev 2.
+	# If trackSecrets did not run, current_revision would still be 1 and
+	# this check would return 'val: one' instead.
+	echo "Checking: consumer record tracks revision 2 after CommitHookChanges"
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: two'
+}
+
+test_track_latest_revision() {
+	if [ "$(skip 'test_track_latest_revision')" ]; then
+		echo "==> TEST SKIPPED: test_track_latest_revision"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		model_name='model-secrets-track-latest'
+		add_model "$model_name"
+		run_track_latest_revision
 		destroy_model "$model_name"
 	)
 }

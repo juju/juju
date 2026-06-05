@@ -217,6 +217,13 @@ type unitState struct {
 	SecretState string `db:"secret_state"`
 }
 
+// secretIDAndRevision holds a (secret_id, max_revision) pair returned by the
+// batch latest-revision GROUP BY query used in trackSecrets.
+type secretIDAndRevision struct {
+	SecretID string `db:"secret_id"`
+	Revision int    `db:"revision"`
+}
+
 // secretUnitConsumerLatest holds the fields needed to upsert a
 // secret_unit_consumer row when tracking the latest revision.
 type secretUnitConsumerLatest struct {
@@ -224,13 +231,6 @@ type secretUnitConsumerLatest struct {
 	SourceModelUUID string `db:"source_model_uuid"`
 	UnitUUID        string `db:"unit_uuid"`
 	CurrentRevision int    `db:"current_revision"`
-}
-
-// secretLatestRevision holds the result of a MAX(revision) query used
-// when tracking the latest secret revision.
-type secretLatestRevision struct {
-	// Revision is the maximum revision number; 0 means no revisions exist.
-	Revision int `db:"revision"`
 }
 
 // secretRevisionUUID holds a single revision UUID returned by the obsolete
