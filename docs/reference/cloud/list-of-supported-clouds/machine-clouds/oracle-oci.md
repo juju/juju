@@ -187,7 +187,7 @@ In addition to {ref}`generic storage providers <storage-provider>`, Oracle OCI p
 ### Storage providers
 
 (storage-provider-oracle)=
-### `oracle`
+#### `oracle`
 
 **Type:** OCI block volumes (iSCSI)
 

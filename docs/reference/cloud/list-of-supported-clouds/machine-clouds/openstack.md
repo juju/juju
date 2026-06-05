@@ -238,10 +238,12 @@ Each machine (controller or application) receives:
 See also: {ref}`Juju | Manage storage <manage-storage>`
 ```
 
+### Storage providers
+
 In addition to {ref}`generic storage providers <storage-provider>`, OpenStack provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-cinder)=
-### `cinder`
+#### `cinder`
 
 **Type:** Cinder block volumes
 

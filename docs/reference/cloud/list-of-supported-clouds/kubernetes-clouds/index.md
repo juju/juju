@@ -205,6 +205,8 @@ Kubernetes application pods in Juju follow these patterns:
 See also: {ref}`Juju | Manage storage <manage-storage>`
 ```
 
+### Storage providers
+
 ```{ibnote}
 See first: {ref}`storage-provider`
 ```
@@ -212,7 +214,7 @@ See first: {ref}`storage-provider`
 In addition to {ref}`generic storage providers <storage-provider>`, Kubernetes-based models have access to the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-kubernetes)=
-### `kubernetes`
+#### `kubernetes`
 
 ```{ibnote}
 See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)

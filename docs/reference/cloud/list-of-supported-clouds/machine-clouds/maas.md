@@ -155,7 +155,7 @@ In addition to {ref}`generic storage providers <storage-provider>`, MAAS provide
 ### Storage providers
 
 (storage-provider-maas)=
-### `maas`
+#### `maas`
 
 **Type:** Physical/virtual disks on MAAS machines
 
