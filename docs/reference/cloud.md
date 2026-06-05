@@ -25,6 +25,7 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 
 See {ref}`list-of-supported-clouds`.
 
+(cloud-taxonomy)=
 ## Cloud taxonomy
 
 (machine-cloud)=
@@ -47,39 +48,6 @@ When you deploy to a Kubernetes cloud, Juju does not provision the cluster infra
 
 ```{ibnote}
 See more: {ref}`kubernetes-clouds-and-juju`, {ref}`list-of-supported-clouds` -- Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes
-```
-
-(cloud-differences)=
-## Cloud differences
-
-While Juju aims to make all clouds feel the same, some differences still persist.
-
-(differences-between-machine-and-kubernetes-clouds)=
-### Differences between machine clouds and Kubernetes clouds
-
-While the user experience is mostly the same -- bootstrap a Juju controller into the cloud, add a model, deploy charms, scale, upgrade, etc. -- the distinction between {ref}`machine clouds <machine-cloud>` and {ref}`Kubernetes clouds <kubernetes-cloud>` affects:
-
-- The required system requirements (e.g., for a Juju controller: 4GB vs. 6GB memory).
-- The way you connect the cloud to Juju (`add-cloud` + `add-credentials` vs. `add-k8s`).
-- What charms you can deploy ({ref}`machine charms <machine-charm>` vs. {ref}`Kubernetes charms <kubernetes-charm>`).
-
-And, occasionally:
-
-- What operations you may perform, e.g.:
-  - `enable-ha` is currently supported just for machine controllers.
-  - Scaling an application is done via `add-unit` on machines and via `scale-application` on Kubernetes.
-
-Juju's vision is to eventually make this distinction irrelevant.
-
-(differences-between-specific-clouds)=
-### Differences between specific clouds
-
-As a Juju user you will sometimes also notice small differences tied to a cloud's specific identity, beyond the machine-Kubernetes divide.
-
-This usually affects the setup phase (the information you have to supply to Juju to connect Juju to your cloud, and whether Juju can retrieve any of that automatically for you) and, later on, the customizations you can make to your deployment (e.g., small differences in configurations, constraints, placement directives, subnets, spaces, storage, etc., depending on the features available / supported for a given cloud).
-
-```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>`
 ```
 
 (cloud-definition)=

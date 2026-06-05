@@ -7,7 +7,7 @@ myst:
 (cloud-ec2)=
 # Amazon EC2
 
-In Juju, Amazon EC2 is a {ref}`machine cloud <cloud-differences>`. This document describes EC2-specific behaviors, configuration options, and limitations.
+In Juju, Amazon EC2 is a {ref}`machine cloud <machine-cloud>`. This document describes EC2-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs)

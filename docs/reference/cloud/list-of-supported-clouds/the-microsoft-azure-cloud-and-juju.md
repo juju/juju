@@ -1,6 +1,6 @@
 # Microsoft Azure
 
-In Juju, Azure is a {ref}`machine cloud <cloud-differences>`. This document describes Azure-specific behaviors, configuration options, and limitations.
+In Juju, Azure is a {ref}`machine cloud <machine-cloud>`. This document describes Azure-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Microsoft Azure](https://azure.microsoft.com/en-us)
@@ -49,10 +49,6 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 | Collection of VMs running the same workload | {ref}`application <application>` |
 | [Managed Disk](https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview) | {ref}`storage <storage>` |
 | [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
-
-```{ibnote}
-See also: {ref}`cloud-differences`
-```
 
 (azure-credential)=
 ## Credential

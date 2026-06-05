@@ -7,7 +7,7 @@ myst:
 (cloud-openstack)=
 # OpenStack
 
-In Juju, OpenStack is a {ref}`machine cloud <cloud-differences>`. This document describes OpenStack-specific behaviors, configuration options, and limitations.
+In Juju, OpenStack is a {ref}`machine cloud <machine-cloud>`. This document describes OpenStack-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [OpenStack](https://www.openstack.org/)

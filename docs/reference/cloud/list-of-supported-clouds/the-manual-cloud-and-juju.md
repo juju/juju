@@ -7,7 +7,7 @@ myst:
 (cloud-manual)=
 # Manual
 
-In Juju, Manual is a {ref}`machine cloud <cloud-differences>` that adopts existing machines via SSH. This document describes Manual-specific behaviors, configuration options, and limitations.
+In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. This document describes Manual-specific behaviors, configuration options, and limitations.
 
 ```{important}
 The Manual cloud is a cloud you create with Juju from existing machines. Manual does not provision new infrastructure -- it brings existing Ubuntu/Debian systems under Juju management via SSH.

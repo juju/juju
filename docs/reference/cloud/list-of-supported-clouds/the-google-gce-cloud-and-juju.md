@@ -7,7 +7,7 @@ myst:
 (cloud-gce)=
 # Google GCE
 
-In Juju, Google GCE is a {ref}`machine cloud <cloud-differences>`. This document describes GCE-specific behaviors, configuration options, and limitations.
+In Juju, Google GCE is a {ref}`machine cloud <machine-cloud>`. This document describes GCE-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Google GCE](https://cloud.google.com/compute)

@@ -7,7 +7,7 @@ myst:
 (cloud-oci)=
 # Oracle OCI
 
-In Juju, Oracle OCI is a {ref}`machine cloud <cloud-differences>`. This document describes OCI-specific behaviors, configuration options, and limitations.
+In Juju, Oracle OCI is a {ref}`machine cloud <machine-cloud>`. This document describes OCI-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm)

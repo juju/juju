@@ -13,11 +13,7 @@ This document describes details specific to using your existing Equinix Metal cl
 See more: [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/)
 ```
 
-When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
-
-```{ibnote}
-See more: {ref}`cloud-differences`
-```
+When using this cloud with Juju, it is important to keep in mind that it is a (1) {ref}`machine cloud <machine-cloud>` and (2) not some other cloud.
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
 

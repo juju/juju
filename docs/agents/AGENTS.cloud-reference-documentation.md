@@ -33,7 +33,7 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 ```markdown
 # <Cloud Name>
 
-<Short intro describing this as a {ref}`machine cloud <cloud-differences>`>
+<Short intro describing this as a {ref}`machine cloud <machine-cloud>`>
 
 ## Cloud
   ### Definition
@@ -70,7 +70,7 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 
 **Key principles:**
 - **Title**: Just cloud name (e.g., "Microsoft Azure"), rely on docs tree for context
-- **Introduction**: Start with "In Juju, <Cloud> is a {ref}`machine cloud <cloud-differences>`."
+- **Introduction**: Start with "In Juju, <Cloud> is a {ref}`machine cloud <machine-cloud>`."
 - **Entity-based structure**: Organize by Juju entities (Cloud, Credential, Controller, Model, Machine, Storage)
 - **Sections describe cloud properties**: "Requirements this cloud has", "Constraints this cloud understands"
 - **"Other" subsections**: For cloud-specific features that don't fit standard template
@@ -160,10 +160,6 @@ The following table shows how <Cloud>'s native abstractions map to Juju concepts
 | [Resource Type](link) | {ref}`model <model>` (roughly) |
 | [Resource Type](link) | {ref}`machine <machine>` |
 | ...
-
-\```{ibnote}
-See also: {ref}`cloud-differences`
-\```
 ```
 
 ---
@@ -483,10 +479,6 @@ Juju provides an abstraction layer over <Cloud name> infrastructure, allowing <C
 | Collection of resources running the same workload | {ref}`application <application>` |
 | [Cloud Storage Type^](link) | {ref}`storage <storage>` |
 | [Cloud Network Type^](link) | Network space (roughly) |
-
-\```{ibnote}
-See also: {ref}`cloud-differences`
-\```
 
 (<cloud>-resources)=
 ### Resources

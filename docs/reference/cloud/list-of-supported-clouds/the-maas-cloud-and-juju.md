@@ -7,7 +7,7 @@ myst:
 (cloud-maas)=
 # MAAS
 
-In Juju, MAAS is a {ref}`machine cloud <cloud-differences>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
+In Juju, MAAS is a {ref}`machine cloud <machine-cloud>`. This document describes MAAS-specific behaviors, configuration options, and limitations.
 
 ```{ibnote}
 See more: [MAAS](https://maas.io/)
