@@ -524,6 +524,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ChangeStreamName:   changeStreamName,
 			Clock:              config.Clock,
 			Logger:             internallogger.GetLogger("juju.worker.trace"),
+			GetTracingService:  trace.GetTracingService,
 			NewTracerWorker:    trace.NewTracerWorker,
 		})),
 		traceName: trace.Manifold(trace.ManifoldConfig{

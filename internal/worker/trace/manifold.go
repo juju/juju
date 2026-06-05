@@ -11,16 +11,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
-	tracingstate "github.com/juju/juju/domain/tracing/state"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -52,17 +50,6 @@ type ManifoldConfig struct {
 	Kind            coretrace.Kind
 }
 
-// ControllerManifoldConfig defines the configuration for the controller
-// trace manifold.
-type ControllerManifoldConfig struct {
-	AgentName          string
-	DomainServicesName string
-	ChangeStreamName   string
-	Clock              clock.Clock
-	Logger             logger.Logger
-	NewTracerWorker    TracerWorkerFunc
-}
-
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
@@ -79,29 +66,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Kind == "" {
 		return errors.NotValidf("empty Kind")
-	}
-	return nil
-}
-
-// Validate validates the controller manifold configuration.
-func (cfg ControllerManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
-	if cfg.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
-	}
-	if cfg.ChangeStreamName == "" {
-		return errors.NotValidf("empty ChangeStreamName")
-	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
-	if cfg.NewTracerWorker == nil {
-		return errors.NotValidf("nil NewTracerWorker")
 	}
 	return nil
 }
@@ -154,6 +118,48 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+// GetTracingServiceFunc returns the controller tracing service from the
+// dependency getter.
+type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingService, error)
+
+// ControllerManifoldConfig defines the configuration for the controller
+// trace manifold.
+type ControllerManifoldConfig struct {
+	AgentName          string
+	DomainServicesName string
+	ChangeStreamName   string
+	Clock              clock.Clock
+	Logger             logger.Logger
+	GetTracingService  GetTracingServiceFunc
+	NewTracerWorker    TracerWorkerFunc
+}
+
+// Validate validates the controller manifold configuration.
+func (cfg ControllerManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
+	}
+	if cfg.ChangeStreamName == "" {
+		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.GetTracingService == nil {
+		return errors.NotValidf("nil GetTracingService")
+	}
+	if cfg.NewTracerWorker == nil {
+		return errors.NotValidf("nil NewTracerWorker")
+	}
+	return nil
+}
+
 // ControllerManifold returns a dependency manifold that runs the controller
 // trace worker with workload tracing hot-reload.
 func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
@@ -179,18 +185,9 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			tracingService, err := getControllerTracingServiceFromDependency(getter, config.DomainServicesName)
-			if err != nil && err != dependency.ErrMissing {
+			tracingService, err := config.GetTracingService(getter, config.DomainServicesName)
+			if err != nil {
 				return nil, errors.Trace(err)
-			}
-			if tracingService == nil {
-				controllerDB := changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS)
-				tracingService = tracingservice.NewWatchableService(
-					tracingstate.NewState(
-						changestream.NewTxnRunnerFactory(controllerDB),
-					),
-					domain.NewWatcherFactory(controllerDB, config.Logger.Child("tracing")),
-				)
 			}
 
 			config.Logger.Infof(ctx, "starting controller trace worker using workload tracing config")
@@ -241,6 +238,8 @@ type unitRuntimeConfigProvider struct {
 	config agent.Config
 }
 
+// CurrentRuntimeConfig returns the current runtime config for the unit trace
+// worker.
 func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
 	return RuntimeConfig{
 		Enabled:               p.config.OpenTelemetryEnabled(),
@@ -252,14 +251,29 @@ func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (Runtim
 	}, nil
 }
 
+// WatchRuntimeConfig returns an empty watcher, as the unit trace worker does
+// not support hot-reloading of the tracing configuration.
 func (p unitRuntimeConfigProvider) WatchRuntimeConfig(context.Context) (watcher.NotifyWatcher, error) {
-	return nil, nil
+	return emptyNotifyWatcher(), nil
+}
+
+// TracingService is the interface that defines the methods required from the
+// tracing service.
+type TracingService interface {
+	// GetWorkloadTracingConfig returns the workload tracing config from the state.
+	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
+
+	// WatchWorkloadTracingConfig returns a watcher that emits notifications
+	// when the workload tracing configuration changes.
+	WatchWorkloadTracingConfig(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 type controllerRuntimeConfigProvider struct {
-	tracingService *tracingservice.WatchableService
+	tracingService TracingService
 }
 
+// CurrentRuntimeConfig returns the current runtime config for the controller
+// trace worker, which is derived from the workload tracing config in the state.
 func (p controllerRuntimeConfigProvider) CurrentRuntimeConfig(ctx context.Context) (RuntimeConfig, error) {
 	cfg, err := p.tracingService.GetWorkloadTracingConfig(ctx)
 	if err != nil {
@@ -268,6 +282,8 @@ func (p controllerRuntimeConfigProvider) CurrentRuntimeConfig(ctx context.Contex
 	return runtimeConfigFromWorkloadTracingConfig(cfg)
 }
 
+// WatchRuntimeConfig returns a watcher that emits notifications when the
+// workload tracing configuration changes.
 func (p controllerRuntimeConfigProvider) WatchRuntimeConfig(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return p.tracingService.WatchWorkloadTracingConfig(ctx)
 }
@@ -312,10 +328,54 @@ func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingCo
 	return runtimeCfg, nil
 }
 
-func getControllerTracingServiceFromDependency(getter dependency.Getter, name string) (*tracingservice.WatchableService, error) {
+// GetTracingService returns the controller tracing service from the
+// dependency getter.
+func GetTracingService(getter dependency.Getter, name string) (TracingService, error) {
 	var controllerServices services.ControllerDomainServices
 	if err := getter.Get(name, &controllerServices); err != nil {
 		return nil, err
 	}
 	return controllerServices.Tracing(), nil
+}
+
+// emptyNotifyWatcher is a watcher that will just prime the watcher as a notify
+// watcher. This will broadcast an initial empty struct{} value to ensure that
+// any watchers that are waiting for changes will receive an initial
+// notification.
+func emptyNotifyWatcher() watcher.NotifyWatcher {
+	var empty struct{}
+	ch := make(chan struct{}, 1)
+	ch <- empty
+	w := &emptyWatcher{
+		ch: ch,
+	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		close(w.ch)
+		return tomb.ErrDying
+	})
+	return w
+}
+
+type emptyWatcher struct {
+	tomb tomb.Tomb
+	ch   chan struct{}
+}
+
+func (w *emptyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *emptyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *emptyWatcher) Changes() <-chan struct{} {
+	return w.ch
+}
+
+func (w *emptyWatcher) Report(_ context.Context) map[string]any {
+	return map[string]any{
+		"type": "emptyNotifyWatcher",
+	}
 }

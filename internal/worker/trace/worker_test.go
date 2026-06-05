@@ -190,6 +190,9 @@ func (s *workerSuite) TestGetTracerDisabled(c *tc.C) {
 			getConfig: func(context.Context) (RuntimeConfig, error) {
 				return RuntimeConfig{}, nil
 			},
+			watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+				return watcher.TODO[struct{}](), nil
+			},
 		},
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
@@ -266,6 +269,10 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 		c.Fatalf("timed out waiting for initial workload tracing config read")
 	}
 
+	// We need to ensure that the tracers are all drained before we call
+	// GetTracer again to ensure that the new config is applied.
+	s.ensureWorkersKilled(c)
+
 	worker := w
 	_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -296,6 +303,8 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for stopped tracer after config update")
 	}
+
+	s.ensureWorkersKilled(c)
 
 	_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -347,6 +356,9 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 					TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 				}, nil
 			},
+			watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+				return watcher.TODO[struct{}](), nil
+			},
 		},
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
@@ -391,7 +403,7 @@ func (p testRuntimeConfigProvider) WatchRuntimeConfig(ctx context.Context) (watc
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	s.states = make(chan string, 1)
+	s.states = make(chan string, 4)
 	atomic.StoreInt64(&s.called, 0)
 
 	ctrl := s.baseSuite.setupMocks(c)
@@ -408,6 +420,15 @@ func (s *workerSuite) ensureStartup(c *tc.C) {
 		c.Assert(state, tc.Equals, stateStarted)
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
+	}
+}
+
+func (s *workerSuite) ensureWorkersKilled(c *tc.C) {
+	select {
+	case state := <-s.states:
+		c.Assert(state, tc.Equals, stateWorkersKilled)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for workers killed")
 	}
 }
 
