@@ -52,6 +52,8 @@ See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform
 (openstack-credential-authentication-types)=
 ### Authentication types
 
+OpenStack supports the following authentication types:
+
 (openstack-credential-userpass)=
 #### `userpass`
 
@@ -199,6 +201,8 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 (openstack-machine-supported-placement-directives)=
 (openstack-machine-placement-directives)=
 ### Placement directives
+
+OpenStack supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
