@@ -53,8 +53,8 @@ Equinix Metal supports the following authentication type:
 
 Attributes:
 
-- `project-id`. Equinix Metal project ID (required).
-- `api-token`. Equinix Metal API token (required).
+- `project-id`: Equinix Metal project ID (required).
+- `api-token`: Equinix Metal API token (required).
 
 (equinix-machine)=
 ## Machines

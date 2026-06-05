@@ -1,3 +1,5 @@
+(command-juju-default-region)=
+# `juju default-region`
 > See also: [add-credential](#add-credential)
 
 **Aliases:** set-default-region
@@ -26,6 +28,3 @@ Get the default region for the `azure-china` cloud:
 Unset the default region for the `azure-china` cloud:
 
     juju default-region azure-china --reset
-
-
-

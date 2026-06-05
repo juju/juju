@@ -1,3 +1,5 @@
+(command-juju-help)=
+# `juju help`
 ## Summary
 Show help on a command or other topic.
 
@@ -7,6 +9,3 @@ Show help on a command or other topic.
 ## Details
 
 See also: topics
-
-
-

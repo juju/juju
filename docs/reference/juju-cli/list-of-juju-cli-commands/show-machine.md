@@ -1,3 +1,5 @@
+(command-juju-show-machine)=
+# `juju show-machine`
 > See also: [add-machine](#add-machine)
 
 ## Summary
@@ -27,6 +29,3 @@ Show a machine's status.
 Show a specified machine on a model.  The default format is `yaml`;
 other formats can be specified with the `--format` option.
 Available formats are `yaml`, `tabular`, and `json`.
-
-
-

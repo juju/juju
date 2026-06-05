@@ -1,3 +1,5 @@
+(command-juju-wait-for)=
+# `juju wait-for`
 ## Summary
 Wait for an entity to reach a specified state.
 
@@ -56,5 +58,3 @@ See also:
 - [machine](#wait-for-machine)
 - [model](#wait-for-model)
 - [unit](#wait-for-unit)
-
-

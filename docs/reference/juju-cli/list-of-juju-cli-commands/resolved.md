@@ -1,3 +1,5 @@
+(command-juju-resolved)=
+# `juju resolved`
 **Aliases:** resolve
 
 ## Summary
@@ -22,6 +24,3 @@ Marks unit errors resolved and re-executes failed hooks.
 	juju resolved mysql/0 mysql/1
 
 	juju resolved --all
-
-
-

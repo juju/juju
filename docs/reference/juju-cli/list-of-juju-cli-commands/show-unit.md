@@ -1,3 +1,5 @@
+(command-juju-show-unit)=
+# `juju show-unit`
 > See also: [add-unit](#add-unit), [remove-unit](#remove-unit)
 
 ## Summary
@@ -46,6 +48,3 @@ The command takes deployed unit names as an argument.
 
 Optionally, relation data for only a specified endpoint
 or related unit may be shown, or just the application data.
-
-
-

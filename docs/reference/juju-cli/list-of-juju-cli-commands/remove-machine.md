@@ -1,3 +1,5 @@
+(command-juju-remove-machine)=
+# `juju remove-machine`
 > See also: [add-machine](#add-machine)
 
 ## Summary
@@ -43,6 +45,3 @@ Machine removal is a multi-step process. Under normal circumstances, Juju will n
 proceed to the next step until the current step has finished.
 However, when using `--force`, users can also specify `--no-wait`
 to progress through steps without delay waiting for each step to complete.
-
-
-

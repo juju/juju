@@ -1,3 +1,5 @@
+(command-juju-add-user)=
+# `juju add-user`
 > See also: [register](#register), [grant](#grant), [users](#users), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user), [change-user-password](#change-user-password), [remove-user](#remove-user)
 
 ## Summary
@@ -29,7 +31,3 @@ process.
 
 Some machine providers will require the user to be in possession of certain
 credentials in order to create a model.
-
-
-
-

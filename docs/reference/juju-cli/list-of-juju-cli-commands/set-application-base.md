@@ -1,3 +1,5 @@
+(command-juju-set-application-base)=
+# `juju set-application-base`
 > See also: [status](#status), [refresh](#refresh), [upgrade-machine](#upgrade-machine)
 
 ## Summary
@@ -32,6 +34,3 @@ It is recommended to only do this after upgrade-machine has been run for
 machine containing all existing units of the application.
 
 To ensure correct binaries, run `juju refresh` before running `juju add-unit`.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-remove-secret)=
+# `juju remove-secret`
 ## Summary
 Remove a existing secret.
 
@@ -20,6 +22,3 @@ Remove a existing secret.
 ## Details
 
 Remove all the revisions of a secret with the specified URI or remove the provided revision only.
-
-
-

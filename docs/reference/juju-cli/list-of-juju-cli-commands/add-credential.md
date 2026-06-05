@@ -1,3 +1,5 @@
+(command-juju-add-credential)=
+# `juju add-credential`
 > See also: [credentials](#credentials), [remove-credential](#remove-credential), [update-credential](#update-credential), [default-credential](#default-credential), [default-region](#default-region), [autoload-credentials](#autoload-credentials)
 
 ## Summary
@@ -84,7 +86,3 @@ credentials manually.
 This command does not set default regions nor default credentials for the
 cloud. The commands `juju default-region`  and `juju default-credential`
 provide that functionality.
-
-
-
-

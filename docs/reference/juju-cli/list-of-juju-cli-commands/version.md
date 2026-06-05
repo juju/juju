@@ -1,3 +1,5 @@
+(command-juju-version)=
+# `juju version`
 > See also: [show-controller](#show-controller), [show-model](#show-model)
 
 ## Summary
@@ -25,5 +27,3 @@ Print all version information:
 ## Details
 
 Print only the `juju `CLI client version.
-
-

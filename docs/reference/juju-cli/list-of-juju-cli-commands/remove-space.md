@@ -1,3 +1,5 @@
+(command-juju-remove-space)=
+# `juju remove-space`
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space)
 
 ## Summary
@@ -33,5 +35,3 @@ are bound to the given space.
 
 If the `--force` option is specified, the space will be deleted even
 if there are existing bindings, constraints or settings.
-
-

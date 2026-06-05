@@ -1,3 +1,5 @@
+(command-juju-wait-for_application)=
+# `juju wait-for_application`
 > See also: [wait-for model](#wait-for model), [wait-for machine](#wait-for machine), [wait-for unit](#wait-for unit)
 
 ## Summary
@@ -44,6 +46,3 @@ for machines and units within the scope of the application. This can
 be achieved by using lambda expressions to iterate over the machines and units
 associated with the application. Multiple expressions can be combined to define
 a complex goal state.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-run)=
+# `juju run`
 > See also: [operations](#operations), [show-operation](#show-operation), [show-task](#show-task)
 
 ## Summary
@@ -78,6 +80,3 @@ is a boolean true in YAML.
 
 If `--params` is passed, along with `key.key...=value` explicit arguments, the
 explicit arguments will override the parameter file.
-
-
-

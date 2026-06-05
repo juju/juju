@@ -9,7 +9,7 @@ myst:
 
 In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Expand to view how to get a LXD cloud quickly on Ubuntu
+````{dropdown} How to get a LXD cloud quickly on Ubuntu
 
 Your Ubuntu likely comes with LXD preinstalled. Configure it as below. Juju will then recognize it as the `localhost` cloud.
 
@@ -17,13 +17,9 @@ Your Ubuntu likely comes with LXD preinstalled. Configure it as below. Juju will
 lxd init --auto
 lxc network set lxdbr0 ipv6.address none
 ```
-```
+````
 
-```{ibnote}
-See more: [LXD](https://documentation.ubuntu.com/lxd/en/latest/)
-```
-
-```{dropdown} Expand to view some reasons to use a LXD cloud
+```{dropdown} Reasons to use a LXD cloud
 
 The LXD cloud, especially when used locally, is great for:
 
@@ -33,7 +29,7 @@ The LXD cloud, especially when used locally, is great for:
 - rapid prototyping: LXD is great for when you're creating a new charm and want to be able to quickly provision capacity and tear it down.
 ```
 
-```{dropdown} Expand to find out why Docker wouldn't work
+```{dropdown} Why Docker wouldn't work
 
 Juju expects to see an operating system-like environment, so a LXD system container fits the bill. Docker containers are laid out for a singular application process, with a self-contained filesystem rather than a base userspace image.
 ```
@@ -76,13 +72,26 @@ Name in Juju: `localhost` (for local LXD), user-defined (for remote/clustered LX
 LXD clustering provides high-availability deployment. In a clustered LXD cloud, Juju deploys units across cluster nodes. Availability zones map to cluster member names.
 
 ```{ibnote}
-See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering/), {ref}`lxd-appendix-clustering`
+See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering)
 ```
 
 (lxd-cloud-projects)=
 #### LXD projects
 
 LXD projects provide isolated namespaces for models (multi-tenancy). Configured via cloud spec `Project` field. Profile, network, storage, and container APIs are scoped to the project.
+
+(lxd-cloud-images)=
+#### LXD images
+
+LXD is image based: All LXD containers come from images and any LXD daemon instance (also called a "remote") can serve images. When LXD is installed, a locally-running remote is provided (Unix domain socket) and the client is configured to talk to it (named 'local'). The client is also configured to talk to several other, non-local, ones (named 'ubuntu', 'ubuntu-daily', and 'images').
+
+An image is identified by its fingerprint (SHA-256 hash), and can be tagged with multiple aliases.
+
+For any image-related command, an image is specified by its alias or by its fingerprint. Both are shown in image lists. An image's *filename* is its *full* fingerprint, while an image *list* displays its *partial* fingerprint. Either type of fingerprint can be used to refer to images.
+
+Juju pulls official cloud images from the 'ubuntu' remote (http://cloud-images.ubuntu.com) and creates the necessary alias. Any subsequent requests will be satisfied by the LXD cache (`/var/lib/lxd/images`).
+
+Image cache expiration and image synchronization mechanisms are built-in.
 
 (lxd-credential)=
 ## Credentials
@@ -232,7 +241,18 @@ Each machine (controller or application) receives:
 - **NIC assignment**: Default `eth0` from `default` profile. Additional NICs for space constraints, bridged to host bridges. MAC addresses generated via `GenerateVirtualMACAddress()`.
 - **IP assignment**: Static via host bridge DHCP from LXD host. Container network detection via `ContainerAddresses()`.
 
-(lxd-storage)=
+(lxd-machine-other)=
+### Other
+
+(lxd-machine-charm-profiles)=
+#### Charm profiles
+
+LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container.
+
+```{ibnote}
+See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/)
+```
+
 (lxd-storage)=
 ## Storage
 
@@ -346,43 +366,7 @@ juju bootstrap myremote
 ```
 
 ```{note}
-The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the hosts ethernet device.
+The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the host's ethernet device.
 ```
 
-(lxd-appendix-non-admin-credentials)=
-## Appendix: Non-admin user credentials
 
-See {ref}`manage-credentials` for more details on how Juju credentials are used to share a bootstrapped controller.
-
-To share a LXD server with other users on the same machine or remotely, the best method is to use LXC remotes. See {ref}`lxd-appendix-remote-bootstrap`.
-
-(lxd-appendix-clustering)=
-## Appendix: Add resilience via LXD clustering
-
-LXD clustering provides the ability for applications to be deployed in a high-availability manner. In a clustered LXD cloud, Juju will deploy units across its nodes.
-
-```{ibnote}
-See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering/)
-```
-
-(lxd-appendix-charm-profiles)=
-## Appendix: Use LXD profiles from a charm
-
-LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container.
-
-```{ibnote}
-See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/)
-```
-
-(lxd-appendix-images)=
-## Appendix: LXD images
-
-LXD is image based: All LXD containers come from images and any LXD daemon instance (also called a "remote") can serve images. When LXD is installed a locally-running remote is provided (Unix domain socket) and the client is configured to talk to it (named 'local'). The client is also configured to talk to several other, non-local, ones (named 'ubuntu', 'ubuntu-daily', and 'images').
-
-An image is identified by its fingerprint (SHA-256 hash), and can be tagged with multiple aliases.
-
-For any image-related command, an image is specified by its alias or by its fingerprint. Both are shown in image lists. An image's *filename* is its *full* fingerprint, while an image *list* displays its *partial* fingerprint. Either type of fingerprint can be used to refer to images.
-
-Juju pulls official cloud images from the 'ubuntu' remote (http://cloud-images.ubuntu.com) and creates the necessary alias. Any subsequent requests will be satisfied by the LXD cache (`/var/lib/lxd/images`).
-
-Image cache expiration and image synchronization mechanisms are built-in.

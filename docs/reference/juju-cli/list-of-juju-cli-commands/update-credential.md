@@ -1,3 +1,5 @@
+(command-juju-update-credential)=
+# `juju update-credential`
 > See also: [add-credential](#add-credential), [credentials](#credentials), [remove-credential](#remove-credential), [set-credential](#set-credential)
 
 **Aliases:** update-credentials
@@ -57,7 +59,3 @@ the update will not affect that client's (laptop's) copy.
 Before credential is updated, the new content is validated. For some providers,
 cloud credentials are region specific. To validate the credential for a non-default region,
 use `--region`
-
-
-
-

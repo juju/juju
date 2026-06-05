@@ -1,3 +1,5 @@
+(command-juju-show-space)=
+# `juju show-space`
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [remove-space](#remove-space)
 
 ## Summary
@@ -25,5 +27,3 @@ Show a space by name:
 Displays extended information about a given space. 
 Output includes the space subnets, applications with bindings to the space,
 and a count of machines connected to the space.
-
-

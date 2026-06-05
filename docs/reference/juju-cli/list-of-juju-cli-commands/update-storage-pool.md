@@ -1,3 +1,5 @@
+(command-juju-update-storage-pool)=
+# `juju update-storage-pool`
 > See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool), [storage-pools](#storage-pools)
 
 ## Summary
@@ -26,6 +28,3 @@ Update which provider the pool is for:
 ## Details
 
 Update configuration attributes for a single existing storage pool.
-
-
-
