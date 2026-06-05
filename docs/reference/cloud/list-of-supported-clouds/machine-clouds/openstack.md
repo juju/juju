@@ -12,6 +12,10 @@ In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine clo
 (openstack-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`manage-clouds`, {ref}`tfjuju:manage-clouds`
+```
+
 (openstack-cloud-definition)=
 ### Definition
 
@@ -37,6 +41,10 @@ Source the OpenStack RC file (`source <path to file>`). This allows Juju to dete
 (openstack-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`manage-credentials`, {ref}`tfjuju:manage-credentials`
+```
+
 ```{important}
 **If you want to use environment variables (recommended):** Source the OpenStack RC file. Run `juju add-credential` and accept the suggested defaults.
 ```
@@ -60,6 +68,10 @@ Attributes:
 
 (openstack-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`manage-controllers`, {ref}`tfjuju:manage-controllers`
+```
 
 (openstack-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -97,8 +109,10 @@ See more: {ref}`manage-metadata`
 (openstack-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`manage-models`, {ref}`tfjuju:manage-models`
+```
 
-(openstack-model-cloud-specific-configuration-keys)=
 (openstack-model-configuration-keys)=
 ### Configuration keys
 
@@ -155,8 +169,10 @@ The network label or UUID to bring machines up on when multiple networks exist.
 (openstack-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`manage-machines`
+```
 
-(openstack-machine-supported-constraints)=
 (openstack-machine-constraints)=
 ### Constraints
 
@@ -208,8 +224,11 @@ Each machine (controller or application) receives:
 - **Port security**: Respects `port_security_enabled` network attribute. Skips security group creation if port security disabled.
 
 (openstack-storage)=
-(openstack-storage)=
 ## Storage
+
+```{ibnote}
+See also: {ref}`manage-storage`
+```
 
 ### Storage providers
 
