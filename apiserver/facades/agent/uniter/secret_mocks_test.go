@@ -13,10 +13,11 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gomock "go.uber.org/mock/gomock"
+
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	secret "github.com/juju/juju/domain/secret"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretService is a mock of SecretService interface.
@@ -114,45 +115,6 @@ func (c *MockSecretServiceCreateCharmSecretCall) Do(f func(context.Context, *sec
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSecretServiceCreateCharmSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.CreateCharmSecretParams) error) *MockSecretServiceCreateCharmSecretCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetConsumedRevision mocks base method.
-func (m *MockSecretService) GetConsumedRevision(arg0 context.Context, arg1 *secrets.URI, arg2 unit.Name, arg3, arg4 bool, arg5 *string) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetConsumedRevision", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetConsumedRevision indicates an expected call of GetConsumedRevision.
-func (mr *MockSecretServiceMockRecorder) GetConsumedRevision(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockSecretServiceGetConsumedRevisionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsumedRevision", reflect.TypeOf((*MockSecretService)(nil).GetConsumedRevision), arg0, arg1, arg2, arg3, arg4, arg5)
-	return &MockSecretServiceGetConsumedRevisionCall{Call: call}
-}
-
-// MockSecretServiceGetConsumedRevisionCall wrap *gomock.Call
-type MockSecretServiceGetConsumedRevisionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceGetConsumedRevisionCall) Return(arg0 int, arg1 error) *MockSecretServiceGetConsumedRevisionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceGetConsumedRevisionCall) Do(f func(context.Context, *secrets.URI, unit.Name, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceGetConsumedRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

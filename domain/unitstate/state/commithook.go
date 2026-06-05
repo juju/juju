@@ -79,11 +79,11 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		// provided (currently a no-op in domain/secret/state).
 
 		if err := st.deleteSecrets(ctx, tx, arg.SecretDeletes); err != nil {
-			return errors.Errorf("delete secrets:%w", err)
+			return errors.Errorf("delete secrets: %w", err)
 		}
 
-		if err := st.trackSecrets(ctx, tx, arg.TrackLatestSecrets); err != nil {
-			return errors.Errorf("track latest secrets:%w", err)
+		if err := st.trackSecrets(ctx, tx, arg.UnitUUID, arg.TrackLatestSecrets); err != nil {
+			return errors.Errorf("track latest secrets: %w", err)
 		}
 
 		if err := st.addStorage(ctx, tx, arg); err != nil {
@@ -440,7 +440,143 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []int
 	return nil
 }
 
-func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, secrets []string) error {
+// trackSecrets updates secret_unit_consumer rows so that the specified unit
+// tracks the latest revision for each supplied secret. Secrets that no longer
+// exist are silently skipped (idempotent). After updating each consumer row,
+// revisions that are no longer in use are marked obsolete so the removal
+// worker can clean them up.
+//
+// The secretIDs slice contains bare secret ID strings (xid format), as stored
+// in CommitHookChangesArg.TrackLatestSecrets.
+func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, unitUUID string, secretIDs []string) error {
+	if len(secretIDs) == 0 {
+		return nil
+	}
+
+	existing, err := st.filterExistingSecrets(ctx, tx, secretIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Query the maximum revision number for a given secret.
+	latestRevStmt, err := st.Prepare(`
+SELECT IFNULL(MAX(revision), 0) AS &secretLatestRevision.revision
+FROM   secret_revision
+WHERE  secret_id = $secretID.secret_id
+`, secretLatestRevision{}, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Upsert the consumer row: on first access (no existing row) insert
+	// a new one with an empty label; on subsequent accesses only update
+	// current_revision so the existing label is preserved.
+	upsertStmt, err := st.Prepare(`
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES ($secretUnitConsumerLatest.secret_id, $secretUnitConsumerLatest.source_model_uuid,
+        $secretUnitConsumerLatest.unit_uuid, '',
+        $secretUnitConsumerLatest.current_revision)
+ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
+    current_revision = excluded.current_revision
+`, secretUnitConsumerLatest{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, id := range secretIDs {
+		if _, ok := existing[id]; !ok {
+			continue
+		}
+
+		var latest secretLatestRevision
+		if err := tx.Query(ctx, latestRevStmt, secretID{ID: id}).Get(&latest); err != nil {
+			return errors.Errorf("querying latest revision for secret %q: %w", id, err)
+		}
+		if latest.Revision == 0 {
+			// Secret exists in metadata but has no revisions yet — skip.
+			st.logger.Debugf(ctx, "secret %q has no revisions, skipping track", id)
+			continue
+		}
+
+		consumer := secretUnitConsumerLatest{
+			SecretID:        id,
+			SourceModelUUID: "", // local secrets have no source model UUID
+			UnitUUID:        unitUUID,
+			CurrentRevision: latest.Revision,
+		}
+		if err := tx.Query(ctx, upsertStmt, consumer).Run(); err != nil {
+			return errors.Errorf("upserting consumer for secret %q: %w", id, err)
+		}
+
+		if err := st.markSecretRevisionsObsolete(ctx, tx, id); err != nil {
+			return errors.Errorf("marking obsolete revisions for secret %q: %w", id, err)
+		}
+	}
+	return nil
+}
+
+// markSecretRevisionsObsolete marks secret revisions that are no longer in use
+// as obsolete with pending_delete=true. A revision is considered "in use" if
+// at least one local or remote consumer currently tracks it, or if it is the
+// latest revision for the secret.
+//
+// This mirrors the logic in domain/secret/state.markObsoleteRevisions but
+// operates inside the unitstate commit-hook transaction to avoid a separate
+// round-trip.
+func (st *State) markSecretRevisionsObsolete(ctx context.Context, tx *sqlair.TX, id string) error {
+	findObsoleteStmt, err := st.Prepare(`
+SELECT sr.uuid AS &secretRevisionUUID.uuid
+FROM   secret_revision sr
+       LEFT JOIN (
+           SELECT DISTINCT current_revision AS revision
+           FROM   secret_unit_consumer
+           WHERE  secret_id = $secretID.secret_id
+           UNION
+           SELECT DISTINCT current_revision AS revision
+           FROM   secret_remote_unit_consumer
+           WHERE  secret_id = $secretID.secret_id
+           UNION
+           SELECT MAX(revision)
+           FROM   secret_revision
+           WHERE  secret_id = $secretID.secret_id
+       ) in_use ON sr.revision = in_use.revision
+WHERE  sr.secret_id = $secretID.secret_id
+AND    (in_use.revision IS NULL OR in_use.revision = 0)
+`, secretRevisionUUID{}, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	markStmt, err := st.Prepare(`
+INSERT INTO secret_revision_obsolete (revision_uuid, obsolete, pending_delete)
+VALUES ($secretRevisionObsolete.revision_uuid,
+        $secretRevisionObsolete.obsolete,
+        $secretRevisionObsolete.pending_delete)
+ON CONFLICT(revision_uuid) DO UPDATE SET
+    obsolete      = excluded.obsolete,
+    pending_delete = excluded.pending_delete
+`, secretRevisionObsolete{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var obsoleteUUIDs []secretRevisionUUID
+	err = tx.Query(ctx, findObsoleteStmt, secretID{ID: id}).GetAll(&obsoleteUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("querying obsolete revisions for secret %q: %w", id, err)
+	}
+
+	for _, rev := range obsoleteUUIDs {
+		rec := secretRevisionObsolete{
+			UUID:          rev.UUID,
+			Obsolete:      true,
+			PendingDelete: true,
+		}
+		if err := tx.Query(ctx, markStmt, rec).Run(); err != nil {
+			return errors.Errorf(
+				"marking revision %q obsolete for secret %q: %w", rev.UUID, id, err)
+		}
+	}
 	return nil
 }
 

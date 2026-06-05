@@ -217,6 +217,36 @@ type unitState struct {
 	SecretState string `db:"secret_state"`
 }
 
+// secretUnitConsumerLatest holds the fields needed to upsert a
+// secret_unit_consumer row when tracking the latest revision.
+type secretUnitConsumerLatest struct {
+	SecretID        string `db:"secret_id"`
+	SourceModelUUID string `db:"source_model_uuid"`
+	UnitUUID        string `db:"unit_uuid"`
+	CurrentRevision int    `db:"current_revision"`
+}
+
+// secretLatestRevision holds the result of a MAX(revision) query used
+// when tracking the latest secret revision.
+type secretLatestRevision struct {
+	// Revision is the maximum revision number; 0 means no revisions exist.
+	Revision int `db:"revision"`
+}
+
+// secretRevisionUUID holds a single revision UUID returned by the obsolete
+// revision query.
+type secretRevisionUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// secretRevisionObsolete is used to mark a revision as obsolete and pending
+// deletion in the secret_revision_obsolete table.
+type secretRevisionObsolete struct {
+	UUID          string `db:"revision_uuid"`
+	Obsolete      bool   `db:"obsolete"`
+	PendingDelete bool   `db:"pending_delete"`
+}
+
 // commitHookUnitInfo is data needed for a unit that does not change,
 // allowing us to fetch it up front, outside the write transaction.
 type commitHookUnitInfo struct {
