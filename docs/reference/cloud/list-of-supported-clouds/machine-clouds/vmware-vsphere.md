@@ -12,6 +12,10 @@ In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {re
 (vsphere-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (vsphere-cloud-definition)=
 ### Definition
 
@@ -34,8 +38,14 @@ Juju supports both high-availability vSAN deployments and standard deployments.
 (vsphere-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 (vsphere-credential-authentication-types)=
 ### Authentication types
+
+VMware vSphere supports the following authentication types:
 
 (vsphere-credential-userpass)=
 ####  `userpass`
@@ -48,6 +58,10 @@ Attributes:
 
 (vsphere-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
 
 (vsphere-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -85,10 +99,15 @@ See more: {ref}`vsphere-appendix-using-templates`
 (vsphere-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
 
 (vsphere-model-cloud-specific-configuration-keys)=
 (vsphere-model-configuration-keys)=
 ### Configuration keys
+
+VMware vSphere supports the following cloud-specific model configuration keys:
 
 (vsphere-model-datastore)=
 #### `datastore`
@@ -153,10 +172,15 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 (vsphere-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
 
 (vsphere-machine-supported-constraints)=
 (vsphere-machine-constraints)=
 ### Constraints
+
+VMware vSphere supports the following constraints:
 
 - {ref}`constraint-arch`: Valid values: `amd64`.
 - {ref}`constraint-container`
@@ -171,6 +195,8 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 (vsphere-machine-supported-placement-directives)=
 (vsphere-machine-placement-directives)=
 ### Placement directives
+
+VMware vSphere supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: Valid values: `<cluster|host>`.
@@ -203,6 +229,10 @@ Each machine (controller or application) receives:
 (vsphere-storage)=
 (vsphere-storage)=
 ## Storage
+
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
 
 ### Storage providers
 

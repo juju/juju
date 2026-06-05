@@ -19,12 +19,16 @@ Name in Juju: `equinix`
 
 ### Authentication types
 
+Equinix Metal supports the following authentication types:
+
 #### `access-key`
 Attributes:
 - `project-id`: Packet project ID (required)
 - `api-token`: Packet API token (required)
 
 ## Supported constraints
+
+Equinix Metal supports the following constraints:
 
 | {ref}`CONSTRAINT <constraint>`         |          |
 |----------------------------------------|----------|
@@ -47,6 +51,8 @@ Attributes:
 | - {ref}`constraint-zones`              |          |
 
 ## Supported placement directives
+
+Equinix Metal supports the following placement directives:
 
 | {ref}`PLACEMENT DIRECTIVE <placement-directive>` |          |
 |--------------------------------------------------|----------|

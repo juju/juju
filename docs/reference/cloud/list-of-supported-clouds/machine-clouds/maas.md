@@ -12,6 +12,10 @@ In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It 
 (maas-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (maas-cloud-definition)=
 ### Definition
 
@@ -41,8 +45,14 @@ Key implications:
 (maas-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 (maas-credential-authentication-types)=
 ### Authentication types
+
+MAAS supports the following authentication types:
 
 (maas-credential-oauth1)=
 #### `oauth1`
@@ -56,6 +66,10 @@ Attributes:
 
 (maas-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
 
 (maas-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -78,10 +92,15 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 (maas-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
 
 (maas-machine-supported-constraints)=
 (maas-machine-constraints)=
 ### Constraints
+
+MAAS supports the following constraints:
 
 - {ref}`constraint-arch`: Valid values: See cloud provider.
 - {ref}`constraint-container`
@@ -97,6 +116,8 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 (maas-machine-supported-placement-directives)=
 (maas-machine-placement-directives)=
 ### Placement directives
+
+MAAS supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-system-id`
@@ -124,6 +145,12 @@ Each machine (controller or application) receives:
 
 (maas-storage)=
 ## Storage
+
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, MAAS provides the following cloud-specific storage providers:
 
 ### Storage providers
 

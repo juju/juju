@@ -36,6 +36,10 @@ See more: https://github.com/canonical/k8s-snap/issues/1612
 
 ## Storage
 
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
 Storage provisioned on the Canonical Kubernetes cloud.
 
 ```{ibnote}

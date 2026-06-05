@@ -12,6 +12,10 @@ In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_feat
 (ec2-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (ec2-cloud-definition)=
 ### Definition
 
@@ -38,8 +42,14 @@ Use `vpc-id-force=true` to skip validation.
 (ec2-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 (ec2-credential-authentication-types)=
 ### Authentication types
+
+Amazon EC2 supports the following authentication types:
 
 (ec2-credential-instance-role)=
 #### `instance-role`
@@ -58,6 +68,10 @@ Attributes:
 
 (ec2-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
 
 (ec2-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -92,8 +106,14 @@ See more: [Discourse | Using AWS instance profiles with Juju](https://discourse.
 (ec2-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 (ec2-model-configuration-keys)=
 ### Configuration keys
+
+Amazon EC2 supports the following cloud-specific model configuration keys:
 
 (ec2-model-vpc-id)=
 #### `vpc-id`
@@ -118,8 +138,14 @@ Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the mini
 (ec2-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
+
 (ec2-machine-constraints)=
 ### Constraints
+
+Amazon EC2 supports the following constraints:
 
 ```{note}
 The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclusive.
@@ -141,6 +167,8 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 
 (ec2-machine-placement-directives)=
 ### Placement directives
+
+Amazon EC2 supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`: If the query looks like a CIDR, matches subnets with the same CIDR. If it follows syntax `subnet-XXXX`, matches the Subnet ID. Otherwise matches subnet Name tag.
@@ -172,7 +200,11 @@ Each machine (controller or application) receives:
 (ec2-storage)=
 ## Storage
 
-### Storage providers
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, Amazon EC2 provides the following cloud-specific storage providers:
 
 (storage-provider-ebs)=
 ### `ebs`

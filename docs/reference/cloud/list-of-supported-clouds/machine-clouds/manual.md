@@ -20,6 +20,10 @@ If this collection of machines is composed solely of bare metal you might opt fo
 (manual-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (manual-cloud-definition)=
 ### Definition
 
@@ -41,15 +45,25 @@ A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privile
 (manual-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 Credentials for the Manual cloud.
 
 (manual-credential-authentication-types)=
 ### Authentication types
 
+Manual supports the following authentication types:
+
 No preset authentication types. Ensure you can SSH into the controller machine using public key authentication. Juju uses standard SSH mechanisms (private key, optionally password auth, PTY enablement).
 
 (manual-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
 
 When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
 
@@ -95,16 +109,26 @@ Manual does not create infrastructure resources. It configures existing machines
 (manual-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 Models connected to the Manual cloud.
 
 (manual-model-cloud-specific-configuration-keys)=
 (manual-model-configuration-keys)=
 ### Configuration keys
 
+Manual supports the following cloud-specific model configuration keys:
+
 None.
 
 (manual-machine)=
 ## Machines
+
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
 
 ```{important}
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g., a cloud instance) as they become necessary. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during deployment.
@@ -128,6 +152,8 @@ See more: {ref}`take-your-deployment-offline`
 (manual-machine-constraints)=
 ### Constraints
 
+Manual supports the following constraints:
+
 Constraints are limited to detectable hardware attributes:
 
 - {ref}`constraint-arch`: For controller: the host architecture. For other machines: the architecture from the machine hardware.
@@ -140,6 +166,8 @@ Constraints are limited to detectable hardware attributes:
 (manual-machine-supported-placement-directives)=
 (manual-machine-placement-directives)=
 ### Placement directives
+
+Manual supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
@@ -172,6 +200,10 @@ Adding machines with `juju add-machine ssh:[user@]<host>` requires the target to
 
 (manual-storage)=
 ## Cloud-specific storage providers
+
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
 
 None. Manual has no storage support. Users must pre-configure storage or manage it outside Juju.
 

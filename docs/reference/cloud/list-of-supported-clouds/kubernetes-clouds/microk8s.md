@@ -30,6 +30,10 @@ See more: [MicroK8s | Strict MicroK8s](https://microk8s.io/docs/install-strict)
 
 ## Storage
 
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
 Storage provisioned on the MicroK8s cloud.
 
 ```{ibnote}

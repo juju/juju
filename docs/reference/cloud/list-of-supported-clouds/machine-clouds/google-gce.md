@@ -12,6 +12,10 @@ In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine 
 (gce-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (gce-cloud-definition)=
 ### Definition
 
@@ -43,6 +47,10 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 (gce-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 When adding a credential for Google GCE, Juju supports the following authentication types.
 
 **Environment variables (optional):**
@@ -52,6 +60,8 @@ When adding a credential for Google GCE, Juju supports the following authenticat
 
 (gce-credential-authentication-types)=
 ### Authentication types
+
+Google GCE supports the following authentication types:
 
 (gce-credential-oauth2)=
 #### `oauth2`
@@ -90,6 +100,10 @@ See more: {ref}`gce-appendix-workflow-1`
 (gce-controller)=
 ## Controllers
 
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
+
 (gce-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -121,11 +135,17 @@ See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authen
 (gce-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 When configuring a model on Google GCE, Juju recognizes the following cloud-specific keys.
 
 (gce-model-cloud-specific-configuration-keys)=
 (gce-model-configuration-keys)=
 ### Configuration keys
+
+Google GCE supports the following cloud-specific model configuration keys:
 
 (gce-model-vpc-id)=
 #### `vpc-id`
@@ -160,10 +180,16 @@ Base path to look for machine disk images.
 (gce-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
+
 
 (gce-machine-supported-constraints)=
 (gce-machine-constraints)=
 ### Constraints
+
+Google GCE supports the following constraints:
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive.
@@ -184,6 +210,8 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 (gce-machine-supported-placement-directives)=
 (gce-machine-placement-directives)=
 ### Placement directives
+
+Google GCE supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`: Matches subnet by name or CIDR range.
@@ -215,7 +243,11 @@ Each machine (controller or application) receives:
 (gce-storage)=
 ## Storage
 
-### Storage providers
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, Google GCE provides the following cloud-specific storage providers:
 
 (storage-provider-gce)=
 ### `gce`

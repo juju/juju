@@ -41,6 +41,10 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 (lxd-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (lxd-cloud-definition)=
 ### Definition
 
@@ -83,6 +87,10 @@ LXD projects provide isolated namespaces for models (multi-tenancy). Configured 
 (lxd-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 **Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
 
 **Remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.
@@ -93,6 +101,8 @@ See more: [LXD | How to add remote servers](https://documentation.ubuntu.com/lxd
 
 (lxd-credential-authentication-types)=
 ### Authentication types
+
+LXD supports the following authentication types:
 
 (lxd-credential-certificate)=
 #### `certificate`
@@ -118,6 +128,10 @@ See more: [LXD | Adding client certificates using tokens](https://documentation.
 (lxd-controller)=
 ## Controllers
 
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
+
 (lxd-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -137,11 +151,17 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 (lxd-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 When configuring a model on LXD, Juju recognizes the following cloud-specific keys.
 
 (lxd-model-cloud-specific-configuration-keys)=
 (lxd-model-configuration-keys)=
 ### Configuration keys
+
+LXD supports the following cloud-specific model configuration keys:
 
 (lxd-model-project)=
 #### `project`
@@ -156,6 +176,10 @@ The LXD project name to use for Juju's resources.
 (lxd-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
+
 When provisioning machines on LXD, Juju supports the following constraints and placement directives.
 
 ```{note}
@@ -167,6 +191,8 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 (lxd-machine-supported-constraints)=
 (lxd-machine-constraints)=
 ### Constraints
+
+LXD supports the following constraints:
 
 - {ref}`constraint-arch`: Valid values: Host architecture.
 - {ref}`constraint-cores`
@@ -180,6 +206,8 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 (lxd-machine-supported-placement-directives)=
 (lxd-machine-placement-directives)=
 ### Placement directives
+
+LXD supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: If there's no '=' delimiter, assume it's a node name.
@@ -208,7 +236,11 @@ Each machine (controller or application) receives:
 (lxd-storage)=
 ## Storage
 
-### Storage providers
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, LXD provides the following cloud-specific storage providers:
 
 (storage-provider-lxd)=
 ### `lxd`

@@ -17,6 +17,10 @@ Starting with Juju 3.0, because of the  fact that the `juju` client snap is stri
 
 ## Storage
 
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
 Storage provisioned on the Google GKE cloud.
 
 ```{ibnote}

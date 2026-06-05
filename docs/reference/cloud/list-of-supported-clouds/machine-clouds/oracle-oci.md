@@ -12,6 +12,10 @@ In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a 
 (oci-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (oci-cloud-definition)=
 ### Definition
 
@@ -37,8 +41,14 @@ OCI organizes resources into availability domains (ADs) within each region. Juju
 (oci-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 (oci-credential-authentication-types)=
 ### Authentication types
+
+Oracle OCI supports the following authentication types:
 
 (oci-credential-httpsig)=
 #### `httpsig`
@@ -54,6 +64,10 @@ Attributes:
 
 (oci-controller)=
 ## Controllers
+
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
 
 (oci-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -74,11 +88,17 @@ Creates a controller instance on OCI via imperative API calls. Uses polling-base
 (oci-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 When configuring a model on Oracle OCI, Juju recognizes the following cloud-specific keys.
 
 (oci-model-cloud-specific-configuration-keys)=
 (oci-model-configuration-keys)=
 ### Configuration keys
+
+Oracle OCI supports the following cloud-specific model configuration keys:
 
 (oci-model-compartment-id)=
 #### `compartment-id`
@@ -103,10 +123,15 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 (oci-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
 
 (oci-machine-supported-constraints)=
 (oci-machine-constraints)=
 ### Constraints
+
+Oracle OCI supports the following constraints:
 
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-arch`: Valid values: `amd64`, `arm64`.
@@ -120,6 +145,8 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 (oci-machine-supported-placement-directives)=
 (oci-machine-placement-directives)=
 ### Placement directives
+
+Oracle OCI supports the following placement directives:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
@@ -150,6 +177,12 @@ Each machine (controller or application) receives:
 (oci-storage)=
 (oci-storage)=
 ## Storage
+
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, Oracle OCI provides the following cloud-specific storage providers:
 
 ### Storage providers
 

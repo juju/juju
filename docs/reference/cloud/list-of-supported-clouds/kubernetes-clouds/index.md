@@ -26,6 +26,10 @@ In Juju, a Kubernetes cloud is a {ref}`kubernetes-cloud`. Juju deploys charms as
 (kubernetes-cloud)=
 ## Cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (kubernetes-definition)=
 ### Definition
 
@@ -54,10 +58,16 @@ If you are familiar with Kubernetes, the following maps Juju concepts to their K
 (kubernetes-credential)=
 ## Credential
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 On Kubernetes clouds, both the cloud definition and the credentials are added through `juju add-k8s`, which reads from your kubeconfig file.
 
 (kubernetes-supported-authentication-types)=
 ### Supported authentication types
+
+Kubernetes clouds support the following authentication types:
 
 (kubernetes-auth-certificate)=
 - **`certificate`**: Kubernetes service account token with certificate.
@@ -90,6 +100,10 @@ On Kubernetes clouds, both the cloud definition and the credentials are added th
 (kubernetes-controller)=
 ## Controller
 
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
+
 (kubernetes-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -121,8 +135,14 @@ The controller Service type varies by cloud:
 (kubernetes-model)=
 ## Model
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 (kubernetes-model-configuration-keys)=
 ### Model configuration keys
+
+Kubernetes clouds support the following cloud-specific model configuration keys:
 
 (kubernetes-model-config-operator-storage)=
 - **`operator-storage`**: The storage class used to provision operator storage. Type: string. Default: "" (uses cluster default storage class). Immutable: true. Mandatory: false.
@@ -133,8 +153,14 @@ The controller Service type varies by cloud:
 (kubernetes-application)=
 ## Application
 
+```{ibnote}
+See also: {ref}`Juju | Manage applications <manage-applications>`
+```
+
 (kubernetes-supported-constraints)=
 ### Supported constraints
+
+Kubernetes clouds support the following constraints:
 
 Kubernetes clouds support a limited subset of constraints compared to machine clouds:
 
@@ -176,10 +202,14 @@ Kubernetes application pods in Juju follow these patterns:
 ## Cloud-specific storage providers
 
 ```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+```{ibnote}
 See first: {ref}`storage-provider`
 ```
 
-Kubernetes-based models have access to the `kubernetes` storage provider.
+In addition to {ref}`generic storage providers <storage-provider>`, Kubernetes-based models have access to the following cloud-specific storage providers:
 
 (storage-provider-kubernetes)=
 ### `kubernetes`

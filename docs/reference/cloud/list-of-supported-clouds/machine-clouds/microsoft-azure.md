@@ -5,6 +5,10 @@ In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine
 (azure-cloud)=
 ## The cloud
 
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
+
 (azure-cloud-definition)=
 ### Definition
 
@@ -49,8 +53,14 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 (azure-credential)=
 ## Credentials
 
+```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
 (azure-credential-authentication-types)=
 ### Authentication types
+
+Microsoft Azure supports the following authentication types:
 
 (azure-credential-managed-identity)=
 #### `managed-identity`
@@ -99,6 +109,10 @@ Credentials occasionally stop working over time. Refresh using credential update
 (azure-controller)=
 ## Controllers
 
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
+
 (azure-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -129,11 +143,17 @@ See more: {ref}`azure-machine-supported-constraints`
 (azure-model)=
 ## Models
 
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
 When configuring a model on Microsoft Azure, Juju recognizes the following cloud-specific keys.
 
 (azure-model-cloud-specific-configuration-keys)=
 (azure-model-configuration-keys)=
 ### Configuration keys
+
+Microsoft Azure supports the following cloud-specific model configuration keys:
 
 (azure-model-load-balancer-sku-name)=
 #### `load-balancer-sku-name`
@@ -168,10 +188,16 @@ If set, use the specified virtual network for all model machines instead of crea
 (azure-machine)=
 ## Machines
 
+```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+```
+
 
 (azure-machine-supported-constraints)=
 (azure-machine-constraints)=
 ### Constraints
+
+Microsoft Azure supports the following constraints:
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
@@ -191,6 +217,8 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 (azure-machine-supported-placement-directives)=
 (azure-machine-placement-directives)=
 ### Placement directives
+
+Microsoft Azure supports the following placement directives:
 
 - {ref}`placement-directive-subnet`
 
@@ -218,7 +246,11 @@ Each machine (controller or application) receives:
 (azure-storage)=
 ## Storage
 
-### Storage providers
+```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+```
+
+In addition to {ref}`generic storage providers <storage-provider>`, Microsoft Azure provides the following cloud-specific storage providers:
 
 (storage-provider-azure)=
 ### `azure`
