@@ -116,6 +116,8 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 (openstack-model-configuration-keys)=
 ### Configuration keys
 
+OpenStack supports the following cloud-specific model configuration keys:
+
 (openstack-model-external-network)=
 #### `external-network`
 
@@ -176,6 +178,8 @@ See also: {ref}`Juju | Manage machines <manage-machines>`
 (openstack-machine-constraints)=
 ### Constraints
 
+OpenStack supports the following constraints:
+
 ```{note}
 The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
 ```
@@ -230,7 +234,7 @@ Each machine (controller or application) receives:
 See also: {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-### Storage providers
+In addition to generic storage providers, OpenStack provides the following cloud-specific storage providers:
 
 (storage-provider-cinder)=
 ### `cinder`
