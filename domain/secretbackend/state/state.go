@@ -289,23 +289,21 @@ func (s *State) DeleteSecretBackend(ctx context.Context, identifier secretbacken
 		return errors.Capture(err)
 	}
 
-	input := SecretBackend{ID: identifier.ID, Name: identifier.Name}
-
 	checkInUseStmt, err := s.Prepare(`
 SELECT COUNT(*) AS &Count.num
 FROM   secret_backend_reference
-WHERE  secret_backend_uuid = $SecretBackend.uuid`, input, Count{})
+WHERE  secret_backend_uuid = $SecretBackend.uuid`, SecretBackend{}, Count{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	cfgStmt, err := s.Prepare(`
-DELETE FROM secret_backend_config WHERE backend_uuid = $SecretBackend.uuid`, input)
+DELETE FROM secret_backend_config WHERE backend_uuid = $SecretBackend.uuid`, SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 	rotationStmt, err := s.Prepare(`
-DELETE FROM secret_backend_rotation WHERE backend_uuid = $SecretBackend.uuid`, input)
+DELETE FROM secret_backend_rotation WHERE backend_uuid = $SecretBackend.uuid`, SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -323,56 +321,59 @@ SET secret_backend_uuid = (
     WHEN 'caas' THEN 'kubernetes'
     END
 )
-WHERE secret_backend_uuid = $SecretBackend.uuid`, input)
+WHERE secret_backend_uuid = $SecretBackend.uuid`, SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 	backendStmt, err := s.Prepare(`
-DELETE FROM secret_backend WHERE uuid = $SecretBackend.uuid`, input)
+DELETE FROM secret_backend WHERE uuid = $SecretBackend.uuid`, SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if identifier.ID == "" {
+		backendID := identifier.ID
+
+		if backendID == "" {
 			sb, err := s.getSecretBackend(ctx, tx, identifier)
 			if err != nil {
 				return errors.Capture(err)
 			}
-			input.ID = sb.ID
+			backendID = sb.ID
 		}
 
-		if isImmutable, err := s.isImmutable(ctx, tx, input.ID); err != nil {
+		inputToDelete := SecretBackend{ID: backendID}
+		if isImmutable, err := s.isImmutable(ctx, tx, inputToDelete.ID); err != nil {
 			return errors.Capture(err)
 		} else if isImmutable {
-			return errors.Errorf("secret backend %q is immutable", input.ID).Add(secretbackenderrors.Forbidden)
+			return errors.Errorf("secret backend %q is immutable", inputToDelete.ID).Add(secretbackenderrors.Forbidden)
 		}
 
 		if !deleteInUse {
 			var count Count
-			err := tx.Query(ctx, checkInUseStmt, input).Get(&count)
+			err := tx.Query(ctx, checkInUseStmt, inputToDelete).Get(&count)
 			if err != nil {
-				return errors.Errorf("checking if secret backend %q is in use: %w", input.ID, err)
+				return errors.Errorf("checking if secret backend %q is in use: %w", inputToDelete.ID, err)
 			}
 			if count.Num > 0 {
-				return errors.Errorf("%w: %q is in use", secretbackenderrors.Forbidden, input.ID)
+				return errors.Errorf("%w: %q is in use", secretbackenderrors.Forbidden, inputToDelete.ID)
 			}
 		}
 
-		if err := tx.Query(ctx, cfgStmt, input).Run(); err != nil {
-			return errors.Errorf("deleting secret backend config for %q: %w", input.ID, err)
+		if err := tx.Query(ctx, cfgStmt, inputToDelete).Run(); err != nil {
+			return errors.Errorf("deleting secret backend config for %q: %w", inputToDelete.ID, err)
 		}
-		if err := tx.Query(ctx, rotationStmt, input).Run(); err != nil {
-			return errors.Errorf("deleting secret backend rotation for %q: %w", input.ID, err)
+		if err := tx.Query(ctx, rotationStmt, inputToDelete).Run(); err != nil {
+			return errors.Errorf("deleting secret backend rotation for %q: %w", inputToDelete.ID, err)
 		}
-		if err = tx.Query(ctx, modelSecretBackendStmt, input).Run(); err != nil {
-			return errors.Errorf("resetting secret backend %q to NULL for models: %w", input.ID, err)
+		if err = tx.Query(ctx, modelSecretBackendStmt, inputToDelete).Run(); err != nil {
+			return errors.Errorf("resetting secret backend %q to NULL for models: %w", inputToDelete.ID, err)
 		}
-		if err := s.removeSecretBackendReferenceForBackend(ctx, tx, input.ID); err != nil {
-			return errors.Errorf("removing secret backend reference for %q: %w", input.ID, err)
+		if err := s.removeSecretBackendReferenceForBackend(ctx, tx, inputToDelete.ID); err != nil {
+			return errors.Errorf("removing secret backend reference for %q: %w", inputToDelete.ID, err)
 		}
-		err = tx.Query(ctx, backendStmt, input).Run()
+		err = tx.Query(ctx, backendStmt, inputToDelete).Run()
 		if err != nil {
-			return errors.Errorf("deleting secret backend for %q: %w", input.ID, err)
+			return errors.Errorf("deleting secret backend for %q: %w", inputToDelete.ID, err)
 		}
 		return nil
 	})

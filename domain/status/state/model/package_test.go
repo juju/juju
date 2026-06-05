@@ -259,6 +259,8 @@ func (s *baseSuite) createIAASApplicationWithCharm(
 
 	var unitUUIDs = make([]coreunit.UUID, 0, len(units))
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = nil
+
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
 			return err
@@ -281,7 +283,9 @@ func (s *baseSuite) createIAASApplicationWithCharm(
 
 		for rows.Next() {
 			var unitUUID string
-			c.Assert(rows.Scan(&unitUUID), tc.ErrorIsNil)
+			if err := rows.Scan(&unitUUID); err != nil {
+				return err
+			}
 			unitUUIDs = append(unitUUIDs, coreunit.UUID(unitUUID))
 		}
 		return nil
@@ -355,6 +359,8 @@ func (s *baseSuite) createCAASApplication(
 
 	var unitUUIDs = make([]coreunit.UUID, 0, len(units))
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = nil
+
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {
 			return err
@@ -377,7 +383,9 @@ func (s *baseSuite) createCAASApplication(
 
 		for rows.Next() {
 			var unitUUID string
-			c.Assert(rows.Scan(&unitUUID), tc.ErrorIsNil)
+			if err := rows.Scan(&unitUUID); err != nil {
+				return err
+			}
 			unitUUIDs = append(unitUUIDs, coreunit.UUID(unitUUID))
 		}
 		return nil

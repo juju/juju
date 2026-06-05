@@ -169,6 +169,8 @@ func (s *statusSuite) TestMachineStatusValuesConversion(c *tc.C) {
 func (s *statusSuite) TestMachineStatusValuesAgainstDB(c *tc.C) {
 	m := make(map[string]int)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		m = map[string]int{}
+
 		rows, err := tx.QueryContext(ctx, "SELECT status, id FROM machine_status_value")
 		if err != nil {
 			return errors.Capture(err)
@@ -270,6 +272,8 @@ func (s *statusSuite) TestInstanceStatusValuesConversion(c *tc.C) {
 func (s *statusSuite) TestInstanceStatusValuesAgainstDB(c *tc.C) {
 	m := make(map[string]int)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		m = map[string]int{}
+
 		rows, err := tx.QueryContext(ctx, "SELECT status, id FROM machine_cloud_instance_status_value")
 		if err != nil {
 			return errors.Capture(err)

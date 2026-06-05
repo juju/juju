@@ -129,6 +129,8 @@ func generate(ctx context.Context, runner *txnRunner) error {
 func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {
 	var tableNames []string
 	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		tableNames = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table'")
 		if err != nil {
 			return err
@@ -160,6 +162,8 @@ func getTableSchema(ctx context.Context, runner *txnRunner, tableName string) ([
 	var columns []column
 	query := fmt.Sprintf("PRAGMA table_info(%q)", tableName)
 	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		columns = nil
+
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {
 			return err

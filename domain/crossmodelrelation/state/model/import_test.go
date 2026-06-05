@@ -286,6 +286,8 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 	// Verify synthetic units were created
 	var unitNames []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitNames = nil
+
 		rows, err := tx.QueryContext(ctx, `
 			SELECT u.name
 			FROM unit u

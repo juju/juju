@@ -751,6 +751,10 @@ func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, add
 		isAgent                       []bool
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		resultAddresses = nil
+		resultScopes = nil
+		isAgent = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent, scope FROM controller_api_address WHERE controller_id = ?", controllerID)
 		if err != nil {
 			return err

@@ -44,12 +44,6 @@ func (st *State) CreateOfferAccess(
 		AccessType: corepermission.AdminAccess.String(),
 		ObjectType: corepermission.Offer.String(),
 	}
-	everyonePermission := permission{
-		UUID:       everyonePermissionUUID.String(),
-		GrantOn:    offerUUID.String(),
-		AccessType: corepermission.ReadAccess.String(),
-		ObjectType: corepermission.Offer.String(),
-	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		everyoneExternalUUID, err := st.getUserUUIDByName(ctx, tx, corepermission.EveryoneUserName)
@@ -66,7 +60,13 @@ func (st *State) CreateOfferAccess(
 		}
 
 		// Insert the everyone permission.
-		everyonePermission.GrantTo = everyoneExternalUUID
+		everyonePermission := permission{
+			UUID:       everyonePermissionUUID.String(),
+			GrantOn:    offerUUID.String(),
+			AccessType: corepermission.ReadAccess.String(),
+			ObjectType: corepermission.Offer.String(),
+			GrantTo:    everyoneExternalUUID,
+		}
 		if err := insertPermission(ctx, tx, everyonePermission); err != nil {
 			return errors.Errorf("inserting everyone permission: %w", err)
 		}

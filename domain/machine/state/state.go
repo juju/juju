@@ -180,11 +180,10 @@ func (st *State) SetRunningAgentBinaryVersion(
 		ID   int    `db:"id"`
 		Name string `db:"name"`
 	}
-	archMap := ArchitectureMap{Name: version.Arch}
 
 	archMapStmt, err := st.Prepare(`
 SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
-`, archMap)
+`, ArchitectureMap{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -194,16 +193,12 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 		Version        string `db:"version"`
 		ArchitectureID int    `db:"architecture_id"`
 	}
-	machineAgentVersion := MachineAgentVersion{
-		MachineUUID: machineUUID,
-		Version:     version.Number.String(),
-	}
 
 	upsertRunningVersionStmt, err := st.Prepare(`
 INSERT INTO machine_agent_version (*) VALUES ($MachineAgentVersion.*)
 ON CONFLICT (machine_uuid) DO
 UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
-`, machineAgentVersion)
+`, MachineAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -214,6 +209,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 			return errors.Capture(err)
 		}
 
+		archMap := ArchitectureMap{Name: version.Arch}
 		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -225,8 +221,12 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 			)
 		}
 
-		machineAgentVersion.ArchitectureID = archMap.ID
-		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersion).Run()
+		machineAgentVersionToSet := MachineAgentVersion{
+			MachineUUID:    machineUUID,
+			Version:        version.Number.String(),
+			ArchitectureID: archMap.ID,
+		}
+		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersionToSet).Run()
 	})
 
 	if err != nil {

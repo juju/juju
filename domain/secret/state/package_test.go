@@ -43,6 +43,8 @@ func (s *baseSuite) txn(c *tc.C, fn func(ctx context.Context, tx *sqlair.TX) err
 func (s *baseSuite) queryRows(c *tc.C, query string, args ...any) []map[string]any {
 	var results []map[string]any
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		results = nil
+
 		rows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
 			return err

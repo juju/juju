@@ -115,6 +115,8 @@ func (st *State) AddActionOperation(ctx context.Context,
 
 	var result operation.RunResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = operation.RunResult{}
+
 		var err error
 
 		// Generate the operation ID.

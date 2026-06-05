@@ -276,15 +276,15 @@ SELECT (u.uuid,
 FROM   v_user_auth u
        LEFT JOIN v_user_last_login ull ON u.uuid = ull.user_uuid
        LEFT JOIN user AS creator ON u.created_by_uuid = creator.uuid
-WHERE  u.uuid = $M.uuid`
+WHERE  u.uuid = $userUUID.uuid`
 
-		selectGetUserStmt, err := st.Prepare(getUserQuery, dbUser{}, sqlair.M{})
+		selectGetUserStmt, err := st.Prepare(getUserQuery, dbUser{}, userUUID{})
 		if err != nil {
 			return errors.Errorf("preparing select getUser query: %w", err)
 		}
 
 		var result dbUser
-		err = tx.Query(ctx, selectGetUserStmt, sqlair.M{"uuid": uuid.String()}).Get(&result)
+		err = tx.Query(ctx, selectGetUserStmt, userUUID{UUID: uuid.String()}).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf("%q: %w", uuid, accesserrors.UserNotFound)
 		} else if err != nil {
@@ -513,41 +513,39 @@ func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
 		return errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
 	deleteModelAuthorizedKeysStmt, err := st.Prepare(`
 DELETE FROM model_authorized_keys
 WHERE user_public_ssh_key_id IN (SELECT id
 								 FROM user_public_ssh_key as upsk
-								 WHERE upsk.user_uuid = $M.uuid)
-	`, m)
+								 WHERE upsk.user_uuid = $userUUID.uuid)
+	`, userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing delete model authorized keys query for user: %w", err)
 	}
 
 	deleteUserPublicSSHKeysStmt, err := st.Prepare(
-		"DELETE FROM user_public_ssh_key WHERE user_uuid = $M.uuid", m,
+		"DELETE FROM user_public_ssh_key WHERE user_uuid = $userUUID.uuid", userUUID{},
 	)
 	if err != nil {
 		return errors.Errorf("preparing delete user public ssh keys: %w", err)
 	}
 
-	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
+	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
 	}
 
-	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
+	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing activation key deletion query: %w", err)
 	}
 
-	deletePermStmt, err := st.Prepare("DELETE FROM permission WHERE grant_to = $M.uuid", m)
+	deletePermStmt, err := st.Prepare("DELETE FROM permission WHERE grant_to = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing permission deletion query: %w", err)
 	}
 
-	setRemovedStmt, err := st.Prepare("UPDATE user SET removed = true WHERE uuid = $M.uuid", m)
+	setRemovedStmt, err := st.Prepare("UPDATE user SET removed = true WHERE uuid = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
 	}
@@ -562,29 +560,29 @@ WHERE user_public_ssh_key_id IN (SELECT id
 			return errors.Capture(err)
 		}
 
-		m["uuid"] = uuid
+		uuidArgs := userUUID{UUID: uuid.String()}
 
-		if err := tx.Query(ctx, deleteModelAuthorizedKeysStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deleteModelAuthorizedKeysStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting model authorized keys for %q: %w", name, err)
 		}
 
-		if err := tx.Query(ctx, deleteUserPublicSSHKeysStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deleteUserPublicSSHKeysStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting user publish ssh keys for %q: %w", name, err)
 		}
 
-		if err := tx.Query(ctx, deletePassStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deletePassStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting password for %q: %w", name, err)
 		}
 
-		if err := tx.Query(ctx, deleteKeyStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deleteKeyStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting key for %q: %w", name, err)
 		}
 
-		if err := tx.Query(ctx, deletePermStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deletePermStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting permission for %q: %w", name, err)
 		}
 
-		if err := tx.Query(ctx, setRemovedStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, setRemovedStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("marking %q removed: %w", name, err)
 		}
 
@@ -610,9 +608,7 @@ func (st *UserState) SetActivationKey(ctx context.Context, name user.Name, activ
 		return errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
-	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $M.uuid", m)
+	deletePassStmt, err := st.Prepare("DELETE FROM user_password WHERE user_uuid = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
 	}
@@ -623,7 +619,7 @@ func (st *UserState) SetActivationKey(ctx context.Context, name user.Name, activ
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, deletePassStmt, sqlair.M{"uuid": uuid}).Run(); err != nil {
+		if err := tx.Query(ctx, deletePassStmt, userUUID{UUID: uuid.String()}).Run(); err != nil {
 			return errors.Errorf("deleting password for %q: %w", name, err)
 		}
 
@@ -645,11 +641,9 @@ func (st *UserState) GetActivationKey(ctx context.Context, name user.Name) ([]by
 		return nil, errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
 	selectKeyStmt, err := st.Prepare(`
-SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $M.uuid
-`, m, dbActivationKey{})
+SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $userUUID.uuid
+`, userUUID{}, dbActivationKey{})
 	if err != nil {
 		return nil, errors.Errorf("preparing activation get query: %w", err)
 	}
@@ -661,7 +655,7 @@ SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $M
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, selectKeyStmt, sqlair.M{"uuid": uuid}).Get(&key); err != nil {
+		if err := tx.Query(ctx, selectKeyStmt, userUUID{UUID: uuid.String()}).Get(&key); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errors.Errorf("activation key for %q: %w", name, accesserrors.ActivationKeyNotFound)
 			}
@@ -692,9 +686,7 @@ func (st *UserState) SetPasswordHash(ctx context.Context, name user.Name, passwo
 		return errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
-	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $M.uuid", m)
+	deleteKeyStmt, err := st.Prepare("DELETE FROM user_activation_key WHERE user_uuid = $userUUID.uuid", userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
 	}
@@ -704,9 +696,9 @@ func (st *UserState) SetPasswordHash(ctx context.Context, name user.Name, passwo
 		if err != nil {
 			return errors.Capture(err)
 		}
-		m["uuid"] = uuid
+		uuidArgs := userUUID{UUID: uuid.String()}
 
-		if err := tx.Query(ctx, deleteKeyStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, deleteKeyStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("deleting key for %q: %w", name, err)
 		}
 
@@ -728,15 +720,13 @@ func (st *UserState) EnableUserAuthentication(ctx context.Context, name user.Nam
 		return errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
 	q := `
 INSERT INTO user_authentication (user_uuid, disabled)
-VALUES ($M.uuid, false)
+VALUES ($userUUID.uuid, false)
 ON CONFLICT(user_uuid) DO
 UPDATE SET disabled = false`
 
-	enableUserStmt, err := st.Prepare(q, m)
+	enableUserStmt, err := st.Prepare(q, userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing enable user query: %w", err)
 	}
@@ -746,9 +736,9 @@ UPDATE SET disabled = false`
 		if err != nil {
 			return errors.Capture(err)
 		}
-		m["uuid"] = uuid
+		uuidArgs := userUUID{UUID: uuid.String()}
 
-		if err := tx.Query(ctx, enableUserStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, enableUserStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("enabling user %q: %w", name, err)
 		}
 
@@ -769,15 +759,13 @@ func (st *UserState) DisableUserAuthentication(ctx context.Context, name user.Na
 		return errors.Capture(err)
 	}
 
-	m := make(sqlair.M, 1)
-
 	q := `
 INSERT INTO user_authentication (user_uuid, disabled)
-VALUES ($M.uuid, true)
+VALUES ($userUUID.uuid, true)
 ON CONFLICT(user_uuid) DO
 UPDATE SET disabled = true`
 
-	disableUserStmt, err := st.Prepare(q, m)
+	disableUserStmt, err := st.Prepare(q, userUUID{})
 	if err != nil {
 		return errors.Errorf("preparing disable user query: %w", err)
 	}
@@ -787,13 +775,13 @@ UPDATE SET disabled = true`
 		if err != nil {
 			return errors.Capture(err)
 		}
-		m["uuid"] = uuid
+		uuidArgs := userUUID{UUID: uuid.String()}
 
 		if err := st.checkPotentiallyOrhpanedModels(ctx, tx, uuid.String()); err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, disableUserStmt, m).Run(); err != nil {
+		if err := tx.Query(ctx, disableUserStmt, uuidArgs).Run(); err != nil {
 			return errors.Errorf("disabling user %q: %w", name, err)
 		}
 
@@ -1055,20 +1043,20 @@ func ensureUserAuthentication(
 ) error {
 	defineUserAuthenticationQuery := `
 INSERT INTO user_authentication (user_uuid, disabled)
-    SELECT uuid, $M.disabled
+    SELECT uuid, $userNameAndDisabled.disabled
     FROM   user
-    WHERE  name = $M.name AND removed = false
+    WHERE  name = $userNameAndDisabled.name AND removed = false
 ON CONFLICT(user_uuid) DO
 UPDATE SET user_uuid = excluded.user_uuid
 WHERE      disabled = false`
 
-	insertDefineUserAuthenticationStmt, err := sqlair.Prepare(defineUserAuthenticationQuery, sqlair.M{})
+	insertDefineUserAuthenticationStmt, err := sqlair.Prepare(defineUserAuthenticationQuery, userNameAndDisabled{})
 	if err != nil {
 		return errors.Errorf("preparing insert defineUserAuthentication query: %w", err)
 	}
 
 	var outcome sqlair.Outcome
-	err = tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name.Name(), "disabled": false}).Get(&outcome)
+	err = tx.Query(ctx, insertDefineUserAuthenticationStmt, userNameAndDisabled{Name: name.Name(), Disabled: false}).Get(&outcome)
 	if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Errorf("%q: %w", name, accesserrors.UserNotFound)
 	} else if err != nil {
@@ -1099,21 +1087,21 @@ func setPasswordHash(ctx context.Context, tx *sqlair.TX, name user.Name, passwor
 
 	setPasswordHashQuery := `
 INSERT INTO user_password (user_uuid, password_hash, password_salt)
-    SELECT uuid, $M.password_hash, $M.password_salt
+    SELECT uuid, $userNameAndPassword.password_hash, $userNameAndPassword.password_salt
     FROM   user
-    WHERE  name = $M.name
+    WHERE  name = $userNameAndPassword.name
     AND    removed = false
 ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, password_salt = excluded.password_salt`
 
-	insertSetPasswordHashStmt, err := sqlair.Prepare(setPasswordHashQuery, sqlair.M{})
+	insertSetPasswordHashStmt, err := sqlair.Prepare(setPasswordHashQuery, userNameAndPassword{})
 	if err != nil {
 		return errors.Errorf("preparing insert setPasswordHash query: %w", err)
 	}
 
-	err = tx.Query(ctx, insertSetPasswordHashStmt, sqlair.M{
-		"name":          name.Name(),
-		"password_hash": passwordHash,
-		"password_salt": salt},
+	err = tx.Query(ctx, insertSetPasswordHashStmt, userNameAndPassword{
+		Name:         name.Name(),
+		PasswordHash: passwordHash,
+		PasswordSalt: salt},
 	).Run()
 	if err != nil {
 		return errors.Errorf("setting password hash for user %q: %w", name, err)
@@ -1134,18 +1122,18 @@ func setActivationKey(ctx context.Context, tx *sqlair.TX, name user.Name, activa
 
 	setActivationKeyQuery := `
 INSERT INTO user_activation_key (user_uuid, activation_key)
-    SELECT uuid, $M.activation_key
+    SELECT uuid, $userNameAndActivationKey.activation_key
     FROM   user
-    WHERE  name = $M.name
+    WHERE  name = $userNameAndActivationKey.name
     AND    removed = false
 ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key`
 
-	insertSetActivationKeyStmt, err := sqlair.Prepare(setActivationKeyQuery, sqlair.M{})
+	insertSetActivationKeyStmt, err := sqlair.Prepare(setActivationKeyQuery, userNameAndActivationKey{})
 	if err != nil {
 		return errors.Errorf("preparing insert setActivationKey query: %w", err)
 	}
 
-	err = tx.Query(ctx, insertSetActivationKeyStmt, sqlair.M{"name": name.Name(), "activation_key": activationKey}).Run()
+	err = tx.Query(ctx, insertSetActivationKeyStmt, userNameAndActivationKey{Name: name.Name(), ActivationKey: activationKey}).Run()
 	if err != nil {
 		return errors.Errorf("setting activation key for user %q: %w", name, err)
 	}

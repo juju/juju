@@ -35,29 +35,9 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	if err != nil {
 		return errors.Capture(err)
 	}
-	charmIDStr := charmID.String()
-
-	appDetails := setApplicationDetails{
-		UUID:      args.ApplicationUUID,
-		Name:      name,
-		CharmUUID: charmIDStr,
-		LifeID:    life.Alive,
-
-		// The space is defaulted to Alpha, which is guaranteed to exist.
-		// However, if there is a default space defined in endpoint bindings
-		// (through a binding with an empty endpoint or by default-space model
-		// config), the application space will be updated later in the
-		// transaction, during the insertion of application_endpoints.
-		// The space defined here will be used as the default space when creating a
-		// relation where application_endpoint doesn't have a defined space.
-		// There is no need to set the space to the default space defined during
-		// migration import, because an application always has a default space
-		// which is passed through endpoint bindings in migration.
-		SpaceUUID: network.AlphaSpaceId.String(),
-	}
 
 	createApplication := `INSERT INTO application (*) VALUES ($setApplicationDetails.*)`
-	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
+	createApplicationStmt, err := st.Prepare(createApplication, setApplicationDetails{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -113,6 +93,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 			return errors.Errorf("checking if application %q exists: %w", name, err)
 		}
 
+		charmUUID := charmID.String()
 		shouldInsertCharm := true
 
 		// Check if the charm already exists.
@@ -122,7 +103,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
 			// We already have an existing charm, in this case we just want
 			// to point the application to the existing charm.
-			appDetails.CharmUUID = existingCharmID
+			charmUUID = existingCharmID
 
 			shouldInsertCharm = false
 		}
@@ -142,8 +123,27 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 			}
 		}
 
+		applicationDetails := setApplicationDetails{
+			UUID:      args.ApplicationUUID,
+			Name:      name,
+			CharmUUID: charmUUID,
+			LifeID:    life.Alive,
+
+			// The space is defaulted to Alpha, which is guaranteed to exist.
+			// However, if there is a default space defined in endpoint bindings
+			// (through a binding with an empty endpoint or by default-space model
+			// config), the application space will be updated later in the
+			// transaction, during the insertion of application_endpoints.
+			// The space defined here will be used as the default space when creating a
+			// relation where application_endpoint doesn't have a defined space.
+			// There is no need to set the space to the default space defined during
+			// migration import, because an application always has a default space
+			// which is passed through endpoint bindings in migration.
+			SpaceUUID: network.AlphaSpaceId.String(),
+		}
+
 		// If the application doesn't exist, create it.
-		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
+		if err := tx.Query(ctx, createApplicationStmt, applicationDetails).Run(); err != nil {
 			return errors.Errorf("inserting row for application %q: %w", name, err)
 		}
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
@@ -155,8 +155,8 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.createApplicationResources(
 			ctx, tx,
 			insertResourcesArgs{
-				appID:        appDetails.UUID,
-				charmUUID:    appDetails.CharmUUID,
+				appID:        applicationDetails.UUID,
+				charmUUID:    applicationDetails.CharmUUID,
 				charmSource:  args.Charm.Source,
 				appResources: args.Resources,
 			},
@@ -164,20 +164,20 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		); err != nil {
 			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 		}
-		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
+		if err := st.insertApplicationConfig(ctx, tx, applicationDetails.UUID, args.Config); err != nil {
 			return errors.Errorf("inserting config for application %q: %w", name, err)
 		}
-		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
+		if err := st.insertApplicationSettings(ctx, tx, applicationDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
 		if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: args.ApplicationUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
-		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID, args.EndpointBindings); err != nil {
+		if err := st.updateDefaultSpace(ctx, tx, applicationDetails.UUID, args.EndpointBindings); err != nil {
 			return errors.Errorf("updating default space: %w", err)
 		}
 		if err := st.insertApplicationEndpointBindings(ctx, tx, insertApplicationEndpointsParams{
-			appID:    appDetails.UUID,
+			appID:    applicationDetails.UUID,
 			bindings: args.EndpointBindings,
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)

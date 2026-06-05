@@ -459,12 +459,19 @@ func (st *ModelState) SetRelationStatus(
 		// If transitioning from Suspending to Suspended and the new message is
 		// empty, retain any existing message so that any previous reason for
 		// suspending is retained.
-		if sts.Message == "" &&
+		message := sts.Message
+		if message == "" &&
 			currentStatus.Status == status.RelationStatusTypeSuspending &&
 			sts.Status == status.RelationStatusTypeSuspended {
-			sts.Message = currentStatus.Message
+			message = currentStatus.Message
 		}
-		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
+		statusToSet := status.StatusInfo[status.RelationStatusType]{
+			Status:  sts.Status,
+			Message: message,
+			Data:    sts.Data,
+			Since:   sts.Since,
+		}
+		return st.updateRelationStatus(ctx, tx, relationUUID, statusToSet)
 	})
 	if err != nil {
 		return errors.Errorf("updating relation status for %q: %w", relationUUID, err)
@@ -1561,6 +1568,8 @@ func (st *ModelState) GetApplicationAndUnitStatuses(ctx context.Context) (map[st
 
 	var result map[string]status.Application
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = map[string]status.Application{}
+
 		var err error
 		if result, err = st.getApplicationsStatuses(ctx, tx); err != nil {
 			return errors.Errorf("getting application statuses: %w", err)

@@ -134,7 +134,9 @@ func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 		return config, errors.Capture(err)
 	}
 
-	return config, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		config = map[string]string{}
+
 		var result []dbKeyValue
 		if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Capture(err)
@@ -145,6 +147,7 @@ func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 		}
 		return nil
 	})
+	return config, err
 }
 
 // SetModelConfig is responsible for overwriting the currently set model config
