@@ -20,8 +20,6 @@ If this collection of machines is composed solely of bare metal you might opt fo
 (manual-cloud)=
 ## The cloud
 
-The Manual cloud in Juju.
-
 (manual-cloud-definition)=
 ### Definition
 
@@ -52,8 +50,6 @@ No preset authentication types. Ensure you can SSH into the controller machine u
 
 (manual-controller)=
 ## Controllers
-
-Controllers bootstrapped on the Manual cloud.
 
 When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
 
@@ -109,8 +105,6 @@ None.
 
 (manual-machine)=
 ## Machines
-
-Machines provisioned on the Manual cloud.
 
 ```{important}
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g., a cloud instance) as they become necessary. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during deployment.

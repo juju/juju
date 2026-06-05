@@ -12,8 +12,6 @@ In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {re
 (vsphere-cloud)=
 ## The cloud
 
-The VMware vSphere cloud in Juju.
-
 (vsphere-cloud-definition)=
 ### Definition
 
@@ -36,8 +34,6 @@ Juju supports both high-availability vSAN deployments and standard deployments.
 (vsphere-credential)=
 ## Credentials
 
-Credentials for the VMware vSphere cloud.
-
 (vsphere-credential-authentication-types)=
 ### Authentication types
 
@@ -52,8 +48,6 @@ Attributes:
 
 (vsphere-controller)=
 ## Controllers
-
-Controllers bootstrapped on the VMware vSphere cloud.
 
 (vsphere-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -91,7 +85,6 @@ See more: {ref}`vsphere-appendix-using-templates`
 (vsphere-model)=
 ## Models
 
-Models connected to the VMware vSphere cloud.
 
 (vsphere-model-cloud-specific-configuration-keys)=
 (vsphere-model-configuration-keys)=
@@ -160,7 +153,6 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 (vsphere-machine)=
 ## Machines
 
-Machines provisioned on the VMware vSphere cloud.
 
 (vsphere-machine-supported-constraints)=
 (vsphere-machine-constraints)=
@@ -211,8 +203,6 @@ Each machine (controller or application) receives:
 (vsphere-storage)=
 (vsphere-storage)=
 ## Storage
-
-Storage provisioned on the VMware vSphere cloud.
 
 ### Storage providers
 

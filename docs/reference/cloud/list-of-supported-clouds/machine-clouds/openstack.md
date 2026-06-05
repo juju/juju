@@ -12,8 +12,6 @@ In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine clo
 (openstack-cloud)=
 ## The cloud
 
-The OpenStack cloud in Juju.
-
 (openstack-cloud-definition)=
 ### Definition
 
@@ -39,8 +37,6 @@ Source the OpenStack RC file (`source <path to file>`). This allows Juju to dete
 (openstack-credential)=
 ## Credentials
 
-Credentials for the OpenStack cloud.
-
 ```{important}
 **If you want to use environment variables (recommended):** Source the OpenStack RC file. Run `juju add-credential` and accept the suggested defaults.
 ```
@@ -64,8 +60,6 @@ Attributes:
 
 (openstack-controller)=
 ## Controllers
-
-Controllers bootstrapped on the OpenStack cloud.
 
 (openstack-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -103,7 +97,6 @@ See more: {ref}`manage-metadata`
 (openstack-model)=
 ## Models
 
-Models connected to the OpenStack cloud.
 
 (openstack-model-cloud-specific-configuration-keys)=
 (openstack-model-configuration-keys)=
@@ -162,7 +155,6 @@ The network label or UUID to bring machines up on when multiple networks exist.
 (openstack-machine)=
 ## Machines
 
-Machines provisioned on the OpenStack cloud.
 
 (openstack-machine-supported-constraints)=
 (openstack-machine-constraints)=
@@ -218,8 +210,6 @@ Each machine (controller or application) receives:
 (openstack-storage)=
 (openstack-storage)=
 ## Storage
-
-Storage provisioned on the OpenStack cloud.
 
 ### Storage providers
 

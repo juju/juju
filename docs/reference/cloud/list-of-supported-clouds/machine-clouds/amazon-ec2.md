@@ -12,8 +12,6 @@ In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_feat
 (ec2-cloud)=
 ## The cloud
 
-The Amazon EC2 cloud in Juju.
-
 (ec2-cloud-definition)=
 ### Definition
 
@@ -40,8 +38,6 @@ Use `vpc-id-force=true` to skip validation.
 (ec2-credential)=
 ## Credentials
 
-Credentials for the Amazon EC2 cloud.
-
 (ec2-credential-authentication-types)=
 ### Authentication types
 
@@ -62,8 +58,6 @@ Attributes:
 
 (ec2-controller)=
 ## Controllers
-
-Controllers bootstrapped on the Amazon EC2 cloud.
 
 (ec2-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -98,8 +92,6 @@ See more: [Discourse | Using AWS instance profiles with Juju](https://discourse.
 (ec2-model)=
 ## Models
 
-Models connected to the Amazon EC2 cloud.
-
 (ec2-model-configuration-keys)=
 ### Configuration keys
 
@@ -125,8 +117,6 @@ Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the mini
 
 (ec2-machine)=
 ## Machines
-
-Machines provisioned on the Amazon EC2 cloud.
 
 (ec2-machine-constraints)=
 ### Constraints
@@ -181,8 +171,6 @@ Each machine (controller or application) receives:
 
 (ec2-storage)=
 ## Storage
-
-Storage provisioned on the Amazon EC2 cloud.
 
 ### Storage providers
 

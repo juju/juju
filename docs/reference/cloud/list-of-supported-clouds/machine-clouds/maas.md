@@ -12,8 +12,6 @@ In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It 
 (maas-cloud)=
 ## The cloud
 
-The MAAS cloud in Juju.
-
 (maas-cloud-definition)=
 ### Definition
 
@@ -43,8 +41,6 @@ Key implications:
 (maas-credential)=
 ## Credentials
 
-Credentials for the MAAS cloud.
-
 (maas-credential-authentication-types)=
 ### Authentication types
 
@@ -60,8 +56,6 @@ Attributes:
 
 (maas-controller)=
 ## Controllers
-
-Controllers bootstrapped on the MAAS cloud.
 
 (maas-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -84,7 +78,6 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 (maas-machine)=
 ## Machines
 
-Machines provisioned on the MAAS cloud.
 
 (maas-machine-supported-constraints)=
 (maas-machine-constraints)=
@@ -130,10 +123,7 @@ Each machine (controller or application) receives:
 - **No provisioning**: Juju does not create networks -- all networking must be pre-configured in MAAS.
 
 (maas-storage)=
-(maas-storage)=
 ## Storage
-
-Storage provisioned on the MAAS cloud.
 
 ### Storage providers
 

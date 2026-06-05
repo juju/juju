@@ -12,8 +12,6 @@ In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine 
 (gce-cloud)=
 ## The cloud
 
-The Google GCE cloud in Juju.
-
 (gce-cloud-definition)=
 ### Definition
 
@@ -45,7 +43,7 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 (gce-credential)=
 ## Credentials
 
-Credentials for the Google GCE cloud.
+When adding a credential for Google GCE, Juju supports the following authentication types.
 
 **Environment variables (optional):**
 
@@ -92,8 +90,6 @@ See more: {ref}`gce-appendix-workflow-1`
 (gce-controller)=
 ## Controllers
 
-Controllers bootstrapped on the Google GCE cloud.
-
 (gce-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -125,7 +121,7 @@ See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authen
 (gce-model)=
 ## Models
 
-Models connected to the Google GCE cloud.
+When configuring a model on Google GCE, Juju recognizes the following cloud-specific keys.
 
 (gce-model-cloud-specific-configuration-keys)=
 (gce-model-configuration-keys)=
@@ -164,7 +160,6 @@ Base path to look for machine disk images.
 (gce-machine)=
 ## Machines
 
-Machines provisioned on the Google GCE cloud.
 
 (gce-machine-supported-constraints)=
 (gce-machine-constraints)=
@@ -219,8 +214,6 @@ Each machine (controller or application) receives:
 (gce-storage)=
 (gce-storage)=
 ## Storage
-
-Storage provisioned on the Google GCE cloud.
 
 ### Storage providers
 

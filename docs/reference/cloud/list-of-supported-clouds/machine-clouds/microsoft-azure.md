@@ -5,8 +5,6 @@ In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine
 (azure-cloud)=
 ## The cloud
 
-The Microsoft Azure cloud in Juju.
-
 (azure-cloud-definition)=
 ### Definition
 
@@ -50,8 +48,6 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 
 (azure-credential)=
 ## Credentials
-
-Credentials for the Microsoft Azure cloud.
 
 (azure-credential-authentication-types)=
 ### Authentication types
@@ -103,8 +99,6 @@ Credentials occasionally stop working over time. Refresh using credential update
 (azure-controller)=
 ## Controllers
 
-Controllers bootstrapped on the Microsoft Azure cloud.
-
 (azure-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -135,7 +129,7 @@ See more: {ref}`azure-machine-supported-constraints`
 (azure-model)=
 ## Models
 
-Models connected to the Microsoft Azure cloud.
+When configuring a model on Microsoft Azure, Juju recognizes the following cloud-specific keys.
 
 (azure-model-cloud-specific-configuration-keys)=
 (azure-model-configuration-keys)=
@@ -174,7 +168,6 @@ If set, use the specified virtual network for all model machines instead of crea
 (azure-machine)=
 ## Machines
 
-Machines provisioned on the Microsoft Azure cloud.
 
 (azure-machine-supported-constraints)=
 (azure-machine-constraints)=
@@ -224,8 +217,6 @@ Each machine (controller or application) receives:
 (azure-storage)=
 (azure-storage)=
 ## Storage
-
-Storage provisioned on the Microsoft Azure cloud.
 
 ### Storage providers
 

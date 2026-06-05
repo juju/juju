@@ -12,8 +12,6 @@ In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a 
 (oci-cloud)=
 ## The cloud
 
-The Oracle OCI cloud in Juju.
-
 (oci-cloud-definition)=
 ### Definition
 
@@ -39,8 +37,6 @@ OCI organizes resources into availability domains (ADs) within each region. Juju
 (oci-credential)=
 ## Credentials
 
-Credentials for the Oracle OCI cloud.
-
 (oci-credential-authentication-types)=
 ### Authentication types
 
@@ -58,8 +54,6 @@ Attributes:
 
 (oci-controller)=
 ## Controllers
-
-Controllers bootstrapped on the Oracle OCI cloud.
 
 (oci-controller-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -80,7 +74,7 @@ Creates a controller instance on OCI via imperative API calls. Uses polling-base
 (oci-model)=
 ## Models
 
-Models connected to the Oracle OCI cloud.
+When configuring a model on Oracle OCI, Juju recognizes the following cloud-specific keys.
 
 (oci-model-cloud-specific-configuration-keys)=
 (oci-model-configuration-keys)=
@@ -109,7 +103,6 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 (oci-machine)=
 ## Machines
 
-Machines provisioned on the Oracle OCI cloud.
 
 (oci-machine-supported-constraints)=
 (oci-machine-constraints)=
@@ -157,8 +150,6 @@ Each machine (controller or application) receives:
 (oci-storage)=
 (oci-storage)=
 ## Storage
-
-Storage provisioned on the Oracle OCI cloud.
 
 ### Storage providers
 

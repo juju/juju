@@ -41,8 +41,6 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 (lxd-cloud)=
 ## The cloud
 
-The LXD cloud in Juju.
-
 (lxd-cloud-definition)=
 ### Definition
 
@@ -85,8 +83,6 @@ LXD projects provide isolated namespaces for models (multi-tenancy). Configured 
 (lxd-credential)=
 ## Credentials
 
-Credentials for the LXD cloud.
-
 **Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
 
 **Remote LXD cloud:** Requires the API endpoint URL for the remote LXD server.
@@ -122,8 +118,6 @@ See more: [LXD | Adding client certificates using tokens](https://documentation.
 (lxd-controller)=
 ## Controllers
 
-Controllers bootstrapped on the LXD cloud.
-
 (lxd-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
@@ -143,7 +137,7 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 (lxd-model)=
 ## Models
 
-Models connected to the LXD cloud.
+When configuring a model on LXD, Juju recognizes the following cloud-specific keys.
 
 (lxd-model-cloud-specific-configuration-keys)=
 (lxd-model-configuration-keys)=
@@ -162,7 +156,7 @@ The LXD project name to use for Juju's resources.
 (lxd-machine)=
 ## Machines
 
-Machines provisioned on the LXD cloud.
+When provisioning machines on LXD, Juju supports the following constraints and placement directives.
 
 ```{note}
 With LXD system containers, constraints are interpreted as resource *maximums* (as opposed to *minimums*).
@@ -213,8 +207,6 @@ Each machine (controller or application) receives:
 (lxd-storage)=
 (lxd-storage)=
 ## Storage
-
-Storage provisioned on the LXD cloud.
 
 ### Storage providers
 
