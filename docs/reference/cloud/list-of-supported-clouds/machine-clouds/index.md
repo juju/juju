@@ -4,8 +4,8 @@ myst:
     description: "Learn how machine clouds work with Juju, including provisioning models, infrastructure resources, and deployment patterns across VMs, bare metal, and system containers."
 ---
 
-(machine-clouds-and-juju)=
-# Machine clouds and Juju
+(machine-clouds)=
+# Machine clouds
 
 ```{toctree}
 :hidden:

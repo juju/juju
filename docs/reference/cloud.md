@@ -36,7 +36,7 @@ A **machine cloud** is a cloud based on bare metal machines (e.g., MAAS), virtua
 When you deploy to a machine cloud, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys machine charms onto those resources.
 
 ```{ibnote}
-See more: {ref}`machine-clouds-and-juju`, {ref}`list-of-supported-clouds` -- Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere, MAAS, LXD, Manual, Equinix Metal
+See more: {ref}`machine-clouds`, {ref}`list-of-supported-clouds` -- Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere, MAAS, LXD, Manual, Equinix Metal
 ```
 
 (kubernetes-cloud)=
@@ -47,7 +47,7 @@ A **Kubernetes cloud** is a cloud based on an existing Kubernetes cluster (e.g.,
 When you deploy to a Kubernetes cloud, Juju does not provision the cluster infrastructure itself. Instead, it manages application workloads within the cluster by deploying Kubernetes charms as pods, services, and other Kubernetes resources.
 
 ```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju`, {ref}`list-of-supported-clouds` -- Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes
+See more: {ref}`kubernetes-clouds`, {ref}`list-of-supported-clouds` -- Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes
 ```
 
 (cloud-definition)=

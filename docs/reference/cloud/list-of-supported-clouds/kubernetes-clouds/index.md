@@ -4,8 +4,8 @@ myst:
     description: "Learn how Kubernetes clouds work with Juju, including concept mappings, authentication types, and cloud configuration requirements."
 ---
 
-(kubernetes-clouds-and-juju)=
-# Kubernetes clouds and Juju
+(kubernetes-clouds)=
+# Kubernetes clouds
 
 ```{toctree}
 :hidden:

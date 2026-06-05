@@ -16,7 +16,7 @@ See more: [Amazon EKS](https://docs.aws.amazon.com/eks/index.html)
 In Juju, Amazon EKS is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
+See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
 ```
 
 ## Cloud-specific notes

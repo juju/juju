@@ -16,7 +16,7 @@ See more: [Google GKE](https://cloud.google.com/kubernetes-engine/docs)
 In Juju, Google GKE is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
+See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
 ```
 
 ## Cloud-specific notes

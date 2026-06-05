@@ -16,7 +16,7 @@ See more: [Microsoft AKS](https://azure.microsoft.com/en-us/products/kubernetes-
 In Juju, Microsoft AKS is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
+See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
 ```
 
 ## Cloud-specific notes

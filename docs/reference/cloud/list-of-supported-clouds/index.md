@@ -19,7 +19,7 @@ Juju supports all of the following clouds. Click to find out more about using yo
 (list-of-supported-machine-clouds)=
 ## Machine clouds
 
-> See also: {ref}`machine-clouds-and-juju`
+> See also: {ref}`machine-clouds`
 
 - {ref}`Amazon EC2 <cloud-ec2>`
 - {ref}`Equinix Metal <cloud-equinix>`
@@ -35,7 +35,7 @@ Juju supports all of the following clouds. Click to find out more about using yo
 (list-of-supported-kubernetes-clouds)=
 ## Kubernetes clouds
 
-> See also: {ref}`kubernetes-clouds-and-juju`
+> See also: {ref}`kubernetes-clouds`
 
 - {ref}`Amazon EKS <cloud-kubernetes-eks>`
 - {ref}`Canonical K8s <cloud-canonical-k8s>`

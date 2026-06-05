@@ -16,7 +16,7 @@ See more: [Getting started on Microk8s](https://microk8s.io/docs/getting-started
 In Juju, MicroK8s is a {ref}`kubernetes-cloud`.
 
 ```{ibnote}
-See more: {ref}`kubernetes-clouds-and-juju` (for complete Kubernetes cloud documentation)
+See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
 ```
 
 ## Cloud-specific notes
