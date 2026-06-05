@@ -21,7 +21,7 @@ MicroK8s <microk8s>
 See also: {ref}`list-of-supported-clouds`
 ```
 
-In Juju, a Kubernetes cloud is a {ref}`kubernetes-cloud`. Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
 
 (kubernetes-cloud)=
 ## Cloud
@@ -30,22 +30,19 @@ In Juju, a Kubernetes cloud is a {ref}`kubernetes-cloud`. Juju deploys charms as
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
+```{note}
+On Kubernetes clouds, both the cloud definition and the credentials are typically added through `juju add-k8s`, which reads from your kubeconfig file. This is easier than manually creating cloud definition and credential files.
+```
+
 (kubernetes-definition)=
 ### Definition
 
 A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
 
-(kubernetes-requirements)=
-### Requirements
-
-- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
-- kubectl configured with cluster access
-- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
-
 (kubernetes-cloud-definition-file)=
 ### Cloud definition file
 
-When adding a Kubernetes cloud from a YAML file, use the following template:
+If you prefer to add a Kubernetes cloud from a YAML file rather than using `juju add-k8s`, use the following template:
 
 ```yaml
 clouds:
@@ -65,26 +62,29 @@ clouds:
       - <base64-cert>              # Base64-encoded x.509 certificates
 ```
 
-```{note}
-For Kubernetes clouds, it's typically easier to use `juju add-k8s` which reads from your kubeconfig file rather than manually creating a cloud definition file.
-```
-
 ```{ibnote}
 See more: {ref}`manage-clouds`, {ref}`add-a-kubernetes-cloud`
 ```
 
+(kubernetes-requirements)=
+### Requirements
+
+- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
+- kubectl configured with cluster access
+- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
+
 (kubernetes-concept-mapping)=
-### Juju-to-Kubernetes concept mapping
+### Kubernetes-to-Juju concept mapping
 
-If you are familiar with Kubernetes, the following maps Juju concepts to their Kubernetes equivalents:
+If you are familiar with Kubernetes, the following maps Kubernetes concepts to their Juju equivalents:
 
-| Juju | Kubernetes |
+| Kubernetes | Juju |
 | - | - |
-| {ref}`model <model>` | [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) |
-| {ref}`machine <machine>` (not managed by Juju) | [node](https://kubernetes.io/docs/concepts/architecture/nodes/) |
-| {ref}`unit <unit>` | [pod](https://kubernetes.io/docs/concepts/workloads/pods/) |
-| process in a unit | container |
-| {ref}`application <application>` | [service](https://kubernetes.io/docs/concepts/services-networking/service/) |
+| [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
+| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (not managed by Juju) |
+| [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
+| container | process in a unit |
+| [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |
 
 (kubernetes-credential)=
 ## Credential
@@ -92,8 +92,6 @@ If you are familiar with Kubernetes, the following maps Juju concepts to their K
 ```{ibnote}
 See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
-
-On Kubernetes clouds, both the cloud definition and the credentials are added through `juju add-k8s`, which reads from your kubeconfig file.
 
 (kubernetes-supported-authentication-types)=
 ### Supported authentication types
@@ -154,14 +152,24 @@ When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace 
 - **Proxy resources** (if using ClusterIP service): Additional ConfigMap, Role, RoleBinding, and ServiceAccount for cluster IP proxy access.
 
 (kubernetes-bootstrap-service-type)=
-### Service type by cloud
+### Controller service type
 
-The controller Service type varies by cloud:
+When bootstrapping a controller, Juju creates a Kubernetes Service to expose the controller API. The Service type depends on the host cloud platform where the Kubernetes cluster is running:
 
-- **Public clouds** (EKS, GKE, AKS, OpenStack): `LoadBalancer` -- creates a cloud load balancer with a public IP.
-- **Localhost clouds** (MicroK8s, LXD): `ClusterIP` -- uses internal cluster networking with optional proxy.
-- **MAAS**: `LoadBalancer` (experimental).
-- **Other**: `ClusterIP` (default).
+- **LoadBalancer**: For managed Kubernetes on public clouds
+  - Amazon EKS (on EC2)
+  - Google GKE (on GCE)
+  - Microsoft AKS (on Azure)
+  - Charmed Kubernetes on OpenStack
+  - Charmed Kubernetes on MAAS (experimental)
+- **ClusterIP**: For localhost and development environments
+  - MicroK8s
+  - Kubernetes on LXD
+  - Other/unrecognized host clouds (default)
+
+```{note}
+LoadBalancer creates a cloud load balancer with a public IP, while ClusterIP uses internal cluster networking with optional proxy access.
+```
 
 (kubernetes-model)=
 ## Model

@@ -26,7 +26,7 @@ VMware vSphere <vmware-vsphere>
 See also: {ref}`list-of-supported-clouds`
 ```
 
-In Juju, a machine cloud is a {ref}`machine-cloud`. Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
+On machine clouds, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
 
 (machine-cloud-entity)=
 ## Cloud

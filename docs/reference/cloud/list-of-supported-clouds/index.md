@@ -7,7 +7,7 @@ myst:
 (list-of-supported-clouds)=
 # List of supported clouds
 
-Juju supports many cloud platforms. While Juju tries to make your experience with each supported cloud fundamentally the same, there are sometimes differences based on whether the cloud is machine-based or Kubernetes-based, or specific to individual clouds.
+Juju supports many {ref}`cloud` platforms. While Juju tries to make your experience with each supported cloud fundamentally the same, there are sometimes differences based on whether the cloud is machine-based or Kubernetes-based, or specific to individual clouds.
 
 ```{toctree}
 :maxdepth: 2
