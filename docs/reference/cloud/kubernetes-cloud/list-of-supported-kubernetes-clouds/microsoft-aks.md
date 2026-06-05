@@ -7,7 +7,7 @@ myst:
 (cloud-kubernetes-aks)=
 # Microsoft AKS
 
-In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few points of variation related to the cloud, described below.
+In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-cloud>`, except for a few points of variation related to the cloud, described below.
 
 (aks-cloud)=
 ## The cloud

@@ -7,7 +7,7 @@ myst:
 (cloud-oci)=
 # Oracle OCI
 
-In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (oci-cloud)=
 ## The cloud

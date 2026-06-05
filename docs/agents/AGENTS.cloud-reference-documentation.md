@@ -997,7 +997,7 @@ From Juju paradigm perspective, users primarily work through Juju abstractions a
 ## Examples to Reference
 
 - **Good example**: `/home/dora/git/juju/docs/reference/cloud/list-of-supported-clouds/the-microsoft-azure-cloud-and-juju.md` (after this update)
-- **Concept mapping pattern**: `/home/dora/git/juju/docs/reference/cloud/list-of-supported-clouds/kubernetes-clouds/index.md`
+- **Concept mapping pattern**: `/home/dora/git/juju/docs/reference/cloud/kubernetes-cloud/list-of-supported-kubernetes-clouds/index.md`
 - **Reference language**: Any reference doc following Diataxis
 
 ---
@@ -1018,8 +1018,8 @@ Potential enhancements to consider:
 
 - `agents/AGENTS.documentation.rules.md` -- Overall documentation framework and rules
 - `agents/AGENTS.documentation-landing-pages.md` -- Landing page patterns
-- `docs/reference/cloud/list-of-supported-clouds/kubernetes-clouds/index.md` -- Concept mapping example
-- `docs/howto/manage-clouds.md` -- Generic cloud operations (cloud-agnostic)
+- `docs/reference/cloud/kubernetes-cloud/list-of-supported-kubernetes-clouds/index.md` -- Concept mapping example
+- `docs/reference/cloud/kubernetes-cloud/` -- Kubernetes cloud concept and implementations
 
 ---
 
@@ -1358,7 +1358,7 @@ Configuration options:
 Kubernetes-specific cloud docs (EKS, GKE, AKS, MicroK8s, Canonical Kubernetes) should be **minimal stubs** that:
 
 1. **Identify cloud type**: State "X is a {ref}`kubernetes-cloud`"
-2. **Reference generic doc**: "For complete documentation, see {ref}`kubernetes-clouds`"
+2. **Reference generic doc**: "For complete documentation, see {ref}`kubernetes-cloud`"
 3. **Document cloud-specific notes only**:
    - EKS/GKE/AKS: `add-k8s` with 'raw' client due to snap confinement
    - MicroK8s: Required services (dns, hostpath-storage)
@@ -1379,7 +1379,7 @@ See more: [<Cloud Name>](upstream-link)
 In Juju, <Cloud Name> is a {ref}`kubernetes-cloud`.
 
 \```{ibnote}
-See more: {ref}`kubernetes-clouds` (for complete Kubernetes cloud documentation)
+See more: {ref}`kubernetes-cloud` (for complete Kubernetes cloud documentation)
 \```
 
 ## Cloud-specific notes

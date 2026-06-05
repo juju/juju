@@ -7,7 +7,7 @@ myst:
 (cloud-vsphere)=
 # VMware vSphere
 
-In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-clouds>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (vsphere-cloud)=
 ## The cloud

@@ -7,7 +7,7 @@ myst:
 (cloud-kubernetes-gke)=
 # Google GKE
 
-In Juju, [Google GKE](https://cloud.google.com/kubernetes-engine/docs) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few points of variation related to the cloud, described below.
+In Juju, [Google GKE](https://cloud.google.com/kubernetes-engine/docs) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-cloud>`, except for a few points of variation related to the cloud, described below.
 
 (gke-cloud)=
 ## The cloud

@@ -4,29 +4,16 @@ myst:
     description: "Learn how machine clouds work with Juju, including provisioning models, infrastructure resources, and deployment patterns across VMs, bare metal, and system containers."
 ---
 
-(machine-clouds)=
-# Machine clouds
-
-```{toctree}
-:titlesonly:
-
-Amazon EC2 <amazon-ec2>
-Equinix Metal <equinix-metal>
-Google GCE <google-gce>
-LXD <lxd>
-MAAS <maas>
-Manual <manual>
-Microsoft Azure <microsoft-azure>
-OpenStack <openstack>
-Oracle OCI <oracle-oci>
-VMware vSphere <vmware-vsphere>
-```
+(machine-cloud)=
+# Machine cloud
 
 ```{ibnote}
-See also: {ref}`list-of-supported-clouds`
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-On {ref}`machine clouds <machine-cloud>`, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
+On machine clouds, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
+
+See {ref}`list-of-supported-machine-clouds` for a list of machine cloud platforms that Juju supports.
 
 (machine-cloud-entity)=
 ## Cloud

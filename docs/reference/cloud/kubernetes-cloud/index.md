@@ -4,26 +4,17 @@ myst:
     description: "Learn how Kubernetes clouds work with Juju, including concept mappings, authentication types, and cloud configuration requirements."
 ---
 
-(kubernetes-clouds)=
-# Kubernetes clouds
-
-```{toctree}
-:titlesonly:
-
-Amazon EKS <amazon-eks>
-Canonical Kubernetes <canonical-kubernetes>
-Google GKE <google-gke>
-Microsoft AKS <microsoft-aks>
-MicroK8s <microk8s>
-```
+(kubernetes-cloud)=
+# Kubernetes cloud
 
 ```{ibnote}
-See also: {ref}`list-of-supported-clouds`
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-On {ref}`Kubernetes clouds <kubernetes-cloud>`, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
 
-(kubernetes-cloud)=
+See {ref}`list-of-supported-kubernetes-clouds` for a list of Kubernetes distributions that Juju supports.
+
 ## Cloud
 
 ```{ibnote}
@@ -81,7 +72,7 @@ If you are familiar with Kubernetes, the following maps Kubernetes concepts to t
 | Kubernetes | Juju |
 | - | - |
 | [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
-| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (not managed by Juju) |
+| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (on Kubernetes clouds, not managed by Juju) |
 | [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
 | container | process in a unit |
 | [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |

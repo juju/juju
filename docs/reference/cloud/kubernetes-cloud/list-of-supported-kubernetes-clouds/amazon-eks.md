@@ -7,7 +7,7 @@ myst:
 (cloud-kubernetes-eks)=
 # Amazon EKS
 
-In Juju, [Amazon EKS](https://docs.aws.amazon.com/eks/index.html) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few points of variation related to the cloud, described below.
+In Juju, [Amazon EKS](https://docs.aws.amazon.com/eks/index.html) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-cloud>`, except for a few points of variation related to the cloud, described below.
 
 (eks-cloud)=
 ## The cloud
