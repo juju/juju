@@ -758,6 +758,206 @@ func (s *workerSuite) TestCharmTracingConfigServiceError(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestWorkloadTracingConfigInvalidMethod(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodGet,
+		endpoint:   "/workload-tracing-config",
+		statusCode: http.StatusMethodNotAllowed,
+		ignoreBody: true,
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		statusCode: http.StatusBadRequest,
+		response:   ".*missing request body.*",
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigInvalidBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       "http_endpoint=abc",
+		statusCode: http.StatusBadRequest,
+		response:   ".*request body is not valid JSON.*",
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigUnsupportedContentType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:      http.MethodPost,
+		endpoint:    "/workload-tracing-config",
+		body:        `{"http_endpoint":"http://localhost:4318"}`,
+		contentType: "text/plain",
+		statusCode:  http.StatusUnsupportedMediaType,
+		response:    ".*request Content-Type must be application/json.*",
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigMissingContentType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:          http.MethodPost,
+		endpoint:        "/workload-tracing-config",
+		body:            `{"http_endpoint":"http://localhost:4318"}`,
+		omitContentType: true,
+		statusCode:      http.StatusUnsupportedMediaType,
+		response:        ".*request Content-Type must be application/json.*",
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigPayloadTooLarge(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       `{"ca_cert":"` + strings.Repeat("x", maxPayloadBytes+1) + `"}`,
+		statusCode: http.StatusRequestEntityTooLarge,
+		response:   ".*request body must not exceed .* bytes.*",
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.tracingService.EXPECT().SetWorkloadTracingConfig(gomock.Any(), tracingservice.WorkloadTracingConfig{
+		HTTPEndpoint:  "http://localhost:4318",
+		GRPCEndpoint:  "localhost:4317",
+		CACertificate: "ca-data",
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       `{"http_endpoint":"http://localhost:4318","grpc_endpoint":"localhost:4317","ca_cert":"ca-data"}`,
+		statusCode: http.StatusOK,
+		response:   `.*updated workload tracing config.*`,
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	openTelemetryStackTraces := new(bool)
+	*openTelemetryStackTraces = true
+	openTelemetrySampleRatio := new(float64)
+	*openTelemetrySampleRatio = 0.5
+	openTelemetryTailSamplingThreshold := new(string)
+	*openTelemetryTailSamplingThreshold = "250ms"
+
+	s.tracingService.EXPECT().SetWorkloadTracingConfig(gomock.Any(), tracingservice.WorkloadTracingConfig{
+		HTTPEndpoint:                       "http://localhost:4318",
+		GRPCEndpoint:                       "localhost:4317",
+		CACertificate:                      "ca-data",
+		OpenTelemetryStackTraces:           openTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:   http.MethodPost,
+		endpoint: "/workload-tracing-config",
+		body: `{"http_endpoint":"http://localhost:4318","grpc_endpoint":"localhost:4317","ca_cert":"ca-data",` +
+			`"open_telemetry_stack_traces":true,"open_telemetry_sample_ratio":0.5,` +
+			`"open_telemetry_tail_sampling_threshold":"250ms"}`,
+		statusCode: http.StatusOK,
+		response:   `.*updated workload tracing config.*`,
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.tracingService.EXPECT().SetWorkloadTracingConfig(gomock.Any(), gomock.Any()).Return(
+		internalerrors.New("open telemetry sample ratio value 1.42 must be a ratio between 0 and 1").Add(coreerrors.NotValid),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       `{"open_telemetry_sample_ratio":1.42}`,
+		statusCode: http.StatusBadRequest,
+		response:   `.*invalid workload tracing config.*`,
+	})
+}
+
+func (s *workerSuite) TestWorkloadTracingConfigServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.tracingService.EXPECT().SetWorkloadTracingConfig(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/workload-tracing-config",
+		body:       `{"http_endpoint":"http://localhost:4318"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*boom.*`,
+	})
+}
+
 func (s *workerSuite) TestAddS3CredentialsInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

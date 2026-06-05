@@ -78,6 +78,45 @@ func (c *MockStateGetCharmTracingConfigCall) DoAndReturn(f func(context.Context)
 	return c
 }
 
+// GetWorkloadTracingConfig mocks base method.
+func (m *MockState) GetWorkloadTracingConfig(arg0 context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWorkloadTracingConfig", arg0)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWorkloadTracingConfig indicates an expected call of GetWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) GetWorkloadTracingConfig(arg0 any) *MockStateGetWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkloadTracingConfig", reflect.TypeOf((*MockState)(nil).GetWorkloadTracingConfig), arg0)
+	return &MockStateGetWorkloadTracingConfigCall{Call: call}
+}
+
+// MockStateGetWorkloadTracingConfigCall wrap *gomock.Call
+type MockStateGetWorkloadTracingConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetWorkloadTracingConfigCall) Return(arg0 map[string]string, arg1 error) *MockStateGetWorkloadTracingConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetWorkloadTracingConfigCall) Do(f func(context.Context) (map[string]string, error)) *MockStateGetWorkloadTracingConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetWorkloadTracingConfigCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockStateGetWorkloadTracingConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetCharmTracingConfig mocks base method.
 func (m *MockState) SetCharmTracingConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -112,6 +151,44 @@ func (c *MockStateSetCharmTracingConfigCall) Do(f func(context.Context, map[stri
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetCharmTracingConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string) error) *MockStateSetCharmTracingConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetWorkloadTracingConfig mocks base method.
+func (m *MockState) SetWorkloadTracingConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetWorkloadTracingConfig", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetWorkloadTracingConfig indicates an expected call of SetWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) SetWorkloadTracingConfig(arg0, arg1, arg2 any) *MockStateSetWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWorkloadTracingConfig", reflect.TypeOf((*MockState)(nil).SetWorkloadTracingConfig), arg0, arg1, arg2)
+	return &MockStateSetWorkloadTracingConfigCall{Call: call}
+}
+
+// MockStateSetWorkloadTracingConfigCall wrap *gomock.Call
+type MockStateSetWorkloadTracingConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetWorkloadTracingConfigCall) Return(arg0 error) *MockStateSetWorkloadTracingConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetWorkloadTracingConfigCall) Do(f func(context.Context, map[string]string, []string) error) *MockStateSetWorkloadTracingConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetWorkloadTracingConfigCall) DoAndReturn(f func(context.Context, map[string]string, []string) error) *MockStateSetWorkloadTracingConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

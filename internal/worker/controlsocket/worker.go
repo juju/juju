@@ -103,6 +103,10 @@ type PermissionService interface {
 type TracingService interface {
 	// SetCharmTracingConfig sets the charm tracing configuration to the provided values.
 	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
+
+	// SetWorkloadTracingConfig sets the workload tracing configuration to the
+	// provided values.
+	SetWorkloadTracingConfig(ctx context.Context, config tracingservice.WorkloadTracingConfig) error
 }
 
 // LoggingService is the interface for the logging service.
@@ -268,6 +272,25 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// values. Any field that are omitted or empty will be removed from the
 	// charm tracing configuration.
 	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+		Methods(http.MethodPost)
+
+	// workload-tracing-config endpoint for managing workload tracing
+	// configuration. This is a POST endpoint that accepts a JSON body with the
+	// following format:
+	//
+	// {
+	//   "http_endpoint": <string>,
+	//   "grpc_endpoint": <string>,
+	//   "ca_cert": <string>,
+	//   "open_telemetry_stack_traces": <bool>,
+	//   "open_telemetry_sample_ratio": <float>,
+	//   "open_telemetry_tail_sampling_threshold": <string>,
+	// }
+	//
+	// The worker will update the workload tracing configuration with the
+	// provided values. Any field that are omitted or empty will be removed from
+	// the workload tracing configuration.
+	r.Handle("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig)).
 		Methods(http.MethodPost)
 
 	// s3-credentials endpoint for managing object store credentials when S3 is
@@ -476,6 +499,55 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 	}
 
 	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
+}
+
+type setWorkloadTracingConfig struct {
+	HTTPEndpoint                       string   `json:"http_endpoint"`
+	GRPCEndpoint                       string   `json:"grpc_endpoint"`
+	CACert                             string   `json:"ca_cert"`
+	OpenTelemetryStackTraces           *bool    `json:"open_telemetry_stack_traces"`
+	OpenTelemetrySampleRatio           *float64 `json:"open_telemetry_sample_ratio"`
+	OpenTelemetryTailSamplingThreshold *string  `json:"open_telemetry_tail_sampling_threshold"`
+}
+
+func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody setWorkloadTracingConfig
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	err := w.tracingService.SetWorkloadTracingConfig(ctx, tracingservice.WorkloadTracingConfig{
+		HTTPEndpoint:                       parsedBody.HTTPEndpoint,
+		GRPCEndpoint:                       parsedBody.GRPCEndpoint,
+		CACertificate:                      parsedBody.CACert,
+		OpenTelemetryStackTraces:           parsedBody.OpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           parsedBody.OpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: parsedBody.OpenTelemetryTailSamplingThreshold,
+	})
+	if internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid workload tracing config: %w", err))
+		return
+	}
+	if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, "updated workload tracing config")
 }
 
 type s3CredentialsRequest struct {

@@ -5,14 +5,21 @@ package service
 
 import (
 	"context"
+	"strconv"
+	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
-	httpEndpointKey  = "http-endpoint"
-	grpcEndpointKey  = "grpc-endpoint"
-	caCertificateKey = "ca-certificate"
+	httpEndpointKey                       = "http-endpoint"
+	grpcEndpointKey                       = "grpc-endpoint"
+	caCertificateKey                      = "ca-certificate"
+	openTelemetryStackTracesKey           = "open-telemetry-stack-traces"
+	openTelemetrySampleRatioKey           = "open-telemetry-sample-ratio"
+	openTelemetryTailSamplingThresholdKey = "open-telemetry-tail-sampling-threshold"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -22,6 +29,12 @@ type State interface {
 
 	// GetCharmTracingConfig returns the charm tracing config from the state.
 	GetCharmTracingConfig(ctx context.Context) (map[string]string, error)
+
+	// SetWorkloadTracingConfig sets the workload tracing config in the state.
+	SetWorkloadTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error
+
+	// GetWorkloadTracingConfig returns the workload tracing config from the state.
+	GetWorkloadTracingConfig(ctx context.Context) (map[string]string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -43,29 +56,25 @@ type CharmTracingConfig struct {
 	CACertificate string
 }
 
+// WorkloadTracingConfig defines the tracing configuration for workload
+// telemetry.
+type WorkloadTracingConfig struct {
+	HTTPEndpoint  string
+	GRPCEndpoint  string
+	CACertificate string
+
+	OpenTelemetryStackTraces           *bool
+	OpenTelemetrySampleRatio           *float64
+	OpenTelemetryTailSamplingThreshold *string
+}
+
 // SetCharmTracingConfig sets the charm tracing config. This method will
 // insert any non-empty fields and delete any empty fields from the state.
 func (s *Service) SetCharmTracingConfig(ctx context.Context, config CharmTracingConfig) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	insertions := make(map[string]string)
-	deletions := make([]string, 0, 4)
-	if config.HTTPEndpoint != "" {
-		insertions[httpEndpointKey] = config.HTTPEndpoint
-	} else {
-		deletions = append(deletions, httpEndpointKey)
-	}
-	if config.GRPCEndpoint != "" {
-		insertions[grpcEndpointKey] = config.GRPCEndpoint
-	} else {
-		deletions = append(deletions, grpcEndpointKey)
-	}
-	if config.CACertificate != "" {
-		insertions[caCertificateKey] = config.CACertificate
-	} else {
-		deletions = append(deletions, caCertificateKey)
-	}
+	insertions, deletions := splitTracingConfig(config.HTTPEndpoint, config.GRPCEndpoint, config.CACertificate)
 
 	return s.st.SetCharmTracingConfig(ctx, insertions, deletions)
 }
@@ -85,4 +94,140 @@ func (s *Service) GetCharmTracingConfig(ctx context.Context) (CharmTracingConfig
 		GRPCEndpoint:  configMap[grpcEndpointKey],
 		CACertificate: configMap[caCertificateKey],
 	}, nil
+}
+
+// SetWorkloadTracingConfig sets the workload tracing config. This method will
+// insert any non-empty fields and delete any empty fields from the state.
+func (s *Service) SetWorkloadTracingConfig(ctx context.Context, config WorkloadTracingConfig) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := validateWorkloadTracingConfig(config); err != nil {
+		return err
+	}
+
+	insertions, deletions := splitTracingConfig(config.HTTPEndpoint, config.GRPCEndpoint, config.CACertificate)
+	if config.OpenTelemetryStackTraces != nil {
+		insertions[openTelemetryStackTracesKey] = strconv.FormatBool(*config.OpenTelemetryStackTraces)
+	} else {
+		deletions = append(deletions, openTelemetryStackTracesKey)
+	}
+	if config.OpenTelemetrySampleRatio != nil {
+		insertions[openTelemetrySampleRatioKey] = strconv.FormatFloat(*config.OpenTelemetrySampleRatio, 'g', -1, 64)
+	} else {
+		deletions = append(deletions, openTelemetrySampleRatioKey)
+	}
+	if config.OpenTelemetryTailSamplingThreshold != nil &&
+		*config.OpenTelemetryTailSamplingThreshold != "" {
+		insertions[openTelemetryTailSamplingThresholdKey] = *config.OpenTelemetryTailSamplingThreshold
+	} else {
+		deletions = append(deletions, openTelemetryTailSamplingThresholdKey)
+	}
+
+	return s.st.SetWorkloadTracingConfig(ctx, insertions, deletions)
+}
+
+// GetWorkloadTracingConfig returns the workload tracing config from the state.
+func (s *Service) GetWorkloadTracingConfig(ctx context.Context) (WorkloadTracingConfig, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	configMap, err := s.st.GetWorkloadTracingConfig(ctx)
+	if err != nil {
+		return WorkloadTracingConfig{}, err
+	}
+
+	var (
+		openTelemetryStackTraces           *bool
+		openTelemetrySampleRatio           *float64
+		openTelemetryTailSamplingThreshold *string
+	)
+
+	if value, ok := configMap[openTelemetryStackTracesKey]; ok {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", openTelemetryStackTracesKey, err)
+		}
+		openTelemetryStackTraces = &parsed
+	}
+	if value, ok := configMap[openTelemetrySampleRatioKey]; ok {
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", openTelemetrySampleRatioKey, err)
+		}
+		openTelemetrySampleRatio = &parsed
+	}
+	if value, ok := configMap[openTelemetryTailSamplingThresholdKey]; ok {
+		openTelemetryTailSamplingThreshold = &value
+	}
+
+	return WorkloadTracingConfig{
+		HTTPEndpoint:                       configMap[httpEndpointKey],
+		GRPCEndpoint:                       configMap[grpcEndpointKey],
+		CACertificate:                      configMap[caCertificateKey],
+		OpenTelemetryStackTraces:           openTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
+	}, nil
+}
+
+func splitTracingConfig(httpEndpoint, grpcEndpoint, caCertificate string) (map[string]string, []string) {
+	insertions := make(map[string]string)
+	deletions := make([]string, 0, 4)
+
+	if httpEndpoint != "" {
+		insertions[httpEndpointKey] = httpEndpoint
+	} else {
+		deletions = append(deletions, httpEndpointKey)
+	}
+	if grpcEndpoint != "" {
+		insertions[grpcEndpointKey] = grpcEndpoint
+	} else {
+		deletions = append(deletions, grpcEndpointKey)
+	}
+	if caCertificate != "" {
+		insertions[caCertificateKey] = caCertificate
+	} else {
+		deletions = append(deletions, caCertificateKey)
+	}
+
+	return insertions, deletions
+}
+
+func validateWorkloadTracingConfig(config WorkloadTracingConfig) error {
+	if err := validateOpenTelemetrySampleRatio(config.OpenTelemetrySampleRatio); err != nil {
+		return err
+	}
+	if err := validateOpenTelemetryTailSamplingThreshold(config.OpenTelemetryTailSamplingThreshold); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateOpenTelemetrySampleRatio(sampleRatio *float64) error {
+	if sampleRatio == nil {
+		return nil
+	}
+	if *sampleRatio < 0 || *sampleRatio > 1 {
+		return errors.Errorf("%s value %f must be a ratio between 0 and 1",
+			openTelemetrySampleRatioKey, *sampleRatio).Add(coreerrors.NotValid)
+	}
+	return nil
+}
+
+func validateOpenTelemetryTailSamplingThreshold(tailSamplingThreshold *string) error {
+	if tailSamplingThreshold == nil || *tailSamplingThreshold == "" {
+		return nil
+	}
+
+	v, err := time.ParseDuration(*tailSamplingThreshold)
+	if err != nil {
+		return errors.Errorf("%s value %q must be a valid duration",
+			openTelemetryTailSamplingThresholdKey, *tailSamplingThreshold).Add(coreerrors.NotValid)
+	}
+	if v < 0 {
+		return errors.Errorf("%s value %q must be a positive duration",
+			openTelemetryTailSamplingThresholdKey, v).Add(coreerrors.NotValid)
+	}
+	return nil
 }
