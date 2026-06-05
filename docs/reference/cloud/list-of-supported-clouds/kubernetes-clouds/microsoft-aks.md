@@ -7,10 +7,19 @@ myst:
 (cloud-kubernetes-aks)=
 # Microsoft AKS
 
-In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few cloud-specific notes described below.
+In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-clouds>`, except for a few points of variation related to the cloud, described below.
 
-## Cloud-specific notes
+(aks-cloud)=
+## The cloud
 
-### Notes on `add-k8s`
+```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
 
-Starting with Juju 3.0, because of  the  fact that the `juju` client snap is strictly confined but the AKS cloud CLI snap is not, you must run the `add-k8s` command with the 'raw' client. See note in {ref}`add-a-kubernetes-cloud`.
+### Adding the cloud
+
+When adding this cloud to Juju using the {ref}`juju CLI client <juju-client>`, starting with Juju 3.0 you must run the `add-k8s` command with the 'raw' client because the `juju` client snap is strictly confined but the AKS cloud CLI snap is not.
+
+```{ibnote}
+See more: {ref}`add-a-kubernetes-cloud`
+```
