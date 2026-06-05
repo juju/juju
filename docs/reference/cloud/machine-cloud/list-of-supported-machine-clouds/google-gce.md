@@ -141,7 +141,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 When configuring a model on Google GCE, Juju recognizes the following cloud-specific keys.
 
-(gce-model-cloud-specific-configuration-keys)=
 (gce-model-configuration-keys)=
 ### Configuration keys
 
@@ -181,11 +180,10 @@ Base path to look for machine disk images.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 
-(gce-machine-supported-constraints)=
 (gce-machine-constraints)=
 ### Constraints
 
@@ -207,7 +205,6 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`
 
-(gce-machine-supported-placement-directives)=
 (gce-machine-placement-directives)=
 ### Placement directives
 
@@ -239,7 +236,6 @@ Each machine (controller or application) receives:
 - **Firewall rules**: Environment-level rule (`juju-<model-uuid>`) allows traffic between instances with same tag. Per-machine rules target instance by hostname tag. User-defined port rules via `open-ports` create additional firewall rules.
 - **Address resolution**: Returns private address (cloud-local scope, from subnet CIDR) and public address (if NAT configured).
 
-(gce-storage)=
 (gce-storage)=
 ## Storage
 

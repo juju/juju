@@ -166,7 +166,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 When configuring a model on LXD, Juju recognizes the following cloud-specific keys.
 
-(lxd-model-cloud-specific-configuration-keys)=
 (lxd-model-configuration-keys)=
 ### Configuration keys
 
@@ -186,7 +185,7 @@ The LXD project name to use for Juju's resources.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 When provisioning machines on LXD, Juju supports the following constraints and placement directives.
@@ -197,7 +196,6 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Compare `juju machines` and `lxc list`.
 ```
 
-(lxd-machine-supported-constraints)=
 (lxd-machine-constraints)=
 ### Constraints
 
@@ -212,7 +210,6 @@ LXD supports the following constraints:
 - {ref}`constraint-virt-type`. Valid values: `container` (default), `virtual-machine`.
 - {ref}`constraint-zones`. LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
 
-(lxd-machine-supported-placement-directives)=
 (lxd-machine-placement-directives)=
 ### Placement directives
 

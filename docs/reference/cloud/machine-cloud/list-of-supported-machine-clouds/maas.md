@@ -93,10 +93,9 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-(maas-machine-supported-constraints)=
 (maas-machine-constraints)=
 ### Constraints
 
@@ -113,7 +112,6 @@ MAAS supports the following constraints:
 - {ref}`constraint-virt-type`. Starting with Juju 3.6.22. Valid values: `virtual-machine`. Default value: empty string. Use `virtual-machine` to provision a VM from a pod.
 - {ref}`constraint-zones`
 
-(maas-machine-supported-placement-directives)=
 (maas-machine-placement-directives)=
 ### Placement directives
 

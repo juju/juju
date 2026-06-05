@@ -139,7 +139,7 @@ Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the mini
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (ec2-machine-constraints)=

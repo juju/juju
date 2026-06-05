@@ -94,7 +94,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 When configuring a model on Oracle OCI, Juju recognizes the following cloud-specific keys.
 
-(oci-model-cloud-specific-configuration-keys)=
 (oci-model-configuration-keys)=
 ### Configuration keys
 
@@ -124,10 +123,9 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-(oci-machine-supported-constraints)=
 (oci-machine-constraints)=
 ### Constraints
 
@@ -142,7 +140,6 @@ Oracle OCI supports the following constraints:
 - {ref}`constraint-root-disk`
 - {ref}`constraint-zones`. Specifies availability domain. Example: `zones=us-phoenix-1:AD-1`.
 
-(oci-machine-supported-placement-directives)=
 (oci-machine-placement-directives)=
 ### Placement directives
 
@@ -174,7 +171,6 @@ Each machine (controller or application) receives:
 - **Routing**: All subnets route `0.0.0.0/0` through Internet Gateway. No custom routes currently managed.
 - **Public IP allocation**: Not guaranteed immediately. Juju polls up to 30 seconds after instance reaches Running state.
 
-(oci-storage)=
 (oci-storage)=
 ## Storage
 

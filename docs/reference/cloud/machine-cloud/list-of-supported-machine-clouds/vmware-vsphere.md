@@ -103,7 +103,6 @@ See more: {ref}`vsphere-appendix-using-templates`
 See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
-(vsphere-model-cloud-specific-configuration-keys)=
 (vsphere-model-configuration-keys)=
 ### Configuration keys
 
@@ -173,10 +172,9 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-(vsphere-machine-supported-constraints)=
 (vsphere-machine-constraints)=
 ### Constraints
 
@@ -192,7 +190,6 @@ VMware vSphere supports the following constraints:
 - {ref}`constraint-root-disk-source`. Specifies the datastore for the root disk.
 - {ref}`constraint-zones`. Specifies resource pools within a host or cluster. Examples: `zones=myhost`, `zones=myfolder/myhost`, `zones=mycluster/mypool`, `zones=mycluster/myparent/mypool`.
 
-(vsphere-machine-supported-placement-directives)=
 (vsphere-machine-placement-directives)=
 ### Placement directives
 
@@ -226,7 +223,6 @@ Each machine (controller or application) receives:
 - **Public/private addressing**: Primary network provides private/internal addressing. External network (if configured) provides public address (used as public address by Juju).
 - **Port groups/VLANs**: No explicit VLAN configuration. Relies on vSphere port group mapping.
 
-(vsphere-storage)=
 (vsphere-storage)=
 ## Storage
 

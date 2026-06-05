@@ -174,7 +174,7 @@ The network label or UUID to bring machines up on when multiple networks exist.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (openstack-machine-constraints)=
@@ -198,7 +198,6 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 - {ref}`constraint-virt-type`. Valid values: `kvm`, `lxd`.
 - {ref}`constraint-zones`
 
-(openstack-machine-supported-placement-directives)=
 (openstack-machine-placement-directives)=
 ### Placement directives
 

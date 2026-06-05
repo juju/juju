@@ -115,7 +115,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 Models connected to the Manual cloud.
 
-(manual-model-cloud-specific-configuration-keys)=
 (manual-model-configuration-keys)=
 ### Configuration keys
 
@@ -127,7 +126,7 @@ None.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 ```{important}
@@ -148,7 +147,6 @@ See more: {ref}`take-your-deployment-offline`
 ```
 ```
 
-(manual-machine-supported-constraints)=
 (manual-machine-constraints)=
 ### Constraints
 
@@ -163,7 +161,6 @@ Constraints are limited to detectable hardware attributes:
 - {ref}`constraint-root-disk`
 - {ref}`constraint-zones`
 
-(manual-machine-supported-placement-directives)=
 (manual-machine-placement-directives)=
 ### Placement directives
 

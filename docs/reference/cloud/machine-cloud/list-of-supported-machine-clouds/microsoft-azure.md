@@ -149,7 +149,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 When configuring a model on Microsoft Azure, Juju recognizes the following cloud-specific keys.
 
-(azure-model-cloud-specific-configuration-keys)=
 (azure-model-configuration-keys)=
 ### Configuration keys
 
@@ -189,11 +188,10 @@ If set, use the specified virtual network for all model machines instead of crea
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 
-(azure-machine-supported-constraints)=
 (azure-machine-constraints)=
 ### Constraints
 
@@ -214,7 +212,6 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 - {ref}`constraint-root-disk-source`. Specifies {ref}`storage pool <storage-pool>` for root disk. Enables encryption configuration.
 - {ref}`constraint-zones`
 
-(azure-machine-supported-placement-directives)=
 (azure-machine-placement-directives)=
 ### Placement directives
 
@@ -242,7 +239,6 @@ Each machine (controller or application) receives:
 - **Subnet placement**: Controller machines → 192.168.16.0/20; application machines → 192.168.0.0/20.
 - **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
 
-(azure-storage)=
 (azure-storage)=
 ## Storage
 
