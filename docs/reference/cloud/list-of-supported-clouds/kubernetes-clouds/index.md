@@ -8,7 +8,7 @@ myst:
 # Kubernetes clouds
 
 ```{toctree}
-:hidden:
+:titlesonly:
 
 Amazon EKS <amazon-eks>
 Canonical Kubernetes <canonical-kubernetes>

@@ -8,7 +8,7 @@ myst:
 # Machine clouds
 
 ```{toctree}
-:hidden:
+:titlesonly:
 
 Amazon EC2 <amazon-ec2>
 Equinix Metal <equinix-metal>
