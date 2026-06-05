@@ -282,8 +282,8 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 }
 
 // TestWatchForMigration asserts that WatchForMigration asks the watcher
-// factory for a notify watcher filtering on the model_migrating namespace
-// scoped to this service's model UUID.
+// factory for a notify watcher filtering on the controller-side export
+// namespace scoped to this service's model UUID.
 func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -297,7 +297,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 
 	otherUUID := tc.Must(c, uuid.NewUUID).String()
 	ch := make(chan struct{}, 1)
-	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
+	s.controllerState.EXPECT().NamespaceForWatchExport().Return("model_migration_export")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 			namespace = fo.Namespace()
@@ -325,7 +325,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	c.Check(namespace, tc.Equals, "model_migrating")
+	c.Check(namespace, tc.Equals, "model_migration_export")
 	c.Check(changeMask, tc.Equals, changestream.All)
 	c.Check(predicateCalled, tc.IsTrue)
 	c.Check(matchesUUID, tc.IsTrue)
@@ -337,7 +337,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().GetNamespaceModelMigrating().Return("model_migrating")
+	s.controllerState.EXPECT().NamespaceForWatchExport().Return("model_migration_export")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil, errors.Errorf("boom"),
 	)
@@ -352,6 +352,71 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+// TestWatchMigrationPhase asserts the phase watcher filters the controller-side
+// phase namespace by this model's UUID.
+func (s *serviceSuite) TestWatchMigrationPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var (
+		namespace   string
+		matchesUUID bool
+	)
+	ch := make(chan struct{}, 1)
+	s.controllerState.EXPECT().NamespaceForWatchPhase().Return("model_migration_export_phase")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			namespace = fo.Namespace()
+			if pred := fo.ChangePredicate(); pred != nil {
+				matchesUUID = pred(s.modelUUID)
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	w, err := s.service().WatchMigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespace, tc.Equals, "model_migration_export_phase")
+	c.Check(matchesUUID, tc.IsTrue)
+}
+
+// TestWatchMinionReports asserts the minion watcher resolves the active
+// migration and filters the minion-sync namespace by its UUID.
+func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var (
+		namespace      string
+		matchesMigID   bool
+		matchesModelID bool
+	)
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	ch := make(chan struct{}, 1)
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExportUUID(gomock.Any(), s.modelUUID).Return(migUUID, nil),
+		s.controllerState.EXPECT().NamespaceForWatchMinionSync().Return("model_migration_export_minion_sync"),
+		s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, _ string, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+				namespace = fo.Namespace()
+				if pred := fo.ChangePredicate(); pred != nil {
+					matchesMigID = pred(migUUID)
+					matchesModelID = pred(s.modelUUID)
+				}
+				return watchertest.NewMockNotifyWatcher(ch), nil
+			},
+		),
+	)
+
+	w, err := s.service().WatchMinionReports(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespace, tc.Equals, "model_migration_export_minion_sync")
+	c.Check(matchesMigID, tc.IsTrue)
+	c.Check(matchesModelID, tc.IsFalse)
 }
 
 // service constructs a Service backed by the suite mocks.

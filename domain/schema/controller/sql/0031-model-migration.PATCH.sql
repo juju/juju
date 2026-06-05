@@ -285,8 +285,12 @@ ON model_migration_export_target_auth (external_controller_uuid);
 -- Time-ordered record of which phases an export migration has entered.
 -- Each phase is entered at most once per migration, so (migration_uuid,
 -- phase_id) is the natural key.
+--
+-- model_uuid is denormalised from the parent model_migration_export row so the
+-- changestream trigger can emit the model-scoped key watched for phase changes.
 CREATE TABLE model_migration_export_phase (
     migration_uuid TEXT NOT NULL,
+    model_uuid TEXT NOT NULL,
     phase_id INT NOT NULL,
     changed_at TIMESTAMP NOT NULL,
     PRIMARY KEY (migration_uuid, phase_id),
@@ -354,15 +358,26 @@ BEGIN
 END;
 
 -- update trigger for ModelMigrationExport
+--
+-- The export namespace is the model-scoped "is there an active migration?"
+-- surface. It deliberately ignores ordinary current_phase_id / updated_at
+-- changes so the migration master is not woken for every phase transition.
+-- Terminal phase changes still fire because they end the active migration.
 CREATE TRIGGER trg_log_model_migration_export_update
 AFTER UPDATE ON model_migration_export FOR EACH ROW
 WHEN
     NEW.uuid != OLD.uuid OR
     NEW.model_uuid != OLD.model_uuid OR
     NEW.target_controller_uuid != OLD.target_controller_uuid OR
-    NEW.current_phase_id != OLD.current_phase_id OR
-    NEW.updated_at != OLD.updated_at OR
-    NEW.start_time != OLD.start_time
+    NEW.start_time != OLD.start_time OR
+    (
+        OLD.current_phase_id NOT IN (7, 8, 10) AND
+        NEW.current_phase_id IN (7, 8, 10)
+    ) OR
+    (
+        OLD.current_phase_id IN (7, 8, 10) AND
+        NEW.current_phase_id NOT IN (7, 8, 10)
+    )
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, 10019, OLD.model_uuid, DATETIME('now', 'utc'));
@@ -377,14 +392,14 @@ BEGIN
 END;
 
 -- insert namespace for ModelMigrationExportPhase
-INSERT INTO change_log_namespace VALUES (10020, 'model_migration_export_phase', 'ModelMigrationExportPhase changes based on migration_uuid');
+INSERT INTO change_log_namespace VALUES (10020, 'model_migration_export_phase', 'ModelMigrationExportPhase changes based on model_uuid');
 
 -- insert trigger for ModelMigrationExportPhase
 CREATE TRIGGER trg_log_model_migration_export_phase_insert
 AFTER INSERT ON model_migration_export_phase FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, 10020, NEW.migration_uuid, DATETIME('now', 'utc'));
+    VALUES (1, 10020, NEW.model_uuid, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ModelMigrationExportPhase
@@ -392,11 +407,12 @@ CREATE TRIGGER trg_log_model_migration_export_phase_update
 AFTER UPDATE ON model_migration_export_phase FOR EACH ROW
 WHEN
     NEW.migration_uuid != OLD.migration_uuid OR
+    NEW.model_uuid != OLD.model_uuid OR
     NEW.phase_id != OLD.phase_id OR
     NEW.changed_at != OLD.changed_at
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, 10020, OLD.migration_uuid, DATETIME('now', 'utc'));
+    VALUES (2, 10020, OLD.model_uuid, DATETIME('now', 'utc'));
 END;
 
 -- delete trigger for ModelMigrationExportPhase
@@ -404,7 +420,7 @@ CREATE TRIGGER trg_log_model_migration_export_phase_delete
 AFTER DELETE ON model_migration_export_phase FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, 10020, OLD.migration_uuid, DATETIME('now', 'utc'));
+    VALUES (4, 10020, OLD.model_uuid, DATETIME('now', 'utc'));
 END;
 
 -- insert namespace for ModelMigrationExportMinionSync

@@ -162,9 +162,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify the entry exists.
@@ -221,9 +222,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusVerifyCorrectEntry(c *tc.C) {
 
 	// Insert a model_migration_import entry with a specific UUID.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify we can query the specific entry by its UUID.
@@ -256,9 +258,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusWrongModelUUID(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to clear with a different (non-existent) model UUID.
@@ -283,9 +286,10 @@ func (s *stateSuite) TestDeleteModelImportingStatusIdempotent(c *tc.C) {
 
 	// Insert a model_migration_import entry.
 	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
-		migratingUUID, s.modelUUID)
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Clear the importing status multiple times.
@@ -416,6 +420,45 @@ func (s *stateSuite) TestInsertExportAfterEnded(c *tc.C) {
 
 	err = st.InsertExport(c.Context(), s.newMigrationSpec())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestGetActiveExportUUID returns the UUID of the active export migration for
+// the model.
+func (s *stateSuite) TestGetActiveExportUUID(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	spec := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, spec.MigrationUUID)
+}
+
+// TestGetActiveExportUUIDNotFound asserts ErrMigrationNotFound is returned when
+// the model has no export migration.
+func (s *stateSuite) TestGetActiveExportUUIDNotFound(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	_, err := st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+}
+
+// TestGetActiveExportUUIDIgnoresTerminalExport asserts a terminal export is no
+// longer considered active.
+func (s *stateSuite) TestGetActiveExportUUIDIgnoresTerminalExport(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	spec := s.newMigrationSpec()
+	err := st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.ABORTDONE)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetActiveExportUUID(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
 }
 
 func (s *stateSuite) TestInsertExportUpdatesExternalController(c *tc.C) {

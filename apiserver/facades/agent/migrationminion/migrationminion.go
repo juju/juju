@@ -49,7 +49,7 @@ func NewAPI(
 // from the watcher.
 func (api *API) Watch(ctx context.Context) (params.NotifyWatchResult, error) {
 	var res params.NotifyWatchResult
-	w, err := api.modelMigrationService.WatchForMigration(ctx)
+	w, err := api.modelMigrationService.WatchMigrationPhase(ctx)
 	if err != nil {
 		res.Error = apiservererrors.ServerError(err)
 		return res, nil

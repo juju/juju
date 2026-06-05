@@ -52,6 +52,7 @@ type migrationTargetAuth struct {
 // migrationPhaseEntry maps a model_migration_export_phase history row.
 type migrationPhaseEntry struct {
 	MigrationUUID string    `db:"migration_uuid"`
+	ModelUUID     string    `db:"model_uuid"`
 	PhaseID       int       `db:"phase_id"`
 	ChangedAt     time.Time `db:"changed_at"`
 }
@@ -85,7 +86,8 @@ type phaseIDArg struct {
 
 // currentPhase is the projection of the export's denormalised current phase.
 type currentPhase struct {
-	CurrentPhaseID int `db:"current_phase_id"`
+	CurrentPhaseID int    `db:"current_phase_id"`
+	ModelUUID      string `db:"model_uuid"`
 }
 
 // terminalPhaseIDArgs carries the persisted ids for terminal export phases.

@@ -94,6 +94,18 @@ type ControllerState interface {
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context, modelUUID string) error
 
+	// NamespaceForWatchExport returns the changestream namespace for export
+	// migration start/end changes keyed by model UUID.
+	NamespaceForWatchExport() string
+
+	// NamespaceForWatchPhase returns the changestream namespace for export
+	// migration phase transitions keyed by model UUID.
+	NamespaceForWatchPhase() string
+
+	// NamespaceForWatchMinionSync returns the changestream namespace for minion
+	// sync report changes keyed by migration UUID.
+	NamespaceForWatchMinionSync() string
+
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
 	// has an active export.
@@ -102,6 +114,10 @@ type ControllerState interface {
 	// GetActiveExport returns the active export migration for the
 	// model, or [modelmigrationerrors.ErrMigrationNotFound] if none exists.
 	GetActiveExport(ctx context.Context, modelUUID string) (modelmigrationinternal.Migration, error)
+
+	// GetActiveExportUUID returns the UUID of the active export migration for
+	// the model, or [modelmigrationerrors.ErrMigrationNotFound] if none exists.
+	GetActiveExportUUID(ctx context.Context, modelUUID string) (string, error)
 
 	// GetMigrationMode derives the migration mode for the model.
 	GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error)
@@ -144,11 +160,6 @@ type ModelState interface {
 	// table in the model database, indicating that the model import has
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context) error
-
-	// GetNamespaceModelMigrating returns the name of the model_migrating
-	// changestream namespace. A change in this namespace indicates that this
-	// model has started or stopped undergoing a migration.
-	GetNamespaceModelMigrating() string
 
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
@@ -402,29 +413,40 @@ func unmarshalMacaroons(data string) ([]macaroon.Slice, error) {
 }
 
 // WatchForMigration returns a notification watcher that fires when this model
-// undergoes migration.
+// starts or stops undergoing migration. Intermediate phase transitions are
+// reported by WatchMigrationPhase.
 func (s *Service) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	return s.watchControllerNamespace(
+		ctx, "watch for model migration", s.controllerState.NamespaceForWatchExport(),
+	)
+}
+
+// WatchMigrationPhase returns a notification watcher that fires on each of this
+// model's migration phase transitions.
+func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watchControllerNamespace(
+		ctx, "watch for migration phase change", s.controllerState.NamespaceForWatchPhase(),
+	)
+}
+
+func (s *Service) watchControllerNamespace(
+	ctx context.Context, summary, namespace string,
+) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
-		"watch for model migration",
+		summary,
 		eventsource.PredicateFilter(
-			s.modelState.GetNamespaceModelMigrating(),
+			namespace,
 			changestream.All,
 			eventsource.EqualsPredicate(s.modelUUID),
 		),
 	)
-}
-
-// WatchMigrationPhase returns a notification watcher that fires when this
-// model's migration phase changes.
-func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	// TODO(modelmigration): implement migration watcher.
-	return watcher.TODO[struct{}](), nil
 }
 
 // ReportMinion accepts a phase report from a migration minion agent.
@@ -465,12 +487,25 @@ func (s *Service) SetMigrationStatusMessage(ctx context.Context, message string)
 }
 
 // WatchMinionReports returns a notification watcher that fires when any minion
-// reports a update to their phase.
+// reports an update to their phase for this model's active migration.
 func (s *Service) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-	// TODO(modelmigration): implement watching minion reports.
-	return watcher.TODO[struct{}](), nil
+
+	migUUID, err := s.controllerState.GetActiveExportUUID(ctx, s.modelUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch for migration minion reports",
+		eventsource.PredicateFilter(
+			s.controllerState.NamespaceForWatchMinionSync(),
+			changestream.All,
+			eventsource.EqualsPredicate(migUUID),
+		),
+	)
 }
 
 // MinionReports returns phase information about minions in this model for the
