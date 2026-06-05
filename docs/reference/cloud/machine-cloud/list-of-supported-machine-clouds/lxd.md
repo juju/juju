@@ -194,14 +194,14 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 
 LXD supports the following constraints:
 
-- {ref}`constraint-arch`: Valid values: Host architecture.
+- {ref}`constraint-arch`. Valid values: Host architecture.
 - {ref}`constraint-cores`
 - {ref}`constraint-instance-type`
-- {ref}`constraint-mem`: The maximum amount of memory that a machine/container will have.
+- {ref}`constraint-mem`. The maximum amount of memory that a machine/container will have.
 - {ref}`constraint-root-disk`
-- {ref}`constraint-root-disk-source`: The LXD storage pool for the root disk. The default LXD storage pool is used if not specified.
-- {ref}`constraint-virt-type`: Valid values: `container` (default), `virtual-machine`.
-- {ref}`constraint-zones`: LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
+- {ref}`constraint-root-disk-source`. The LXD storage pool for the root disk. The default LXD storage pool is used if not specified.
+- {ref}`constraint-virt-type`. Valid values: `container` (default), `virtual-machine`.
+- {ref}`constraint-zones`. LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
 
 (lxd-machine-supported-placement-directives)=
 (lxd-machine-placement-directives)=

@@ -102,15 +102,15 @@ See also: {ref}`Juju | Manage machines <manage-machines>`
 
 MAAS supports the following constraints:
 
-- {ref}`constraint-arch`: Valid values: See cloud provider.
+- {ref}`constraint-arch`. Valid values: See cloud provider.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
-- {ref}`constraint-image-id`: Starting with Juju 3.2. Valid values: An image name from MAAS.
+- {ref}`constraint-image-id`. Starting with Juju 3.2. Valid values: An image name from MAAS.
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
 - {ref}`constraint-spaces`
 - {ref}`constraint-tags`
-- {ref}`constraint-virt-type`: Starting with Juju 3.6.22. Valid values: `virtual-machine`. Default value: empty string. Use `virtual-machine` to provision a VM from a pod.
+- {ref}`constraint-virt-type`. Starting with Juju 3.6.22. Valid values: `virtual-machine`. Default value: empty string. Use `virtual-machine` to provision a VM from a pod.
 - {ref}`constraint-zones`
 
 (maas-machine-supported-placement-directives)=

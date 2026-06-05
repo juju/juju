@@ -7,7 +7,7 @@ myst:
 (cloud-ec2)=
 # Amazon EC2
 
-In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`all machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (ec2-cloud)=
 ## The cloud
@@ -156,9 +156,9 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
-- {ref}`constraint-image-id`: Starting with Juju 3.3. Valid values: An AMI.
-- {ref}`constraint-instance-role`: Values: `auto` (creates role automatically) or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.
-- {ref}`constraint-instance-type`: Valid values: Any EC2 instance type. Default: `m3.medium`.
+- {ref}`constraint-image-id`. Starting with Juju 3.3. Valid values: An AMI.
+- {ref}`constraint-instance-role`. Values: `auto` (creates role automatically) or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.
+- {ref}`constraint-instance-type`. Valid values: Any EC2 instance type. Default: `m3.medium`.
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
 - {ref}`constraint-root-disk-source`
@@ -171,7 +171,7 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 Amazon EC2 supports the following placement directives:
 
 - {ref}`placement-directive-machine`
-- {ref}`placement-directive-subnet`: If the query looks like a CIDR, matches subnets with the same CIDR. If it follows syntax `subnet-XXXX`, matches the Subnet ID. Otherwise matches subnet Name tag.
+- {ref}`placement-directive-subnet`. If the query looks like a CIDR, matches subnets with the same CIDR. If it follows syntax `subnet-XXXX`, matches the Subnet ID. Otherwise matches subnet Name tag.
 - {ref}`placement-directive-zone`
 
 (ec2-machine-resources-created-per-machine)=

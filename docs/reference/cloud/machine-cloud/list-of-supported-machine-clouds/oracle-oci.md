@@ -134,13 +134,13 @@ See also: {ref}`Juju | Manage machines <manage-machines>`
 Oracle OCI supports the following constraints:
 
 - {ref}`constraint-allocate-public-ip`
-- {ref}`constraint-arch`: Valid values: `amd64`, `arm64`.
+- {ref}`constraint-arch`. Valid values: `amd64`, `arm64`.
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
-- {ref}`constraint-instance-type`: Valid values: Any OCI shape. Examples: `VM.Standard.E4.Flex` (flexible VM), `BM.Standard.E4.Bare` (bare metal), `VM.Standard.A1.Flex` (Ampere ARM), `BM.GPU.A100-v2` (GPU).
+- {ref}`constraint-instance-type`. Valid values: Any OCI shape. Examples: `VM.Standard.E4.Flex` (flexible VM), `BM.Standard.E4.Bare` (bare metal), `VM.Standard.A1.Flex` (Ampere ARM), `BM.GPU.A100-v2` (GPU).
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
-- {ref}`constraint-zones`: Specifies availability domain. Example: `zones=us-phoenix-1:AD-1`.
+- {ref}`constraint-zones`. Specifies availability domain. Example: `zones=us-phoenix-1:AD-1`.
 
 (oci-machine-supported-placement-directives)=
 (oci-machine-placement-directives)=

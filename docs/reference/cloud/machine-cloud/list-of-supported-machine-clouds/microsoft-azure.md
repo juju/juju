@@ -203,15 +203,15 @@ Microsoft Azure supports the following constraints:
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 ```
 
-- {ref}`constraint-allocate-public-ip`: Controls public IP address creation.
-- {ref}`constraint-arch`: Valid values: `amd64`.
+- {ref}`constraint-allocate-public-ip`. Controls public IP address creation.
+- {ref}`constraint-arch`. Valid values: `amd64`.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
-- {ref}`constraint-instance-role`: Juju 3.6+. Valid values: `auto` or managed identity name in format `<resource-group>/<identity-name>` or `<subscription>/<resource-group>/<identity-name>`.
-- {ref}`constraint-instance-type`: See Azure VM sizes documentation.
+- {ref}`constraint-instance-role`. Juju 3.6+. Valid values: `auto` or managed identity name in format `<resource-group>/<identity-name>` or `<subscription>/<resource-group>/<identity-name>`.
+- {ref}`constraint-instance-type`. See Azure VM sizes documentation.
 - {ref}`constraint-mem`
-- {ref}`constraint-root-disk`: Minimum 30 GiB.
-- {ref}`constraint-root-disk-source`: Specifies {ref}`storage pool <storage-pool>` for root disk. Enables encryption configuration.
+- {ref}`constraint-root-disk`. Minimum 30 GiB.
+- {ref}`constraint-root-disk-source`. Specifies {ref}`storage pool <storage-pool>` for root disk. Enables encryption configuration.
 - {ref}`constraint-zones`
 
 (azure-machine-supported-placement-directives)=

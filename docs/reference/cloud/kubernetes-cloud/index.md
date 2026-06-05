@@ -200,9 +200,9 @@ Kubernetes clouds support the following constraints:
 
 Kubernetes clouds support a limited subset of constraints compared to machine clouds:
 
-- {ref}`constraint-cpu-power`: CPU resource request/limit for pods.
-- {ref}`constraint-mem`: Memory resource request/limit for pods.
-- {ref}`constraint-tags`: Used for pod affinity and anti-affinity rules.
+- {ref}`constraint-cpu-power`. CPU resource request/limit for pods.
+- {ref}`constraint-mem`. Memory resource request/limit for pods.
+- {ref}`constraint-tags`. Used for pod affinity and anti-affinity rules.
 
 ```{ibnote}
 Constraints like `arch`, `cores`, `instance-type`, `root-disk`, `zones`, and others are not supported on Kubernetes clouds. Kubernetes manages node resources and pod scheduling.

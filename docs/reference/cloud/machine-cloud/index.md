@@ -288,7 +288,7 @@ Machine clouds support various model-level configurations that affect resource p
 (machine-model-config-behavior)=
 #### Behavioral configuration
 
-.- **Automatic retries**: Whether to retry failed operations.
+- **Automatic retries**: Whether to retry failed operations.
 - **Update behavior**: How to handle charm and agent updates.
 - **Container networking**: Configuration for nested containers (LXD).
 
@@ -307,11 +307,11 @@ Machine clouds support a rich set of constraints for machine provisioning:
 (machine-constraint-compute)=
 #### Compute constraints
 
-- {ref}`constraint-arch`: CPU architecture (amd64, arm64, etc.).
-- {ref}`constraint-cores`: Number of CPU cores.
-- {ref}`constraint-cpu-power`: CPU performance benchmark score.
-- {ref}`constraint-mem`: Memory size in MB/GB.
-- {ref}`constraint-instance-type`: Cloud-specific instance type/size.
+- {ref}`constraint-arch`. CPU architecture (amd64, arm64, etc.).
+- {ref}`constraint-cores`. Number of CPU cores.
+- {ref}`constraint-cpu-power`. CPU performance benchmark score.
+- {ref}`constraint-mem`. Memory size in MB/GB.
+- {ref}`constraint-instance-type`. Cloud-specific instance type/size.
 
 ```{ibnote}
 The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are typically mutually exclusive -- use one or the other.
@@ -320,21 +320,21 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are typicall
 (machine-constraint-storage)=
 #### Storage constraints
 
-- {ref}`constraint-root-disk`: Root disk size in MB/GB.
-- {ref}`constraint-root-disk-source`: Storage backend or volume type.
+- {ref}`constraint-root-disk`. Root disk size in MB/GB.
+- {ref}`constraint-root-disk-source`. Storage backend or volume type.
 
 (machine-constraint-network)=
 #### Network constraints
 
-- {ref}`constraint-allocate-public-ip`: Whether to allocate a public IP address.
-- {ref}`constraint-spaces`: Network spaces for network isolation.
-- {ref}`constraint-zones`: Availability zones for high availability.
+- {ref}`constraint-allocate-public-ip`. Whether to allocate a public IP address.
+- {ref}`constraint-spaces`. Network spaces for network isolation.
+- {ref}`constraint-zones`. Availability zones for high availability.
 
 (machine-constraint-cloud-specific)=
 #### Cloud-specific constraints
 
-- {ref}`constraint-instance-role`: IAM instance role (AWS, Azure).
-- {ref}`constraint-virt-type`: Virtualization type (e.g., HVM vs. PV on AWS).
+- {ref}`constraint-instance-role`. IAM instance role (AWS, Azure).
+- {ref}`constraint-virt-type`. Virtualization type (e.g., HVM vs. PV on AWS).
 
 ```{ibnote}
 Not all constraints are supported on every cloud. See individual cloud documentation for supported constraints.

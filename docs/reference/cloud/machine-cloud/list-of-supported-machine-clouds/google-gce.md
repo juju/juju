@@ -200,7 +200,7 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
-- {ref}`constraint-instance-type`: Valid values: Any GCE machine type. Default: `n1-standard-1`.
+- {ref}`constraint-instance-type`. Valid values: Any GCE machine type. Default: `n1-standard-1`.
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
 - {ref}`constraint-root-disk-source`

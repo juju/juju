@@ -182,15 +182,15 @@ See also: {ref}`Juju | Manage machines <manage-machines>`
 
 VMware vSphere supports the following constraints:
 
-- {ref}`constraint-arch`: Valid values: `amd64`.
+- {ref}`constraint-arch`. Valid values: `amd64`.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
 - {ref}`constraint-instance-type`
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
-- {ref}`constraint-root-disk-source`: Specifies the datastore for the root disk.
-- {ref}`constraint-zones`: Specifies resource pools within a host or cluster. Examples: `zones=myhost`, `zones=myfolder/myhost`, `zones=mycluster/mypool`, `zones=mycluster/myparent/mypool`.
+- {ref}`constraint-root-disk-source`. Specifies the datastore for the root disk.
+- {ref}`constraint-zones`. Specifies resource pools within a host or cluster. Examples: `zones=myhost`, `zones=myfolder/myhost`, `zones=mycluster/mypool`, `zones=mycluster/myparent/mypool`.
 
 (vsphere-machine-supported-placement-directives)=
 (vsphere-machine-placement-directives)=

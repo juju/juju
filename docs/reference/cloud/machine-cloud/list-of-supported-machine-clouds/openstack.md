@@ -190,12 +190,12 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 - {ref}`constraint-arch`
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
-- {ref}`constraint-image-id`: Starting with Juju 3.3. Valid values: An OpenStack image ID.
-- {ref}`constraint-instance-type`: Valid values: Any user-defined OpenStack flavor.
+- {ref}`constraint-image-id`. Starting with Juju 3.3. Valid values: An OpenStack image ID.
+- {ref}`constraint-instance-type`. Valid values: Any user-defined OpenStack flavor.
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
-- {ref}`constraint-root-disk-source`: Values: `local` (ephemeral disk, default) or `volume` (Cinder boot volume).
-- {ref}`constraint-virt-type`: Valid values: `kvm`, `lxd`.
+- {ref}`constraint-root-disk-source`. Values: `local` (ephemeral disk, default) or `volume` (Cinder boot volume).
+- {ref}`constraint-virt-type`. Valid values: `kvm`, `lxd`.
 - {ref}`constraint-zones`
 
 (openstack-machine-supported-placement-directives)=

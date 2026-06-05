@@ -156,10 +156,10 @@ Manual supports the following constraints:
 
 Constraints are limited to detectable hardware attributes:
 
-- {ref}`constraint-arch`: For controller: the host architecture. For other machines: the architecture from the machine hardware.
+- {ref}`constraint-arch`. For controller: the host architecture. For other machines: the architecture from the machine hardware.
 - {ref}`constraint-container`
-- {ref}`constraint-cores`: Detected from `/proc/cpuinfo`.
-- {ref}`constraint-mem`: Detected from `/proc/meminfo`.
+- {ref}`constraint-cores`. Detected from `/proc/cpuinfo`.
+- {ref}`constraint-mem`. Detected from `/proc/meminfo`.
 - {ref}`constraint-root-disk`
 - {ref}`constraint-zones`
 
