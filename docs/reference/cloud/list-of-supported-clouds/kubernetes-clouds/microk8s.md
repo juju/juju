@@ -18,15 +18,15 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 
 ### Requirements
 
-**MicroK8s snap:**
+**Services that must be enabled:**
+
+- `dns`
+- `hostpath-storage`
+
+### Adding the cloud
 
 For a localhost MicroK8s cloud, if you would like to be able to skip `juju add-k8s`, install MicroK8s from the strictly confined snap.
 
 ```{ibnote}
 See more: [MicroK8s | Strict MicroK8s](https://microk8s.io/docs/install-strict)
 ```
-
-**Services that must be enabled:**
-
-- `dns`
-- `hostpath-storage`

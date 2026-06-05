@@ -25,12 +25,18 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 - `local-storage`
 - `network`
 
-### Adding the cloud
+(canonical-k8s-controller)=
+## Controller
 
-Before you bootstrap:
+```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+```
+
+### Bootstrap preparation
+
+Before bootstrapping this cloud:
 
 - Create a custom `containerd` path, e.g., `export containerdBaseDir="/run/containerd-k8s"`.
-
 - Resize `/run`, e.g., `sudo mount -o remount,size=10G /run`.
 
 ```{ibnote}
