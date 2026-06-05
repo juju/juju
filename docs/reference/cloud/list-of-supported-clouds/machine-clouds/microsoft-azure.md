@@ -250,7 +250,7 @@ Each machine (controller or application) receives:
 See also: {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-In addition to {ref}`generic storage providers <storage-provider>`, Microsoft Azure provides the following cloud-specific storage providers:
+In addition to {ref}`generic storage providers <storage-provider>`, Microsoft Azure provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-azure)=
 ### `azure`

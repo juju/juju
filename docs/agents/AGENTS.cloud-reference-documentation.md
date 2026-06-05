@@ -169,7 +169,7 @@ Add brief introductory sentences to subsections where simplified titles could be
 2. **Configuration keys**: "<Cloud Name> supports the following cloud-specific model configuration keys:"
 3. **Constraints**: "<Cloud Name> supports the following constraints:"
 4. **Placement directives**: "<Cloud Name> supports the following placement directives:"
-5. **Storage providers**: "In addition to {ref}\`generic storage providers <storage-provider>\`, <Cloud Name> provides the following cloud-specific storage providers:"
+5. **Storage providers**: "In addition to {ref}\`generic storage providers <storage-provider>\`, <Cloud Name> provides the following {ref}\`cloud-specific storage providers <storage-provider-cloud-specific>\`:"
 
 **Examples**:
 
@@ -225,7 +225,7 @@ OpenStack supports the following placement directives:
 See also: {ref}`Juju | Manage storage <manage-storage>`
 \```
 
-In addition to {ref}`generic storage providers <storage-provider>`, OpenStack provides the following cloud-specific storage providers:
+In addition to {ref}`generic storage providers <storage-provider>`, OpenStack provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-cinder)=
 ### `cinder`
