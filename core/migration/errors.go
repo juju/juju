@@ -5,4 +5,11 @@ package migration
 
 import "github.com/juju/juju/internal/errors"
 
-const ErrMigrating = errors.ConstError("model is being migrated")
+const (
+	// ErrMigrating indicates that the model is currently being migrated.
+	ErrMigrating = errors.ConstError("model is being migrated")
+
+	// ErrMinionReportsInvalid indicates that migration minion report counts are
+	// internally inconsistent.
+	ErrMinionReportsInvalid = errors.ConstError("migration minion reports are invalid")
+)

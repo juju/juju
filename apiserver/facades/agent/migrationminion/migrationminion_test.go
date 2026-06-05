@@ -16,9 +16,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -100,7 +98,7 @@ func (s *Suite) TestWatch(c *tc.C) {
 func (s *Suite) TestReportMachine(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.modelMigrationService.EXPECT().ReportFromMachine(gomock.Any(), machine.Name("99"), migration.IMPORT).Return(nil)
+	s.modelMigrationService.EXPECT().ReportMinion(gomock.Any(), "machine-99", migration.IMPORT, true).Return(nil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("99"),
 	}
@@ -116,7 +114,7 @@ func (s *Suite) TestReportMachine(c *tc.C) {
 func (s *Suite) TestReportUnit(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.modelMigrationService.EXPECT().ReportFromUnit(gomock.Any(), unit.Name("a/123"), migration.IMPORT).Return(nil)
+	s.modelMigrationService.EXPECT().ReportMinion(gomock.Any(), "unit-a-123", migration.IMPORT, true).Return(nil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("a/123"),
 	}
@@ -144,7 +142,7 @@ func (s *Suite) TestReportInvalidPhase(c *tc.C) {
 func (s *Suite) TestReportNoSuchMigration(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.modelMigrationService.EXPECT().ReportFromMachine(gomock.Any(), machine.Name("99"), migration.QUIESCE).Return(errors.NotFoundf("model"))
+	s.modelMigrationService.EXPECT().ReportMinion(gomock.Any(), "machine-99", migration.QUIESCE, false).Return(errors.NotFoundf("model"))
 	api := s.mustMakeAPI(c)
 	err := api.Report(c.Context(), params.MinionReport{
 		MigrationId: "id",
