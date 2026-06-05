@@ -7,6 +7,16 @@ myst:
 (kubernetes-clouds-and-juju)=
 # Kubernetes clouds and Juju
 
+```{toctree}
+:hidden:
+
+Amazon EKS <amazon-eks>
+Canonical Kubernetes <canonical-kubernetes>
+Google GKE <google-gke>
+Microsoft AKS <microsoft-aks>
+MicroK8s <microk8s>
+```
+
 ```{ibnote}
 See also: {ref}`list-of-supported-kubernetes-clouds`
 ```

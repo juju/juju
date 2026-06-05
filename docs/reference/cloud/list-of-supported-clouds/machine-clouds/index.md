@@ -7,6 +7,21 @@ myst:
 (machine-clouds-and-juju)=
 # Machine clouds and Juju
 
+```{toctree}
+:hidden:
+
+Amazon EC2 <amazon-ec2>
+Equinix Metal <equinix-metal>
+Google GCE <google-gce>
+LXD <lxd>
+MAAS <maas>
+Manual <manual>
+Microsoft Azure <microsoft-azure>
+OpenStack <openstack>
+Oracle OCI <oracle-oci>
+VMware vSphere <vmware-vsphere>
+```
+
 ```{ibnote}
 See also: {ref}`list-of-supported-clouds`
 ```

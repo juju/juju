@@ -14,8 +14,8 @@ See also: {ref}`manage-clouds`
 :hidden:
 
 cloud/list-of-supported-clouds/index
-cloud/machine-clouds-and-juju
-cloud/kubernetes-clouds-and-juju
+cloud/list-of-supported-clouds/machine-clouds/index
+cloud/list-of-supported-clouds/kubernetes-clouds/index
 
 ```
 

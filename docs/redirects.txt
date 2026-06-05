@@ -405,6 +405,24 @@ user/tutorial tutorial
 howto/manage-your-juju-deployment/upgrade-your-juju-deployment-from-36-to-40 howto/upgrade-your-juju-deployment-from-36-to-40
 # redirect worker to contributor docs
 reference/worker contributor/reference/worker
+# redirects after restructuring cloud documentation hierarchy
+reference/cloud/machine-clouds-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/index
+reference/cloud/kubernetes-clouds-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/index
+reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/amazon-ec2
+reference/cloud/list-of-supported-clouds/the-amazon-eks-cloud-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/amazon-eks
+reference/cloud/list-of-supported-clouds/the-canonical-ks-cloud-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/canonical-kubernetes
+reference/cloud/list-of-supported-clouds/the-equinix-metal-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/equinix-metal
+reference/cloud/list-of-supported-clouds/the-google-gce-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/google-gce
+reference/cloud/list-of-supported-clouds/the-google-gke-cloud-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/google-gke
+reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/lxd
+reference/cloud/list-of-supported-clouds/the-maas-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/maas
+reference/cloud/list-of-supported-clouds/the-manual-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/manual
+reference/cloud/list-of-supported-clouds/the-microk8s-cloud-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/microk8s
+reference/cloud/list-of-supported-clouds/the-microsoft-aks-cloud-and-juju reference/cloud/list-of-supported-clouds/kubernetes-clouds/microsoft-aks
+reference/cloud/list-of-supported-clouds/the-microsoft-azure-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/microsoft-azure
+reference/cloud/list-of-supported-clouds/the-openstack-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/openstack
+reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/oracle-oci
+reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju reference/cloud/list-of-supported-clouds/machine-clouds/vmware-vsphere
 
 
 
