@@ -128,6 +128,31 @@ Specific requirements vary by cloud -- see individual cloud documentation.
 See more: {ref}`list-of-supported-clouds` > `<cloud name>`
 ```
 
+(machine-cloud-definition-file)=
+### Cloud definition file
+
+When adding a machine cloud from a YAML file, use the following template:
+
+```yaml
+clouds:
+  <cloud-name>:                    # User-defined name (or predefined for public clouds)
+    type: <cloud-type>             # ec2, azure, gce, openstack, oci, vsphere, lxd, maas, manual
+    auth-types:                    # Authentication types for this cloud
+      - <auth-type>                # See cloud-specific docs for valid types
+    endpoint: <endpoint>           # API endpoint URL (required for most clouds)
+    regions:                       # Optional: define regions/availability zones
+      <region-name>:
+        endpoint: <endpoint>       # Region-specific endpoint (if different)
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See model configuration docs
+    ca-certificates:               # Optional: for private/self-signed clouds
+      - <base64-cert>              # Base64-encoded x.509 certificates
+```
+
+```{ibnote}
+See more: {ref}`manage-clouds`, {ref}`list-of-supported-clouds` > `<cloud name>` for cloud-specific values (type, auth-types, endpoint format)
+```
+
 (machine-credential)=
 ## Credential
 

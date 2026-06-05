@@ -42,6 +42,37 @@ A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju conne
 - kubectl configured with cluster access
 - Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
 
+(kubernetes-cloud-definition-file)=
+### Cloud definition file
+
+When adding a Kubernetes cloud from a YAML file, use the following template:
+
+```yaml
+clouds:
+  <cloud-name>:                    # User-defined name for the cluster
+    type: kubernetes               # Always 'kubernetes' for Kubernetes clouds
+    auth-types:                    # Authentication types
+      - certificate                # or: clientcertificate, oauth2, oauth2withcert, userpass
+    endpoint: <endpoint>           # Kubernetes API server URL
+    host-cloud-region: <cloud>/<region>  # Optional: host cloud for the cluster (e.g., ec2/us-west-2)
+    regions:                       # Optional: define regions
+      <region-name>:
+        endpoint: <endpoint>       # Region-specific endpoint (if different)
+    config:                        # Optional: model config defaults
+      operator-storage: <class>    # Storage class for operator storage
+      workload-storage: <class>    # Storage class for workload storage
+    ca-certificates:               # Optional: cluster CA certificates
+      - <base64-cert>              # Base64-encoded x.509 certificates
+```
+
+```{note}
+For Kubernetes clouds, it's typically easier to use `juju add-k8s` which reads from your kubeconfig file rather than manually creating a cloud definition file.
+```
+
+```{ibnote}
+See more: {ref}`manage-clouds`, {ref}`add-a-kubernetes-cloud`
+```
+
 (kubernetes-concept-mapping)=
 ### Juju-to-Kubernetes concept mapping
 
