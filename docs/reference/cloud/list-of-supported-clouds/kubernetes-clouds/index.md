@@ -21,7 +21,7 @@ MicroK8s <microk8s>
 See also: {ref}`list-of-supported-clouds`
 ```
 
-On Kubernetes clouds, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
+On {ref}`Kubernetes clouds <kubernetes-cloud>`, Juju deploys charms as pods, services, and other Kubernetes resources into an existing Kubernetes cluster. Unlike {ref}`machine clouds <machine-cloud>`, Juju does not provision the cluster infrastructure itself -- it manages application workloads on top of an already running Kubernetes cluster.
 
 (kubernetes-cloud)=
 ## Cloud
@@ -33,6 +33,13 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 ```{note}
 On Kubernetes clouds, both the cloud definition and the credentials are typically added through `juju add-k8s`, which reads from your kubeconfig file. This is easier than manually creating cloud definition and credential files.
 ```
+
+(kubernetes-requirements)=
+### Requirements
+
+- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
+- kubectl configured with cluster access
+- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
 
 (kubernetes-definition)=
 ### Definition
@@ -66,13 +73,6 @@ clouds:
 See more: {ref}`manage-clouds`, {ref}`add-a-kubernetes-cloud`
 ```
 
-(kubernetes-requirements)=
-### Requirements
-
-- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.)
-- kubectl configured with cluster access
-- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources
-
 (kubernetes-concept-mapping)=
 ### Kubernetes-to-Juju concept mapping
 
@@ -87,7 +87,7 @@ If you are familiar with Kubernetes, the following maps Kubernetes concepts to t
 | [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |
 
 (kubernetes-credential)=
-## Credential
+## Credentials
 
 ```{ibnote}
 See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
@@ -127,7 +127,7 @@ Kubernetes clouds support the following authentication types:
   - password: The password for the specified username (required).
 
 (kubernetes-controller)=
-## Controller
+## Controllers
 
 ```{ibnote}
 See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
@@ -172,7 +172,7 @@ LoadBalancer creates a cloud load balancer with a public IP, while ClusterIP use
 ```
 
 (kubernetes-model)=
-## Model
+## Models
 
 ```{ibnote}
 See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
@@ -190,7 +190,7 @@ Kubernetes clouds support the following cloud-specific model configuration keys:
 - **`workload-storage`**: The preferred storage class used to provision workload storage. Type: string. Default: "" (uses cluster default storage class). Immutable: false. Mandatory: false.
 
 (kubernetes-application)=
-## Application
+## Applications
 
 ```{ibnote}
 See also: {ref}`Juju | Manage applications <manage-applications>`
@@ -238,7 +238,7 @@ Kubernetes application pods in Juju follow these patterns:
 - **Workload containers**: Additional containers defined by the charm (e.g., database, web server).
 
 (kubernetes-storage)=
-## Cloud-specific storage providers
+## Storage
 
 ```{ibnote}
 See also: {ref}`Juju | Manage storage <manage-storage>`

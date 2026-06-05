@@ -36,8 +36,9 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 <Short intro describing this as a {ref}`machine cloud <machine-cloud>`>
 
 ## Cloud
-  ### Definition
   ### Requirements
+  ### Definition
+  ### Cloud definition file (for generic cloud type docs)
   ### Other (cloud-specific items like Concepts)
 
 ## Credential

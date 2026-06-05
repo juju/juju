@@ -26,10 +26,26 @@ VMware vSphere <vmware-vsphere>
 See also: {ref}`list-of-supported-clouds`
 ```
 
-On machine clouds, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
+On {ref}`machine clouds <machine-cloud>`, Juju provisions or adopts infrastructure resources (machines, networks, storage) and deploys {ref}`machine charms <machine-charm>` onto those resources. Unlike {ref}`Kubernetes clouds <kubernetes-cloud>`, machine clouds involve direct management of compute infrastructure.
 
 (machine-cloud-entity)=
 ## Cloud
+
+(machine-requirements)=
+### Requirements
+
+Common requirements across machine clouds:
+
+- **API access**: Credentials with sufficient permissions to provision resources
+- **Network connectivity**: Juju controller must reach provisioned machines
+- **SSH access**: For agent installation and management
+- **Cloud quotas**: Sufficient quota for compute, network, storage resources
+
+Specific requirements vary by cloud -- see individual cloud documentation.
+
+```{ibnote}
+See more: {ref}`list-of-supported-clouds` > `<cloud name>`
+```
 
 (machine-definition)=
 ### Definition
@@ -112,22 +128,6 @@ Juju adopts existing machines via SSH without provisioning any infrastructure.
 - SSH-based agent installation
 - Limited control over infrastructure
 
-(machine-requirements)=
-### Requirements
-
-Common requirements across machine clouds:
-
-- **API access**: Credentials with sufficient permissions to provision resources
-- **Network connectivity**: Juju controller must reach provisioned machines
-- **SSH access**: For agent installation and management
-- **Cloud quotas**: Sufficient quota for compute, network, storage resources
-
-Specific requirements vary by cloud -- see individual cloud documentation.
-
-```{ibnote}
-See more: {ref}`list-of-supported-clouds` > `<cloud name>`
-```
-
 (machine-cloud-definition-file)=
 ### Cloud definition file
 
@@ -154,7 +154,7 @@ See more: {ref}`manage-clouds`, {ref}`list-of-supported-clouds` > `<cloud name>`
 ```
 
 (machine-credential)=
-## Credential
+## Credentials
 
 (machine-credential-patterns)=
 ### Common authentication patterns
@@ -215,7 +215,7 @@ See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Credential
 ```
 
 (machine-controller)=
-## Controller
+## Controllers
 
 (machine-bootstrap-behavior)=
 ### Bootstrap behavior
@@ -266,7 +266,7 @@ See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Controller
 ```
 
 (machine-model)=
-## Model
+## Models
 
 (machine-model-configuration)=
 ### Common model configuration patterns
@@ -300,7 +300,7 @@ See more: {ref}`list-of-supported-clouds` > `<cloud name>` > Model
 ```
 
 (machine-machine)=
-## Machine
+## Machines
 
 (machine-supported-constraints)=
 ### Common constraints
@@ -417,7 +417,7 @@ Specific resources created vary by cloud. See individual cloud documentation for
 - **Service discovery**: Juju-managed address resolution between units
 
 (machine-storage)=
-## Cloud-specific storage providers
+## Storage
 
 ```{ibnote}
 See first: {ref}`storage-provider`
