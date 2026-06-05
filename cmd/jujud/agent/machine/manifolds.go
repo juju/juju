@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
-	"github.com/juju/juju/api/macaroon"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/util"
@@ -46,9 +45,6 @@ import (
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/internal/simplestreams"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
@@ -854,32 +850,36 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
 				switch namespace {
 				case corehttp.CharmhubPurpose:
-					charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
-					return charmhub.DefaultHTTPClient(charmhubLogger)
+					logger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					opts = append(opts,
+						internalhttp.WithLogger(logger),
+						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
+					)
 
 				case corehttp.S3Purpose:
-					s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
-					return s3client.DefaultHTTPClient(s3Logger)
+					logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.SSHImporterPurpose:
-					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
-					return sshimporter.DefaultHTTPClient(sshImporterLogger)
+					logger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.MacaroonPurpose:
-					macaroonLogger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
-					return macaroon.DefaultHTTPClient(macaroonLogger)
+					logger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.SimpleStreamPurpose:
-					simplestreamLogger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
-					return simplestreams.DefaultHTTPClient(simplestreamLogger)
-
-				default:
-					return internalhttp.NewClient(opts...)
+					logger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					opts = append(opts, internalhttp.WithLogger(logger))
 				}
+
+				return internalhttp.NewClient(opts...)
 			},
-			NewHTTPClientWorker: httpclient.NewTrackedWorker,
-			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
 		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{

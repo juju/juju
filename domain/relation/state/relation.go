@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -889,6 +888,8 @@ func (st *State) GetRelationsStatusForUnit(
 	var relationUnitStatuses []domainrelation.RelationUnitStatusResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var statuses []relationUnitStatus
+		var txnRelationUnitStatuses []domainrelation.RelationUnitStatusResult
+
 		err := tx.Query(ctx, stmt, uuid).GetAll(&statuses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
@@ -900,12 +901,14 @@ func (st *State) GetRelationsStatusForUnit(
 				return errors.Errorf("getting endpoints of relation %q: %w", status.RelationUUID, err)
 			}
 
-			relationUnitStatuses = append(relationUnitStatuses, domainrelation.RelationUnitStatusResult{
+			txnRelationUnitStatuses = append(txnRelationUnitStatuses, domainrelation.RelationUnitStatusResult{
 				Endpoints: endpoints,
 				InScope:   status.InScope,
 				Suspended: status.Suspended,
 			})
 		}
+
+		relationUnitStatuses = txnRelationUnitStatuses
 
 		return nil
 	})
@@ -3138,28 +3141,31 @@ WHERE  ru.relation_endpoint_uuid = $relationEndpointUUID.uuid
 	return relUnits, nil
 }
 
-// checkCompatibleBases determines if the bases of two application endpoints
-// are compatible for a relation.
-// It compares the OS and channel of the base configurations for both endpoints.
-// Returns an error if no compatible bases are found or if fetching bases fails.
+// checkCompatibleBases determines if the base of two application endpoints is
+// compatible for a container-scoped relation.
 func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 Endpoint, ep2 Endpoint) error {
 	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
 		return nil
 	}
 
-	app1Bases, err := st.getBases(ctx, tx, ep1)
+	app1Base, ok, err := st.getBase(ctx, tx, ep1)
 	if err != nil {
-		return errors.Errorf("getting bases of application %q: %w", ep1.ApplicationName, err)
-	}
-	app2Bases, err := st.getBases(ctx, tx, ep2)
-	if err != nil {
-		return errors.Errorf("getting bases of application %q: %w", ep2.ApplicationName, err)
+		return errors.Errorf("getting base of application %q: %w", ep1.ApplicationName, err)
+	} else if !ok {
+		return errors.Errorf("no compatible bases found for application %q and %q", ep1.ApplicationName,
+			ep2.ApplicationName).Add(relationerrors.CompatibleEndpointsNotFound)
 	}
 
-	for _, base1 := range app1Bases {
-		if slices.ContainsFunc(app2Bases, base1.IsCompatible) {
-			return nil
-		}
+	app2Base, ok, err := st.getBase(ctx, tx, ep2)
+	if err != nil {
+		return errors.Errorf("getting base of application %q: %w", ep2.ApplicationName, err)
+	} else if !ok {
+		return errors.Errorf("no compatible bases found for application %q and %q", ep1.ApplicationName,
+			ep2.ApplicationName).Add(relationerrors.CompatibleEndpointsNotFound)
+	}
+
+	if app1Base.IsCompatible(app2Base) {
+		return nil
 	}
 
 	return errors.Errorf("no compatible bases found for application %q and %q", ep1.ApplicationName,
@@ -3469,9 +3475,9 @@ AND    ae.application_name = $endpointIdentifier.application_name
 	return corerelation.EndpointUUID(endpoint.UUID), nil
 }
 
-// getBases retrieves a list of OS and channel information for a specific
-// application, given an endpoint and transaction.
-func (st *State) getBases(ctx context.Context, tx *sqlair.TX, ep1 Endpoint) ([]corebase.Base, error) {
+// getBase retrieves OS and channel information for a specific application,
+// given an endpoint and transaction.
+func (st *State) getBase(ctx context.Context, tx *sqlair.TX, ep1 Endpoint) (corebase.Base, bool, error) {
 	stmt, err := st.Prepare(`
 SELECT 
     ap.channel AS &applicationPlatform.channel,
@@ -3480,27 +3486,26 @@ FROM application_platform ap
 JOIN os ON ap.os_id = os.id
 WHERE ap.application_uuid = $Endpoint.application_uuid`, ep1, applicationPlatform{})
 	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var appPlatforms []applicationPlatform
-	err = tx.Query(ctx, stmt, ep1).GetAll(&appPlatforms)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("getting application platforms for %q: %w", ep1, err)
+		return corebase.Base{}, false, errors.Capture(err)
 	}
 
-	var result []corebase.Base
-	for _, appPlatform := range appPlatforms {
-		channel, err := corebase.ParseChannel(appPlatform.Channel)
-		if err != nil {
-			return nil, errors.Errorf("parsing channel %q: %w", appPlatform.Channel, err)
-		}
-		result = append(result, corebase.Base{
-			OS:      appPlatform.OS,
-			Channel: channel,
-		})
+	var appPlatform applicationPlatform
+	err = tx.Query(ctx, stmt, ep1).Get(&appPlatform)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return corebase.Base{}, false, nil
+	} else if err != nil {
+		return corebase.Base{}, false, errors.Errorf("getting application platform for %q: %w", ep1, err)
 	}
 
-	return result, nil
+	channel, err := corebase.ParseChannel(appPlatform.Channel)
+	if err != nil {
+		return corebase.Base{}, false, errors.Errorf("parsing channel %q: %w", appPlatform.Channel, err)
+	}
+
+	return corebase.Base{
+		OS:      appPlatform.OS,
+		Channel: channel,
+	}, true, nil
 }
 
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID string) (domainrelation.RelationDetailsResult, error) {

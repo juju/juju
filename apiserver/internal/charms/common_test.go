@@ -102,15 +102,7 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			},
 		},
 	}
-	lxdProfile := &internalcharm.LXDProfile{
-		Config:      map[string]string{"foo": "bar"},
-		Description: "description",
-		Devices: map[string]map[string]string{
-			"foo": {"bar": "baz"},
-		},
-	}
-
-	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions)
 
 	locator := applicationcharm.CharmLocator{
 		Source:       applicationcharm.CharmHubSource,
@@ -184,13 +176,6 @@ func (s *exportSuite) TestExport(c *tc.C) {
 		Manifest: &params.CharmManifest{
 			Bases: []params.CharmBase{
 				{Name: "ubuntu", Channel: "22.04/stable", Architectures: []string{"arm64", "amd64"}},
-			},
-		},
-		LXDProfile: &params.CharmLXDProfile{
-			Config:      map[string]string{"foo": "bar"},
-			Description: "description",
-			Devices: map[string]map[string]string{
-				"foo": {"bar": "baz"},
 			},
 		},
 	})

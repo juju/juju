@@ -49,8 +49,6 @@ func (w *trackedWorker) loop() error {
 	// TODO (stickupkid): In the future, it is expected that we can watch the
 	// model-config for any proxy related changes and update the http client
 	// accordingly.
-	select {
-	case <-w.tomb.Dying():
-		return w.tomb.Err()
-	}
+	<-w.tomb.Dying()
+	return w.tomb.Err()
 }

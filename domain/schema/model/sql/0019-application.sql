@@ -21,6 +21,9 @@ CREATE TABLE application (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
+CREATE INDEX idx_application_charm_uuid
+ON application (charm_uuid);
+
 -- This table is only used to track whether a application is a controller or
 -- not. It should be sparse and only contain a single row for the controller
 -- application.
@@ -197,7 +200,7 @@ CREATE TABLE application_setting (
 );
 
 CREATE TABLE application_platform (
-    application_uuid TEXT NOT NULL,
+    application_uuid TEXT NOT NULL PRIMARY KEY,
     os_id TEXT NOT NULL,
     channel TEXT,
     architecture_id INT NOT NULL,

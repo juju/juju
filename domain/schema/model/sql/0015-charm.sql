@@ -218,7 +218,7 @@ INSERT INTO hash_kind VALUES
 (0, 'sha256');
 
 CREATE TABLE charm_hash (
-    charm_uuid TEXT NOT NULL,
+    charm_uuid TEXT NOT NULL PRIMARY KEY,
     hash_kind_id INT NOT NULL DEFAULT 0,
     hash TEXT NOT NULL,
     CONSTRAINT fk_charm_hash_charm

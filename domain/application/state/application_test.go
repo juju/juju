@@ -1792,8 +1792,6 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *tc.C) {
 			},
 		},
 	}
-	expectedLXDProfile := []byte("[{}]")
-
 	s.createIAASApplication(c, "foo", life.Alive)
 
 	_, _, err := s.state.AddCharm(c.Context(), charm.Charm{
@@ -1801,7 +1799,6 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *tc.C) {
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		ReferenceName: expectedMetadata.Name,
 		Revision:      42,
@@ -1861,7 +1858,6 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 			},
 		},
 	}
-	expectedLXDProfile := []byte("[{}]")
 	platform := deployment.Platform{
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
@@ -1876,7 +1872,6 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 				Manifest:      expectedManifest,
 				Actions:       expectedActions,
 				Config:        expectedConfig,
-				LXDProfile:    expectedLXDProfile,
 				Source:        charm.LocalSource,
 				Revision:      42,
 				Architecture:  architecture.AMD64,
@@ -1902,7 +1897,6 @@ func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 		Manifest:      expectedManifest,
 		Actions:       expectedActions,
 		Config:        expectedConfig,
-		LXDProfile:    expectedLXDProfile,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
@@ -2232,7 +2226,6 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 
 	err = s.state.ResolveCharmDownload(c.Context(), info.CharmUUID, application.ResolvedCharmDownload{
 		Actions:         actions,
-		LXDProfile:      []byte("profile"),
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
@@ -2247,7 +2240,6 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(ch.Actions, tc.DeepEquals, actions)
-	c.Check(ch.LXDProfile, tc.DeepEquals, []byte("profile"))
 	c.Check(ch.ArchivePath, tc.DeepEquals, "archive")
 }
 
@@ -2263,7 +2255,6 @@ func (s *applicationStateSuite) TestResolveCharmDownloadAlreadyResolved(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.ResolveCharmDownload(c.Context(), charmUUID, application.ResolvedCharmDownload{
-		LXDProfile:      []byte("profile"),
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
@@ -2276,7 +2267,6 @@ func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *tc.C) {
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
 	err := s.state.ResolveCharmDownload(c.Context(), "foo", application.ResolvedCharmDownload{
-		LXDProfile:      []byte("profile"),
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
@@ -2323,7 +2313,7 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *tc.C) {
 	// Get the applications for the revision updater.
 	apps, err := s.state.GetApplicationsForRevisionUpdater(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apps, tc.DeepEquals, []application.RevisionUpdaterApplication{{
+	c.Check(apps, tc.SameContents, []application.RevisionUpdaterApplication{{
 		Name: "foo",
 		CharmLocator: charm.CharmLocator{
 			Name:         "foo",

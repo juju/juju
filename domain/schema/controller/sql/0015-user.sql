@@ -13,6 +13,8 @@ CREATE TABLE user (
 
 CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FALSE;
 
+CREATE INDEX idx_user_name ON user (name);
+
 CREATE TABLE user_authentication (
     user_uuid TEXT NOT NULL PRIMARY KEY,
     disabled BOOLEAN NOT NULL,

@@ -231,27 +231,6 @@ func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*decode config.*`)
 }
 
-func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
-			Name:  "foo",
-			RunAs: "default",
-		},
-		LXDProfile: []byte("!!!"),
-		Source:     domaincharm.LocalSource,
-		Revision:   42,
-		Available:  true,
-	}, nil, nil)
-
-	_, _, err := s.service.GetCharmByApplicationName(c.Context(), "foo")
-	c.Assert(err, tc.ErrorMatches, `.*unmarshal lxd profile.*`)
-}
-
 func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

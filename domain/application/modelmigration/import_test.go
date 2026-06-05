@@ -782,38 +782,6 @@ func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportEmptyCharmLXDProfile(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectEmptyLXDProfile()
-
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(meta, tc.IsNil)
-}
-
-func (s *importSuite) TestImportCharmLXDProfile(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectLXDProfile()
-
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(meta, tc.DeepEquals, &internalcharm.LXDProfile{
-		Config: map[string]string{
-			"foo": "bar",
-		},
-	})
-}
-
 func (s *importSuite) TestImportEmptyCharmConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1643,16 +1611,6 @@ func (s *importSuite) expectManifestBases() {
 	exp.Bases().Return([]description.CharmManifestBase{
 		s.charmBase,
 	})
-}
-
-func (s *importSuite) expectEmptyLXDProfile() {
-	exp := s.charmMetadata.EXPECT()
-	exp.LXDProfile().Return("")
-}
-
-func (s *importSuite) expectLXDProfile() {
-	exp := s.charmMetadata.EXPECT()
-	exp.LXDProfile().Return(`{"config": {"foo": "bar"}}`)
 }
 
 func (s *importSuite) expectEmptyCharmConfigs() {

@@ -441,13 +441,6 @@ func (api *OffersAPI) applicationOffersFromModel(
 		results = append(results, result)
 	}
 
-	// If the required access level is *only* read, then return the results at
-	// this point without populating the offer connections. Offer connections
-	// are only relevant to users with admin access.
-	if requiredAccess == permission.ReadAccess {
-		return results, nil
-	}
-
 	// If the user is not a model admin or there are no results,
 	// return the results without populating the offer connections.
 	if !isModelAdmin || len(results) == 0 {

@@ -9,39 +9,40 @@ import (
 )
 
 
-// ChangeLogTriggersForModelMigrationMinionSync generates the triggers for the
-// model_migration_minion_sync table.
-func ChangeLogTriggersForModelMigrationMinionSync(columnName string, namespaceID int) func() schema.Patch {
+// ChangeLogTriggersForModelMigrationExport generates the triggers for the
+// model_migration_export table.
+func ChangeLogTriggersForModelMigrationExport(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for ModelMigrationMinionSync
-INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_minion_sync', 'ModelMigrationMinionSync changes based on %[1]s');
+-- insert namespace for ModelMigrationExport
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_export', 'ModelMigrationExport changes based on %[1]s');
 
--- insert trigger for ModelMigrationMinionSync
-CREATE TRIGGER trg_log_model_migration_minion_sync_insert
-AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
+-- insert trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_insert
+AFTER INSERT ON model_migration_export FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
--- update trigger for ModelMigrationMinionSync
-CREATE TRIGGER trg_log_model_migration_minion_sync_update
-AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
+-- update trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_update
+AFTER UPDATE ON model_migration_export FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
-	NEW.migration_uuid != OLD.migration_uuid OR
-	(NEW.phase != OLD.phase OR (NEW.phase IS NOT NULL AND OLD.phase IS NULL) OR (NEW.phase IS NULL AND OLD.phase IS NOT NULL)) OR
-	(NEW.entity_key != OLD.entity_key OR (NEW.entity_key IS NOT NULL AND OLD.entity_key IS NULL) OR (NEW.entity_key IS NULL AND OLD.entity_key IS NOT NULL)) OR
-	(NEW.time != OLD.time OR (NEW.time IS NOT NULL AND OLD.time IS NULL) OR (NEW.time IS NULL AND OLD.time IS NOT NULL)) OR
-	(NEW.success != OLD.success OR (NEW.success IS NOT NULL AND OLD.success IS NULL) OR (NEW.success IS NULL AND OLD.success IS NOT NULL)) 
+	NEW.model_uuid != OLD.model_uuid OR
+	NEW.target_controller_uuid != OLD.target_controller_uuid OR
+	NEW.current_phase_id != OLD.current_phase_id OR
+	NEW.phase_changed_at != OLD.phase_changed_at OR
+	NEW.start_time != OLD.start_time OR
+	(NEW.end_time != OLD.end_time OR (NEW.end_time IS NOT NULL AND OLD.end_time IS NULL) OR (NEW.end_time IS NULL AND OLD.end_time IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
--- delete trigger for ModelMigrationMinionSync
-CREATE TRIGGER trg_log_model_migration_minion_sync_delete
-AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
+-- delete trigger for ModelMigrationExport
+CREATE TRIGGER trg_log_model_migration_export_delete
+AFTER DELETE ON model_migration_export FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -49,40 +50,75 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForModelMigrationStatus generates the triggers for the
-// model_migration_status table.
-func ChangeLogTriggersForModelMigrationStatus(columnName string, namespaceID int) func() schema.Patch {
+// ChangeLogTriggersForModelMigrationExportMinionSync generates the triggers for the
+// model_migration_export_minion_sync table.
+func ChangeLogTriggersForModelMigrationExportMinionSync(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for ModelMigrationStatus
-INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_status', 'ModelMigrationStatus changes based on %[1]s');
+-- insert namespace for ModelMigrationExportMinionSync
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_export_minion_sync', 'ModelMigrationExportMinionSync changes based on %[1]s');
 
--- insert trigger for ModelMigrationStatus
-CREATE TRIGGER trg_log_model_migration_status_insert
-AFTER INSERT ON model_migration_status FOR EACH ROW
+-- insert trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_insert
+AFTER INSERT ON model_migration_export_minion_sync FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
--- update trigger for ModelMigrationStatus
-CREATE TRIGGER trg_log_model_migration_status_update
-AFTER UPDATE ON model_migration_status FOR EACH ROW
+-- update trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_update
+AFTER UPDATE ON model_migration_export_minion_sync FOR EACH ROW
 WHEN 
-	NEW.uuid != OLD.uuid OR
-	(NEW.start_time != OLD.start_time OR (NEW.start_time IS NOT NULL AND OLD.start_time IS NULL) OR (NEW.start_time IS NULL AND OLD.start_time IS NOT NULL)) OR
-	(NEW.success_time != OLD.success_time OR (NEW.success_time IS NOT NULL AND OLD.success_time IS NULL) OR (NEW.success_time IS NULL AND OLD.success_time IS NOT NULL)) OR
-	(NEW.end_time != OLD.end_time OR (NEW.end_time IS NOT NULL AND OLD.end_time IS NULL) OR (NEW.end_time IS NULL AND OLD.end_time IS NOT NULL)) OR
-	(NEW.phase != OLD.phase OR (NEW.phase IS NOT NULL AND OLD.phase IS NULL) OR (NEW.phase IS NULL AND OLD.phase IS NOT NULL)) OR
-	(NEW.phase_changed_time != OLD.phase_changed_time OR (NEW.phase_changed_time IS NOT NULL AND OLD.phase_changed_time IS NULL) OR (NEW.phase_changed_time IS NULL AND OLD.phase_changed_time IS NOT NULL)) OR
-	(NEW.status != OLD.status OR (NEW.status IS NOT NULL AND OLD.status IS NULL) OR (NEW.status IS NULL AND OLD.status IS NOT NULL)) 
+	NEW.migration_uuid != OLD.migration_uuid OR
+	NEW.phase_id != OLD.phase_id OR
+	NEW.entity_key != OLD.entity_key OR
+	NEW.success != OLD.success OR
+	NEW.reported_at != OLD.reported_at 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
--- delete trigger for ModelMigrationStatus
-CREATE TRIGGER trg_log_model_migration_status_delete
-AFTER DELETE ON model_migration_status FOR EACH ROW
+-- delete trigger for ModelMigrationExportMinionSync
+CREATE TRIGGER trg_log_model_migration_export_minion_sync_delete
+AFTER DELETE ON model_migration_export_minion_sync FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForModelMigrationExportPhase generates the triggers for the
+// model_migration_export_phase table.
+func ChangeLogTriggersForModelMigrationExportPhase(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelMigrationExportPhase
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_export_phase', 'ModelMigrationExportPhase changes based on %[1]s');
+
+-- insert trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_insert
+AFTER INSERT ON model_migration_export_phase FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_update
+AFTER UPDATE ON model_migration_export_phase FOR EACH ROW
+WHEN 
+	NEW.migration_uuid != OLD.migration_uuid OR
+	NEW.phase_id != OLD.phase_id OR
+	NEW.changed_at != OLD.changed_at 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ModelMigrationExportPhase
+CREATE TRIGGER trg_log_model_migration_export_phase_delete
+AFTER DELETE ON model_migration_export_phase FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

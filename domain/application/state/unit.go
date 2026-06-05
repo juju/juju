@@ -484,6 +484,11 @@ func (st *State) AddIAASUnits(
 		machineNames []coremachine.Name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var (
+			txnUnitNames    []coreunit.Name
+			txnMachineNames []coremachine.Name
+		)
+
 		if err := st.checkApplicationAlive(ctx, tx, appUUID.String()); err != nil {
 			return errors.Capture(err)
 		}
@@ -498,9 +503,12 @@ func (st *State) AddIAASUnits(
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
-			machineNames = append(machineNames, mNames...)
-			unitNames = append(unitNames, uName)
+			txnMachineNames = append(txnMachineNames, mNames...)
+			txnUnitNames = append(txnUnitNames, uName)
 		}
+
+		unitNames = txnUnitNames
+		machineNames = txnMachineNames
 		return nil
 	})
 	return unitNames, machineNames, errors.Capture(err)
@@ -526,6 +534,8 @@ func (st *State) AddCAASUnits(
 
 	var unitNames []coreunit.Name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var txnUnitNames []coreunit.Name
+
 		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID.String())
 		if err != nil {
 			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
@@ -537,8 +547,10 @@ func (st *State) AddCAASUnits(
 				return errors.Errorf("inserting unit %q: %w ", unitName, err)
 			}
 
-			unitNames = append(unitNames, coreunit.Name(unitName))
+			txnUnitNames = append(txnUnitNames, coreunit.Name(unitName))
 		}
+
+		unitNames = txnUnitNames
 		return nil
 	})
 	return unitNames, errors.Capture(err)

@@ -84,6 +84,9 @@ timeframe.
 
 - Place methods and functions below others that call them.
 - Limit comment line lengths to 80 characters.
+- Generate new UUIDs in the service layer, then pass them into state methods.
+  State should persist supplied UUIDs rather than creating them, so services can
+  return created entity UUIDs directly when needed.
 - When wrapping errors across layers, add identifying context such as
   entity UUIDs once at the highest useful layer. Keep state-layer
   `Errorf` messages generic to avoid repeated identifiers in the final

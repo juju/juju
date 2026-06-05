@@ -186,6 +186,8 @@ FROM   relation r
 	var exportRelations []domainrelation.ExportRelation
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var rels []getRelation
+		var txnExportRelations []domainrelation.ExportRelation
+
 		err = tx.Query(ctx, stmt).GetAll(&rels)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
@@ -243,8 +245,10 @@ FROM   relation r
 
 				exportRelation.Endpoints = append(exportRelation.Endpoints, exportEndpoint)
 			}
-			exportRelations = append(exportRelations, exportRelation)
+			txnExportRelations = append(txnExportRelations, exportRelation)
 		}
+
+		exportRelations = txnExportRelations
 
 		return nil
 	})
