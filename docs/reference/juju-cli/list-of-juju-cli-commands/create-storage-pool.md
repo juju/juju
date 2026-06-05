@@ -1,5 +1,3 @@
-(command-juju-create-storage-pool)=
-# `juju create-storage-pool`
 > See also: [remove-storage-pool](#remove-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
 
 ## Summary
@@ -27,3 +25,7 @@ Further reading:
 
 - https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-pool
 - https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-provider
+
+
+
+

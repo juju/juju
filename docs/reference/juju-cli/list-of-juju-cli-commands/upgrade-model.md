@@ -1,5 +1,3 @@
-(command-juju-upgrade-model)=
-# `juju upgrade-model`
 > See also: [sync-agent-binary](#sync-agent-binary)
 
 ## Summary
@@ -52,3 +50,7 @@ the lifetime of this upgrade using `--agent-stream`.
 If a failed upgrade has been resolved, `--reset-previous-upgrade` can be
 used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
+
+
+
+

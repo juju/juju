@@ -1,5 +1,3 @@
-(command-juju-move-to-space)=
-# `juju move-to-space`
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space), [remove-space](#remove-space)
 
 ## Summary
@@ -27,3 +25,5 @@ Move a list of CIDRs from their space to a new space:
 Replaces the list of associated subnets of the space. Since subnets
 can only be part of a single space, all specified subnets (using their
 CIDRs) "leave" their current space and "enter" the one we're updating.
+
+

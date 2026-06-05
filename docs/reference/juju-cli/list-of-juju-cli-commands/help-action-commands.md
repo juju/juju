@@ -1,5 +1,3 @@
-(command-juju-help-action-commands)=
-# `juju help-action-commands`
 > See also: [help](#help), [help-hook-commands](#help-hook-commands)
 
 ## Summary
@@ -25,3 +23,7 @@ The currently available charm action commands include:
     action-get   Gets action parameters.
     action-log   Records a progress message for the current action.
     action-set   Sets action results.
+
+
+
+

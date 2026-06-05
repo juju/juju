@@ -1,5 +1,3 @@
-(command-juju-trust)=
-# `juju trust`
 > See also: [config](#config)
 
 ## Summary
@@ -28,3 +26,6 @@ Sets the trust configuration value to true.
 On Kubernetes models, the `trust` operation currently grants the charm full access to the cluster.
 Until the permissions model is refined to grant more granular role-based access, the use of
 `--scope=cluster` is required to confirm this choice.
+
+
+

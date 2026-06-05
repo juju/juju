@@ -1,5 +1,3 @@
-(command-juju-import-filesystem)=
-# `juju import-filesystem`
 > See also: [storage](#storage)
 
 ## Summary
@@ -63,3 +61,7 @@ conditions must be met:
 If the PersistentVolume is bound to a PersistentVolumeClaim that is not used
 by another Juju application, you can use the --force option to make the PV
 available for import.
+
+
+
+

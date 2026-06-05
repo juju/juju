@@ -1,5 +1,3 @@
-(command-juju-remove-relation)=
-# `juju remove-relation`
 > See also: [integrate](#integrate), [remove-application](#remove-application)
 
 ## Summary
@@ -49,3 +47,7 @@ and failures that need to be dealt with before a relation can be removed.
 However, at times, there is a need to remove a relation ignoring
 all operational errors. In these rare cases, use the `--force` option but note
 that `--force` will remove a relation without giving it the opportunity to be removed cleanly.
+
+
+
+

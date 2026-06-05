@@ -1,5 +1,3 @@
-(command-juju-show-action)=
-# `juju show-action`
 > See also: [actions](#actions), [run](#run)
 
 ## Summary
@@ -22,3 +20,6 @@ Shows detailed information about an action.
 ## Details
 
 Show detailed information about an action on the target application.
+
+
+

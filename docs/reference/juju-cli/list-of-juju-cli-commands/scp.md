@@ -1,5 +1,3 @@
-(command-juju-scp)=
-# `juju scp`
 > See also: [ssh](#ssh)
 
 ## Summary
@@ -117,3 +115,7 @@ the Juju controller as a proxy with the `--proxy` option.
 
 The SSH host keys of the target are verified by default. To disable this, add
  `--no-host-key-checks` option. Using this option is strongly discouraged.
+
+
+
+

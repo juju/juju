@@ -1,5 +1,3 @@
-(command-juju-enable-ha)=
-# `juju enable-ha`
 ## Summary
 Ensure that sufficient controllers exist to provide redundancy.
 
@@ -49,3 +47,6 @@ that the specified number of controller machines are used to make up the
 controller.
 
 An odd number of controllers is required.
+
+
+

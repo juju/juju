@@ -1,5 +1,3 @@
-(command-juju-set-credential)=
-# `juju set-credential`
 > See also: [credentials](#credentials), [show-credential](#show-credential), [update-credential](#update-credential)
 
 ## Summary
@@ -42,3 +40,6 @@ this operation will result in that credential being related to two models.
 
 Use the `show-credential` command to see how remote credentials are related
 to models.
+
+
+

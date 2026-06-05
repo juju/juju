@@ -1,5 +1,3 @@
-(command-juju-cancel-task)=
-# `juju cancel-task`
 > See also: [show-task](#show-task)
 
 ## Summary
@@ -30,3 +28,5 @@ To cancel multiple tasks by ID:
 ## Details
 
 Cancel pending or running tasks matching given IDs or partial ID prefixes.
+
+

@@ -1,5 +1,3 @@
-(command-juju-controllers)=
-# `juju controllers`
 > See also: [models](#models), [show-controller](#show-controller)
 
 **Aliases:** list-controllers
@@ -28,3 +26,7 @@ Lists all controllers.
 
 ## Details
 In the default tabular output, the current controller is marked with an asterisk.
+
+
+
+

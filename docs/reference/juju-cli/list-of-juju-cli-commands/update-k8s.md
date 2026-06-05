@@ -1,5 +1,3 @@
-(command-juju-update-k8s)=
-# `juju update-k8s`
 > See also: [add-k8s](#add-k8s), [remove-k8s](#remove-k8s)
 
 ## Summary
@@ -41,3 +39,7 @@ from this client.
 Use `--controller` to update a Kubernetes cloud on a controller.
 
 Use `--client` to update a Kubernetes cloud definition on this client.
+
+
+
+

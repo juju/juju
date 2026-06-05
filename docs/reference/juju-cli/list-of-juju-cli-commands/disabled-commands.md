@@ -1,5 +1,3 @@
-(command-juju-disabled-commands)=
-# `juju disabled-commands`
 > See also: [disable-command](#disable-command), [enable-command](#enable-command)
 
 **Aliases:** list-disabled-commands
@@ -84,3 +82,5 @@ Commands that can be disabled are grouped based on logical operations as follows
     refresh
     upgrade-model
 	
+
+

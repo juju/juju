@@ -1,5 +1,3 @@
-(command-juju-clouds)=
-# `juju clouds`
 > See also: [add-cloud](#add-cloud), [credentials](#credentials), [controllers](#controllers), [regions](#regions), [default-credential](#default-credential), [default-region](#default-region), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
 
 **Aliases:** list-clouds
@@ -52,3 +50,7 @@ Cloud metadata sometimes changes, e.g., providers add regions. Use the `update-p
 command to update public clouds or `update-cloud` to update other clouds.
 Use the `regions` command to list a cloud's regions.
 Use the `show-cloud` command to get more detail, such as regions and endpoints.
+
+
+
+

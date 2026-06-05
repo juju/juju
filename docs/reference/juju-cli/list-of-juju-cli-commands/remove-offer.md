@@ -1,5 +1,3 @@
-(command-juju-remove-offer)=
-# `juju remove-offer`
 > See also: [find-offers](#find-offers), [offer](#offer)
 
 ## Summary
@@ -33,3 +31,6 @@ offer will also be removed.
 Offers to remove are normally specified by their URL.
 It's also possible to specify just the offer name, in which case
 the offer is considered to reside in the current model.
+
+
+

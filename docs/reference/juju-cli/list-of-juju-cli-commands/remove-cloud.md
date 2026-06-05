@@ -1,5 +1,3 @@
-(command-juju-remove-cloud)=
-# `juju remove-cloud`
 > See also: [add-cloud](#add-cloud), [update-cloud](#update-cloud), [clouds](#clouds)
 
 ## Summary
@@ -31,3 +29,7 @@ If `--controller` is used, also remove the cloud from the specified controller,
 if it is not in use.
 
 If `--client` is specified, Juju removes the cloud from this client.
+
+
+
+

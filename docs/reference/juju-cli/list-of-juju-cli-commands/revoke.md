@@ -1,5 +1,3 @@
-(command-juju-revoke)=
-# `juju revoke`
 > See also: [grant](#grant)
 
 ## Summary
@@ -53,3 +51,5 @@ Valid access levels for application offers are:
     read
     consume
     admin
+
+

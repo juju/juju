@@ -1,5 +1,3 @@
-(command-juju-show-user)=
-# `juju show-user`
 > See also: [add-user](#add-user), [register](#register), [users](#users)
 
 ## Summary
@@ -28,3 +26,6 @@ Show information about a user.
 
 By default, the `YAML`format is used and the user name is the current
 user.
+
+
+

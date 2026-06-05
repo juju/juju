@@ -1,5 +1,3 @@
-(command-juju-firewall-rules)=
-# `juju firewall-rules`
 > See also: [set-firewall-rule](#set-firewall-rule)
 
 **Aliases:** list-firewall-rules
@@ -32,3 +30,8 @@ DEPRECATION WARNING:
 Firewall rules have been moved to model configuration settings `ssh-allow` and
 `saas-ingress-allow` This command is deprecated in favour of
 reading/writing directly to these settings.
+
+
+
+
+

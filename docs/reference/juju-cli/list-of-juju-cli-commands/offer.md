@@ -1,5 +1,3 @@
-(command-juju-offer)=
-# `juju offer`
 > See also: [consume](#consume), [integrate](#integrate), [remove-saas](#remove-saas)
 
 ## Summary
@@ -27,3 +25,6 @@ Offer application endpoints for use in other models.
 Deployed application endpoints are offered for use by consumers.
 By default, the offer is named after the application, unless
 an offer name is explicitly specified.
+
+
+

@@ -1,5 +1,3 @@
-(command-juju-update-secret)=
-# `juju update-secret`
 ## Summary
 Update an existing secret.
 
@@ -42,3 +40,7 @@ The `--auto-prune` option is used to allow Juju to automatically remove revision
 which are no longer being tracked by any observers (see Rotation and Expiry).
 This is configured per revision. This feature is opt-in because Juju
 automatically removing secret content might result in data loss.
+
+
+
+

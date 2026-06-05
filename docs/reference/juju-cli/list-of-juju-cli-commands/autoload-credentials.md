@@ -1,5 +1,3 @@
-(command-juju-autoload-credentials)=
-# `juju autoload-credentials`
 > See also: [add-credential](#add-credential), [credentials](#credentials), [default-credential](#default-credential), [remove-credential](#remove-credential)
 
 ## Summary
@@ -62,3 +60,7 @@ including the locations searched.
 - LXD
   - Credentials:
     - On Linux, `$HOME/.config/lxc/config.yml`
+
+
+
+
