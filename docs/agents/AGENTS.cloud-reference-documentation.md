@@ -79,6 +79,159 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 - **Appendices for workflows**: Keep command sequences separate from attribute reference
 - **Punctuation**: Sentential bullets end with periods. Use ` -- ` (space-hyphen-hyphen-space) for em-dashes.
 - **Subsection ordering**: Within each entity section, follow a consistent order (see section templates below)
+- **Lateral links**: Add ibnote blocks beneath each entity section heading linking to related how-tos
+- **Clarifying intros**: Add brief intros to subsections that could be ambiguous about scope
+
+---
+
+## Lateral Links Pattern
+
+**Purpose**: Help users discover related how-to documentation from reference pages.
+
+Beneath each entity section heading (## The cloud, ## Credentials, etc.), add an ibnote block with lateral links to corresponding how-tos in both Juju and Terraform Provider for Juju documentation.
+
+**Pattern**:
+```markdown
+## <Entity>
+
+\```{ibnote}
+See also: {ref}`Juju | Manage <entity> <manage-<entity>>`, {ref}`Terraform Provider for Juju | Manage <entity> <tfjuju:manage-<entity>>`
+\```
+```
+
+**Note**: Use explicit link text syntax `{ref}\`Display Text <anchor>\`` to control what gets displayed and ensure consistency.
+
+**Examples**:
+
+```markdown
+(openstack-cloud)=
+## The cloud
+
+\```{ibnote}
+See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+\```
+
+(openstack-credential)=
+## Credentials
+
+\```{ibnote}
+See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+\```
+
+(openstack-controller)=
+## Controllers
+
+\```{ibnote}
+See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+\```
+
+(openstack-model)=
+## Models
+
+\```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+\```
+
+(openstack-machine)=
+## Machines
+
+\```{ibnote}
+See also: {ref}`Juju | Manage machines <manage-machines>`
+\```
+
+(openstack-storage)=
+## Storage
+
+\```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+\```
+```
+
+**For Kubernetes clouds**, use "Applications" instead of "Machines":
+```markdown
+(kubernetes-application)=
+## Application
+
+\```{ibnote}
+See also: {ref}`Juju | Manage applications <manage-applications>`
+\```
+```
+
+---
+
+## Clarifying Intros Pattern
+
+**Purpose**: Make explicit what scope each subsection covers (cloud-specific vs. all available options).
+
+Add brief introductory sentences to subsections where simplified titles could be ambiguous:
+
+1. **Authentication types**: "<Cloud Name> supports the following authentication types:"
+2. **Configuration keys**: "<Cloud Name> supports the following cloud-specific model configuration keys:"
+3. **Constraints**: "<Cloud Name> supports the following constraints:"
+4. **Placement directives**: "<Cloud Name> supports the following placement directives:"
+5. **Storage providers**: "In addition to {ref}\`generic storage providers <storage-provider>\`, <Cloud Name> provides the following cloud-specific storage providers:"
+
+**Examples**:
+
+```markdown
+(openstack-credential-authentication-types)=
+### Authentication types
+
+OpenStack supports the following authentication types:
+
+(openstack-credential-userpass)=
+#### `userpass`
+```
+
+```markdown
+(openstack-model-configuration-keys)=
+### Configuration keys
+
+OpenStack supports the following cloud-specific model configuration keys:
+
+(openstack-model-external-network)=
+#### `external-network`
+```
+
+```markdown
+(openstack-machine-constraints)=
+### Constraints
+
+OpenStack supports the following constraints:
+
+\```{note}
+The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
+\```
+
+- {ref}`constraint-allocate-public-ip`
+- {ref}`constraint-arch`
+```
+
+```markdown
+(openstack-machine-placement-directives)=
+### Placement directives
+
+OpenStack supports the following placement directives:
+
+- {ref}`placement-directive-machine`
+- {ref}`placement-directive-zone`
+```
+
+```markdown
+(openstack-storage)=
+## Storage
+
+\```{ibnote}
+See also: {ref}`Juju | Manage storage <manage-storage>`
+\```
+
+In addition to {ref}`generic storage providers <storage-provider>`, OpenStack provides the following cloud-specific storage providers:
+
+(storage-provider-cinder)=
+### `cinder`
+```
+
+**Rationale**: Simplified titles ("Constraints" instead of "Supported constraints") keep navigation clean and scannable, but clarifying intros ensure users understand these are cloud-specific subsets, not exhaustive lists. This maintains accessibility while improving user experience.
 
 ---
 
