@@ -145,6 +145,18 @@ type ManifoldsConfig struct {
 	// manifolds instead of being read from agent config.
 	ObjectStoreRootDir string
 
+	// ControllerUUID is the controller entity UUID. It is sourced from
+	// agentConfig.Controller().Id() in makeEngineCreator and passed
+	// directly to the lease-manager manifold instead of being looked
+	// up from agent config at worker start.
+	ControllerUUID string
+
+	// ControllerModelUUID is the controller model UUID. It is sourced
+	// from agentConfig.Model().Id() in makeEngineCreator and passed
+	// directly to the lease-manager manifold instead of being looked
+	// up from agent config at worker start.
+	ControllerModelUUID string
+
 	// ControllerRuntimeConfigPath is the absolute path to the
 	// controller runtime config file (runtime.conf) written at
 	// bootstrap. It is passed to the db-accessor manifold so that the
@@ -707,12 +719,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The global lease manager tracks lease information in the Dqlite database.
 		leaseManagerName: leasemanager.Manifold(leasemanager.ManifoldConfig{
-			AgentName:            agentName,
-			ClockName:            clockName,
 			DBAccessorName:       dbAccessorName,
 			TraceName:            traceName,
+			ControllerUUID:       config.ControllerUUID,
+			ControllerModelUUID:  config.ControllerModelUUID,
 			Logger:               internallogger.GetLogger("juju.worker.lease"),
-			LogDir:               agentConfig.LogDir(),
+			LogDir:               config.LogDir,
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
