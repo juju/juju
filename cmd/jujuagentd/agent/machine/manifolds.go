@@ -165,6 +165,27 @@ type ManifoldsConfig struct {
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
 
+	// CACert is the TLS CA certificate PEM block for the controller.
+	// For the transitional controller-on-machine path it is sourced
+	// from agentConfig.CACert() at engine creation time and passed
+	// directly to the certificate-watcher manifold.
+	CACert string
+
+	// CAPrivateKey is the TLS CA private key PEM block. For the
+	// transitional path it is sourced from
+	// agentConfig.ControllerAgentInfo(). This field is sensitive.
+	CAPrivateKey string
+
+	// ControllerCert is the controller TLS certificate PEM block.
+	// Sourced from agentConfig.ControllerAgentInfo() for the
+	// transitional path.
+	ControllerCert string
+
+	// ControllerPrivateKey is the controller TLS private key PEM
+	// block. Sourced from agentConfig.ControllerAgentInfo(). This
+	// field is sensitive.
+	ControllerPrivateKey string
+
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
@@ -435,7 +456,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and offers the result to other manifolds. This is only
 		// run by state servers.
 		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			AgentName: agentName,
+			CACert:               config.CACert,
+			CAPrivateKey:         config.CAPrivateKey,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
 		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
