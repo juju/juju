@@ -842,6 +842,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
 			TraceName:      controllerTraceName,
+			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
@@ -853,6 +854,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:            controllerTraceName,
 			ControllerUUID:       config.ControllerUUID,
 			ControllerModelUUID:  config.ControllerModelUUID,
+			Clock:                config.Clock,
 			Logger:               internallogger.GetLogger("juju.worker.lease"),
 			LogDir:               config.LogDir,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -953,6 +955,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
 			SelectFileHash:                  internalobjectstore.SelectFileHash,
 			NewWorker:                       objectstoredrainer.NewWorker,
+			Clock:                           config.Clock,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
 		})),
 
@@ -964,6 +967,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIRemoteCallerName:        apiRemoteCallerName,
 			ObjectStoreRootDir:         config.ObjectStoreRootDir,
 			ControllerNodeID:           config.ControllerID,
+			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
@@ -984,6 +988,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
+			Clock:                        config.Clock,
 			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
 			NewWorker:                    objectstoreservices.NewWorker,
 			NewObjectStoreServices:       objectstoreservices.NewObjectStoreServices,
@@ -1580,19 +1585,19 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	apiAddressSetterName          = "api-address-setter"
-	apiAddressUpdaterName         = "api-address-updater"
-	apiServerName                 = "api-server"
-	apiRemoteCallerName           = "api-remote-caller"
-	apiRemoteRelationCallerName   = "api-remote-relation-caller"
-	auditConfigUpdaterName        = "audit-config-updater"
-	authenticationWorkerName      = "ssh-authkeys-updater"
-	brokerTrackerName             = "broker-tracker"
-	certificateUpdaterName        = "certificate-updater"
-	certificateWatcherName        = "certificate-watcher"
-	changeStreamName              = "change-stream"
-	changeStreamPrunerName        = "change-stream-pruner"
-	controllerAgentConfigName     = "controller-agent-config"
+	apiAddressSetterName               = "api-address-setter"
+	apiAddressUpdaterName              = "api-address-updater"
+	apiServerName                      = "api-server"
+	apiRemoteCallerName                = "api-remote-caller"
+	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	auditConfigUpdaterName             = "audit-config-updater"
+	authenticationWorkerName           = "ssh-authkeys-updater"
+	brokerTrackerName                  = "broker-tracker"
+	certificateUpdaterName             = "certificate-updater"
+	certificateWatcherName             = "certificate-watcher"
+	changeStreamName                   = "change-stream"
+	changeStreamPrunerName             = "change-stream-pruner"
+	controllerAgentConfigName          = "controller-agent-config"
 	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
 	controllerAgentConfigReadyFlagName = "controller-agent-config-ready-flag"
 	controllerPresenceName             = "controller-presence"
@@ -1644,10 +1649,10 @@ const (
 	storageRegistryName                = "storage-registry"
 	toolsVersionCheckerName            = "tools-version-checker"
 	controllerTraceName                = "controller-trace"
-	traceName                     = "trace"
+	traceName                          = "trace"
 	traceServicesName                  = "trace-services"
-	validCredentialFlagName       = "valid-credential-flag"
-	undertakerName                = "undertaker"
-	machineSetupName              = "machine-setup"
-	watcherRegistryName           = "watcher-registry"
+	validCredentialFlagName            = "valid-credential-flag"
+	undertakerName                     = "undertaker"
+	machineSetupName                   = "machine-setup"
+	watcherRegistryName                = "watcher-registry"
 )
