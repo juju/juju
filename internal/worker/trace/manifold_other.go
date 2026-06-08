@@ -17,6 +17,10 @@ import (
 	"github.com/juju/juju/internal/services"
 )
 
+// This file only exists to provide a noop implementation of the trace manifold
+// for dqlite builds. This should be removed once the jujud and juju-agentd are
+// full separated and the trace worker is only used in the right locations.
+
 // GetTracingServiceFunc returns the controller tracing service from the
 // dependency getter.
 type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingService, error)
@@ -67,7 +71,6 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ChangeStreamName,
 		},
-		Output: tracerOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
