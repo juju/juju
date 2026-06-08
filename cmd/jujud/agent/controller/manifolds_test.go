@@ -379,6 +379,11 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		})
 		checkNotContains(c, identityManifold.Inputs, "agent")
 		checkNotContains(c, identityManifold.Inputs, "api-caller")
+
+		httpServerArgsManifold, ok := manifolds["http-server-args"]
+		c.Assert(ok, tc.IsTrue)
+		checkNotContains(c, httpServerArgsManifold.Inputs, "clock")
+		checkNotContains(c, httpServerArgsManifold.Inputs, "agent")
 	}
 }
 
@@ -1027,7 +1032,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1056,6 +1060,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"is-bootstrap-gate": {},
 
 	"is-primary-controller-flag": {
+		"agent",
 		"controller-agent-config",
 		"db-accessor",
 		"lease-manager",
