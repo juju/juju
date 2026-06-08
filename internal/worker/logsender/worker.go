@@ -38,7 +38,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		sender := make(chan logsender.LogWriter)
 		errChan := make(chan error)
 		go func() {
-			logWriter, err := logSenderAPI.LogWriter(context.TODO())
+			logWriter, err := logSenderAPI.LogWriter(ctx)
 			if err != nil {
 				select {
 				case errChan <- err:
