@@ -5,7 +5,6 @@ package trace
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -407,7 +406,6 @@ func (w *tracerWorker) stopTrackedTracers() error {
 	}
 
 	w.reportInternalState(stateWorkersKilled)
-	fmt.Println("Killed workers")
 
 	return nil
 }
