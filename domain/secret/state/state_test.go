@@ -79,12 +79,12 @@ func (s *stateSuite) TestImportSecretWithRevisions(c *tc.C) {
 	revisions := []domainsecret.UpsertRevisionParams{
 		{
 			Revision:   1,
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 			Data:       coresecrets.SecretData{"key1": "val1"},
 		},
 		{
 			Revision:   2,
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 			Data:       coresecrets.SecretData{"key1": "val2"},
 		},
 	}
@@ -128,7 +128,7 @@ func (s *stateSuite) TestImportSecretWithRevisionsApplicationOwner(c *tc.C) {
 	revisions := []domainsecret.UpsertRevisionParams{
 		{
 			Revision:   1,
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 			Data:       coresecrets.SecretData{"key1": "val1"},
 		},
 	}
@@ -163,7 +163,7 @@ func (s *stateSuite) TestImportSecretWithRevisionsUnitOwner(c *tc.C) {
 	revisions := []domainsecret.UpsertRevisionParams{
 		{
 			Revision:   1,
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 			Data:       coresecrets.SecretData{"key1": "val1"},
 		},
 	}
@@ -216,7 +216,7 @@ func (s *stateSuite) TestCheckApplicationSecretLabelExistsAlreadyUsedByApp(c *tc
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
@@ -238,7 +238,7 @@ func (s *stateSuite) TestCheckApplicationSecretLabelExistsAlreadyUsedByUnit(c *t
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
@@ -260,7 +260,7 @@ func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByUnit(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
@@ -289,7 +289,7 @@ func (s *stateSuite) TestCheckUnitSecretLabelExistsAlreadyUsedByApp(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		Checksum:    "checksum-1234",
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
@@ -318,7 +318,7 @@ func (s *stateSuite) TestCheckUserSecretLabelExists(c *tc.C) {
 		AutoPrune:   new(true),
 	}
 	uri := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err := s.createUserSecret(c, 1, uri, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -337,14 +337,14 @@ func (s *stateSuite) TestGetLatestRevision(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
 	err := s.createUserSecret(c, 1, uri, sp)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar1"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -359,7 +359,7 @@ func (s *stateSuite) TestGetLatestRevisions(c *tc.C) {
 	for i := range 3 {
 		sp := domainsecret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar"},
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
@@ -367,7 +367,7 @@ func (s *stateSuite) TestGetLatestRevisions(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		for r := range i + 1 {
 			err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-				RevisionID: new(uuid.MustNewUUID().String()),
+				RevisionUUID: new(uuid.MustNewUUID().String()),
 				Data:       coresecrets.SecretData{"foo": fmt.Sprintf("bar%d", r)},
 			})
 			c.Assert(err, tc.ErrorIsNil)
@@ -390,14 +390,14 @@ func (s *stateSuite) TestGetLatestRevisionsSomeNotFound(c *tc.C) {
 	for i := range 3 {
 		sp := domainsecret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar"},
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
 		err := s.createUserSecret(c, 1, uri, sp)
 		c.Assert(err, tc.ErrorIsNil)
 		err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-			RevisionID: new(uuid.MustNewUUID().String()),
+			RevisionUUID: new(uuid.MustNewUUID().String()),
 			Data:       coresecrets.SecretData{"foo": "bar1"},
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -424,7 +424,7 @@ func (s *stateSuite) TestGetSecretOwnerKinds(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 
 	// Create one app-owned and one unit-owned secret.
@@ -432,7 +432,7 @@ func (s *stateSuite) TestGetSecretOwnerKinds(c *tc.C) {
 	err := s.createCharmApplicationSecret(c, 1, appURI, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	unitURI := coresecrets.NewURI()
 	err = s.createCharmUnitSecret(c, 1, unitURI, "mysql/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -454,7 +454,7 @@ func (s *stateSuite) TestGetSecretOwnerKindsNotFoundOmitted(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	existingURI := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, existingURI, "mysql", sp)
@@ -488,7 +488,7 @@ func (s *stateSuite) TestGetRotatePolicy(c *tc.C) {
 		RotatePolicy:   new(domainsecret.RotateYearly),
 		ExpireTime:     new(expireTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(uuid.MustNewUUID().String()),
+		RevisionUUID:     new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
@@ -517,7 +517,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *tc.C) {
 		RotatePolicy:   new(domainsecret.RotateYearly),
 		ExpireTime:     new(expireTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(uuid.MustNewUUID().String()),
+		RevisionUUID:     new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -537,7 +537,7 @@ func (s *stateSuite) TestGetRotationExpiryInfo(c *tc.C) {
 	err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar1"},
 		ExpireTime: new(newExpireTime),
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -646,7 +646,7 @@ func (s *stateSuite) TestCreateUserSecretWithContent(c *tc.C) {
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		Checksum:    "checksum-1234",
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -680,7 +680,7 @@ func (s *stateSuite) TestCreateManyUserSecretsNoLabelClash(c *tc.C) {
 			Label:       new(label),
 			Data:        coresecrets.SecretData{"foo": content},
 			AutoPrune:   new(true),
-			RevisionID:  new(uuid.MustNewUUID().String()),
+			RevisionUUID:  new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
@@ -707,7 +707,7 @@ func (s *stateSuite) TestCreateUserSecretWithValueReference(c *tc.C) {
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		Checksum:    "checksum-1234",
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -758,7 +758,7 @@ func (s *stateSuite) createOwnedSecrets(c *tc.C) ownedSecretInfo {
 	uri1 := coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	err := s.createCharmApplicationSecret(c, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -766,7 +766,7 @@ func (s *stateSuite) createOwnedSecrets(c *tc.C) ownedSecretInfo {
 	uri2 := coresecrets.NewURI()
 	sp2 := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	err = s.createCharmUnitSecret(c, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -821,14 +821,14 @@ func (s *stateSuite) TestListAllSecrets(c *tc.C) {
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		Checksum:    "checksum-1234",
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata2"),
 		Label:       new("my label2"),
 		Data:        coresecrets.SecretData{"foo": "bar2"},
 		Checksum:    "checksum-1234",
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -873,13 +873,13 @@ func (s *stateSuite) TestGetSecretByURI(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata2"),
 		Label:       new("my label2"),
 		Data:        coresecrets.SecretData{"foo": "bar2"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -920,13 +920,13 @@ func (s *stateSuite) TestGetSecretsByLabels(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata2"),
 		Label:       new("fetch-me"),
 		Data:        coresecrets.SecretData{"foo": "bar2"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1035,7 +1035,7 @@ func (s *stateSuite) TestListCharmSecretsToDrainNone(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 
@@ -1056,13 +1056,13 @@ func (s *stateSuite) TestListCharmSecretsToDrain(c *tc.C) {
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}, {
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1078,7 +1078,7 @@ func (s *stateSuite) TestListCharmSecretsToDrain(c *tc.C) {
 	uri3 := coresecrets.NewURI()
 	sp3 := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	err = s.createUserSecret(c, 1, uri3, sp3)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1110,7 +1110,7 @@ func (s *stateSuite) TestListUserSecretsToDrainNone(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 
@@ -1129,13 +1129,13 @@ func (s *stateSuite) TestListUserSecretsToDrain(c *tc.C) {
 
 	sp := []domainsecret.UpsertSecretParams{{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}, {
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1151,7 +1151,7 @@ func (s *stateSuite) TestListUserSecretsToDrain(c *tc.C) {
 	uri3 := coresecrets.NewURI()
 	sp3 := domainsecret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	err = s.createCharmUnitSecret(c, 1, uri3, "mysql/0", sp3)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1185,7 +1185,7 @@ func (s *stateSuite) TestCreateCharmSecretAutoPrune(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
@@ -1205,7 +1205,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *tc.C) {
 		RotatePolicy:   new(domainsecret.RotateYearly),
 		ExpireTime:     new(expireTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(uuid.MustNewUUID().String()),
+		RevisionUUID:     new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -1233,7 +1233,7 @@ func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
@@ -1262,7 +1262,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretWithContent(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -1289,7 +1289,7 @@ func (s *stateSuite) TestOwnerKindModelSecret(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("model-kind-check"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createUserSecret(c, 1, uri, sp)
@@ -1310,7 +1310,7 @@ func (s *stateSuite) TestOwnerKindApplicationSecret(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("app-kind-check"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
@@ -1333,7 +1333,7 @@ func (s *stateSuite) TestOwnerKindUnitSecret(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("unit-kind-check"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
@@ -1354,7 +1354,7 @@ func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *tc.C) {
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
@@ -1388,7 +1388,7 @@ func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *tc.C) {
 			Description: new("my secretMetadata"),
 			Label:       new(label),
 			Data:        coresecrets.SecretData{"foo": content},
-			RevisionID:  new(uuid.MustNewUUID().String()),
+			RevisionUUID:  new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
@@ -1420,7 +1420,7 @@ func (s *stateSuite) TestCreateManyUnitSecretsNoLabelClash(c *tc.C) {
 			Description: new("my secretMetadata"),
 			Label:       new(label),
 			Data:        coresecrets.SecretData{"foo": content},
-			RevisionID:  new(uuid.MustNewUUID().String()),
+			RevisionUUID:  new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
@@ -1451,7 +1451,7 @@ func (s *stateSuite) TestCreateUnitSecretsSameLabelDifferentUnits(c *tc.C) {
 			Description: new("my secretMetadata"),
 			Label:       new(label),
 			Data:        coresecrets.SecretData{"foo": content},
-			RevisionID:  new(uuid.MustNewUUID().String()),
+			RevisionUUID:  new(uuid.MustNewUUID().String()),
 		}
 		uri := coresecrets.NewURI()
 		ctx := c.Context()
@@ -1483,7 +1483,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		Checksum:    "checksum-1234",
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata2"),
 		Label:       new("my label2"),
@@ -1492,7 +1492,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 			RevisionID: "revision-id",
 		},
 		Checksum:   "checksum-5678",
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1542,12 +1542,12 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata2"),
 		Label:       new("my label2"),
 		Data:        coresecrets.SecretData{"foo": "bar2"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1595,7 +1595,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description:    new("my secretMetadata2"),
 		Label:          new("my label2"),
@@ -1603,17 +1603,17 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 		RotatePolicy:   new(domainsecret.RotateDaily),
 		ExpireTime:     new(expireTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(uuid.MustNewUUID().String()),
+		RevisionUUID:     new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata3"),
 		Label:       new("my label3"),
 		Data:        coresecrets.SecretData{"foo": "bar3"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}, {
 		Description: new("my secretMetadata4"),
 		Label:       new("my label4"),
 		Data:        coresecrets.SecretData{"foo": "bar4"},
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -1691,11 +1691,11 @@ func (s *stateSuite) TestAllSecretConsumers(c *tc.C) {
 	sp := domainsecret.UpsertSecretParams{
 		ValueRef:   &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:  new(true),
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	sp2 := domainsecret.UpsertSecretParams{
 		Data:       map[string]string{"foo": "bar"},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	ctx := c.Context()
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
@@ -1756,7 +1756,7 @@ func (s *stateSuite) TestSaveSecretConsumer(c *tc.C) {
 		Label:       new("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := c.Context()
@@ -1786,7 +1786,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 		Label:       new("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := c.Context()
@@ -1810,7 +1810,7 @@ func (s *stateSuite) TestSaveSecretConsumerMarksObsolete(c *tc.C) {
 			BackendID:  "new-backend",
 			RevisionID: "new-revision",
 		},
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1873,7 +1873,7 @@ func (s *stateSuite) TestSaveSecretConsumerUnitNotExists(c *tc.C) {
 		Label:       new("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI().WithSource(s.modelUUID)
 	ctx := c.Context()
@@ -1970,7 +1970,7 @@ func (s *stateSuite) TestGetSecretConsumerFirstTime(c *tc.C) {
 		Label:       new("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -2034,7 +2034,7 @@ func (s *stateSuite) TestGetSecretConsumerUnitNotExists(c *tc.C) {
 		Label:       new("my label"),
 		ValueRef:    &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -2053,7 +2053,7 @@ func (s *stateSuite) TestGetUserSecretURIByLabel(c *tc.C) {
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
 		AutoPrune:   new(true),
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 	}
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
@@ -2076,7 +2076,7 @@ func (s *stateSuite) TestGetURIByConsumerLabel(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2122,7 +2122,7 @@ func (s *stateSuite) TestGetSecretOwnerUnitOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2148,7 +2148,7 @@ func (s *stateSuite) TestGetSecretOwnerApplicationOwned(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2172,7 +2172,7 @@ func (s *stateSuite) TestGetSecretOwnerApplicationOwned(c *tc.C) {
 func (s *stateSuite) TestGetSecretOwnerUserSecret(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2194,7 +2194,7 @@ func (s *stateSuite) TestUpdateSecretNotFound(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	err := s.state.UpdateSecret(c.Context(), uri, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Label:      new("label"),
 	})
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
@@ -2204,7 +2204,7 @@ func (s *stateSuite) TestUpdateSecretNothingToDo(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	err := s.state.UpdateSecret(c.Context(), uri, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String())})
+		RevisionUUID: new(uuid.MustNewUUID().String())})
 	c.Assert(err, tc.ErrorMatches, "must specify a new value or metadata to update a secret")
 }
 
@@ -2213,7 +2213,7 @@ func (s *stateSuite) TestUpdateUserSecretMetadataOnly(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2224,7 +2224,7 @@ func (s *stateSuite) TestUpdateUserSecretMetadataOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label2"),
 	}
@@ -2247,7 +2247,7 @@ func (s *stateSuite) TestUpdateUserSecretFailedLabelAlreadyExists(c *tc.C) {
 	// Create user secret with label "dup".
 	uri1 := coresecrets.NewURI()
 	sp1 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first"),
 		Data:        coresecrets.SecretData{"k": "v"},
@@ -2258,7 +2258,7 @@ func (s *stateSuite) TestUpdateUserSecretFailedLabelAlreadyExists(c *tc.C) {
 	// Create second user secret with a different label initially.
 	uri2 := coresecrets.NewURI()
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("other"),
 		Description: new("second"),
 		Data:        coresecrets.SecretData{"k": "v2"},
@@ -2268,7 +2268,7 @@ func (s *stateSuite) TestUpdateUserSecretFailedLabelAlreadyExists(c *tc.C) {
 
 	// Attempt to update the second secret's label to the duplicate value.
 	err = s.state.UpdateSecret(ctx, uri2, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Label:      new("dup"),
 	})
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
@@ -2280,7 +2280,7 @@ func (s *stateSuite) TestUpdateUserSecretExistingLabelSameID(c *tc.C) {
 	// Create a user secret with label "dup" on a given URI (ID).
 	uri := coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first"),
 		Data:        coresecrets.SecretData{"k": "v"},
@@ -2290,7 +2290,7 @@ func (s *stateSuite) TestUpdateUserSecretExistingLabelSameID(c *tc.C) {
 
 	// Update the same secret (same ID) keeping the same label. This should work.
 	err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("updated"),
 	})
@@ -2309,7 +2309,7 @@ func (s *stateSuite) TestUpdateUserSecretExistingLabelSameID(c *tc.C) {
 func (s *stateSuite) TestUpdateUserSecretFailedRevisionIDMissing(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2333,7 +2333,7 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretMetadataOnly(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2344,7 +2344,7 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretMetadataOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label2"),
 	}
@@ -2370,7 +2370,7 @@ func (s *stateSuite) TestUpdateApplicationSecretFailedLabelAlreadyExists(c *tc.C
 	// First application secret with label "dup".
 	uri1 := coresecrets.NewURI()
 	sp1 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first app secret"),
 		Data:        coresecrets.SecretData{"a": "1"},
@@ -2381,7 +2381,7 @@ func (s *stateSuite) TestUpdateApplicationSecretFailedLabelAlreadyExists(c *tc.C
 	// Second application secret with a different label initially.
 	uri2 := coresecrets.NewURI()
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("other"),
 		Description: new("second app secret"),
 		Data:        coresecrets.SecretData{"a": "2"},
@@ -2391,7 +2391,7 @@ func (s *stateSuite) TestUpdateApplicationSecretFailedLabelAlreadyExists(c *tc.C
 
 	// Attempt to update the second secret's label to the duplicate value.
 	err = s.state.UpdateSecret(ctx, uri2, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Label:      new("dup"),
 	})
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
@@ -2405,7 +2405,7 @@ func (s *stateSuite) TestUpdateApplicationSecretExistingLabelSameID(c *tc.C) {
 	// Create an application secret with label "dup" on a given URI (ID).
 	uri := coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first"),
 		Data:        coresecrets.SecretData{"k": "v"},
@@ -2415,7 +2415,7 @@ func (s *stateSuite) TestUpdateApplicationSecretExistingLabelSameID(c *tc.C) {
 
 	// Update the same secret (same ID) keeping the same label. This should work.
 	err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("updated"),
 	})
@@ -2435,7 +2435,7 @@ func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar"},
@@ -2446,7 +2446,7 @@ func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label2"),
 	}
@@ -2472,7 +2472,7 @@ func (s *stateSuite) TestUpdateUnitSecretFailedLabelAlreadyExists(c *tc.C) {
 	// First unit secret with label "dup".
 	uri1 := coresecrets.NewURI()
 	sp1 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first unit secret"),
 		Data:        coresecrets.SecretData{"u": "1"},
@@ -2483,7 +2483,7 @@ func (s *stateSuite) TestUpdateUnitSecretFailedLabelAlreadyExists(c *tc.C) {
 	// Second unit secret with a different label initially.
 	uri2 := coresecrets.NewURI()
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("other"),
 		Description: new("second unit secret"),
 		Data:        coresecrets.SecretData{"u": "2"},
@@ -2493,7 +2493,7 @@ func (s *stateSuite) TestUpdateUnitSecretFailedLabelAlreadyExists(c *tc.C) {
 
 	// Attempt to update the second secret's label to the duplicate value.
 	err = s.state.UpdateSecret(ctx, uri2, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Label:      new("dup"),
 	})
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
@@ -2507,7 +2507,7 @@ func (s *stateSuite) TestUpdateUnitSecretExistingLabelSameID(c *tc.C) {
 	// Create a unit secret with label "dup" on a given URI (ID).
 	uri := coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("first"),
 		Data:        coresecrets.SecretData{"k": "v"},
@@ -2517,7 +2517,7 @@ func (s *stateSuite) TestUpdateUnitSecretExistingLabelSameID(c *tc.C) {
 
 	// Update the same secret (same ID) keeping the same label. This should work.
 	err = s.state.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Label:       new("dup"),
 		Description: new("updated"),
 	})
@@ -2546,7 +2546,7 @@ func (s *stateSuite) TestUpdateSecretChecksumPreserved(c *tc.C) {
 	// Create a user secret with a checksum.
 	uri := coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("original description"),
 		Data:        coresecrets.SecretData{"k": "v"},
 		Checksum:    "original-checksum",
@@ -2573,7 +2573,7 @@ func (s *stateSuite) TestUpdateSecretContentNoOpsIfNoContentChange(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
 	uri := coresecrets.NewURI()
@@ -2598,7 +2598,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
 	uri := coresecrets.NewURI()
@@ -2608,7 +2608,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *tc.C) {
 
 	expireTime := time.Now().Add(2 * time.Hour)
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ExpireTime: &expireTime,
 	}
 	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
@@ -2654,7 +2654,7 @@ func (s *stateSuite) TestUpdateSecretContentNonUTCInput(c *tc.C) {
 	loc, _ := time.LoadLocation("Australia/Brisbane")
 	expireTime := time.Now().Add(2 * time.Hour).In(loc)
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		CreateTime: time.Now().In(loc),
 		UpdateTime: time.Now().In(loc),
 		ExpireTime: &expireTime,
@@ -2666,7 +2666,7 @@ func (s *stateSuite) TestUpdateSecretContentNonUTCInput(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		UpdateTime: time.Now().In(loc),
 		ExpireTime: &expireTime,
 	}
@@ -2699,7 +2699,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri := coresecrets.NewURI()
@@ -2718,7 +2718,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 
 	expireTime := time.Now().Add(2 * time.Hour)
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ExpireTime: &expireTime,
 		Data:       coresecrets.SecretData{"foo2": "bar2", "hello": "world"},
 	}
@@ -2747,7 +2747,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 
 	// Latest revision is 3 now, revision 2 shoule be obsolete.
 	sp3 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo3": "bar3", "hello": "world"},
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp3)
@@ -2813,7 +2813,7 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -2824,7 +2824,7 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef:   &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "revision-id"},
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp2)
@@ -2855,7 +2855,7 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:   new(uuid.MustNewUUID().String()),
+		RevisionUUID:   new(uuid.MustNewUUID().String()),
 		RotatePolicy: new(domainsecret.RotateDaily),
 		Data:         coresecrets.SecretData{"foo": "bar"},
 	}
@@ -2865,7 +2865,7 @@ func (s *stateSuite) TestUpdateSecretNoRotate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID:   new(uuid.MustNewUUID().String()),
+		RevisionUUID:   new(uuid.MustNewUUID().String()),
 		RotatePolicy: new(domainsecret.RotateNever),
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp2)
@@ -2895,12 +2895,12 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef:   &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
 		AutoPrune:  new(true),
 	}
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       map[string]string{"foo": "bar"},
 	}
 	ctx := c.Context()
@@ -2940,7 +2940,7 @@ func (s *stateSuite) TestGrantUnitAccess(c *tc.C) {
 	_, unitUUIDs := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -2974,7 +2974,7 @@ func (s *stateSuite) TestGrantApplicationAccess(c *tc.C) {
 	applicationUUID, _ := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3006,7 +3006,7 @@ func (s *stateSuite) TestGrantApplicationAccess(c *tc.C) {
 func (s *stateSuite) TestGrantModelAccess(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3241,7 +3241,7 @@ func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 	unitUUIDS := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3278,7 +3278,7 @@ func (s *stateSuite) TestGetRelationGrantAccessScope(c *tc.C) {
 	unitUUIDS := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3312,7 +3312,7 @@ func (s *stateSuite) TestGrantAccessInvariantScope(c *tc.C) {
 	applicationUUID, unitUUIDs := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3360,7 +3360,7 @@ func (s *stateSuite) TestGrantUnitNotFound(c *tc.C) {
 	_, unitUUIDs := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3386,7 +3386,7 @@ func (s *stateSuite) TestGrantApplicationNotFound(c *tc.C) {
 	_, unitUUIDs := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3412,7 +3412,7 @@ func (s *stateSuite) TestGrantScopeNotFound(c *tc.C) {
 	applicationUUID, _ := s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3438,7 +3438,7 @@ func (s *stateSuite) TestGetAccessNoGrant(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3460,7 +3460,7 @@ func (s *stateSuite) TestGetAccessNoGrant(c *tc.C) {
 func (s *stateSuite) TestGetSecretGrantsNone(c *tc.C) {
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3483,7 +3483,7 @@ func (s *stateSuite) TestGetSecretGrantsAppUnit(c *tc.C) {
 	unitUUIDs := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3532,7 +3532,7 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *tc.C) {
 	unitUUIDs := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3582,11 +3582,11 @@ func (s *stateSuite) TestAllSecretGrants(c *tc.C) {
 	unitUUIDs := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar"},
 	}
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar2"},
 	}
 	ctx := c.Context()
@@ -3658,7 +3658,7 @@ func (s *stateSuite) TestRevokeAccess(c *tc.C) {
 	unitUUIDs := s.addUnits(c, "mysql", charmUUID)
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID:  new(uuid.MustNewUUID().String()),
+		RevisionUUID:  new(uuid.MustNewUUID().String()),
 		Description: new("my secretMetadata"),
 		Label:       new("my label"),
 		Data:        coresecrets.SecretData{"foo": "bar", "hello": "world"},
@@ -3714,7 +3714,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 
 	ctx := c.Context()
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri := coresecrets.NewURI()
@@ -3722,7 +3722,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
@@ -3733,7 +3733,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	sp3 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id2",
@@ -3743,7 +3743,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	err = s.createUserSecret(c, 1, uri3, sp3)
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpdateSecret(ctx, uri3, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id2",
 			RevisionID: "revision-id3",
@@ -3804,7 +3804,7 @@ func (s *stateSuite) TestListGrantedSecretsForBackendWithMultipleRoles(c *tc.C) 
 	// When created, the application is automatically granted RoleManage (not
 	// RoleView).
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
@@ -3853,7 +3853,7 @@ func (s *stateSuite) TestListGrantedSecretsForBackendNoGrants(c *tc.C) {
 
 	// Create a secret owned by mysql.
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "revision-id",
@@ -3894,25 +3894,25 @@ func (s *stateSuite) prepareSecretObsoleteRevisions(c *tc.C, st *State) obsolete
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err := s.createCharmApplicationSecret(c, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, s.state, uri1)
 
 	uri2 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err = s.createCharmUnitSecret(c, 1, uri2, "mysql/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, s.state, uri2)
 
 	uri3 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err = s.createCharmApplicationSecret(c, 1, uri3, "mediawiki", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, s.state, uri3)
 
 	uri4 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err = s.createCharmUnitSecret(c, 1, uri4, "mediawiki/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, s.state, uri4)
@@ -3950,7 +3950,7 @@ func (s *stateSuite) TestInitialWatchStatementForObsoleteRevision(c *tc.C) {
 
 func updateSecretContent(c *tc.C, st *State, uri *coresecrets.URI) {
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 	}
 	err := st.UpdateSecret(c.Context(), uri, sp)
@@ -4082,13 +4082,13 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
-func (s *stateSuite) TestGetSecretRevisionID(c *tc.C) {
+func (s *stateSuite) TestGetSecretRevisionUUID(c *tc.C) {
 
 	s.setupUnits(c, "mysql")
 
 	expireTime := time.Now().Add(2 * time.Hour)
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar"},
 		ExpireTime: new(expireTime),
 	}
@@ -4097,9 +4097,9 @@ func (s *stateSuite) TestGetSecretRevisionID(c *tc.C) {
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	result, err := s.state.GetSecretRevisionID(ctx, uri, 1)
+	result, err := s.state.GetSecretRevisionUUID(ctx, uri, 1)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.Equals, *sp.RevisionID)
+	c.Assert(result, tc.Equals, *sp.RevisionUUID)
 }
 
 func (s *stateSuite) TestGetSecretRevisionIDNotFound(c *tc.C) {
@@ -4107,7 +4107,7 @@ func (s *stateSuite) TestGetSecretRevisionIDNotFound(c *tc.C) {
 	uri := coresecrets.NewURI()
 	ctx := c.Context()
 
-	_, err := s.state.GetSecretRevisionID(ctx, uri, 1)
+	_, err := s.state.GetSecretRevisionUUID(ctx, uri, 1)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretRevisionNotFound)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("secret revision not found: %s/%d", uri, 1))
 }
@@ -4134,13 +4134,13 @@ func (s *stateSuite) prepareWatchForConsumedSecrets(c *tc.C, ctx context.Context
 	sp := domainsecret.UpsertSecretParams{
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	uri1 := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err = s.createCharmApplicationSecret(c, 1, uri2, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -4240,12 +4240,12 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRotationChanges(c *t
 		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	}
 	uri1 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err := s.createCharmApplicationSecret(c, 1, uri1, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uri2 := coresecrets.NewURI()
-	sp.RevisionID = new(uuid.MustNewUUID().String())
+	sp.RevisionUUID = new(uuid.MustNewUUID().String())
 	err = s.createCharmUnitSecret(c, 1, uri2, "mediawiki/0", sp)
 	c.Assert(err, tc.ErrorIsNil)
 	updateSecretContent(c, s.state, uri2)
@@ -4395,7 +4395,7 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRevisionExpiryChange
 	now := time.Now()
 	uri1 := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri1, "mysql", domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 		ExpireTime: new(now.Add(1 * time.Hour)),
 	})
@@ -4403,12 +4403,12 @@ func (s *stateSuite) prepareWatchForWatchStatementForSecretsRevisionExpiryChange
 
 	uri2 := coresecrets.NewURI()
 	err = s.createCharmUnitSecret(c, 1, uri2, "mediawiki/0", domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.UpdateSecret(c.Context(), uri2, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 		ExpireTime: new(now.Add(2 * time.Hour)),
 	})
@@ -4466,13 +4466,13 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri1,
 			Revision:        1,
-			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri1, 1),
 			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
 		},
 		{
 			URI:             uri2,
 			Revision:        2,
-			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri2, 2),
 			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
 		},
 	})
@@ -4486,7 +4486,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri1,
 			Revision:        1,
-			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri1, 1),
 			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
 		},
 	})
@@ -4500,7 +4500,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri2,
 			Revision:        2,
-			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri2, 2),
 			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
 		},
 	})
@@ -4511,7 +4511,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri1,
 			Revision:        1,
-			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri1, 1),
 			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
 		},
 	})
@@ -4526,7 +4526,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri1,
 			Revision:        1,
-			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri1, 1),
 			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
 		},
 	})
@@ -4537,7 +4537,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri2,
 			Revision:        2,
-			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri2, 2),
 			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
 		},
 	})
@@ -4552,7 +4552,7 @@ func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *tc.C) {
 		{
 			URI:             uri2,
 			Revision:        2,
-			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			RevisionUUID:      getRevUUID(c, s.DB(), uri2, 2),
 			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
 		},
 	})
@@ -4568,7 +4568,7 @@ func (s *stateSuite) TestSecretRotated(c *tc.C) {
 	s.setupUnits(c, "mysql")
 	uri := coresecrets.NewURI()
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -4593,7 +4593,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	err := s.createUserSecret(c, 1, uri, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -4605,7 +4605,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *tc.C) {
 
 	// create revision 2 for user secret.
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp)
@@ -4616,7 +4616,7 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *tc.C) {
 	c.Assert(result, tc.HasLen, 0)
 
 	sp = domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		AutoPrune:  new(true),
 	}
 	err = s.state.UpdateSecret(c.Context(), uri, sp)
@@ -4641,7 +4641,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *tc.C) {
 	}
 
 	err := s.createCharmApplicationSecret(c, 1, uriCharm, "mysql", domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       dataInput,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -4651,7 +4651,7 @@ func (s *stateSuite) TestChangeSecretBackend(c *tc.C) {
 	c.Assert(valueRef, tc.IsNil)
 
 	err = s.createUserSecret(c, 1, uriUser, domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 		Data:       dataInput,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -4714,7 +4714,7 @@ func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "empty": ""})
 	uri := coresecrets.NewURI()
@@ -4728,7 +4728,7 @@ func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
 
 	// Now update it, providing an empty value for an existing key and a new key.
 	sp2 := domainsecret.UpsertSecretParams{
-		RevisionID: new(uuid.MustNewUUID().String()),
+		RevisionUUID: new(uuid.MustNewUUID().String()),
 	}
 	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
 	err = s.state.UpdateSecret(ctx, uri, sp2)

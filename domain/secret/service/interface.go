@@ -67,7 +67,7 @@ type State interface {
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
-	GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
+	GetSecretRevisionUUID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
 	ChangeSecretBackend(
 		ctx context.Context, revisionID uuid.UUID, valueRef *secrets.ValueRef, data secrets.SecretData,
 	) error

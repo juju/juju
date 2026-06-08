@@ -1190,41 +1190,41 @@ func (c *MockStateGetSecretOwnerKindsCall) DoAndReturn(f func(context.Context, [
 	return c
 }
 
-// GetSecretRevisionID mocks base method.
-func (m *MockState) GetSecretRevisionID(arg0 context.Context, arg1 *secrets.URI, arg2 int) (string, error) {
+// GetSecretRevisionUUID mocks base method.
+func (m *MockState) GetSecretRevisionUUID(arg0 context.Context, arg1 *secrets.URI, arg2 int) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretRevisionID", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetSecretRevisionUUID", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSecretRevisionID indicates an expected call of GetSecretRevisionID.
-func (mr *MockStateMockRecorder) GetSecretRevisionID(arg0, arg1, arg2 any) *MockStateGetSecretRevisionIDCall {
+// GetSecretRevisionUUID indicates an expected call of GetSecretRevisionUUID.
+func (mr *MockStateMockRecorder) GetSecretRevisionUUID(arg0, arg1, arg2 any) *MockStateGetSecretRevisionUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRevisionID", reflect.TypeOf((*MockState)(nil).GetSecretRevisionID), arg0, arg1, arg2)
-	return &MockStateGetSecretRevisionIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretRevisionUUID", reflect.TypeOf((*MockState)(nil).GetSecretRevisionUUID), arg0, arg1, arg2)
+	return &MockStateGetSecretRevisionUUIDCall{Call: call}
 }
 
-// MockStateGetSecretRevisionIDCall wrap *gomock.Call
-type MockStateGetSecretRevisionIDCall struct {
+// MockStateGetSecretRevisionUUIDCall wrap *gomock.Call
+type MockStateGetSecretRevisionUUIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetSecretRevisionIDCall) Return(arg0 string, arg1 error) *MockStateGetSecretRevisionIDCall {
+func (c *MockStateGetSecretRevisionUUIDCall) Return(arg0 string, arg1 error) *MockStateGetSecretRevisionUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetSecretRevisionIDCall) Do(f func(context.Context, *secrets.URI, int) (string, error)) *MockStateGetSecretRevisionIDCall {
+func (c *MockStateGetSecretRevisionUUIDCall) Do(f func(context.Context, *secrets.URI, int) (string, error)) *MockStateGetSecretRevisionUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSecretRevisionIDCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (string, error)) *MockStateGetSecretRevisionIDCall {
+func (c *MockStateGetSecretRevisionUUIDCall) DoAndReturn(f func(context.Context, *secrets.URI, int) (string, error)) *MockStateGetSecretRevisionUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
