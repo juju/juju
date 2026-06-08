@@ -1056,7 +1056,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"is-bootstrap-gate": {},
 
 	"is-primary-controller-flag": {
-		"agent",
 		"controller-agent-config",
 		"db-accessor",
 		"lease-manager",
