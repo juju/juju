@@ -351,12 +351,10 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		PreUpgradeSteps: preUpgradeSteps,
 	})
 
-	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
 		"api-remote-caller",
 		"certificate-watcher",
 		"controller-agent-config",
-		"controller-trace",
 		"trace-services",
 		"db-accessor",
 		"file-notify-watcher",
@@ -372,7 +370,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"watcher-registry",
 	)
 
-	// Explicitly guarded by ifPrimaryController.
 	primaryControllerWorkers := set.NewStrings(
 		"api-address-setter",
 		"change-stream-pruner",
@@ -380,6 +377,33 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"lease-expiry",
 		"object-store-drainer",
 		"secret-backend-rotate",
+	)
+
+	implicitControllerWorkers := set.NewStrings(
+		"agent-config-updater",
+		"api-remote-relation-caller",
+		"api-server",
+		"audit-config-updater",
+		"bootstrap",
+		"certificate-updater",
+		"change-stream",
+		"control-socket",
+		"controller-presence",
+		"controller-trace",
+		"domain-services",
+		"http-server",
+		"http-server-args",
+		"lease-manager",
+		"model-worker-manager",
+		"object-store",
+		"object-store-facade",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"storage-registry",
+		"tools-version-checker",
+		"upgrade-services",
 	)
 
 	// Ensure that at least one worker is guarded by ifDatabaseUpgradeComplete
@@ -393,29 +417,40 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"object-store-s3-caller",
 	)
 
-	// bootstrapWorkers are workers that are run directly run after bootstrap.
 	bootstrapWorkers := set.NewStrings(
 		"http-server-args",
 	)
 
 	for name, manifold := range manifolds {
 		c.Logf("%s", name)
+		dependencies := agenttest.ManifoldDependencies(manifolds, manifold).SortedValues()
 		switch {
 		case controllerWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-controller-flag")
-			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, dependencies, "is-controller-flag")
+			checkNotContains(c, dependencies, "is-primary-controller-flag")
 		case primaryControllerWorkers.Contains(name):
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, dependencies, "is-controller-flag")
+			checkContains(c, dependencies, "is-primary-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+		case implicitControllerWorkers.Contains(name):
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, dependencies, "is-controller-flag")
+			checkNotContains(c, dependencies, "is-primary-controller-flag")
+		default:
+			checkNotContains(c, dependencies, "is-controller-flag")
+			checkNotContains(c, dependencies, "is-primary-controller-flag")
+		}
+
+		switch {
 		case dbUpgradedWorkers.Contains(name):
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 			checkContains(c, manifold.Inputs, "upgrade-database-flag")
 		case bootstrapWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-bootstrap-flag")
-		default:
-			checkNotContains(c, manifold.Inputs, "is-controller-flag")
-			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		}
 	}
 }

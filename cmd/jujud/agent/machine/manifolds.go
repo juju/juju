@@ -526,14 +526,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewTraceServices: traceservices.NewTraceServices,
 		})),
 
-		controllerTraceName: ifController(trace.ControllerManifold(trace.ControllerManifoldConfig{
+		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
 			AgentName:         agentName,
 			TraceServicesName: traceServicesName,
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.trace"),
 			GetTracingService: trace.GetTracingService,
 			NewTracerWorker:   trace.NewTracerWorker,
-		})),
+		}),
 
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
