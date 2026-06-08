@@ -164,7 +164,7 @@ func (c *ControllerUpgraderAPI) canUpgrade(
 //     in [params.UpgradeModelResult] object, OR
 //   - a [error] return value
 //
-// It's an existing implementation in [ModelUpgraderAPI] that errors are
+// It's an existing implementation in [targetModelUpgraderAPI] that errors are
 // either communicated through [params.UpgradeModelResult] or [error] return
 // value, so we respect that contract here.
 func (c *ControllerUpgraderAPI) mapError(
