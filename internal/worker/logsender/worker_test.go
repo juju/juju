@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/logsender/logsendertest"
 	"github.com/juju/juju/internal/worker/logsender/mocks"
 	"github.com/juju/juju/rpc/params"
 )
@@ -184,7 +185,7 @@ func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 	<-done
 }
 
-func (s *workerSuite) TestLogSinkUnavailableKeepsWorkerAlive(c *tc.C) {
+func (s *workerSuite) TestLogSinkUnavailableDrainsRemoteLogs(c *tc.C) {
 	logsCh := make(logsender.LogRecordCh)
 	logSenderAPI := logsenderAPI{
 		err: errors.WithType(
@@ -196,6 +197,8 @@ func (s *workerSuite) TestLogSinkUnavailableKeepsWorkerAlive(c *tc.C) {
 	w := logsender.New(logsCh, logSenderAPI)
 	defer workertest.CleanKill(c, w)
 
+	sendLog(c, logsCh, "one")
+	sendLog(c, logsCh, "two")
 	workertest.CheckAlive(c, w)
 }
 
@@ -232,11 +235,11 @@ func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "write failed")
 }
 
-func (s *workerSuite) TestWriteLogServiceUnavailableKeepsWorkerAlive(c *tc.C) {
+func (s *workerSuite) TestWriteLogServiceUnavailableDrainsRemoteLogs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	logsCh := make(logsender.LogRecordCh, 1)
+	logsCh := make(logsender.LogRecordCh)
 	writer := mocks.NewMockLogWriter(ctrl)
 	writer.EXPECT().WriteLog(gomock.Any()).Return(errors.WithType(
 		stderrors.New("sending log message: server returned HTTP status 503"),
@@ -244,18 +247,58 @@ func (s *workerSuite) TestWriteLogServiceUnavailableKeepsWorkerAlive(c *tc.C) {
 	))
 	writer.EXPECT().Close()
 
-	logsCh <- &logsender.LogRecord{
+	w := logsender.New(logsCh, logsenderAPI{writer: writer})
+	defer workertest.CleanKill(c, w)
+
+	sendLog(c, logsCh, "one")
+	sendLog(c, logsCh, "two")
+	workertest.CheckAlive(c, w)
+}
+
+func (s *workerSuite) TestLogSinkUnavailableDrainsBufferedLogs(c *tc.C) {
+	bufferedLogger := logsender.NewBufferedLogWriter(10)
+	defer bufferedLogger.Close()
+
+	logSenderAPI := logsenderAPI{
+		err: errors.WithType(
+			stderrors.New("cannot connect to /logsink: server returned HTTP status 503"),
+			api.HTTPStatusServiceUnavailable,
+		),
+	}
+
+	w := logsender.New(bufferedLogger.Logs(), logSenderAPI)
+	defer workertest.CleanKill(c, w)
+
+	for i := range 5 {
+		bufferedLogger.Write(loggo.Entry{
+			Level:     loggo.INFO,
+			Module:    "test",
+			Filename:  "test.go",
+			Line:      i,
+			Timestamp: time.Now(),
+			Message:   fmt.Sprintf("message%d", i),
+		})
+	}
+
+	logsendertest.ExpectLogStats(c, bufferedLogger, logsender.LogStats{
+		Enqueued: 5,
+		Sent:     5,
+	})
+	workertest.CheckAlive(c, w)
+}
+
+func sendLog(c *tc.C, logsCh logsender.LogRecordCh, message string) {
+	select {
+	case logsCh <- &logsender.LogRecord{
 		Time:     time.Now(),
 		Module:   "test",
 		Location: "test:1",
 		Level:    loggo.INFO,
-		Message:  "hello",
+		Message:  message,
+	}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending log record")
 	}
-
-	w := logsender.New(logsCh, logsenderAPI{writer: writer})
-	defer workertest.CleanKill(c, w)
-
-	workertest.CheckAlive(c, w)
 }
 
 type workerBounceSuite struct {

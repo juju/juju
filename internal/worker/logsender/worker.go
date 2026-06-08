@@ -61,7 +61,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		case logWriter = <-sender:
 		case err = <-errChan:
 			if isLogSinkUnavailableError(err) {
-				return discardLogsUntilDone(ctx, logs)
+				return discardRemoteLogsUntilDone(ctx, logs)
 			}
 			return errors.Annotate(err, "logsender dial failed")
 		case <-ctx.Done():
@@ -93,7 +93,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 				if err != nil {
 					if isLogSinkUnavailableError(err) {
 						closeLogWriter()
-						return discardLogsUntilDone(ctx, logs)
+						return discardRemoteLogsUntilDone(ctx, logs)
 					}
 					if errors.Is(err, io.EOF) {
 						return dependency.ErrBounce
@@ -125,7 +125,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 					if err != nil {
 						if isLogSinkUnavailableError(err) {
 							closeLogWriter()
-							return discardLogsUntilDone(ctx, logs)
+							return discardRemoteLogsUntilDone(ctx, logs)
 						}
 						if errors.Is(err, io.EOF) {
 							return dependency.ErrBounce
@@ -142,7 +142,9 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 	return jworker.NewSimpleWorker(loop)
 }
 
-func discardLogsUntilDone(ctx context.Context, logs LogRecordCh) error {
+// discardRemoteLogsUntilDone drains remote log records after /logsink reports
+// that it is unavailable. Local file logging is handled separately by loggo.
+func discardRemoteLogsUntilDone(ctx context.Context, logs LogRecordCh) error {
 	for {
 		select {
 		case _, ok := <-logs:
