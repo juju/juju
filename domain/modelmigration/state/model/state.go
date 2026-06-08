@@ -107,6 +107,80 @@ FROM   machine_cloud_instance`
 	return instanceIDs, nil
 }
 
+// GetOfferUUIDs returns the UUIDs of all offers hosted by this model. These are
+// used by the controller-DB side to read the offer-scoped permission rows that
+// must travel with the model migration.
+func (s *State) GetOfferUUIDs(ctx context.Context) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get database to retrieve offer UUIDs: %w", err)
+	}
+
+	stmt, err := s.Prepare(`SELECT &entityUUID.uuid FROM offer`, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing retrieve offer UUIDs statement: %w", err)
+	}
+
+	var result []entityUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = nil
+		err := tx.Query(ctx, stmt).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving offer UUIDs: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	uuids := make([]string, 0, len(result))
+	for _, r := range result {
+		uuids = append(uuids, r.UUID)
+	}
+	return uuids, nil
+}
+
+// GetOffererModels returns the distinct (offerer controller, offerer model)
+// pairs referenced by this model's remote applications, excluding rows with a
+// null offerer controller UUID. The controller-DB side reads the matching
+// third-party external_controller and external_model rows from these pairs.
+func (s *State) GetOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Errorf("cannot get database to retrieve offerer models: %w", err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT DISTINCT (offerer_controller_uuid, offerer_model_uuid) AS (&offererModel.*)
+FROM   application_remote_offerer
+WHERE  offerer_controller_uuid IS NOT NULL
+`, offererModel{})
+	if err != nil {
+		return nil, errors.Errorf("preparing retrieve offerer models statement: %w", err)
+	}
+
+	var result []offererModel
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = nil
+		err := tx.Query(ctx, stmt).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving offerer models: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	models := make([]modelmigrationinternal.OffererModel, 0, len(result))
+	for _, r := range result {
+		models = append(models, modelmigrationinternal.OffererModel{
+			ControllerUUID: r.ControllerUUID,
+			ModelUUID:      r.ModelUUID,
+		})
+	}
+	return models, nil
+}
+
 // GetMigrationAgents returns all agents that must report migration minion
 // progress for this model.
 func (s *State) GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error) {

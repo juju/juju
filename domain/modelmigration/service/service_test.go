@@ -504,6 +504,63 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
 
+// TestGetControllerModelInfo asserts the service reads the model's offer UUIDs
+// and remote-offerer pairs from the model DB and passes them to the
+// controller-state read, returning the aggregated facts.
+func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUIDs := []string{"offer-1", "offer-2"}
+	offererModels := []modelmigrationinternal.OffererModel{
+		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
+		{ControllerUUID: s.controllerUUID, ModelUUID: "source-consumed"},
+	}
+	thirdPartyOffererModels := []modelmigrationinternal.OffererModel{
+		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
+	}
+	expected := modelmigration.ControllerModelInfo{
+		ModelInfo: modelmigration.ModelBootstrapInfo{UUID: s.modelUUID, Name: "prod"},
+	}
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
+	s.modelState.EXPECT().GetOffererModels(gomock.Any()).Return(offererModels, nil)
+	s.modelState.EXPECT().GetControllerUUID(gomock.Any()).Return(s.controllerUUID, nil)
+	s.controllerState.EXPECT().
+		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, thirdPartyOffererModels).
+		Return(expected, nil)
+
+	info, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, expected)
+}
+
+// TestGetControllerModelInfoControllerUUIDError asserts source-controller UUID
+// read failures are surfaced and the controller-state read is not attempted.
+func (s *serviceSuite) TestGetControllerModelInfoControllerUUIDError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
+	s.modelState.EXPECT().GetOffererModels(gomock.Any()).Return([]modelmigrationinternal.OffererModel{{
+		ControllerUUID: "ctrl-1",
+		ModelUUID:      "consumed-1",
+	}}, nil)
+	s.modelState.EXPECT().GetControllerUUID(gomock.Any()).Return("", errors.New("boom"))
+
+	_, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*reading source controller UUID.*boom")
+}
+
+// TestGetControllerModelInfoOfferUUIDsError asserts a model-DB read failure is
+// surfaced and the controller-state read is not attempted.
+func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
+}
+
 // TestModelMigrationMode asserts the mode is passed through from state.
 func (s *serviceSuite) TestModelMigrationMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
