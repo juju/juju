@@ -65,6 +65,12 @@ type ControllerRuntimeConfig struct {
 	// CACert is the TLS CA certificate PEM block used for Dqlite.
 	CACert string `yaml:"ca-cert"`
 
+	// CAPrivateKey is the TLS CA private key PEM block. It is used by
+	// the certificate-watcher worker to build the PKI authority at
+	// controller startup. This field is sensitive and must not be
+	// logged.
+	CAPrivateKey string `yaml:"ca-private-key"`
+
 	// ControllerCert is the Dqlite node TLS certificate PEM block.
 	ControllerCert string `yaml:"controller-cert"`
 
@@ -106,6 +112,9 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.CACert == "" {
 		return errors.NotValidf("empty ca-cert")
+	}
+	if cfg.CAPrivateKey == "" {
+		return errors.NotValidf("empty ca-private-key")
 	}
 	if cfg.ControllerCert == "" {
 		return errors.NotValidf("empty controller-cert")
