@@ -55,6 +55,10 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = validCfg
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -100,6 +104,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C) leaseexpiry.ManifoldConfig {
 	return leaseexpiry.ManifoldConfig{
 		DBAccessorName: "db-accessor-name",
 		TraceName:      "trace-name",
+		Clock:          clock.WallClock,
 		Logger:         loggertesting.WrapCheckLog(c),
 		NewWorker: func(config leaseexpiry.Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
