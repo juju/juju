@@ -13,13 +13,14 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gomock "go.uber.org/mock/gomock"
+
 	application "github.com/juju/juju/core/application"
 	resource "github.com/juju/juju/core/resource"
 	store "github.com/juju/juju/core/resource/store"
 	unit "github.com/juju/juju/core/unit"
 	resource0 "github.com/juju/juju/domain/deployment/charm/resource"
 	resource1 "github.com/juju/juju/domain/resource"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.
@@ -194,45 +195,6 @@ func (c *MockStateDeleteUnitResourcesCall) Do(f func(context.Context, unit.UUID)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteUnitResourcesCall) DoAndReturn(f func(context.Context, unit.UUID) error) *MockStateDeleteUnitResourcesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ExportResources mocks base method.
-func (m *MockState) ExportResources(arg0 context.Context, arg1 string) (resource1.ExportedResources, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportResources", arg0, arg1)
-	ret0, _ := ret[0].(resource1.ExportedResources)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ExportResources indicates an expected call of ExportResources.
-func (mr *MockStateMockRecorder) ExportResources(arg0, arg1 any) *MockStateExportResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportResources", reflect.TypeOf((*MockState)(nil).ExportResources), arg0, arg1)
-	return &MockStateExportResourcesCall{Call: call}
-}
-
-// MockStateExportResourcesCall wrap *gomock.Call
-type MockStateExportResourcesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateExportResourcesCall) Return(arg0 resource1.ExportedResources, arg1 error) *MockStateExportResourcesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateExportResourcesCall) Do(f func(context.Context, string) (resource1.ExportedResources, error)) *MockStateExportResourcesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateExportResourcesCall) DoAndReturn(f func(context.Context, string) (resource1.ExportedResources, error)) *MockStateExportResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

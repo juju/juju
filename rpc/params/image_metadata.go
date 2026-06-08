@@ -3,6 +3,8 @@
 
 package params
 
+import "time"
+
 // ImageMetadataFilter holds filter properties used to search for image metadata.
 // It amalgamates both simplestreams.MetadataLookupParams and simplestreams.LookupParams
 // and adds additional properties to satisfy existing and new use cases.
@@ -62,6 +64,9 @@ type CloudImageMetadata struct {
 	// Higher number means higher priority.
 	// This will allow to sort metadata by importance.
 	Priority int `json:"priority"`
+
+	// CreatedAt is when the cloud image metadata row was created.
+	CreatedAt time.Time `json:"created-at,omitempty"`
 }
 
 // ListCloudImageMetadataResult holds the results of querying cloud image metadata.
