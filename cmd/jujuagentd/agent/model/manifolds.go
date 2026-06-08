@@ -229,7 +229,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          modellife.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			AgentName:        agentName,
+			ModelUUID:        string(modelUUID),
 			LeaseManagerName: leaseManagerName,
 			Clock:            config.Clock,
 			Duration:         config.RunFlagDuration,
