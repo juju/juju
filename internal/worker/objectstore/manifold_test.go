@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
@@ -73,6 +74,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewObjectStoreWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -102,6 +107,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		APIRemoteCallerName:     "api-remote-caller",
 		ObjectStoreRootDir:      "/var/lib/juju",
 		ControllerNodeID:        "0",
+		Clock:                   clock.WallClock,
 		Logger:                  s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
