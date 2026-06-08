@@ -572,6 +572,8 @@ func (a *MachineAgent) makeEngineCreator(
 			AgentName:                         agentName,
 			ControllerID:                      agentConfig.Tag().Id(),
 			ObjectStoreRootDir:                agentConfig.DataDir(),
+			ControllerUUID:                    agentConfig.Controller().Id(),
+			ControllerModelUUID:               agentConfig.Model().Id(),
 			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
