@@ -501,6 +501,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		QueryTracingThreshold: w.icfg.ControllerConfig.QueryTracingThreshold(),
 		DqliteBusyTimeout:     w.icfg.ControllerConfig.DqliteBusyTimeout(),
 		CACert:                w.icfg.APIInfo.CACert,
+		CAPrivateKey:          w.icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
 		ControllerCert:        w.icfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
 		SystemIdentity:        w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,

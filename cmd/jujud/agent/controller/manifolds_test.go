@@ -843,7 +843,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"certificate-watcher": {"agent"},
+	"certificate-watcher": {},
 
 	"change-stream": {
 		"controller-agent-config",

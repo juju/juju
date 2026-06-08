@@ -793,6 +793,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		QueryTracingThreshold: c.pcfg.Controller.QueryTracingThreshold(),
 		DqliteBusyTimeout:     c.pcfg.Controller.DqliteBusyTimeout(),
 		CACert:                c.pcfg.APIInfo.CACert,
+		CAPrivateKey:          c.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
 		ControllerCert:        c.pcfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  c.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
 		SystemIdentity:        c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
