@@ -14,7 +14,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/services"
 )
 
 // This file only exists to provide a noop implementation of the trace manifold
@@ -87,9 +86,5 @@ type TracingService any
 // GetTracingService returns the controller tracing service from the
 // dependency getter.
 func GetTracingService(getter dependency.Getter, name string) (TracingService, error) {
-	var controllerServices services.ControllerDomainServices
-	if err := getter.Get(name, &controllerServices); err != nil {
-		return nil, err
-	}
-	return controllerServices.Tracing(), nil
+	return nil, errors.NotImplementedf("GetTracingService is not implemented in dqlite builds")
 }
