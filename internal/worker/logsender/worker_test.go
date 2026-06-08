@@ -5,7 +5,7 @@ package logsender_test
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -15,12 +15,14 @@ import (
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/internal/testhelpers"
@@ -182,21 +184,25 @@ func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 	<-done
 }
 
-func (s *workerSuite) TestLogWriterDialFailureTerminatesWorker(c *tc.C) {
+func (s *workerSuite) TestLogSinkUnavailableKeepsWorkerAlive(c *tc.C) {
 	logsCh := make(logsender.LogRecordCh)
 	logSenderAPI := logsenderAPI{
-		err: errors.New("cannot connect to /logsink: server returned HTTP status 503"),
+		err: errors.WithType(
+			stderrors.New("cannot connect to /logsink: server returned HTTP status 503"),
+			api.HTTPStatusServiceUnavailable,
+		),
 	}
 
 	w := logsender.New(logsCh, logSenderAPI)
-	err := w.Wait()
-	c.Assert(err, tc.ErrorMatches, "logsender dial failed: cannot connect to /logsink: server returned HTTP status 503")
+	defer workertest.CleanKill(c, w)
+
+	workertest.CheckAlive(c, w)
 }
 
 func (s *workerSuite) TestDisconnectedAPICallerTerminatesWorker(c *tc.C) {
 	logsCh := make(logsender.LogRecordCh)
 	logSenderAPI := logsenderAPI{
-		err: errors.New("api caller disconnected"),
+		err: stderrors.New("api caller disconnected"),
 	}
 
 	w := logsender.New(logsCh, logSenderAPI)
@@ -210,7 +216,7 @@ func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
 
 	logsCh := make(logsender.LogRecordCh, 1)
 	writer := mocks.NewMockLogWriter(ctrl)
-	writer.EXPECT().WriteLog(gomock.Any()).Return(errors.New("write failed"))
+	writer.EXPECT().WriteLog(gomock.Any()).Return(stderrors.New("write failed"))
 	writer.EXPECT().Close()
 
 	logsCh <- &logsender.LogRecord{
@@ -224,6 +230,32 @@ func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
 	w := logsender.New(logsCh, logsenderAPI{writer: writer})
 	err := w.Wait()
 	c.Assert(err, tc.ErrorMatches, "write failed")
+}
+
+func (s *workerSuite) TestWriteLogServiceUnavailableKeepsWorkerAlive(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	logsCh := make(logsender.LogRecordCh, 1)
+	writer := mocks.NewMockLogWriter(ctrl)
+	writer.EXPECT().WriteLog(gomock.Any()).Return(errors.WithType(
+		stderrors.New("sending log message: server returned HTTP status 503"),
+		api.HTTPStatusServiceUnavailable,
+	))
+	writer.EXPECT().Close()
+
+	logsCh <- &logsender.LogRecord{
+		Time:     time.Now(),
+		Module:   "test",
+		Location: "test:1",
+		Level:    loggo.INFO,
+		Message:  "hello",
+	}
+
+	w := logsender.New(logsCh, logsenderAPI{writer: writer})
+	defer workertest.CleanKill(c, w)
+
+	workertest.CheckAlive(c, w)
 }
 
 type workerBounceSuite struct {

@@ -22,6 +22,9 @@ const loggerName = "juju.worker.logsender"
 
 // LogSenderAPI provides a log writer.
 type LogSenderAPI interface {
+	// LogWriter returns a logsender.LogWriter which can be used to send log
+	// messages to the controller. The LogWriter should be closed when finished
+	// with it to free up resources.
 	LogWriter(ctx context.Context) (logsender.LogWriter, error)
 }
 
@@ -57,16 +60,28 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		select {
 		case logWriter = <-sender:
 		case err = <-errChan:
+			if isLogSinkUnavailableError(err) {
+				return discardLogsUntilDone(ctx, logs)
+			}
 			return errors.Annotate(err, "logsender dial failed")
 		case <-ctx.Done():
 			return nil
 		}
-		// the logwriter has been successfully retrieved from the inside goroutine and its lifecycle is now handled
-		// in the loop function.
-		defer logWriter.Close()
+		// the logwriter has been successfully retrieved from the inside
+		// goroutine and its lifecycle is now handled in the loop function.
+		closeLogWriter := func() {
+			if logWriter != nil {
+				_ = logWriter.Close()
+				logWriter = nil
+			}
+		}
+		defer closeLogWriter()
 		for {
 			select {
-			case rec := <-logs:
+			case rec, ok := <-logs:
+				if !ok {
+					return nil
+				}
 				err := logWriter.WriteLog(&params.LogRecord{
 					Time:     rec.Time,
 					Module:   rec.Module,
@@ -76,6 +91,10 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 					Labels:   rec.Labels,
 				})
 				if err != nil {
+					if isLogSinkUnavailableError(err) {
+						closeLogWriter()
+						return discardLogsUntilDone(ctx, logs)
+					}
 					if errors.Is(err, io.EOF) {
 						return dependency.ErrBounce
 					}
@@ -104,6 +123,10 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 						Message: fmt.Sprintf("%d log messages dropped due to lack of API connectivity", rec.DroppedAfter),
 					})
 					if err != nil {
+						if isLogSinkUnavailableError(err) {
+							closeLogWriter()
+							return discardLogsUntilDone(ctx, logs)
+						}
 						if errors.Is(err, io.EOF) {
 							return dependency.ErrBounce
 						}
@@ -117,4 +140,17 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		}
 	}
 	return jworker.NewSimpleWorker(loop)
+}
+
+func discardLogsUntilDone(ctx context.Context, logs LogRecordCh) error {
+	for {
+		select {
+		case _, ok := <-logs:
+			if !ok {
+				return nil
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }

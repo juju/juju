@@ -26,6 +26,12 @@ const websocketTimeout = 30 * time.Second
 // tests.
 var WebsocketDial = WebsocketDialWithErrors
 
+const (
+	// HTTPStatusServiceUnavailable is added to websocket handshake errors
+	// when the API response status code is 503.
+	HTTPStatusServiceUnavailable = errors.ConstError("http status service unavailable")
+)
+
 // WebsocketDialer is something that can make a websocket connection. Enables
 // testing the error unpacking in websocketDialWithErrors.
 type WebsocketDialer interface {
@@ -66,11 +72,21 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 				strings.TrimSpace(string(body)),
 				http.StatusText(resp.StatusCode),
 			)
+			err = addHTTPStatusError(err, resp.StatusCode)
 		}
 		return nil, err
 	}
 	result := DeadlineStream{Conn: c, Timeout: websocketTimeout}
 	return &result, nil
+}
+
+func addHTTPStatusError(err error, statusCode int) error {
+	switch statusCode {
+	case http.StatusServiceUnavailable:
+		return errors.WithType(err, HTTPStatusServiceUnavailable)
+	default:
+		return err
+	}
 }
 
 // DeadlineStream wraps a websocket connection and applies a write

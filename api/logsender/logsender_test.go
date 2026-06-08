@@ -5,15 +5,17 @@ package logsender_test
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"io"
 	"net/url"
 	"testing"
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/internal/testhelpers"
@@ -52,7 +54,7 @@ func (s *LogSenderSuite) TestNewAPI(c *tc.C) {
 func (s *LogSenderSuite) TestNewAPIWriteLogError(c *tc.C) {
 	conn := &mockConnector{
 		c:            c,
-		connectError: errors.New("foo"),
+		connectError: stderrors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -63,7 +65,7 @@ func (s *LogSenderSuite) TestNewAPIWriteLogError(c *tc.C) {
 func (s *LogSenderSuite) TestNewAPIWriteError(c *tc.C) {
 	conn := &mockConnector{
 		c:          c,
-		writeError: errors.New("foo"),
+		writeError: stderrors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -74,12 +76,30 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *tc.C) {
 	c.Assert(conn.written, tc.HasLen, 0)
 }
 
+func (s *LogSenderSuite) TestNewAPIWriteServiceUnavailableError(c *tc.C) {
+	conn := &mockConnector{
+		c: c,
+		writeError: errors.WithType(
+			stderrors.New("server returned HTTP status 503"),
+			api.HTTPStatusServiceUnavailable,
+		),
+	}
+	a := logsender.NewAPI(conn)
+	w, err := a.LogWriter(c.Context())
+	c.Assert(err, tc.IsNil)
+
+	err = w.WriteLog(new(params.LogRecord))
+	c.Assert(err, tc.ErrorMatches, "sending log message: server returned HTTP status 503")
+	c.Assert(err, tc.ErrorIs, api.HTTPStatusServiceUnavailable)
+	c.Assert(conn.written, tc.HasLen, 0)
+}
+
 func (s *LogSenderSuite) testCleanCloseReturnsEOF(c *tc.C, code int) {
 	conn := &mockConnector{
 		c:          c,
 		closed:     make(chan bool),
 		readError:  &gorillaws.CloseError{Code: code},
-		writeError: errors.New("use of closed network connection"),
+		writeError: stderrors.New("use of closed network connection"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -116,8 +136,8 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *tc.C) {
 	conn := &mockConnector{
 		c:          c,
 		closed:     make(chan bool),
-		readError:  errors.New("read foo"),
-		writeError: errors.New("closed yo"),
+		readError:  stderrors.New("read foo"),
+		writeError: stderrors.New("closed yo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
