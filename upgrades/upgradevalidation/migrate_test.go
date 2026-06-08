@@ -100,6 +100,7 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 	serverFactory := mocks.NewMockServerFactory(ctrl)
 	// - check LXD version.
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
+	s.model.EXPECT().Config().Return(lxdModelConfig(c, ""), nil)
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 

@@ -78,6 +78,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	// - check no charm store charms
 	ctrlState.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
+	ctrlModel.EXPECT().Config().Return(lxdModelConfig(c, ""), nil)
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 	// 2. Check hosted models.
@@ -91,6 +92,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	// - check no charm store charms
 	state1.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
+	model1.EXPECT().Config().Return(lxdModelConfig(c, ""), nil)
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
@@ -132,6 +134,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	state.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check LXD version.
+	model.EXPECT().Config().Return(lxdModelConfig(c, ""), nil)
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 

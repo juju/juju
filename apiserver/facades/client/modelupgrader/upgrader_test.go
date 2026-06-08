@@ -208,6 +208,9 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
+	// The LXD version check reads the model's project from its config.
+	ctrlModel.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
+	model1.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
 
 	ctrlState := mocks.NewMockState(ctrl)
 	state1 := mocks.NewMockState(ctrl)
@@ -334,6 +337,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
+	// The LXD version check reads the model's project from its config.
+	ctrlModel.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
+	model1.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
 
 	ctrlState := mocks.NewMockState(ctrl)
 	state1 := mocks.NewMockState(ctrl)
@@ -438,6 +444,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
+	// The LXD version check reads the model's project from its config.
+	ctrlModel.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
+	model1.EXPECT().Config().Return(coretesting.ModelConfig(c), nil).AnyTimes()
 
 	ctrlState := mocks.NewMockState(ctrl)
 	state1 := mocks.NewMockState(ctrl)
@@ -600,7 +609,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;
 	st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
-	// - check LXD version.
+	// - check LXD version (reads the model's project from its config).
+	model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil)
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
@@ -688,7 +698,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	}, nil)
 	// - check if model has charm store charms;
 	st.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
-	// - check LXD version.
+	// - check LXD version (reads the model's project from its config).
+	model.EXPECT().Config().Return(coretesting.ModelConfig(c), nil)
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("4.0")
 	model.EXPECT().Owner().Return(names.NewUserTag("admin"))

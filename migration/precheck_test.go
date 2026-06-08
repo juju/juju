@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -1052,6 +1053,10 @@ func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 		return names.NewCloudCredentialTag(m.credential), true
 	}
 	return names.CloudCredentialTag{}, false
+}
+
+func (m *fakeModel) Config() (*config.Config, error) {
+	return config.New(config.UseDefaults, testing.FakeConfig())
 }
 
 type fakeMachine struct {
