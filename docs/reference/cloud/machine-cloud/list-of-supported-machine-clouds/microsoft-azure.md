@@ -2,19 +2,26 @@
 
 In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+(azure-cloud-concepts)=
+## Concepts
+
+The following table shows how Azure's native abstractions map to Juju concepts:
+
+| Azure | Juju |
+| - | - |
+| [Resource Group](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/overview#resource-groups) | {ref}`model <model>` (roughly) |
+| [Virtual Machine](https://learn.microsoft.com/en-us/azure/virtual-machines/) | {ref}`machine <machine>` |
+| Process or container within a VM | {ref}`unit <unit>` |
+| Collection of VMs running the same workload | {ref}`application <application>` |
+| [Managed Disk](https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview) | {ref}`storage <storage>` |
+| [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
+
 (azure-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(azure-cloud-definition)=
-### Definition
-
-Type in Juju: `azure`
-
-Name in Juju: `azure`
 
 (azure-cloud-requirements)=
 ### Requirements
@@ -34,21 +41,12 @@ Name in Juju: `azure`
 - `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate).
 - `Microsoft.Compute/disks` (write, read, delete).
 
-(azure-cloud-other)=
-### Other
+(azure-cloud-definition)=
+### Definition
 
-#### Concepts
+Type in Juju: `azure`
 
-The following table shows how Azure's native abstractions map to Juju concepts:
-
-| Azure | Juju |
-| - | - |
-| [Resource Group](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/overview#resource-groups) | {ref}`model <model>` (roughly) |
-| [Virtual Machine](https://learn.microsoft.com/en-us/azure/virtual-machines/) | {ref}`machine <machine>` |
-| Process or container within a VM | {ref}`unit <unit>` |
-| Collection of VMs running the same workload | {ref}`application <application>` |
-| [Managed Disk](https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview) | {ref}`storage <storage>` |
-| [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
+Name in Juju: `azure`
 
 (azure-credential)=
 ## Credentials
@@ -147,12 +145,10 @@ See more: {ref}`azure-machine-supported-constraints`
 See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
-When configuring a model on Microsoft Azure, Juju recognizes the following cloud-specific keys.
-
 (azure-model-configuration-keys)=
 ### Configuration keys
 
-Microsoft Azure supports the following cloud-specific model configuration keys:
+Microsoft Azure supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (azure-model-load-balancer-sku-name)=
 #### `load-balancer-sku-name`
@@ -248,7 +244,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 
 ### Storage providers
 
-In addition to {ref}`generic storage providers <storage-provider>`, Microsoft Azure provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, Microsoft Azure provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-azure)=
 #### `azure`

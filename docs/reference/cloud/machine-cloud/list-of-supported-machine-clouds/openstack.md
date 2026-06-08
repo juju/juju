@@ -10,18 +10,11 @@ myst:
 In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (openstack-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(openstack-cloud-definition)=
-### Definition
-
-Type in Juju: `openstack`
-
-Name in Juju: User-defined.
 
 (openstack-cloud-requirements)=
 ### Requirements
@@ -37,6 +30,13 @@ Any version that supports:
 **OpenStack RC file usage (recommended):**
 
 Source the OpenStack RC file (`source <path to file>`). This allows Juju to detect values from preset OpenStack environment variables. Run `juju add-cloud` in interactive mode and accept the suggested defaults.
+
+(openstack-cloud-definition)=
+### Definition
+
+Type in Juju: `openstack`
+
+Name in Juju: User-defined.
 
 (openstack-credential)=
 ## Credentials
@@ -118,7 +118,7 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 (openstack-model-configuration-keys)=
 ### Configuration keys
 
-OpenStack supports the following cloud-specific model configuration keys:
+OpenStack supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (openstack-model-external-network)=
 #### `external-network`
@@ -239,7 +239,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 
 ### Storage providers
 
-In addition to {ref}`generic storage providers <storage-provider>`, OpenStack provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, OpenStack provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-cinder)=
 #### `cinder`

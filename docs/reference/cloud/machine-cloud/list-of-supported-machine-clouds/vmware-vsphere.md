@@ -10,18 +10,11 @@ myst:
 In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (vsphere-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(vsphere-cloud-definition)=
-### Definition
-
-Type in Juju: `vsphere`
-
-Name in Juju: User-defined
 
 (vsphere-cloud-requirements)=
 ### Requirements
@@ -34,6 +27,13 @@ In order to add a vSphere cloud you will need an existing vSphere installation w
 - DNS and DHCP.
 
 Juju supports both high-availability vSAN deployments and standard deployments.
+
+(vsphere-cloud-definition)=
+### Definition
+
+Type in Juju: `vsphere`
+
+Name in Juju: User-defined
 
 (vsphere-credential)=
 ## Credentials
@@ -106,7 +106,7 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 (vsphere-model-configuration-keys)=
 ### Configuration keys
 
-VMware vSphere supports the following cloud-specific model configuration keys:
+VMware vSphere supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (vsphere-model-datastore)=
 #### `datastore`

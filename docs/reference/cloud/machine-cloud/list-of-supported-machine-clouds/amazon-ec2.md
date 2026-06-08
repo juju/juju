@@ -10,21 +10,14 @@ myst:
 In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (ec2-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(ec2-cloud-definition)=
-### Definition
-
-Type in Juju: `ec2`
-
-Name in Juju: `aws` (predefined)
-
-(ec2-cloud-other)=
-### Other
+(ec2-cloud-requirements)=
+### Requirements
 
 (ec2-cloud-vpc-requirements)=
 #### VPC requirements
@@ -38,6 +31,13 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 - All subnets using the main route table (not per-subnet route tables).
 
 Use `vpc-id-force=true` to skip validation.
+
+(ec2-cloud-definition)=
+### Definition
+
+Type in Juju: `ec2`
+
+Name in Juju: `aws` (predefined)
 
 (ec2-credential)=
 ## Credentials
@@ -113,7 +113,7 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 (ec2-model-configuration-keys)=
 ### Configuration keys
 
-Amazon EC2 supports the following cloud-specific model configuration keys:
+Amazon EC2 supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (ec2-model-vpc-id)=
 #### `vpc-id`
@@ -206,7 +206,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 
 ### Storage providers
 
-In addition to {ref}`generic storage providers <storage-provider>`, Amazon EC2 provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, Amazon EC2 provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-ebs)=
 #### `ebs`

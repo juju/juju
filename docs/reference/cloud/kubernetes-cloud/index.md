@@ -19,7 +19,20 @@ Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft A
 
 Kubernetes clouds are very similar in Juju; this page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`Microsoft AKS <cloud-kubernetes-aks>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Canonical Kubernetes <cloud-canonical-k8s>`.
 
-## The cloud
+(kubernetes-concept-mapping)=
+## Concepts
+
+If you are familiar with Kubernetes, the following maps Kubernetes concepts to their Juju equivalents:
+
+| Kubernetes | Juju |
+| - | - |
+| [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
+| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (on Kubernetes clouds, not managed by Juju) |
+| [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
+| container | process in a unit |
+| [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |
+
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
@@ -269,18 +282,3 @@ Configuration options:
 
 - **`parameters.type`**: Extra parameters passed to the storage provisioner. For example: `gp2`, `pd-standard`, etc.
 
-(kubernetes-other)=
-## Other
-
-(kubernetes-concept-mapping)=
-### Kubernetes-to-Juju concept mapping
-
-If you are familiar with Kubernetes, the following maps Kubernetes concepts to their Juju equivalents:
-
-| Kubernetes | Juju |
-| - | - |
-| [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
-| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (on Kubernetes clouds, not managed by Juju) |
-| [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
-| container | process in a unit |
-| [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |

@@ -10,18 +10,11 @@ myst:
 In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (oci-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(oci-cloud-definition)=
-### Definition
-
-Type in Juju: `oci`
-
-Name in Juju: `oracle` (predefined)
 
 (oci-cloud-requirements)=
 ### Requirements
@@ -29,6 +22,13 @@ Name in Juju: `oracle` (predefined)
 You must specify the compartment OCID via the cloud-specific `compartment-id` model configuration key. All resources (VCNs, subnets, instances, volumes) are created in this single compartment.
 
 Example: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracle-controller`
+
+(oci-cloud-definition)=
+### Definition
+
+Type in Juju: `oci`
+
+Name in Juju: `oracle` (predefined)
 
 (oci-cloud-other)=
 ### Other
@@ -92,12 +92,10 @@ Creates a controller instance on OCI by provisioning the required network and co
 See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
-When configuring a model on Oracle OCI, Juju recognizes the following cloud-specific keys.
-
 (oci-model-configuration-keys)=
 ### Configuration keys
 
-Oracle OCI supports the following cloud-specific model configuration keys:
+Oracle OCI supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (oci-model-compartment-id)=
 #### `compartment-id`
@@ -178,7 +176,7 @@ Each machine (controller or application) receives:
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-In addition to {ref}`generic storage providers <storage-provider>`, Oracle OCI provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, Oracle OCI provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 ### Storage providers
 

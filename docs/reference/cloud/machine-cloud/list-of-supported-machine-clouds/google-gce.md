@@ -10,18 +10,11 @@ myst:
 In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (gce-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(gce-cloud-definition)=
-### Definition
-
-Type in Juju: `gce`
-
-Name in Juju: `google` (predefined)
 
 (gce-cloud-requirements)=
 ### Requirements
@@ -31,6 +24,13 @@ Name in Juju: `google` (predefined)
 ```{ibnote}
 See more: [Google | Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam)
 ```
+
+(gce-cloud-definition)=
+### Definition
+
+Type in Juju: `gce`
+
+Name in Juju: `google` (predefined)
 
 (gce-cloud-other)=
 ### Other
@@ -139,12 +139,10 @@ See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authen
 See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
-When configuring a model on Google GCE, Juju recognizes the following cloud-specific keys.
-
 (gce-model-configuration-keys)=
 ### Configuration keys
 
-Google GCE supports the following cloud-specific model configuration keys:
+Google GCE supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (gce-model-vpc-id)=
 #### `vpc-id`
@@ -245,7 +243,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 
 ### Storage providers
 
-In addition to {ref}`generic storage providers <storage-provider>`, Google GCE provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, Google GCE provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-gce)=
 #### `gce`

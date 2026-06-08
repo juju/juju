@@ -18,20 +18,11 @@ If this collection of machines is composed solely of bare metal you might opt fo
 ```
 
 (manual-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(manual-cloud-definition)=
-### Definition
-
-Type in Juju: `manual`
-
-Name in Juju: User-defined
-
-A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privileges. Machines are not created by Juju -- they must be provisioned externally and brought under Juju management via SSH credentials.
 
 (manual-cloud-requirements)=
 ### Requirements
@@ -41,6 +32,15 @@ A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privile
 - The machines must be accessible over SSH from the terminal you're running the Juju client from using public key authentication.
 - SSH user must have sudo rights (passwordless sudo preferred, but Juju will prompt for password if needed).
 - The machines must be able to ping one another.
+
+(manual-cloud-definition)=
+### Definition
+
+Type in Juju: `manual`
+
+Name in Juju: User-defined
+
+A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privileges. Machines are not created by Juju -- they must be provisioned externally and brought under Juju management via SSH credentials.
 
 (manual-credential)=
 ## Credentials
@@ -118,7 +118,7 @@ Models connected to the Manual cloud.
 (manual-model-configuration-keys)=
 ### Configuration keys
 
-Manual supports the following cloud-specific model configuration keys:
+Manual supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 None.
 

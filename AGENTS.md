@@ -12,6 +12,11 @@ If guidance conflicts, architectural rules take precedence.
 - [Documentation rules](AGENTS.documentation.rules.md) — Guidelines for writing user-facing documentation.
 - [Package doc.go rules](AGENTS.doc-dot-go-rules.md) — Guidelines for writing package-level documentation.
 
+### Cloud Reference Style Notes
+
+- In cloud-specific docs, place cloud requirements content under `## The cloud` -> `### Requirements`.
+- For embedded requirement labels, prefer real subheadings (for example `#### VPC requirements`) so they appear in page TOCs.
+
 ## Build
 
 - `make install` — Full build including schema regeneration.

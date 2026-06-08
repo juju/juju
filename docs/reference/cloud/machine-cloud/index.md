@@ -20,7 +20,7 @@ Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines 
 Despite their differences, Juju tries to fit all machine clouds into a common logic; this page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Microsoft Azure <azure-cloud>`, {ref}`Google GCE <cloud-gce>`, {ref}`Oracle OCI <cloud-oci>`, {ref}`OpenStack <cloud-openstack>`, {ref}`VMware vSphere <cloud-vsphere>`, {ref}`MAAS <cloud-maas>`, {ref}`LXD <cloud-lxd>`, {ref}`Manual <cloud-manual>`, or {ref}`Equinix Metal <cloud-equinix>`.
 
 (machine-cloud-entity)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

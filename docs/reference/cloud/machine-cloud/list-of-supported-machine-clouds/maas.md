@@ -10,11 +10,16 @@ myst:
 In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (maas-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
+
+(maas-cloud-requirements)=
+### Requirements
+
+Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
 
 (maas-cloud-definition)=
 ### Definition
@@ -22,11 +27,6 @@ See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terra
 Type in Juju: `maas`
 
 Name in Juju: User-defined.
-
-(maas-cloud-requirements)=
-### Requirements
-
-Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
 
 (maas-cloud-other)=
 ### Other
@@ -148,7 +148,7 @@ Each machine (controller or application) receives:
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-In addition to {ref}`generic storage providers <storage-provider>`, MAAS provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, MAAS provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 ### Storage providers
 

@@ -35,18 +35,11 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 ```
 
 (lxd-cloud)=
-## The cloud
+## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(lxd-cloud-definition)=
-### Definition
-
-Type in Juju: `lxd`
-
-Name in Juju: `localhost` (for local LXD), user-defined (for remote/clustered LXD)
 
 (lxd-cloud-requirements)=
 ### Requirements
@@ -55,6 +48,13 @@ Name in Juju: `localhost` (for local LXD), user-defined (for remote/clustered LX
 
 - Juju `2.9.x`: LXD `5.0`
 - Juju `3.x.x`: LXD `5.x`
+
+(lxd-cloud-definition)=
+### Definition
+
+Type in Juju: `lxd`
+
+Name in Juju: `localhost` (for local LXD), user-defined (for remote/clustered LXD)
 
 (lxd-cloud-other)=
 ### Other
@@ -164,12 +164,10 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
-When configuring a model on LXD, Juju recognizes the following cloud-specific keys.
-
 (lxd-model-configuration-keys)=
 ### Configuration keys
 
-LXD supports the following cloud-specific model configuration keys:
+LXD supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (lxd-model-project)=
 #### `project`
@@ -259,7 +257,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 
 ### Storage providers
 
-In addition to {ref}`generic storage providers <storage-provider>`, LXD provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, LXD provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-lxd)=
 #### `lxd`
