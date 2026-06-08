@@ -420,6 +420,10 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControllerRuntimeConfigPath: controllerRuntimeConfigPath,
 			ControllerAgentTag:          a.agentTag,
 			LogDir:                      controllerRuntimeConfig.LogDir,
+			CACert:                      controllerRuntimeConfig.CACert,
+			CAPrivateKey:                controllerRuntimeConfig.CAPrivateKey,
+			ControllerCert:              controllerRuntimeConfig.ControllerCert,
+			ControllerPrivateKey:        controllerRuntimeConfig.ControllerPrivateKey,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),
