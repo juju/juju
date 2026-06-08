@@ -78,6 +78,7 @@ type ManifoldConfig struct {
 	NewDrainerWorker                NewDrainerWorkerFunc
 	SelectFileHash                  SelectFileHashFunc
 	ObjectStoreRootDir              string
+	Clock                           clock.Clock
 
 	Logger logger.Logger
 }
@@ -122,6 +123,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ObjectStoreRootDir == "" {
 		return errors.NotValidf("empty ObjectStoreRootDir")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -198,7 +202,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		RootDir:                      config.ObjectStoreRootDir,
 		RootBucketName:               rootBucketName,
 		Logger:                       config.Logger,
-		Clock:                        clock.WallClock,
+		Clock:                        config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

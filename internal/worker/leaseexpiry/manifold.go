@@ -26,6 +26,7 @@ type ManifoldConfig struct {
 	DBAccessorName string
 	TraceName      string
 
+	Clock  clock.Clock
 	Logger logger.Logger
 
 	NewWorker func(Config) (worker.Worker, error)
@@ -39,6 +40,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -75,7 +79,7 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 	store := c.NewStore(dbGetter, c.Logger)
 
 	w, err := c.NewWorker(Config{
-		Clock:  clock.WallClock,
+		Clock:  c.Clock,
 		Logger: c.Logger,
 		Store:  store,
 		Tracer: tracer,

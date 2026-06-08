@@ -44,6 +44,7 @@ type ManifoldConfig struct {
 	// the trace namespace for the lease manager.
 	ControllerModelUUID string
 
+	Clock                clock.Clock
 	Logger               logger.Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
@@ -65,6 +66,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -118,7 +122,7 @@ func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (wo
 		SecretaryFinder:      s.config.NewSecretaryFinder(controllerUUID),
 		Store:                store,
 		Tracer:               tracer,
-		Clock:                clock.WallClock,
+		Clock:                s.config.Clock,
 		Logger:               s.config.Logger,
 		MaxSleep:             MaxSleep,
 		EntityUUID:           controllerUUID,
