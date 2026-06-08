@@ -19,14 +19,12 @@ Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines 
 
 Despite their differences, Juju tries to fit all machine clouds into a common logic. This page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
 
-```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
-```
-
-See {ref}`list-of-supported-machine-clouds` for detailed information on each supported machine cloud platform.
-
 (machine-cloud-entity)=
 ## The cloud
+
+```{ibnote}
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
 
 (machine-requirements)=
 ### Requirements

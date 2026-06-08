@@ -7,13 +7,13 @@ myst:
 (cloud-openstack)=
 # OpenStack
 
-In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (openstack-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (openstack-cloud-definition)=
@@ -42,7 +42,7 @@ Source the OpenStack RC file (`source <path to file>`). This allows Juju to dete
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 ```{important}
@@ -72,7 +72,7 @@ Attributes:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (openstack-controller-bootstrap-behavior)=
@@ -112,7 +112,7 @@ See more: {ref}`manage-metadata`
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 (openstack-model-configuration-keys)=
@@ -174,7 +174,7 @@ The network label or UUID to bring machines up on when multiple networks exist.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (openstack-machine-constraints)=
@@ -234,7 +234,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

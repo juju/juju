@@ -7,13 +7,13 @@ myst:
 (cloud-maas)=
 # MAAS
 
-In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (maas-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (maas-cloud-definition)=
@@ -46,7 +46,7 @@ Key implications:
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (maas-credential-authentication-types)=
@@ -68,7 +68,7 @@ Attributes:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (maas-controller-bootstrap-behavior)=
@@ -93,7 +93,7 @@ All infrastructure (machines, networks, storage) must already exist in MAAS befo
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (maas-machine-constraints)=
@@ -145,7 +145,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 In addition to {ref}`generic storage providers <storage-provider>`, MAAS provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:

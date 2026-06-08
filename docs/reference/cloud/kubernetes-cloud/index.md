@@ -19,12 +19,10 @@ Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft A
 
 Kubernetes clouds are very similar in Juju. This page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
 
-See {ref}`list-of-supported-kubernetes-clouds` for detailed information on each supported Kubernetes distribution.
-
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 ```{note}
@@ -87,7 +85,7 @@ If you are familiar with Kubernetes, the following maps Kubernetes concepts to t
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (kubernetes-supported-authentication-types)=
@@ -127,7 +125,7 @@ Kubernetes clouds support the following authentication types:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (kubernetes-bootstrap-behavior)=
@@ -172,7 +170,7 @@ LoadBalancer creates a cloud load balancer with a public IP, while ClusterIP use
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 (kubernetes-model-configuration-keys)=
@@ -190,7 +188,7 @@ Kubernetes clouds support the following cloud-specific model configuration keys:
 ## Applications
 
 ```{ibnote}
-See also: {ref}`Juju | Manage applications <manage-applications>`
+See also: {ref}`application`, {ref}`Juju | Manage applications <manage-applications>`
 ```
 
 (kubernetes-supported-constraints)=
@@ -238,7 +236,7 @@ Kubernetes application pods in Juju follow these patterns:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

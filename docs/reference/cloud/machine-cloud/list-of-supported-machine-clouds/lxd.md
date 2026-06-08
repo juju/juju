@@ -7,7 +7,7 @@ myst:
 (cloud-lxd)=
 # LXD
 
-In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ````{dropdown} How to get a LXD cloud quickly on Ubuntu
 
@@ -38,7 +38,7 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (lxd-cloud-definition)=
@@ -97,7 +97,7 @@ Image cache expiration and image synchronization mechanisms are built-in.
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 **Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
@@ -138,7 +138,7 @@ See more: [LXD | Adding client certificates using tokens](https://documentation.
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (lxd-controller-bootstrap-behavior)=
@@ -153,15 +153,15 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 (lxd-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-- **Model profile**: Created via `CreateProfileWithConfig()`. Name: `juju-<modelname>-<shortID>`. Configuration: `boot.autostart=true` (auto-restart containers on host reboot), `security.nesting=true` (allow nested container operations). Applied to every container/VM in the model.
-- **LXD image**: Downloaded from image servers (simplestreams) via `FindImage()`. Cached locally in `/var/lib/lxd/images`. Filtered by base OS, architecture, and virt type.
-- **Controller instance**: Created via `CreateInstanceFromImage()`. Profiles: `default` (LXD built-in) + model profile. Devices: network NICs (bridged to default network), storage (root disk). Started via `StartContainer()` (`UpdateInstanceState` with action="start"). Instance name: `juju-<modeluuid>-<machinenum>`.
+- **Model profile**: Name `juju-<modelname>-<shortID>`. Includes settings such as `boot.autostart=true` and `security.nesting=true`. Applied to every container/VM in the model.
+- **LXD image**: Downloaded from image servers (simplestreams), filtered by base OS, architecture, and virtualization type, and cached locally in `/var/lib/lxd/images`.
+- **Controller instance**: Created from the selected image with the `default` profile plus the model profile, connected to network and root storage, then started. Instance name: `juju-<modeluuid>-<machinenum>`.
 
 (lxd-model)=
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 When configuring a model on LXD, Juju recognizes the following cloud-specific keys.
@@ -185,7 +185,7 @@ The LXD project name to use for Juju's resources.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 When provisioning machines on LXD, Juju supports the following constraints and placement directives.
@@ -223,20 +223,20 @@ LXD supports the following placement directives:
 
 Each machine (controller or application) receives:
 
-- **LXD instance**: Container or VM created via `CreateInstanceFromImage()`. Type: `instance.InstanceTypeContainer` (default) or `instance.InstanceTypeVM` (from `virt-type` constraint). Name: `juju-<modeluuid>-<machinenum>`.
+- **LXD instance**: Container (default) or VM (when constrained with `virt-type`). Name: `juju-<modeluuid>-<machinenum>`.
 - **Profiles applied**: In order: (1) `default` (LXD built-in), (2) model profile (`juju-<model>-<id>`), (3) charm profiles (`juju-<model>-<id>-<appname>-<rev>`) if specified by charm.
 - **Constraints via config**: `limits.cpu=<cores>` (CPU cores limit), `limits.memory=<MiB>MiB` (memory limit).
 - **Root disk device** (if constraint specified): Type `disk`, pool from `root-disk-source`, path `/`, size in MiB.
 - **Network interfaces**: Default `eth0` bridged to default network. Additional NICs (`eth1`, `eth2`, etc.) for space constraints. Each NIC: type `nic`, `nictype=bridged`, parent host bridge, generated MAC address.
-- **Cloud-init network config**: Generated netplan config for multiple NICs. Disabled cloud-init network auto if custom config: `user.network-config=disabled`.
+- **Cloud-init network config**: Netplan generated for multiple NICs when needed.
 
 (lxd-machine-networking-behavior)=
 ### Networking behavior
 
-- **Network discovery**: Uses `GetNetworks()` to list all LXD networks. Filters to type `bridge` only. Falls back to container introspection for older LXD versions.
+- **Network discovery**: Lists LXD networks and uses bridge networks for machine placement.
 - **Subnet ID format**: `subnet-<hostBridgeName>-<CIDR>`. Example: `subnet-lxdbr0-10.0.0.0/24`.
-- **NIC assignment**: Default `eth0` from `default` profile. Additional NICs for space constraints, bridged to host bridges. MAC addresses generated via `GenerateVirtualMACAddress()`.
-- **IP assignment**: Static via host bridge DHCP from LXD host. Container network detection via `ContainerAddresses()`.
+- **NIC assignment**: Default `eth0` from `default` profile. Additional NICs for space constraints are bridged to host bridges.
+- **IP assignment**: Assigned by host bridge DHCP on the LXD host.
 
 (lxd-machine-other)=
 ### Other
@@ -254,7 +254,7 @@ See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthe
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

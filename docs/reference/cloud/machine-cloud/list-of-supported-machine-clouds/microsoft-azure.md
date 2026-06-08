@@ -1,12 +1,12 @@
 # Microsoft Azure
 
-In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (azure-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (azure-cloud-definition)=
@@ -54,7 +54,7 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (azure-credential-authentication-types)=
@@ -110,7 +110,7 @@ Credentials occasionally stop working over time. Refresh using credential update
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (azure-controller-bootstrap-behavior)=
@@ -144,7 +144,7 @@ See more: {ref}`azure-machine-supported-constraints`
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 When configuring a model on Microsoft Azure, Juju recognizes the following cloud-specific keys.
@@ -188,7 +188,7 @@ If set, use the specified virtual network for all model machines instead of crea
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 
@@ -243,7 +243,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

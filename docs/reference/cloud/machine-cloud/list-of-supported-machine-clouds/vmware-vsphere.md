@@ -7,13 +7,13 @@ myst:
 (cloud-vsphere)=
 # VMware vSphere
 
-In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (vsphere-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (vsphere-cloud-definition)=
@@ -39,7 +39,7 @@ Juju supports both high-availability vSAN deployments and standard deployments.
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (vsphere-credential-authentication-types)=
@@ -60,13 +60,13 @@ Attributes:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (vsphere-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
-Creates a controller VM on vSphere via template cloning. Uses imperative vSphere API calls (govmomi) with synchronous task waiting -- no declarative templates.
+Creates a controller VM on vSphere by cloning from a template and waiting for provisioning tasks to complete.
 
 Bootstrap downloads a cloud image to the client, uploads it to the ESX host, and creates a template. This process can be slow depending on network connection. Using pre-created templates speeds up bootstrap and machine deployment.
 
@@ -79,7 +79,7 @@ Bootstrap with cloud-specific model-configuration keys `datastore` and `primary-
 
 - **VM folder hierarchy**: Creates folder `Juju Controller (<controller-uuid>)` with nested structure `<vm-folder>/Juju Controller (UUID)/Model "name" (UUID)/`. Folders enable cleanup by controller/model.
 - **Template cache**: Creates `Juju Controller (<uuid>)/templates/<os>_<track>/` folder. Templates named `juju-template-<sha256>` with architecture tag in extra config. Each base image (ubuntu_20.04, ubuntu_22.04, etc.) gets own folder.
-- **Controller VM**: Created by cloning from template VM via `VirtualMachine.Clone()`. Disk extended if needed via `ReconfigureVirtualMachineSpec`. Hardware upgraded if `force-vm-hardware-version` specified. Powered on via `PowerOn()` task.
+- **Controller VM**: Created by cloning from a template VM. Disk extended if needed. Hardware upgraded if `force-vm-hardware-version` is specified. Powered on after provisioning.
 - **Network devices**: Primary network interface (eth0) on `primary-network` (default: "VM Network") with DHCP. Optional external network interface (eth1) if `external-network` configured.
 - **Root disk**: VMDK from template, extended post-clone if constraint specifies larger size. Datastore selected from compute resource's accessible datastores.
 - **Resource pool placement**: VM placed in resource pool specified by availability zone constraint. Must match compute resource hosting the datastore.
@@ -90,7 +90,7 @@ Bootstrap with cloud-specific model-configuration keys `datastore` and `primary-
 (vsphere-controller-template-management)=
 #### Template management
 
-Templates are created via OVA import with SHA-256 verification during VMDK streaming. Marked as `IsTemplate()` in vSphere. Locked download via mutex prevents concurrent imports of same base.
+Templates are created from OVA imports with image integrity verification and stored for reuse. Reusing templates speeds up subsequent bootstrap and machine creation.
 
 ```{ibnote}
 See more: {ref}`vsphere-appendix-using-templates`
@@ -100,7 +100,7 @@ See more: {ref}`vsphere-appendix-using-templates`
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 (vsphere-model-configuration-keys)=
@@ -172,7 +172,7 @@ Specify how the disk should be provisioned when cloning the VM template. Allowed
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (vsphere-machine-constraints)=
@@ -207,12 +207,12 @@ If your topology has a cluster without a host, Juju will see this as an availabi
 
 Each machine (controller or application) receives:
 
-- **VM**: Created by cloning from template via `VirtualMachine.Clone()`. VM stored in `<vm-folder>/Juju Controller (<uuid>)/Model "name" (<uuid>)/<machine-name>`. Machine name derived from `namespace.Hostname(MachineId)`.
+- **VM**: Created by cloning from a template. VM stored in the controller/model folder hierarchy under `<vm-folder>/Juju Controller (<uuid>)/Model "name" (<uuid>)/<machine-name>`.
 - **Hardware resources**: Memory, CPU cores, CPU power from constraints. Hardware version optionally upgraded via `force-vm-hardware-version` model config.
 - **Root disk**: VMDK from template, extended post-clone if constraint specifies larger size. Provisioning type: `thin`, `thick`, or `thickEagerZero` via `disk-provisioning-type` config. Datastore selected from compute resource's accessible datastores (must be explicit if multiple available).
 - **Network devices**: Primary interface (eth0) on `primary-network` with DHCP, MAC generated. Optional external interface (eth1) on `external-network` with DHCP, MAC generated. Cloud-init network config added for both interfaces.
 - **Resource pool placement**: VM placed in resource pool specified by availability zone constraint.
-- **Tags & metadata**: Stored as `map[string]string` in VM extra config. Example keys: `JujuController: "true"`. Architecture tag added to templates: `arch: amd64` or `arm64`.
+- **Tags & metadata**: Juju writes controller/model metadata to VM extra config to support inventory and cleanup operations.
 - **Additional packages**: Cloud-init installs `open-vm-tools` and `iptables-persistent`.
 
 (vsphere-machine-networking-behavior)=
@@ -227,7 +227,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

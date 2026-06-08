@@ -7,13 +7,13 @@ myst:
 (cloud-gce)=
 # Google GCE
 
-In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (gce-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (gce-cloud-definition)=
@@ -48,7 +48,7 @@ When using a VPC, Juju validates the configuration before bootstrap. A valid VPC
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 When adding a credential for Google GCE, Juju supports the following authentication types.
@@ -101,13 +101,13 @@ See more: {ref}`gce-appendix-workflow-1`
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (gce-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
-Creates a controller instance on GCE via single `InsertInstanceRequest` API call. Uses imperative GCE API calls to create resources -- no templates.
+Creates a controller instance on GCE in a single API request. Juju creates the required GCE resources directly -- no templates.
 
 (gce-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
@@ -117,7 +117,7 @@ Creates a controller instance on GCE via single `InsertInstanceRequest` API call
 - **Network interface**: Primary interface in specified VPC/subnet or default network. Private IP auto-assigned from subnet CIDR. External NAT with public IP if `allocate-public-ip=true` (default).
 - **Firewall rule**: Global rule `juju-<model-uuid>` targeting instances with tag `juju-<model-uuid>`. Allows ingress from instances with same tag.
 - **Service account** (optional): Attached if credential type is `service-account` or `instance-role` constraint specified. Scopes: `compute`, `devstorage.full_control`. Enables metadata service credentials.
-- **Instance metadata**: Tagged with `juju-controller-uuid`, `juju-is-controller: true`. Cloud-init data stored gzipped+base64 encoded.
+- **Instance metadata**: Tagged with `juju-controller-uuid`, `juju-is-controller: true`, and bootstrap metadata for controller initialization.
 - **Instance tags**: `juju-<model-uuid>` (for firewall targeting), hostname.
 
 (gce-controller-other)=
@@ -136,7 +136,7 @@ See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authen
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 When configuring a model on Google GCE, Juju recognizes the following cloud-specific keys.
@@ -180,7 +180,7 @@ Base path to look for machine disk images.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 
@@ -224,7 +224,7 @@ Each machine (controller or application) receives:
 - **Network interface**: Primary interface in VPC/subnet. Private IP auto-assigned. External NAT with public IP if `allocate-public-ip=true`.
 - **Service account** (optional): Attached if `instance-role` constraint specified. Enables metadata service credentials.
 - **Additional persistent disks** (optional): Created when storage specified via storage constraints. Formatted name `<zone>--<uuid>`. Attached with device name `<zone>-<disk-id>`. Must reside in same zone as instance.
-- **Instance metadata**: Cloud-init data (gzipped+base64), controller UUID, model UUID.
+- **Instance metadata**: Bootstrap metadata, controller UUID, and model UUID.
 - **Instance tags**: `juju-<model-uuid>`, hostname (for firewall targeting).
 - **Disk labels**: `juju-model`, `juju-controller` (set via upgrade step).
 
@@ -240,7 +240,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

@@ -7,13 +7,13 @@ myst:
 (cloud-canonical-k8s)=
 # Canonical Kubernetes
 
-In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kubernetes/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all {ref}`Kubernetes clouds <kubernetes-cloud>`, except for a few points of variation related to the cloud, described below.
+In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kubernetes/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
 (canonical-k8s-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 ### Requirements
@@ -29,15 +29,25 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 ## Controller
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 ### Bootstrap preparation
 
 Before bootstrapping this cloud:
 
-- Create a custom `containerd` path, e.g., `export containerdBaseDir="/run/containerd-k8s"`.
-- Resize `/run`, e.g., `sudo mount -o remount,size=10G /run`.
+- Create a custom `containerd` path. For example:
+
+```text
+export containerdBaseDir="/run/containerd-k8s"
+```
+
+- Resize `/run`. For example:
+
+```text
+sudo mount -o remount,size=10G /run
+```
+
 
 ```{ibnote}
 See more: https://github.com/canonical/k8s-snap/issues/1612

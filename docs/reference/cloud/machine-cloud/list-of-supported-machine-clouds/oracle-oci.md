@@ -7,13 +7,13 @@ myst:
 (cloud-oci)=
 # Oracle OCI
 
-In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (oci-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (oci-cloud-definition)=
@@ -42,7 +42,7 @@ OCI organizes resources into availability domains (ADs) within each region. Juju
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (oci-credential-authentication-types)=
@@ -66,30 +66,30 @@ Attributes:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (oci-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
-Creates a controller instance on OCI via imperative API calls. Uses polling-based state verification (2-second intervals, 5-10 minute timeouts) to track resource creation.
+Creates a controller instance on OCI by provisioning the required network and compute resources, then waiting for them to become ready.
 
 (oci-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-- **Virtual Cloud Network (VCN)**: Created via `Networking.CreateVcn()`. CIDR block from `address-space` config (default: `10.0.0.0/16`). Name: `juju-vcn-<controller-uuid>-<model-uuid>`. Waits for `LifecycleState=Available`.
-- **Security list**: Created via `Firewall.CreateSecurityList()`. Permissive by default -- allows all ingress/egress (`0.0.0.0/0`, all protocols). Name: `juju-seclist-<controller-uuid>-<model-uuid>`. Applied at subnet level.
-- **Internet gateway**: Created via `Networking.CreateInternetGateway()`. Enables public internet routing for VCN. Waits for `LifecycleState=Available`.
-- **Route table**: Created via `Networking.CreateRouteTable()`. Default route `0.0.0.0/0` to Internet Gateway. Name: `juju-rt-<controller-uuid>-<model-uuid>`.
-- **Subnets**: One per availability domain, created via `Networking.CreateSubnet()`. CIDR: `/24` auto-selected from VCN address space. Name: `juju-<availability-domain>-<controller-uuid>-<model-uuid>`. Depends on VCN, SecurityList, RouteTable.
-- **Controller instance**: Launched via `Compute.LaunchInstance()`. Boot volume created inline (minimum 50 GiB). VNIC created inline with optional public IP. Instance type from constraints (default flexible shape). Waits for `LifecycleState=Running` (10-minute timeout).
+- **Virtual Cloud Network (VCN)**: CIDR block from `address-space` config (default: `10.0.0.0/16`). Name: `juju-vcn-<controller-uuid>-<model-uuid>`.
+- **Security list**: Permissive by default -- allows all ingress/egress (`0.0.0.0/0`, all protocols). Name: `juju-seclist-<controller-uuid>-<model-uuid>`. Applied at subnet level.
+- **Internet gateway**: Enables public internet routing for the VCN.
+- **Route table**: Default route `0.0.0.0/0` to Internet Gateway. Name: `juju-rt-<controller-uuid>-<model-uuid>`.
+- **Subnets**: One per availability domain. CIDR `/24` auto-selected from VCN address space. Name: `juju-<availability-domain>-<controller-uuid>-<model-uuid>`.
+- **Controller instance**: Boot volume (minimum 50 GiB), VNIC with optional public IP, and instance type from constraints (default flexible shape).
 - **Freeform tags**: All resources tagged with `JujuController=<controller-uuid>`, `JujuModel=<model-uuid>`. Controller instances also tagged `JujuIsController=true`.
 
 (oci-model)=
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 When configuring a model on Oracle OCI, Juju recognizes the following cloud-specific keys.
@@ -123,7 +123,7 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (oci-machine-constraints)=
@@ -153,13 +153,13 @@ Oracle OCI supports the following placement directives:
 
 Each machine (controller or application) receives:
 
-- **Compute instance**: Launched via `Compute.LaunchInstance()`. Shape from constraint (default flexible shape). Image auto-selected by OS and architecture. Waits for `LifecycleState=Provisioning` (non-controllers) or `Running` (controllers).
-- **Boot volume**: Created inline during instance launch via `InstanceSourceViaImageDetails`. Size: minimum 50 GiB, maximum 16 TiB. From `root-disk` constraint or default 50 GiB. Lifecycle tied to instance.
-- **VNIC**: Created inline via `CreateVnicDetails`. Subnet: first subnet of target availability domain. Private IP auto-assigned. Public IP optional (default enabled) via `AssignPublicIp` parameter.
-- **Flexible shape configuration** (if applicable): For flexible shapes (e.g., `VM.Standard.A1.Flex`), OCPUs and memory specified via `ShapeConfig`. Default: 1 OCPU, 6 GiB memory per OCPU.
-- **Instance metadata**: Cloud-init payload in `Metadata["user_data"]`. VMs can query OCI metadata service at `169.254.169.254`.
+- **Compute instance**: Shape from constraint (default flexible shape). Image auto-selected by OS and architecture.
+- **Boot volume**: Created during instance launch. Size: minimum 50 GiB, maximum 16 TiB. From `root-disk` constraint or default 50 GiB. Lifecycle tied to instance.
+- **VNIC**: Created during instance launch. Subnet: first subnet of target availability domain. Private IP auto-assigned. Public IP optional (default enabled).
+- **Flexible shape configuration** (if applicable): For flexible shapes (e.g., `VM.Standard.A1.Flex`), OCPUs and memory are set from constraints or defaults.
+- **Instance metadata**: Bootstrap metadata is written for instance initialization. VMs can query the OCI metadata service at `169.254.169.254`.
 - **Freeform tags**: `JujuController=<controller-uuid>`, `JujuModel=<model-uuid>`. User-provided tags from instance config.
-- **Additional block volumes** (optional): Created via `Storage.CreateVolume()` when storage specified. iSCSI attachment via `Compute.AttachVolume()`. CHAP enabled. Must be in same availability domain as instance.
+- **Additional block volumes** (optional): Created when storage is specified. Attached over iSCSI with CHAP enabled. Must be in same availability domain as the instance.
 
 (oci-machine-networking-behavior)=
 ### Networking behavior
@@ -175,7 +175,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 In addition to {ref}`generic storage providers <storage-provider>`, Oracle OCI provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
@@ -193,8 +193,7 @@ In addition to {ref}`generic storage providers <storage-provider>`, Oracle OCI p
 
 **Behavior:**
 
-- Volumes created via `Storage.CreateVolume()`. Size: 50-16,000 GiB.
-- Attached via iSCSI (`AttachIScsiVolumeDetails`) with CHAP enabled.
+- Volumes are created on demand. Size: 50-16,000 GiB.
+- Attached via iSCSI with CHAP enabled.
 - Must be in same availability domain as target instance.
-- Waits for `LifecycleState=Available` before attachment (5-minute timeout).
-- Attachment waits for `VolumeAttachmentLifecycleState=Attached` (5-minute timeout).
+- Juju waits for volume and attachment readiness before declaring storage available.

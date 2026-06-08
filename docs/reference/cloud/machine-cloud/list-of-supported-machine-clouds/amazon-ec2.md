@@ -7,13 +7,13 @@ myst:
 (cloud-ec2)=
 # Amazon EC2
 
-In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all {ref}`all machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 (ec2-cloud)=
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (ec2-cloud-definition)=
@@ -43,7 +43,7 @@ Use `vpc-id-force=true` to skip validation.
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 (ec2-credential-authentication-types)=
@@ -70,13 +70,13 @@ Attributes:
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 (ec2-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
-Creates a controller instance on EC2 via single `RunInstances` API call. Uses imperative EC2 API calls to create resources -- no CloudFormation templates.
+Creates a controller instance on EC2 in a single API request. Juju creates the required EC2 resources directly -- no CloudFormation templates.
 
 (ec2-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
@@ -85,11 +85,11 @@ Creates a controller instance on EC2 via single `RunInstances` API call. Uses im
 - **Security groups**:
   - Juju group: `juju-<model-uuid>` (model-wide, allows internal traffic)
   - Machine or global group: `juju-<model-uuid>-<machine-id>` or `juju-<model-uuid>-global` based on `firewall-mode` config
-  - Rules: TCP/UDP 0-65535 + ICMP ingress from Juju group to itself. ICMPv6 per RFC 4890.
+  - Rules: TCP/UDP 0-65535 + ICMP/ICMPv6 ingress from Juju group to itself.
   - Tagged with `juju-controller=<uuid>` and `juju-model-uuid=<uuid>`
 - **Network interfaces**: Primary interface in specified or default subnet. Public IP optional.
 - **EBS root volume**: Device `/dev/sda1`, default 32 GiB (controllers), type `gp2`. Configurable encryption, IOPS, throughput.
-- **IAM Role/Instance Profile** (optional): Created if bootstrap constraints specify `instance-role=auto`. Role name `juju-controller-<controller-name>` with path `/juju/controller/<uuid>/`. Inline policy grants EC2, EBS, IAM permissions. Attached to instance after launch.
+- **IAM Role/Instance Profile** (optional): Created if bootstrap constraints specify `instance-role=auto`. Grants the permissions needed for controller operations and is attached to the instance after launch.
 
 (ec2-controller-other)=
 ### Other
@@ -107,7 +107,7 @@ See more: [Discourse | Using AWS instance profiles with Juju](https://discourse.
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 (ec2-model-configuration-keys)=
@@ -139,7 +139,7 @@ Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the mini
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (ec2-machine-constraints)=
@@ -201,7 +201,7 @@ Each machine (controller or application) receives:
 ## Storage
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 ### Storage providers

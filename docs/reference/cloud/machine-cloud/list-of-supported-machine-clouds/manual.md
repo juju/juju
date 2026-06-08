@@ -7,7 +7,7 @@ myst:
 (cloud-manual)=
 # Manual
 
-In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all {ref}`machine clouds <machine-cloud>`, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{important}
 The Manual cloud is a cloud you create with Juju from existing machines. Manual does not provision new infrastructure -- it brings existing Ubuntu/Debian systems under Juju management via SSH.
@@ -21,7 +21,7 @@ If this collection of machines is composed solely of bare metal you might opt fo
 ## The cloud
 
 ```{ibnote}
-See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
 (manual-cloud-definition)=
@@ -46,7 +46,7 @@ A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privile
 ## Credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 Credentials for the Manual cloud.
@@ -62,7 +62,7 @@ No preset authentication types. Ensure you can SSH into the controller machine u
 ## Controllers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
+See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers>`, {ref}`Terraform Provider for Juju | Manage controllers <tfjuju:manage-controllers>`
 ```
 
 When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
@@ -110,7 +110,7 @@ Manual does not create infrastructure resources. It configures existing machines
 ## Models
 
 ```{ibnote}
-See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
 
 Models connected to the Manual cloud.
@@ -126,7 +126,7 @@ None.
 ## Machines
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
+See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 ```{important}
@@ -187,19 +187,18 @@ Adding machines with `juju add-machine ssh:[user@]<host>` requires the target to
 ### Limitations
 
 - **No infrastructure creation**: Manual cannot create new machines. Use `juju add-machine ssh:[user@]<host>` to adopt existing machines.
-- **No StartInstance**: Returns `errNoStartInstance`.
-- **No StopInstances**: Returns `errNoStopInstance`.
+- **No start/stop operations**: Starting and stopping machines is managed outside Juju.
 - **No firewall control**: All firewall ops (`open-ports`, `close-ports`) are no-ops.
-- **No storage providers**: `StorageProviderTypes()` returns `nil`. Users must pre-configure storage or manage it outside Juju.
+- **No storage providers**: Users must pre-configure storage or manage it outside Juju.
 - **Limited network discovery**: Subnets, network interfaces, spaces routing not supported. Address detection uses DNS lookup to verify hostname is resolvable.
 - **No scaling**: Manual cannot auto-scale. Each machine must be added explicitly.
-- **Destroy is limited**: Killing controller kills jujud via SSH and stops juju-db service. Model destroy is no-op (nothing to destroy).
+- **Destroy is limited**: Controller teardown is SSH-based and model teardown does not remove infrastructure.
 
 (manual-storage)=
 ## Cloud-specific storage providers
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage <manage-storage>`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 None. Manual has no storage support. Users must pre-configure storage or manage it outside Juju.
