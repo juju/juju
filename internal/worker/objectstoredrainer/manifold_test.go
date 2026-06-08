@@ -99,6 +99,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
@@ -133,6 +137,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 			return workertest.NewErrorWorker(nil), nil
 		},
 		ObjectStoreRootDir: "/var/lib/juju",
+		Clock:              clock.WallClock,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
@@ -219,6 +224,7 @@ func (s *manifoldSuite) getConfigWithRealWorker(c *tc.C) ManifoldConfig {
 		},
 		NewWorker:          NewWorker,
 		ObjectStoreRootDir: "/var/lib/juju",
+		Clock:              clock.WallClock,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }

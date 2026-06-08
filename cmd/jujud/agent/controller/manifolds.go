@@ -646,6 +646,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
 			TraceName:      traceName,
+			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
@@ -658,6 +659,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:            traceName,
 			ControllerUUID:       config.ControllerUUID,
 			ControllerModelUUID:  config.ControllerModelUUID,
+			Clock:                config.Clock,
 			Logger:               internallogger.GetLogger("juju.worker.lease"),
 			LogDir:               config.LogDir,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -717,6 +719,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
 			SelectFileHash:                  internalobjectstore.SelectFileHash,
 			NewWorker:                       objectstoredrainer.NewWorker,
+			Clock:                           config.Clock,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
 		}),
 
@@ -728,6 +731,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIRemoteCallerName:        apiRemoteCallerName,
 			ObjectStoreRootDir:         config.ObjectStoreRootDir,
 			ControllerNodeID:           config.ControllerID,
+			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
@@ -748,6 +752,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
+			Clock:                        config.Clock,
 			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
 			NewWorker:                    objectstoreservices.NewWorker,
 			NewObjectStoreServices:       objectstoreservices.NewObjectStoreServices,

@@ -24,6 +24,7 @@ import (
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	ChangeStreamName string
+	Clock            clock.Clock
 	Logger           logger.Logger
 	NewWorker        func(Config) (worker.Worker, error)
 
@@ -57,6 +58,9 @@ type ObjectStoreServicesFn func(
 func (config ManifoldConfig) Validate() error {
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -96,7 +100,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	return config.NewWorker(Config{
 		DBGetter:                     dbGetter,
-		Clock:                        clock.WallClock,
+		Clock:                        config.Clock,
 		Logger:                       config.Logger,
 		NewObjectStoreServicesGetter: config.NewObjectStoreServicesGetter,
 		NewObjectStoreServices:       config.NewObjectStoreServices,
