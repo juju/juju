@@ -21,7 +21,7 @@ import (
 // ManifoldConfig holds the resources needed to run an httpserverargs
 // worker.
 type ManifoldConfig struct {
-	ClockName          string
+	Clock              clock.Clock
 	DomainServicesName string
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
@@ -29,8 +29,8 @@ type ManifoldConfig struct {
 
 // Validate checks that we have all of the things we need.
 func (config ManifoldConfig) Validate() error {
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
@@ -43,11 +43,6 @@ func (config ManifoldConfig) Validate() error {
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clock clock.Clock
-	if err := getter.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -68,7 +63,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		macaroonService:         controllerDomainServices.Macaroon(),
 		modelService:            controllerDomainServices.Model(),
 		mux:                     apiserverhttp.NewMux(),
-		clock:                   clock,
+		clock:                   config.Clock,
 		newStateAuthenticatorFn: config.NewStateAuthenticator,
 	})
 	return w, errors.Trace(err)
@@ -81,7 +76,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ClockName,
 			config.DomainServicesName,
 		},
 		Start:  config.start,
