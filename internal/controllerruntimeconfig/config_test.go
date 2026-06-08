@@ -36,6 +36,7 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		QueryTracingThreshold: time.Second,
 		DqliteBusyTimeout:     2 * time.Second,
 		CACert:                "ca-cert-pem",
+		CAPrivateKey:          "ca-private-key-pem",
 		ControllerCert:        "controller-cert-pem",
 		ControllerPrivateKey:  "controller-private-key-pem",
 	}
@@ -148,6 +149,13 @@ func (s *configSuite) TestValidate_EmptyCACert(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorMatches, `empty ca-cert not valid`)
 }
 
+// TestValidate_EmptyCAPrivateKey ensures an empty CA private key is rejected.
+func (s *configSuite) TestValidate_EmptyCAPrivateKey(c *tc.C) {
+	cfg := validConfig()
+	cfg.CAPrivateKey = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty ca-private-key not valid`)
+}
+
 // TestValidate_EmptyControllerCert ensures an empty controller cert is
 // rejected.
 func (s *configSuite) TestValidate_EmptyControllerCert(c *tc.C) {
@@ -228,6 +236,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 		QueryTracingThreshold: 500 * time.Millisecond,
 		DqliteBusyTimeout:     3 * time.Second,
 		CACert:                "ca-cert-pem-data",
+		CAPrivateKey:          "ca-private-key-pem-data",
 		ControllerCert:        "controller-cert-pem-data",
 		ControllerPrivateKey:  "controller-private-key-pem-data",
 	}
@@ -243,6 +252,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
 	c.Check(got.CACert, tc.Equals, cfg.CACert)
+	c.Check(got.CAPrivateKey, tc.Equals, cfg.CAPrivateKey)
 	c.Check(got.ControllerCert, tc.Equals, cfg.ControllerCert)
 	c.Check(got.ControllerPrivateKey, tc.Equals, cfg.ControllerPrivateKey)
 	c.Check(got.DqliteBusyTimeout, tc.Equals, cfg.DqliteBusyTimeout)
