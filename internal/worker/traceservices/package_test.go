@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/watcher"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -66,8 +65,4 @@ func (s *stubTracingState) InitialWatchStatementForWorkloadTracingConfig() (stri
 
 func (s *stubTracingState) NamespaceForWatchWorkloadTracingConfig() string {
 	return ""
-}
-
-type stubNotifyWatcher struct {
-	watcher.NotifyWatcher
 }
