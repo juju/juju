@@ -290,7 +290,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"async-charm-downloader": {
-		"agent",
 		"domain-services",
 		"http-client",
 		"is-responsible-flag",
@@ -298,7 +297,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"charm-revisioner": {
-		"agent",
 		"domain-services",
 		"http-client",
 		"is-responsible-flag",
@@ -318,7 +316,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"clock": {},
 
-	"is-responsible-flag": {"agent", "lease-manager"},
+	"is-responsible-flag": {"lease-manager"},
 
 	"lease-manager": {},
 
@@ -336,7 +334,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"log-sink": {},
 
 	"migration-fortress": {
-		"agent",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -468,7 +465,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"api-remote-relation-caller": {},
 
 	"async-charm-downloader": {
-		"agent",
 		"lease-manager",
 		"domain-services",
 		"http-client",
@@ -476,7 +472,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"charm-revisioner": {
-		"agent",
 		"lease-manager",
 		"domain-services",
 		"http-client",
@@ -551,7 +546,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"is-responsible-flag": {"agent", "lease-manager"},
+	"is-responsible-flag": {"lease-manager"},
 
 	"lease-manager": {},
 
@@ -569,7 +564,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"log-sink": {},
 
 	"migration-fortress": {
-		"agent",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
