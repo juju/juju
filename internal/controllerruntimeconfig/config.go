@@ -36,6 +36,12 @@ type ControllerRuntimeConfig struct {
 	// ControllerID is the numeric controller agent ID, e.g. "0".
 	ControllerID string `yaml:"controller-id"`
 
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID string `yaml:"controller-uuid"`
+
+	// ControllerModelUUID is the UUID of the controller model.
+	ControllerModelUUID string `yaml:"controller-model-uuid"`
+
 	// DataDir is the Dqlite data directory root.
 	DataDir string `yaml:"data-dir"`
 
@@ -76,6 +82,12 @@ type ControllerRuntimeConfig struct {
 func (cfg ControllerRuntimeConfig) Validate() error {
 	if !names.IsValidControllerAgent(cfg.ControllerID) {
 		return errors.NotValidf("controller ID %q", cfg.ControllerID)
+	}
+	if !names.IsValidController(cfg.ControllerUUID) {
+		return errors.NotValidf("controller UUID %q", cfg.ControllerUUID)
+	}
+	if !names.IsValidModel(cfg.ControllerModelUUID) {
+		return errors.NotValidf("controller model UUID %q", cfg.ControllerModelUUID)
 	}
 	if cfg.DataDir == "" {
 		return errors.NotValidf("empty data-dir")
