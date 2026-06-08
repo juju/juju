@@ -115,6 +115,7 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceservices"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
@@ -518,15 +519,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		controllerTraceName: ifController(trace.ControllerManifold(trace.ControllerManifoldConfig{
-			AgentName:          agentName,
-			DomainServicesName: domainServicesName,
-			ChangeStreamName:   changeStreamName,
-			Clock:              config.Clock,
-			Logger:             internallogger.GetLogger("juju.worker.trace"),
-			GetTracingService:  trace.GetTracingService,
-			NewTracerWorker:    trace.NewTracerWorker,
+		traceServicesName: ifController(traceservices.Manifold(traceservices.ManifoldConfig{
+			ChangeStreamName: changeStreamName,
+			Logger:           internallogger.GetLogger("juju.worker.traceservices"),
+			NewWorker:        traceservices.NewWorker,
+			NewTraceServices: traceservices.NewTraceServices,
 		})),
+
+		controllerTraceName: ifController(trace.ControllerManifold(trace.ControllerManifoldConfig{
+			AgentName:         agentName,
+			TraceServicesName: traceServicesName,
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.trace"),
+			GetTracingService: trace.GetTracingService,
+			NewTracerWorker:   trace.NewTracerWorker,
+		})),
+
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
@@ -1443,6 +1451,7 @@ const (
 	toolsVersionCheckerName       = "tools-version-checker"
 	controllerTraceName           = "controller-trace"
 	traceName                     = "trace"
+	traceServicesName             = "trace-services"
 	validCredentialFlagName       = "valid-credential-flag"
 	undertakerName                = "undertaker"
 	machineSetupName              = "machine-setup"

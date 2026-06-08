@@ -27,13 +27,12 @@ type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingS
 // ControllerManifoldConfig defines the configuration for the controller
 // trace manifold.
 type ControllerManifoldConfig struct {
-	AgentName          string
-	DomainServicesName string
-	ChangeStreamName   string
-	Clock              clock.Clock
-	Logger             logger.Logger
-	GetTracingService  GetTracingServiceFunc
-	NewTracerWorker    TracerWorkerFunc
+	AgentName         string
+	TraceServicesName string
+	Clock             clock.Clock
+	Logger            logger.Logger
+	GetTracingService GetTracingServiceFunc
+	NewTracerWorker   TracerWorkerFunc
 }
 
 // Validate validates the controller manifold configuration.
@@ -41,11 +40,8 @@ func (cfg ControllerManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if cfg.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
-	}
-	if cfg.ChangeStreamName == "" {
-		return errors.NotValidf("empty ChangeStreamName")
+	if cfg.TraceServicesName == "" {
+		return errors.NotValidf("empty TraceServicesName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -68,7 +64,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ChangeStreamName,
+			config.TraceServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {

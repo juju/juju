@@ -265,6 +265,14 @@ type ObjectStoreServicesGetter interface {
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
 }
 
+// TraceServices provides access to the services required by the trace worker.
+// This is a subset of the controller domain services, for use by trace workers
+// that need to operate before the full domain services graph is available.
+type TraceServices interface {
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.WatchableService
+}
+
 // UpgradeServices represents a way to get a upgrade services for a controller.
 type UpgradeServices interface {
 	// ControllerNode returns the controller node service.

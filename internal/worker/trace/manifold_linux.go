@@ -15,7 +15,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -30,13 +29,12 @@ type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingS
 // ControllerManifoldConfig defines the configuration for the controller
 // trace manifold.
 type ControllerManifoldConfig struct {
-	AgentName          string
-	DomainServicesName string
-	ChangeStreamName   string
-	Clock              clock.Clock
-	Logger             logger.Logger
-	GetTracingService  GetTracingServiceFunc
-	NewTracerWorker    TracerWorkerFunc
+	AgentName         string
+	TraceServicesName string
+	Clock             clock.Clock
+	Logger            logger.Logger
+	GetTracingService GetTracingServiceFunc
+	NewTracerWorker   TracerWorkerFunc
 }
 
 // Validate validates the controller manifold configuration.
@@ -44,11 +42,8 @@ func (cfg ControllerManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if cfg.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
-	}
-	if cfg.ChangeStreamName == "" {
-		return errors.NotValidf("empty ChangeStreamName")
+	if cfg.TraceServicesName == "" {
+		return errors.NotValidf("empty TraceServicesName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -71,7 +66,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ChangeStreamName,
+			config.TraceServicesName,
 		},
 		Output: tracerOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -85,12 +80,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			}
 			currentConfig := a.CurrentConfig()
 
-			var dbGetter changestream.WatchableDBGetter
-			if err := getter.Get(config.ChangeStreamName, &dbGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			tracingService, err := config.GetTracingService(getter, config.DomainServicesName)
+			tracingService, err := config.GetTracingService(getter, config.TraceServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -192,9 +182,9 @@ func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingCo
 // GetTracingService returns the controller tracing service from the
 // dependency getter.
 func GetTracingService(getter dependency.Getter, name string) (TracingService, error) {
-	var controllerServices services.ControllerDomainServices
-	if err := getter.Get(name, &controllerServices); err != nil {
+	var traceServices services.TraceServices
+	if err := getter.Get(name, &traceServices); err != nil {
 		return nil, err
 	}
-	return controllerServices.Tracing(), nil
+	return traceServices.Tracing(), nil
 }
