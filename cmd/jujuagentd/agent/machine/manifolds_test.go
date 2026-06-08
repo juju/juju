@@ -546,6 +546,28 @@ func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["lease-manager"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{
+			"db-accessor",
+			"trace",
+		})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "clock")
+	}
+}
+
 func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		machine.IAASManifolds(machine.ManifoldsConfig{
@@ -693,7 +715,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -727,7 +748,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -784,7 +804,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -848,7 +867,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -876,7 +894,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -918,7 +935,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -966,7 +982,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -997,7 +1012,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1031,7 +1045,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1089,7 +1102,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -1221,7 +1233,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"is-primary-controller-flag": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -1235,7 +1246,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1261,7 +1271,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"lease-expiry": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -1274,7 +1283,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"lease-manager": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -1375,7 +1383,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1432,7 +1439,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1454,7 +1460,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1477,7 +1482,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1543,7 +1547,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1578,7 +1581,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1629,7 +1631,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1708,7 +1709,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1742,7 +1742,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1817,7 +1816,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1882,7 +1880,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1916,7 +1913,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1961,7 +1957,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2025,7 +2020,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2053,7 +2047,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2098,7 +2091,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2129,7 +2121,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2163,7 +2154,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2199,7 +2189,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -2321,7 +2310,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"is-primary-controller-flag": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -2335,7 +2323,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2361,7 +2348,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"lease-expiry": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -2374,7 +2360,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"lease-manager": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
@@ -2427,7 +2412,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2484,7 +2468,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -2506,7 +2489,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -2529,7 +2511,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -2583,7 +2564,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2618,7 +2598,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -2657,7 +2636,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2703,7 +2681,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2778,7 +2755,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-remote-caller",
 		"api-config-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
