@@ -106,6 +106,7 @@ type ManifoldConfig struct {
 	// agent config tag.
 	ControllerNodeID string
 
+	Clock                      clock.Clock
 	Logger                     logger.Logger
 	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
@@ -151,6 +152,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if cfg.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
@@ -230,7 +234,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				TracerGetter:              tracerGetter,
 				RootDir:                   config.ObjectStoreRootDir,
 				RootBucket:                rootBucketName,
-				Clock:                     clock.WallClock,
+				Clock:                     config.Clock,
 				Logger:                    config.Logger,
 				NewObjectStoreWorker:      config.NewObjectStoreWorker,
 				NewTrackerWorker:          NewTrackerWorker,

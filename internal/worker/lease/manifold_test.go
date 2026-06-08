@@ -6,6 +6,7 @@ package lease
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -45,6 +46,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -71,11 +76,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		ControllerUUID:      "ctrl-uuid-1234",
-		ControllerModelUUID: "ctrl-model-uuid-5678",
-		DBAccessorName:      "dbaccessor",
-		TraceName:           "trace",
-
+		ControllerUUID:       "ctrl-uuid-1234",
+		ControllerModelUUID:  "ctrl-model-uuid-5678",
+		DBAccessorName:       "dbaccessor",
+		TraceName:            "trace",
+		Clock:                clock.WallClock,
 		Logger:               s.logger,
 		LogDir:               "/var/log/juju",
 		PrometheusRegisterer: s.prometheusRegisterer,
