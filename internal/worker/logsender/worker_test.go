@@ -5,6 +5,7 @@ package logsender_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -39,9 +40,13 @@ func TestWorkerSuite(t *stdtesting.T) {
 
 type logsenderAPI struct {
 	writer *mocks.MockLogWriter
+	err    error
 }
 
 func (s logsenderAPI) LogWriter(_ context.Context) (apilogsender.LogWriter, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	return s.writer, nil
 }
 
@@ -75,7 +80,7 @@ func (s *workerSuite) TestLogSending(c *tc.C) {
 	writer.EXPECT().Close()
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, logsenderAPI{writer})
+	worker := logsender.New(logsCh, logsenderAPI{writer: writer})
 	defer workertest.CleanKill(c, worker)
 
 	// Send some logs, also building up what should appear in the
@@ -145,7 +150,7 @@ func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 	writer.EXPECT().Close()
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, logsenderAPI{writer})
+	worker := logsender.New(logsCh, logsenderAPI{writer: writer})
 	defer workertest.CleanKill(c, worker)
 
 	// Send a log record which indicates some messages after it were
@@ -175,6 +180,50 @@ func (s *workerSuite) TestDroppedLogs(c *tc.C) {
 	}()
 
 	<-done
+}
+
+func (s *workerSuite) TestLogWriterDialFailureTerminatesWorker(c *tc.C) {
+	logsCh := make(logsender.LogRecordCh)
+	logSenderAPI := logsenderAPI{
+		err: errors.New("cannot connect to /logsink: server returned HTTP status 503"),
+	}
+
+	w := logsender.New(logsCh, logSenderAPI)
+	err := w.Wait()
+	c.Assert(err, tc.ErrorMatches, "logsender dial failed: cannot connect to /logsink: server returned HTTP status 503")
+}
+
+func (s *workerSuite) TestDisconnectedAPICallerTerminatesWorker(c *tc.C) {
+	logsCh := make(logsender.LogRecordCh)
+	logSenderAPI := logsenderAPI{
+		err: errors.New("api caller disconnected"),
+	}
+
+	w := logsender.New(logsCh, logSenderAPI)
+	err := w.Wait()
+	c.Assert(err, tc.ErrorMatches, "logsender dial failed: api caller disconnected")
+}
+
+func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	logsCh := make(logsender.LogRecordCh, 1)
+	writer := mocks.NewMockLogWriter(ctrl)
+	writer.EXPECT().WriteLog(gomock.Any()).Return(errors.New("write failed"))
+	writer.EXPECT().Close()
+
+	logsCh <- &logsender.LogRecord{
+		Time:     time.Now(),
+		Module:   "test",
+		Location: "test:1",
+		Level:    loggo.INFO,
+		Message:  "hello",
+	}
+
+	w := logsender.New(logsCh, logsenderAPI{writer: writer})
+	err := w.Wait()
+	c.Assert(err, tc.ErrorMatches, "write failed")
 }
 
 type workerBounceSuite struct {
