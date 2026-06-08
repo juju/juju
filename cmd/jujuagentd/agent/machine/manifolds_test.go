@@ -549,6 +549,11 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		checkContains(c, identityManifold.Inputs, "agent")
 		checkContains(c, identityManifold.Inputs, "api-caller")
+
+		httpServerArgsManifold, ok := manifolds["http-server-args"]
+		c.Assert(ok, tc.IsTrue)
+		checkNotContains(c, httpServerArgsManifold.Inputs, "clock")
+		checkNotContains(c, httpServerArgsManifold.Inputs, "agent")
 	}
 }
 
@@ -1255,7 +1260,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -2421,7 +2425,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
