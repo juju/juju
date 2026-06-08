@@ -17,7 +17,7 @@ In Juju, a **machine cloud** is a source of compute infrastructure: bare metal, 
 
 Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines (Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere), and system containers (LXD).
 
-Despite their differences, Juju tries to fit all machine clouds into a common logic. This page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
+Despite their differences, Juju tries to fit all machine clouds into a common logic; this page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Microsoft Azure <azure-cloud>`, {ref}`Google GCE <cloud-gce>`, {ref}`Oracle OCI <cloud-oci>`, {ref}`OpenStack <cloud-openstack>`, {ref}`VMware vSphere <cloud-vsphere>`, {ref}`MAAS <cloud-maas>`, {ref}`LXD <cloud-lxd>`, {ref}`Manual <cloud-manual>`, or {ref}`Equinix Metal <cloud-equinix>`.
 
 (machine-cloud-entity)=
 ## The cloud
@@ -151,6 +151,28 @@ See more: {ref}`manage-clouds`, {ref}`list-of-supported-machine-clouds` > `<clou
 (machine-credential)=
 ## Credentials
 
+(machine-credential-definition)=
+### Definition
+
+For machine clouds, Juju stores credentials in `credentials.yaml`. Each model is associated with a cloud/credential pair so Juju can create and manage infrastructure resources.
+
+Use the following template when defining machine-cloud credentials:
+
+```yaml
+credentials:
+  <cloud-name>:                    # Cloud name from your Juju cloud definitions (for example aws, openstack, my-vsphere)
+    <credential-name>:             # User-defined credential name; must be unique within this cloud
+      auth-type: <auth-type>       # Cloud-specific auth type (for example access-key, userpass, certificate)
+      <attribute>: <value>         # Auth-type-specific field (for example access-key, secret-key, username, password)
+      <attribute>: <value>         # Additional required or optional auth fields for the selected auth-type
+```
+
+Juju credentials can exist on the client, on the controller, or both. When you bootstrap with a client credential, that credential is uploaded to the controller.
+
+```{ibnote}
+See more: {ref}`credential`, {ref}`manage-credentials`, {ref}`add-a-credential`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Credential
+```
+
 (machine-credential-patterns)=
 ### Common authentication patterns
 
@@ -204,10 +226,6 @@ Uses PKI certificates for authentication.
 - Certificate-based trust model.
 - May require certificate management.
 - Often used for private clouds.
-
-```{ibnote}
-See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Credential
-```
 
 (machine-controller)=
 ## Controllers
